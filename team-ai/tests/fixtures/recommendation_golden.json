@@ -1,0 +1,1715 @@
+{
+  "source": "team-ai@f9c8d167",
+  "cases": [
+    {
+      "name": "user_precomputed_gbdt_no_featurestore",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 4
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          },
+          {
+            "listing_id": "c",
+            "score": 0.255,
+            "rank": 3
+          },
+          {
+            "listing_id": "d",
+            "score": 0.24,
+            "rank": 4
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "user_precomputed_gbdt_featurestore",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]",
+        "fs:item_popularity:current": "1",
+        "fs:item_popularity:v1:a": "{\"views_7d\": 10, \"clicks_7d\": 0, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 0.01}",
+        "fs:item_popularity:v1:b": "{\"views_7d\": 900, \"clicks_7d\": 135, \"add_to_cart_7d\": 40, \"favorites_current\": 30, \"review_count\": 12, \"avg_rating\": 4.5, \"ctr_7d\": 0.15}",
+        "fs:item_popularity:v1:c": "{\"views_7d\": 50, \"clicks_7d\": 5, \"add_to_cart_7d\": 1, \"favorites_current\": 2, \"review_count\": 3, \"avg_rating\": 4.0, \"ctr_7d\": 0.1}",
+        "fs:item_popularity:v1:d": "{\"views_7d\": 400, \"clicks_7d\": 80, \"add_to_cart_7d\": 20, \"favorites_current\": 10, \"review_count\": 7, \"avg_rating\": 4.8, \"ctr_7d\": 0.2}",
+        "fs:item_popularity:v1:f": "{\"views_7d\": 5, \"clicks_7d\": 1, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 5.0}"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": true,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 4
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "b",
+            "score": 0.4425,
+            "rank": 1
+          },
+          {
+            "listing_id": "d",
+            "score": 0.42,
+            "rank": 2
+          },
+          {
+            "listing_id": "f",
+            "score": 0.410175,
+            "rank": 3
+          },
+          {
+            "listing_id": "c",
+            "score": 0.373191,
+            "rank": 4
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "nearline_ctr_above_min_impressions",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]",
+        "fs:item_popularity:current": "1",
+        "fs:item_popularity:v1:a": "{\"views_7d\": 10, \"clicks_7d\": 0, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 0.01}",
+        "fs:item_popularity:v1:b": "{\"views_7d\": 900, \"clicks_7d\": 135, \"add_to_cart_7d\": 40, \"favorites_current\": 30, \"review_count\": 12, \"avg_rating\": 4.5, \"ctr_7d\": 0.15}",
+        "fs:item_popularity:v1:c": "{\"views_7d\": 50, \"clicks_7d\": 5, \"add_to_cart_7d\": 1, \"favorites_current\": 2, \"review_count\": 3, \"avg_rating\": 4.0, \"ctr_7d\": 0.1}",
+        "fs:item_popularity:v1:d": "{\"views_7d\": 400, \"clicks_7d\": 80, \"add_to_cart_7d\": 20, \"favorites_current\": 10, \"review_count\": 7, \"avg_rating\": 4.8, \"ctr_7d\": 0.2}",
+        "fs:item_popularity:v1:f": "{\"views_7d\": 5, \"clicks_7d\": 1, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 5.0}"
+      },
+      "hashes": {
+        "recs:nearline:ctr:a": {
+          "clicks_ips": "1.5",
+          "imprs_ips": "60"
+        },
+        "recs:nearline:ctr:c": {
+          "clicks_ips": "9",
+          "imprs_ips": "30"
+        },
+        "recs:nearline:ctr:e": {
+          "clicks_ips": "4",
+          "imprs_ips": "8"
+        },
+        "recs:nearline:ctr:f": {
+          "clicks_ips": "2",
+          "imprs_ips": "0.5"
+        }
+      },
+      "similar": {},
+      "settings": {},
+      "featurestore": true,
+      "nearline": true,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 6
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "b",
+            "score": 0.4425,
+            "rank": 1
+          },
+          {
+            "listing_id": "d",
+            "score": 0.42,
+            "rank": 2
+          },
+          {
+            "listing_id": "f",
+            "score": 0.410175,
+            "rank": 3
+          },
+          {
+            "listing_id": "c",
+            "score": 0.393191,
+            "rank": 4
+          },
+          {
+            "listing_id": "a",
+            "score": 0.345859,
+            "rank": 5
+          },
+          {
+            "listing_id": "e",
+            "score": 0.275,
+            "rank": 6
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "nearline_ctr_below_min_impressions",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]",
+        "fs:item_popularity:current": "1",
+        "fs:item_popularity:v1:a": "{\"views_7d\": 10, \"clicks_7d\": 0, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 0.01}",
+        "fs:item_popularity:v1:b": "{\"views_7d\": 900, \"clicks_7d\": 135, \"add_to_cart_7d\": 40, \"favorites_current\": 30, \"review_count\": 12, \"avg_rating\": 4.5, \"ctr_7d\": 0.15}",
+        "fs:item_popularity:v1:c": "{\"views_7d\": 50, \"clicks_7d\": 5, \"add_to_cart_7d\": 1, \"favorites_current\": 2, \"review_count\": 3, \"avg_rating\": 4.0, \"ctr_7d\": 0.1}",
+        "fs:item_popularity:v1:d": "{\"views_7d\": 400, \"clicks_7d\": 80, \"add_to_cart_7d\": 20, \"favorites_current\": 10, \"review_count\": 7, \"avg_rating\": 4.8, \"ctr_7d\": 0.2}",
+        "fs:item_popularity:v1:f": "{\"views_7d\": 5, \"clicks_7d\": 1, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 5.0}"
+      },
+      "hashes": {
+        "recs:nearline:ctr:a": {
+          "clicks_ips": "1.5",
+          "imprs_ips": "60"
+        },
+        "recs:nearline:ctr:c": {
+          "clicks_ips": "9",
+          "imprs_ips": "30"
+        },
+        "recs:nearline:ctr:e": {
+          "clicks_ips": "4",
+          "imprs_ips": "8"
+        },
+        "recs:nearline:ctr:f": {
+          "clicks_ips": "2",
+          "imprs_ips": "0.5"
+        }
+      },
+      "similar": {},
+      "settings": {
+        "nearline_min_impressions": 50.0
+      },
+      "featurestore": true,
+      "nearline": true,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 6
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "b",
+            "score": 0.4425,
+            "rank": 1
+          },
+          {
+            "listing_id": "d",
+            "score": 0.42,
+            "rank": 2
+          },
+          {
+            "listing_id": "f",
+            "score": 0.410175,
+            "rank": 3
+          },
+          {
+            "listing_id": "c",
+            "score": 0.373191,
+            "rank": 4
+          },
+          {
+            "listing_id": "a",
+            "score": 0.345859,
+            "rank": 5
+          },
+          {
+            "listing_id": "e",
+            "score": 0.225,
+            "rank": 6
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "nearline_without_featurestore",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]"
+      },
+      "hashes": {
+        "recs:nearline:ctr:a": {
+          "clicks_ips": "1.5",
+          "imprs_ips": "60"
+        },
+        "recs:nearline:ctr:c": {
+          "clicks_ips": "9",
+          "imprs_ips": "30"
+        },
+        "recs:nearline:ctr:e": {
+          "clicks_ips": "4",
+          "imprs_ips": "8"
+        },
+        "recs:nearline:ctr:f": {
+          "clicks_ips": "2",
+          "imprs_ips": "0.5"
+        }
+      },
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": true,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 6
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.2875,
+            "rank": 1
+          },
+          {
+            "listing_id": "c",
+            "score": 0.285,
+            "rank": 2
+          },
+          {
+            "listing_id": "e",
+            "score": 0.275,
+            "rank": 3
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 4
+          },
+          {
+            "listing_id": "d",
+            "score": 0.24,
+            "rank": 5
+          },
+          {
+            "listing_id": "f",
+            "score": 0.21,
+            "rank": 6
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "trained_artifact",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]",
+        "fs:item_popularity:current": "1",
+        "fs:item_popularity:v1:a": "{\"views_7d\": 10, \"clicks_7d\": 0, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 0.01}",
+        "fs:item_popularity:v1:b": "{\"views_7d\": 900, \"clicks_7d\": 135, \"add_to_cart_7d\": 40, \"favorites_current\": 30, \"review_count\": 12, \"avg_rating\": 4.5, \"ctr_7d\": 0.15}",
+        "fs:item_popularity:v1:c": "{\"views_7d\": 50, \"clicks_7d\": 5, \"add_to_cart_7d\": 1, \"favorites_current\": 2, \"review_count\": 3, \"avg_rating\": 4.0, \"ctr_7d\": 0.1}",
+        "fs:item_popularity:v1:d": "{\"views_7d\": 400, \"clicks_7d\": 80, \"add_to_cart_7d\": 20, \"favorites_current\": 10, \"review_count\": 7, \"avg_rating\": 4.8, \"ctr_7d\": 0.2}",
+        "fs:item_popularity:v1:f": "{\"views_7d\": 5, \"clicks_7d\": 1, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 5.0}",
+        "fs:item_attributes:current": "1",
+        "fs:item_attributes:v1:a": "{\"price\": 50}",
+        "fs:item_attributes:v1:b": "{\"price\": 500}",
+        "fs:item_attributes:v1:c": "{\"price\": 120}",
+        "fs:item_attributes:v1:d": "{\"price\": 80}",
+        "fs:item_attributes:v1:e": "{\"price\": 300}",
+        "recs:v1:gen:g1:ranker": "{\"format\":\"agora-gbdt/1\",\"objective\":\"lambdarank\",\"model_version\":\"gbdt-g1\",\"features\":[\"item_popularity.views_7d\",\"item_popularity.clicks_7d\",\"item_popularity.add_to_cart_7d\",\"item_popularity.favorites_current\",\"item_popularity.review_count\",\"item_popularity.avg_rating\",\"item_popularity.ctr_7d\",\"item_attributes.price\"],\"ctr_feature\":\"item_popularity.ctr_7d\",\"base_score\":0.5,\"learning_rate\":0.1,\"trees\":[{\"feature\":[7,-1,-1],\"threshold\":[100.0,0.0,0.0],\"left\":[1,-1,-1],\"right\":[2,-1,-1],\"value\":[0.0,0.0,1.0]},{\"feature\":[0,-1,-1],\"threshold\":[10.0,0.0,0.0],\"left\":[1,-1,-1],\"right\":[2,-1,-1],\"value\":[0.0,0.0,0.5]},{\"feature\":[6,-1,-1],\"threshold\":[0.12,0.0,0.0],\"left\":[1,-1,-1],\"right\":[2,-1,-1],\"value\":[0.0,-0.2,0.7]}]}"
+      },
+      "hashes": {
+        "recs:nearline:ctr:a": {
+          "clicks_ips": "1.5",
+          "imprs_ips": "60"
+        },
+        "recs:nearline:ctr:c": {
+          "clicks_ips": "9",
+          "imprs_ips": "30"
+        },
+        "recs:nearline:ctr:e": {
+          "clicks_ips": "4",
+          "imprs_ips": "8"
+        },
+        "recs:nearline:ctr:f": {
+          "clicks_ips": "2",
+          "imprs_ips": "0.5"
+        }
+      },
+      "similar": {},
+      "settings": {},
+      "featurestore": true,
+      "nearline": true,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 5
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "b",
+            "score": 0.72,
+            "rank": 1
+          },
+          {
+            "listing_id": "c",
+            "score": 0.72,
+            "rank": 2
+          },
+          {
+            "listing_id": "e",
+            "score": 0.67,
+            "rank": 3
+          },
+          {
+            "listing_id": "d",
+            "score": 0.62,
+            "rank": 4
+          },
+          {
+            "listing_id": "f",
+            "score": 0.57,
+            "rank": 5
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "trained_artifact_without_feature_rows_uses_fixed_weights",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]",
+        "recs:v1:gen:g1:ranker": "{\"format\":\"agora-gbdt/1\",\"objective\":\"lambdarank\",\"model_version\":\"gbdt-g1\",\"features\":[\"item_popularity.views_7d\",\"item_popularity.clicks_7d\",\"item_popularity.add_to_cart_7d\",\"item_popularity.favorites_current\",\"item_popularity.review_count\",\"item_popularity.avg_rating\",\"item_popularity.ctr_7d\",\"item_attributes.price\"],\"ctr_feature\":\"item_popularity.ctr_7d\",\"base_score\":0.5,\"learning_rate\":0.1,\"trees\":[{\"feature\":[7,-1,-1],\"threshold\":[100.0,0.0,0.0],\"left\":[1,-1,-1],\"right\":[2,-1,-1],\"value\":[0.0,0.0,1.0]},{\"feature\":[0,-1,-1],\"threshold\":[10.0,0.0,0.0],\"left\":[1,-1,-1],\"right\":[2,-1,-1],\"value\":[0.0,0.0,0.5]},{\"feature\":[6,-1,-1],\"threshold\":[0.12,0.0,0.0],\"left\":[1,-1,-1],\"right\":[2,-1,-1],\"value\":[0.0,-0.2,0.7]}]}"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": true,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 4
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          },
+          {
+            "listing_id": "c",
+            "score": 0.255,
+            "rank": 3
+          },
+          {
+            "listing_id": "d",
+            "score": 0.24,
+            "rank": 4
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "trained_artifact_feature_mismatch_rejected",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]",
+        "fs:item_popularity:current": "1",
+        "fs:item_popularity:v1:a": "{\"views_7d\": 10, \"clicks_7d\": 0, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 0.01}",
+        "fs:item_popularity:v1:b": "{\"views_7d\": 900, \"clicks_7d\": 135, \"add_to_cart_7d\": 40, \"favorites_current\": 30, \"review_count\": 12, \"avg_rating\": 4.5, \"ctr_7d\": 0.15}",
+        "fs:item_popularity:v1:c": "{\"views_7d\": 50, \"clicks_7d\": 5, \"add_to_cart_7d\": 1, \"favorites_current\": 2, \"review_count\": 3, \"avg_rating\": 4.0, \"ctr_7d\": 0.1}",
+        "fs:item_popularity:v1:d": "{\"views_7d\": 400, \"clicks_7d\": 80, \"add_to_cart_7d\": 20, \"favorites_current\": 10, \"review_count\": 7, \"avg_rating\": 4.8, \"ctr_7d\": 0.2}",
+        "fs:item_popularity:v1:f": "{\"views_7d\": 5, \"clicks_7d\": 1, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 5.0}",
+        "fs:item_attributes:current": "1",
+        "fs:item_attributes:v1:a": "{\"price\": 50}",
+        "fs:item_attributes:v1:b": "{\"price\": 500}",
+        "fs:item_attributes:v1:c": "{\"price\": 120}",
+        "fs:item_attributes:v1:d": "{\"price\": 80}",
+        "fs:item_attributes:v1:e": "{\"price\": 300}",
+        "recs:v1:gen:g1:ranker": "{\"format\": \"agora-gbdt/1\", \"objective\": \"lambdarank\", \"model_version\": \"gbdt-g1\", \"features\": [\"item_popularity.views_7d\", \"item_popularity.clicks_7d\", \"item_popularity.add_to_cart_7d\", \"item_popularity.favorites_current\", \"item_popularity.review_count\", \"item_popularity.avg_rating\", \"item_popularity.ctr_7d\"], \"ctr_feature\": \"item_popularity.ctr_7d\", \"base_score\": 0.5, \"learning_rate\": 0.1, \"trees\": [{\"feature\": [7, -1, -1], \"threshold\": [100.0, 0.0, 0.0], \"left\": [1, -1, -1], \"right\": [2, -1, -1], \"value\": [0.0, 0.0, 1.0]}, {\"feature\": [0, -1, -1], \"threshold\": [10.0, 0.0, 0.0], \"left\": [1, -1, -1], \"right\": [2, -1, -1], \"value\": [0.0, 0.0, 0.5]}, {\"feature\": [6, -1, -1], \"threshold\": [0.12, 0.0, 0.0], \"left\": [1, -1, -1], \"right\": [2, -1, -1], \"value\": [0.0, -0.2, 0.7]}]}"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": true,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 5
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "b",
+            "score": 0.4425,
+            "rank": 1
+          },
+          {
+            "listing_id": "d",
+            "score": 0.42,
+            "rank": 2
+          },
+          {
+            "listing_id": "f",
+            "score": 0.410175,
+            "rank": 3
+          },
+          {
+            "listing_id": "c",
+            "score": 0.373191,
+            "rank": 4
+          },
+          {
+            "listing_id": "a",
+            "score": 0.344359,
+            "rank": 5
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "seed_vector_similarity",
+      "redis": {
+        "recs:v1:serving": "g1"
+      },
+      "hashes": {},
+      "similar": {
+        "seed-1": [
+          {
+            "listing_id": "x1",
+            "score": 0.92,
+            "in_stock": true
+          },
+          {
+            "listing_id": "x2",
+            "score": 0.88,
+            "in_stock": true
+          },
+          {
+            "listing_id": "x3",
+            "score": 0.71,
+            "in_stock": true
+          }
+        ]
+      },
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "",
+        "anonymous_id": "anon",
+        "seed_listing_id": "seed-1",
+        "placement_id": "similar_items",
+        "limit": 0
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "x1",
+            "score": 0.92,
+            "rank": 1
+          },
+          {
+            "listing_id": "x2",
+            "score": 0.88,
+            "rank": 2
+          },
+          {
+            "listing_id": "x3",
+            "score": 0.71,
+            "rank": 3
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "similar_items",
+        "fallback": false
+      }
+    },
+    {
+      "name": "cosine_filters_stock_duplicates_and_seed",
+      "redis": {
+        "recs:v1:serving": "g1"
+      },
+      "hashes": {},
+      "similar": {
+        "seed-1": [
+          {
+            "listing_id": "seed-1",
+            "score": 1.0,
+            "in_stock": true
+          },
+          {
+            "listing_id": "x1",
+            "score": 0.9,
+            "in_stock": true
+          },
+          {
+            "listing_id": "x1",
+            "score": 0.5,
+            "in_stock": true
+          },
+          {
+            "listing_id": "x2",
+            "score": 0.8,
+            "in_stock": false
+          },
+          {
+            "listing_id": "x3",
+            "score": 0.7,
+            "in_stock": true
+          },
+          {
+            "listing_id": "x4",
+            "score": 0.7,
+            "in_stock": true
+          },
+          {
+            "listing_id": "x5",
+            "score": 0.95,
+            "in_stock": false
+          }
+        ]
+      },
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "",
+        "anonymous_id": "anon",
+        "seed_listing_id": "seed-1",
+        "placement_id": "similar_items",
+        "limit": 0
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "x1",
+            "score": 0.9,
+            "rank": 1
+          },
+          {
+            "listing_id": "x3",
+            "score": 0.7,
+            "rank": 2
+          },
+          {
+            "listing_id": "x4",
+            "score": 0.7,
+            "rank": 3
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "similar_items",
+        "fallback": false
+      }
+    },
+    {
+      "name": "user_list_with_stock_flag_and_duplicate",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.9}, {\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.8, \"in_stock\": false}, {\"listing_id\": \"c\", \"score\": 0.7}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 0
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "c",
+            "score": 0.21,
+            "rank": 2
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "string_array_user_list",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[\"s1\", \"s2\", \"s3\", \"s4\"]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 3
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "s1",
+            "score": 1.2,
+            "rank": 1
+          },
+          {
+            "listing_id": "s2",
+            "score": 0.9,
+            "rank": 2
+          },
+          {
+            "listing_id": "s3",
+            "score": 0.6,
+            "rank": 3
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "user_without_list_falls_down_to_popular",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:popular": "[{\"listing_id\": \"p00\", \"score\": 5.0}, {\"listing_id\": \"p01\", \"score\": 4.75}, {\"listing_id\": \"p02\", \"score\": 4.5}, {\"listing_id\": \"p03\", \"score\": 4.25}, {\"listing_id\": \"p04\", \"score\": 4.0}, {\"listing_id\": \"p05\", \"score\": 3.75}, {\"listing_id\": \"p06\", \"score\": 3.5}, {\"listing_id\": \"p07\", \"score\": 3.25}, {\"listing_id\": \"p08\", \"score\": 3.0}, {\"listing_id\": \"p09\", \"score\": 2.75}, {\"listing_id\": \"p10\", \"score\": 2.5}, {\"listing_id\": \"p11\", \"score\": 2.25}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "new",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 5
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "p00",
+            "score": 1.5,
+            "rank": 1
+          },
+          {
+            "listing_id": "p01",
+            "score": 1.425,
+            "rank": 2
+          },
+          {
+            "listing_id": "p02",
+            "score": 1.35,
+            "rank": 3
+          },
+          {
+            "listing_id": "p03",
+            "score": 1.275,
+            "rank": 4
+          },
+          {
+            "listing_id": "p04",
+            "score": 1.2,
+            "rank": 5
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "seed_without_vector_falls_down_to_popular",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:popular": "[{\"listing_id\": \"p00\", \"score\": 5.0}, {\"listing_id\": \"p01\", \"score\": 4.75}, {\"listing_id\": \"p02\", \"score\": 4.5}, {\"listing_id\": \"p03\", \"score\": 4.25}, {\"listing_id\": \"p04\", \"score\": 4.0}, {\"listing_id\": \"p05\", \"score\": 3.75}, {\"listing_id\": \"p06\", \"score\": 3.5}, {\"listing_id\": \"p07\", \"score\": 3.25}, {\"listing_id\": \"p08\", \"score\": 3.0}, {\"listing_id\": \"p09\", \"score\": 2.75}, {\"listing_id\": \"p10\", \"score\": 2.5}, {\"listing_id\": \"p11\", \"score\": 2.25}]"
+      },
+      "hashes": {},
+      "similar": {
+        "seed-9": []
+      },
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "",
+        "anonymous_id": "anon",
+        "seed_listing_id": "seed-9",
+        "placement_id": "similar_items",
+        "limit": 3
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "p00",
+            "score": 5.0,
+            "rank": 1
+          },
+          {
+            "listing_id": "p01",
+            "score": 4.75,
+            "rank": 2
+          },
+          {
+            "listing_id": "p02",
+            "score": 4.5,
+            "rank": 3
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "similar_items",
+        "fallback": false
+      }
+    },
+    {
+      "name": "ladder_exhausted_popular_floor",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:popular": "[{\"listing_id\": \"gone-1\", \"score\": 2.0, \"in_stock\": false}, {\"listing_id\": \"gone-2\", \"score\": 1.0, \"in_stock\": false}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "new",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 0
+      },
+      "result": {
+        "items": [],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": true
+      }
+    },
+    {
+      "name": "ladder_exhausted_nothing_seeded",
+      "redis": {},
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "new",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 0
+      },
+      "result": {
+        "items": [],
+        "model_version": "serving-fallback",
+        "placement_id": "home_feed",
+        "fallback": true
+      }
+    },
+    {
+      "name": "internal_error_serving_fallback_popular",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]",
+        "recs:v1:gen:g1:popular": "[{\"listing_id\": \"p00\", \"score\": 5.0}, {\"listing_id\": \"p01\", \"score\": 4.75}, {\"listing_id\": \"p02\", \"score\": 4.5}, {\"listing_id\": \"p03\", \"score\": 4.25}, {\"listing_id\": \"p04\", \"score\": 4.0}, {\"listing_id\": \"p05\", \"score\": 3.75}, {\"listing_id\": \"p06\", \"score\": 3.5}, {\"listing_id\": \"p07\", \"score\": 3.25}, {\"listing_id\": \"p08\", \"score\": 3.0}, {\"listing_id\": \"p09\", \"score\": 2.75}, {\"listing_id\": \"p10\", \"score\": 2.5}, {\"listing_id\": \"p11\", \"score\": 2.25}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {
+        "model_version": "als-7"
+      },
+      "featurestore": false,
+      "nearline": false,
+      "fault": "user_cache_raises",
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 4
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "p00",
+            "score": 5.0,
+            "rank": 1
+          },
+          {
+            "listing_id": "p01",
+            "score": 4.75,
+            "rank": 2
+          },
+          {
+            "listing_id": "p02",
+            "score": 4.5,
+            "rank": 3
+          },
+          {
+            "listing_id": "p03",
+            "score": 4.25,
+            "rank": 4
+          }
+        ],
+        "model_version": "serving-fallback",
+        "placement_id": "home_feed",
+        "fallback": true
+      }
+    },
+    {
+      "name": "internal_error_nothing_to_serve",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": "user_cache_raises",
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 0
+      },
+      "result": {
+        "items": [],
+        "model_version": "serving-fallback",
+        "placement_id": "home_feed",
+        "fallback": true
+      }
+    },
+    {
+      "name": "model_version_serving_fallback_uses_generation",
+      "redis": {
+        "recs:v1:serving": "g2",
+        "recs:v1:gen:g2:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 2
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          }
+        ],
+        "model_version": "g2",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "model_version_serving_fallback_without_generation",
+      "redis": {
+        "recs:v1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 2
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          }
+        ],
+        "model_version": "serving-fallback",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "model_version_legacy_key_without_generation",
+      "redis": {
+        "recs:v1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]",
+        "recs:v1:model_version": "v0"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 2
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          }
+        ],
+        "model_version": "v0",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "model_version_configured_overrides_generation",
+      "redis": {
+        "recs:v1:serving": "g2",
+        "recs:v1:gen:g2:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {
+        "model_version": "als-7"
+      },
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 2
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          }
+        ],
+        "model_version": "als-7",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "legacy_unscoped_keys_without_generation",
+      "redis": {
+        "recs:v1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]",
+        "recs:v1:popular": "[{\"listing_id\": \"p00\", \"score\": 5.0}, {\"listing_id\": \"p01\", \"score\": 4.75}, {\"listing_id\": \"p02\", \"score\": 4.5}, {\"listing_id\": \"p03\", \"score\": 4.25}, {\"listing_id\": \"p04\", \"score\": 4.0}, {\"listing_id\": \"p05\", \"score\": 3.75}, {\"listing_id\": \"p06\", \"score\": 3.5}, {\"listing_id\": \"p07\", \"score\": 3.25}, {\"listing_id\": \"p08\", \"score\": 3.0}, {\"listing_id\": \"p09\", \"score\": 2.75}, {\"listing_id\": \"p10\", \"score\": 2.5}, {\"listing_id\": \"p11\", \"score\": 2.25}]",
+        "recs:v1:gen:g9:user:u1": "[{\"listing_id\": \"ignored\", \"score\": 1.0}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 3
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          },
+          {
+            "listing_id": "c",
+            "score": 0.255,
+            "rank": 3
+          }
+        ],
+        "model_version": "serving-fallback",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "legacy_unscoped_popular_without_generation",
+      "redis": {
+        "recs:v1:popular": "[{\"listing_id\": \"p00\", \"score\": 5.0}, {\"listing_id\": \"p01\", \"score\": 4.75}, {\"listing_id\": \"p02\", \"score\": 4.5}, {\"listing_id\": \"p03\", \"score\": 4.25}, {\"listing_id\": \"p04\", \"score\": 4.0}, {\"listing_id\": \"p05\", \"score\": 3.75}, {\"listing_id\": \"p06\", \"score\": 3.5}, {\"listing_id\": \"p07\", \"score\": 3.25}, {\"listing_id\": \"p08\", \"score\": 3.0}, {\"listing_id\": \"p09\", \"score\": 2.75}, {\"listing_id\": \"p10\", \"score\": 2.5}, {\"listing_id\": \"p11\", \"score\": 2.25}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "new",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 3
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "p00",
+            "score": 1.5,
+            "rank": 1
+          },
+          {
+            "listing_id": "p01",
+            "score": 1.425,
+            "rank": 2
+          },
+          {
+            "listing_id": "p02",
+            "score": 1.35,
+            "rank": 3
+          }
+        ],
+        "model_version": "serving-fallback",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "generation_scopes_keys_over_legacy",
+      "redis": {
+        "recs:v1:serving": "g5",
+        "recs:v1:user:u1": "[{\"listing_id\": \"legacy\", \"score\": 1.0}]",
+        "recs:v1:gen:g5:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 2
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          }
+        ],
+        "model_version": "g5",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "limit_zero_uses_placement_limit",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:popular": "[{\"listing_id\": \"p00\", \"score\": 5.0}, {\"listing_id\": \"p01\", \"score\": 4.75}, {\"listing_id\": \"p02\", \"score\": 4.5}, {\"listing_id\": \"p03\", \"score\": 4.25}, {\"listing_id\": \"p04\", \"score\": 4.0}, {\"listing_id\": \"p05\", \"score\": 3.75}, {\"listing_id\": \"p06\", \"score\": 3.5}, {\"listing_id\": \"p07\", \"score\": 3.25}, {\"listing_id\": \"p08\", \"score\": 3.0}, {\"listing_id\": \"p09\", \"score\": 2.75}, {\"listing_id\": \"p10\", \"score\": 2.5}, {\"listing_id\": \"p11\", \"score\": 2.25}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "new",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 0
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "p00",
+            "score": 1.5,
+            "rank": 1
+          },
+          {
+            "listing_id": "p01",
+            "score": 1.425,
+            "rank": 2
+          },
+          {
+            "listing_id": "p02",
+            "score": 1.35,
+            "rank": 3
+          },
+          {
+            "listing_id": "p03",
+            "score": 1.275,
+            "rank": 4
+          },
+          {
+            "listing_id": "p04",
+            "score": 1.2,
+            "rank": 5
+          },
+          {
+            "listing_id": "p05",
+            "score": 1.125,
+            "rank": 6
+          },
+          {
+            "listing_id": "p06",
+            "score": 1.05,
+            "rank": 7
+          },
+          {
+            "listing_id": "p07",
+            "score": 0.975,
+            "rank": 8
+          },
+          {
+            "listing_id": "p08",
+            "score": 0.9,
+            "rank": 9
+          },
+          {
+            "listing_id": "p09",
+            "score": 0.825,
+            "rank": 10
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "limit_zero_cart_cross_sell_limit_8",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:popular": "[{\"listing_id\": \"p00\", \"score\": 5.0}, {\"listing_id\": \"p01\", \"score\": 4.75}, {\"listing_id\": \"p02\", \"score\": 4.5}, {\"listing_id\": \"p03\", \"score\": 4.25}, {\"listing_id\": \"p04\", \"score\": 4.0}, {\"listing_id\": \"p05\", \"score\": 3.75}, {\"listing_id\": \"p06\", \"score\": 3.5}, {\"listing_id\": \"p07\", \"score\": 3.25}, {\"listing_id\": \"p08\", \"score\": 3.0}, {\"listing_id\": \"p09\", \"score\": 2.75}, {\"listing_id\": \"p10\", \"score\": 2.5}, {\"listing_id\": \"p11\", \"score\": 2.25}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u9",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "cart_cross_sell",
+        "limit": 0
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "p00",
+            "score": 1.5,
+            "rank": 1
+          },
+          {
+            "listing_id": "p01",
+            "score": 1.425,
+            "rank": 2
+          },
+          {
+            "listing_id": "p02",
+            "score": 1.35,
+            "rank": 3
+          },
+          {
+            "listing_id": "p03",
+            "score": 1.275,
+            "rank": 4
+          },
+          {
+            "listing_id": "p04",
+            "score": 1.2,
+            "rank": 5
+          },
+          {
+            "listing_id": "p05",
+            "score": 1.125,
+            "rank": 6
+          },
+          {
+            "listing_id": "p06",
+            "score": 1.05,
+            "rank": 7
+          },
+          {
+            "listing_id": "p07",
+            "score": 0.975,
+            "rank": 8
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "cart_cross_sell",
+        "fallback": false
+      }
+    },
+    {
+      "name": "limit_explicit_overrides_placement",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:popular": "[{\"listing_id\": \"p00\", \"score\": 5.0}, {\"listing_id\": \"p01\", \"score\": 4.75}, {\"listing_id\": \"p02\", \"score\": 4.5}, {\"listing_id\": \"p03\", \"score\": 4.25}, {\"listing_id\": \"p04\", \"score\": 4.0}, {\"listing_id\": \"p05\", \"score\": 3.75}, {\"listing_id\": \"p06\", \"score\": 3.5}, {\"listing_id\": \"p07\", \"score\": 3.25}, {\"listing_id\": \"p08\", \"score\": 3.0}, {\"listing_id\": \"p09\", \"score\": 2.75}, {\"listing_id\": \"p10\", \"score\": 2.5}, {\"listing_id\": \"p11\", \"score\": 2.25}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "new",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 2
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "p00",
+            "score": 1.5,
+            "rank": 1
+          },
+          {
+            "listing_id": "p01",
+            "score": 1.425,
+            "rank": 2
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "limit_negative_returns_all",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:popular": "[{\"listing_id\": \"p00\", \"score\": 5.0}, {\"listing_id\": \"p01\", \"score\": 4.75}, {\"listing_id\": \"p02\", \"score\": 4.5}, {\"listing_id\": \"p03\", \"score\": 4.25}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "new",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": -1
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "p00",
+            "score": 1.5,
+            "rank": 1
+          },
+          {
+            "listing_id": "p01",
+            "score": 1.425,
+            "rank": 2
+          },
+          {
+            "listing_id": "p02",
+            "score": 1.35,
+            "rank": 3
+          },
+          {
+            "listing_id": "p03",
+            "score": 1.275,
+            "rank": 4
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "unknown_placement_uses_home_feed_config",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "weird",
+        "limit": 3
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          },
+          {
+            "listing_id": "c",
+            "score": 0.255,
+            "rank": 3
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "weird",
+        "fallback": false
+      }
+    },
+    {
+      "name": "derived_similar_items_placement",
+      "redis": {
+        "recs:v1:serving": "g1"
+      },
+      "hashes": {},
+      "similar": {
+        "seed-1": [
+          {
+            "listing_id": "x1",
+            "score": 0.9,
+            "in_stock": true
+          },
+          {
+            "listing_id": "x2",
+            "score": 0.8,
+            "in_stock": true
+          }
+        ]
+      },
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "",
+        "anonymous_id": "anon",
+        "seed_listing_id": "seed-1",
+        "placement_id": "",
+        "limit": 0
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "x1",
+            "score": 0.9,
+            "rank": 1
+          },
+          {
+            "listing_id": "x2",
+            "score": 0.8,
+            "rank": 2
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "similar_items",
+        "fallback": false
+      }
+    },
+    {
+      "name": "derived_home_feed_placement",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]"
+      },
+      "hashes": {},
+      "similar": {
+        "seed-1": [
+          {
+            "listing_id": "x1",
+            "score": 0.9,
+            "in_stock": true
+          }
+        ]
+      },
+      "settings": {},
+      "featurestore": false,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "seed-1",
+        "placement_id": "",
+        "limit": 2
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    },
+    {
+      "name": "cart_cross_sell_ranks_popular_with_features",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "fs:item_popularity:current": "1",
+        "fs:item_popularity:v1:a": "{\"views_7d\": 10, \"clicks_7d\": 0, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 0.01}",
+        "fs:item_popularity:v1:b": "{\"views_7d\": 900, \"clicks_7d\": 135, \"add_to_cart_7d\": 40, \"favorites_current\": 30, \"review_count\": 12, \"avg_rating\": 4.5, \"ctr_7d\": 0.15}",
+        "fs:item_popularity:v1:c": "{\"views_7d\": 50, \"clicks_7d\": 5, \"add_to_cart_7d\": 1, \"favorites_current\": 2, \"review_count\": 3, \"avg_rating\": 4.0, \"ctr_7d\": 0.1}",
+        "fs:item_popularity:v1:d": "{\"views_7d\": 400, \"clicks_7d\": 80, \"add_to_cart_7d\": 20, \"favorites_current\": 10, \"review_count\": 7, \"avg_rating\": 4.8, \"ctr_7d\": 0.2}",
+        "fs:item_popularity:v1:f": "{\"views_7d\": 5, \"clicks_7d\": 1, \"add_to_cart_7d\": 0, \"favorites_current\": 0, \"review_count\": 0, \"avg_rating\": null, \"ctr_7d\": 5.0}",
+        "recs:v1:gen:g1:popular": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": true,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u9",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "cart_cross_sell",
+        "limit": 0
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "b",
+            "score": 0.4425,
+            "rank": 1
+          },
+          {
+            "listing_id": "d",
+            "score": 0.42,
+            "rank": 2
+          },
+          {
+            "listing_id": "f",
+            "score": 0.410175,
+            "rank": 3
+          },
+          {
+            "listing_id": "c",
+            "score": 0.373191,
+            "rank": 4
+          },
+          {
+            "listing_id": "a",
+            "score": 0.344359,
+            "rank": 5
+          },
+          {
+            "listing_id": "e",
+            "score": 0.225,
+            "rank": 6
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "cart_cross_sell",
+        "fallback": false
+      }
+    },
+    {
+      "name": "featurestore_pointer_without_rows",
+      "redis": {
+        "recs:v1:serving": "g1",
+        "recs:v1:gen:g1:user:u1": "[{\"listing_id\": \"a\", \"score\": 0.95}, {\"listing_id\": \"b\", \"score\": 0.9}, {\"listing_id\": \"c\", \"score\": 0.85}, {\"listing_id\": \"d\", \"score\": 0.8}, {\"listing_id\": \"e\", \"score\": 0.75}, {\"listing_id\": \"f\", \"score\": 0.7}]",
+        "fs:item_popularity:current": "7"
+      },
+      "hashes": {},
+      "similar": {},
+      "settings": {},
+      "featurestore": true,
+      "nearline": false,
+      "fault": null,
+      "query": {
+        "user_id": "u1",
+        "anonymous_id": "",
+        "seed_listing_id": "",
+        "placement_id": "home_feed",
+        "limit": 3
+      },
+      "result": {
+        "items": [
+          {
+            "listing_id": "a",
+            "score": 0.285,
+            "rank": 1
+          },
+          {
+            "listing_id": "b",
+            "score": 0.27,
+            "rank": 2
+          },
+          {
+            "listing_id": "c",
+            "score": 0.255,
+            "rank": 3
+          }
+        ],
+        "model_version": "g1",
+        "placement_id": "home_feed",
+        "fallback": false
+      }
+    }
+  ]
+}

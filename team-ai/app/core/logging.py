@@ -10,8 +10,6 @@ if TYPE_CHECKING:
     from loguru import Record
 
 _NOISY_LOGGERS: tuple[str, ...] = (
-    "sqlalchemy.engine",
-    "sqlalchemy.pool",
     "httpx",
     "httpcore",
     "uvicorn.access",

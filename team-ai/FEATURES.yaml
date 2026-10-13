@@ -1,4 +1,4 @@
-# Feature manifest for team-ai (FastAPI: RAG assistant, magic listing, copilot).
+# Feature manifest for team-ai (FastAPI + gRPC: assistant, magic listing, copilot, chat, recommendations, tag taxonomy).
 # Schema: platform-e2e/schemas/features.schema.json
 repo: team-ai
 owner: ai-team
@@ -363,7 +363,7 @@ features:
       exercised: [chat.v1.StreamChat]
     acceptance:
       - "When a buyer streams a chat message for which the primary never sends a first token and the first fallback is healthy"
-      - "Then the reply comes from the first fallback within `LLM_FIRST_TOKEN_TIMEOUT_SECONDS` plus 3 seconds"
+      - "Then the reply comes from the first fallback within `CHAT_FIRST_TOKEN_TIMEOUT_SECONDS` plus 3 seconds"
     tags: [ai, resilience]
     status: automated
     covered_by: "ai/llm_routing.feature::A hung primary times out and falls back"
@@ -382,7 +382,7 @@ features:
       exercised: [chat.v1.StreamChat]
     acceptance:
       - "When a buyer streams a chat message for which every target answers 500"
-      - "Then the fake provider received at most `LLM_MAX_ATTEMPTS` requests for that message"
+      - "Then the fake provider received at most one request per target and SDK retry (`1 + LLM_MAX_RETRIES` per target) for that message"
     tags: [ai, resilience]
     status: automated
     covered_by: "ai/llm_routing.feature::Attempts are bounded"
@@ -400,7 +400,7 @@ features:
     api:
       exercised: [chat.v1.StreamChat]
     acceptance:
-      - "When the primary target answers 500 for `LLM_BREAKER_THRESHOLD` consecutive chat requests and then becomes healthy"
+      - "When the primary target answers 500 for `LLM_BREAKER_FAILURE_THRESHOLD` consecutive chat requests and then becomes healthy"
       - "Then the next chat request made within the cooldown is served by the first fallback without the primary being called"
     tags: [ai, resilience, destructive]
     status: automated
@@ -419,7 +419,7 @@ features:
     api:
       exercised: [chat.v1.StreamChat]
     acceptance:
-      - "When the primary answers 400 for `LLM_BREAKER_THRESHOLD` consecutive chat requests and then becomes healthy"
+      - "When the primary answers 400 for `LLM_BREAKER_FAILURE_THRESHOLD` consecutive chat requests and then becomes healthy"
       - "Then the next chat request is served by the primary"
     tags: [ai, resilience, destructive]
     status: automated
@@ -520,40 +520,23 @@ features:
     status: automated
     covered_by: "ai/llm_quota_and_limits.feature::One buyer over the limit does not affect another"
     notes: "Scenario: ai/llm_quota_and_limits.feature::One buyer over the limit does not affect another. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
-  - id: ai.apr-production-refuses-a-per-process-rate-limiter
-    title: "Production refuses a per-process rate limiter"
+  - id: ai.apr-production-refuses-the-api-docs
+    title: "Production refuses the API docs"
     persona: admin
     priority: P1
-    summary: "Production refuses a per-process rate limiter"
+    summary: "Production refuses the API docs"
     entry_route: /
     services: [team-ai]
     preconditions:
       login: admin
       data: "None: black-box run of the team-ai image / Makefile."
     acceptance:
-      - "When the team-ai image is started with `ENVIRONMENT=production`, `GRPC_RATE_LIMIT_ENABLED=true` and `RATE_LIMIT_BACKEND=memory`"
-      - "Then the process exits non-zero and its log names `RATE_LIMIT_BACKEND`"
+      - "When the team-ai image is started with `ENVIRONMENT=production` and `DOCS_ENABLED=true`"
+      - "Then the process exits non-zero and its log names `DOCS_ENABLED`"
     tags: [ai, ops, destructive]
     status: automated
-    covered_by: "ops/boot_guard_ai.feature::Production refuses a per-process rate limiter"
-    notes: "Scenario: ops/boot_guard_ai.feature::Production refuses a per-process rate limiter. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
-  - id: ai.apr-production-refuses-an-unmetered-llm-chat-path
-    title: "Production refuses an unmetered LLM chat path"
-    persona: admin
-    priority: P1
-    summary: "Production refuses an unmetered LLM chat path"
-    entry_route: /
-    services: [team-ai]
-    preconditions:
-      login: admin
-      data: "None: black-box run of the team-ai image."
-    acceptance:
-      - "When the team-ai image is started with `ENVIRONMENT=production`, `CHAT_BACKEND=llm_router`, `GRPC_RATE_LIMIT_ENABLED=false` and `QUOTA_ENABLED=false`"
-      - "Then the process exits non-zero and its log names `QUOTA_ENABLED`"
-    tags: [ai, ops, security, destructive]
-    status: automated
-    covered_by: "ops/boot_guard_ai.feature::Production refuses an unmetered LLM chat path"
-    notes: "Added after the auth-scope review of ai-path-resilience (anonymous chat on the paid path must be rate limited and metered). Destructive lane: docker run of the stack's team-ai image."
+    covered_by: "ops/boot_guard_ai.feature::Production refuses the API docs"
+    notes: "Scenario: ops/boot_guard_ai.feature::Production refuses the API docs. The rate-limit boot guard is gone (flag-trim: the limits are always on, in Redis); this keeps one production-only settings check black box."
   - id: ai.apr-the-system-prompt-is-always-first
     title: "The system prompt is always first"
     persona: buyer
@@ -706,40 +689,23 @@ features:
     status: automated
     covered_by: "ai/llm_tracing.feature::A chat trace carries the request id"
     notes: "Scenario: ai/llm_tracing.feature::A chat trace carries the request id. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
-  - id: ai.apr-the-eval-gate-runs-the-chat-resilience-cases
-    title: "The eval gate runs the chat resilience cases"
+  - id: ai.apr-the-eval-gate-scores-the-deterministic-cases
+    title: "The eval gate scores the deterministic cases"
     persona: admin
     priority: P1
-    summary: "The eval gate runs the chat resilience cases"
+    summary: "The eval gate scores the deterministic cases and skips judge cases without a judge"
     entry_route: /
     services: [team-ai]
     preconditions:
       login: admin
-      data: "None: black-box run of the team-ai image / Makefile."
+      data: "None: black-box run of the team-ai Makefile."
     acceptance:
-      - "When `make eval` runs in team-ai with no judge configured and no judge cases"
-      - "Then it exits zero and its report lists the primary-429, all-fail and after-first-chunk cases as passed"
+      - "When `make eval` runs in team-ai with no judge configured"
+      - "Then it exits zero with a pass rate of 100% and the judge cases skipped"
     tags: [ai, eval]
     status: automated
-    covered_by: "ai/llm_eval_gate.feature::The eval gate runs the chat resilience cases"
-    notes: "Scenario: ai/llm_eval_gate.feature::The eval gate runs the chat resilience cases. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
-  - id: ai.apr-a-judge-case-without-a-judge-fails-the-gate
-    title: "A judge case without a judge fails the gate"
-    persona: admin
-    priority: P1
-    summary: "A judge case without a judge fails the gate"
-    entry_route: /
-    services: [team-ai]
-    preconditions:
-      login: admin
-      data: "None: black-box run of the team-ai image / Makefile."
-    acceptance:
-      - "When `make eval` runs with an eval set containing one judge case and `JUDGE_CHAT_MODEL` empty"
-      - "Then it exits non-zero, names that case, and reports a pass rate below 100%"
-    tags: [ai, eval]
-    status: automated
-    covered_by: "ai/llm_eval_gate.feature::A judge case without a judge fails the gate"
-    notes: "Scenario: ai/llm_eval_gate.feature::A judge case without a judge fails the gate. Written ahead of the code (ai-path-resilience); red until the team-ai code track is merged and the llm-fake overlay is up; the integrator flips it to automated."
+    covered_by: "ai/llm_eval_gate.feature::The eval gate scores the deterministic cases"
+    notes: "The rewritten gate grades the echo completions handler; the chat resilience eval cases and the fail-on-unscored-judge rule are gone (see openspec/specs/llm-inference-resilience/spec.md)."
 
   - id: ai.rgp-serving-follows-within-10s
     title: "Serving follows a promotion within seconds"
@@ -796,42 +762,6 @@ features:
     status: automated
     covered_by: "recommendations/serving_safeguards.feature::A new buyer gets the popular list"
     notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::A new buyer gets the popular list"
-
-  - id: ai.rss-memory-backend-refused
-    title: "Production refuses the memory recommendation backend"
-    persona: buyer
-    priority: P1
-    summary: "Production refuses the memory recommendation backend"
-    entry_route: /
-    services: [team-ai, gateway]
-    preconditions:
-      login: buyer
-      data: "Black-box docker run of the team-ai image (boot guard)."
-    acceptance:
-      - "When the team-ai image is started with `ENVIRONMENT=production`, `RECS_ENABLED=true` and `RECS_BACKEND=memory`"
-      - "Then the process exits non-zero and its log names `RECS_BACKEND`"
-    tags: [recommendations, ai, destructive]
-    status: automated
-    covered_by: "recommendations/serving_safeguards.feature::Production refuses the memory recommendation backend"
-    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::Production refuses the memory recommendation backend"
-
-  - id: ai.rss-run-grpc-recommend
-    title: "The standalone gRPC server answers Recommend"
-    persona: buyer
-    priority: P1
-    summary: "The standalone gRPC server answers Recommend"
-    entry_route: /
-    services: [team-ai, gateway]
-    preconditions:
-      login: buyer
-      data: "A throwaway team-ai container plus a throwaway gateway, both removed afterwards."
-    acceptance:
-      - "When team-ai is started with `scripts/run_grpc.py` and a buyer requests recommendations through a gateway pointed at it"
-      - "Then the call succeeds instead of answering `unimplemented`"
-    tags: [recommendations, ai, destructive]
-    status: automated
-    covered_by: "recommendations/serving_safeguards.feature::The standalone gRPC server answers Recommend"
-    notes: "recs-serving-safeguards: recommendations/serving_safeguards.feature::The standalone gRPC server answers Recommend"
 
   - id: ai.rss-distinct-request-ids
     title: "Two calls get distinct request ids and the served placement"
@@ -942,10 +872,10 @@ features:
     notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::Without a pointer the alias is used"
 
   - id: ai.ssa-no-listing-credentials
-    title: "The team-ai container does not hold listing's credentials"
+    title: "The team-ai container does not hold database credentials"
     persona: buyer
     priority: P1
-    summary: "The team-ai container does not hold listing's credentials"
+    summary: "The team-ai container does not hold database credentials"
     entry_route: /
     services: [team-ai, gateway]
     preconditions:
@@ -953,11 +883,11 @@ features:
       data: "Reads `docker inspect` of the running team-ai container."
     acceptance:
       - "When the running `team-ai-svc` container's environment is inspected"
-      - "Then none of its `POSTGRES_*` values is `listing_svc`, `listing_pass` or `listing_db`"
+      - "Then none of its variables starts with `POSTGRES_`, `DATABASE_` or `DB_`, and none holds `listing_svc` or `listing_pass`"
     tags: [recsys, recommendations]
     status: automated
-    covered_by: "recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
-    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::The team-ai container does not hold listing's credentials"
+    covered_by: "recommendations/serving_switch_atomicity.feature::The team-ai container does not hold database credentials"
+    notes: "green after rebuild: recommendations/serving_switch_atomicity.feature::The team-ai container does not hold database credentials"
 
   - id: ai.aci-created-indexed
     title: "Created listing is indexed into RAG"
@@ -969,7 +899,7 @@ features:
       - "Then the listing is retrievable in the RAG store"
     tags: [ai, rag]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. The RAG store has no gateway-reachable read path (openspec/changes/add-ai-content-indexer/design.md)."
+    notes: "VERIFIED BY team-ai/tests/unit/modules/listing_indexer/test_consumer.py. The RAG store has no gateway-reachable read path (openspec/changes/add-ai-content-indexer/design.md)."
 
   - id: ai.aci-deleted-removed
     title: "Deleted listing is removed from RAG"
@@ -981,7 +911,7 @@ features:
       - "Then the listing's documents are removed from the RAG store"
     tags: [ai, rag]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. No gateway-reachable read path into the RAG store."
+    notes: "VERIFIED BY team-ai/tests/unit/modules/listing_indexer/test_consumer.py. No gateway-reachable read path into the RAG store."
 
   - id: ai.aci-unpublished-removed
     title: "Unpublished listing is removed from RAG"
@@ -993,7 +923,7 @@ features:
       - "Then the listing is removed from the RAG store instead of indexed"
     tags: [ai, rag]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. No gateway-reachable read path into the RAG store."
+    notes: "VERIFIED BY team-ai/tests/unit/modules/listing_indexer/test_consumer.py. No gateway-reachable read path into the RAG store."
 
   - id: ai.aci-redelivered-once
     title: "Redelivered event is applied once"
@@ -1005,7 +935,7 @@ features:
       - "Then it causes no second index or delete"
     tags: [ai, rag]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Redelivery cannot be forced through the gateway."
+    notes: "VERIFIED BY team-ai/tests/unit/modules/listing_indexer/test_consumer.py. Redelivery cannot be forced through the gateway."
 
   - id: ai.aci-failing-parked
     title: "A failing event is retried and then parked"
@@ -1017,7 +947,7 @@ features:
       - "Then it is retried, parked on listing.events.dlq and committed; an unparkable record is not committed"
     tags: [ai, rag]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Needs fault injection the stack does not expose."
+    notes: "VERIFIED BY team-ai/tests/unit/modules/listing_indexer/test_consumer.py. Needs fault injection the stack does not expose."
 
   - id: ai.aci-consumer-lifecycle
     title: "The consumer runs with the application"
@@ -1025,11 +955,11 @@ features:
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "When LISTING_INDEXER_ENABLED and RAG_ENABLED are true"
+      - "When RAG_ENABLED is true (with RAG_QDRANT_URL, RAG_EMBED_SERVER_URL and KAFKA_BROKERS set)"
       - "Then startup starts the consumer, a crash restarts it and shutdown stops it"
     tags: [ai, rag]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_listing_indexer_consumer.py. Effect only visible in the RAG store."
+    notes: "VERIFIED BY team-ai/tests/unit/modules/listing_indexer/test_consumer.py. Effect only visible in the RAG store."
 
   - id: ai.wsg-gbdt-ordering
     title: "GBDT placement produces ranker ordering, not cosine ordering"
@@ -1230,7 +1160,7 @@ features:
       - "Then the registry values reach the ranker and defaulted features are counted without failing the request"
     tags: [recsys, recommendations]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/recommend/test_item_feature_contract.py. explain is not on the gateway wire."
+    notes: "VERIFIED BY team-ai/tests/unit/modules/recommendation/test_contract.py. explain is not on the gateway wire."
 
   - id: recommendations.tpr-similar-listing-ids
     title: "Similar items come back as listing ids"
@@ -1353,7 +1283,7 @@ features:
       - "Then each listing appears once, at most top_k cards are returned in score order, and hits under ASSISTANT_RAG_MIN_SCORE are dropped"
     tags: [ai, rag]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_ai_assistant_rag.py. Chunk counts and scores are not observable through the gateway (openspec/changes/assistant-rag-grounding/design.md)."
+    notes: "VERIFIED BY team-ai/tests/unit/modules/ai_assistant/test_retrieval.py. Chunk counts and scores are not observable through the gateway (openspec/changes/assistant-rag-grounding/design.md)."
 
   - id: ai.arg-demo-catalog-without-rag
     title: "Without a RAG store the demo catalog answers"
@@ -1366,7 +1296,7 @@ features:
     tags: [ai, rag, destructive]
     status: automated
     covered_by: "ai/assistant_grounding.feature::Without a RAG store the demo catalog answers"
-    notes: "Also unit-verified by team-ai/tests/unit/modules/test_ai_assistant_rag.py. The e2e scenario recreates team-ai with platform-e2e/compose/rag-off.override.yaml (openspec/changes/assistant-rag-default-on/design.md)."
+    notes: "Also unit-verified by team-ai/tests/unit/modules/ai_assistant/test_retrieval.py. The e2e scenario recreates team-ai with platform-e2e/compose/rag-off.override.yaml (openspec/changes/assistant-rag-default-on/design.md)."
 
   - id: ai.tra-anonymous-refused
     title: "Anonymous tag requests are refused"
@@ -1417,16 +1347,16 @@ features:
     covered_by: "ai/tag_classifier_taxonomy.feature::An admin principal explores and promotes"
 
   - id: ai.tra-admin-token-guard
-    title: "Admin access is off unless configured and strong"
+    title: "Admin access needs the admin scope on a key, and weak keys are refused in production"
     persona: guest
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "When AUTH_ADMIN_BEARER_TOKEN is unset, or outside dev/local/test is weak or equal to AUTH_BEARER_TOKEN"
-      - "Then no principal holds admin on the REST routes, and startup refuses the weak or equal configuration"
+      - "When no `AUTH_API_KEYS` entry carries the `admin` scope, or outside dev/local/test an entry hashes a known placeholder token, or `AUTH_API_KEYS` is empty"
+      - "Then no principal holds admin on the REST routes, and startup refuses the weak or missing configuration"
     tags: [ai, search, taxonomy]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_routes_authz.py. The stack runs with the local environment and a configured admin token (openspec/changes/tag-routes-authz/design.md)."
+    notes: "VERIFIED BY team-ai/tests/integration/test_tag_routes.py and team-ai/tests/unit/core/test_config.py. The stack runs with the local environment and a configured admin key (openspec/specs/tag-taxonomy-enrichment/spec.md)."
 
   - id: ai.ttp-survives-restart
     title: "Promoted and exploring tags survive a restart"
@@ -1450,7 +1380,7 @@ features:
       - "Then the call answers 503 and the tag is still only a candidate"
     tags: [ai, search, taxonomy]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. Failing the shared Redis would break every service on the stack (openspec/changes/tag-taxonomy-persistence/design.md)."
+    notes: "VERIFIED BY team-ai/tests/integration/test_taxonomy_restart.py and team-ai/tests/unit/modules/tag_classifier/test_curation.py. Failing the shared Redis would break every service on the stack (openspec/changes/tag-taxonomy-persistence/design.md)."
 
   - id: ai.ttp-startup-outage
     title: "A store outage at startup serves the seed taxonomy"
@@ -1462,7 +1392,7 @@ features:
       - "Then the service starts with the seed taxonomy and the next promote or explore loads the stored state before applying its change"
     tags: [ai, search, taxonomy]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. Same reason: the shared Redis cannot be failed (openspec/changes/tag-taxonomy-persistence/design.md)."
+    notes: "VERIFIED BY team-ai/tests/integration/test_taxonomy_restart.py and team-ai/tests/unit/modules/tag_classifier/test_curation.py. Same reason: the shared Redis cannot be failed (openspec/changes/tag-taxonomy-persistence/design.md)."
 
   - id: ai.ttp-rest-grpc-shared
     title: "REST and gRPC share one registry"
@@ -1474,19 +1404,19 @@ features:
       - "Then gRPC ClassifyTags returns it for a matching title and a restart restores it for both"
     tags: [ai, search, taxonomy]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. The gateway does not route ClassifyTags (internal, service principal only)."
+    notes: "VERIFIED BY team-ai/tests/integration/test_taxonomy_restart.py and team-ai/tests/unit/modules/tag_classifier/test_curation.py. The gateway does not route ClassifyTags (internal, service principal only)."
 
-  - id: ai.ttp-off-by-default
-    title: "Persistence is off unless enabled"
+  - id: ai.ttp-own-database
+    title: "Persistence is always on, in its own database"
     persona: guest
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "When TAXONOMY_PERSISTENCE_ENABLED is false"
-      - "Then nothing is written to Redis and a restart returns to the seed taxonomy; enabling it without REDIS_ENABLED or on REDIS_DATABASE fails startup"
+      - "When team-ai starts with the default settings"
+      - "Then the taxonomy is stored in Redis database TAXONOMY_REDIS_DATABASE (default 5); setting it to the same database as REDIS_DATABASE fails startup"
     tags: [ai, search, taxonomy]
     status: not-testable
-    notes: "VERIFIED BY team-ai/tests/unit/modules/test_tag_taxonomy_persistence.py. The stack runs with persistence on (openspec/changes/tag-taxonomy-persistence/design.md)."
+    notes: "VERIFIED BY team-ai/tests/integration/test_taxonomy_restart.py and team-ai/tests/unit/modules/tag_classifier/test_curation.py. The stack always runs with persistence on (openspec/changes/tag-taxonomy-persistence/design.md)."
 
   - id: ai.gbl-ranker-serving
     title: "A published ranker artifact changes the home feed order"
@@ -1538,4 +1468,4 @@ features:
       - "When the serving pointer moves to a generation whose ranker artifact differs or is absent, then the next request scores with that generation's artifact or the fixed weights"
     tags: [recsys, recommendations]
     status: not-testable
-    notes: "recsys-gbdt-trainer: verified by team-ai/tests/unit/modules/recommend/test_trained_ranker.py › test_generation_switch_reloads_the_model. Moving the serving pointer is the publish flow, covered end to end by recsys-generation-publish; the per-process cache reload is unit-level."
+    notes: "recsys-gbdt-trainer: verified by team-ai/tests/unit/modules/recommendation/test_artifact.py › test_a_generation_switch_reloads_the_model_at_once. Moving the serving pointer is the publish flow, covered end to end by recsys-generation-publish; the per-process cache reload is unit-level."

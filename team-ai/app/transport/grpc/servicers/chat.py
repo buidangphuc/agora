@@ -1,32 +1,36 @@
-"""ChatService gRPC servicer — server-streaming reply tokens.
+"""ChatService servicer: StreamChat maps business deltas and errors onto the wire.
 
-Requires ``ai:use`` when ``AI_USE_SCOPE_REQUIRED`` is on (checked before the
-streamer is touched), then streams deltas from the ``ChatStreamer`` seam (external LLM
-via the router, or mock). A final ``done=True`` chunk closes the stream. The
-Gateway adapts this to SSE for browsers at the edge (out of scope here).
+The business ``ChatService`` owns the stream (history, quota, model); this servicer
+only gates ``ai:use``, bounds the session id, forwards the caller's principal,
+request id and remaining deadline, and maps each delta and ``ChatError`` to proto.
+StreamChat is rate-limited by the interceptor; quota stays the chat service's job.
 """
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import Final
 
 import grpc
 from loguru import logger
 
 from app.core.request_context import get_request_id
+from app.modules.business.chat.errors import ChatQuotaExhausted
+from app.modules.business.chat.ports import ChatService
 from app.transport.grpc._pb.platform.chat.v1 import chat_pb2, chat_pb2_grpc
-from app.transport.grpc.chat_stream import ChatStreamer, QuotaExhausted
 from app.transport.grpc.context import current_principal, ensure_scopes
 from app.transport.grpc.errors import map_servicer_error
+from app.transport.grpc.registry import GrpcServiceRegistration
 from app.transport.grpc.scopes import ai_use_scopes
 
-# Session ids key the (principal, session) history; bound them like any client input.
-MAX_SESSION_ID_LEN = 128
+_SERVICE_NAME = "platform.chat.v1.ChatService"
+_RATE_LIMITED_METHODS: Final = frozenset({f"/{_SERVICE_NAME}/StreamChat"})
+MAX_SESSION_ID_LEN: Final = 128
 
 
 class ChatServicer(chat_pb2_grpc.ChatServiceServicer):
-    def __init__(self, streamer: ChatStreamer, *, require_ai_use: bool = False) -> None:
-        self._streamer = streamer
+    def __init__(self, chat: ChatService, *, require_ai_use: bool) -> None:
+        self._chat = chat
         self._scopes = ai_use_scopes(require_ai_use)
 
     async def StreamChat(
@@ -34,10 +38,6 @@ class ChatServicer(chat_pb2_grpc.ChatServiceServicer):
         request: chat_pb2.StreamChatRequest,
         context: grpc.aio.ServicerContext,
     ) -> AsyncIterator[chat_pb2.StreamChatResponse]:
-        # StreamChat is the only real-LLM path (cost): same ``ai:use`` gate as
-        # ShoppingAssistant, checked BEFORE the streamer runs. It is empty until
-        # ``AI_USE_SCOPE_REQUIRED`` because team-identity grants no ``ai:use`` yet
-        # (and "chat:read" is not granted to any role either).
         await ensure_scopes(context, *self._scopes)
         if len(request.session_id) > MAX_SESSION_ID_LEN:
             await context.abort(
@@ -47,25 +47,21 @@ class ChatServicer(chat_pb2_grpc.ChatServiceServicer):
         request_id = get_request_id()
         principal = current_principal()
         try:
-            async for delta in self._streamer.astream(
+            async for delta in self._chat.stream(
                 request.message,
                 session_id=request.session_id,
-                # Quota is keyed by the forwarded principal (never a client-chosen
-                # id); anonymous callers are not metered per principal.
                 principal_id=(
                     principal.id if principal and principal.type != "anonymous" else ""
                 ),
                 request_id=request_id,
-                # The caller's remaining deadline caps every LLM wait (None = none).
                 deadline_seconds=context.time_remaining(),
             ):
                 yield chat_pb2.StreamChatResponse(delta=delta, done=False)
         except grpc.aio.AbortError:
             raise
         except Exception as exc:
-            # Fixed message to the caller; the original exception stays in the logs.
             code, message = map_servicer_error(exc)
-            if isinstance(exc, QuotaExhausted) and exc.retry_after_seconds:
+            if isinstance(exc, ChatQuotaExhausted) and exc.retry_after_seconds:
                 context.set_trailing_metadata(
                     (("retry-after", str(exc.retry_after_seconds)),)
                 )
@@ -78,3 +74,16 @@ class ChatServicer(chat_pb2_grpc.ChatServiceServicer):
             await context.abort(code, message)
             raise AssertionError("unreachable") from exc  # abort raises
         yield chat_pb2.StreamChatResponse(delta="", done=True)
+
+
+def chat_service_registration(
+    chat: ChatService, *, require_ai_use: bool
+) -> GrpcServiceRegistration:
+    servicer = ChatServicer(chat, require_ai_use=require_ai_use)
+    return GrpcServiceRegistration(
+        _SERVICE_NAME,
+        lambda server: chat_pb2_grpc.add_ChatServiceServicer_to_server(
+            servicer, server
+        ),
+        rate_limited_methods=_RATE_LIMITED_METHODS,
+    )

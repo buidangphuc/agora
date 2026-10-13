@@ -1,9 +1,15 @@
+"""Per-instance Langfuse tracker: trace config, prompt registry, eval scores."""
+
+from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.config import Settings
-from app.core.redaction import RedactionPolicy
+
+if TYPE_CHECKING:
+    from langfuse import Langfuse
 
 LangfuseScoreDataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN", "TEXT"]
 
@@ -22,13 +28,8 @@ class LLMTraceContext:
 class LangfuseLLMTracker:
     instance_id: str
     service_name: str
-    enabled: bool
-    client: Any | None = None
+    client: Langfuse | None = None  # None = tracing disabled
     callback_handler_factory: Callable[[], Any] | None = None
-    # Which Langfuse client (project) the callback handler binds to. Passing it
-    # keeps the handler on THIS tracker's client (and its content policy) even if
-    # several clients exist in the process.
-    public_key: str | None = None
     default_tags: tuple[str, ...] = ()
     prompt_cache_ttl_seconds: int = 60
 
@@ -40,7 +41,7 @@ class LangfuseLLMTracker:
         }
         if context.run_name:
             config["run_name"] = context.run_name
-        if self.enabled:
+        if self.client is not None:
             config["callbacks"] = [self._new_callback_handler()]
         return config
 
@@ -53,7 +54,7 @@ class LangfuseLLMTracker:
         cache_ttl_seconds: int | None = None,
     ) -> Any:
         client = self._require_client()
-        kwargs: dict[str, object] = {
+        kwargs: dict[str, Any] = {
             "cache_ttl_seconds": (
                 self.prompt_cache_ttl_seconds
                 if cache_ttl_seconds is None
@@ -77,7 +78,7 @@ class LangfuseLLMTracker:
         observation_id: str | None = None,
     ) -> Any:
         client = self._require_client()
-        payload: dict[str, object] = {
+        payload: dict[str, Any] = {
             "trace_id": trace_id,
             "name": name,
             "value": value,
@@ -90,7 +91,7 @@ class LangfuseLLMTracker:
         return client.create_score(**payload)
 
     def flush(self) -> None:
-        if self.client is not None and hasattr(self.client, "flush"):
+        if self.client is not None:
             self.client.flush()
 
     def _metadata(self, context: LLMTraceContext) -> dict[str, object]:
@@ -123,17 +124,13 @@ class LangfuseLLMTracker:
             from langfuse.langchain import CallbackHandler
         except ImportError as exc:
             raise RuntimeError(
-                "langfuse is required when LANGFUSE_ENABLED is true"
+                "langfuse is required when the Langfuse keys are set"
             ) from exc
-        if self.public_key:
-            return CallbackHandler(public_key=self.public_key)
         return CallbackHandler()
 
-    def _require_client(self) -> Any:
-        if not self.enabled:
-            raise RuntimeError("Langfuse is disabled for this LLM instance")
+    def _require_client(self) -> Langfuse:
         if self.client is None:
-            self.client = _build_langfuse_client()
+            raise RuntimeError("Langfuse is disabled for this LLM instance")
         return self.client
 
 
@@ -144,76 +141,24 @@ def build_langfuse_tracker(
     service_name: str,
     tags: tuple[str, ...] = (),
 ) -> LangfuseLLMTracker:
-    if not settings.LANGFUSE_ENABLED:
+    if not settings.langfuse_enabled:
         return LangfuseLLMTracker(
             instance_id=instance_id,
             service_name=service_name,
-            enabled=False,
             default_tags=tags,
             prompt_cache_ttl_seconds=settings.LANGFUSE_PROMPT_CACHE_TTL_SECONDS,
-        )
-
-    if not settings.LANGFUSE_PUBLIC_KEY or not settings.LANGFUSE_SECRET_KEY:
-        raise RuntimeError(
-            "LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are required when "
-            "LANGFUSE_ENABLED is true"
         )
 
     return LangfuseLLMTracker(
         instance_id=instance_id,
         service_name=service_name,
-        enabled=True,
         client=_build_langfuse_client(settings),
-        public_key=settings.LANGFUSE_PUBLIC_KEY,
         default_tags=tags,
         prompt_cache_ttl_seconds=settings.LANGFUSE_PROMPT_CACHE_TTL_SECONDS,
     )
 
 
-def _content_policy(settings: Settings) -> RedactionPolicy:
-    """The LLM_TRACE_CONTENT policy, same flavour the chat path applies."""
-    return RedactionPolicy.from_trace_content(
-        settings.LLM_TRACE_CONTENT, mask_national_id=True
-    )
-
-
-def _otlp_span_exporter(settings: Settings) -> Any | None:
-    """The OTLP exporter the SDK would build, for wrapping with the content mask.
-
-    Returns ``None`` for ``LLM_TRACE_CONTENT=full`` so the SDK keeps its own
-    default wiring. Mirrors ``LangfuseSpanProcessor`` (endpoint, basic auth and
-    SDK headers); it is also the seam tests replace with an in-memory exporter.
-    """
-    if _content_policy(settings).mode == "full":
-        return None
-
-    import base64
-    import os
-
-    from langfuse._version import __version__ as langfuse_version
-    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-        OTLPSpanExporter,
-    )
-
-    public_key = settings.LANGFUSE_PUBLIC_KEY or ""
-    secret_key = settings.LANGFUSE_SECRET_KEY or ""
-    basic = base64.b64encode(f"{public_key}:{secret_key}".encode()).decode("ascii")
-    path = os.environ.get("LANGFUSE_OTEL_TRACES_EXPORT_PATH")
-    base_url = str(settings.LANGFUSE_BASE_URL).rstrip("/")
-    return OTLPSpanExporter(
-        endpoint=f"{base_url}/{path}"
-        if path
-        else f"{base_url}/api/public/otel/v1/traces",
-        headers={
-            "Authorization": f"Basic {basic}",
-            "x-langfuse-sdk-name": "python",
-            "x-langfuse-sdk-version": langfuse_version,
-            "x-langfuse-public-key": public_key,
-        },
-    )
-
-
-def _build_langfuse_client(settings: Settings | None = None) -> Any:
+def _build_langfuse_client(settings: Settings) -> Langfuse:
     try:
         from langfuse import Langfuse
     except ImportError as exc:
@@ -221,32 +166,10 @@ def _build_langfuse_client(settings: Settings | None = None) -> Any:
             "langfuse package is required for Langfuse tracking"
         ) from exc
 
-    if settings is None:
-        return Langfuse()
-
-    # LLM_TRACE_CONTENT applies to Langfuse too (see trace_content.py). The SDK's
-    # `mask=` hook is deliberately NOT used: on the LangChain callback path it
-    # misses input/output yet blanks metadata (request id, tags) in `off` mode, so
-    # the policy is enforced by wrapping the span exporter instead.
-    policy = _content_policy(settings)
-    extra: dict[str, Any] = {}
-    inner = _otlp_span_exporter(settings)
-    if inner is not None:
-        # Imported here, not at module top: trace_content needs opentelemetry,
-        # which ships with the optional `ai` extra. Tracing is off by default and
-        # the chat path must import without it.
-        from app.modules.ai.llm.trace_content import ContentMaskingSpanExporter
-
-        extra["span_exporter"] = (
-            inner
-            if policy.mode == "full"
-            else ContentMaskingSpanExporter(inner, policy)
-        )
     return Langfuse(
         public_key=settings.LANGFUSE_PUBLIC_KEY,
         secret_key=settings.LANGFUSE_SECRET_KEY,
         base_url=settings.LANGFUSE_BASE_URL,
         environment=settings.ENVIRONMENT,
         release=settings.VERSION,
-        **extra,
     )

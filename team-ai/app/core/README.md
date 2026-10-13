@@ -9,35 +9,38 @@ If something is specific to a single business feature → it belongs in `app/mod
 ```
 core/
 ├── config/           # Pydantic Settings (mixin package)
-├── database/         # Postgres engine + ORM mixins (subpackage)
 ├── errors.py         # AppError hierarchy + response envelope + validation formatter
 ├── health.py         # HealthService — generic check registry
+├── grpc_metrics.py   # teamai_grpc_requests_total counter, rendered at GET /metrics
 ├── logging.py        # loguru ↔ stdlib bridge + request_id context injection
 ├── middleware.py     # 6 ASGI middleware classes
-├── mongo.py          # build_mongo_client (lazy motor import; optional [mongo] extra)
 ├── pagination.py     # PaginationParams + ListResponse generic
 ├── redaction.py      # RedactionPolicy for PII / secrets
-├── redis.py          # build_redis_client + check_redis_connection
+├── redis.py          # build_redis_client + check_redis_connection (Redis is mandatory)
 ├── request_context.py # RequestIdMiddleware + ContextVar accessor
-└── resilience.py     # RetryPolicy, CircuitBreaker, TimeoutPolicy
+├── resilience.py     # RetryPolicy, CircuitBreaker, TimeoutPolicy
+├── telemetry.py      # completion observation handle (no OTel import)
+└── telemetry_otel.py # OpenTelemetry export (optional `otel` extra)
 ```
 
 ---
 
 ## config/
 
-Mixin pattern: one `BaseModel` per concern area, composed into one `Settings` via multiple inheritance. Field access stays **flat** — `settings.POSTGRES_HOST`, not `settings.infra.postgres.host`.
+Mixin pattern: one `BaseModel` per concern area, composed into one `Settings` via multiple inheritance. Field access stays **flat** — `settings.REDIS_HOST`, not `settings.infra.redis.host`.
 
 ```
 config/
 ├── __init__.py       # Settings composed + get_settings() + production safety + redacted_summary
 ├── runtime.py        # Environment enum, project metadata, logging, graceful shutdown
 ├── http.py           # CORS, trusted hosts, body limit, security headers, gzip, request timeout
-├── infra.py          # Postgres + Redis
-├── mongo.py          # Mongo (MONGO_ENABLED, MONGODB_URI, timeouts) — disabled by default
-├── ai.py             # LLM router + Langfuse + RAG
-├── messaging.py      # Queue, tasks, worker, outbox, webhooks
-└── platform.py       # Auth, rate limit, cache, objects, idempotency, quota
+├── infra.py          # Redis (REDIS_HOST required)
+├── ai.py             # LLM router + Langfuse + RAG + chat
+├── messaging.py      # Kafka listing indexer
+├── platform.py       # Auth, rate limit, quota
+├── recommendations.py # Recommendations (always on; Qdrant)
+├── telemetry.py      # OpenTelemetry settings
+└── transport.py      # gRPC server settings (GRPC_PORT, AI_USE_SCOPE_REQUIRED)
 ```
 
 ### Adding a field
@@ -47,7 +50,7 @@ Pick the mixin matching the concern. Use Pydantic `Field` for range validation �
 ```python
 # Good
 MAX_REQUEST_BODY_BYTES: int = Field(default=10 * 1024 * 1024, gt=0)
-GZIP_COMPRESS_LEVEL: int = Field(default=5, ge=1, le=9)
+RATE_LIMIT_WINDOW_SECONDS: int = Field(default=60, gt=0)
 
 # Bad — duplicates Field semantics
 @field_validator("MAX_REQUEST_BODY_BYTES")
@@ -58,7 +61,7 @@ Reserve `@field_validator` and `@model_validator` for cross-field or semantic ch
 
 ### Adding a backend / adapter
 
-**Don't** add `RATE_LIMIT_BACKENDS = {"memory", "redis"}` style allowlists here. The factory (`app/modules/<X>/factory.py`) handles dispatch and raises `ValueError` on unknown. Allowlisting in config layer duplicates work and blocks scaling.
+Backends are `Literal` aliases (e.g. `ChatBackend = Literal["mock", "llm_router"]`), so `Settings` rejects unknown values. Dispatch is an exhaustive `match` with no default branch; pyright (`reportMatchNotExhaustive`) fails until a new value has its `case`.
 
 ### Adding a new section
 
@@ -79,33 +82,10 @@ if settings.ENVIRONMENT.is_production:
 ### Production safety (`__init__.py::validate_runtime_safety`)
 
 `@model_validator(mode="after")` runs after all fields are validated. Refuses to start a production environment with:
-- `DOCS_ENABLED=True`
+- `DOCS_ENABLED=True` (it defaults to false in production)
 - `*` in `CORS_ALLOW_ORIGINS` / `TRUSTED_HOSTS`
-- Weak `AUTH_BEARER_TOKEN` (in `WEAK_AUTH_TOKENS` set or shorter than 24 chars)
-- Missing `AUTH_BEARER_TOKEN` outside dev/local/test
-
----
-
-## database/
-
-```
-database/
-├── __init__.py       # Re-exports — caller imports `from app.core.database import X`
-├── engine.py         # build_engine, build_sessionmaker, Base, DbSession, get_db, check_postgres_connection
-└── model.py          # TimestampMixin, CreatedAtMixin, UpdatedAtMixin, ActorAuditMixin, id_key, utcnow
-```
-
-External callers use one import path:
-
-```python
-from app.core.database import (
-    Base, DbSession, TimestampMixin, ActorAuditMixin, id_key, utcnow,
-)
-```
-
-`DbSession = Annotated[AsyncSession, Depends(get_db)]` — drop into FastAPI endpoints.
-
-`get_db` reads `app.state.resources.sessionmaker`; raises 503 `database_not_configured` if missing.
+- An `AUTH_API_KEYS` entry whose digest is a known placeholder token (`WEAK_AUTH_DIGESTS`)
+- Missing `AUTH_API_KEYS` outside dev/local/test (a malformed entry fails in every environment)
 
 ---
 
@@ -132,21 +112,21 @@ from app.core.database import (
 HealthService(
     check_external_dependencies: bool = True,
     checks: tuple[tuple[str, DependencyCheck], ...] = (),
+    check_timeout_seconds: float = 2.0,
 )
 ```
 
-No hardcoded postgres/redis slots. Bootstrap registers what's enabled:
+No hardcoded dependency slots. Each opener registers its own readiness
+check on `resources.health_checks` (a `HealthChecks` registry) as its resource
+comes up, and `build_health_service` hands the registry to `HealthService`:
 
 ```python
-checks = []
-if resources.sessionmaker:
-    checks.append(("postgres", partial(check_postgres_connection, resources.sessionmaker)))
-if resources.redis:
-    checks.append(("redis", partial(check_redis_connection, resources.redis)))
-HealthService(checks=tuple(checks))
+resources.health_checks.register("redis", partial(check_redis_connection, redis))
 ```
 
-Adding a new dependency check (queue, vector DB, etc.) = append one tuple, no code change in `health.py`.
+Checks run concurrently and each is bounded by `HEALTH_CHECK_TIMEOUT_SECONDS`
+(a timeout reports `error`). Adding a dependency check (vector DB, model
+server) = one `register` call in its opener, no change in `health.py`.
 
 ---
 
@@ -167,27 +147,32 @@ Install order is set by `app/bootstrap/middleware.py::install_core_middlewares()
 
 ## resilience.py
 
-Three immutable policies + one stateful object:
+Three immutable policies + one stateful object. "Transient" is defined once
+(`is_transient_error`: 408, 429, 5xx, timeouts, connection errors) and shared by
+retry and the breaker; deterministic 4xx never retries or trips failover.
 
 ```python
 RetryPolicy(
     max_attempts: int,
     retry_status_codes: tuple[int, ...],
     retry_exceptions: bool,
-    backoff_seconds: tuple[float, ...],
+    retry_on: Callable[[BaseException], bool],  # default is_transient_error
+    base_delay_seconds: float,   # capped exponential, full jitter
+    max_delay_seconds: float,
+    rng: Callable[[], float],    # injectable for tests
 )
 # Usage
 decision = policy.decision(attempt=N, status_code=503, error=None)
-# decision.should_retry, decision.next_delay_seconds
+# decision.should_retry, decision.next_delay_seconds (honors Retry-After)
 
-CircuitBreakerPolicy(failure_threshold, failure_status_codes, failure_status_range)
-breaker = policy.build()  # CircuitBreaker (stateful)
-breaker.allows_request() / record_success() / record_failure(status_code=...)
+CircuitBreakerPolicy(failure_threshold, cooldown_seconds)
+breaker = policy.build(clock=...)  # CircuitBreaker: closed -> open -> half-open
+breaker.try_acquire() / record_success() / record_failure(error)
 
 TimeoutPolicy(timeout_seconds: float)  # Used by callers with asyncio.wait_for
 ```
 
-Used by: `messaging/webhooks/dispatcher.py`, `ai/llm/router.py` (circuit breaker for primary→secondary failover), `ai/rag/service.py` (timeout), `ai/evals/runner.py` (timeout), `messaging/outbox/publisher.py`. (Worker retry uses `WORKER_MAX_ATTEMPTS`, not a `RetryPolicy`.)
+Used by: `ai/llm/router.py` (per-target circuit breakers for the ordered failover chain), `ai/rag/service.py` and `ai/rag/factory.py` (timeout), `ai/evals/runner.py` (timeout).
 
 ---
 
@@ -198,7 +183,7 @@ Two functions only:
 - `build_redis_client(settings) -> Redis` — single async client with timeout config
 - `check_redis_connection(redis) -> None` — ping for health check
 
-The client is owned by `app.state.resources.redis` and shared across cache, rate_limit, queue, task store. (Idempotency is postgres-backed via `PostgresIdempotencyStore`, not Redis.) Don't close it from individual modules — bootstrap closes it on shutdown.
+The client is owned by `app.state.resources.redis` and shared across rate_limit, the chat session store, the recommendation stores and the readiness check. Don't close it from individual modules — bootstrap closes it on shutdown.
 
 ---
 
@@ -212,7 +197,7 @@ The request_id flows through:
 1. Response header `X-Request-ID`
 2. Access log line
 3. Error envelope (`{"error": {"request_id": ...}}`)
-4. Audit log records
+4. gRPC tracing (`x-request-id` metadata)
 5. Langfuse trace metadata
 
 ---
@@ -265,7 +250,7 @@ class ListResponse(BaseModel, Generic[ItemT]):
 
 The keyword-only helper `build_list_response(*, items, total, params) -> ListResponse[ItemT]` assembles the `PaginationMeta` from `params` and `total`.
 
-Not yet wired into any endpoint. Template scaffold — use when adding `/list` style endpoints.
+Not wired into any endpoint yet; use it when adding `/list` style endpoints.
 
 ---
 

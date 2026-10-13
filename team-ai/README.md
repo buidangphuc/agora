@@ -1,274 +1,58 @@
 # team-ai
 
-AI serving service for the Agora marketplace. Python 3.12, FastAPI (HTTP) plus a `grpc.aio`
-server that implements the platform-core contract. It is a deployed service (compose service
-`team-ai`, container `team-ai-svc`).
+The AI service of the agora platform. It serves the platform-core gRPC contract on `GRPC_PORT` (production `50060`) and a small FastAPI surface on `:8000`.
 
-**Bounded context / what it owns**
+## Scope
 
-- The AI surface behind the gateway: shopping assistant, magic listing, chat copilot, review
-  summary (`AIService`), RAG search (`SearchService`), streaming chat (`ChatService`) and
-  recommendations (`RecommendationService`).
-- The SPU/SKU tag classifier (HTTP, plus gRPC `ClassifyTags` for the indexer); its registry is persisted in Redis when `TAXONOMY_PERSISTENCE_ENABLED=true`.
-- It owns no business data. Its only database tables are platform plumbing (see Data), and the
-  compose stack runs with `DATABASE_ENABLED=false`.
+- **gRPC** (always on once the app opens its resources): `AIService` (shopping assistant, magic listing, chat copilot, `ClassifyTags`), `ChatService` (`StreamChat`), `RecommendationService` (`Recommend`) and `SearchService` (`SearchListings` only).
+- **HTTP**: `/api/v1/ai/*` (assistant and tag routes), `/api/v1/completions` (sync and SSE), `/healthz`, `/readyz` and `/metrics` (`teamai_grpc_requests_total`, which KEDA scales on).
+- **Always on**: Redis, recommendations (Qdrant), the per-principal rate limit (Redis), the chat reply quota (Redis), taxonomy persistence (Redis database `TAXONOMY_REDIS_DATABASE`), gRPC reflection, graceful drain and the request timeout. Settings fail fast without `REDIS_HOST`.
+- **Four switches**: `CHAT_BACKEND` (`mock` or `llm_router`), `RAG_ENABLED` (Qdrant, model_server embeddings and the Kafka listing indexer), `AI_USE_SCOPE_REQUIRED` and `DOCS_ENABLED`. OpenTelemetry starts when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, Langfuse when both Langfuse keys are set.
+- API-key Bearer auth for HTTP, gateway-forwarded principal metadata for gRPC, and the app shell: request IDs, error envelope, graceful drain.
 
-Most answer logic is deterministic. With `RAG_ENABLED=true`, `ShoppingAssistant` retrieves listings from the RAG store
-the listing indexer feeds and returns each distinct hit as a product card (`listing_id` = the real listing id; see the
-table below). Without a RAG store it matches a demo catalog hard-coded in
-`app/modules/business/ai_assistant/service.py`. `MagicListing`, `ChatCopilot` and `SummarizeReviews` are rule-based. An LLM or an embedding
-server is only reached through opt-in backends (`CHAT_BACKEND=llm_router`,
-`RAG_EMBED_BACKEND=model_server`).
+Deployment manifests live in `platform-gitops`, not here.
 
-## 1. Contract
+## Project layout
 
-Ports: HTTP `8000` (compose publishes `8001:8000`). gRPC is off unless `GRPC_ENABLED=true`; the
-code default port is `50051`, compose sets `50060` (`50060:50060`). The gateway reaches it at
-`team-ai-svc:50060` for `AIService` and `RecommendationService`.
-
-### gRPC (`app/transport/grpc/servicers/`)
-
-| Service / RPC | Authorization | Notes |
-|---|---|---|
-| `platform.ai.v1.AIService` `ClassifyTags` | scope `ai.classify` AND a `service` principal (team-search's indexer); no user role holds the scope; not routed by the gateway | SPU tags plus per-variant tags with facet group and confidence, from the same in-process tag registry as the REST routes. `INVALID_ARGUMENT` for a title under 2 characters. |
-| `platform.ai.v1.AIService` `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews` | none beyond a resolved principal (no scope gate) | Deterministic. Any exception becomes `INTERNAL`. `ShoppingAssistant` with a RAG store: one card per distinct retrieved listing (at most `top_k`, best first, hits under `ASSISTANT_RAG_MIN_SCORE` dropped, title/price/currency from the index, no rating or discount). A retrieval failure still answers `OK` with no cards and a reply saying the catalog could not be searched (never the demo catalog). `RAG_ENABLED=false`: demo catalog. Listings published before the indexer ran appear after `listing.events` is replayed. |
-| `platform.search.v1.SearchService.SearchListings` | scope `search:read` | `UNAVAILABLE` when `RAG_ENABLED=false`. |
-| `platform.chat.v1.ChatService.StreamChat` (server stream) | none beyond a resolved principal | `CHAT_BACKEND=mock` echoes the prompt; `llm_router` streams from the LLM router. Final chunk has `done=true`. |
-| `platform.recommendation.v1.RecommendationService.Recommend` | scope `listing.read` | `UNAVAILABLE` when `RECS_ENABLED=false` or the Qdrant collection contract mismatches. A cache/Qdrant error answers `OK` with the popular list (or empty) and `model_version` `serving-fallback`. Every response carries `placement_id` and a fresh `request_id` (one `recs.served` log line each). `RECS_BACKEND=memory` is refused at boot outside dev/local/test. |
-| `grpc.health.v1.Health`, server reflection | exempt from auth | Health always answers SERVING. Reflection is on unless `GRPC_REFLECTION_ENABLED=false`. |
-
-Auth (`interceptors/auth.py`): if `x-principal-id` is present, the `x-principal-{id,type,scopes}`
-metadata forwarded by team-gateway is trusted as is. Otherwise an `authorization: bearer` token
-is checked against `AUTH_BEARER_TOKEN`.
-
-### HTTP (`app/api/`)
-
-| Route | Auth |
-|---|---|
-| `GET /healthz`, `GET /readyz` (also under `/api/v1`), `GET /metrics` (gRPC request counter) | none |
-| `POST /api/v1/ai/assistant`, `/magic-listing`, `/chat-copilot` | none |
-| `POST /api/v1/ai/tags/classify`, `/tags/classify-sku-hierarchy` (no longer used by team-search's indexer, which calls gRPC `ClassifyTags`); `GET /api/v1/ai/tags` | `Authorization: Bearer` service or admin token: scope `ai.classify` or `admin` (401 without a valid token, 403 without the scope). Not routed by the gateway; a user JWT is not accepted. |
-| `POST /api/v1/ai/tags/explore`, `/tags/promote` (mutate the taxonomy) | bearer token of an `admin` principal (`AUTH_ADMIN_BEARER_TOKEN`); 403 for the service token |
-| `POST /api/v1/completions`, `/completions/stream`, `/completions/tasks`; `GET /completions/tasks/{task_id}` | `require_principal` (bearer) |
-
-`/docs` is served while `DOCS_ENABLED=true` (default). `/readyz` reports postgres, redis and
-mongo checks only for the resources that are enabled.
-
-### Consumes
-
-| What | From | When |
-|---|---|---|
-| Qdrant collection `item_als_vectors` (name, dim 64, Cosine must match) | `platform-recsys` ALS job | `RECS_BACKEND=qdrant` |
-| Redis keys `recs:v1:user:<id>`, `recs:v1:popular`, `recs:v1:model_version` | `platform-recsys` ALS job | `RECS_ENABLED=true` with Redis |
-| Qdrant collection `RAG_QDRANT_COLLECTION` | its own RAG store | `RAG_ENABLED=true`, `RAG_BACKEND=qdrant` |
-| `POST {RAG_EMBED_SERVER_URL}{RAG_EMBED_SERVER_PATH}` with `{"texts": [...]}` | embedding server (for example platform-modelserve) | `RAG_EMBED_BACKEND=model_server` |
-| LLM via LangChain (`CHAT_MODEL`, `CHAT_FALLBACK_MODELS`) | external provider | `CHAT_BACKEND=llm_router`, `ai` extra |
-
-Recommendation placements (`home_feed`, `similar_items`, `cart_cross_sell`) are defined in
-`app/modules/business/recommend/config/placements.yaml` (platform ADR-0012). The ladder for
-`home_feed` is precomputed user list, then seed-vector ANN, then category popular, then global
-popular; the other placements are configured in the same file.
-
-## 2. Events
-
-Consumes `listing.events` (Kafka, `platform.events.v1.EventEnvelope` wrapping
-`platform.listing.v1.ListingChanged`) when `LISTING_INDEXER_ENABLED=true` (needs `RAG_ENABLED=true`
-and the `kafka` extra). `app/modules/messaging/indexer` indexes created/updated published listings
-into the RAG store and removes deleted, draft and rejected ones. Delivery is at-least-once with manual
-commits: a redelivered event is applied once, a failing record is retried `LISTING_INDEXER_MAX_ATTEMPTS`
-times and then parked on `listing.events.dlq`. Settings: `KAFKA_BROKERS`, `LISTING_INDEXER_TOPIC`,
-`LISTING_INDEXER_GROUP`. No producer is wired. The `outbox`, `queue`, `tasks` and `webhooks` modules
-exist but are disabled by default.
-
-## 3. Data
-
-- Postgres is optional (`DATABASE_ENABLED`, default `false`; compose keeps it off). Alembic
-  migrations in `alembic/versions/` create `audit_events`, `idempotency_keys`, `tasks`,
-  `outbox_events`, `quota_counters` and `quota_reservations` (platform plumbing, no domain tables).
-- Apply with `make migrate` (`alembic upgrade head`). The Docker image copies `alembic/` but its
-  `CMD` does not run migrations, and the root compose has no migrate job for team-ai.
-- Tag classifier state (canonical and candidate tags): with `TAXONOMY_PERSISTENCE_ENABLED=true` (needs
-  `REDIS_ENABLED`) it lives in Redis database `TAXONOMY_REDIS_DATABASE` (default 5) as the hashes
-  `tagtax:v1:canonical` and `tagtax:v1:candidates` (`slug -> TagItem JSON`, only changed tags; the code seed is the
-  base layer). It is loaded at startup; `promote` writes before it answers (503 and no change if Redis cannot be
-  written), `explore` writes best effort, and candidates registered by online `classify` are not stored. REST and gRPC
-  share one registry. With the flag off the state is in process memory and lost on restart. The recommendation feature and nearline stores are in-memory too.
-- Redis (`REDIS_ENABLED`) holds the recs lists it reads, plus rate-limit or cache data if those
-  features are enabled.
-
-## 4. Configuration
-
-All settings are in `app/core/config/*.py`, loaded from the environment or `.env`
-(`extra="forbid"`: unknown keys in `.env` fail startup). Only the service-specific ones are
-listed. The platform plumbing flags (`RATE_LIMIT_*`, `CACHE_*`, `QUEUE_*`, `TASKS_*`, `OUTBOX_*`,
-`WEBHOOKS_*`, `OBJECT*`, `MONGO*`, `IDEMPOTENCY_*`, `QUOTA_*`, CORS and timeouts) are all off by
-default and listed in `.env.example`.
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `ENVIRONMENT` | `dev` | `prod` or `production` rejects `DOCS_ENABLED=true`, wildcard CORS or hosts, and a weak `AUTH_BEARER_TOKEN`. |
-| `AUTH_ADMIN_BEARER_TOKEN`, `AUTH_ADMIN_SUBJECT` | `""`, `tag-admin` | Second token for the tag routes: a service principal with `admin` + `ai.classify`. Empty means nobody is admin; outside dev/local/test it must be 24+ characters, not a known weak value and different from `AUTH_BEARER_TOKEN`. The service token's scopes are `AUTH_ROLES` (use `ai.classify` for read-only callers). |
-| `AUTH_BEARER_TOKEN` | `""` | Bearer fallback for HTTP and direct gRPC calls. Required outside dev, local and test. |
-| `GRPC_ENABLED` | `false` | Start gRPC inside the HTTP app lifespan. |
-| `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, `50051` | Bind address. Compose uses `50060`. |
-| `GRPC_REFLECTION_ENABLED`, `GRPC_GRACE_SECONDS` | `true`, `10.0` | |
-| `DATABASE_ENABLED` | `false` | |
-| `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | none (required) | No default: must be set even when the DB is off. |
-| `REDIS_ENABLED` | `false` | |
-| `REDIS_HOST` | none (required) | No default. |
-| `CHAT_BACKEND` | `mock` | `mock` or `llm_router`. |
-| `CHAT_MODEL`, `CHAT_FALLBACK_MODELS`, `JUDGE_CHAT_MODEL` | `""` | LangChain model ids such as `openai:gpt-4.1-mini`. Empty `CHAT_MODEL` means the local fake model. |
-| `LLM_FIRST_TOKEN_TIMEOUT_SECONDS`, `LLM_MAX_ATTEMPTS` | `8.0`, `3` | `llm_router`: each attempt is cancelled when no chunk arrives in time; `LLM_MAX_ATTEMPTS` bounds all pre-first-chunk attempts across the chain (the same target is retried only in a single-target chain). The gRPC deadline caps every wait. |
-| `LLM_BREAKER_THRESHOLD`, `LLM_BREAKER_COOLDOWN_SECONDS` | `3`, `30.0` | Per-target breaker: consecutive 429/5xx/timeout/connection failures open it; after the cooldown one probe request is let through. Request-caused 4xx never count. |
-| `CHAT_SYSTEM_PROMPT` | `""` | System prompt used when Langfuse is off or unreachable; empty means the built-in prompt. |
-| `CHAT_HISTORY_MAX_TURNS`, `CHAT_HISTORY_MAX_TOKENS`, `CHAT_HISTORY_TTL_SECONDS` | `10`, `1500`, `1800` | Earlier exchanges of the same `(principal, session_id)` sent to the model (a turn = one user+assistant exchange; tokens estimated as chars/4). Redis when `REDIS_ENABLED`, else per process. |
-| `LLM_TRACE_CONTENT` | `redacted` | User text in logs and Langfuse traces: `redacted`, `off` or `full` (`full` refused outside dev/local/test). Text sent to the model is always redacted. |
-| `QUOTA_ENABLED`, `QUOTA_BACKEND` | `false`, `memory` | With `llm_router`, one `chat.reply` unit is reserved per reply (server-minted id), finalized after delivery and refunded when nothing was delivered. |
-| `QUOTA_CHAT_REPLIES_PER_WINDOW`, `QUOTA_CHAT_WINDOW_SECONDS` | `200`, `86400` | Chat reply quota per principal. |
-| `GRPC_RATE_LIMIT_ENABLED` | `false` | Per-principal limit on `StreamChat` and `ShoppingAssistant` (`RATE_LIMIT_*`). Refused with `RATE_LIMIT_BACKEND=memory` outside dev/local/test. |
-| `RAG_ENABLED` | `false` (code); `true` in the compose stack | Gates `SearchListings` and grounds `ShoppingAssistant` in the RAG store. Compose turns it on with the `RAG_*`/`LISTING_INDEXER_ENABLED` settings listed in section 5; `platform-e2e/compose/rag-off.override.yaml` turns it off. |
-| `RAG_BACKEND` | `memory` | `memory` or `qdrant`. |
-| `RAG_QDRANT_URL`, `RAG_QDRANT_COLLECTION` | `http://localhost:6333`, `rag_documents` | Used when `RAG_BACKEND=qdrant`. |
-| `RAG_EMBED_BACKEND` | `mock` | `mock` or `model_server`. |
-| `RAG_EMBED_SERVER_URL`, `RAG_EMBED_SERVER_PATH`, `RAG_EMBED_DIM`, `RAG_EMBED_TIMEOUT_SECONDS` | `""`, `/embed`, `384`, `10.0` | Embedding server seam. |
-| `RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP`, `RAG_DEFAULT_TOP_K`, `RAG_MOCK_EMBED_DIM`, `RAG_RETRIEVE_TIMEOUT_SECONDS`, `RAG_EMBED_MODEL` | `512`, `50`, `5`, `16`, `10.0`, `""` | |
-| `TAXONOMY_PERSISTENCE_ENABLED`, `TAXONOMY_REDIS_DATABASE`, `TAXONOMY_REDIS_PREFIX` | `false`, `5`, `tagtax` | Persist the tag taxonomy in Redis (needs `REDIS_ENABLED`; the database must differ from `REDIS_DATABASE`). |
-| `ASSISTANT_RAG_MIN_SCORE` | `0.0` | `ShoppingAssistant` drops RAG hits scoring below this (0 keeps the nearest k; scores are model specific). |
-| `LANGFUSE_ENABLED` | `false` in code, `true` in `.env.example` | Pairs with `make docker-run-langfuse`. Needs the `ai` extra. |
-| `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`, `LANGFUSE_PROMPT_CACHE_TTL_SECONDS` | `""`, `""`, `https://cloud.langfuse.com`, `60` | |
-| `RECS_ENABLED` | `false` | Gates `Recommend`. |
-| `RECS_BACKEND` | `memory` | `memory` (offline fixture) or `qdrant`. |
-| `RECS_QDRANT_URL`, `RECS_QDRANT_COLLECTION` | `http://localhost:6333`, `item_als_vectors` | Must match platform-recsys. |
-| `RECS_VECTOR_DIM`, `RECS_QDRANT_DISTANCE` | `64`, `Cosine` | Collection contract check at startup. |
-| `RECS_CANDIDATE_TOP_K`, `RECS_RESULT_TOP_K` | `100`, `10` | |
-| `RECS_CACHE_PREFIX`, `RECS_CACHE_SCHEMA_VERSION`, `RECS_CACHE_TTL_SECONDS` | `recs`, `v1`, `86400` | Redis key layout `<prefix>:<schema>:user:<id>`. |
-| `RECS_RETRIEVE_TIMEOUT_MS` | `15` | Qdrant fallback latency cap. |
-| `RECS_FEATURESTORE_REDIS_URL` | empty | Redis holding `fs:item_popularity:*` (platform-featurestore). Set: ranking boosts by `ctr_7d` / `favorites_current`; empty: no online features. Local compose uses `redis://redis:6379/2`. |
-| `RECS_MODEL_VERSION` | `serving-fallback` | Replaced by the `model_version` Redis key when present. |
-
-There is no `HOST`, `PORT`, `MODELSERVE_URL` or `QDRANT_URL` setting. Uvicorn takes host and port
-from its CLI (the Dockerfile and `make dev` use `8000`).
-
-Drift gate: `make check-env` (`scripts/check_env_example.py`) fails when `.env.example` and
-`Settings` differ. See Known gaps: it currently fails.
-
-## 5. Run locally
-
-Root compose (from the agora root; it includes the shared infra: Redis, Qdrant, Postgres):
-
-```bash
-docker compose up -d --build team-ai                       # HTTP :8001, gRPC :50060
-docker compose --profile jobs run --rm platform-recsys     # fills Qdrant + Redis for Recommend
+```text
+app/
+  api/                  Versioned FastAPI routers (ai, completions, health)
+  bootstrap/            App factory, platform resources, service composition, gRPC startup
+  core/                 Settings, Redis, errors, logging, health, middleware, gRPC metrics
+  modules/
+    ai/                 llm/ (LangChain + Langfuse), rag/ (LlamaIndex), evals/
+    business/           ai_assistant/, chat/, completions/, recommendation/, tag_classifier/
+    messaging/          kafka/, listing_indexer/
+    platform/           identity/, rate_limit/, quota/, model_server/
+  transport/grpc/       Servicers, interceptors, error mapping, scopes
+proto/                  Vendored platform-core proto contract
+docs/                   usage.md, adr/, agents/
+evals/                  Eval cases for the eval gate
+ops/
+  compose/              Docker Compose stacks: local.yaml, langfuse.yaml, langfuse.env.example
+  mlops/                MLflow local env example
+  observability/        OpenTelemetry collector debug config
+openspec/               Specs and change proposals
+scripts/                gen_proto, check_env_example, run_eval, hash_api_key, smoke runners
+tests/                  Unit and integration tests
 ```
 
-The compose service builds with `UV_EXTRAS="recs ai kafka"` and sets `GRPC_ENABLED=true`,
-`REDIS_ENABLED=true`, `CHAT_BACKEND=mock`, `RECS_ENABLED=true` and `RECS_BACKEND=qdrant`. Until
-the recsys job has run, `Recommend` returns empty results. RAG grounding is **on by default in compose**
-(`RAG_ENABLED=true`, `RAG_BACKEND=qdrant`, collection `rag_documents`, `RAG_EMBED_BACKEND=model_server` through
-the `modelserve-router` + `tei-fake` services, `LISTING_INDEXER_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`),
-so `ShoppingAssistant` returns real listings and `SearchListings` is served. The code default stays
-`RAG_ENABLED=false` (unit tests, standalone). To run compose without RAG (demo catalog,
-`SearchListings` `UNAVAILABLE`) layer `platform-e2e/compose/rag-off.override.yaml`:
-`docker compose -f docker-compose.yaml -f platform-e2e/compose/rag-off.override.yaml up -d --no-deps team-ai`.
-`tei-fake` is a deterministic stand-in (dim 384, no model download); point `TEI_EMBED_URL` of the
-router at a real TEI for real embeddings.
-
-Standalone:
+## Quickstart
 
 ```bash
 cp .env.example .env
 uv sync --dev --all-extras
-make proto                    # generate gRPC stubs first (see Gotchas)
-make dev                      # HTTP :8000, docs at /docs, probe at /healthz
-GRPC_ENABLED=true make dev    # HTTP and gRPC in one process
-make grpc                     # gRPC-only entrypoint (see Known gaps)
-make worker                   # async task worker
+make test
+make dev
+curl http://localhost:8000/healthz
 ```
 
-`docker-compose.local.yaml` (`make docker-run`) is a template-era standalone stack, and
-`make docker-run-langfuse` adds a local Langfuse.
+`make dev` needs a Redis at `REDIS_HOST` and a Qdrant at `RECS_QDRANT_URL`. The compose stack in `ops/compose/local.yaml` brings up the API and Redis. For Docker, configuration, auth and gRPC, see [docs/usage.md](docs/usage.md).
 
-## 6. Build, test and lint
+## Documentation
 
-| Command | What it runs |
-|---|---|
-| `make test` | `pytest -v` (`tests/unit`, `tests/integration`) |
-| `make check` | `ruff check .` and `ruff format --check .` |
-| `make check-env` | `.env.example` vs `Settings` |
-| `make typecheck` | `pyright` |
-| `make eval` | `scripts.run_eval --min-score 0.8` (judge cases skip without `JUDGE_CHAT_MODEL`) |
-| `make ci` | `check`, `check-env`, `typecheck`, `test` |
-| `make migrate`, `make migration-new NAME=...` | Alembic |
-
-`make` targets use `uv run --all-extras`. Production images pick extras with
-`--build-arg UV_EXTRAS=...`: `ai` for LangChain, LlamaIndex and Langfuse, `recs` for the Qdrant
-client.
-
-CI: `.github/workflows/test.yml` runs `uv sync --dev --all-extras`, `pytest -q` and the eval
-gate. `.github/workflows/ci.yaml` is a second job (see Known gaps). Run `make ci` and
-`make eval` before pushing.
-
-## 7. Spec and verification
-
-- `FEATURES.yaml` at the repo root: `ai.shopping-assistant`, `ai.magic-listing`,
-  `ai.chat-copilot`, `ai.tag-classifier-taxonomy`, `ai.summarize-reviews`, and three
-  `recommendations.contract-*` entries.
-- E2E coverage lives in `platform-e2e` (`tests/e2e/features/ai/`,
-  `tests/e2e/features/recommendations/`). Gates, from the agora root:
-  `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
-- Changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC. Relevant
-  changes include `serve-trained-recs-locally` and `add-tag-classifier-filter-enrichment`.
-
-## 8. Gotchas
-
-- `app/transport/grpc/_pb/` is generated and gitignored. A fresh checkout has no stubs and the
-  server will not import until `make proto` runs (the Docker build generates them in its own
-  stage). `RecommendationService` is skipped with a warning if only its stubs are missing.
-- `proto/` is a vendored copy of platform-core `packages/proto`. Never edit it here; copy the new
-  contract from platform-core and run `make proto`. It also contains `listing.v1`, which this
-  service does not serve.
-- Stubs are import-rewritten so that `platform.*` does not shadow Python's stdlib `platform`.
-- In-memory fallbacks: `RAG_BACKEND=memory`, `RAG_EMBED_BACKEND=mock`, `CHAT_BACKEND=mock`,
-  `RECS_BACKEND=memory`, plus the in-memory recommendation feature and nearline stores and the
-  tag store. Defaults never reach a real model or index.
-- The recommendation ranker is a fixed-weight linear scorer (`GBDTRankerAdapter`), not a trained
-  GBDT.
-- Without the `ai` extra, LLM and RAG entry points raise a clear error; the app still boots.
-- `LANGFUSE_ENABLED=true` in `.env.example` differs from the code default (`false`).
-
-## 9. Known gaps
-
-- **`make check-env` fails.** `.env.example` lacks every `RECS_*` setting (13 keys), so
-  `make ci` fails at that step.
-- **`.github/workflows/ci.yaml` is stale.** It runs `pytest tests/test_env_drift.py`, which does
-  not exist, and installs with pip on Python 3.11 while the project requires 3.12.
-- **`ai:use` is not enforced yet.** `MagicListing` and `ChatCopilot` need `listing.write`
-  (`ChatCopilot` also rejects another seller's `seller_id`), `SummarizeReviews` needs
-  `listing.read`, and `AIService` errors are mapped to field names or fixed text. But
-  `ShoppingAssistant` and `StreamChat` stay open to any principal until team-identity grants
-  `ai:use` to buyer, seller and admin and `AI_USE_SCOPE_REQUIRED=true` is set. The HTTP AI
-  routes `/assistant`, `/magic-listing` and `/chat-copilot` still have no auth dependency (the tag routes now do).
-- **`make grpc` (`scripts/run_grpc.py`) does not wire recommendations.** It builds the server
-  without `recommendation_provider`, so `Recommend` answers `UNAVAILABLE` there. Use the HTTP app
-  with `GRPC_ENABLED=true`, as compose does.
-- **gRPC is plaintext** (`add_insecure_port`), and `Check` always reports SERVING regardless of
-  dependency state.
-- **`ShoppingAssistant` needs the indexer running to show real listings.** With `RAG_ENABLED=true` it
-  retrieves from the RAG store (empty until `LISTING_INDEXER_ENABLED=true` has consumed
-  `listing.events`); with `RAG_ENABLED=false` it answers from the demo `CATALOG`. The compose stack runs with
-  `RAG_ENABLED=true` by default (the code default is still `false`).
-- **No gRPC `TagClassifier` service.** `FEATURES.yaml` lists `ai.v1.TagClassifier`, but the proto
-  has no such service; tag classification is HTTP only.
-- **Tag state persistence is opt-in** (`TAXONOMY_PERSISTENCE_ENABLED`). Off, `/tags/promote` results vanish
-  on restart; on, replicas load at startup and on their next mutation, with no live sync between them.
-- **The listing indexer has no input.** `ListingEventIndexer` is not connected to any event
-  source.
-- The root `AGENTS.md` service table lists team-ai as `:8000` and omits gRPC and recommendations.
-
-## 10. Links
-
-- Root `AGENTS.md` (rules) and `README.md` (ASDLC): `../AGENTS.md`, `../README.md`
-- Repo-local agent guide: `AGENTS.md` (points to `.agents/fastapi-template-repo/SKILL.md`)
-- Platform ADRs in `platform-core/docs/ADR/`: `0001-proto-distribution`, `0003-auth-model`,
-  `0010-service-zero-trust`, `0011-model-serving`, `0012-placement-engine`
-- Local ADR: `docs/adr/0001-dgl-listing-generator-migration.md`
+- [docs/usage.md](docs/usage.md): requirements, quickstart, services and routes, Docker, commands, env defaults, bearer auth.
+- [docs/agents/project.md](docs/agents/project.md): feedback loops, checks, and an index of the architecture and AI-engineering docs.
+- [docs/adr/](docs/adr/): architecture decision records.
+- [openspec/](openspec/): specs and change proposals.
+- [ops/compose/local.yaml](ops/compose/local.yaml) and [ops/compose/langfuse.yaml](ops/compose/langfuse.yaml): local Docker stacks.

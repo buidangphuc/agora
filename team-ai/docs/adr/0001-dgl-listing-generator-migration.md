@@ -1,6 +1,6 @@
 # ADR 0001 — Migrating the DGL listing generator onto the AI platform
 
-- **Status:** Accepted (planning)
+- **Status:** Accepted (planning). Superseded: capability removed in team-ai-runtime. The DGL generator code and the Postgres, Mongo, queue and task capabilities this plan relied on no longer exist in this repo; kept as history.
 - **Date:** 2026-06-02
 - **Deciders:** phuc.buidang
 - **Source system:** `bds-genai-dgl` (`/Users/phuc.buidang/Documents/GitHub/bds-genai-dgl`)
@@ -76,11 +76,11 @@ tracker (`build_langfuse_tracker`, `trace_config` callbacks), so the exact
 rendered prompt + tokens are captured per call. Static prompts (e.g.
 `project_summary`) are fetched from Langfuse Prompt Management through a
 `PromptProvider` port; a **file fallback** keeps local/test working when
-`LANGFUSE_ENABLED=false` (the tracker is a no-op and `get_prompt` raises →
+the Langfuse keys unset (the tracker is a no-op and `get_prompt` raises →
 resolved from the packaged `prompts/*.txt`). Dynamic, code-assembled prompts
 (description / pair_address) stay code-driven, versioned via a `PROMPT_VERSION`
-stamped on each listing and captured by tracing. Set `LANGFUSE_ENABLED=true`
-with keys in the DGL deployment.
+stamped on each listing and captured by tracing. Set `LANGFUSE_PUBLIC_KEY` and
+`LANGFUSE_SECRET_KEY` in the DGL deployment.
 
 **Structured output (fast-follow):** moving the LLM call to structured output
 (`with_structured_output`) is the better long-term design and is planned right

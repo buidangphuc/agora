@@ -48,7 +48,6 @@ class _FakeLangfuseClient:
 def prompt_smoke_settings(test_settings: Settings) -> Settings:
     return test_settings.model_copy(
         update={
-            "LANGFUSE_ENABLED": True,
             "LANGFUSE_PUBLIC_KEY": "lf_pk_smoke",
             "LANGFUSE_SECRET_KEY": "lf_sk_smoke",  # pragma: allowlist secret
             "LANGFUSE_BASE_URL": "http://localhost:3000",
@@ -104,37 +103,13 @@ async def test_run_smoke_creates_then_fetches_prompt_and_compiles_variables(
     )
 
 
-async def test_run_smoke_fails_fast_when_langfuse_disabled(
+async def test_run_smoke_fails_fast_without_langfuse_keys(
     monkeypatch: pytest.MonkeyPatch,
     test_settings: Settings,
 ):
     monkeypatch.setattr(
         "scripts.smoke.langfuse_prompt.get_settings",
         lambda: test_settings,
-    )
-
-    with pytest.raises(RuntimeError, match="LANGFUSE_ENABLED is false"):
-        await run_smoke(
-            prompt_name="smoke-prompt",
-            label="production",
-            subject="x",
-        )
-
-
-async def test_run_smoke_requires_credentials_when_enabled(
-    monkeypatch: pytest.MonkeyPatch,
-    test_settings: Settings,
-):
-    settings = test_settings.model_copy(
-        update={
-            "LANGFUSE_ENABLED": True,
-            "LANGFUSE_PUBLIC_KEY": "",
-            "LANGFUSE_SECRET_KEY": "",
-        }
-    )
-    monkeypatch.setattr(
-        "scripts.smoke.langfuse_prompt.get_settings",
-        lambda: settings,
     )
 
     with pytest.raises(RuntimeError, match="LANGFUSE_PUBLIC_KEY"):

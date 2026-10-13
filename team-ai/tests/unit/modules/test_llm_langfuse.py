@@ -1,11 +1,14 @@
-from langchain_core.language_models.fake_chat_models import FakeListChatModel
+from typing import Any, cast
 
 from app.modules.ai.llm.langfuse import (
     LangfuseLLMTracker,
     LLMTraceContext,
     build_langfuse_tracker,
 )
-from app.modules.ai.llm.runtime import build_llm_instance
+
+
+def _fake(client: object) -> Any:
+    return cast(Any, client)
 
 
 class FakeLangfuseClient:
@@ -37,15 +40,13 @@ def test_langfuse_tracker_builds_isolated_callback_config_per_llm_instance():
     support_tracker = LangfuseLLMTracker(
         instance_id="support-answer",
         service_name="support",
-        enabled=True,
-        client=FakeLangfuseClient(),
+        client=_fake(FakeLangfuseClient()),
         callback_handler_factory=callback_factory,
     )
     finance_tracker = LangfuseLLMTracker(
         instance_id="finance-audit",
         service_name="finance",
-        enabled=True,
-        client=FakeLangfuseClient(),
+        client=_fake(FakeLangfuseClient()),
         callback_handler_factory=callback_factory,
     )
 
@@ -84,7 +85,6 @@ def test_disabled_langfuse_tracker_keeps_instance_metadata_without_callbacks():
     tracker = LangfuseLLMTracker(
         instance_id="local-dev",
         service_name="sandbox",
-        enabled=False,
     )
 
     config = tracker.trace_config(LLMTraceContext(run_name="local.run"))
@@ -100,8 +100,7 @@ def test_langfuse_tracker_fetches_prompts_with_cache_and_label_controls():
     tracker = LangfuseLLMTracker(
         instance_id="planner",
         service_name="research",
-        enabled=True,
-        client=client,
+        client=_fake(client),
         prompt_cache_ttl_seconds=300,
     )
 
@@ -121,8 +120,7 @@ def test_langfuse_tracker_records_custom_eval_scores_not_feedback():
     tracker = LangfuseLLMTracker(
         instance_id="judge",
         service_name="eval",
-        enabled=True,
-        client=client,
+        client=_fake(client),
     )
 
     result = tracker.score_trace(
@@ -143,21 +141,6 @@ def test_langfuse_tracker_records_custom_eval_scores_not_feedback():
             "comment": "passes custom eval threshold",
         }
     ]
-
-
-def test_build_langfuse_tracker_requires_credentials_when_enabled(test_settings):
-    settings = test_settings.model_copy(update={"LANGFUSE_ENABLED": True})
-
-    try:
-        build_langfuse_tracker(
-            settings,
-            instance_id="missing-credentials",
-            service_name="test",
-        )
-    except RuntimeError as exc:
-        assert "LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY" in str(exc)
-    else:
-        raise AssertionError("expected missing Langfuse credentials to fail")
 
 
 def test_build_langfuse_tracker_uses_local_env_credentials(
@@ -181,7 +164,6 @@ def test_build_langfuse_tracker_uses_local_env_credentials(
     )
     settings = test_settings.model_copy(
         update={
-            "LANGFUSE_ENABLED": True,
             "LANGFUSE_PUBLIC_KEY": "lf_pk_local_ai_platform",
             "LANGFUSE_SECRET_KEY": "lf_sk_local_ai_platform",  # pragma: allowlist secret
             "LANGFUSE_BASE_URL": "http://localhost:3000",
@@ -194,31 +176,32 @@ def test_build_langfuse_tracker_uses_local_env_credentials(
         service_name="local-service",
     )
 
-    assert tracker.enabled is True
     assert tracker.client is client
 
 
-def test_build_llm_instance_keeps_chat_model_native_and_tracker_separate(
-    monkeypatch,
-    test_settings,
-):
-    def fake_build_chat_model(settings):
-        return FakeListChatModel(responses=["ok"])
-
-    monkeypatch.setattr(
-        "app.modules.ai.llm.runtime.build_chat_model",
-        fake_build_chat_model,
-    )
-
-    instance = build_llm_instance(
+def test_disabled_tracker_has_no_client_and_refuses_prompt_calls(test_settings):
+    tracker = build_langfuse_tracker(
         test_settings,
-        instance_id="search-rerank",
-        service_name="search",
-        tags=("retrieval",),
+        instance_id="off",
+        service_name="test",
     )
-    config = instance.trace_config(LLMTraceContext(run_name="search.rerank"))
 
-    assert isinstance(instance.chat_model, FakeListChatModel)
-    assert instance.tracker.instance_id == "search-rerank"
-    assert instance.tracker.service_name == "search"
-    assert "retrieval" in config["tags"]
+    assert tracker.client is None
+    tracker.flush()  # no client: nothing to flush, must not raise
+    try:
+        tracker.get_prompt("p")
+    except RuntimeError as exc:
+        assert "disabled" in str(exc)
+    else:
+        raise AssertionError("expected get_prompt to fail when disabled")
+
+
+def test_tracker_flush_delegates_to_client():
+    client = FakeLangfuseClient()
+    tracker = LangfuseLLMTracker(
+        instance_id="i", service_name="s", client=_fake(client)
+    )
+
+    tracker.flush()
+
+    assert client.flushed is True

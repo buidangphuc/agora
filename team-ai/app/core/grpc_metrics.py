@@ -1,18 +1,15 @@
 """In-process gRPC request counter, exposed at HTTP ``/metrics`` for Prometheus.
 
-team-ai is IO-bound (it waits on model-server / RAG / network), so CPU is a poor
-autoscaling signal. Request *rate* reflects real load, so we count gRPC calls here
-and let KEDA scale on ``rate(teamai_grpc_requests_total[..])``. No extra dependency —
-asyncio is single-threaded so a plain counter is safe.
+The service is IO-bound, so request rate (not CPU) is the autoscaling signal: KEDA
+scales on ``rate(teamai_grpc_requests_total[..])``. asyncio is single-threaded, so a
+plain counter is safe.
 """
-
-from __future__ import annotations
 
 _total = 0
 
 
 def hit() -> None:
-    """Count one handled gRPC request. Called once per RPC by the interceptor."""
+    """Count one handled gRPC request. Called once per RPC by the tracing interceptor."""
     global _total
     _total += 1
 
@@ -23,3 +20,9 @@ def render() -> str:
         "# TYPE teamai_grpc_requests_total counter\n"
         f"teamai_grpc_requests_total {_total}\n"
     )
+
+
+def reset() -> None:
+    """Test helper: zero the counter."""
+    global _total
+    _total = 0

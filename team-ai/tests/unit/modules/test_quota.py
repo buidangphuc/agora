@@ -1,24 +1,48 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi import FastAPI
+from fakeredis import aioredis
 
+from app.bootstrap.addons.quota import QuotaAddon
 from app.bootstrap.resources import ApplicationResources
 from app.core.errors import RateLimitError
 from app.modules.platform.quota.adapters.memory import MemoryQuotaStore
-from app.modules.platform.quota.factory import QuotaAddon, build_quota_service
+from app.modules.platform.quota.adapters.redis import RedisQuotaStore
+from app.modules.platform.quota.factory import (
+    build_memory_quota_store,
+    build_quota_service,
+)
 from app.modules.platform.quota.models import (
     QuotaPolicy,
     QuotaReservationStatus,
 )
 from app.modules.platform.quota.service import QuotaService, resolve_fixed_window
-from app.modules.platform.quota.store import StaticQuotaPolicyStore
-from tests.factories import build_test_settings
+from app.modules.platform.quota.store import QuotaStore, StaticQuotaPolicyStore
+from tests.factories import build_test_settings, open_addon
 
 RESOURCE = "legacy.description.generate"
+
+# Every store test runs against both stores. ``FakeRedis`` is looked up on the
+# module so ``-p tests.plugins.real_redis`` runs the Redis half on a real server.
+_STORES = {
+    "memory": MemoryQuotaStore,
+    "redis": lambda: RedisQuotaStore(aioredis.FakeRedis(decode_responses=True)),
+}
+_store_kind = "memory"
+
+
+@pytest.fixture(autouse=True, params=list(_STORES))
+def _quota_store_kind(request: pytest.FixtureRequest) -> None:
+    global _store_kind
+    _store_kind = request.param
+
+
+def _new_store() -> QuotaStore:
+    return _STORES[_store_kind]()
 
 
 @dataclass
@@ -43,7 +67,7 @@ def _service(
     )
     clock = MutableClock(datetime(2026, 1, 1, tzinfo=UTC))
     service = QuotaService(
-        store=MemoryQuotaStore(),
+        store=_new_store(),
         policy_store=StaticQuotaPolicyStore({RESOURCE: policy}),
         clock=clock,
     )
@@ -148,7 +172,7 @@ async def test_quota_reset_resource_clears_all_subjects():
 async def test_quota_accepts_explicit_policy_without_policy_store_entry():
     clock = MutableClock(datetime(2026, 1, 1, tzinfo=UTC))
     service = QuotaService(
-        store=MemoryQuotaStore(),
+        store=_new_store(),
         policy_store=StaticQuotaPolicyStore(),
         clock=clock,
     )
@@ -172,24 +196,81 @@ def test_resolve_fixed_window_returns_epoch_bucket_and_reset_at():
     assert window.reset_at == datetime.fromtimestamp(120, tz=UTC)
 
 
-def test_build_quota_service_defaults_to_memory_backend():
-    service = build_quota_service(build_test_settings())
+def test_build_quota_service_wraps_the_given_store():
+    service = build_quota_service(build_memory_quota_store())
 
     assert isinstance(service, QuotaService)
 
 
-def test_build_quota_service_requires_sessionmaker_for_postgres():
-    with pytest.raises(RuntimeError, match="sessionmaker"):
-        build_quota_service(build_test_settings(QUOTA_BACKEND="postgres"))
-
-
 async def test_quota_addon_attaches_and_closes_service():
-    app = FastAPI()
-    resources = ApplicationResources()
+    resources = ApplicationResources(redis=aioredis.FakeRedis(decode_responses=True))
     addon = QuotaAddon()
 
-    await addon.open(app, resources, build_test_settings(QUOTA_ENABLED=True))
+    stack = await open_addon(addon, resources, build_test_settings())
     assert isinstance(resources.quota, QuotaService)
 
-    await addon.close(app, resources)
-    assert resources.quota is None
+    await stack.aclose()
+
+
+# ------------------------------------------------------------ Redis specifics
+
+
+async def test_redis_store_is_atomic_across_concurrent_reserves():
+    redis = aioredis.FakeRedis(decode_responses=True)
+    limit = 5
+    # Separate stores on one Redis: the pods of a deployment.
+    pods = [
+        QuotaService(
+            store=RedisQuotaStore(redis),
+            policy_store=StaticQuotaPolicyStore(
+                {RESOURCE: QuotaPolicy(RESOURCE, limit=limit, window_seconds=60)}
+            ),
+        )
+        for _ in range(4)
+    ]
+
+    async def attempt(pod: QuotaService) -> bool:
+        try:
+            await pod.reserve(subject_id="u1", resource=RESOURCE)
+        except RateLimitError:
+            return False
+        return True
+
+    results = await asyncio.gather(*(attempt(pods[i % 4]) for i in range(40)))
+    usage = await pods[0].get_usage(subject_id="u1", resource=RESOURCE)
+
+    assert sum(results) == limit
+    assert usage.used == limit
+
+
+async def test_redis_store_keys_are_prefixed_and_expire_after_the_window():
+    redis = aioredis.FakeRedis(decode_responses=True)
+    store = RedisQuotaStore(redis, prefix="q", ttl_margin_seconds=100)
+    policy = QuotaPolicy(RESOURCE, limit=2, window_seconds=60)
+    service = QuotaService(
+        store=store, policy_store=StaticQuotaPolicyStore({RESOURCE: policy})
+    )
+
+    await service.reserve(subject_id="u1", resource=RESOURCE, idempotency_key="k")
+
+    keys = [key async for key in redis.scan_iter(match="*")]
+    assert len(keys) == 3
+    assert all(key.startswith("q:") for key in keys)
+    for key in keys:
+        assert 100 <= await redis.ttl(key) <= 160
+
+
+async def test_redis_store_refund_and_finalize_are_terminal():
+    service, _ = _service(limit=2)
+    refunded = await service.reserve(subject_id="u1", resource=RESOURCE)
+    kept = await service.reserve(subject_id="u1", resource=RESOURCE)
+
+    await service.refund(refunded)
+    await service.finalize(kept)
+
+    with pytest.raises(ValueError, match="refunded"):
+        await service.finalize(refunded)
+    with pytest.raises(ValueError, match="finalized"):
+        await service.refund(kept)
+    with pytest.raises(KeyError):
+        await service.finalize("missing")

@@ -1,34 +1,28 @@
 """Auth interceptor: resolve a Principal from gRPC metadata.
 
-Primary path (platform ADR-0003): team-gateway verifies the JWT once at the edge
-and forwards a trusted principal as ``x-principal-{id,type,scopes}`` metadata,
-rebuilt on every hop. When those headers are present we trust them — this is how
-every other platform service authenticates gateway traffic.
+Primary path: the gateway verifies the JWT once at the edge and forwards a trusted
+principal as ``x-principal-{id,type,scopes}`` metadata; when present it is trusted.
 
-Fallback (off by default, ``GRPC_BEARER_FALLBACK_ENABLED``): a direct caller
-(tests, local tooling) may present an ``authorization: bearer`` token, resolved via
-the transport-neutral ``authenticate_bearer_token`` so both surfaces issue the same
-Principal. Startup refuses to enable it outside local environments.
+A call without that metadata is UNAUTHENTICATED: there is no bearer fallback.
 """
 
-from __future__ import annotations
-
-from contextvars import Token
 from typing import Any
 
 import grpc
 
-from app.core.config import Settings
-from app.core.errors import ForbiddenError, UnauthorizedError
-from app.modules.platform.identity.auth import authenticate_bearer_token
 from app.modules.platform.identity.schemas import Principal
-from app.transport.grpc.context import _principal, bind_client_ip
-from app.transport.grpc.interceptors._wrap import wrap_handler
+from app.transport.grpc.context import (
+    bind_client_ip,
+    bind_principal,
+    reset_client_ip,
+    reset_principal,
+)
+from app.transport.grpc.interceptors._wrap import Cleanup, wrap_handler
 
 _PRINCIPAL_TYPES = {"user", "service", "anonymous"}
 
 # Infrastructure services that must answer unauthenticated: the gRPC health check
-# (kubelet liveness/readiness probes carry no token) and server reflection.
+# (kubelet probes carry no token) and server reflection.
 _AUTH_EXEMPT_PREFIXES = ("/grpc.health.v1.Health/", "/grpc.reflection.")
 
 
@@ -37,10 +31,7 @@ def _decode(value: Any) -> str:
 
 
 def _principal_from_metadata(metadata: dict[str, Any]) -> Principal | None:
-    """Build a Principal from gateway-forwarded ``x-principal-*`` metadata.
-
-    Returns None when the gateway headers are absent so the bearer fallback runs.
-    """
+    """Build a Principal from ``x-principal-*`` metadata; None when absent."""
     if "x-principal-id" not in metadata:
         return None
     ptype = _decode(metadata.get("x-principal-type")) or "anonymous"
@@ -51,61 +42,38 @@ def _principal_from_metadata(metadata: dict[str, Any]) -> Principal | None:
         pid = pid or "anonymous"
     scopes_raw = _decode(metadata.get("x-principal-scopes"))
     scopes = tuple(s.strip() for s in scopes_raw.split(",") if s.strip())
-    return Principal(
-        id=pid,
-        type=ptype,  # type: ignore[arg-type]
-        scopes=scopes,
-    )
+    return Principal(id=pid, type=ptype, scopes=scopes)  # type: ignore[arg-type]
 
 
 class AuthInterceptor(grpc.aio.ServerInterceptor):
-    def __init__(self, settings: Settings) -> None:
-        self._settings = settings
-
     async def intercept_service(
-        self,
-        continuation: Any,
-        handler_call_details: Any,
+        self, continuation: Any, handler_call_details: Any
     ) -> Any:
         handler = await continuation(handler_call_details)
         if handler is None:
             return handler
-
-        method = handler_call_details.method or ""
-        if method.startswith(_AUTH_EXEMPT_PREFIXES):
+        if (handler_call_details.method or "").startswith(_AUTH_EXEMPT_PREFIXES):
             return handler
 
-        async def before(context: grpc.aio.ServicerContext) -> Token[Principal | None]:
+        async def before(context: grpc.aio.ServicerContext) -> Cleanup:
             principal = await self._authenticate(context)
             metadata = dict(context.invocation_metadata() or ())
-            bind_client_ip(_decode(metadata.get("x-client-ip")))
-            return _principal.set(principal)
+            principal_token = bind_principal(principal)
+            ip_token = bind_client_ip(_decode(metadata.get("x-client-ip")))
+
+            def cleanup() -> None:
+                reset_client_ip(ip_token)
+                reset_principal(principal_token)
+
+            return cleanup
 
         return wrap_handler(handler, before)
 
     async def _authenticate(self, context: grpc.aio.ServicerContext) -> Principal:
-        metadata = dict(context.invocation_metadata() or ())
-
-        # ADR-0003: trust the principal team-gateway forwards after verifying the
-        # JWT once at the edge.
-        forwarded = _principal_from_metadata(metadata)
-        if forwarded is not None:
-            return forwarded
-
-        if not self._settings.GRPC_BEARER_FALLBACK_ENABLED:
+        forwarded = _principal_from_metadata(dict(context.invocation_metadata() or ()))
+        if forwarded is None:
             await context.abort(
                 grpc.StatusCode.UNAUTHENTICATED, "Missing gateway principal"
             )
             raise AssertionError("unreachable")  # abort raises
-
-        raw = metadata.get("authorization")
-        authorization = raw.decode() if isinstance(raw, bytes) else raw
-        try:
-            return await authenticate_bearer_token(
-                authorization, settings=self._settings
-            )
-        except UnauthorizedError as exc:
-            await context.abort(grpc.StatusCode.UNAUTHENTICATED, exc.message)
-        except ForbiddenError as exc:
-            await context.abort(grpc.StatusCode.PERMISSION_DENIED, exc.message)
-        raise AssertionError("unreachable")  # abort raises
+        return forwarded

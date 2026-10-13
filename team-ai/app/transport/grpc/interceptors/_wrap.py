@@ -1,34 +1,38 @@
-"""Shared helper to wrap a gRPC handler's behavior with a preamble.
+"""Rebuild a gRPC method handler so a preamble runs before the original behavior.
 
-grpc.aio ServerInterceptors receive an ``RpcMethodHandler`` and must return one
-of the same shape (unary/stream) preserving the (de)serializers. This rebuilds
-the handler so unary-unary and unary-stream methods run ``before`` (a coroutine
-that may abort) before the original behavior. Other shapes pass through.
+grpc.aio ServerInterceptors receive an ``RpcMethodHandler`` and must return one of
+the same shape, preserving the (de)serializers. ``before`` is a coroutine that may
+abort and may return a cleanup callable, run in ``finally`` after the call (used to
+reset contextvars bound by the preamble). Unary-unary and unary-stream are wrapped;
+other shapes pass through.
 """
-
-from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, cast
 
 import grpc
 
-Before = Callable[[grpc.aio.ServicerContext], Awaitable[Any]]
+Cleanup = Callable[[], None]
+Before = Callable[[grpc.aio.ServicerContext], Awaitable[Cleanup | None]]
+# grpc-stubs types handler callables with the sync ServicerContext; grpc.aio hands
+# them the aio one, so the wrapped behaviors are re-typed to what they really get.
+_UnaryUnary = Callable[[Any, grpc.aio.ServicerContext], Awaitable[Any]]
+_UnaryStream = Callable[[Any, grpc.aio.ServicerContext], AsyncIterator[Any]]
 
 
 def wrap_handler(
-    handler: grpc.RpcMethodHandler,
-    before: Before,
+    handler: grpc.RpcMethodHandler, before: Before
 ) -> grpc.RpcMethodHandler:
     if handler.unary_unary is not None:
-        inner = handler.unary_unary
+        inner = cast("_UnaryUnary", handler.unary_unary)
 
         async def unary_unary(request: Any, context: grpc.aio.ServicerContext) -> Any:
-            token = await before(context)
+            cleanup = await before(context)
             try:
                 return await inner(request, context)
             finally:
-                _reset(token)
+                if cleanup is not None:
+                    cleanup()
 
         return grpc.unary_unary_rpc_method_handler(
             unary_unary,
@@ -37,18 +41,18 @@ def wrap_handler(
         )
 
     if handler.unary_stream is not None:
-        inner_stream = handler.unary_stream
+        inner_stream = cast("_UnaryStream", handler.unary_stream)
 
         async def unary_stream(
             request: Any, context: grpc.aio.ServicerContext
         ) -> AsyncIterator[Any]:
-            token = await before(context)
+            cleanup = await before(context)
             try:
-                stream = cast("AsyncIterator[Any]", inner_stream(request, context))
-                async for response in stream:
+                async for response in inner_stream(request, context):
                     yield response
             finally:
-                _reset(token)
+                if cleanup is not None:
+                    cleanup()
 
         return grpc.unary_stream_rpc_method_handler(
             unary_stream,
@@ -56,14 +60,4 @@ def wrap_handler(
             response_serializer=handler.response_serializer,
         )
 
-    # stream-unary / stream-stream: not used by team-ai's contract — pass through.
     return handler
-
-
-def _reset(token: Any) -> None:
-    """Reset a contextvar Token if ``before`` returned one."""
-    if token is None:
-        return
-    var = getattr(token, "var", None)
-    if var is not None:
-        var.reset(token)

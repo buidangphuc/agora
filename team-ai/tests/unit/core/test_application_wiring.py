@@ -1,6 +1,8 @@
 from app.bootstrap import application as application_module
 from app.bootstrap.application import create_app
+from app.bootstrap.resources import ApplicationResources
 from app.core.config import Settings
+from app.modules.business.completions.handlers.echo import EchoCompletionHandler
 
 
 def test_completion_http_router_lives_in_api_layer():
@@ -21,36 +23,31 @@ def test_app_wiring_bootstraps_basic_runtime_only(test_settings: Settings):
     app = create_app(settings=test_settings, init_resources=False)
 
     resources = app.state.resources
-    assert resources.engine is None
-    assert resources.sessionmaker is None
     assert resources.redis is None
-    assert resources.queue_gateway is None
-    assert resources.task_store is None
-    assert resources.task_service is None
-    assert resources.cache is None
-    assert resources.objects is None
-    assert resources.idempotency_store is None
-    assert resources.outbox_store is None
     assert resources.principal_rate_limiter is None
-    assert resources.ip_rate_limiter is None
-    assert resources.webhook_signer is None
     assert app.state.health_service is not None
 
 
-def test_app_accepts_completion_handler_as_business_boundary(
+async def test_lifespan_composes_completion_service_from_handler_factory(
     test_settings: Settings,
 ):
-    handler = object()
+    handler = EchoCompletionHandler()
+    seen: list[ApplicationResources] = []
+
+    def factory(resources: ApplicationResources, settings: Settings):
+        seen.append(resources)
+        return handler
 
     app = create_app(
-        completion_handler=handler,
+        completion_handler_factory=factory,
         settings=test_settings,
         init_resources=False,
     )
 
-    pipeline = app.state.resources.completion_pipeline
-    assert pipeline is not None
-    assert pipeline.handler is handler
+    async with app.router.lifespan_context(app):
+        resources = app.state.resources
+        assert seen == [resources]
+        assert resources.completion_service.handler is handler
 
 
 def test_create_app_delegates_middleware_installation(

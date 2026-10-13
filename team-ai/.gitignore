@@ -31,4 +31,11 @@ research/artifacts/generated/
 fastapi_template
 
 # Claude Code: user-specific permissions (not shared with team)
-.claude/settings.local.json
+.claude/
+
+# Generated gRPC stubs (make proto)
+app/transport/grpc/_pb/
+
+# Coverage
+.coverage
+.coverage.*

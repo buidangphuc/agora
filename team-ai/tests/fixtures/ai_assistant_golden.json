@@ -1,0 +1,1402 @@
+{
+  "source": "team-ai@f9c8d167",
+  "cases": [
+    {
+      "flow": "shopping",
+      "name": "demo_fashion",
+      "request": {
+        "message": "áo thun cotton"
+      },
+      "rag": null,
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"áo thun cotton\", AI Assistant gợi ý cho bạn 4 sản phẩm tốt nhất. Nổi bật nhất là **Áo Thun Cotton 100% Unisex Form Rộng Oversize Thoáng Mát** với giá chỉ **149,000đ** (20% giảm giá, đánh giá 4.9/5 (1.2k đánh giá)). Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết và đặt hàng nhé!",
+        "product_cards": [
+          {
+            "listing_id": "prod-101",
+            "title": "Áo Thun Cotton 100% Unisex Form Rộng Oversize Thoáng Mát",
+            "price": 149000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500",
+            "discount_rate": 20,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (1.2k đánh giá)"
+          },
+          {
+            "listing_id": "prod-102",
+            "title": "Áo Khoác Bomber Kaki 2 Lớp Chống Gió Chống Nước Phong Cách Hàn Quốc",
+            "price": 289000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500",
+            "discount_rate": 15,
+            "rating": 4.8,
+            "rating_text": "4.8/5 (850 đánh giá)"
+          },
+          {
+            "listing_id": "prod-104",
+            "title": "Giày Sneaker Thể Thao Nam Nữ Đế Êm Chạy Bộ Đi Học Thời Trang",
+            "price": 350000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=500",
+            "discount_rate": 25,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (2.5k đánh giá)"
+          },
+          {
+            "listing_id": "prod-301",
+            "title": "Bình Giữ Nhiệt Inox 316 Cao Cấp Giữ Nóng Lạnh 24H Dung Tích 800ml",
+            "price": 185000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=500",
+            "discount_rate": 20,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (4.2k đánh giá)"
+          }
+        ],
+        "suggested_followups": [
+          "Sản phẩm này có những size và màu nào?",
+          "Có mã freeship hoặc giảm giá thêm không shop?",
+          "Chính sách đổi trả size như thế nào?"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "demo_tech",
+      "request": {
+        "message": "tai nghe bluetooth",
+        "top_k": 2
+      },
+      "rag": null,
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"tai nghe bluetooth\", AI Assistant gợi ý cho bạn 2 sản phẩm tốt nhất. Nổi bật nhất là **Tai Nghe Bluetooth True Wireless TWS Chống Ồn ENC Pin Trâu 30H** với giá chỉ **320,000đ** (30% giảm giá, đánh giá 4.8/5 (3.1k đánh giá)). Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết và đặt hàng nhé!",
+        "product_cards": [
+          {
+            "listing_id": "prod-201",
+            "title": "Tai Nghe Bluetooth True Wireless TWS Chống Ồn ENC Pin Trâu 30H",
+            "price": 320000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500",
+            "discount_rate": 30,
+            "rating": 4.8,
+            "rating_text": "4.8/5 (3.1k đánh giá)"
+          },
+          {
+            "listing_id": "prod-202",
+            "title": "Bàn Phím Cơ Không Dây Bluetooth 3 Chế Độ RGB Hot-swap Gasket Mount",
+            "price": 650000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=500",
+            "discount_rate": 18,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (920 đánh giá)"
+          }
+        ],
+        "suggested_followups": [
+          "Sản phẩm có được bảo hành chính hãng bao lâu?",
+          "Có hỗ trợ kết nối cả iOS và Android không?",
+          "Giao hàng nhanh trong ngày được không shop?"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "demo_beauty",
+      "request": {
+        "message": "kem chống nắng"
+      },
+      "rag": null,
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"kem chống nắng\", AI Assistant gợi ý cho bạn 4 sản phẩm tốt nhất. Nổi bật nhất là **Kem Chống Nắng Nâng Tông Kiềm Dầu SPF 50+ PA++++ Cho Da Dầu Mụn 50ml** với giá chỉ **195,000đ** (10% giảm giá, đánh giá 4.9/5 (5.6k đánh giá)). Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết và đặt hàng nhé!",
+        "product_cards": [
+          {
+            "listing_id": "prod-401",
+            "title": "Kem Chống Nắng Nâng Tông Kiềm Dầu SPF 50+ PA++++ Cho Da Dầu Mụn 50ml",
+            "price": 195000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=500",
+            "discount_rate": 10,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (5.6k đánh giá)"
+          },
+          {
+            "listing_id": "prod-102",
+            "title": "Áo Khoác Bomber Kaki 2 Lớp Chống Gió Chống Nước Phong Cách Hàn Quốc",
+            "price": 289000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500",
+            "discount_rate": 15,
+            "rating": 4.8,
+            "rating_text": "4.8/5 (850 đánh giá)"
+          },
+          {
+            "listing_id": "prod-201",
+            "title": "Tai Nghe Bluetooth True Wireless TWS Chống Ồn ENC Pin Trâu 30H",
+            "price": 320000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500",
+            "discount_rate": 30,
+            "rating": 4.8,
+            "rating_text": "4.8/5 (3.1k đánh giá)"
+          },
+          {
+            "listing_id": "prod-204",
+            "title": "Củ Sạc Nhanh GaN 65W 3 Cổng Type-C & USB-A Đa Năng Cho Laptop Điện Thoại",
+            "price": 275000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=500",
+            "discount_rate": 22,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (1.8k đánh giá)"
+          }
+        ],
+        "suggested_followups": [
+          "Sản phẩm này phù hợp cho loại da nào?",
+          "Cách sử dụng mang lại hiệu quả tốt nhất?",
+          "Cam kết hàng chính hãng 100% không shop?"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "demo_default_followups",
+      "request": {
+        "message": "bình giữ nhiệt",
+        "user_id": "u-1",
+        "previous_context": [
+          "xin chào"
+        ]
+      },
+      "rag": null,
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"bình giữ nhiệt\", AI Assistant gợi ý cho bạn 1 sản phẩm tốt nhất. Nổi bật nhất là **Bình Giữ Nhiệt Inox 316 Cao Cấp Giữ Nóng Lạnh 24H Dung Tích 800ml** với giá chỉ **185,000đ** (20% giảm giá, đánh giá 4.9/5 (4.2k đánh giá)). Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết và đặt hàng nhé!",
+        "product_cards": [
+          {
+            "listing_id": "prod-301",
+            "title": "Bình Giữ Nhiệt Inox 316 Cao Cấp Giữ Nóng Lạnh 24H Dung Tích 800ml",
+            "price": 185000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=500",
+            "discount_rate": 20,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (4.2k đánh giá)"
+          }
+        ],
+        "suggested_followups": [
+          "Shop có sẵn hàng để giao ngay không?",
+          "Có được kiểm tra hàng trước khi thanh toán không?",
+          "Tư vấn thêm cho mình các sản phẩm tương tự nhé!"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "demo_price_under_300k",
+      "request": {
+        "message": "áo dưới 300k"
+      },
+      "rag": null,
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"áo dưới 300k\", AI Assistant gợi ý cho bạn 4 sản phẩm tốt nhất. Nổi bật nhất là **Áo Thun Cotton 100% Unisex Form Rộng Oversize Thoáng Mát** với giá chỉ **149,000đ** (20% giảm giá, đánh giá 4.9/5 (1.2k đánh giá)). Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết và đặt hàng nhé!",
+        "product_cards": [
+          {
+            "listing_id": "prod-101",
+            "title": "Áo Thun Cotton 100% Unisex Form Rộng Oversize Thoáng Mát",
+            "price": 149000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500",
+            "discount_rate": 20,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (1.2k đánh giá)"
+          },
+          {
+            "listing_id": "prod-102",
+            "title": "Áo Khoác Bomber Kaki 2 Lớp Chống Gió Chống Nước Phong Cách Hàn Quốc",
+            "price": 289000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500",
+            "discount_rate": 15,
+            "rating": 4.8,
+            "rating_text": "4.8/5 (850 đánh giá)"
+          },
+          {
+            "listing_id": "prod-301",
+            "title": "Bình Giữ Nhiệt Inox 316 Cao Cấp Giữ Nóng Lạnh 24H Dung Tích 800ml",
+            "price": 185000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=500",
+            "discount_rate": 20,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (4.2k đánh giá)"
+          },
+          {
+            "listing_id": "prod-103",
+            "title": "Quần Jean Nam Ống Suông Baggy Denim Co Giãn Trẻ Trung",
+            "price": 239000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1542272604-780c96856592?w=500",
+            "discount_rate": 10,
+            "rating": 4.7,
+            "rating_text": "4.7/5 (620 đánh giá)"
+          }
+        ],
+        "suggested_followups": [
+          "Sản phẩm này có những size và màu nào?",
+          "Có mã freeship hoặc giảm giá thêm không shop?",
+          "Chính sách đổi trả size như thế nào?"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "demo_price_numeric",
+      "request": {
+        "message": "giày dưới 400000",
+        "top_k": 3
+      },
+      "rag": null,
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"giày dưới 400000\", AI Assistant gợi ý cho bạn 3 sản phẩm tốt nhất. Nổi bật nhất là **Giày Sneaker Thể Thao Nam Nữ Đế Êm Chạy Bộ Đi Học Thời Trang** với giá chỉ **350,000đ** (25% giảm giá, đánh giá 4.9/5 (2.5k đánh giá)). Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết và đặt hàng nhé!",
+        "product_cards": [
+          {
+            "listing_id": "prod-104",
+            "title": "Giày Sneaker Thể Thao Nam Nữ Đế Êm Chạy Bộ Đi Học Thời Trang",
+            "price": 350000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=500",
+            "discount_rate": 25,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (2.5k đánh giá)"
+          },
+          {
+            "listing_id": "prod-101",
+            "title": "Áo Thun Cotton 100% Unisex Form Rộng Oversize Thoáng Mát",
+            "price": 149000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500",
+            "discount_rate": 20,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (1.2k đánh giá)"
+          },
+          {
+            "listing_id": "prod-102",
+            "title": "Áo Khoác Bomber Kaki 2 Lớp Chống Gió Chống Nước Phong Cách Hàn Quốc",
+            "price": 289000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500",
+            "discount_rate": 15,
+            "rating": 4.8,
+            "rating_text": "4.8/5 (850 đánh giá)"
+          }
+        ],
+        "suggested_followups": [
+          "Sản phẩm này có những size và màu nào?",
+          "Có mã freeship hoặc giảm giá thêm không shop?",
+          "Chính sách đổi trả size như thế nào?"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "demo_no_match",
+      "request": {
+        "message": "zzzz qqqq"
+      },
+      "rag": null,
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"zzzz qqqq\", AI Assistant gợi ý cho bạn 4 sản phẩm tốt nhất. Nổi bật nhất là **Áo Thun Cotton 100% Unisex Form Rộng Oversize Thoáng Mát** với giá chỉ **149,000đ** (20% giảm giá, đánh giá 4.9/5 (1.2k đánh giá)). Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết và đặt hàng nhé!",
+        "product_cards": [
+          {
+            "listing_id": "prod-101",
+            "title": "Áo Thun Cotton 100% Unisex Form Rộng Oversize Thoáng Mát",
+            "price": 149000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500",
+            "discount_rate": 20,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (1.2k đánh giá)"
+          },
+          {
+            "listing_id": "prod-102",
+            "title": "Áo Khoác Bomber Kaki 2 Lớp Chống Gió Chống Nước Phong Cách Hàn Quốc",
+            "price": 289000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=500",
+            "discount_rate": 15,
+            "rating": 4.8,
+            "rating_text": "4.8/5 (850 đánh giá)"
+          },
+          {
+            "listing_id": "prod-103",
+            "title": "Quần Jean Nam Ống Suông Baggy Denim Co Giãn Trẻ Trung",
+            "price": 239000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1542272604-780c96856592?w=500",
+            "discount_rate": 10,
+            "rating": 4.7,
+            "rating_text": "4.7/5 (620 đánh giá)"
+          },
+          {
+            "listing_id": "prod-104",
+            "title": "Giày Sneaker Thể Thao Nam Nữ Đế Êm Chạy Bộ Đi Học Thời Trang",
+            "price": 350000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=500",
+            "discount_rate": 25,
+            "rating": 4.9,
+            "rating_text": "4.9/5 (2.5k đánh giá)"
+          }
+        ],
+        "suggested_followups": [
+          "Shop có sẵn hàng để giao ngay không?",
+          "Có được kiểm tra hàng trước khi thanh toán không?",
+          "Tư vấn thêm cho mình các sản phẩm tương tự nhé!"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "demo_message_whitespace",
+      "request": {
+        "message": "  chuột gaming  ",
+        "top_k": 1
+      },
+      "rag": null,
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"chuột gaming\", AI Assistant gợi ý cho bạn 1 sản phẩm tốt nhất. Nổi bật nhất là **Chuột Gaming Không Dây Siêu Nhẹ 59g Cảm Biến Quang Học 26K DPI** với giá chỉ **420,000đ** (12% giảm giá, đánh giá 4.8/5 (780 đánh giá)). Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết và đặt hàng nhé!",
+        "product_cards": [
+          {
+            "listing_id": "prod-203",
+            "title": "Chuột Gaming Không Dây Siêu Nhẹ 59g Cảm Biến Quang Học 26K DPI",
+            "price": 420000,
+            "currency": "VND",
+            "image_url": "https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=500",
+            "discount_rate": 12,
+            "rating": 4.8,
+            "rating_text": "4.8/5 (780 đánh giá)"
+          }
+        ],
+        "suggested_followups": [
+          "Sản phẩm có được bảo hành chính hãng bao lâu?",
+          "Có hỗ trợ kết nối cả iOS và Android không?",
+          "Giao hàng nhanh trong ngày được không shop?"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "rag_duplicate_chunks",
+      "request": {
+        "message": "laptop",
+        "top_k": 5
+      },
+      "rag": {
+        "min_score": 0.0,
+        "raises": false,
+        "nodes": [
+          {
+            "listing_id": "A",
+            "metadata": {
+              "listing_id": "A",
+              "title": "Sản phẩm A",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.9
+          },
+          {
+            "listing_id": "A",
+            "metadata": {
+              "listing_id": "A",
+              "title": "Sản phẩm A",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.95
+          },
+          {
+            "listing_id": "B",
+            "metadata": {
+              "listing_id": "B",
+              "title": "Sản phẩm B",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.8
+          },
+          {
+            "listing_id": "A",
+            "metadata": {
+              "listing_id": "A",
+              "title": "Sản phẩm A",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.5
+          }
+        ]
+      },
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"laptop\", AI Assistant tìm thấy 2 sản phẩm phù hợp. Nổi bật nhất là **Sản phẩm A** với giá **100,000đ**. Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết nhé!",
+        "product_cards": [
+          {
+            "listing_id": "A",
+            "title": "Sản phẩm A",
+            "price": 100000,
+            "currency": "VND",
+            "image_url": "",
+            "discount_rate": 0,
+            "rating": 4.8,
+            "rating_text": ""
+          },
+          {
+            "listing_id": "B",
+            "title": "Sản phẩm B",
+            "price": 100000,
+            "currency": "VND",
+            "image_url": "",
+            "discount_rate": 0,
+            "rating": 4.8,
+            "rating_text": ""
+          }
+        ],
+        "suggested_followups": [
+          "Shop có sẵn hàng để giao ngay không?",
+          "Có được kiểm tra hàng trước khi thanh toán không?",
+          "Tư vấn thêm cho mình các sản phẩm tương tự nhé!"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "rag_below_min_score",
+      "request": {
+        "message": "laptop",
+        "top_k": 10
+      },
+      "rag": {
+        "min_score": 0.3,
+        "raises": false,
+        "nodes": [
+          {
+            "listing_id": "A",
+            "metadata": {
+              "listing_id": "A",
+              "title": "Sản phẩm A",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.9
+          },
+          {
+            "listing_id": "B",
+            "metadata": {
+              "listing_id": "B",
+              "title": "Sản phẩm B",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.8
+          },
+          {
+            "listing_id": "C",
+            "metadata": {
+              "listing_id": "C",
+              "title": "Sản phẩm C",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.7
+          },
+          {
+            "listing_id": "D",
+            "metadata": {
+              "listing_id": "D",
+              "title": "Sản phẩm D",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.1
+          }
+        ]
+      },
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"laptop\", AI Assistant tìm thấy 3 sản phẩm phù hợp. Nổi bật nhất là **Sản phẩm A** với giá **100,000đ**. Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết nhé!",
+        "product_cards": [
+          {
+            "listing_id": "A",
+            "title": "Sản phẩm A",
+            "price": 100000,
+            "currency": "VND",
+            "image_url": "",
+            "discount_rate": 0,
+            "rating": 4.8,
+            "rating_text": ""
+          },
+          {
+            "listing_id": "B",
+            "title": "Sản phẩm B",
+            "price": 100000,
+            "currency": "VND",
+            "image_url": "",
+            "discount_rate": 0,
+            "rating": 4.8,
+            "rating_text": ""
+          },
+          {
+            "listing_id": "C",
+            "title": "Sản phẩm C",
+            "price": 100000,
+            "currency": "VND",
+            "image_url": "",
+            "discount_rate": 0,
+            "rating": 4.8,
+            "rating_text": ""
+          }
+        ],
+        "suggested_followups": [
+          "Shop có sẵn hàng để giao ngay không?",
+          "Có được kiểm tra hàng trước khi thanh toán không?",
+          "Tư vấn thêm cho mình các sản phẩm tương tự nhé!"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "rag_top_k_bounded_and_ordered",
+      "request": {
+        "message": "laptop",
+        "top_k": 2
+      },
+      "rag": {
+        "min_score": 0.0,
+        "raises": false,
+        "nodes": [
+          {
+            "listing_id": "X",
+            "metadata": {
+              "listing_id": "X",
+              "title": "Sản phẩm X",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.2
+          },
+          {
+            "listing_id": "Y",
+            "metadata": {
+              "listing_id": "Y",
+              "title": "Sản phẩm Y",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.9
+          },
+          {
+            "listing_id": "Z",
+            "metadata": {
+              "listing_id": "Z",
+              "title": "Sản phẩm Z",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.5
+          },
+          {
+            "listing_id": "W",
+            "metadata": {
+              "listing_id": "W",
+              "title": "Sản phẩm W",
+              "price": 100000.0,
+              "currency": "VND"
+            },
+            "score": 0.7
+          }
+        ]
+      },
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"laptop\", AI Assistant tìm thấy 2 sản phẩm phù hợp. Nổi bật nhất là **Sản phẩm Y** với giá **100,000đ**. Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết nhé!",
+        "product_cards": [
+          {
+            "listing_id": "Y",
+            "title": "Sản phẩm Y",
+            "price": 100000,
+            "currency": "VND",
+            "image_url": "",
+            "discount_rate": 0,
+            "rating": 4.8,
+            "rating_text": ""
+          },
+          {
+            "listing_id": "W",
+            "title": "Sản phẩm W",
+            "price": 100000,
+            "currency": "VND",
+            "image_url": "",
+            "discount_rate": 0,
+            "rating": 4.8,
+            "rating_text": ""
+          }
+        ],
+        "suggested_followups": [
+          "Shop có sẵn hàng để giao ngay không?",
+          "Có được kiểm tra hàng trước khi thanh toán không?",
+          "Tư vấn thêm cho mình các sản phẩm tương tự nhé!"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "rag_document_id_and_missing_meta",
+      "request": {
+        "message": "serum",
+        "top_k": 4
+      },
+      "rag": {
+        "min_score": 0.0,
+        "raises": false,
+        "nodes": [
+          {
+            "listing_id": "n1",
+            "metadata": {
+              "document_id": "doc-9",
+              "title": "Serum",
+              "price": "245000",
+              "currency": ""
+            },
+            "score": 0.6
+          },
+          {
+            "listing_id": "n2",
+            "metadata": {
+              "listing_id": "L-2",
+              "price": "abc"
+            },
+            "score": 0.4
+          },
+          {
+            "listing_id": "n3",
+            "metadata": {
+              "title": "no id"
+            },
+            "score": 0.9
+          }
+        ]
+      },
+      "response": {
+        "reply_text": "Dạ chào bạn! Dựa trên tìm kiếm \"serum\", AI Assistant tìm thấy 2 sản phẩm phù hợp. Nổi bật nhất là **Serum** với giá **245,000đ**. Bạn tham khảo các thẻ sản phẩm bên dưới để xem chi tiết nhé!",
+        "product_cards": [
+          {
+            "listing_id": "doc-9",
+            "title": "Serum",
+            "price": 245000,
+            "currency": "VND",
+            "image_url": "",
+            "discount_rate": 0,
+            "rating": 4.8,
+            "rating_text": ""
+          },
+          {
+            "listing_id": "L-2",
+            "title": "",
+            "price": 0,
+            "currency": "VND",
+            "image_url": "",
+            "discount_rate": 0,
+            "rating": 4.8,
+            "rating_text": ""
+          }
+        ],
+        "suggested_followups": [
+          "Sản phẩm này phù hợp cho loại da nào?",
+          "Cách sử dụng mang lại hiệu quả tốt nhất?",
+          "Cam kết hàng chính hãng 100% không shop?"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "rag_empty_result",
+      "request": {
+        "message": "laptop"
+      },
+      "rag": {
+        "min_score": 0.0,
+        "raises": false,
+        "nodes": []
+      },
+      "response": {
+        "reply_text": "Dạ chào bạn! Hiện tại mình chưa tìm thấy sản phẩm chính xác cho yêu cầu \"laptop\". Bạn có thể thử tìm với các từ khóa phổ biến như 'áo thun', 'tai nghe', 'giày sneaker', hoặc 'bình giữ nhiệt' nha!",
+        "product_cards": [],
+        "suggested_followups": [
+          "Shop có sẵn hàng để giao ngay không?",
+          "Có được kiểm tra hàng trước khi thanh toán không?",
+          "Tư vấn thêm cho mình các sản phẩm tương tự nhé!"
+        ]
+      }
+    },
+    {
+      "flow": "shopping",
+      "name": "rag_raises",
+      "request": {
+        "message": "laptop"
+      },
+      "rag": {
+        "min_score": 0.0,
+        "raises": true,
+        "nodes": []
+      },
+      "response": {
+        "reply_text": "Dạ xin lỗi bạn, hiện mình chưa tra cứu được kho sản phẩm nên chưa gợi ý được sản phẩm cụ thể. Bạn thử lại sau ít phút hoặc mô tả thêm nhu cầu để mình tư vấn nhé!",
+        "product_cards": [],
+        "suggested_followups": [
+          "Shop có sẵn hàng để giao ngay không?",
+          "Có được kiểm tra hàng trước khi thanh toán không?",
+          "Tư vấn thêm cho mình các sản phẩm tương tự nhé!"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "category_fashion",
+      "request": {
+        "title_hint": "áo thun nam"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "[Áo Thun Nam] Form Rộng Unisex Cao Cấp Thoáng Mát Chuẩn Xu Hướng",
+        "generated_description": "### 🌟 **[Áo Thun Nam] Form Rộng Unisex Cao Cấp Thoáng Mát Chuẩn Xu Hướng**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **áo thun nam** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Thời Trang & Phụ Kiện\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-fashion",
+        "suggested_price_min": 120000,
+        "suggested_price_max": 250000,
+        "highlight_tags": [
+          "áo",
+          "thun",
+          "nam",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "category_electronics",
+      "request": {
+        "title_hint": "tai nghe bluetooth"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "Tai Nghe Bluetooth Chính Hãng - Bảo Hành 12 Tháng - Thiết Kế Hiện Đại",
+        "generated_description": "### 🌟 **Tai Nghe Bluetooth Chính Hãng - Bảo Hành 12 Tháng - Thiết Kế Hiện Đại**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **tai nghe bluetooth** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Thiết Bị Điện Tử & Phụ Kiện\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-electronics",
+        "suggested_price_min": 250000,
+        "suggested_price_max": 490000,
+        "highlight_tags": [
+          "tai",
+          "nghe",
+          "bluetooth",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "category_home_living",
+      "request": {
+        "title_hint": "bình giữ nhiệt"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "Bình Giữ Nhiệt Đa Năng Tiện Lợi Chất Liệu Cao Cấp Độ Bền Cao",
+        "generated_description": "### 🌟 **Bình Giữ Nhiệt Đa Năng Tiện Lợi Chất Liệu Cao Cấp Độ Bền Cao**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **bình giữ nhiệt** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Nhà Cửa & Đời Sống\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-home-living",
+        "suggested_price_min": 99000,
+        "suggested_price_max": 220000,
+        "highlight_tags": [
+          "bình",
+          "giữ",
+          "nhiệt",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "category_beauty",
+      "request": {
+        "title_hint": "serum dưỡng da"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "Serum Dưỡng Da Dưỡng Ẩm Chuyên Sâu Chính Hãng An Toàn Mọi Loại Da",
+        "generated_description": "### 🌟 **Serum Dưỡng Da Dưỡng Ẩm Chuyên Sâu Chính Hãng An Toàn Mọi Loại Da**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **serum dưỡng da** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Sức Khỏe & Sắc Đẹp\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-beauty",
+        "suggested_price_min": 180000,
+        "suggested_price_max": 350000,
+        "highlight_tags": [
+          "serum",
+          "dưỡng",
+          "da",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "quirk_kem_substring_ke_matches_home",
+      "request": {
+        "title_hint": "kem chống nắng"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "Kem Chống Nắng Đa Năng Tiện Lợi Chất Liệu Cao Cấp Độ Bền Cao",
+        "generated_description": "### 🌟 **Kem Chống Nắng Đa Năng Tiện Lợi Chất Liệu Cao Cấp Độ Bền Cao**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **kem chống nắng** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Nhà Cửa & Đời Sống\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-home-living",
+        "suggested_price_min": 180000,
+        "suggested_price_max": 350000,
+        "highlight_tags": [
+          "kem",
+          "chống",
+          "nắng",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "category_sports",
+      "request": {
+        "title_hint": "vợt cầu lông"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "Vợt Cầu Lông Cao Cấp Chính Hãng - Tiện Lợi Đa Năng Giá Tốt",
+        "generated_description": "### 🌟 **Vợt Cầu Lông Cao Cấp Chính Hãng - Tiện Lợi Đa Năng Giá Tốt**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **vợt cầu lông** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Thể Thao & Dã Ngoại\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-sports",
+        "suggested_price_min": 150000,
+        "suggested_price_max": 350000,
+        "highlight_tags": [
+          "vợt",
+          "cầu",
+          "lông",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "category_general",
+      "request": {
+        "title_hint": "xyz"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "Xyz Cao Cấp Chính Hãng - Tiện Lợi Đa Năng Giá Tốt",
+        "generated_description": "### 🌟 **Xyz Cao Cấp Chính Hãng - Tiện Lợi Đa Năng Giá Tốt**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **xyz** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Sản Phẩm Tổng Hợp\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-general",
+        "suggested_price_min": 150000,
+        "suggested_price_max": 350000,
+        "highlight_tags": [
+          "xyz",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "category_hint_explicit",
+      "request": {
+        "title_hint": "tai nghe",
+        "category_hint": "cat-custom",
+        "image_url": "https://x/y.png"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "Tai Nghe Cao Cấp Chính Hãng - Tiện Lợi Đa Năng Giá Tốt",
+        "generated_description": "### 🌟 **Tai Nghe Cao Cấp Chính Hãng - Tiện Lợi Đa Năng Giá Tốt**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **tai nghe** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** cat-custom\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-custom",
+        "suggested_price_min": 250000,
+        "suggested_price_max": 490000,
+        "highlight_tags": [
+          "tai",
+          "nghe",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "price_ban_phim",
+      "request": {
+        "title_hint": "bàn phím cơ"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "Bàn Phím Cơ Chính Hãng - Bảo Hành 12 Tháng - Thiết Kế Hiện Đại",
+        "generated_description": "### 🌟 **Bàn Phím Cơ Chính Hãng - Bảo Hành 12 Tháng - Thiết Kế Hiện Đại**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **bàn phím cơ** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Thiết Bị Điện Tử & Phụ Kiện\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-electronics",
+        "suggested_price_min": 450000,
+        "suggested_price_max": 950000,
+        "highlight_tags": [
+          "bàn",
+          "phím",
+          "cơ",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "price_ao_khoac",
+      "request": {
+        "title_hint": "áo khoác bomber"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "[Áo Khoác Bomber] Form Rộng Unisex Cao Cấp Thoáng Mát Chuẩn Xu Hướng",
+        "generated_description": "### 🌟 **[Áo Khoác Bomber] Form Rộng Unisex Cao Cấp Thoáng Mát Chuẩn Xu Hướng**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **áo khoác bomber** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Thời Trang & Phụ Kiện\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-fashion",
+        "suggested_price_min": 290000,
+        "suggested_price_max": 550000,
+        "highlight_tags": [
+          "áo",
+          "khoác",
+          "bomber",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "price_serum",
+      "request": {
+        "title_hint": "serum vitamin c"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "Serum Vitamin C Dưỡng Ẩm Chuyên Sâu Chính Hãng An Toàn Mọi Loại Da",
+        "generated_description": "### 🌟 **Serum Vitamin C Dưỡng Ẩm Chuyên Sâu Chính Hãng An Toàn Mọi Loại Da**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **serum vitamin c** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Sức Khỏe & Sắc Đẹp\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-beauty",
+        "suggested_price_min": 180000,
+        "suggested_price_max": 350000,
+        "highlight_tags": [
+          "serum",
+          "vitamin",
+          "chính hãng",
+          "cao cấp",
+          "freeship",
+          "bảo hành uy tín",
+          "giao hàng nhanh"
+        ]
+      }
+    },
+    {
+      "flow": "listing",
+      "name": "tags_dedupe_and_cap",
+      "request": {
+        "title_hint": "Áo thun áo thun cotton oversize unisex form rộng mát"
+      },
+      "rag": null,
+      "response": {
+        "generated_title": "[Áo Thun Áo Thun Cotton Oversize Unisex Form Rộng Mát] Form Rộng Unisex Cao Cấp Thoáng Mát Chuẩn Xu Hướng",
+        "generated_description": "### 🌟 **[Áo Thun Áo Thun Cotton Oversize Unisex Form Rộng Mát] Form Rộng Unisex Cao Cấp Thoáng Mát Chuẩn Xu Hướng**\n\nChào mừng bạn đến với gian hàng chính hãng! Sản phẩm **Áo thun áo thun cotton oversize unisex form rộng mát** được thiết kế hiện đại, chất lượng vượt trội nhằm mang lại trải nghiệm tốt nhất cho người dùng.\n\n---\n\n#### 📌 **ĐẶC ĐIỂM NỔI BẬT**\n- ✅ **Chất lượng cao cấp:** Gia công tỉ mỉ, kiểm định chất lượng nghiêm ngặt trước khi xuất xưởng.\n- ✅ **Thiết kế thông minh:** Tối ưu hóa tính thẩm mỹ và công năng sử dụng hàng ngày.\n- ✅ **Độ bền vượt trội:** Sử dụng vật liệu an toàn, thân thiện và bền đẹp theo thời gian.\n- ✅ **Dễ dàng sử dụng & vệ sinh:** Phù hợp với mọi đối tượng và nhu cầu sử dụng.\n\n---\n\n#### 📐 **THÔNG SỐ KỸ THUẬT & PHÂN LOẠI**\n- **Ngành hàng:** Thời Trang & Phụ Kiện\n- **Tình trạng:** Mới 100% nguyên seal / full box\n- **Xuất xứ:** Chính hãng / Nhập khẩu tiêu chuẩn\n- **Màu sắc & Kích thước:** Đa dạng tuỳ chọn theo phân loại sản phẩm.\n\n---\n\n#### 💡 **HƯỚNG DẪN SỬ DỤNG & BẢO QUẢN**\n1. Đọc kỹ hướng dẫn sử dụng đi kèm sản phẩm trước khi dùng.\n2. Bảo quản nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp hoặc nhiệt độ quá cao.\n3. Vệ sinh định kỳ bằng khăn mềm ẩm để giữ sản phẩm luôn như mới.\n\n---\n\n#### 🛡️ **CHÍNH SÁCH BÁN HÀNG & BẢO HÀNH**\n- 🔄 **Đổi trả 1-1 trong 7 ngày** nếu có lỗi do nhà sản xuất (hàng nguyên tem mác).\n- 🚚 **Giao hàng toàn quốc:** Đóng gói chống sốc kỹ càng, hỗ trợ đồng kiểm khi nhận hàng.\n- 💬 **Hỗ trợ 24/7:** Đội ngũ CSKH sẵn sàng tư vấn và giải đáp mọi thắc mắc của bạn qua chat.\n",
+        "suggested_category_id": "cat-fashion",
+        "suggested_price_min": 120000,
+        "suggested_price_max": 250000,
+        "highlight_tags": [
+          "áo",
+          "thun",
+          "cotton",
+          "oversize",
+          "unisex",
+          "form",
+          "rộng",
+          "mát"
+        ]
+      }
+    },
+    {
+      "flow": "copilot",
+      "name": "stock",
+      "request": {
+        "buyer_message": "Còn hàng không shop?"
+      },
+      "rag": null,
+      "response": {
+        "quick_replies": [
+          "Dạ chào bạn, sản phẩm bên shop hiện vẫn còn sẵn hàng ạ! Bạn đặt sớm để shop đóng gói gửi đi ngay trong ngày nhé.",
+          "Chào bạn, hàng luôn có sẵn tại kho và được kiểm tra kỹ trước khi gửi. Bạn cần shop tư vấn thêm về size hay màu sắc không ạ?",
+          "Dạ shop còn bạn nhé! Mọi đơn đặt trước 16h hôm nay sẽ được giao cho đơn vị vận chuyển ngay ạ."
+        ]
+      }
+    },
+    {
+      "flow": "copilot",
+      "name": "shipping",
+      "request": {
+        "buyer_message": "Giao hàng bao lâu vậy?",
+        "seller_id": "s-1",
+        "listing_id": "L-1"
+      },
+      "rag": null,
+      "response": {
+        "quick_replies": [
+          "Dạ chào bạn, shop gửi hàng từ kho ngay trong ngày. Khu vực nội thành nhận sau 1-2 ngày, ngoại tỉnh khoảng 2-3 ngày làm việc ạ.",
+          "Chào bạn, shop có hỗ trợ giao hàng hỏa tốc trong 2 giờ hoặc chuyển phát nhanh. Bạn đặt hàng để shop ưu tiên xử lý sớm nhé!",
+          "Dạ thời gian giao trung bình từ 1-3 ngày tùy khu vực ạ. Bạn có thể theo dõi trực tiếp lộ trình đơn hàng trên ứng dụng nha!"
+        ]
+      }
+    },
+    {
+      "flow": "copilot",
+      "name": "price",
+      "request": {
+        "buyer_message": "Có voucher giảm giá không"
+      },
+      "rag": null,
+      "response": {
+        "quick_replies": [
+          "Dạ giá trên sản phẩm hiện đã là mức giá ưu đãi tốt nhất của shop rồi ạ. Bạn nhớ vào trang chủ shop thu thập thêm voucher giảm giá và mã freeship nhé!",
+          "Chào bạn, hiện shop đang có chương trình tặng mã giảm giá theo dõi shop và voucher cho đơn hàng mới. Bạn áp dụng ngay ở bước thanh toán nha!",
+          "Dạ nếu bạn mua số lượng nhiều, bạn nhắn tin số lượng cụ thể để shop gửi bạn bảng giá ưu đãi kèm quà tặng thêm nhé!"
+        ]
+      }
+    },
+    {
+      "flow": "copilot",
+      "name": "quality",
+      "request": {
+        "buyer_message": "Hàng chính hãng không?"
+      },
+      "rag": null,
+      "response": {
+        "quick_replies": [
+          "Dạ shop cam kết sản phẩm 100% chính hãng, có bảo hành đầy đủ và hỗ trợ đổi trả miễn phí trong 7 ngày nếu có lỗi từ nhà sản xuất ạ!",
+          "Chào bạn, sản phẩm chuẩn như mô tả và hình ảnh shop đăng. Bạn được kiểm tra hàng thoải mái trước khi thanh toán nên hoàn toàn yên tâm nhé!",
+          "Dạ sản phẩm đi kèm phiếu bảo hành chính hãng và tem niêm phong. Shop luôn đặt uy tín và sự hài lòng của khách hàng lên hàng đầu ạ."
+        ]
+      }
+    },
+    {
+      "flow": "copilot",
+      "name": "size",
+      "request": {
+        "buyer_message": "Tư vấn size giúp mình"
+      },
+      "rag": null,
+      "response": {
+        "quick_replies": [
+          "Dạ bạn cho shop xin thêm thông tin chiều cao và cân nặng để shop tư vấn chuẩn size nhất cho bạn nhé!",
+          "Chào bạn, mẫu này form chuẩn regular/oversize thoải mái. Nếu bạn thích mặc rộng rãi một chút có thể tăng 1 size nha!",
+          "Dạ bạn xem bảng quy đổi kích thước ở phần mô tả sản phẩm, hoặc nhắn tin số đo 3 vòng để shop chọn size vừa vặn nhất cho bạn ạ."
+        ]
+      }
+    },
+    {
+      "flow": "copilot",
+      "name": "default",
+      "request": {
+        "buyer_message": "Xin chào"
+      },
+      "rag": null,
+      "response": {
+        "quick_replies": [
+          "Dạ chào bạn! Shop có thể hỗ trợ thông tin chi tiết gì cho bạn về sản phẩm này ạ?",
+          "Dạ cảm ơn bạn đã quan tâm đến sản phẩm của shop. Bạn cần tư vấn thêm về tính năng, màu sắc hay khuyến mãi cứ nhắn shop nhé!",
+          "Chào bạn! Sản phẩm đang có sẵn và có nhiều ưu đãi hôm nay. Bạn đặt hàng ngay để nhận quà tặng kèm nhé!"
+        ]
+      }
+    },
+    {
+      "flow": "reviews",
+      "name": "no_reviews",
+      "request": {
+        "listing_id": "L-1",
+        "reviews": []
+      },
+      "rag": null,
+      "response": {
+        "summary": "Chưa có đánh giá nào cho sản phẩm này.",
+        "pros": [],
+        "cons": [],
+        "sentiment": "unknown"
+      }
+    },
+    {
+      "flow": "reviews",
+      "name": "all_positive",
+      "request": {
+        "listing_id": "L-1",
+        "reviews": [
+          {
+            "rating": 5,
+            "comment": "Chất lượng tốt, giao hàng nhanh"
+          },
+          {
+            "rating": 4,
+            "comment": "Giá hợp lý"
+          }
+        ]
+      },
+      "rag": null,
+      "response": {
+        "summary": "Dựa trên 2 đánh giá (điểm trung bình 4.5/5), sản phẩm được đánh giá rất tích cực. Điểm được khen nhiều nhất: Chất lượng sản phẩm.",
+        "pros": [
+          "Chất lượng sản phẩm",
+          "Giao hàng & đóng gói",
+          "Giá cả"
+        ],
+        "cons": [],
+        "sentiment": "positive"
+      }
+    },
+    {
+      "flow": "reviews",
+      "name": "all_positive_no_aspect",
+      "request": {
+        "reviews": [
+          {
+            "rating": 5,
+            "comment": "ok"
+          },
+          {
+            "rating": 4,
+            "comment": ""
+          }
+        ]
+      },
+      "rag": null,
+      "response": {
+        "summary": "Dựa trên 2 đánh giá (điểm trung bình 4.5/5), sản phẩm được đánh giá rất tích cực. Điểm được khen nhiều nhất: Được khách hàng đánh giá tích cực.",
+        "pros": [
+          "Được khách hàng đánh giá tích cực"
+        ],
+        "cons": [],
+        "sentiment": "positive"
+      }
+    },
+    {
+      "flow": "reviews",
+      "name": "all_negative",
+      "request": {
+        "listing_id": "L-2",
+        "reviews": [
+          {
+            "rating": 1,
+            "comment": "Hàng kém, giao chậm"
+          },
+          {
+            "rating": 2,
+            "comment": "Sai mô tả"
+          }
+        ]
+      },
+      "rag": null,
+      "response": {
+        "summary": "Dựa trên 2 đánh giá (điểm trung bình 1.5/5), sản phẩm nhận nhiều phản hồi chưa hài lòng. Điểm cần cải thiện: Chất lượng sản phẩm.",
+        "pros": [],
+        "cons": [
+          "Chất lượng sản phẩm",
+          "Giao hàng & đóng gói",
+          "Giá cả",
+          "Đúng mô tả"
+        ],
+        "sentiment": "negative"
+      }
+    },
+    {
+      "flow": "reviews",
+      "name": "all_negative_no_aspect",
+      "request": {
+        "reviews": [
+          {
+            "rating": 1,
+            "comment": "..."
+          },
+          {
+            "rating": 2,
+            "comment": ""
+          }
+        ]
+      },
+      "rag": null,
+      "response": {
+        "summary": "Dựa trên 2 đánh giá (điểm trung bình 1.5/5), sản phẩm nhận nhiều phản hồi chưa hài lòng. Điểm cần cải thiện: Một số khách hàng chưa hài lòng.",
+        "pros": [],
+        "cons": [
+          "Một số khách hàng chưa hài lòng"
+        ],
+        "sentiment": "negative"
+      }
+    },
+    {
+      "flow": "reviews",
+      "name": "mixed",
+      "request": {
+        "listing_id": "L-3",
+        "reviews": [
+          {
+            "rating": 5,
+            "comment": "Đẹp, đóng gói cẩn thận"
+          },
+          {
+            "rating": 1,
+            "comment": "Shop thái độ tệ"
+          }
+        ]
+      },
+      "rag": null,
+      "response": {
+        "summary": "Dựa trên 2 đánh giá (điểm trung bình 3.0/5), sản phẩm nhận ý kiến trái chiều. Điểm được khen nhiều nhất: Giao hàng & đóng gói. Điểm cần cải thiện: Chất lượng sản phẩm.",
+        "pros": [
+          "Giao hàng & đóng gói"
+        ],
+        "cons": [
+          "Chất lượng sản phẩm",
+          "Dịch vụ & hỗ trợ"
+        ],
+        "sentiment": "mixed"
+      }
+    },
+    {
+      "flow": "reviews",
+      "name": "only_unrated",
+      "request": {
+        "listing_id": "L-4",
+        "reviews": [
+          {
+            "rating": 0,
+            "comment": "tốt"
+          },
+          {
+            "rating": 0,
+            "comment": ""
+          }
+        ]
+      },
+      "rag": null,
+      "response": {
+        "summary": "Dựa trên 2 đánh giá (điểm trung bình 0.0/5), sản phẩm được đánh giá ở mức trung bình.",
+        "pros": [],
+        "cons": [],
+        "sentiment": "neutral"
+      }
+    },
+    {
+      "flow": "reviews",
+      "name": "neutral_three_star",
+      "request": {
+        "reviews": [
+          {
+            "rating": 3,
+            "comment": "tạm được"
+          },
+          {
+            "rating": 3,
+            "comment": ""
+          }
+        ]
+      },
+      "rag": null,
+      "response": {
+        "summary": "Dựa trên 2 đánh giá (điểm trung bình 3.0/5), sản phẩm được đánh giá ở mức trung bình.",
+        "pros": [],
+        "cons": [],
+        "sentiment": "neutral"
+      }
+    },
+    {
+      "flow": "reviews",
+      "name": "multiple_aspects",
+      "request": {
+        "listing_id": "L-5",
+        "reviews": [
+          {
+            "rating": 5,
+            "comment": "Chất lượng tốt, giao hàng nhanh, giá hợp lý, shop nhiệt tình, mẫu mã đẹp, đúng mô tả"
+          }
+        ]
+      },
+      "rag": null,
+      "response": {
+        "summary": "Dựa trên 1 đánh giá (điểm trung bình 5.0/5), sản phẩm được đánh giá rất tích cực. Điểm được khen nhiều nhất: Chất lượng sản phẩm.",
+        "pros": [
+          "Chất lượng sản phẩm",
+          "Giao hàng & đóng gói",
+          "Giá cả",
+          "Dịch vụ & hỗ trợ",
+          "Mẫu mã & thiết kế"
+        ],
+        "cons": [],
+        "sentiment": "positive"
+      }
+    },
+    {
+      "flow": "reviews",
+      "name": "out_of_range_ratings",
+      "request": {
+        "reviews": [
+          {
+            "rating": 9,
+            "comment": "tốt"
+          },
+          {
+            "rating": -1,
+            "comment": "tệ"
+          },
+          {
+            "rating": 4,
+            "comment": "tốt"
+          }
+        ]
+      },
+      "rag": null,
+      "response": {
+        "summary": "Dựa trên 3 đánh giá (điểm trung bình 4.0/5), sản phẩm được đánh giá rất tích cực. Điểm được khen nhiều nhất: Chất lượng sản phẩm.",
+        "pros": [
+          "Chất lượng sản phẩm"
+        ],
+        "cons": [],
+        "sentiment": "positive"
+      }
+    }
+  ]
+}

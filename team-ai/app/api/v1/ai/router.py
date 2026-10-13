@@ -1,8 +1,8 @@
-from __future__ import annotations
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
-from app.api.v1.ai.dependencies import get_ai_service, get_tag_classifier_service
+from app.bootstrap.state import get_app_resources
 from app.modules.business.ai_assistant.schemas import (
     ChatCopilotRequest,
     ChatCopilotResponse,
@@ -11,7 +11,6 @@ from app.modules.business.ai_assistant.schemas import (
     ShoppingAssistantRequest,
     ShoppingAssistantResponse,
 )
-from app.modules.business.ai_assistant.service import AIAssistantService
 from app.modules.business.tag_classifier.schemas import (
     ClassifySkuHierarchyRequest,
     ClassifySkuHierarchyResponse,
@@ -19,149 +18,89 @@ from app.modules.business.tag_classifier.schemas import (
     ClassifyTagsResponse,
     ExploreTagsRequest,
     ExploreTagsResponse,
-    FacetGroup,
     ListTagsRequest,
     ListTagsResponse,
     PromoteTagRequest,
     PromoteTagResponse,
-    TagStatus,
 )
-from app.modules.business.tag_classifier.service import TagClassifierService
-from app.modules.platform.identity.auth import (
-    ADMIN_SCOPE,
-    AI_CLASSIFY_SCOPE,
-    require_tag_access,
-)
+from app.modules.platform.identity.auth import require_scopes
 
+# The assistant routes take no principal: deliberate parity with team-ai, whose gateway
+# authenticates. The tag routes are internal and gated by scope.
 router = APIRouter(tags=["ai"])
 
-# Tag routes (internal, not routed by the gateway): a service or admin bearer token.
-# Reads need ai.classify or admin; the routes that mutate the taxonomy need admin.
-_tag_read = Depends(require_tag_access(AI_CLASSIFY_SCOPE, ADMIN_SCOPE))
-_tag_admin = Depends(require_tag_access(ADMIN_SCOPE))
 
-
-@router.post(
-    "/assistant",
-    response_model=ShoppingAssistantResponse,
-    summary="Shopping Assistant (RAG / Catalog Search & Advice)",
-    description="Receives natural language buyer questions, searches product catalog via RAG/keyword matching, and returns personalized advice + product cards + suggested followups.",
-)
-async def shopping_assistant_endpoint(
-    payload: ShoppingAssistantRequest,
-    ai_service: AIAssistantService = Depends(get_ai_service),
+@router.post("/assistant", response_model=ShoppingAssistantResponse)
+async def shopping_assistant(
+    payload: ShoppingAssistantRequest, request: Request
 ) -> ShoppingAssistantResponse:
-    return await ai_service.shopping_assistant(payload)
+    return await get_app_resources(request.app).ai_assistant.shopping.answer(payload)
 
 
-@router.post(
-    "/magic-listing",
-    response_model=MagicListingResponse,
-    summary="Magic Listing (SEO Title, Description & Pricing Engine)",
-    description="Receives title hint / image URL from sellers, and automatically generates SEO-optimized title, comprehensive description, category, price range, and tags.",
-)
-async def magic_listing_endpoint(
-    payload: MagicListingRequest,
-    ai_service: AIAssistantService = Depends(get_ai_service),
+@router.post("/magic-listing", response_model=MagicListingResponse)
+async def magic_listing(
+    payload: MagicListingRequest, request: Request
 ) -> MagicListingResponse:
-    return await ai_service.magic_listing(payload)
+    return get_app_resources(request.app).ai_assistant.listing.generate(payload)
 
 
-@router.post(
-    "/chat-copilot",
-    response_model=ChatCopilotResponse,
-    summary="Chat Copilot (1-Click Smart Replies for Sellers)",
-    description="Receives buyer message and generates 3 context-aware, high-converting quick reply options for sellers to send with 1 click.",
-)
-async def chat_copilot_endpoint(
-    payload: ChatCopilotRequest,
-    ai_service: AIAssistantService = Depends(get_ai_service),
+@router.post("/chat-copilot", response_model=ChatCopilotResponse)
+async def chat_copilot(
+    payload: ChatCopilotRequest, request: Request
 ) -> ChatCopilotResponse:
-    return await ai_service.chat_copilot(payload)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# SPU & SKU Hierarchical Tag Classifier Endpoints
-# ──────────────────────────────────────────────────────────────────────────────
+    return get_app_resources(request.app).ai_assistant.copilot.suggest(payload)
 
 
 @router.post(
     "/tags/classify",
-    dependencies=[_tag_read],
     response_model=ClassifyTagsResponse,
-    summary="Classify SPU Product Tags (Online Fast Inference)",
-    description="Fast online inference: extracts and predicts canonical filter tags and emergent candidate tags from parent title & description.",
+    dependencies=[Depends(require_scopes("ai.classify"))],
 )
-async def classify_tags_endpoint(
-    payload: ClassifyTagsRequest,
-    tag_service: TagClassifierService = Depends(get_tag_classifier_service),
+async def classify_tags(
+    payload: ClassifyTagsRequest, request: Request
 ) -> ClassifyTagsResponse:
-    return await tag_service.classify_tags(payload)
+    return get_app_resources(request.app).tag_classifier.classify_tags(payload)
 
 
 @router.post(
     "/tags/classify-sku-hierarchy",
-    dependencies=[_tag_read],
     response_model=ClassifySkuHierarchyResponse,
-    summary="Classify SKU Hierarchy (Granular SPU & Variant Level Inference)",
-    description="Scales tag classification across parent listing and all child SKU variants (color, storage, ram, size, power, material), returning OpenSearch nested document payload.",
+    dependencies=[Depends(require_scopes("ai.classify"))],
 )
-async def classify_sku_hierarchy_endpoint(
-    payload: ClassifySkuHierarchyRequest,
-    tag_service: TagClassifierService = Depends(get_tag_classifier_service),
+async def classify_sku_hierarchy(
+    payload: ClassifySkuHierarchyRequest, request: Request
 ) -> ClassifySkuHierarchyResponse:
-    return await tag_service.classify_sku_hierarchy(payload)
-
-
-@router.post(
-    "/tags/explore",
-    dependencies=[_tag_admin],
-    response_model=ExploreTagsResponse,
-    summary="Explore Candidate Tags (Offline Discovery & Clustering)",
-    description="Offline MLOps pipeline: processes a batch of raw product listings & SKU variants, extracts emergent specs/features, clusters keywords, and registers candidate tags into exploration pool.",
-)
-async def explore_tags_endpoint(
-    payload: ExploreTagsRequest,
-    tag_service: TagClassifierService = Depends(get_tag_classifier_service),
-) -> ExploreTagsResponse:
-    return await tag_service.explore_tags(payload)
-
-
-@router.post(
-    "/tags/promote",
-    dependencies=[_tag_admin],
-    response_model=PromoteTagResponse,
-    summary="Promote Candidate Tags (Gating & Promotion to Canonical Facets)",
-    description="Elevates candidate tags that passed confidence/frequency thresholds to official canonical filter facets, enriching search filter aggregations.",
-)
-async def promote_tags_endpoint(
-    payload: PromoteTagRequest,
-    tag_service: TagClassifierService = Depends(get_tag_classifier_service),
-) -> PromoteTagResponse:
-    return await tag_service.promote_tags(payload)
+    return get_app_resources(request.app).tag_classifier.classify_sku_hierarchy(payload)
 
 
 @router.get(
     "/tags",
-    dependencies=[_tag_read],
     response_model=ListTagsResponse,
-    summary="List Tags (Canonical Filter Facets & Exploration Candidates)",
-    description="Lists marketplace tags filtered by category, facet group (connectivity, material, power, color, size, capacity), and lifecycle status.",
+    dependencies=[Depends(require_scopes("ai.classify"))],
 )
-async def list_tags_endpoint(
-    category_id: str = Query(default="", description="Filter by category ID"),
-    facet_group: FacetGroup | None = Query(
-        default=None, description="Filter by facet group"
-    ),
-    status: TagStatus | None = Query(
-        default=None, description="Filter by status (promoted, exploring)"
-    ),
-    tag_service: TagClassifierService = Depends(get_tag_classifier_service),
+async def list_tags(
+    query: Annotated[ListTagsRequest, Query()], request: Request
 ) -> ListTagsResponse:
-    return await tag_service.list_tags(
-        ListTagsRequest(
-            category_id=category_id,
-            facet_group=facet_group,
-            status=status,
-        )
-    )
+    return get_app_resources(request.app).tag_classifier.list_tags(query)
+
+
+@router.post(
+    "/tags/explore",
+    response_model=ExploreTagsResponse,
+    dependencies=[Depends(require_scopes("admin"))],
+)
+async def explore_tags(
+    payload: ExploreTagsRequest, request: Request
+) -> ExploreTagsResponse:
+    return await get_app_resources(request.app).tag_classifier.explore_tags(payload)
+
+
+@router.post(
+    "/tags/promote",
+    response_model=PromoteTagResponse,
+    dependencies=[Depends(require_scopes("admin"))],
+)
+async def promote_tags(
+    payload: PromoteTagRequest, request: Request
+) -> PromoteTagResponse:
+    return await get_app_resources(request.app).tag_classifier.promote_tags(payload)

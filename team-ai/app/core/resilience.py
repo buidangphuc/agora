@@ -1,109 +1,69 @@
+"""Retry, timeout and circuit-breaker primitives.
+
+"Transient" is defined once here (``is_transient_error``) and shared by the
+retry policy and the breaker, so a deterministic failure (bad prompt, context
+length, content policy: a 4xx other than 408/429) is never retried and never
+trips failover, while overload and unreachable-provider failures do.
+"""
+
 from __future__ import annotations
 
-import asyncio
-import time
+import random
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+from time import monotonic
 
-Clock = Callable[[], float]
+TRANSIENT_STATUS_CODES = frozenset({408, 429})
 
-
-class FailureKind(StrEnum):
-    """Coarse classification of a failed upstream call (see ``classify_failure``)."""
-
-    RATE_LIMITED = "rate_limited"
-    SERVER = "server"
-    TIMEOUT = "timeout"
-    CONNECTION = "connection"
-    CLIENT = "client"
-    UNKNOWN = "unknown"
-    CANCELLED = "cancelled"
-
-    @property
-    def counts_as_failure(self) -> bool:
-        """Whether a breaker should count this kind against the target.
-
-        Request-caused 4xx and caller cancellation say nothing about provider
-        health; ``unknown`` exceptions are counted (safe failure).
-        """
-        return self not in (FailureKind.CLIENT, FailureKind.CANCELLED)
+# Provider/HTTP client exceptions that do not derive from the builtin
+# TimeoutError/ConnectionError (openai, anthropic and httpx SDKs). Matched by
+# class name so this module stays free of optional-dependency imports.
+_TRANSIENT_ERROR_NAMES = frozenset(
+    {
+        "APITimeoutError",
+        "APIConnectionError",
+        "TimeoutException",
+        "TransportError",
+    }
+)
 
 
-def _status_code_of(exc: BaseException) -> int | None:
-    """Pull an HTTP status off the shapes provider SDKs use.
+def error_status_code(error: BaseException) -> int | None:
+    """HTTP status carried by ``error`` (directly or via ``.response``), if any."""
+    status = getattr(error, "status_code", None)
+    if isinstance(status, int):
+        return status
+    status = getattr(getattr(error, "response", None), "status_code", None)
+    return status if isinstance(status, int) else None
 
-    ``exc.status_code`` (openai/anthropic), ``exc.response.status_code`` (httpx),
-    ``exc.http_status`` / ``exc.code`` as int.
+
+def retry_after_seconds(error: BaseException) -> float | None:
+    """Server retry hint in seconds: ``.retry_after`` or a ``Retry-After`` header."""
+    hint = getattr(error, "retry_after", None)
+    if hint is None:
+        headers = getattr(getattr(error, "response", None), "headers", None)
+        hint = headers.get("retry-after") if headers is not None else None
+    try:
+        seconds = float(hint) if hint is not None else None
+    except (TypeError, ValueError):
+        return None
+    return seconds if seconds is not None and seconds >= 0 else None
+
+
+def is_transient_error(error: BaseException) -> bool:
+    """True for failures that a later attempt or another provider can fix.
+
+    Transient: 408, 429, any 5xx, timeouts and connection errors. Everything
+    else (other 4xx, parsing/validation errors, unknown exceptions) is
+    deterministic: retrying or failing over would only repeat the failure.
     """
-    candidates: list[Any] = [
-        getattr(exc, "status_code", None),
-        getattr(getattr(exc, "response", None), "status_code", None),
-        getattr(exc, "http_status", None),
-        getattr(exc, "code", None),
-    ]
-    for value in candidates:
-        if (
-            isinstance(value, int)
-            and not isinstance(value, bool)
-            and 100 <= value <= 599
-        ):
-            return value
-    return None
-
-
-def _class_names(exc: BaseException) -> tuple[str, ...]:
-    return tuple(cls.__name__ for cls in type(exc).__mro__)
-
-
-def classify_failure(exc: BaseException) -> FailureKind:
-    """Map an exception from an upstream (LLM) call to a ``FailureKind``.
-
-    Pure and vendor-neutral: SDK exception types are recognised by status
-    attributes or class names so this module needs no provider import.
-    """
-    if isinstance(exc, asyncio.CancelledError):
-        return FailureKind.CANCELLED
-
-    status = _status_code_of(exc)
+    status = error_status_code(error)
     if status is not None:
-        if status == 429:
-            return FailureKind.RATE_LIMITED
-        if status == 408:
-            return FailureKind.TIMEOUT
-        if 500 <= status <= 599:
-            return FailureKind.SERVER
-        if 400 <= status <= 499:
-            return FailureKind.CLIENT
-
-    if isinstance(exc, TimeoutError):  # asyncio.TimeoutError is an alias (3.11+)
-        return FailureKind.TIMEOUT
-    names = _class_names(exc)
-    if any("Timeout" in name for name in names):
-        return FailureKind.TIMEOUT
-    if isinstance(exc, ConnectionError) or any(
-        name
-        in ("ConnectError", "APIConnectionError", "NetworkError", "ConnectionError")
-        for name in names
-    ):
-        return FailureKind.CONNECTION
-    return FailureKind.UNKNOWN
-
-
-def classify_status(status_code: int | None) -> FailureKind:
-    """Classify a bare HTTP status (``None`` -> ``UNKNOWN``)."""
-    if status_code is None:
-        return FailureKind.UNKNOWN
-    if status_code == 429:
-        return FailureKind.RATE_LIMITED
-    if status_code == 408:
-        return FailureKind.TIMEOUT
-    if 500 <= status_code <= 599:
-        return FailureKind.SERVER
-    if 400 <= status_code <= 499:
-        return FailureKind.CLIENT
-    return FailureKind.UNKNOWN
+        return status in TRANSIENT_STATUS_CODES or status >= 500
+    if isinstance(error, TimeoutError | ConnectionError):
+        return True
+    return any(cls.__name__ in _TRANSIENT_ERROR_NAMES for cls in type(error).__mro__)
 
 
 @dataclass(frozen=True)
@@ -114,18 +74,29 @@ class RetryDecision:
 
 @dataclass(frozen=True)
 class RetryPolicy:
+    """Capped exponential backoff with full jitter.
+
+    The delay before retry ``n`` is ``rng() * min(max_delay, base * 2**(n-1))``.
+    A ``Retry-After`` hint (argument or carried by the error) raises the delay
+    to the hint, itself capped at ``max_delay_seconds``. Errors are retried
+    only when ``retry_on(error)`` is true (default: ``is_transient_error``).
+    """
+
     max_attempts: int = 3
     retry_status_codes: tuple[int, ...] = (408, 429, 500, 502, 503, 504)
     retry_exceptions: bool = True
-    backoff_seconds: tuple[float, ...] = (0.0, 0.25, 1.0)
+    retry_on: Callable[[BaseException], bool] = is_transient_error
+    base_delay_seconds: float = 0.5
+    max_delay_seconds: float = 30.0
+    rng: Callable[[], float] = random.random
 
     def __post_init__(self) -> None:
         if self.max_attempts <= 0:
             raise ValueError("max_attempts must be positive")
-        if not self.backoff_seconds:
-            raise ValueError("backoff_seconds must not be empty")
-        if any(delay < 0 for delay in self.backoff_seconds):
-            raise ValueError("backoff_seconds must not contain negative values")
+        if self.base_delay_seconds < 0:
+            raise ValueError("base_delay_seconds must not be negative")
+        if self.max_delay_seconds < self.base_delay_seconds:
+            raise ValueError("max_delay_seconds must be >= base_delay_seconds")
 
     def decision(
         self,
@@ -133,18 +104,31 @@ class RetryPolicy:
         attempt: int,
         status_code: int | None = None,
         error: BaseException | None = None,
+        retry_after_seconds: float | None = None,
     ) -> RetryDecision:
         if attempt >= self.max_attempts:
             return RetryDecision(should_retry=False)
-        if error is not None and self.retry_exceptions:
-            return RetryDecision(True, self._delay_for_attempt(attempt))
-        if status_code in self.retry_status_codes:
-            return RetryDecision(True, self._delay_for_attempt(attempt))
-        return RetryDecision(should_retry=False)
+        if error is not None:
+            if not (self.retry_exceptions and self.retry_on(error)):
+                return RetryDecision(should_retry=False)
+            if retry_after_seconds is None:
+                retry_after_seconds = _error_retry_after(error)
+        elif status_code not in self.retry_status_codes:
+            return RetryDecision(should_retry=False)
+        return RetryDecision(True, self._delay(attempt, retry_after_seconds))
 
-    def _delay_for_attempt(self, attempt: int) -> float:
-        index = max(min(attempt - 1, len(self.backoff_seconds) - 1), 0)
-        return self.backoff_seconds[index]
+    def _delay(self, attempt: int, retry_after: float | None) -> float:
+        ceiling = min(
+            self.max_delay_seconds, self.base_delay_seconds * 2 ** (attempt - 1)
+        )
+        delay = self.rng() * ceiling
+        if retry_after is not None:
+            delay = max(delay, min(retry_after, self.max_delay_seconds))
+        return delay
+
+
+def _error_retry_after(error: BaseException) -> float | None:
+    return retry_after_seconds(error)
 
 
 @dataclass(frozen=True)
@@ -156,144 +140,103 @@ class TimeoutPolicy:
             raise ValueError("timeout_seconds must be positive")
 
 
-@dataclass(frozen=True)
-class CircuitBreakerPolicy:
-    failure_threshold: int = 3
-    failure_status_codes: tuple[int, ...] = ()
-    failure_status_range: range | None = None
-    # Seconds an open breaker waits before admitting one half-open probe.
-    # ``None`` keeps the legacy behaviour: once open, it never recovers.
-    cooldown_seconds: float | None = None
-
-    def __post_init__(self) -> None:
-        if self.failure_threshold <= 0:
-            raise ValueError("failure_threshold must be positive")
-        if self.cooldown_seconds is not None and self.cooldown_seconds < 0:
-            raise ValueError("cooldown_seconds must not be negative")
-
-    def build(self, *, clock: Clock | None = None) -> CircuitBreaker:
-        return CircuitBreaker(
-            failure_threshold=self.failure_threshold,
-            failure_status_codes=self.failure_status_codes,
-            failure_status_range=self.failure_status_range,
-            cooldown_seconds=self.cooldown_seconds,
-            clock=clock,
-        )
-
-
 class BreakerState(StrEnum):
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
 
 
-class CircuitBreaker:
-    """Closed -> open (at threshold) -> half-open (after cooldown) -> closed/open.
+@dataclass(frozen=True)
+class CircuitBreakerPolicy:
+    failure_threshold: int = 3
+    cooldown_seconds: float = 30.0
 
-    In half-open exactly one caller is admitted as the probe; its success closes
-    the breaker, its failure re-opens it for a fresh cooldown. ``would_allow`` is a
-    read-only peek; ``allows_request`` is the admitting call (it claims the probe).
-    Single-threaded asyncio use: no locking needed.
+    def __post_init__(self) -> None:
+        if self.failure_threshold <= 0:
+            raise ValueError("failure_threshold must be positive")
+        if self.cooldown_seconds <= 0:
+            raise ValueError("cooldown_seconds must be positive")
+
+    def build(self, *, clock: Callable[[], float] | None = None) -> CircuitBreaker:
+        return CircuitBreaker(
+            failure_threshold=self.failure_threshold,
+            cooldown_seconds=self.cooldown_seconds,
+            clock=clock,
+        )
+
+
+class CircuitBreaker:
+    """closed -> open -> half-open -> closed, counting transient failures only.
+
+    ``try_acquire`` is the single admission gate: closed admits everyone; open
+    rejects until ``cooldown_seconds`` has passed, then admits exactly one
+    probe (half-open) whose outcome decides: success closes, a transient
+    failure reopens with a fresh cooldown. A probe that is never reported
+    (cancelled caller) is re-granted after one more cooldown, so the breaker
+    cannot wedge half-open.
+
+    Single-event-loop use; not thread-safe.
     """
 
     def __init__(
         self,
         *,
         failure_threshold: int = 3,
-        failure_status_codes: tuple[int, ...] = (),
-        failure_status_range: range | None = None,
-        cooldown_seconds: float | None = None,
-        clock: Clock | None = None,
+        cooldown_seconds: float = 30.0,
+        clock: Callable[[], float] | None = None,
     ) -> None:
-        if failure_threshold <= 0:
-            raise ValueError("failure_threshold must be positive")
+        CircuitBreakerPolicy(failure_threshold, cooldown_seconds)  # validates
         self.failure_threshold = failure_threshold
-        self.failure_status_codes = failure_status_codes
-        self.failure_status_range = failure_status_range
         self.cooldown_seconds = cooldown_seconds
-        self._clock: Clock = clock or time.monotonic
+        self.clock = clock or monotonic
         self.failure_count = 0
         self.state = BreakerState.CLOSED
-        self._opened_at = 0.0
-        self._probe_started_at: float | None = None
+        self._open_until = 0.0
+        self._probe_lease_until: float | None = None
 
-    @property
-    def is_open(self) -> bool:
-        return self.state is not BreakerState.CLOSED
-
-    def would_allow(self) -> bool:
-        """Read-only: would ``allows_request`` admit a caller right now?"""
+    def try_acquire(self) -> bool:
+        now = self.clock()
         if self.state is BreakerState.CLOSED:
             return True
-        if self.cooldown_seconds is None:
-            return False
-        now = self._clock()
         if self.state is BreakerState.OPEN:
-            return now - self._opened_at >= self.cooldown_seconds
-        # Half-open: a probe is in flight; re-admit only if it looks lost.
-        started = self._probe_started_at
-        return started is None or now - started >= self.cooldown_seconds
-
-    def allows_request(self) -> bool:
-        """Admit a caller; in open/half-open this claims the single probe slot."""
-        if not self.would_allow():
-            return False
-        if self.state is not BreakerState.CLOSED:
+            if now < self._open_until:
+                return False
             self.state = BreakerState.HALF_OPEN
-            self._probe_started_at = self._clock()
+            self._probe_lease_until = None
+        if self._probe_lease_until is not None and now < self._probe_lease_until:
+            return False
+        self._probe_lease_until = now + self.cooldown_seconds
         return True
+
+    def release_probe(self) -> None:
+        """Give back a half-open probe slot whose attempt was abandoned by the
+        caller (e.g. its own deadline); says nothing about provider health."""
+        self._probe_lease_until = None
 
     def record_success(self) -> None:
         self.failure_count = 0
         self.state = BreakerState.CLOSED
-        self._probe_started_at = None
+        self._probe_lease_until = None
 
-    def record_failure(
-        self,
-        *,
-        status_code: int | None = None,
-        counts: bool | None = None,
-    ) -> None:
-        """Record a failed call.
-
-        ``counts`` lets the caller decide (e.g. via ``classify_failure``); when
-        omitted the legacy status-code configuration decides.
-        """
-        if counts is None:
-            counts = self._counts_as_failure(status_code)
-        if self.state is BreakerState.HALF_OPEN:
-            if counts:
-                self._open()
-            else:
-                # Probe failed for a reason that says nothing about health:
-                # free the probe slot and stay half-open.
-                self._probe_started_at = None
+    def record_failure(self, error: BaseException) -> None:
+        if not is_transient_error(error):
+            # Deterministic failure: says nothing about provider health. Free
+            # the probe slot so the next call can probe again.
+            self._probe_lease_until = None
             return
-        if not counts:
+        if self.state is BreakerState.HALF_OPEN:
+            self._open()
+            return
+        if self.state is BreakerState.OPEN:
             return
         self.failure_count += 1
         if self.failure_count >= self.failure_threshold:
             self._open()
-
-    def release_probe(self) -> None:
-        """Give back a claimed probe slot without judging the target (cancel)."""
-        if self.state is BreakerState.HALF_OPEN:
-            self._probe_started_at = None
 
     def reset(self) -> None:
         self.record_success()
 
     def _open(self) -> None:
         self.state = BreakerState.OPEN
-        self._opened_at = self._clock()
-        self._probe_started_at = None
-
-    def _counts_as_failure(self, status_code: int | None) -> bool:
-        if status_code is None:
-            return False
-        if status_code in self.failure_status_codes:
-            return True
-        return (
-            self.failure_status_range is not None
-            and status_code in self.failure_status_range
-        )
+        self._open_until = self.clock() + self.cooldown_seconds
+        self._probe_lease_until = None
