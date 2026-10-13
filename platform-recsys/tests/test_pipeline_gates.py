@@ -279,3 +279,51 @@ def test_unexpected_exception_exit_code(tmp_path, reg, monkeypatch):
 
     assert versions(reg, ALS) == [] and not registered_models(reg) & set(ALL)
     assert not r.store and not q.collections
+
+
+def _every_stored_string(reg) -> list[str]:
+    """Every model-version tag, run tag, run param and run name of every recsys-* model."""
+    out: list[str] = []
+    for m in reg.client.search_registered_models():
+        if not m.name.startswith("recsys-"):
+            continue
+        for mv in reg.client.search_model_versions(f"name='{m.name}'"):
+            out += [f"{k}={v}" for k, v in mv.tags.items()]
+            run = reg.client.get_run(mv.run_id)
+            out += [f"{k}={v}" for k, v in run.data.tags.items()]
+            out += [f"{k}={v}" for k, v in run.data.params.items()]
+            out.append(run.info.run_name or "")
+    for exp in reg.client.search_experiments():
+        for run in reg.client.search_runs([exp.experiment_id]):
+            out += [f"{k}={v}" for k, v in run.data.tags.items()]
+            out += [f"{k}={v}" for k, v in run.data.params.items()]
+            out.append(run.info.run_name or "")
+    return out
+
+
+@pytest.mark.parametrize(
+    ("stage_path", "label"),
+    [
+        ("recsys.ranker.stage.run_stage", "gbdt"),
+        ("recsys.two_tower.stage.run_stage", "two-tower"),
+    ],
+)
+def test_stage_failure_reason_carries_the_class_name_only_never_a_user_key(
+    tmp_path, reg, monkeypatch, stage_path, label
+):
+    # RAT-11 / RAT-26 (privacy fix F1): str(exc) may embed a user key and must never reach the registry
+    def boom(*_a, **_k):
+        raise KeyError("u-0001")
+
+    cfg = _cfg3(tmp_path, reg, monkeypatch)
+    seed_weak(reg, *ALL)
+    r, q = FakeRedis(), FakeQdrantClient()
+    monkeypatch.setattr(stage_path, boom)
+
+    assert run_main(monkeypatch, cfg, r, q) == 1
+
+    v = newest(reg, ALS)
+    assert outcome(reg, ALS, v) == "rejected"
+    assert reg.tags(ALS, v)["gate.reason"] == f"{label} stage failed: KeyError"
+    leaked = [x for x in _every_stored_string(reg) if "u-0001" in x]
+    assert leaked == []

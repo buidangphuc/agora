@@ -277,3 +277,53 @@ def test_baseline_none_without_champion_or_artifact(reg):
     assert rc.champion_drift_baseline() is None
     reg.add_version(rc.ALS_MODEL, {"ndcg@10": 0.1, "coverage@10": 0.5})
     assert rc.champion_drift_baseline() is None
+
+
+# --- privacy fix: gate.reason is a bounded, user-key-free string -------------------------------------
+FIXED_REASONS = [
+    "publish failed: ConnectionError",
+    "gbdt stage failed: KeyError",
+    "two-tower stage failed: ValueError",
+    "below fixed-weight baseline: holdout ndcg@10 0.12 < baseline 0.13 x 1.01",
+]
+BAD_REASONS = [
+    "gbdt stage failed: KeyError: u-0001",  # a user key
+    "x" * 201,  # too long
+    "gbdt stage failed: KeyError('u-0001')",  # user key and characters outside the charset
+    "publish failed\nu-0002",  # control character
+    "publish failed: <script>",  # outside the bounded charset
+    "publish failed: \u00e9\u4e2d",  # non-ASCII
+]
+
+
+@pytest.mark.parametrize("bad", BAD_REASONS, ids=range(len(BAD_REASONS)))
+def test_mark_rejected_refuses_unbounded_or_user_keyed_reason(monkeypatch, closed_port_url_fx, bad):
+    # RAT-26 (privacy fix): refused BEFORE any MLflow call (dead port would give RegistryUnavailable)
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", closed_port_url_fx)
+    with pytest.raises(rc.PayloadRejected):
+        rc.mark_rejected(rc.GBDT_MODEL, 1, bad)
+
+
+@pytest.mark.parametrize("bad", BAD_REASONS, ids=range(len(BAD_REASONS)))
+def test_register_rejected_refuses_unbounded_or_user_keyed_reason(monkeypatch, closed_port_url_fx, bad):
+    # RAT-26 (privacy fix)
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", closed_port_url_fx)
+    with pytest.raises(rc.PayloadRejected):
+        rc.register_rejected(rc.ALS_MODEL, "run-id", bad, LINEAGE)
+
+
+def test_a_reason_of_exactly_200_chars_is_not_refused_as_too_long(monkeypatch, closed_port_url_fx):
+    # RAT-26 boundary: 200 passes validation, so the dead port is reached (RegistryUnavailable)
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", closed_port_url_fx)
+    with pytest.raises(RegistryUnavailable):
+        rc.mark_rejected(rc.GBDT_MODEL, 1, "a" * 200)
+
+
+@pytest.mark.parametrize("ok", FIXED_REASONS)
+def test_pipeline_fixed_reasons_are_accepted(monkeypatch, closed_port_url_fx, ok):
+    # RAT-26: validation passes; the call reaches MLflow and fails on the dead port, not on the payload
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", closed_port_url_fx)
+    with pytest.raises(RegistryUnavailable):
+        rc.mark_rejected(rc.GBDT_MODEL, 1, ok)
+    with pytest.raises(RegistryUnavailable):
+        rc.register_rejected(rc.ALS_MODEL, "run-id", ok, LINEAGE)

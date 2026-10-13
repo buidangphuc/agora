@@ -239,3 +239,45 @@ def test_unexpected_seed_error_exits_1(monkeypatch, reg):
     assert _migrate(monkeypatch, reg, r) == 1
 
     assert r.store == before
+
+
+def _every_seeded_string(reg, model: str) -> list[str]:
+    from tests.registry_fixture import dec
+
+    out: list[str] = []
+    for v in _versions(reg, model):
+        mv = reg.client.get_model_version(model, str(v))
+        out += [f"{k}={x}" for k, x in mv.tags.items()]
+        run = reg.client.get_run(mv.run_id)
+        out += [f"{k}={x}" for k, x in run.data.tags.items()]
+        out += [f"{k}={x}" for k, x in run.data.params.items()]
+        out += list(run.data.metrics)
+        out += [dec(k) for k in run.data.metrics]
+    return out
+
+
+def test_seed_does_not_send_a_non_allow_listed_metric_key(monkeypatch, reg):
+    # RAT-27 / RAT-26 (privacy fix): seeding goes through the registry_client checks
+    r = FakeRedis()
+    _champion(r, "als-x", {"ndcg@10": 0.100, "u-0001": 0.9, "weird key!": 0.3}, PROTOCOL)
+
+    code = _migrate(monkeypatch, reg, r)
+
+    assert code == 0
+    strings = _every_seeded_string(reg, ALS)
+    assert not [s for s in strings if "u-0001" in s or "weird key" in s]
+    if _versions(reg, ALS):  # seeded (sanitised) rather than skipped: the legitimate metric survives
+        assert _stored_metrics(reg, ALS, 1)[enc("ndcg@10")] == pytest.approx(0.100)
+
+
+@pytest.mark.parametrize("protocol", ["leave-last u-0001", "p\nrotocol", "x" * 500, "<b>p</b>"], ids=range(4))
+def test_seed_does_not_send_an_eval_protocol_with_disallowed_characters(monkeypatch, reg, protocol):
+    # RAT-27 / RAT-26 (privacy fix)
+    r = FakeRedis()
+    _champion(r, "als-x", {"ndcg@10": 0.100}, protocol)
+
+    code = _migrate(monkeypatch, reg, r)
+
+    assert code == 0
+    for s in _every_seeded_string(reg, ALS):
+        assert protocol not in s and "u-0001" not in s
