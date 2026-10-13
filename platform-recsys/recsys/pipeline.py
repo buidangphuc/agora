@@ -15,6 +15,7 @@ from pathlib import Path
 
 from . import recommend
 from . import registry_client as rc
+from . import spark as spark_session
 from .config import Settings, load_settings
 from .dataset import resolve_dataset
 from .evals.evaluator import ModelEvaluator
@@ -24,7 +25,6 @@ from .model_version import resolve_model_version
 from .monitoring import generation as drift_monitor
 from .publish import publish_generation, refresh_serving_ttl
 from .ranker import stage as ranker_stage
-from .spark import build_spark
 from .structural_gate import structural_check
 from .train import train_als
 from .two_tower import stage as two_tower_stage
@@ -230,7 +230,7 @@ def run(settings: Settings | None = None, redis_client=None, qdrant_client=None)
     rc.preflight()
     log.info("starting ALS batch model_version=%s dataset=%s", model_version, dataset.path)
 
-    spark = build_spark(settings)
+    spark = spark_session.build_spark(settings)
     try:
         events = spark.read.parquet(dataset.path)
         triples = dataset_triples(events)
