@@ -16,8 +16,13 @@ import (
 	"github.com/buidangphuc/team-referral/internal/store"
 )
 
-func newHandler() *rpc.Handler {
-	return rpc.NewHandler(referral.NewService(store.NewInMemoryReferralRepo()), slog.New(slog.DiscardHandler))
+func newHandler(t testing.TB) *rpc.Handler {
+	t.Helper()
+	h, err := rpc.NewHandler(referral.NewService(store.NewInMemoryReferralRepo()), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
 }
 
 func userCtx(id string) context.Context {
@@ -26,7 +31,7 @@ func userCtx(id string) context.Context {
 
 // Anonymous callers (no principal) are rejected on every user-owned RPC.
 func TestHandlerRejectsAnonymous(t *testing.T) {
-	h := newHandler()
+	h := newHandler(t)
 	anon := context.Background() // no interceptor ran → anonymous
 
 	if _, err := h.CreateReferralCode(anon, &referralv1.CreateReferralCodeRequest{}); status.Code(err) != codes.Unauthenticated {
@@ -46,7 +51,7 @@ func TestHandlerRejectsAnonymous(t *testing.T) {
 // End-to-end through the handler: the caller is scoped from the principal, and a
 // redeem by another principal attributes the referee to the code owner.
 func TestHandlerScopesToPrincipal(t *testing.T) {
-	h := newHandler()
+	h := newHandler(t)
 
 	created, err := h.CreateReferralCode(userCtx("alice"), &referralv1.CreateReferralCodeRequest{})
 	if err != nil {

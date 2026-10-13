@@ -38,7 +38,7 @@ func TestInterceptorTreatsGatewayAnonymousAsAnonymous(t *testing.T) {
 			_, err := auth.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{}, func(ctx context.Context, _ any) (any, error) {
 				p, ok := auth.FromContext(ctx)
 				gotAnon, gotID = !ok || p.Anonymous(), p.ID
-				return newHandler().CreateReferralCode(ctx, &referralv1.CreateReferralCodeRequest{})
+				return newHandler(t).CreateReferralCode(ctx, &referralv1.CreateReferralCodeRequest{})
 			})
 			if gotAnon != c.wantAnon {
 				t.Fatalf("anonymous = %v, want %v", gotAnon, c.wantAnon)

@@ -32,22 +32,10 @@ type running struct {
 	err    error
 }
 
-// freePort asks the kernel for an unused port, then releases it for the
-// service to bind. GRPC_PORT has no default and 0 is not usable.
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
 func settings(port int, env string, db sdkconfig.Postgres) config.Settings {
 	return config.Settings{
 		Runtime:  sdkconfig.Runtime{Env: env, LogLevel: "error", LogJSON: true},
-		GRPC:     sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGraceSeconds: 5},
+		GRPC:     sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGrace: 5 * time.Second},
 		Postgres: db,
 	}
 }
@@ -76,7 +64,7 @@ func startApp(t *testing.T, s config.Settings) *running {
 }
 
 func TestBootFailsWhenDatabaseUnreachableOutsideLocal(t *testing.T) {
-	port := freePort(t)
+	port := testkit.FreePort(t)
 	s := settings(port, "staging", sdkconfig.Postgres{URL: closedDatabaseURL})
 
 	done := make(chan error, 1)
@@ -100,7 +88,7 @@ func TestBootFailsWhenDatabaseUnreachableOutsideLocal(t *testing.T) {
 }
 
 func TestLocalFallsBackToMemoryStore(t *testing.T) {
-	s := settings(freePort(t), "local", sdkconfig.Postgres{URL: closedDatabaseURL})
+	s := settings(testkit.FreePort(t), "local", sdkconfig.Postgres{URL: closedDatabaseURL})
 	r := startApp(t, s)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -132,7 +120,7 @@ func TestLocalFallsBackToMemoryStore(t *testing.T) {
 
 func TestHealthReportsDatabaseDown(t *testing.T) {
 	url := testkit.Postgres(t)
-	s := settings(freePort(t), "local", sdkconfig.Postgres{URL: url})
+	s := settings(testkit.FreePort(t), "local", sdkconfig.Postgres{URL: url})
 	r := startApp(t, s)
 
 	watchCtx, stopWatch := context.WithTimeout(context.Background(), 60*time.Second)
