@@ -48,8 +48,11 @@ def _require_registry() -> None:
 
 def _client():
     _require_registry()
+    import mlflow
     from mlflow import MlflowClient
 
+    mlflow.set_tracking_uri(mlflow_url())
+    mlflow.set_registry_uri(mlflow_url())
     return MlflowClient(tracking_uri=mlflow_url(), registry_uri=mlflow_url())
 
 
@@ -103,7 +106,7 @@ def _log_run_with_artifact(client, model: str, tmp: Path) -> tuple[str, str]:
     f = tmp / "model.bin"
     f.write_bytes(uuid.uuid4().bytes)
     client.log_artifact(run_id, str(f), artifact_path="model")
-    client.log_metric(run_id, "ndcg@10", 0.5)
+    client.log_metric(run_id, "probe_metric", 0.5)
     client.set_terminated(run_id)
     try:
         client.create_registered_model(model)

@@ -838,9 +838,9 @@ features:
     - registry
     - e2e
     kind: contract
-    status: planned
-    notes: 'add-model-registry: e2e scenario mlflow_server_up in model_registry/model_registry.feature (red
-      until the infra services exist).'
+    status: automated
+    covered_by: "model_registry/model_registry.feature::mlflow_server_up - Server is up with the pinned version"
+    notes: 'add-model-registry: e2e scenario mlflow_server_up in model_registry/model_registry.feature.'
   - id: model-registry.a-run-and-a-registered-model-version-are-stored-with-artifacts-in-mini
     title: A run and a registered model version are stored with artifacts in MinIO
     persona: guest
@@ -857,9 +857,9 @@ features:
     - registry
     - e2e
     kind: contract
-    status: planned
-    notes: 'add-model-registry: e2e scenario run_and_artifact_stored in model_registry/model_registry.feature
-      (red until the infra services exist).'
+    status: automated
+    covered_by: "model_registry/model_registry.feature::run_and_artifact_stored - A run and a registered model version are stored with artifacts in MinIO"
+    notes: 'add-model-registry: e2e scenario run_and_artifact_stored in model_registry/model_registry.feature.'
   - id: model-registry.bucket-creation-is-idempotent
     title: Bucket creation is idempotent
     persona: guest
@@ -875,9 +875,9 @@ features:
     - registry
     - e2e
     kind: contract
-    status: planned
-    notes: 'add-model-registry: e2e scenario bucket_init_idempotent in model_registry/model_registry.feature
-      (red until the infra services exist).'
+    status: automated
+    covered_by: "model_registry/model_registry.feature::bucket_init_idempotent - Bucket creation is idempotent"
+    notes: 'add-model-registry: e2e scenario bucket_init_idempotent in model_registry/model_registry.feature.'
   - id: model-registry.unit-backend-store-is-not-the-shared-postgres
     title: Backend store is not the shared postgres
     persona: guest
@@ -1593,9 +1593,9 @@ features:
     - registry
     - e2e
     kind: contract
-    status: planned
-    notes: 'add-model-registry: e2e scenario gate_against_real_server in model_registry/model_registry.feature
-      (red until the infra services exist).'
+    status: automated
+    covered_by: "model_registry/model_registry.feature::gate_against_real_server - Submit against a real MLflow server"
+    notes: 'add-model-registry: e2e scenario gate_against_real_server in model_registry/model_registry.feature.'
   - id: model-publish-gate.unit-unknown-model-has-no-policy
     title: Unknown model has no policy
     persona: guest
