@@ -36,6 +36,10 @@ Feature: The local stack trains on its own events and serves the result (serve-t
     When I navigate to the "home" page
     Then the "Gợi ý cho bạn" row shows cards for listings of that trained generation
 
+  # The two evaluation scenarios use the MLflow registry (shared by every worker, reset first): the
+  # protocol is the version's tag `lineage.eval_protocol`, the incumbent without a protocol is a
+  # seeded v1 with no such tag, judged on the policy floors only.
+  @destructive
   Scenario: The evaluation model never trains on its targets
     Given every user's most recently discovered listing is one nobody else interacted with
     When the pipeline evaluates and trains over those interactions
@@ -43,6 +47,7 @@ Feature: The local stack trains on its own events and serves the result (serve-t
     And the run's metrics carry the evaluation protocol identifier
     And the held-out listings score zero for the evaluation model while the published model learned them
 
+  @destructive
   Scenario: Metrics from another evaluation protocol are not compared
     Given an incumbent champion whose metrics carry no evaluation protocol and a score the candidate cannot match
     When the pipeline completes a run under the current protocol

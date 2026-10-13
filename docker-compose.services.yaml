@@ -690,8 +690,8 @@ services:
   # reads is in openspec/changes/add-recsys-nearline-signals/design.md. Same image as the batch job.
   platform-recsys-nearline:
     build:
-      context: ./platform-recsys
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: platform-recsys/Dockerfile
     image: platform-recsys:local
     container_name: platform-recsys-nearline
     entrypoint: ["python", "-m", "recsys.nearline"]
@@ -710,8 +710,8 @@ services:
 
   platform-recsys:
     build:
-      context: ./platform-recsys
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: platform-recsys/Dockerfile
     image: platform-recsys:local
     profiles: ["jobs"]
     environment:
@@ -719,11 +719,20 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5050
+      - ENABLE_GBDT=true
+      - ENABLE_TWO_TOWER=true
+      - ITEM_FEATURES_DIR=/features/item_popularity/v1
+      - USER_FEATURES_DIR=/features/user_activity/v2
+      - ITEM_ATTRIBUTES_DIR=/features/item_attributes/v1
+      - USER_PREFERENCES_DIR=/features/user_preferences/v1
+      - RANK_DATASET_DIR=/features/datasets/rank_training/v1
     volumes:
       - featurestore_data:/features:ro
     depends_on:
       - qdrant
       - redis
+      - mlflow
 
   # Feature materialisation job (featurestore-materialization) — a batch, not a server:
   #   docker compose --profile featurestore run --rm featurestore-job

@@ -1,5 +1,5 @@
 # Publish-gate policies, one entry per registered model name.
-# No model is configured here yet; entries are added by the change that owns the model.
+# Entries are added by the change that owns the model.
 #
 # Example (commented out, not loaded):
 #
@@ -10,3 +10,23 @@
 #     coverage@10: 0.8
 #   floors:                           # optional: candidate >= absolute value
 #     coverage@10: 0.5
+
+recsys-als:                         # ADR-0014
+  primary: ndcg@10
+  min_relative_improvement: 0.01
+  guards:
+    coverage@10: 0.8
+
+recsys-gbdt:
+  primary: ndcg@10
+  min_relative_improvement: 0.005
+  guards:
+    recall@10: 0.95
+
+recsys-two-tower:
+  primary: recall@10
+  min_relative_improvement: 0.005
+  guards:
+    coverage@10: 0.8
+  floors:
+    recall@10: 0.000001

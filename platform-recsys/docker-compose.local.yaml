@@ -9,7 +9,9 @@
 # the platform-gitops CronJob shape locally.
 services:
   recsys-train:
-    build: .
+    build:
+      context: ..
+      dockerfile: platform-recsys/Dockerfile
     image: localhost:5001/platform-recsys:local
     restart: "no"
     environment:

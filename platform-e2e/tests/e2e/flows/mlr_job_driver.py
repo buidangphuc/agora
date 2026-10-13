@@ -6,8 +6,10 @@ wire-two-tower-batch-pipeline). It executes the real entrypoints (`python -m rec
 dedicated Redis DB and Qdrant collections named after it. Serving data (DB 0, default collections) is never
 touched. /work/plan.json holds {"namespace", "redis_db", "steps": [...]}; each step is one of
 
-  {"op": "recsys", "env": {..}, "features": "standard"|"with_blank"|"none"|null, "read": ["/path"]}
-      run the batch job on the clustered dataset fixture; null env values unset a variable
+  {"op": "recsys", "env": {..}, "features": "standard"|"with_blank"|"none"|null, "read": ["/path"],
+   "keep_registry": bool, "seed": "weak"|"strong"|null}
+      run the batch job on the clustered dataset fixture; null env values unset a variable. The MLflow
+      registry is reset before the run (no champion, so the run promotes) unless "keep_registry"
   {"op": "nearline", "env": {..}}
       run the nearline consumer in drain mode (earliest offset, unique group) and dump recs:nearline:*
   {"op": "redis_set", "key": k, "value": v, "ex": seconds}
@@ -28,6 +30,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
+import registry_support as registry
 from qdrant_client import QdrantClient
 from qdrant_client.models import DeleteAlias, DeleteAliasOperation
 from redis import Redis
@@ -46,8 +49,13 @@ USER_COLS = ["user_key", "views_7d", "clicks_7d", "add_to_cart_7d", "favorites_c
              "paid_orders_30d"]  # fmt: skip
 
 
-def _dataset(directory: str) -> str:
-    """Two taste clusters over six listings (3 users each): a governed als_interactions fixture."""
+def _dataset(directory: str, variant: str = "base") -> str:
+    """Two taste clusters over six listings (3 users each): a governed als_interactions fixture.
+
+    `variant` "better" keeps the same users, items, weights and per-user / per-item counts (so the
+    feature distributions the drift check compares do not move) and only changes WHEN each user
+    met each listing, so that the held-out newest listing is the one the cluster-mates share.
+    """
     now = datetime.now(timezone.utc)
     rows = []
     clusters = [
@@ -58,11 +66,16 @@ def _dataset(directory: str) -> str:
         ("u5", "def"),
         ("u6", "def"),
     ]
-    for user, items in clusters:
+    for n, (user, items) in enumerate(clusters):
         for h, ch in enumerate(items):
+            hours = h + 1
+            if variant == "rev":
+                hours = len(items) - h
+            elif variant == "rot":
+                hours = (h + n) % len(items) + 1
             rows.append(
                 {"user_key": f"mlr-{user}", "listing_id": f"l{ch}", "weight": 3.0 - h, "interactions": 1,
-                 "last_occurred_at": now - timedelta(hours=h + 1)}
+                 "last_occurred_at": now - timedelta(hours=hours)}
             )  # fmt: skip
     df = pd.DataFrame(rows).astype({"weight": "float64", "interactions": "int32"})
     os.makedirs(directory, exist_ok=True)
@@ -152,13 +165,6 @@ def _dump(redis: Redis, pattern: str) -> dict:
     return out
 
 
-def _models(redis: Redis) -> dict:
-    return {
-        json.loads(redis.get(k))["model_version"]: json.loads(redis.get(k))
-        for k in redis.scan_iter("recs:model:meta:*")
-    }
-
-
 def _run(argv: list[str], env: dict) -> tuple[int, str]:
     proc = subprocess.run(argv, env=env, capture_output=True, text=True, check=False)
     return proc.returncode, proc.stdout + proc.stderr
@@ -183,7 +189,7 @@ def main() -> int:
         "TOP_N": "2",
         "TWO_TOWER_DIM": "8",
         "DATASET_PATH": dataset,
-        "PROMOTION_FORCE": "true",
+        "MLFLOW_TRACKING_URI": registry.base(),
         # a six-listing catalogue gives every user the same top-2: keep the structural gate out of the way
         "GATE_MAX_LIST_OVERLAP": "1.0",
         "GATE_MIN_ITEM_COVERAGE": "0",
@@ -198,6 +204,15 @@ def main() -> int:
             for k, v in (step.get("env") or {}).items():
                 env.pop(k, None) if v is None else env.__setitem__(k, v)
             if op == "recsys":
+                # No forcing: a fresh run promotes because the registry holds no champion (or a
+                # weak one); "keep_registry" keeps the previous run's champion (drift baselines).
+                if not step.get("keep_registry"):
+                    registry.reset()
+                    if step.get("seed"):
+                        registry.seed_champion(step["seed"])
+                before = registry.counts()
+                if step.get("dataset"):
+                    env["DATASET_PATH"] = _dataset(f"{WORK}/dataset-{index}", step["dataset"])
                 env.update(_features(step.get("features"), f"{WORK}/feat-{index}"))
                 env.setdefault("MODEL_VERSION", f"als-mlr-{nonce}-{index}")
                 code, out = _run([sys.executable, "-m", "recsys"], env)
@@ -210,7 +225,7 @@ def main() -> int:
                 }  # noqa: SIM115
                 results.append({
                     "op": op, "exit_code": code, "summary": summary, "log_tail": out[-3000:],
-                    "models": _models(redis), "champion": redis.get("recs:model:champion"),
+                    **registry.snapshot(env["MODEL_VERSION"], before),
                     "serving": redis.get("recs:v1:serving"), "previous": redis.get("recs:v1:previous"),
                     "collections": _collections(qdrant), "files": files, "nearline": _dump(redis, "recs:nearline:*"),
                     "model_version": env["MODEL_VERSION"],

@@ -1,8 +1,12 @@
-@recsys @batch @registry
+@recsys @batch @registry @destructive
 Feature: Pipeline Evaluation, Model Registry, and Promotion Gate (wire-pipeline-eval-registry)
   As the Agora RecSys platform, offline training runs must evaluate the candidate
   generation against a temporal holdout, gate promotion against the incumbent
   champion, and only publish artifacts to Qdrant/Redis if promoted.
+
+  # The champion lives in the MLflow model registry (recsys-auto-train): the `champion` alias of
+  # `recsys-als`, with the decision in the version's `gate.outcome` tag. MLflow is shared by every
+  # worker, so each scenario resets the `recsys-*` models first and the feature is @destructive.
 
   Scenario: A run produces ranking metrics for the generation it trained
     Given an offline batch pipeline run over warehouse tracking events
@@ -18,7 +22,7 @@ Feature: Pipeline Evaluation, Model Registry, and Promotion Gate (wire-pipeline-
     Given an incumbent champion model in the registry
     When a candidate model evaluates below the incumbent champion tolerance
     Then the candidate status is recorded as rejected
-    And the champion key still names the previous version
+    And the champion alias still names the previous version
 
   Scenario: A rejected candidate leaves the previous generation serving
     Given a candidate model rejected by the promotion gate

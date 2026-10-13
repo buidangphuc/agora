@@ -27,7 +27,6 @@ import pytest
 
 from recsys.config import Settings
 from recsys.ranker import contract, stage
-from recsys.registry.registry import ModelRegistry
 from tests import ranker_fixture as fx
 
 CONTEXT_COLS = ("session_source", "session_medium", "session_campaign")
@@ -46,11 +45,12 @@ def _add_context(root: Path) -> None:
     manifest.write_text(json.dumps(m))
 
 
-def _settings(tmp_path, context=True) -> Settings:
+def _settings(tmp_path, reg, context=True) -> Settings:
     values = fx.write_all(tmp_path)
     if context:
         _add_context(tmp_path)
     values.update(gbdt_trees=10, gbdt_min_leaf=10, enable_gbdt=True, gbdt_ctr_min_impressions=10**6)
+    values.update(mlflow_tracking_uri=reg.tracking_uri)
     return Settings(**values)
 
 
@@ -66,19 +66,19 @@ def _stub(monkeypatch, without: dict, with_ctx: dict):
 
 
 def _run(settings):
-    return stage.run_stage(settings, stage.resolve_inputs(settings), "gen-1", ModelRegistry())
+    return stage.run_stage(settings, stage.resolve_inputs(settings), "gen-1")
 
 
 def _context_features(artifact) -> list[str]:
     return [f for f in artifact["features"] if "session_" in f]
 
 
-def test_context_kept_without_regression(tmp_path, monkeypatch):
+def test_context_kept_without_regression(tmp_path, reg, monkeypatch):
     """Scenario: Context kept when it does not regress (ndcg equal, recall better: both >= baseline)."""
     without = {"ndcg@10": 0.90, "recall@10": 0.60}
     with_ctx = {"ndcg@10": 0.90, "recall@10": 0.65}
     calls = _stub(monkeypatch, without, with_ctx)
-    result = _run(_settings(tmp_path))
+    result = _run(_settings(tmp_path, reg))
     assert set(calls) == {True, False}
     s = result.summary
     assert s["context_features"] == "enabled"
@@ -86,7 +86,7 @@ def test_context_kept_without_regression(tmp_path, monkeypatch):
     assert s["context_metrics"]["with_context"]["recall@10"] == 0.65
     assert s["context_metrics"]["without_context"]["ndcg@10"] == 0.90
     assert s["context_metrics"]["without_context"]["recall@10"] == 0.60
-    assert result.promoted, result.reason
+    assert result.decision.outcome == "promotable", result.reason
     # team-ai accepts only RANKING_FEATURES: context is evaluate-and-report, never published
     assert list(result.artifact["features"]) == list(contract.RANKING_FEATURES)
 
@@ -98,28 +98,30 @@ def test_context_kept_without_regression(tmp_path, monkeypatch):
         {"ndcg@10": 0.85, "recall@10": 0.70},  # recall up, ndcg down
     ],
 )
-def test_context_dropped_on_regression(tmp_path, monkeypatch, with_ctx):
+def test_context_dropped_on_regression(tmp_path, reg, monkeypatch, with_ctx):
     """Scenario: Context dropped on regression (either metric below the without-context baseline)."""
     without = {"ndcg@10": 0.90, "recall@10": 0.60}
     _stub(monkeypatch, without, with_ctx)
-    result = _run(_settings(tmp_path))
+    result = _run(_settings(tmp_path, reg))
     s = result.summary
     assert s["context_features"] == "disabled"
     assert s["context_metrics"]["with_context"] == {**with_ctx, **s["context_metrics"]["with_context"]}
     assert s["context_metrics"]["with_context"]["recall@10"] == with_ctx["recall@10"]
     assert s["context_metrics"]["without_context"]["ndcg@10"] == 0.90
-    assert result.promoted, result.reason  # the run does not fail: it ships the context-free model
+    assert (
+        result.decision.outcome == "promotable"
+    ), result.reason  # the run does not fail: it ships the context-free model
     assert _context_features(result.artifact) == []
     assert list(result.artifact["features"]) == list(contract.RANKING_FEATURES)
 
 
-def test_legacy_input_without_context_columns(tmp_path, monkeypatch):
+def test_legacy_input_without_context_columns(tmp_path, reg, monkeypatch):
     """Scenario: Legacy input without context columns: disabled, reason columns_absent, no failure."""
     calls = _stub(monkeypatch, {"ndcg@10": 0.9, "recall@10": 0.6}, {"ndcg@10": 0.99, "recall@10": 0.99})
-    result = _run(_settings(tmp_path, context=False))
+    result = _run(_settings(tmp_path, reg, context=False))
     s = result.summary
     assert s["context_features"] == "disabled"
     assert s["context_reason"] == "columns_absent"
     assert True not in calls  # nothing to evaluate with context
-    assert result.promoted, result.reason
+    assert result.decision.outcome == "promotable", result.reason
     assert list(result.artifact["features"]) == list(contract.RANKING_FEATURES)

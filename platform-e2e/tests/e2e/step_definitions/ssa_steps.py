@@ -20,9 +20,17 @@ import uuid
 import httpx
 from pytest_bdd import given, parsers, then, when
 
+from src.api.mlflow_registry import WEAK
 from src.api.services.recommendation_service import CONTEXT_SIMILAR_ITEMS
 from tests.e2e.flows.recsys_job_flow import run_recsys_job
-from tests.e2e.step_definitions.rgp_steps import _buyer_id, _ctx, _publish, _version
+from tests.e2e.step_definitions.rgp_steps import (
+    ALS,
+    _buyer_id,
+    _ctx,
+    _publish,
+    _registry,
+    _version,
+)
 from tests.e2e.support import rss_support as rss
 from tests.e2e.support.world import World
 
@@ -186,12 +194,21 @@ def ssa_no_pointer(world: World) -> None:
     ssa_move_alias(ITEM_ALIAS, ssa_item_collection(first))
 
 
+def _weak_champion(world: World) -> None:
+    registry = _registry(world)
+    registry.reset_registry()
+    registry.seed(ALS, WEAK[ALS])
+
+
 @when("a third model is promoted and the aliases are then deleted and a fourth model is promoted")
 def ssa_third_then_fourth(world: World) -> None:
+    # The metric gate is not under test here: before each publish the registry is emptied and a
+    # weak champion seeded, so the candidate is promotable without any forcing lever.
+    _weak_champion(world)
     _publish(world, [{"@fixture": "third_c"}], reset=False)
     ssa_delete_aliases()
-    # The structural gate and metric gate are not under test here: force the promotion.
-    _publish(world, [{"@fixture": "better_b", "PROMOTION_FORCE": "true"}], reset=False)
+    _weak_champion(world)
+    _publish(world, [{"@fixture": "better_b"}], reset=False)
     assert len(_ctx(world)["versions"]) == 4, _ctx(world)["versions"]
 
 

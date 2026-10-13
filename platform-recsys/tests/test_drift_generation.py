@@ -63,6 +63,33 @@ def test_the_record_and_sketches_are_json_for_the_registry():
     json.dumps(_dist(3, 1.0))
 
 
+def test_sketches_round_trip_through_the_champion_runs_artifact(reg):
+    # RAT-58 (no Spark): what a run stores as drift_sketches.json is what the next run reads and compares with
+    from recsys import registry_client as rc
+    from tests.pipeline_fixture import ALS
+
+    sketches = {f: gen.sketch(range(1001)) for f in gen.FEATURES}
+    run_id = rc.start_run("recsys-als-g1", {"als_rank": 4})
+    rc.write_drift_sketches(run_id, sketches)
+    d = rc.evaluate(
+        ALS, run_id, {"ndcg@10": 0.1, "coverage@10": 0.5}, _item_artifact(reg), {"eval_protocol": "p"}
+    )
+    from modelregistry import apply
+
+    apply(ALS, d.version)
+    version, baseline = rc.champion_drift_baseline()
+    assert version == d.version and baseline == sketches
+    record, _ = gen.compare(baseline, sketches, str(version), 0.25)
+    assert record["status"] == "ok" and record["baseline_version"] == str(version)
+
+
+def _item_artifact(reg):
+    d = reg.artifact_dir()
+    (d / "weights.bin").unlink()
+    (d / "item_factors.parquet").write_bytes(b"x")
+    return d
+
+
 def test_prometheus_file_is_written_atomically(tmp_path):
     _, report = gen.compare(_dist(1, 5.0), _dist(2, 9.0), "als-1", 0.25)
     path = tmp_path / "recsys_drift.prom"
