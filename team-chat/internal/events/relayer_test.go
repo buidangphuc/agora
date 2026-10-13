@@ -9,13 +9,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
-	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
@@ -32,22 +33,32 @@ type sent struct {
 
 type fakeKafka struct {
 	mu   sync.Mutex
-	down bool
+	err  error
 	sent []sent
 }
 
-func (f *fakeKafka) Publish(_ context.Context, topic string, key, payload []byte) error {
+func (f *fakeKafka) PublishRecord(_ context.Context, rec *kgo.Record) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.down {
-		return errors.New("broker unavailable")
+	if f.err != nil {
+		return f.err
 	}
-	f.sent = append(f.sent, sent{topic, string(key), payload})
+	f.sent = append(f.sent, sent{rec.Topic, string(rec.Key), rec.Value})
 	return nil
 }
 
-func (f *fakeKafka) setDown(v bool) { f.mu.Lock(); f.down = v; f.mu.Unlock() }
-func (f *fakeKafka) count() int     { f.mu.Lock(); defer f.mu.Unlock(); return len(f.sent) }
+func (f *fakeKafka) setDown(v bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.err = nil
+	if v {
+		f.err = errors.New("broker unavailable")
+	}
+}
+
+// failWith makes every publish return err until setDown(false).
+func (f *fakeKafka) failWith(err error) { f.mu.Lock(); f.err = err; f.mu.Unlock() }
+func (f *fakeKafka) count() int         { f.mu.Lock(); defer f.mu.Unlock(); return len(f.sent) }
 
 func userCtx(id string) context.Context {
 	return auth.WithPrincipal(context.Background(), auth.Principal{ID: id, Type: "user"})
@@ -100,14 +111,23 @@ func newOutbox(t *testing.T) (*pgxpool.Pool, *outbox.Store) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	return pool, outbox.NewStore(pool, store.OutboxTable)
+	s, err := outbox.NewStore(pool, store.OutboxTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pool, s
 }
 
-func relayerFor(s *outbox.Store, k outbox.Publisher, maxAttempts int) *outbox.Relayer {
-	return outbox.NewRelayer(s, k, outbox.RelayerOptions{
+func relayerFor(t *testing.T, s *outbox.Store, k outbox.Publisher) *outbox.Relayer {
+	t.Helper()
+	r, err := outbox.NewRelayer(s, k, outbox.RelayerOptions{
 		Topic:  "chat.events",
-		Config: sdkconfig.Outbox{BatchSize: 100, ClaimLockSeconds: 60, MaxAttempts: maxAttempts},
+		Config: sdkconfig.Outbox{BatchSize: 100, ClaimLock: time.Minute},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }
 
 func enqueue(t *testing.T, pool *pgxpool.Pool, s *outbox.Store, id, thread string) {
@@ -146,7 +166,7 @@ func TestRelayerPublishesKeyedByThreadAndOnlyOnce(t *testing.T) {
 	k := &fakeKafka{}
 	enqueue(t, pool, s, "e1", "thread-A")
 	enqueue(t, pool, s, "e2", "thread-A")
-	r := relayerFor(s, k, 3)
+	r := relayerFor(t, s, k)
 
 	if n := sweep(t, r); n != 2 {
 		t.Fatalf("sweep = %d; want 2", n)
@@ -165,7 +185,7 @@ func TestRelayerDeliversAfterKafkaRecovers(t *testing.T) {
 	k := &fakeKafka{}
 	k.setDown(true)
 	enqueue(t, pool, s, "e1", "thread-A")
-	r := relayerFor(s, k, 10)
+	r := relayerFor(t, s, k)
 
 	for i := 0; i < 3; i++ {
 		release(t, pool)
@@ -187,20 +207,49 @@ func TestRelayerDeliversAfterKafkaRecovers(t *testing.T) {
 	}
 }
 
-func TestRelayerParksAfterMaxAttempts(t *testing.T) {
+// Since v1 there is no attempt limit: a transient publish error retries forever
+// and never parks the row, so the event goes out once Kafka is back.
+func TestRelayerNeverParksOnTransientErrors(t *testing.T) {
 	pool, s := newOutbox(t)
 	k := &fakeKafka{}
 	k.setDown(true)
 	enqueue(t, pool, s, "e1", "thread-A")
-	r := relayerFor(s, k, 2)
+	r := relayerFor(t, s, k)
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 15; i++ {
 		release(t, pool)
 		sweep(t, r)
 	}
+	var status string
+	if err := pool.QueryRow(context.Background(), `SELECT status FROM chat_outbox_events WHERE event_id = 'e1'`).Scan(&status); err != nil || status != "pending" {
+		t.Fatalf("status = %q err=%v after 15 failures, want pending", status, err)
+	}
+	k.setDown(false)
+	release(t, pool)
+	if n := sweep(t, r); n != 1 || k.count() != 1 {
+		t.Fatalf("delivery after recovery: n=%d sent=%d", n, k.count())
+	}
+}
+
+// A permanent record error parks the row at once, and a parked row is never
+// claimed again until it is requeued.
+func TestRelayerParksPermanentErrors(t *testing.T) {
+	pool, s := newOutbox(t)
+	k := &fakeKafka{}
+	k.failWith(outbox.Permanent(errors.New("record too large")))
+	enqueue(t, pool, s, "e1", "thread-A")
+	r := relayerFor(t, s, k)
+
+	sweep(t, r)
 	k.setDown(false)
 	release(t, pool)
 	if n := sweep(t, r); n != 0 || k.count() != 0 {
 		t.Fatalf("a parked row must not be claimed again: n=%d sent=%d", n, k.count())
+	}
+	if n, err := s.RequeueParked(context.Background(), outbox.RequeueFilter{}); err != nil || n != 1 {
+		t.Fatalf("requeue parked = %d, %v; want 1", n, err)
+	}
+	if n := sweep(t, r); n != 1 || k.count() != 1 {
+		t.Fatalf("after requeue: n=%d sent=%d", n, k.count())
 	}
 }

@@ -16,13 +16,13 @@ func TestNoEnableFlagsDeclared(t *testing.T) {
 
 	for _, want := range []string{
 		"GRPC_PORT", "DATABASE_URL", "KAFKA_BROKERS", "KAFKA_CHAT_TOPIC",
-		"OUTBOX_POLL_INTERVAL", "OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK_SECONDS", "OUTBOX_MAX_ATTEMPTS",
+		"OUTBOX_POLL_INTERVAL", "OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK",
 	} {
 		if !slices.Contains(declared, want) {
 			t.Errorf("Settings does not declare %s; declared = %v", want, declared)
 		}
 	}
-	for _, flag := range []string{"DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "GRPC_REFLECTION_ENABLED"} {
+	for _, flag := range []string{"DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "GRPC_REFLECTION_ENABLED", "OUTBOX_MAX_ATTEMPTS"} {
 		if slices.Contains(declared, flag) {
 			t.Errorf("Settings declares the removed flag %s", flag)
 		}

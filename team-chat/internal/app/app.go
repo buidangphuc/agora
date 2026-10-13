@@ -15,7 +15,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 
@@ -46,7 +46,7 @@ type Options struct {
 // database, publisher, domain, server. Everything opened goes on the stack;
 // closers run in reverse order on shutdown and on an early failure.
 //
-// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY_SECONDS passes, the gRPC
+// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY passes, the gRPC
 // server stops, then the outbox relayer stops, then the publisher and the pool
 // close.
 //
@@ -67,16 +67,19 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("health: %w", err), stack.Close(ctx))
+	}
 
 	// Threads and messages live in Postgres and there is no in-memory fallback,
 	// so an unreachable database fails boot in every ENV.
-	pool, err := pgx.Open(ctx, s.Postgres)
+	pool, err := postgres.Open(ctx, s.Postgres)
 	if err != nil {
 		return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
 	}
 	stack.Push(func(context.Context) error { pool.Close(); return nil })
-	health.Register("postgres", pgx.Checker(pool))
+	health.Register("postgres", postgres.Checker(pool))
 
 	newPublisher := o.NewPublisher
 	if newPublisher == nil {
@@ -91,23 +94,33 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 	// Every stored message writes its chat.events outbox row in the same
 	// transaction (ADR-0013); the relayer below publishes it, so a Kafka outage
 	// delays but never loses a notification.
-	chatRepo := store.NewPostgresChatRepository(pool, store.WithMessageOutbox(events.BuildMessageOutboxRow))
+	chatRepo, err := store.NewPostgresChatRepository(pool, store.WithMessageOutbox(events.BuildMessageOutboxRow))
+	if err != nil {
+		return errors.Join(err, stack.Close(ctx))
+	}
 	handler := rpc.NewChatHandler(chat.NewService(chatRepo, logger), logger)
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	rpc.Register(srv, handler)
 
-	relayer := outbox.NewRelayer(outbox.NewStore(pool, store.OutboxTable), publisher, outbox.RelayerOptions{
+	outboxStore, err := outbox.NewStore(pool, store.OutboxTable)
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox store: %w", err), stack.Close(ctx))
+	}
+	relayer, err := outbox.NewRelayer(outboxStore, publisher, outbox.RelayerOptions{
 		Topic:  s.Events.ChatTopic,
 		Config: s.Outbox,
 		Logger: logger,
 	})
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox relayer: %w", err), stack.Close(ctx))
+	}
 
 	// The relayer outlives the gRPC server so in-flight SendMessage calls that
 	// enqueue rows are drained before it stops.
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,

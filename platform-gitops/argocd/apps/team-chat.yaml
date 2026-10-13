@@ -41,8 +41,8 @@ spec:
             KAFKA_CHAT_TOPIC: "chat.events"
             OUTBOX_POLL_INTERVAL: "1s"
             OUTBOX_BATCH_SIZE: "100"
-            OUTBOX_CLAIM_LOCK_SECONDS: "60"
-            OUTBOX_MAX_ATTEMPTS: "10"
+            OUTBOX_CLAIM_LOCK: "60s"
+            ENV: "local"
           secrets:
             enabled: true
   syncPolicy:

@@ -433,8 +433,7 @@ services:
       # but never loses a notification. Same OUTBOX_* names as team-order.
       - OUTBOX_POLL_INTERVAL=1s
       - OUTBOX_BATCH_SIZE=100
-      - OUTBOX_CLAIM_LOCK_SECONDS=60
-      - OUTBOX_MAX_ATTEMPTS=10
+      - OUTBOX_CLAIM_LOCK=60s
       - GRPC_PORT=50057
       - ENV=local
 

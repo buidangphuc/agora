@@ -9,7 +9,7 @@ import (
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
-	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	"github.com/buidangphuc/team-chat/migrations"
@@ -30,6 +30,15 @@ func chatPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+func newRepo(t *testing.T, pool *pgxpool.Pool, opts ...ChatRepoOption) *PostgresChatRepository {
+	t.Helper()
+	r, err := NewPostgresChatRepository(pool, opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
 func countRows(t *testing.T, pool *pgxpool.Pool, table string) int {
 	t.Helper()
 	var n int
@@ -46,14 +55,14 @@ func TestSaveMessageIsAtomicWithOutbox_Postgres(t *testing.T) {
 	pool := chatPool(t)
 	ctx := context.Background()
 
-	seed, err := NewPostgresChatRepository(pool).GetOrCreateThread(ctx, "buyer-1", "seller-1", "listing-1", "Sản phẩm", "")
+	seed, err := newRepo(t, pool).GetOrCreateThread(ctx, "buyer-1", "seller-1", "listing-1", "Sản phẩm", "")
 	if err != nil {
 		t.Fatalf("seed thread: %v", err)
 	}
 	msg := ChatMessage{ThreadID: seed.ID, SenderID: "seller-1", SenderName: "s", Content: "hi", RecipientID: "buyer-1"}
 
 	// 1. Builder fails: nothing stored.
-	failing := NewPostgresChatRepository(pool, WithMessageOutbox(func(context.Context, ChatMessage) (OutboxRow, error) {
+	failing := newRepo(t, pool, WithMessageOutbox(func(context.Context, ChatMessage) (OutboxRow, error) {
 		return OutboxRow{}, errors.New("boom")
 	}))
 	if _, err := failing.SaveMessage(ctx, msg); err == nil {
@@ -64,7 +73,7 @@ func TestSaveMessageIsAtomicWithOutbox_Postgres(t *testing.T) {
 	}
 
 	// 2. Outbox insert fails after the message insert (NULL payload violates NOT NULL).
-	badRow := NewPostgresChatRepository(pool, WithMessageOutbox(func(_ context.Context, m ChatMessage) (OutboxRow, error) {
+	badRow := newRepo(t, pool, WithMessageOutbox(func(_ context.Context, m ChatMessage) (OutboxRow, error) {
 		return OutboxRow{EventID: "evt-bad", AggregateType: "ChatThread", AggregateID: m.ThreadID, EventType: "T", Payload: nil}, nil
 	}))
 	if _, err := badRow.SaveMessage(ctx, msg); err == nil {
@@ -79,7 +88,7 @@ func TestSaveMessageIsAtomicWithOutbox_Postgres(t *testing.T) {
 	}
 
 	// 3. Success: both stored, outbox row keyed by thread id and pending.
-	good := NewPostgresChatRepository(pool, WithMessageOutbox(func(_ context.Context, m ChatMessage) (OutboxRow, error) {
+	good := newRepo(t, pool, WithMessageOutbox(func(_ context.Context, m ChatMessage) (OutboxRow, error) {
 		return OutboxRow{EventID: "evt-" + m.ID, AggregateType: "ChatThread", AggregateID: m.ThreadID, EventType: "T", Payload: []byte("x")}, nil
 	}))
 	saved, err := good.SaveMessage(ctx, msg)

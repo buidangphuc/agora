@@ -36,7 +36,7 @@ No RPC, proto or event payload changes.
 - No regression in the existing tests.
 - Events are never lost:
   - consumers commit only after handling or a successful DLQ produce;
-  - relayers park poison rows.
+  - relayers park poison rows (go-sdk v1: only rows whose error is permanent for the record; transient errors retry forever).
 
 ## Data classification
 

@@ -6,8 +6,6 @@
 package config
 
 import (
-	"errors"
-
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 )
 
@@ -36,11 +34,6 @@ type Events struct {
 // Upstream holds the addresses of the services team-chat may call.
 type Upstream struct {
 	ListingAddr string `env:"UPSTREAM_LISTING_ADDR" default:"localhost:50051"` // team-domain gRPC address
-}
-
-// Validate runs after parsing; sdkconfig.Load calls it.
-func (s Settings) Validate() error {
-	return errors.Join(s.GRPC.Validate(), s.Postgres.Validate())
 }
 
 // Load reads Settings from the environment and validates it.

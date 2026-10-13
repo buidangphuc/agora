@@ -89,13 +89,13 @@ func BuildMessageOutboxRow(ctx context.Context, msg store.ChatMessage) (store.Ou
 
 // wirePrincipalType maps the principal type the gateway forwards in metadata to
 // its wire enum.
-func wirePrincipalType(t string) commonv1.PrincipalType {
+func wirePrincipalType(t auth.PrincipalType) commonv1.PrincipalType {
 	switch t {
-	case "user":
+	case auth.TypeUser:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_USER
-	case "service":
+	case auth.TypeService:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
-	case "anonymous":
+	case auth.TypeAnonymous:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS
 	default:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_UNSPECIFIED

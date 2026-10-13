@@ -27,10 +27,14 @@ func startServer(t *testing.T) chatv1.ChatServiceClient {
 	repo := store.NewInMemoryChatRepository()
 	svc := chat.NewService(repo, logger)
 	h := rpc.NewChatHandler(svc, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		t.Fatalf("health: %v", err)
+	}
 	srv := grpcx.NewServer(grpcx.ServerOptions{
 		Config: sdkconfig.GRPC{},
 		Logger: logger,
-		Health: healthx.New(healthx.DefaultInterval, logger),
+		Health: health,
 	})
 	rpc.Register(srv, h)
 

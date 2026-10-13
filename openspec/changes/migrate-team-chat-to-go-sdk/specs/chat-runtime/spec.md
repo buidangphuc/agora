@@ -20,8 +20,13 @@ team-chat's Kafka publishing and consuming SHALL go through SDK `kafkax`, `outbo
 
 #### Scenario: team-chat outbox rows are relayed and a failing row does not block others
 - **WHEN** two rows are enqueued and publishing the first fails
-- **THEN** the second is published, and the first is retried with backoff and parked after `OUTBOX_MAX_ATTEMPTS`
+- **THEN** the second is published, and the first is retried with backoff and is never parked by a transient error (go-sdk v1 has no attempt limit; only a permanent record error parks a row)
 - **VERIFIED BY**: `team-chat/internal/app` `TestOutboxRelayedViaSDK` (testkit Postgres)
+
+#### Scenario: team-chat outbox table upgrades to the go-sdk v1 schema in creation order
+- **WHEN** the forward migrations run on an outbox table of the previous schema that holds rows, including a retried row and rows of one thread
+- **THEN** every row has a unique `seq` in `(created_at, event_id)` order, `seq` is NOT NULL with a default for new rows, the v1 indexes exist and the v0 claim index is gone, and the SDK relayer publishes a thread's rows in creation order
+- **VERIFIED BY**: `team-chat/internal/store` `TestOutboxV1UpgradeKeepsCreationOrder_Postgres` (testkit Postgres)
 
 ### Requirement: team-chat behaviour is unchanged
 

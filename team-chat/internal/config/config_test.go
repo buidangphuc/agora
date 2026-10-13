@@ -11,16 +11,17 @@ import (
 )
 
 func TestOutboxDefaultsAndOverrides(t *testing.T) {
+	t.Setenv("ENV", "test")
 	t.Setenv("GRPC_PORT", "50057")
 	t.Setenv("DATABASE_URL", "postgres://test:pass@localhost:5432/db")
-	for _, k := range []string{"OUTBOX_POLL_INTERVAL", "OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK_SECONDS", "OUTBOX_MAX_ATTEMPTS"} {
+	for _, k := range []string{"OUTBOX_POLL_INTERVAL", "OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK"} {
 		t.Setenv(k, "")
 	}
 	s, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if o := s.Outbox; o.PollInterval != time.Second || o.BatchSize != 100 || o.ClaimLockSeconds != 60 || o.MaxAttempts != 10 {
+	if o := s.Outbox; o.PollInterval != time.Second || o.BatchSize != 100 || o.ClaimLock != 60*time.Second {
 		t.Fatalf("defaults = %+v", o)
 	}
 	t.Setenv("OUTBOX_POLL_INTERVAL", "250ms")

@@ -80,10 +80,23 @@ features:
     services: [team-chat]
     acceptance:
       - When two outbox rows are enqueued and publishing the first fails
-      - Then the second is published, and the first is retried with backoff and parked after OUTBOX_MAX_ATTEMPTS
+      - Then the second is published, and the first is retried with backoff and is never parked by a transient error (go-sdk v1 has no attempt limit; only a permanent record error parks a row)
     tags: [chat-runtime, integration]
     status: not-testable
     notes: "migrate-team-chat-to-go-sdk: not producible end to end; verified by team-chat/internal/app TestOutboxRelayedViaSDK (testkit Postgres)."
+
+  - id: chat-runtime.team-chat-outbox-table-upgrades-to-the-go-sdk-v1-schema-in-creation-order
+    title: team-chat outbox table upgrades to the go-sdk v1 schema in creation order
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-chat]
+    acceptance:
+      - When the forward migrations run on an outbox table of the previous schema that holds rows, including a retried row and rows of one thread
+      - Then every row has a unique seq in (created_at, event_id) order, seq is NOT NULL with a default for new rows, the v1 indexes exist and the v0 claim index is gone, and the SDK relayer publishes a thread's rows in creation order
+    tags: [chat-runtime, integration]
+    status: not-testable
+    notes: "migrate-team-chat-to-go-sdk: not producible end to end; verified by team-chat/internal/store TestOutboxV1UpgradeKeepsCreationOrder_Postgres (testkit Postgres)."
 
   - id: chat-runtime.team-chat-existing-suites-do-not-regress-and-no-assertion-is-weakened
     title: team-chat existing suites do not regress and no assertion is weakened

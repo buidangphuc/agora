@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // ErrThreadNotFound is returned when a thread id matches no thread.
@@ -126,9 +127,13 @@ type PostgresChatRepository struct {
 }
 
 // NewPostgresChatRepository builds the Postgres repository over pool.
-func NewPostgresChatRepository(pool *pgxpool.Pool, opts ...ChatRepoOption) *PostgresChatRepository {
+func NewPostgresChatRepository(pool *pgxpool.Pool, opts ...ChatRepoOption) (*PostgresChatRepository, error) {
 	cfg := newChatRepoConfig(opts)
-	return &PostgresChatRepository{pool: pool, outbox: outbox.NewStore(pool, OutboxTable), messageOutbox: cfg.messageOutbox}
+	ob, err := outbox.NewStore(pool, OutboxTable)
+	if err != nil {
+		return nil, fmt.Errorf("outbox store: %w", err)
+	}
+	return &PostgresChatRepository{pool: pool, outbox: ob, messageOutbox: cfg.messageOutbox}, nil
 }
 
 const threadColumns = `id, buyer_id, seller_id, listing_id, listing_title, listing_image_url, last_message_text, last_message_at, unread_count_buyer, unread_count_seller, created_at, updated_at`
@@ -234,42 +239,38 @@ func (r *PostgresChatRepository) SaveMessage(ctx context.Context, msg ChatMessag
 	}
 	msg.CreatedAt = time.Now()
 
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return ChatMessage{}, err
-	}
-	defer tx.Rollback(ctx) // nolint:errcheck
-
-	const insertMsg = `INSERT INTO chat_messages (id, thread_id, sender_id, sender_name, content, created_at, message_type, listing_id, payload)
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		const insertMsg = `INSERT INTO chat_messages (id, thread_id, sender_id, sender_name, content, created_at, message_type, listing_id, payload)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	if _, err := tx.Exec(ctx, insertMsg, msg.ID, msg.ThreadID, msg.SenderID, msg.SenderName, msg.Content, msg.CreatedAt, msg.MessageType, msg.ListingID, msg.Payload); err != nil {
-		return ChatMessage{}, fmt.Errorf("insert message: %w", err)
-	}
+		if _, err := tx.Exec(ctx, insertMsg, msg.ID, msg.ThreadID, msg.SenderID, msg.SenderName, msg.Content, msg.CreatedAt, msg.MessageType, msg.ListingID, msg.Payload); err != nil {
+			return fmt.Errorf("insert message: %w", err)
+		}
 
-	// Update thread last_message and increment other party's unread_count
-	const updateThread = `UPDATE chat_threads SET
+		// Update thread last_message and increment other party's unread_count
+		const updateThread = `UPDATE chat_threads SET
 		last_message_text = $1,
 		last_message_at = $2,
 		updated_at = $2,
 		unread_count_buyer = CASE WHEN buyer_id != $3 THEN unread_count_buyer + 1 ELSE unread_count_buyer END,
 		unread_count_seller = CASE WHEN seller_id != $3 THEN unread_count_seller + 1 ELSE unread_count_seller END
 		WHERE id = $4`
-	if _, err := tx.Exec(ctx, updateThread, msg.Content, msg.CreatedAt, msg.SenderID, msg.ThreadID); err != nil {
-		return ChatMessage{}, fmt.Errorf("update thread on message: %w", err)
-	}
-
-	// The event row commits or rolls back with the message (ADR-0013).
-	if r.messageOutbox != nil {
-		row, err := r.messageOutbox(ctx, msg)
-		if err != nil {
-			return ChatMessage{}, fmt.Errorf("build chat outbox row: %w", err)
+		if _, err := tx.Exec(ctx, updateThread, msg.Content, msg.CreatedAt, msg.SenderID, msg.ThreadID); err != nil {
+			return fmt.Errorf("update thread on message: %w", err)
 		}
-		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
-			return ChatMessage{}, err
-		}
-	}
 
-	if err := tx.Commit(ctx); err != nil {
+		// The event row commits or rolls back with the message (ADR-0013).
+		if r.messageOutbox != nil {
+			row, err := r.messageOutbox(ctx, msg)
+			if err != nil {
+				return fmt.Errorf("build chat outbox row: %w", err)
+			}
+			if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		return ChatMessage{}, err
 	}
 	return msg, nil

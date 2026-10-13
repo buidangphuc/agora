@@ -3,26 +3,13 @@ package store
 import (
 	"context"
 	"slices"
-	"sync"
 	"testing"
 	"time"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 )
-
-// orderRecorder records the payloads in the order the relayer publishes them.
-type orderRecorder struct {
-	mu       sync.Mutex
-	payloads []string
-}
-
-func (r *orderRecorder) Publish(_ context.Context, _ string, _, value []byte) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.payloads = append(r.payloads, string(value))
-	return nil
-}
 
 // Regression: UPDATE ... RETURNING does not preserve the claim subquery's ORDER BY,
 // so two events for one aggregate in the same batch could be relayed newest-first
@@ -39,23 +26,35 @@ func TestClaimPendingKeepsCreationOrder_Postgres(t *testing.T) {
 	for _, r := range []struct {
 		id  string
 		age time.Duration
-	}{{"evt-updated", 2 * time.Second}, {"evt-created", 0}} {
+		seq int // creation order, as the v1 default would number them
+	}{{"evt-updated", 2 * time.Second, 2}, {"evt-created", 0, 1}} {
 		if _, err := pool.Exec(ctx, `INSERT INTO chat_outbox_events
-			(event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, attempts, available_at, created_at)
-			VALUES ($1, 'Agg', 'agg-1', 'T', convert_to($1, 'UTF8'), '', 'pending', 0, $2, $2)`, r.id, base.Add(r.age)); err != nil {
+			(event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, attempts, available_at, created_at, seq)
+			VALUES ($1, 'Agg', 'agg-1', 'T', convert_to($1, 'UTF8'), '', 'pending', 0, $2, $2, $3)`, r.id, base.Add(r.age), r.seq); err != nil {
 			t.Fatalf("insert %s: %v", r.id, err)
 		}
 	}
 
-	pub := &orderRecorder{}
-	relayer := outbox.NewRelayer(outbox.NewStore(pool, OutboxTable), pub, outbox.RelayerOptions{
+	pub := testkit.NewRecorder()
+	ob, err := outbox.NewStore(pool, OutboxTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	relayer, err := outbox.NewRelayer(ob, pub, outbox.RelayerOptions{
 		Topic:  "chat.events",
-		Config: sdkconfig.Outbox{BatchSize: 10, ClaimLockSeconds: 30, MaxAttempts: 3},
+		Config: sdkconfig.Outbox{BatchSize: 10, ClaimLock: 30 * time.Second},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := relayer.RelayOnce(ctx); err != nil {
 		t.Fatalf("relay: %v", err)
 	}
-	if want := []string{"evt-created", "evt-updated"}; !slices.Equal(pub.payloads, want) {
-		t.Fatalf("claim order = %v, want %v", pub.payloads, want)
+	var got []string
+	for _, r := range pub.Records() {
+		got = append(got, string(r.Value))
+	}
+	if want := []string{"evt-created", "evt-updated"}; !slices.Equal(got, want) {
+		t.Fatalf("claim order = %v, want %v", got, want)
 	}
 }
