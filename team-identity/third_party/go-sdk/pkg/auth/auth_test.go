@@ -150,3 +150,80 @@ func TestWithPrincipalSetsReqctx(t *testing.T) {
 		t.Fatalf("reqctx principal = %q", got)
 	}
 }
+
+func TestRequireScopesAllowAnonymousAdmitsScopedAnonymous(t *testing.T) {
+	anon := run(incoming(auth.MDPrincipalID, "anonymous", auth.MDPrincipalType, "anonymous", auth.MDPrincipalScopes, "listing.read"), t)
+	p, err := auth.RequireScopesAllowAnonymous(anon, "listing.read")
+	if err != nil {
+		t.Fatalf("scoped anonymous: %v", err)
+	}
+	if !p.Anonymous() {
+		t.Fatalf("principal = %+v, want anonymous", p)
+	}
+	if _, err := auth.RequireScopesAllowAnonymous(context.Background(), "listing.read"); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("no principal: code = %v, want Unauthenticated", status.Code(err))
+	}
+}
+
+func TestRequireScopesAllowAnonymousDeniesMissingScope(t *testing.T) {
+	anon := run(incoming(auth.MDPrincipalID, "anonymous", auth.MDPrincipalScopes, "listing.read"), t)
+	_, err := auth.RequireScopesAllowAnonymous(anon, "listing.read", "listing.write")
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("code = %v, want PermissionDenied", status.Code(err))
+	}
+}
+
+func principalCtx(p auth.Principal) context.Context {
+	return auth.WithPrincipal(context.Background(), p)
+}
+
+func TestRequireServiceRejectsUser(t *testing.T) {
+	ctx := principalCtx(auth.Principal{ID: "u1", Type: auth.TypeUser, Scopes: []string{"s"}})
+	if _, err := auth.RequireService(ctx, "s"); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("user: got %v, want PermissionDenied", err)
+	}
+
+	svc := principalCtx(auth.Principal{ID: "svc", Type: auth.TypeService, Scopes: []string{"s"}})
+	if p, err := auth.RequireService(svc, "s"); err != nil || p.ID != "svc" {
+		t.Fatalf("service with scope: %+v, %v", p, err)
+	}
+	if _, err := auth.RequireService(svc, "s", "other"); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("missing scope: got %v, want PermissionDenied", err)
+	}
+	if _, err := auth.RequireService(context.Background(), "s"); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("no principal: got %v, want Unauthenticated", err)
+	}
+}
+
+func TestRequireUserRejectsServiceAndAnonymous(t *testing.T) {
+	svc := principalCtx(auth.Principal{ID: "svc", Type: auth.TypeService})
+	if _, err := auth.RequireUser(svc); status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("service: got %v, want PermissionDenied", err)
+	}
+	anon := principalCtx(auth.Principal{ID: "anonymous", Type: auth.TypeAnonymous})
+	if _, err := auth.RequireUser(anon); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("anonymous: got %v, want Unauthenticated", err)
+	}
+	if _, err := auth.RequireUser(context.Background()); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("none: got %v, want Unauthenticated", err)
+	}
+	user := principalCtx(auth.Principal{ID: "u1", Type: auth.TypeUser})
+	if p, err := auth.RequireUser(user); err != nil || p.ID != "u1" {
+		t.Fatalf("user: %+v, %v", p, err)
+	}
+}
+
+func TestPrincipalTypeConstants(t *testing.T) {
+	if _, ok := any(auth.Principal{}.Type).(auth.PrincipalType); !ok {
+		t.Fatal("Principal.Type is not auth.PrincipalType")
+	}
+	for typ, want := range map[auth.PrincipalType]string{auth.TypeUser: "user", auth.TypeService: "service", auth.TypeAnonymous: "anonymous"} {
+		if string(typ) != want {
+			t.Errorf("%q != %q", typ, want)
+		}
+	}
+	ctx := run(incoming(auth.MDPrincipalID, "u1", auth.MDPrincipalType, "service"), t)
+	if p, _ := auth.FromContext(ctx); p.Type != auth.TypeService {
+		t.Fatalf("type = %q", p.Type)
+	}
+}
