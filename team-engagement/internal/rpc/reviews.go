@@ -2,13 +2,11 @@ package rpc
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
-	"github.com/buidangphuc/team-engagement/internal/store"
 )
 
 // MarkReviewHelpful records the caller's "helpful" vote (idempotent per user).
@@ -27,10 +25,7 @@ func (h *EngagementHandler) MarkReviewHelpful(
 
 	count, err := h.reviewSvc.MarkHelpful(ctx, req.GetReviewId(), userID(ctx))
 	if err != nil {
-		if errors.Is(err, store.ErrReviewNotFound) {
-			return nil, status.Error(codes.NotFound, "review not found")
-		}
-		return nil, internalError(ctx, "mark helpful", err)
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.MarkReviewHelpfulResponse{HelpfulCount: count}, nil
 }
@@ -48,7 +43,7 @@ func (h *EngagementHandler) GetShopRatingSummary(
 
 	summary, err := h.reviewSvc.GetShopRatingSummary(ctx, req.GetSellerId())
 	if err != nil {
-		return nil, internalError(ctx, "get shop rating summary", err)
+		return nil, h.fail(ctx, err)
 	}
 
 	return &engagementv1.GetShopRatingSummaryResponse{

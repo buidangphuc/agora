@@ -71,7 +71,7 @@ type Options struct {
 // The database is required in every ENV: an unreachable one fails boot before any
 // port opens.
 //
-// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY_SECONDS passes, the gRPC
+// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY passes, the gRPC
 // server stops, then the outbox relayer, the outbox cleanup and the listing.events
 // consumer stop (lifecycle.StopAfter), then the Kafka clients, the upstream
 // connection and the pool close.
@@ -100,14 +100,17 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("health: %w", err), stack.Close(ctx))
+	}
 
-	pool, err := pgx.Open(ctx, s.Postgres)
+	pool, err := postgres.Open(ctx, s.Postgres)
 	if err != nil {
 		return errors.Join(fmt.Errorf("team-engagement owns engagement_db: open database: %w", err), stack.Close(ctx))
 	}
 	stack.Push(func(context.Context) error { pool.Close(); return nil })
-	health.Register("postgres", pgx.Checker(pool))
+	health.Register("postgres", postgres.Checker(pool))
 
 	// An empty UPSTREAM_ORDER_ADDR yields a nil client: verified-purchase
 	// enrichment is off and CreateDispute fails closed.
@@ -126,14 +129,23 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 		logger.WarnContext(ctx, "UPSTREAM_ORDER_ADDR unset; verified-purchase enrichment disabled and CreateDispute fails closed")
 	}
 
-	engagementRepo := store.NewPostgresRepository(pool)
-	h := rpc.NewEngagementHandler(
+	// One outbox store serves the repositories that enqueue facts, the relayer and
+	// the retention job.
+	outboxStore, err := outbox.NewStore(pool, store.OutboxTable)
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox store: %w", err), stack.Close(ctx))
+	}
+	engagementRepo := store.NewPostgresRepository(pool, outboxStore)
+	h, err := rpc.NewEngagementHandler(
 		engagementRepo,
-		engagement.NewReviewService(store.NewPostgresReviewRepository(pool), reviewVerifier, logger),
+		engagement.NewReviewService(store.NewPostgresReviewRepository(pool, outboxStore), reviewVerifier, logger),
 		engagement.NewQAService(store.NewPostgresQARepository(pool), logger),
 		engagement.NewDisputeService(store.NewPostgresDisputeRepository(pool), logger),
 		engagement.NewCollectionService(store.NewPostgresCollectionRepository(pool), logger),
 		handlerOpts...)
+	if err != nil {
+		return errors.Join(fmt.Errorf("engagement handler: %w", err), stack.Close(ctx))
+	}
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	rpc.Register(srv, h)
@@ -155,26 +167,46 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 	}
 	stack.Push(func(context.Context) error { consumerClient.Close(); return nil })
 
+	relayer, err := outbox.NewRelayer(outboxStore, producer, outbox.RelayerOptions{
+		Topic: s.Events.EventsTopic, Config: s.Outbox, Logger: logger,
+	})
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox relayer: %w", err), stack.Close(ctx))
+	}
+	retention, err := lifecycle.Every(outboxCleanup, func(ctx context.Context) error {
+		n, err := outboxStore.Purge(ctx, outboxRetention)
+		if err != nil {
+			return fmt.Errorf("purge %s: %w", store.OutboxTable, err)
+		}
+		if n > 0 {
+			logger.InfoContext(ctx, "outbox retention removed published rows", "table", store.OutboxTable, "removed", n)
+		}
+		return nil
+	}, lifecycle.RunAtStart(), lifecycle.WithLogger(logger))
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox retention: %w", err), stack.Close(ctx))
+	}
+	listingConsumer, err := events.NewListingConsumer(consumerClient, engagementRepo, producer, s.Events.ListingTopic, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("listing consumer: %w", err), stack.Close(ctx))
+	}
+
 	// Workers stop only after the gRPC server has returned, so in-flight RPCs that
 	// enqueue outbox rows are drained first. A fatal consumer error (a record that
 	// can neither be handled nor parked to the DLQ) stops the service, so the
 	// orchestrator restarts it and the group resumes from its last commit.
 	workers := []lifecycle.Component{
-		// Publishes engagement facts to engagement.events.
-		outbox.NewRelayer(outbox.NewStore(pool, store.OutboxTable), producer, outbox.RelayerOptions{
-			Topic: s.Events.EventsTopic, Config: s.Outbox, Logger: logger,
-		}),
-		events.NewRetention(pool, store.OutboxTable, outboxRetention, outboxCleanup, logger),
-		// Fills the follow feed from listing.events.
-		events.NewListingConsumer(consumerClient, engagementRepo, producer, s.Events.ListingTopic, logger),
+		relayer,         // publishes engagement facts to engagement.events
+		retention,       // deletes published rows past the retention window
+		listingConsumer, // fills the follow feed from listing.events
 	}
 	logger.InfoContext(ctx, "background workers enabled",
 		"listing_topic", s.Events.ListingTopic, "consumer_group", s.Events.ConsumerGroup,
 		"events_topic", s.Events.EventsTopic, "outbox_poll_interval", s.Outbox.PollInterval.String())
 
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,

@@ -100,8 +100,9 @@ func NewListingClient(k config.Kafka, group, topic string, opts ...kgo.Opt) (*kg
 // NewListingConsumer returns the follow-feed consumer: ListingEventHandler over
 // client, with poison records parked on <topic>.dlq. A record that can be neither
 // handled nor parked stops Run with an error before its offset is committed, so a
-// restart in the same group delivers it again.
-func NewListingConsumer(client *kgo.Client, feed FeedStore, dlq consume.DLQProducer, topic string, logger *slog.Logger) *consume.Consumer {
+// restart in the same group delivers it again. It returns an error when client has
+// no consumer group or a dependency is nil.
+func NewListingConsumer(client *kgo.Client, feed FeedStore, dlq consume.DLQProducer, topic string, logger *slog.Logger) (*consume.Consumer, error) {
 	return consume.NewConsumer(client, ListingEventHandler(feed), dlq, consume.Options{
 		DLQTopic: topic + ".dlq",
 		Logger:   logger,

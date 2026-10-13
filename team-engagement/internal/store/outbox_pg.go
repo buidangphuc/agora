@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
@@ -26,12 +25,9 @@ const (
 )
 
 // factWriter enqueues engagement facts into the outbox inside the caller's
-// transaction.
+// transaction. The store is built once in app and shared with the relayer and
+// the retention job.
 type factWriter struct{ outbox *outbox.Store }
-
-func newFactWriter(pool *pgxpool.Pool) factWriter {
-	return factWriter{outbox: outbox.NewStore(pool, OutboxTable)}
-}
 
 // enqueue writes one fact row. The envelope principal is the caller, taken from
 // the principal the auth interceptor put on ctx; the type is the payload's full

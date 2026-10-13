@@ -20,13 +20,25 @@ import (
 
 var userScopes = []string{"listing.read", "engagement:read", "engagement:write"}
 
+// newHandler builds the handler under test; a failing constructor is a test error.
+func newHandler(t *testing.T, repo store.Repository, reviewSvc *engagement.ReviewService, qaSvc *engagement.QAService,
+	disputeSvc *engagement.DisputeService, collectionSvc *engagement.CollectionService, opts ...rpc.Option,
+) *rpc.EngagementHandler {
+	t.Helper()
+	h, err := rpc.NewEngagementHandler(repo, reviewSvc, qaSvc, disputeSvc, collectionSvc, opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
+}
+
 // withPrincipal returns ctx carrying p the way the SDK's auth interceptor stores
 // the gateway-forwarded principal.
 func withPrincipal(ctx context.Context, p *commonv1.Principal) context.Context {
-	t := map[commonv1.PrincipalType]string{
-		commonv1.PrincipalType_PRINCIPAL_TYPE_USER:      "user",
-		commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE:   "service",
-		commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS: "anonymous",
+	t := map[commonv1.PrincipalType]auth.PrincipalType{
+		commonv1.PrincipalType_PRINCIPAL_TYPE_USER:      auth.TypeUser,
+		commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE:   auth.TypeService,
+		commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS: auth.TypeAnonymous,
 	}[p.GetType()]
 	return auth.WithPrincipal(ctx, auth.Principal{ID: p.GetId(), Type: t, Scopes: p.GetScopes()})
 }
@@ -97,7 +109,7 @@ func newFixture(t *testing.T) (*fixture, string) {
 	t.Helper()
 	disputes := &countingDisputes{InMemoryDisputeRepository: store.NewInMemoryDisputeRepository()}
 	orders := &orderFake{orders: fakeOrders{"order-1": {buyer: "buyer-1", seller: "seller-1"}}}
-	h := rpc.NewEngagementHandler(
+	h := newHandler(t,
 		store.NewInMemoryRepository(),
 		engagement.NewReviewService(store.NewInMemoryReviewRepository(), nil, nil),
 		engagement.NewQAService(store.NewInMemoryQARepository(), nil),
@@ -165,7 +177,7 @@ func TestCreateDisputeVerifiesTheOrder(t *testing.T) {
 // Without an order client CreateDispute fails closed instead of trusting the request.
 func TestCreateDisputeFailsClosedWithoutOrderClient(t *testing.T) {
 	disputes := &countingDisputes{InMemoryDisputeRepository: store.NewInMemoryDisputeRepository()}
-	h := rpc.NewEngagementHandler(store.NewInMemoryRepository(),
+	h := newHandler(t, store.NewInMemoryRepository(),
 		engagement.NewReviewService(store.NewInMemoryReviewRepository(), nil, nil),
 		engagement.NewQAService(store.NewInMemoryQARepository(), nil),
 		engagement.NewDisputeService(disputes, nil),
@@ -240,7 +252,7 @@ func shopReplyFixture(t *testing.T) (*rpc.EngagementHandler, string) {
 	t.Helper()
 	repo := store.NewInMemoryRepository()
 	qaSvc := engagement.NewQAService(store.NewInMemoryQARepository(), nil)
-	h := rpc.NewEngagementHandler(repo,
+	h := newHandler(t, repo,
 		engagement.NewReviewService(store.NewInMemoryReviewRepository(), nil, nil), qaSvc,
 		engagement.NewDisputeService(store.NewInMemoryDisputeRepository(), nil),
 		engagement.NewCollectionService(store.NewInMemoryCollectionRepository(), nil))
@@ -290,7 +302,7 @@ func TestIsShopReplyFailsClosedForUnknownListing(t *testing.T) {
 	// Question on a listing absent from the projection.
 	repo := store.NewInMemoryRepository()
 	qa := engagement.NewQAService(store.NewInMemoryQARepository(), nil)
-	h2 := rpc.NewEngagementHandler(repo,
+	h2 := newHandler(t, repo,
 		engagement.NewReviewService(store.NewInMemoryReviewRepository(), nil, nil), qa,
 		engagement.NewDisputeService(store.NewInMemoryDisputeRepository(), nil),
 		engagement.NewCollectionService(store.NewInMemoryCollectionRepository(), nil))
@@ -382,7 +394,7 @@ func (brokenQA) CreateAnswer(context.Context, store.ProductAnswer) (store.Produc
 func TestInternalErrorsAreGeneric(t *testing.T) {
 	disputes := brokenDisputes{store.NewInMemoryDisputeRepository()}
 	qa := brokenQA{store.NewInMemoryQARepository()}
-	h := rpc.NewEngagementHandler(store.NewInMemoryRepository(),
+	h := newHandler(t, store.NewInMemoryRepository(),
 		engagement.NewReviewService(store.NewInMemoryReviewRepository(), nil, nil),
 		engagement.NewQAService(qa, nil), engagement.NewDisputeService(disputes, nil),
 		engagement.NewCollectionService(store.NewInMemoryCollectionRepository(), nil),

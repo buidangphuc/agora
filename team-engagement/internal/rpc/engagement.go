@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
 
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
@@ -46,9 +47,11 @@ type EngagementHandler struct {
 	disputeSvc    *engagement.DisputeService
 	collectionSvc *engagement.CollectionService
 	orders        OrderPartiesReader
+	errs          grpcx.ErrorTable
 }
 
-// NewEngagementHandler returns a new engagement handler.
+// NewEngagementHandler returns a new engagement handler. It fails only if the
+// handler's error table is invalid, which is a programming error.
 func NewEngagementHandler(
 	repo store.Repository,
 	reviewSvc *engagement.ReviewService,
@@ -56,8 +59,13 @@ func NewEngagementHandler(
 	disputeSvc *engagement.DisputeService,
 	collectionSvc *engagement.CollectionService,
 	opts ...Option,
-) *EngagementHandler {
+) (*EngagementHandler, error) {
+	errs, err := newErrorTable()
+	if err != nil {
+		return nil, err
+	}
 	h := &EngagementHandler{
+		errs:          errs,
 		repo:          repo,
 		reviewSvc:     reviewSvc,
 		qaSvc:         qaSvc,
@@ -67,14 +75,29 @@ func NewEngagementHandler(
 	for _, o := range opts {
 		o(h)
 	}
-	return h
+	return h, nil
 }
 
-// internalError logs the real cause server-side and returns a generic INTERNAL so
-// storage or upstream details never reach the client.
-func internalError(ctx context.Context, op string, err error) error {
-	slog.ErrorContext(ctx, "handler error", "op", op, "err", err)
-	return status.Error(codes.Internal, "internal error")
+// newErrorTable lists the domain errors the handlers report with their own code
+// and text. Anything else is logged server-side and reaches the client as a
+// generic INTERNAL "internal error", so storage or upstream details never leak.
+func newErrorTable() (grpcx.ErrorTable, error) {
+	return grpcx.NewErrorTable(
+		grpcx.Rule{Target: store.ErrInvalidCursor, Code: codes.InvalidArgument, Message: "invalid cursor"},
+		grpcx.Rule{Target: engagement.ErrInvalidRating, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: engagement.ErrSameClaimantAndDef, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: engagement.ErrInvalidDisputeStatus, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: engagement.ErrDisputeClosed, Code: codes.FailedPrecondition},
+		grpcx.Rule{Target: store.ErrQuestionNotFound, Code: codes.NotFound},
+		grpcx.Rule{Target: store.ErrDisputeNotFound, Code: codes.NotFound},
+		grpcx.Rule{Target: store.ErrReviewNotFound, Code: codes.NotFound},
+		grpcx.Rule{Target: store.ErrCollectionNotFound, Code: codes.NotFound},
+	)
+}
+
+// fail converts a handler error to its gRPC status through the error table.
+func (h *EngagementHandler) fail(ctx context.Context, err error) error {
+	return grpcx.Status(ctx, slog.Default(), err, h.errs)
 }
 
 func userID(ctx context.Context) string {
@@ -95,7 +118,7 @@ func (h *EngagementHandler) AddFavorite(
 		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
 	}
 	if _, err := h.repo.AddFavorite(ctx, userID(ctx), req.GetListingId()); err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.AddFavoriteResponse{}, nil
 }
@@ -111,7 +134,7 @@ func (h *EngagementHandler) RemoveFavorite(
 		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
 	}
 	if _, err := h.repo.RemoveFavorite(ctx, userID(ctx), req.GetListingId()); err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.RemoveFavoriteResponse{}, nil
 }
@@ -125,7 +148,7 @@ func (h *EngagementHandler) IsFavorite(
 	}
 	fav, err := h.repo.IsFavorite(ctx, userID(ctx), req.GetListingId())
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.IsFavoriteResponse{Favorite: fav}, nil
 }
@@ -145,7 +168,7 @@ func (h *EngagementHandler) ListFavorites(
 	}
 	ids, next, total, err := h.repo.ListFavorites(ctx, userID(ctx), cursor, pageSize)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.ListFavoritesResponse{
 		ListingIds: ids,
@@ -169,7 +192,7 @@ func (h *EngagementHandler) FollowSeller(
 		return nil, status.Error(codes.InvalidArgument, "cannot follow yourself")
 	}
 	if _, err := h.repo.Follow(ctx, userID(ctx), req.GetSellerId()); err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.FollowSellerResponse{}, nil
 }
@@ -185,7 +208,7 @@ func (h *EngagementHandler) UnfollowSeller(
 		return nil, status.Error(codes.InvalidArgument, "seller_id is required")
 	}
 	if _, err := h.repo.Unfollow(ctx, userID(ctx), req.GetSellerId()); err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.UnfollowSellerResponse{}, nil
 }
@@ -202,7 +225,7 @@ func (h *EngagementHandler) IsFollowing(
 	}
 	following, err := h.repo.IsFollowing(ctx, userID(ctx), req.GetSellerId())
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.IsFollowingResponse{Following: following}, nil
 }
@@ -222,7 +245,7 @@ func (h *EngagementHandler) ListFollowedSellers(
 	}
 	ids, next, total, err := h.repo.ListFollowedSellers(ctx, userID(ctx), cursor, pageSize)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.ListFollowedSellersResponse{
 		SellerIds: ids,
@@ -246,10 +269,7 @@ func (h *EngagementHandler) ListFollowedListings(
 	}
 	ids, next, total, err := h.repo.ListFollowedListings(ctx, userID(ctx), cursor, pageSize)
 	if err != nil {
-		if errors.Is(err, store.ErrInvalidCursor) {
-			return nil, status.Error(codes.InvalidArgument, "invalid cursor")
-		}
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.ListFollowedListingsResponse{
 		ListingIds: ids,
@@ -266,7 +286,7 @@ func (h *EngagementHandler) RecordView(
 	}
 	count, err := h.repo.RecordView(ctx, userID(ctx), req.GetListingId())
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.RecordViewResponse{ViewCount: count}, nil
 }
@@ -290,7 +310,7 @@ func (h *EngagementHandler) GetRecentlyViewed(
 	}
 	ids, next, total, err := h.repo.GetRecentlyViewed(ctx, uid, cursor, pageSize)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.GetRecentlyViewedResponse{
 		ListingIds: ids,
@@ -304,7 +324,7 @@ func (h *EngagementHandler) GetListingStats(
 ) (*engagementv1.GetListingStatsResponse, error) {
 	s, err := h.repo.GetStats(ctx, req.GetListingId())
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.GetListingStatsResponse{ViewCount: s.ViewCount, FavoriteCount: s.FavoriteCount}, nil
 }
@@ -337,10 +357,7 @@ func (h *EngagementHandler) CreateReview(
 
 	rev, err := h.reviewSvc.CreateReview(ctx, req.GetListingId(), uid, userName, req.GetOrderId(), req.GetRating(), req.GetComment(), req.GetMediaUrls())
 	if err != nil {
-		if errors.Is(err, engagement.ErrInvalidRating) {
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
-		return nil, internalError(ctx, "create review", err)
+		return nil, h.fail(ctx, err)
 	}
 
 	return &engagementv1.CreateReviewResponse{
@@ -377,7 +394,7 @@ func (h *EngagementHandler) ListReviews(
 
 	revs, total, err := h.reviewSvc.ListReviews(ctx, req.GetListingId(), req.GetRatingFilter(), offset, pageSize)
 	if err != nil {
-		return nil, internalError(ctx, "list reviews", err)
+		return nil, h.fail(ctx, err)
 	}
 
 	wireRevs := make([]*engagementv1.Review, 0, len(revs))
@@ -413,7 +430,7 @@ func (h *EngagementHandler) GetListingRatingSummary(
 
 	summary, err := h.reviewSvc.GetRatingSummary(ctx, req.GetListingId())
 	if err != nil {
-		return nil, internalError(ctx, "get rating summary", err)
+		return nil, h.fail(ctx, err)
 	}
 
 	return &engagementv1.GetListingRatingSummaryResponse{
@@ -451,7 +468,7 @@ func (h *EngagementHandler) AskQuestion(
 
 	q, err := h.qaSvc.AskQuestion(ctx, req.GetListingId(), userID(ctx), req.GetQuestionText())
 	if err != nil {
-		return nil, internalError(ctx, "ask question", err)
+		return nil, h.fail(ctx, err)
 	}
 
 	return &engagementv1.AskQuestionResponse{
@@ -484,24 +501,18 @@ func (h *EngagementHandler) AnswerQuestion(
 	if req.GetIsShopReply() {
 		q, err := h.qaSvc.GetQuestion(ctx, req.GetQuestionId())
 		if err != nil {
-			if errors.Is(err, store.ErrQuestionNotFound) {
-				return nil, status.Error(codes.NotFound, "question not found")
-			}
-			return nil, internalError(ctx, "answer question", err)
+			return nil, h.fail(ctx, err)
 		}
 		owner, found, err := h.repo.ListingSeller(ctx, q.ListingID)
 		if err != nil {
-			return nil, internalError(ctx, "answer question", err)
+			return nil, h.fail(ctx, err)
 		}
 		isShopReply = found && owner == userID(ctx)
 	}
 
 	ans, err := h.qaSvc.AnswerQuestion(ctx, req.GetQuestionId(), userID(ctx), req.GetAnswerText(), isShopReply)
 	if err != nil {
-		if errors.Is(err, store.ErrQuestionNotFound) {
-			return nil, status.Error(codes.NotFound, "question not found")
-		}
-		return nil, internalError(ctx, "answer question", err)
+		return nil, h.fail(ctx, err)
 	}
 
 	return &engagementv1.AnswerQuestionResponse{
@@ -527,7 +538,7 @@ func (h *EngagementHandler) ListQuestionsByListing(
 
 	questions, total, err := h.qaSvc.ListQuestionsByListing(ctx, req.GetListingId(), 1, pageSize)
 	if err != nil {
-		return nil, internalError(ctx, "list questions", err)
+		return nil, h.fail(ctx, err)
 	}
 
 	wireQuestions := make([]*engagementv1.ProductQuestion, 0, len(questions))
@@ -589,10 +600,7 @@ func (h *EngagementHandler) CreateDispute(
 
 	disp, err := h.disputeSvc.CreateDispute(ctx, req.GetOrderId(), claimantID, req.GetDefendantId(), req.GetReason(), req.GetEvidenceUrls())
 	if err != nil {
-		if errors.Is(err, engagement.ErrSameClaimantAndDef) {
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
-		return nil, internalError(ctx, "create dispute", err)
+		return nil, h.fail(ctx, err)
 	}
 
 	return &engagementv1.CreateDisputeResponse{
@@ -620,10 +628,7 @@ func (h *EngagementHandler) GetDispute(
 
 	disp, err := h.disputeSvc.GetDispute(ctx, req.GetDisputeId())
 	if err != nil {
-		if errors.Is(err, store.ErrDisputeNotFound) {
-			return nil, status.Error(codes.NotFound, "dispute not found")
-		}
-		return nil, internalError(ctx, "get dispute", err)
+		return nil, h.fail(ctx, err)
 	}
 	// Only the parties and admins may read a dispute. Anyone else gets the same
 	// NOT_FOUND as a missing id, so dispute ids cannot be probed (no IDOR oracle).
@@ -659,16 +664,7 @@ func (h *EngagementHandler) ResolveDispute(
 
 	disp, err := h.disputeSvc.ResolveDispute(ctx, req.GetDisputeId(), statusDomain, req.GetResolution())
 	if err != nil {
-		if errors.Is(err, store.ErrDisputeNotFound) {
-			return nil, status.Error(codes.NotFound, "dispute not found")
-		}
-		if errors.Is(err, engagement.ErrDisputeClosed) {
-			return nil, status.Error(codes.FailedPrecondition, "dispute is already closed")
-		}
-		if errors.Is(err, engagement.ErrInvalidDisputeStatus) {
-			return nil, status.Error(codes.InvalidArgument, "invalid dispute status")
-		}
-		return nil, internalError(ctx, "resolve dispute", err)
+		return nil, h.fail(ctx, err)
 	}
 
 	return &engagementv1.ResolveDisputeResponse{
@@ -689,7 +685,7 @@ func (h *EngagementHandler) CheckIn(
 	}
 	loy, earned, err := h.repo.CheckIn(ctx, userID(ctx), time.Now().UTC())
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.CheckInResponse{
 		Streak:      loy.Streak,
@@ -708,7 +704,7 @@ func (h *EngagementHandler) GetLoyalty(
 	}
 	loy, err := h.repo.GetLoyalty(ctx, userID(ctx))
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, h.fail(ctx, err)
 	}
 	resp := &engagementv1.GetLoyaltyResponse{
 		Streak:      loy.Streak,

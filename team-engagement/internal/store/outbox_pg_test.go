@@ -2,8 +2,8 @@ package store
 
 import (
 	"context"
-	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +14,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
@@ -60,7 +61,7 @@ func facts(t *testing.T, pool *pgxpool.Pool) []outboxFact {
 func TestOutbox_FactsWrittenWithTheChange(t *testing.T) {
 	pool := testPool(t)
 	ctx := callerCtx()
-	r := NewPostgresRepository(pool)
+	r := NewPostgresRepository(pool, testOutbox(t, pool))
 
 	if added, err := r.AddFavorite(ctx, "buyer-1", "L1"); err != nil || !added {
 		t.Fatalf("add: %v %v", added, err)
@@ -101,7 +102,7 @@ func TestOutbox_FactsWrittenWithTheChange(t *testing.T) {
 func TestOutbox_NoOpWritesNoFact(t *testing.T) {
 	pool := testPool(t)
 	ctx := callerCtx()
-	r := NewPostgresRepository(pool)
+	r := NewPostgresRepository(pool, testOutbox(t, pool))
 
 	_, _ = r.AddFavorite(ctx, "u", "L1")
 	if added, _ := r.AddFavorite(ctx, "u", "L1"); added {
@@ -128,7 +129,7 @@ CREATE FUNCTION boom() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'boom'; END $
 CREATE TRIGGER stats_boom BEFORE INSERT ON listing_stats FOR EACH ROW EXECUTE FUNCTION boom();`); err != nil {
 		t.Fatal(err)
 	}
-	r := NewPostgresRepository(pool)
+	r := NewPostgresRepository(pool, testOutbox(t, pool))
 	if _, err := r.AddFavorite(ctx, "u", "L1"); err == nil {
 		t.Fatal("expected failure")
 	}
@@ -142,10 +143,10 @@ CREATE TRIGGER stats_boom BEFORE INSERT ON listing_stats FOR EACH ROW EXECUTE FU
 func TestOutbox_ReviewFactHasRatingNotText(t *testing.T) {
 	pool := testPool(t)
 	ctx := callerCtx()
-	if err := NewPostgresRepository(pool).UpsertSellerListing(ctx, "S9", "L1", time.Now()); err != nil {
+	if err := NewPostgresRepository(pool, testOutbox(t, pool)).UpsertSellerListing(ctx, "S9", "L1", time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	rev, err := NewPostgresReviewRepository(pool).CreateReview(ctx,
+	rev, err := NewPostgresReviewRepository(pool, testOutbox(t, pool)).CreateReview(ctx,
 		Review{ListingID: "L1", UserID: "buyer-1", Rating: 4, Comment: "rất tốt"})
 	if err != nil {
 		t.Fatal(err)
@@ -182,27 +183,34 @@ func mustMarshal(t *testing.T, m proto.Message) []byte {
 
 func contains(b []byte, s string) bool { return len(s) > 0 && strings.Contains(string(b), s) }
 
-// Facts leave in the order they were written, and a failing publish does not hold
-// back the facts behind it: the SDK relayer retries the failed row behind a backoff
-// gate and keeps going. (The old advisory-lock relayer stopped at the first
-// failure; TestOutboxRelayedViaSDK covers the retry and parking.)
+// A failing publish does not hold back the facts of other aggregates: the SDK
+// relayer retries the failed row behind a backoff gate and keeps going. go-sdk v1
+// orders per aggregate only, so the keys are compared without order. (The order
+// within one aggregate is TestOutboxUpgradeKeepsCreationOrder; TestOutboxRelayedViaSDK
+// covers parking.)
 func TestOutbox_RelayOrderAndFailureIsolation(t *testing.T) {
 	pool := testPool(t)
 	ctx := callerCtx()
-	r := NewPostgresRepository(pool)
+	r := NewPostgresRepository(pool, testOutbox(t, pool))
 	for _, l := range []string{"L1", "L2", "L3"} {
 		if _, err := r.AddFavorite(ctx, "u", l); err != nil {
 			t.Fatal(err)
 		}
 	}
-	pub := &selectivePublisher{failKey: "L2"}
-	relayer := outbox.NewRelayer(outbox.NewStore(pool, OutboxTable), pub, outbox.RelayerOptions{
+	pub := testkit.NewRecorder()
+	pub.FailOn("L2")
+	relayer, err := outbox.NewRelayer(testOutbox(t, pool), pub, outbox.RelayerOptions{
 		Topic:  "engagement.events",
-		Config: sdkconfig.Outbox{PollInterval: time.Second, BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 10},
+		Config: sdkconfig.Outbox{PollInterval: time.Second, BatchSize: 10, ClaimLock: time.Minute},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	rep, err := relayer.RelayOnce(ctx)
-	if err != nil || rep.Published != 2 || rep.Retried != 1 || !reflect.DeepEqual(pub.keys, []string{"L1", "L3"}) {
-		t.Fatalf("first pass %+v err=%v keys=%v, want L1 and L3 published and L2 retried", rep, err, pub.keys)
+	keys := recordedKeys(pub)
+	slices.Sort(keys)
+	if err != nil || rep.Published != 2 || rep.Retried != 1 || !reflect.DeepEqual(keys, []string{"L1", "L3"}) {
+		t.Fatalf("first pass %+v err=%v keys=%v, want L1 and L3 published and L2 retried", rep, err, keys)
 	}
 	var status string
 	var attempts int
@@ -212,15 +220,11 @@ func TestOutbox_RelayOrderAndFailureIsolation(t *testing.T) {
 	}
 }
 
-type selectivePublisher struct {
-	failKey string
-	keys    []string
-}
-
-func (p *selectivePublisher) Publish(_ context.Context, _ string, key, _ []byte) error {
-	if string(key) == p.failKey {
-		return errors.New("kafka down")
+// recordedKeys lists the keys a Recorder captured, in publish order.
+func recordedKeys(r *testkit.Recorder) []string {
+	var keys []string
+	for _, rec := range r.Records() {
+		keys = append(keys, string(rec.Key))
 	}
-	p.keys = append(p.keys, string(key))
-	return nil
+	return keys
 }

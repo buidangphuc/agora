@@ -20,7 +20,7 @@ func TestPostgresListReviewsStableOrderOnTimestampTies(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	repo := NewPostgresReviewRepository(pool)
+	repo := NewPostgresReviewRepository(pool, testOutbox(t, pool))
 	var seen []string
 	for off := 0; off < 25; off += 10 {
 		revs, total, err := repo.ListReviews(ctx, "l1", 0, off, 10)

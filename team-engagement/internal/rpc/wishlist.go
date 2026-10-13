@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -29,7 +28,7 @@ func (h *EngagementHandler) CreateCollection(
 
 	col, err := h.collectionSvc.CreateCollection(ctx, userID(ctx), req.GetName())
 	if err != nil {
-		return nil, internalError(ctx, "create collection", err)
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.CreateCollectionResponse{Collection: toWireCollection(col)}, nil
 }
@@ -47,7 +46,7 @@ func (h *EngagementHandler) ListCollections(
 
 	cols, err := h.collectionSvc.ListCollections(ctx, userID(ctx))
 	if err != nil {
-		return nil, internalError(ctx, "list collections", err)
+		return nil, h.fail(ctx, err)
 	}
 	wire := make([]*engagementv1.Collection, 0, len(cols))
 	for _, c := range cols {
@@ -74,10 +73,7 @@ func (h *EngagementHandler) AddToCollection(
 	}
 
 	if _, err := h.collectionSvc.AddToCollection(ctx, userID(ctx), req.GetCollectionId(), req.GetListingId()); err != nil {
-		if errors.Is(err, store.ErrCollectionNotFound) {
-			return nil, status.Error(codes.NotFound, "collection not found")
-		}
-		return nil, internalError(ctx, "add to collection", err)
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.AddToCollectionResponse{}, nil
 }
@@ -100,10 +96,7 @@ func (h *EngagementHandler) RemoveFromCollection(
 	}
 
 	if _, err := h.collectionSvc.RemoveFromCollection(ctx, userID(ctx), req.GetCollectionId(), req.GetListingId()); err != nil {
-		if errors.Is(err, store.ErrCollectionNotFound) {
-			return nil, status.Error(codes.NotFound, "collection not found")
-		}
-		return nil, internalError(ctx, "remove from collection", err)
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.RemoveFromCollectionResponse{}, nil
 }
@@ -131,10 +124,7 @@ func (h *EngagementHandler) ListCollectionItems(
 
 	ids, next, total, err := h.collectionSvc.ListCollectionItems(ctx, userID(ctx), req.GetCollectionId(), cursor, pageSize)
 	if err != nil {
-		if errors.Is(err, store.ErrCollectionNotFound) {
-			return nil, status.Error(codes.NotFound, "collection not found")
-		}
-		return nil, internalError(ctx, "list collection items", err)
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.ListCollectionItemsResponse{
 		ListingIds: ids,

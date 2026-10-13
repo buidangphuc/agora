@@ -12,6 +12,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
+
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 )
 
@@ -79,9 +82,10 @@ type PostgresReviewRepository struct {
 	facts factWriter
 }
 
-// NewPostgresReviewRepository returns a new postgres review repository.
-func NewPostgresReviewRepository(pool *pgxpool.Pool) *PostgresReviewRepository {
-	return &PostgresReviewRepository{pool: pool, facts: newFactWriter(pool)}
+// NewPostgresReviewRepository returns a new postgres review repository. facts is
+// the outbox store (table OutboxTable) the ReviewCreated fact is enqueued into.
+func NewPostgresReviewRepository(pool *pgxpool.Pool, facts *outbox.Store) *PostgresReviewRepository {
+	return &PostgresReviewRepository{pool: pool, facts: factWriter{outbox: facts}}
 }
 
 const reviewColumns = `id, listing_id, user_id, user_name, order_id, rating, comment, media_urls, helpful_count, verified_purchase, seller_id, created_at`
@@ -104,7 +108,7 @@ func (r *PostgresReviewRepository) CreateReview(ctx context.Context, review Revi
 
 	const q = `INSERT INTO reviews (id, listing_id, user_id, user_name, order_id, rating, comment, media_urls, helpful_count, verified_purchase, seller_id, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, q, review.ID, review.ListingID, review.UserID, review.UserName, review.OrderID,
 			review.Rating, review.Comment, review.MediaURLs, review.HelpfulCount, review.VerifiedPurchase,
 			review.SellerID, review.CreatedAt); err != nil {

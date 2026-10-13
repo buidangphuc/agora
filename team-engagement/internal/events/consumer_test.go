@@ -57,7 +57,11 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runErr := events.NewListingConsumer(c1, noopFeed{}, failingDLQ{}, topic, logger).Run(ctx)
+	first, err := events.NewListingConsumer(c1, noopFeed{}, failingDLQ{}, topic, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runErr := first.Run(ctx)
 	c1.Close()
 	if runErr == nil {
 		t.Fatal("Run returned nil although the record could be neither handled nor dead-lettered")
@@ -71,8 +75,12 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 	defer c2.Close()
 	runCtx, stop := context.WithCancel(ctx)
 	defer stop()
+	second, err := events.NewListingConsumer(c2, noopFeed{}, producer, topic, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
 	done := make(chan error, 1)
-	go func() { done <- events.NewListingConsumer(c2, noopFeed{}, producer, topic, logger).Run(runCtx) }()
+	go func() { done <- second.Run(runCtx) }()
 
 	dlqReader, err := kgo.NewClient(kgo.SeedBrokers(brokers), kgo.ConsumeTopics(dlq),
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()), kgo.AllowAutoTopicCreation())
@@ -94,6 +102,14 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 	}
 	if string(got.Value) != string(garbage) || string(got.Key) != "k1" {
 		t.Fatalf("dlq record = %q/%q, want the original", got.Key, got.Value)
+	}
+	// go-sdk v1 stamps where the record came from on the dead-letter record.
+	hdr := map[string]string{}
+	for _, h := range got.Headers {
+		hdr[h.Key] = string(h.Value)
+	}
+	if hdr[kafkax.HeaderDLQSourceTopic] != topic || hdr[kafkax.HeaderDLQSourceGroup] != group || hdr[kafkax.HeaderDLQError] == "" {
+		t.Fatalf("dlq headers = %v, want source topic %q, group %q and the error", hdr, topic, group)
 	}
 	stop()
 	if err := <-done; err != nil {

@@ -53,16 +53,10 @@ func Load() (Settings, error) {
 	return sdkconfig.Load[Settings]()
 }
 
-// Validate checks the SDK groups that carry their own rules (a positive
-// GRPC_PORT, a non-empty DATABASE_URL) and the cross-field rules of this service.
-// sdkconfig.Load calls it after parsing.
+// Validate checks the rules of this service's own settings. The SDK groups
+// (ENV, GRPC_PORT, DATABASE_URL) validate themselves: sdkconfig.Load runs every
+// group's Validate, then this one, after parsing.
 func (s Settings) Validate() error {
-	if err := s.GRPC.Validate(); err != nil {
-		return err
-	}
-	if err := s.Postgres.Validate(); err != nil {
-		return err
-	}
 	if len(s.Kafka.BrokerList()) == 0 {
 		return errors.New("KAFKA_BROKERS must list at least one broker")
 	}

@@ -27,7 +27,7 @@ func TestEngagementHandler(t *testing.T) {
 
 	// buyer_test owns order-1, sold by seller-1 (CreateDispute verifies this).
 	orders := fakeOrders{"order-1": {buyer: "buyer_test", seller: "seller-1"}}
-	h := rpc.NewEngagementHandler(repo, reviewSvc, qaSvc, disputeSvc, collectionSvc, rpc.WithOrderParties(orders))
+	h := newHandler(t, repo, reviewSvc, qaSvc, disputeSvc, collectionSvc, rpc.WithOrderParties(orders))
 
 	principal := &commonv1.Principal{
 		Id:     "buyer_test",

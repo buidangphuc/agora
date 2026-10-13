@@ -2,7 +2,6 @@ package events_test
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -10,8 +9,6 @@ import (
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
-
-	"github.com/buidangphuc/team-engagement/internal/events"
 )
 
 const table = "engagement_outbox_events"
@@ -24,7 +21,11 @@ func retentionPool(t *testing.T) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	if _, err := pool.Exec(ctx, outbox.SchemaSQL(table)); err != nil {
+	schema, err := outbox.SchemaSQL(table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, schema); err != nil {
 		t.Fatal(err)
 	}
 	for _, r := range []struct{ id, status, ago string }{
@@ -61,46 +62,22 @@ func remaining(t *testing.T, pool *pgxpool.Pool) map[string]bool {
 	return out
 }
 
-// Published rows older than the retention window are deleted; fresh published,
+// The retention window the service passes to Store.Purge (outboxRetention in
+// internal/app) deletes published rows older than 7 days; fresh published,
 // pending and parked rows stay (a parked row is evidence, a pending one is work).
 func TestRetentionDeletesOnlyOldPublishedRows(t *testing.T) {
 	pool := retentionPool(t)
-	logger := slog.New(slog.DiscardHandler)
-	r := events.NewRetention(pool, table, 7*24*time.Hour, time.Hour, logger)
+	st, err := outbox.NewStore(pool, table)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	n, err := r.Sweep(context.Background())
+	n, err := st.Purge(context.Background(), 7*24*time.Hour)
 	if err != nil || n != 1 {
-		t.Fatalf("Sweep = %d, %v, want 1 row deleted", n, err)
+		t.Fatalf("Purge = %d, %v, want 1 row deleted", n, err)
 	}
 	got := remaining(t, pool)
 	if got["old-published"] || !got["fresh-published"] || !got["old-pending"] || !got["old-parked"] || len(got) != 3 {
 		t.Fatalf("remaining = %v", got)
-	}
-}
-
-// As a lifecycle component it sweeps at start and stops cleanly when cancelled.
-func TestRetentionRunSweepsAtStartAndStops(t *testing.T) {
-	pool := retentionPool(t)
-	logger := slog.New(slog.DiscardHandler)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	done := make(chan error, 1)
-	go func() { done <- events.NewRetention(pool, table, 7*24*time.Hour, time.Hour, logger).Run(ctx) }()
-
-	deadline := time.Now().Add(10 * time.Second)
-	for remaining(t, pool)["old-published"] {
-		if time.Now().After(deadline) {
-			t.Fatal("old published row was not deleted at start")
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("Run = %v, want nil", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Run did not stop")
 	}
 }

@@ -11,14 +11,14 @@ import (
 
 // The SDK's auth interceptor (installed by grpcx.NewServer) resolves the
 // gateway-forwarded principal into the context (ADR-0003). These helpers are this
-// service's own gates over it. They stay local, and do not use auth.RequireScopes,
-// because that treats the anonymous principal as unauthenticated, while the
-// gateway gives anonymous callers the public scopes (listing.read) so that public
-// reads work.
+// service's own gates over it. They stay local: auth.RequireScopes treats the
+// anonymous principal as unauthenticated, while the gateway gives anonymous
+// callers the public scopes (listing.read) so that public reads work, and
+// auth.RequireScopesAllowAnonymous words its errors differently ("missing scope",
+// "authentication required") from the messages clients get today
+// ("insufficient_scope: missing ...", "no principal on context").
 
 const (
-	principalTypeAnonymous = "anonymous"
-
 	// scopeAdmin gates admin-only RPCs (ResolveDispute). Only the admin role holds it.
 	scopeAdmin = "admin"
 )
@@ -43,7 +43,7 @@ func requireScopes(ctx context.Context, want ...string) error {
 // there is none, it is anonymous, or it has no id.
 func requireAuthenticated(ctx context.Context) (auth.Principal, error) {
 	p, ok := auth.FromContext(ctx)
-	if !ok || p.ID == "" || p.Type == principalTypeAnonymous {
+	if !ok || p.ID == "" || p.Type == auth.TypeAnonymous {
 		return auth.Principal{}, status.Error(codes.Unauthenticated, "authentication required")
 	}
 	return p, nil

@@ -14,6 +14,7 @@ func TestEnvExampleInSync(t *testing.T) {
 }
 
 func TestLoadDefaults(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("GRPC_PORT", "50054")
 	s, err := Load()
@@ -27,6 +28,7 @@ func TestLoadDefaults(t *testing.T) {
 
 // GRPC_PORT has no default (ADR-0016): a service that forgets it fails at load.
 func TestLoadRequiresGRPCPort(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("GRPC_PORT", "")
 	if _, err := Load(); err == nil {
@@ -35,6 +37,7 @@ func TestLoadRequiresGRPCPort(t *testing.T) {
 }
 
 func TestKafkaDefaultsAndValidation(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("GRPC_PORT", "50054")
 	s, err := Load()
@@ -59,6 +62,7 @@ func TestKafkaDefaultsAndValidation(t *testing.T) {
 }
 
 func TestEngagementEventsDefaultsAndValidation(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("GRPC_PORT", "50054")
 	s, err := Load()
@@ -75,5 +79,24 @@ func TestEngagementEventsDefaultsAndValidation(t *testing.T) {
 	t.Setenv("OUTBOX_POLL_INTERVAL", "0s")
 	if _, err := Load(); err == nil {
 		t.Error("zero interval must fail")
+	}
+}
+
+// ENV has no default (go-sdk v1): a deployment that forgets it fails at load
+// instead of running as local. A deployed ENV needs KAFKA_BROKERS spelled out.
+func TestEnvIsRequiredAndDeployedEnvNeedsBrokers(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("GRPC_PORT", "50054")
+	t.Setenv("ENV", "")
+	if _, err := Load(); err == nil {
+		t.Error("an empty ENV must fail validation")
+	}
+	t.Setenv("ENV", "staging")
+	if _, err := Load(); err == nil {
+		t.Error("ENV=staging without KAFKA_BROKERS must fail")
+	}
+	t.Setenv("KAFKA_BROKERS", "kafka:9092")
+	if _, err := Load(); err != nil {
+		t.Errorf("ENV=staging with brokers: %v", err)
 	}
 }

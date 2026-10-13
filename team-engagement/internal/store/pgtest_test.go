@@ -6,6 +6,11 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+
+	"github.com/buidangphuc/team-engagement/migrations"
 )
 
 // testPool returns a pool on a freshly migrated database: TEST_DATABASE_URL when
@@ -15,7 +20,8 @@ import (
 func testPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, pgURL(t))
+	url := pgURL(t)
+	pool, err := pgxpool.New(ctx, url)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,8 +29,20 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	if _, err := pool.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
 		t.Fatal(err)
 	}
-	applyMigrations(t, pool, "", "")
+	if err := migrate.Up(ctx, url, migrations.Files); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
 	return pool
+}
+
+// testOutbox is the outbox store the repositories under test enqueue into.
+func testOutbox(t *testing.T, pool *pgxpool.Pool) *outbox.Store {
+	t.Helper()
+	st, err := outbox.NewStore(pool, OutboxTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
 }
 
 func outboxTypes(t *testing.T, pool *pgxpool.Pool) []string {

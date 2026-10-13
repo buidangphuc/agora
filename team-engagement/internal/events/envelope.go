@@ -1,9 +1,10 @@
 // Package events holds team-engagement's Kafka side: the engagement facts written
-// to the outbox as full EventEnvelopes, the outbox retention component, and the
-// listing.events consumer that fills the follow feed.
+// to the outbox as full EventEnvelopes, and the listing.events consumer that fills
+// the follow feed.
 //
-// Delivery of the outbox rows is the go-sdk relayer's job (outbox.Relayer): rows
-// are published verbatim, so the envelope is built when the fact is written.
+// Delivery of the outbox rows and their retention are the go-sdk's job
+// (outbox.Relayer, outbox.Store.Purge): rows are published verbatim, so the
+// envelope is built when the fact is written.
 package events
 
 import (
@@ -82,13 +83,13 @@ func principalFrom(ctx context.Context) *commonv1.Principal {
 	return &commonv1.Principal{Id: p.ID, Type: t}
 }
 
-func wireType(t string) commonv1.PrincipalType {
+func wireType(t auth.PrincipalType) commonv1.PrincipalType {
 	switch t {
-	case "user":
+	case auth.TypeUser:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_USER
-	case "service":
+	case auth.TypeService:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
-	case "anonymous":
+	case auth.TypeAnonymous:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS
 	default:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_UNSPECIFIED

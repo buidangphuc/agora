@@ -7,7 +7,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -61,23 +60,6 @@ func applyMigrations(t *testing.T, pool *pgxpool.Pool, from, to string) {
 	}
 }
 
-type recordedPublish struct {
-	topic, key string
-	value      []byte
-}
-
-type recordingPublisher struct {
-	mu  sync.Mutex
-	got []recordedPublish
-}
-
-func (p *recordingPublisher) Publish(_ context.Context, topic string, key, value []byte) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.got = append(p.got, recordedPublish{topic, string(key), append([]byte(nil), value...)})
-	return nil
-}
-
 type legacyRow struct {
 	eventID, typ, key string
 	payload           []byte
@@ -87,8 +69,10 @@ type legacyRow struct {
 }
 
 // Rows that were unpublished when the migration ran are relayed by the SDK relayer
-// afterwards, in the old seq order, with the same event_id and an EventEnvelope
-// byte-identical to the one the old relayer built at publish time. Rows already
+// afterwards, with the same event_id and an EventEnvelope byte-identical to the
+// one the old relayer built at publish time. v1 orders per aggregate only, and
+// every legacy row here is its own aggregate, so no cross-aggregate order is
+// asserted (the order within one aggregate is TestOutboxUpgradeKeepsCreationOrder). Rows already
 // published are not copied, and the old table stays in place.
 func TestLegacyOutboxRowsRelayedAfterMigration(t *testing.T) {
 	ctx := context.Background()
@@ -153,32 +137,39 @@ func TestLegacyOutboxRowsRelayedAfterMigration(t *testing.T) {
 
 	// A write after the cutover goes to the new table and is relayed after the legacy rows.
 	wctx := auth.WithPrincipal(ctx, auth.Principal{ID: "buyer-9", Type: "user"})
-	if _, err := NewPostgresRepository(pool).AddFavorite(wctx, "buyer-9", "L9"); err != nil {
+	if _, err := NewPostgresRepository(pool, testOutbox(t, pool)).AddFavorite(wctx, "buyer-9", "L9"); err != nil {
 		t.Fatal(err)
 	}
 
-	pub := &recordingPublisher{}
-	relayer := outbox.NewRelayer(outbox.NewStore(pool, OutboxTable), pub, outbox.RelayerOptions{
+	pub := testkit.NewRecorder()
+	relayer, err := outbox.NewRelayer(testOutbox(t, pool), pub, outbox.RelayerOptions{
 		Topic:  "engagement.events",
-		Config: sdkconfig.Outbox{PollInterval: time.Second, BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 3},
+		Config: sdkconfig.Outbox{PollInterval: time.Second, BatchSize: 10, ClaimLock: time.Minute},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	rep, err := relayer.RelayOnce(ctx)
 	if err != nil || rep.Claimed != 5 || rep.Published != 5 {
 		t.Fatalf("RelayOnce = %+v, %v, want 5 claimed and published", rep, err)
 	}
 
-	wantKeys := []string{"L1", "S1", "L2", "S2", "L9"}
-	if len(pub.got) != len(wantKeys) {
-		t.Fatalf("published %d records, want %d", len(pub.got), len(wantKeys))
+	byKey := map[string][]byte{}
+	for _, rec := range pub.Records() {
+		if rec.Topic != "engagement.events" {
+			t.Fatalf("record %s published to %s, want engagement.events", rec.Key, rec.Topic)
+		}
+		byKey[string(rec.Key)] = rec.Value
 	}
-	for i, k := range wantKeys {
-		if pub.got[i].key != k || pub.got[i].topic != "engagement.events" {
-			t.Fatalf("record %d = %s/%s, want engagement.events/%s (old seq order, new write last)", i, pub.got[i].topic, pub.got[i].key, k)
+	for _, k := range []string{"L1", "S1", "L2", "S2", "L9"} {
+		if byKey[k] == nil {
+			t.Fatalf("no record published for %s (got %v)", k, recordedKeys(pub))
 		}
 	}
 
 	unpublished := []legacyRow{legacy[0], legacy[2], legacy[3], legacy[4]}
-	for i, r := range unpublished {
+	for _, r := range unpublished {
+		got := byKey[r.key]
 		var principal *commonv1.Principal
 		switch r.ptype {
 		case "PRINCIPAL_TYPE_USER":
@@ -192,11 +183,11 @@ func TestLegacyOutboxRowsRelayedAfterMigration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Equal(pub.got[i].value, want) {
-			t.Fatalf("legacy row %s: envelope differs from the one the old relayer built\n got %x\nwant %x", r.eventID, pub.got[i].value, want)
+		if !bytes.Equal(got, want) {
+			t.Fatalf("legacy row %s: envelope differs from the one the old relayer built\n got %x\nwant %x", r.eventID, got, want)
 		}
 		var env eventsv1.EventEnvelope
-		if err := proto.Unmarshal(pub.got[i].value, &env); err != nil {
+		if err := proto.Unmarshal(got, &env); err != nil {
 			t.Fatal(err)
 		}
 		if env.GetEventId() != r.eventID || !env.GetOccurredAt().AsTime().Equal(r.occurredAt) {

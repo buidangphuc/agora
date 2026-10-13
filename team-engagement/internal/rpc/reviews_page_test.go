@@ -25,7 +25,7 @@ func seedReviews(t *testing.T, n int) *rpc.EngagementHandler {
 			t.Fatal(err)
 		}
 	}
-	return rpc.NewEngagementHandler(store.NewInMemoryRepository(), svc, nil, nil, nil)
+	return newHandler(t, store.NewInMemoryRepository(), svc, nil, nil, nil)
 }
 
 func listPage(t *testing.T, h *rpc.EngagementHandler, cursor string, size int32, rating int32) *engagementv1.ListReviewsResponse {

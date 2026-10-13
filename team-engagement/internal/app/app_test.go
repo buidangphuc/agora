@@ -4,12 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/fs"
 	"net"
-	"sort"
 	"strconv"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +14,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
@@ -43,10 +40,10 @@ func settings(t *testing.T, env, databaseURL string) config.Settings {
 	t.Helper()
 	return config.Settings{
 		Runtime:  sdkconfig.Runtime{Env: env, LogLevel: "error", LogJSON: true},
-		GRPC:     sdkconfig.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGraceSeconds: 10},
+		GRPC:     sdkconfig.GRPC{Host: "127.0.0.1", Port: freePort(t), ShutdownGrace: 10 * time.Second},
 		Postgres: sdkconfig.Postgres{URL: databaseURL, MaxConns: 4},
 		Kafka:    sdkconfig.Kafka{Brokers: "127.0.0.1:1"},
-		Outbox:   sdkconfig.Outbox{PollInterval: 20 * time.Millisecond, BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 3},
+		Outbox:   sdkconfig.Outbox{PollInterval: 20 * time.Millisecond, BatchSize: 10, ClaimLock: time.Minute},
 		Events: config.Events{
 			ConsumerGroup: "team-engagement-feed",
 			ListingTopic:  "listing.events",
@@ -74,63 +71,45 @@ func TestBootFailsWhenDatabaseUnreachableDeployed(t *testing.T) {
 	}
 }
 
-// fakeProducer fails every publish for the key in failKey and records the rest.
+// fakeProducer records every publish except those for the key in failKey, which
+// fail with an error the relayer treats as permanent for the record. It is the
+// service's Producer: the outbox publisher and the consumer's DLQ producer.
 type fakeProducer struct {
+	*testkit.Recorder
 	failKey string
-	mu      sync.Mutex
-	topics  []string
-	keys    []string
 }
 
-func (p *fakeProducer) Publish(_ context.Context, topic string, key, _ []byte) error {
-	if string(key) == p.failKey {
-		return errors.New("broker down")
+func newFakeProducer(failKey string) *fakeProducer {
+	return &fakeProducer{Recorder: testkit.NewRecorder(), failKey: failKey}
+}
+
+func (p *fakeProducer) PublishRecord(ctx context.Context, rec *kgo.Record) error {
+	if string(rec.Key) == p.failKey {
+		return outbox.Permanent(errors.New("record rejected"))
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.topics = append(p.topics, topic)
-	p.keys = append(p.keys, string(key))
-	return nil
+	return p.Recorder.PublishRecord(ctx, rec)
 }
 
-func (p *fakeProducer) PublishRecord(context.Context, *kgo.Record) error { return nil }
-func (p *fakeProducer) Close()                                           {}
+func (p *fakeProducer) Close() {}
 
 func (p *fakeProducer) published() ([]string, []string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return append([]string(nil), p.topics...), append([]string(nil), p.keys...)
-}
-
-func migrate(t *testing.T, pool *pgxpool.Pool) {
-	t.Helper()
-	entries, err := fs.ReadDir(migrations.Files, ".")
-	if err != nil {
-		t.Fatal(err)
+	var topics, keys []string
+	for _, r := range p.Records() {
+		topics = append(topics, r.Topic)
+		keys = append(keys, string(r.Key))
 	}
-	var names []string
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".up.sql") {
-			names = append(names, e.Name())
-		}
-	}
-	sort.Strings(names)
-	for _, n := range names {
-		b, err := fs.ReadFile(migrations.Files, n)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := pool.Exec(context.Background(), string(b)); err != nil {
-			t.Fatalf("apply %s: %v", n, err)
-		}
-	}
+	return topics, keys
 }
 
 func enqueue(t *testing.T, pool *pgxpool.Pool, id, key string) {
 	t.Helper()
 	ctx := context.Background()
-	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-		return outbox.NewStore(pool, store.OutboxTable).EnqueueTx(ctx, tx, outbox.Row{
+	ob, err := outbox.NewStore(pool, store.OutboxTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		return ob.EnqueueTx(ctx, tx, outbox.Row{
 			EventID: id, AggregateType: "Listing", AggregateID: key,
 			EventType: "platform.engagement.v1.FavoriteAdded", Payload: []byte("envelope-" + id),
 		})
@@ -153,8 +132,11 @@ func rowState(t *testing.T, pool *pgxpool.Pool, id string) (status string, attem
 	return status, attempts, lastErr
 }
 
-// Two rows are enqueued and publishing the first fails: the second is published,
-// and the first is retried with backoff and parked after OUTBOX_MAX_ATTEMPTS.
+// Two rows are enqueued and publishing the first fails with an error that is
+// permanent for the record: the second (another aggregate) is published, and the
+// first is parked at once with its error kept. go-sdk v1 has no attempt limit
+// (OUTBOX_MAX_ATTEMPTS is gone): only a permanent record error parks a row,
+// everything else retries.
 func TestOutboxRelayedViaSDK(t *testing.T) {
 	ctx := context.Background()
 	url := testkit.Postgres(t)
@@ -163,13 +145,15 @@ func TestOutboxRelayedViaSDK(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	migrate(t, pool)
+	if err := migrate.Up(ctx, url, migrations.Files); err != nil {
+		t.Fatal(err)
+	}
 
 	enqueue(t, pool, "evt-a", "A")
 	enqueue(t, pool, "evt-b", "B")
 
 	s := settings(t, "local", url)
-	prod := &fakeProducer{failKey: "A"}
+	prod := newFakeProducer("A")
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	done := make(chan error, 1)
@@ -198,8 +182,8 @@ func TestOutboxRelayedViaSDK(t *testing.T) {
 	for {
 		st, attempts, msg := rowState(t, pool, "evt-a")
 		if st == "failed" {
-			if attempts != s.Outbox.MaxAttempts || msg == "" {
-				t.Fatalf("parked with attempts=%d error=%q, want attempts=%d and the error kept", attempts, msg, s.Outbox.MaxAttempts)
+			if attempts != 1 || msg == "" {
+				t.Fatalf("parked with attempts=%d error=%q, want one attempt and the error kept", attempts, msg)
 			}
 			break
 		}

@@ -40,9 +40,13 @@ func startServer(t *testing.T) engagementv1.EngagementServiceClient {
 	if err := repo.IndexSellerListing(context.Background(), "seller-qa", "item-qa-1"); err != nil {
 		t.Fatalf("seed seller listing: %v", err)
 	}
-	h := rpc.NewEngagementHandler(repo, reviewSvc, qaSvc, disputeSvc, collectionSvc,
+	h := newHandler(t, repo, reviewSvc, qaSvc, disputeSvc, collectionSvc,
 		rpc.WithOrderParties(stubOrders{}))
-	srv := grpcx.NewServer(grpcx.ServerOptions{Config: sdkconfig.GRPC{}, Logger: logger, Health: healthx.New(healthx.DefaultInterval, logger)})
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: sdkconfig.GRPC{}, Logger: logger, Health: health})
 	rpc.Register(srv, h)
 
 	lis, err := net.Listen("tcp", "localhost:0")

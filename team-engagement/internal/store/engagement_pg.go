@@ -9,6 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
+
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 )
 
@@ -18,15 +21,16 @@ type PostgresRepository struct {
 	facts factWriter
 }
 
-// NewPostgresRepository returns a new postgres repository.
-func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
-	return &PostgresRepository{pool: pool, facts: newFactWriter(pool)}
+// NewPostgresRepository returns a new postgres repository. facts is the outbox
+// store (table OutboxTable) the engagement facts are enqueued into.
+func NewPostgresRepository(pool *pgxpool.Pool, facts *outbox.Store) *PostgresRepository {
+	return &PostgresRepository{pool: pool, facts: factWriter{outbox: facts}}
 }
 
 // AddFavorite implements add favorite for PostgresRepository.
 func (r *PostgresRepository) AddFavorite(ctx context.Context, userID, listingID string) (bool, error) {
 	var added bool
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx,
 			`INSERT INTO favorites (user_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 			userID, listingID)
@@ -57,7 +61,7 @@ func (r *PostgresRepository) AddFavorite(ctx context.Context, userID, listingID 
 // RemoveFavorite implements remove favorite for PostgresRepository.
 func (r *PostgresRepository) RemoveFavorite(ctx context.Context, userID, listingID string) (bool, error) {
 	var removed bool
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `DELETE FROM favorites WHERE user_id = $1 AND listing_id = $2`, userID, listingID)
 		if err != nil {
 			return fmt.Errorf("remove favorite: %w", err)
@@ -223,7 +227,7 @@ func (r *PostgresRepository) GetStats(ctx context.Context, listingID string) (St
 // Follow implements follow for PostgresRepository.
 func (r *PostgresRepository) Follow(ctx context.Context, userID, sellerID string) (bool, error) {
 	var added bool
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx,
 			`INSERT INTO follows (user_id, seller_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 			userID, sellerID)
@@ -248,7 +252,7 @@ func (r *PostgresRepository) Follow(ctx context.Context, userID, sellerID string
 // Unfollow implements unfollow for PostgresRepository.
 func (r *PostgresRepository) Unfollow(ctx context.Context, userID, sellerID string) (bool, error) {
 	var removed bool
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `DELETE FROM follows WHERE user_id = $1 AND seller_id = $2`, userID, sellerID)
 		if err != nil {
 			return fmt.Errorf("unfollow: %w", err)
@@ -380,29 +384,23 @@ func (r *PostgresRepository) IndexSellerListing(ctx context.Context, sellerID, l
 
 // UpsertSellerListing implements upsert seller listing for PostgresRepository.
 func (r *PostgresRepository) UpsertSellerListing(ctx context.Context, sellerID, listingID string, createdAt time.Time) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("upsert seller listing begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	// One owner per listing: drop any row under a different seller.
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM seller_listings WHERE listing_id = $1 AND seller_id <> $2`,
-		listingID, sellerID); err != nil {
-		return fmt.Errorf("upsert seller listing (reassign): %w", err)
-	}
-	// DO NOTHING keeps the first created_at, so redelivery and later UPDATED
-	// events never reorder the feed.
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO seller_listings (seller_id, listing_id, created_at) VALUES ($1, $2, $3)
-		 ON CONFLICT DO NOTHING`,
-		sellerID, listingID, createdAt.UTC()); err != nil {
-		return fmt.Errorf("upsert seller listing: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("upsert seller listing commit: %w", err)
-	}
-	return nil
+	return postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		// One owner per listing: drop any row under a different seller.
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM seller_listings WHERE listing_id = $1 AND seller_id <> $2`,
+			listingID, sellerID); err != nil {
+			return fmt.Errorf("upsert seller listing (reassign): %w", err)
+		}
+		// DO NOTHING keeps the first created_at, so redelivery and later UPDATED
+		// events never reorder the feed.
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO seller_listings (seller_id, listing_id, created_at) VALUES ($1, $2, $3)
+			 ON CONFLICT DO NOTHING`,
+			sellerID, listingID, createdAt.UTC()); err != nil {
+			return fmt.Errorf("upsert seller listing: %w", err)
+		}
+		return nil
+	})
 }
 
 // ListingSeller implements listing seller for PostgresRepository.
@@ -433,55 +431,55 @@ func (r *PostgresRepository) RemoveSellerListing(ctx context.Context, listingID 
 func (r *PostgresRepository) CheckIn(ctx context.Context, userID string, day time.Time) (Loyalty, int64, error) {
 	d := time.Date(day.UTC().Year(), day.UTC().Month(), day.UTC().Day(), 0, 0, 0, 0, time.UTC)
 
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return Loyalty{}, 0, fmt.Errorf("check-in begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	var (
+		out     Loyalty
+		granted int64
+	)
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		// Claim today's check-in; ON CONFLICT DO NOTHING makes it idempotent per day.
+		tag, err := tx.Exec(ctx,
+			`INSERT INTO checkins (user_id, day) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			userID, d)
+		if err != nil {
+			return fmt.Errorf("record check-in: %w", err)
+		}
 
-	// Claim today's check-in; ON CONFLICT DO NOTHING makes it idempotent per day.
-	tag, err := tx.Exec(ctx,
-		`INSERT INTO checkins (user_id, day) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		userID, d)
-	if err != nil {
-		return Loyalty{}, 0, fmt.Errorf("record check-in: %w", err)
-	}
+		// Load the current account (absent = zero-value snapshot).
+		cur, err := loadLoyaltyTx(ctx, tx, userID)
+		if err != nil {
+			return err
+		}
 
-	// Load the current account (absent = zero-value snapshot).
-	cur, err := loadLoyaltyTx(ctx, tx, userID)
+		// Already checked in today: no reward, return current snapshot.
+		if tag.RowsAffected() == 0 {
+			out = cur
+			return nil
+		}
+
+		newStreak := int32(1)
+		if !cur.LastCheckin.IsZero() && cur.LastCheckin.Equal(d.AddDate(0, 0, -1)) {
+			newStreak = cur.Streak + 1
+		}
+		next := Loyalty{
+			Streak:      newStreak,
+			CoinBalance: cur.CoinBalance + CheckInCoins,
+			LastCheckin: d,
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO loyalty_accounts (user_id, coin_balance, streak, last_checkin)
+			 VALUES ($1, $2, $3, $4)
+			 ON CONFLICT (user_id) DO UPDATE
+			   SET coin_balance = $2, streak = $3, last_checkin = $4`,
+			userID, next.CoinBalance, next.Streak, d); err != nil {
+			return fmt.Errorf("upsert loyalty account: %w", err)
+		}
+		out, granted = next, CheckInCoins
+		return nil
+	})
 	if err != nil {
 		return Loyalty{}, 0, err
 	}
-
-	// Already checked in today: no reward, return current snapshot.
-	if tag.RowsAffected() == 0 {
-		if err := tx.Commit(ctx); err != nil {
-			return Loyalty{}, 0, fmt.Errorf("check-in commit: %w", err)
-		}
-		return cur, 0, nil
-	}
-
-	newStreak := int32(1)
-	if !cur.LastCheckin.IsZero() && cur.LastCheckin.Equal(d.AddDate(0, 0, -1)) {
-		newStreak = cur.Streak + 1
-	}
-	next := Loyalty{
-		Streak:      newStreak,
-		CoinBalance: cur.CoinBalance + CheckInCoins,
-		LastCheckin: d,
-	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO loyalty_accounts (user_id, coin_balance, streak, last_checkin)
-		 VALUES ($1, $2, $3, $4)
-		 ON CONFLICT (user_id) DO UPDATE
-		   SET coin_balance = $2, streak = $3, last_checkin = $4`,
-		userID, next.CoinBalance, next.Streak, d); err != nil {
-		return Loyalty{}, 0, fmt.Errorf("upsert loyalty account: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return Loyalty{}, 0, fmt.Errorf("check-in commit: %w", err)
-	}
-	return next, CheckInCoins, nil
+	return out, granted, nil
 }
 
 // GetLoyalty implements get loyalty for PostgresRepository.
