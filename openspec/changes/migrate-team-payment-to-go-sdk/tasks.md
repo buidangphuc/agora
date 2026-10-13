@@ -13,6 +13,6 @@ Owns: `team-payment/**`, the team-payment blocks in `docker-compose.services.yam
 
 Owns: `team-payment/internal/config/**`, and the box ticks.
 
-- [ ] 2.1 Write `TestValidateNamesEveryInvalidSetting` first and see it red (an empty `DATABASE_URL` plus an invalid `PAYOUT_HOLD_WINDOW`, and `MOCK_PAYMENTS=true` in production).
-- [ ] 2.2 Make `Settings.Validate` collect every error with `errors.Join` (GRPC, Postgres, payout hold keys, mock-payments guard) instead of returning the first. Verify `make check` (Docker).
-- [ ] 2.3 Add the `not-testable` FEATURES entry. Verify `features-check`, `spec_sync --strict`, `openspec validate --strict`, `red_first`.
+- [x] 2.1 Write `TestValidateNamesEveryInvalidSetting` first and see it red (an empty `DATABASE_URL` plus an invalid `PAYOUT_HOLD_WINDOW`, and `MOCK_PAYMENTS=true` in production).
+- [x] 2.2 Make `Settings.Validate` collect every error with `errors.Join` (GRPC, Postgres, payout hold keys, mock-payments guard) instead of returning the first. Verify `make check` (Docker).
+- [x] 2.3 Add the `not-testable` FEATURES entry. Verify `features-check`, `spec_sync --strict`, `openspec validate --strict`, `red_first`.

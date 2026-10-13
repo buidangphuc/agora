@@ -5,6 +5,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -90,25 +91,26 @@ func (p Payout) resolve() (time.Duration, error) {
 func Load() (Settings, error) {
 	s, err := sdkconfig.Load[Settings]()
 	if err != nil {
-		return s, err
+		// A refused boot also names MOCK_PAYMENTS when that guard would refuse too; the
+		// guard stays out of Validate because a valid Settings with mock in a strict ENV
+		// still loads (app.RunWith refuses it).
+		return s, errors.Join(err, s.RequireNoMockPayments())
 	}
 	s.Payout.Window, _ = s.Payout.resolve() // validated by Validate
 	return s, nil
 }
 
 // Validate enforces the cross-field invariants; sdkconfig.Load calls it after parsing.
+// It reports every invalid setting at once, so a refused boot names each offending key.
 func (s Settings) Validate() error {
-	if err := s.GRPC.Validate(); err != nil {
-		return err
-	}
+	errs := []error{s.GRPC.Validate()}
 	if s.Port > 65535 {
-		return fmt.Errorf("GRPC_PORT out of range: %d", s.Port)
+		errs = append(errs, fmt.Errorf("GRPC_PORT out of range: %d", s.Port))
 	}
-	if err := s.Postgres.Validate(); err != nil {
-		return err
-	}
+	errs = append(errs, s.Postgres.Validate())
 	_, err := s.Payout.resolve()
-	return err
+	errs = append(errs, err)
+	return errors.Join(errs...)
 }
 
 // IsProd reports whether this is a production environment (case-insensitive).

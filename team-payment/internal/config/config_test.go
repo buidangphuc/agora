@@ -157,15 +157,6 @@ func TestValidateNamesEveryInvalidSetting(t *testing.T) {
 			keys: []string{"DATABASE_URL", "PAYOUT_HOLD_WINDOW"},
 		},
 		{
-			name: "mock payments in production without a database url",
-			s: config.Settings{
-				Runtime: sdkconfig.Runtime{Env: "production"},
-				GRPC:    sdkconfig.GRPC{Port: 50056},
-				Mock:    config.Mock{MockPayments: true},
-			},
-			keys: []string{"DATABASE_URL", "MOCK_PAYMENTS"},
-		},
-		{
 			name: "bad port, hold days and hold window together",
 			s: config.Settings{
 				GRPC:     sdkconfig.GRPC{Port: 999999},
@@ -187,5 +178,21 @@ func TestValidateNamesEveryInvalidSetting(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLoadNamesMockPaymentsWithoutDatabaseURL(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("GRPC_PORT", "50056")
+	t.Setenv("ENV", "production")
+	t.Setenv("MOCK_PAYMENTS", "true")
+	_, err := config.Load()
+	if err == nil {
+		t.Fatal("expected Load to fail")
+	}
+	for _, k := range []string{"DATABASE_URL", "MOCK_PAYMENTS"} {
+		if !strings.Contains(err.Error(), k) {
+			t.Errorf("error must name %s: %v", k, err)
+		}
 	}
 }
