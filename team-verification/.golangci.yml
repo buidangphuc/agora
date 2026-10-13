@@ -1,0 +1,42 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - revive
+    - gosec
+    - contextcheck
+    - sloglint
+    - errorlint
+  settings:
+    sloglint:
+      no-mixed-args: true
+      kv-only: true
+      context: scope
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+      # Services add their own exclusions between these markers; sync-go-sdk.sh
+      # keeps what is inside when it replaces this file.
+      # BEGIN service-local
+      # END service-local
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/buidangphuc/team-verification

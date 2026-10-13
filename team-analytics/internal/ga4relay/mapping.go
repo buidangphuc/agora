@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/buidangphuc/team-analytics/internal/warehouse"
+	"github.com/buidangphuc/team-analytics/internal/store"
 )
 
 // mappingTTL is how long a buyer -> GA client id mapping lives after the last
@@ -90,7 +90,7 @@ func (h *MappingHandler) SkippedCount(reason string) int64 {
 }
 
 // Handle applies one tracking record to the mapping.
-func (h *MappingHandler) Handle(ctx context.Context, rec warehouse.TrackingRecord) error {
+func (h *MappingHandler) Handle(ctx context.Context, rec store.TrackingRecord) error {
 	if rec.PrincipalID == "" {
 		return nil
 	}

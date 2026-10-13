@@ -2,3 +2,4 @@
 # guards engage (config reads ENV; "production" => IsProd()). Merged over the baseline env map.
 env:
   ENV: "staging"
+  KAFKA_BROKERS: "redpanda.marketplace.svc:9092"   # no default in a strict ENV

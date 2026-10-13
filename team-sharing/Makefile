@@ -1,17 +1,4 @@
-.PHONY: proto build test run tidy
+SERVICE := team-sharing
+GRPC_PORT := 50065
 
-# Regenerate Go stubs from the vendored proto module (buf cache).
-proto:
-	buf generate
-
-build:
-	go build ./...
-
-test:
-	go test ./...
-
-run:
-	go run ./cmd/server
-
-tidy:
-	go mod tidy
+include make/go-service.mk

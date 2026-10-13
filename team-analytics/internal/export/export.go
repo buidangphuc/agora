@@ -15,7 +15,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/buidangphuc/team-analytics/internal/warehouse"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
+
+	"github.com/buidangphuc/team-analytics/internal/store"
 )
 
 // Exporter writes a warehouse table or view to dst as Parquet (duckdb.Writer).
@@ -34,8 +36,8 @@ type Target struct {
 // listing's seller, category and price).
 func Targets(path string) []Target {
 	dir := filepath.Dir(path)
-	ts := []Target{{warehouse.TableName, path}}
-	for _, rel := range []string{warehouse.ResolvedViewName, warehouse.EngagementFactsTableName, warehouse.OrderFactsTableName, warehouse.ListingSellersTableName, warehouse.GA4SessionsTableName, warehouse.AttributedViewName} {
+	ts := []Target{{store.TableName, path}}
+	for _, rel := range []string{store.ResolvedViewName, store.EngagementFactsTableName, store.OrderFactsTableName, store.ListingSellersTableName, store.GA4SessionsTableName, store.AttributedViewName} {
 		ts = append(ts, Target{rel, filepath.Join(dir, rel+".parquet")})
 	}
 	return ts
@@ -57,9 +59,9 @@ const trackingWithSessionContext = `(SELECT t.*,
   COALESCE(s.source, '') AS session_source,
   COALESCE(s.medium, '') AS session_medium,
   COALESCE(s.campaign, '') AS session_campaign
-FROM ` + warehouse.TableName + ` t
+FROM ` + store.TableName + ` t
 LEFT JOIN LATERAL (
-  SELECT source, medium, campaign FROM ` + warehouse.GA4SessionsTableName + ` g
+  SELECT source, medium, campaign FROM ` + store.GA4SessionsTableName + ` g
   WHERE t.ga_client_id <> '' AND g.user_pseudo_id = t.ga_client_id AND g.ts <= t.occurred_at
   ORDER BY g.ts DESC, g.session_id DESC LIMIT 1
 ) s ON true)`
@@ -75,7 +77,7 @@ func Once(ctx context.Context, e Exporter, relation, path string) error {
 		return fmt.Errorf("remove stale %q: %w", tmp, err)
 	}
 	var err error
-	if db, ok := e.(interface{ DB() *sql.DB }); ok && relation == warehouse.TableName {
+	if db, ok := e.(interface{ DB() *sql.DB }); ok && relation == store.TableName {
 		_, err = db.DB().ExecContext(ctx, fmt.Sprintf("COPY %s TO '%s' (FORMAT PARQUET)", trackingWithSessionContext, tmp))
 	} else {
 		err = e.ExportRelation(ctx, relation, tmp)
@@ -100,8 +102,8 @@ func Cycle(ctx context.Context, e Exporter, path string, logger *slog.Logger) er
 			if ctx.Err() != nil {
 				return err
 			}
-			logger.WarnContext(ctx, "parquet export failed", slog.String("relation", t.Relation),
-				slog.String("path", t.Path), slog.Any("err", err))
+			logger.WarnContext(ctx, "parquet export failed", "relation", t.Relation,
+				"path", t.Path, "err", err)
 			if first == nil {
 				first = err
 			}
@@ -110,19 +112,15 @@ func Cycle(ctx context.Context, e Exporter, path string, logger *slog.Logger) er
 	return first
 }
 
-// Run exports once at start and then every interval until ctx is done. A failed
-// file is logged and retried on the next tick; it never stops the caller.
+// Run exports once at start and then every interval until ctx is done
+// (lifecycle.Every). A failed file is logged and retried on the next tick; it
+// never stops the caller.
 func Run(ctx context.Context, e Exporter, path string, interval time.Duration, logger *slog.Logger) {
-	tick := time.NewTicker(interval)
-	defer tick.Stop()
-	for {
-		if err := Cycle(ctx, e, path, logger); err != nil && ctx.Err() != nil {
-			return
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick.C:
-		}
+	c, err := lifecycle.Every(interval, func(ctx context.Context) error { return Cycle(ctx, e, path, logger) },
+		lifecycle.RunAtStart(), lifecycle.WithLogger(logger))
+	if err != nil {
+		logger.ErrorContext(ctx, "parquet export disabled", "err", err)
+		return
 	}
+	_ = c.Run(ctx)
 }

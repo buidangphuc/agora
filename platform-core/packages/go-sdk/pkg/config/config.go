@@ -3,14 +3,29 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
+	"strings"
 
 	"github.com/caarlos0/env/v11"
 )
 
 // Load fills a T from the process environment. The returned error names every
-// variable that failed to parse or is required and unset. When T has a
-// Validate() error method, Load calls it after parsing and returns its error.
+// variable that failed to parse or is required and unset. After parsing, Load
+// calls Validate() error on T when it has one and on every group (nested or
+// embedded struct field), and joins all the errors. Embedded groups that each
+// define Validate do not promote it to T, so the walk is what reaches them.
+//
+// Some groups depend on the environment: Kafka implements ResolveFor(Runtime),
+// which Load calls with the Runtime it finds in T (embedded or a named field;
+// the zero Runtime, so local behaviour, when T has none). KAFKA_BROKERS is
+// therefore required when Runtime.IsStrict and defaults to localhost otherwise. A Settings
+// type needs nothing beyond embedding or holding Runtime and the group; one that
+// wraps its groups in unexported or non-struct fields must call ResolveFor itself.
+//
+// A string field tagged keepempty:"true" stays empty when its variable is set
+// to the empty string, instead of taking its default. Unset still applies the
+// default.
 //
 // A field with a default tag is never reported as unset: caarlos0/env applies
 // the default before it checks "required".
@@ -22,12 +37,86 @@ func Load[T any]() (T, error) {
 	if err != nil {
 		return v, nameVariables(err, reflect.TypeFor[T]())
 	}
-	if val, ok := any(v).(interface{ Validate() error }); ok {
-		if err := val.Validate(); err != nil {
-			return v, err
-		}
+	keepEmpty(reflect.ValueOf(&v).Elem())
+	if err := resolveAll(reflect.ValueOf(&v).Elem()); err != nil {
+		return v, err
+	}
+	if err := validateAll(reflect.ValueOf(v)); err != nil {
+		return v, err
 	}
 	return v, nil
+}
+
+type validator interface{ Validate() error }
+
+// resolver is implemented by pointer to groups whose rules depend on Runtime.
+type resolver interface{ ResolveFor(Runtime) error }
+
+// resolveAll finds the Runtime in v and calls ResolveFor on every group below v
+// that has one, joining the errors.
+func resolveAll(v reflect.Value) error {
+	var rt Runtime
+	rtType := reflect.TypeFor[Runtime]()
+	var find func(reflect.Value) bool
+	find = func(v reflect.Value) bool {
+		if v.Type() == rtType {
+			rt = v.Interface().(Runtime)
+			return true
+		}
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() && v.Field(i).Kind() == reflect.Struct && find(v.Field(i)) {
+				return true
+			}
+		}
+		return false
+	}
+	find(v)
+
+	var errs []error
+	var walk func(reflect.Value)
+	walk = func(v reflect.Value) {
+		if r, ok := v.Addr().Interface().(resolver); ok {
+			if err := r.ResolveFor(rt); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() && v.Field(i).Kind() == reflect.Struct {
+				walk(v.Field(i))
+			}
+		}
+	}
+	walk(v)
+	return errors.Join(errs...)
+}
+
+// validateAll runs Validate on v and on every struct field below it, joining
+// the errors. A promoted Validate and the group it comes from report the same
+// message, so identical messages are kept once.
+func validateAll(v reflect.Value) error {
+	var errs []error
+	seen := map[string]struct{}{}
+	var walk func(reflect.Value)
+	walk = func(v reflect.Value) {
+		if val, ok := v.Interface().(validator); ok {
+			if err := val.Validate(); err != nil {
+				if _, dup := seen[err.Error()]; !dup {
+					seen[err.Error()] = struct{}{}
+					errs = append(errs, err)
+				}
+			}
+		}
+		if v.Kind() != reflect.Struct {
+			return
+		}
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() && v.Field(i).Kind() == reflect.Struct {
+				walk(v.Field(i))
+			}
+		}
+	}
+	walk(v)
+	return errors.Join(errs...)
 }
 
 // nameVariables rewrites parse errors, which env reports by Go field name, to
@@ -68,4 +157,30 @@ func probeField(f envField) error {
 	st := reflect.StructOf([]reflect.StructField{{Name: "F", Type: f.typ, Tag: f.tag}})
 	ptr := reflect.New(st)
 	return env.ParseWithOptions(ptr.Interface(), env.Options{DefaultValueTagName: "default"})
+}
+
+// keepEmpty resets every string field tagged keepempty:"true" to "" when its
+// variable is set to the empty string, recursing into nested structs. The env
+// binder treats an empty value like an unset one and applies the default.
+func keepEmpty(v reflect.Value) {
+	t := v.Type()
+	for i := range t.NumField() {
+		f, fv := t.Field(i), v.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		if tag, ok := f.Tag.Lookup("env"); ok {
+			key, _, _ := strings.Cut(tag, ",")
+			if f.Tag.Get("keepempty") != "true" || fv.Kind() != reflect.String {
+				continue
+			}
+			if val, set := os.LookupEnv(key); set && val == "" {
+				fv.SetString("")
+			}
+			continue
+		}
+		if fv.Kind() == reflect.Struct {
+			keepEmpty(fv)
+		}
+	}
 }

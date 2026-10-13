@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// deadlineMargin is what the SDK's upstream.Bounded leaves of the inbound deadline.
+const deadlineMargin = 500 * time.Millisecond
+
 func budget(ctx context.Context, cfg time.Duration) time.Duration {
 	c, cancel := boundedCtx(ctx, cfg)
 	defer cancel()

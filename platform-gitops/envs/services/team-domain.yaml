@@ -16,7 +16,8 @@ resources:
     cpu: 250m
     memory: 256Mi
 env:
-  KAFKA_ENABLED: "true"
+  ENV: "local"                                      # required, no default; staging/prod overlays override it
+  KAFKA_BROKERS: "redpanda.marketplace.svc:9092"    # required when ENV is staging/prod (no default there)
 secrets:
   enabled: true
 # Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to the gRPC port

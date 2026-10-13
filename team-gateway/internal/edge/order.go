@@ -9,16 +9,19 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/order/v1/orderv1connect"
 )
 
+// OrderForwarder serves its Connect handler RPCs by forwarding them to the upstream gRPC client.
 type OrderForwarder struct {
 	orderv1connect.UnimplementedOrderServiceHandler
 	client orderv1.OrderServiceClient
 	edge   *Edge
 }
 
+// NewOrderForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewOrderForwarder(client orderv1.OrderServiceClient, edge *Edge) *OrderForwarder {
 	return &OrderForwarder{client: client, edge: edge}
 }
 
+// CreateOrder forwards the CreateOrder RPC to the upstream service.
 func (f *OrderForwarder) CreateOrder(
 	ctx context.Context,
 	req *connect.Request[orderv1.CreateOrderRequest],
@@ -39,6 +42,7 @@ func (f *OrderForwarder) CreateOrder(
 	return connect.NewResponse(out), nil
 }
 
+// GetOrder forwards the GetOrder RPC to the upstream service.
 func (f *OrderForwarder) GetOrder(
 	ctx context.Context,
 	req *connect.Request[orderv1.GetOrderRequest],
@@ -55,6 +59,7 @@ func (f *OrderForwarder) GetOrder(
 	return connect.NewResponse(out), nil
 }
 
+// ListBuyerOrders forwards the ListBuyerOrders RPC to the upstream service.
 func (f *OrderForwarder) ListBuyerOrders(
 	ctx context.Context,
 	req *connect.Request[orderv1.ListBuyerOrdersRequest],
@@ -71,6 +76,7 @@ func (f *OrderForwarder) ListBuyerOrders(
 	return connect.NewResponse(out), nil
 }
 
+// ListSellerOrders forwards the ListSellerOrders RPC to the upstream service.
 func (f *OrderForwarder) ListSellerOrders(
 	ctx context.Context,
 	req *connect.Request[orderv1.ListSellerOrdersRequest],
@@ -87,6 +93,7 @@ func (f *OrderForwarder) ListSellerOrders(
 	return connect.NewResponse(out), nil
 }
 
+// UpdateOrderStatus forwards the UpdateOrderStatus RPC to the upstream service.
 func (f *OrderForwarder) UpdateOrderStatus(
 	ctx context.Context,
 	req *connect.Request[orderv1.UpdateOrderStatusRequest],
@@ -103,6 +110,7 @@ func (f *OrderForwarder) UpdateOrderStatus(
 	return connect.NewResponse(out), nil
 }
 
+// CancelOrder forwards the CancelOrder RPC to the upstream service.
 func (f *OrderForwarder) CancelOrder(
 	ctx context.Context,
 	req *connect.Request[orderv1.CancelOrderRequest],
@@ -119,6 +127,7 @@ func (f *OrderForwarder) CancelOrder(
 	return connect.NewResponse(out), nil
 }
 
+// GetSagaState forwards the GetSagaState RPC to the upstream service.
 func (f *OrderForwarder) GetSagaState(
 	ctx context.Context,
 	req *connect.Request[orderv1.GetSagaStateRequest],
@@ -135,6 +144,7 @@ func (f *OrderForwarder) GetSagaState(
 	return connect.NewResponse(out), nil
 }
 
+// ForceFailSaga forwards the ForceFailSaga RPC to the upstream service.
 func (f *OrderForwarder) ForceFailSaga(
 	ctx context.Context,
 	req *connect.Request[orderv1.ForceFailSagaRequest],
@@ -153,6 +163,7 @@ func (f *OrderForwarder) ForceFailSaga(
 
 // ── RMA Returns ──
 
+// CreateReturnRequest forwards the CreateReturnRequest RPC to the upstream service.
 func (f *OrderForwarder) CreateReturnRequest(
 	ctx context.Context,
 	req *connect.Request[orderv1.CreateReturnRequestRequest],
@@ -169,6 +180,7 @@ func (f *OrderForwarder) CreateReturnRequest(
 	return connect.NewResponse(out), nil
 }
 
+// GetReturnRequest forwards the GetReturnRequest RPC to the upstream service.
 func (f *OrderForwarder) GetReturnRequest(
 	ctx context.Context,
 	req *connect.Request[orderv1.GetReturnRequestRequest],
@@ -185,6 +197,7 @@ func (f *OrderForwarder) GetReturnRequest(
 	return connect.NewResponse(out), nil
 }
 
+// ListOrderReturns forwards the ListOrderReturns RPC to the upstream service.
 func (f *OrderForwarder) ListOrderReturns(
 	ctx context.Context,
 	req *connect.Request[orderv1.ListOrderReturnsRequest],
@@ -201,6 +214,7 @@ func (f *OrderForwarder) ListOrderReturns(
 	return connect.NewResponse(out), nil
 }
 
+// UpdateReturnStatus forwards the UpdateReturnStatus RPC to the upstream service.
 func (f *OrderForwarder) UpdateReturnStatus(
 	ctx context.Context,
 	req *connect.Request[orderv1.UpdateReturnStatusRequest],
@@ -219,6 +233,7 @@ func (f *OrderForwarder) UpdateReturnStatus(
 
 // ── Shipments & Fulfillment Tracking ──
 
+// CreateShipment forwards the CreateShipment RPC to the upstream service.
 func (f *OrderForwarder) CreateShipment(
 	ctx context.Context,
 	req *connect.Request[orderv1.CreateShipmentRequest],
@@ -235,6 +250,7 @@ func (f *OrderForwarder) CreateShipment(
 	return connect.NewResponse(out), nil
 }
 
+// GetShipmentTracking forwards the GetShipmentTracking RPC to the upstream service.
 func (f *OrderForwarder) GetShipmentTracking(
 	ctx context.Context,
 	req *connect.Request[orderv1.GetShipmentTrackingRequest],

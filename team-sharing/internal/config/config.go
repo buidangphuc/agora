@@ -1,26 +1,19 @@
+// Package config holds team-sharing's settings: the SDK groups it uses, bound
+// from environment variables.
 package config
 
-import (
-	"os"
-	"strconv"
-)
+import sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 
-type Config struct {
-	GRPCPort    int
-	DatabaseURL string
+// Settings is everything the service reads from the environment. Runtime and
+// GRPC are embedded so their fields read as s.Env and s.Port; Postgres and OTel
+// are named groups.
+type Settings struct {
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres sdkconfig.Postgres
+	OTel     sdkconfig.OTel
 }
 
-func Load() Config {
-	port, _ := strconv.Atoi(getEnv("GRPC_PORT", "50065"))
-	return Config{
-		GRPCPort:    port,
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://sharing_svc:sharing_pass@localhost:5447/sharing_db?sslmode=disable"),
-	}
-}
-
-func getEnv(key, def string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return def
-}
+// Load reads Settings from the environment and validates it. Load calls
+// Validate on every group above, so Settings needs no Validate of its own.
+func Load() (Settings, error) { return sdkconfig.Load[Settings]() }

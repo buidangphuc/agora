@@ -17,10 +17,12 @@ type AnalyticsQueryForwarder struct {
 	edge   *Edge
 }
 
+// NewAnalyticsQueryForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewAnalyticsQueryForwarder(client analyticsv1.AnalyticsQueryServiceClient, edge *Edge) *AnalyticsQueryForwarder {
 	return &AnalyticsQueryForwarder{client: client, edge: edge}
 }
 
+// GetSellerFunnel forwards the GetSellerFunnel RPC to the upstream service.
 func (f *AnalyticsQueryForwarder) GetSellerFunnel(
 	ctx context.Context,
 	req *connect.Request[analyticsv1.GetSellerFunnelRequest],
@@ -37,6 +39,7 @@ func (f *AnalyticsQueryForwarder) GetSellerFunnel(
 	return connect.NewResponse(out), nil
 }
 
+// GetRevenueBreakdown forwards the GetRevenueBreakdown RPC to the upstream service.
 func (f *AnalyticsQueryForwarder) GetRevenueBreakdown(
 	ctx context.Context,
 	req *connect.Request[analyticsv1.GetRevenueBreakdownRequest],
@@ -53,6 +56,7 @@ func (f *AnalyticsQueryForwarder) GetRevenueBreakdown(
 	return connect.NewResponse(out), nil
 }
 
+// GetDemandForecast forwards the GetDemandForecast RPC to the upstream service.
 func (f *AnalyticsQueryForwarder) GetDemandForecast(
 	ctx context.Context,
 	req *connect.Request[analyticsv1.GetDemandForecastRequest],
@@ -69,6 +73,7 @@ func (f *AnalyticsQueryForwarder) GetDemandForecast(
 	return connect.NewResponse(out), nil
 }
 
+// GetTrackingQualityReport forwards the GetTrackingQualityReport RPC to the upstream service.
 func (f *AnalyticsQueryForwarder) GetTrackingQualityReport(
 	ctx context.Context,
 	req *connect.Request[analyticsv1.GetTrackingQualityReportRequest],
@@ -85,6 +90,7 @@ func (f *AnalyticsQueryForwarder) GetTrackingQualityReport(
 	return connect.NewResponse(out), nil
 }
 
+// GetRecommendationPerformance forwards the GetRecommendationPerformance RPC to the upstream service.
 func (f *AnalyticsQueryForwarder) GetRecommendationPerformance(
 	ctx context.Context,
 	req *connect.Request[analyticsv1.GetRecommendationPerformanceRequest],
@@ -101,6 +107,7 @@ func (f *AnalyticsQueryForwarder) GetRecommendationPerformance(
 	return connect.NewResponse(out), nil
 }
 
+// GetChannelFunnel forwards the GetChannelFunnel RPC to the upstream service.
 func (f *AnalyticsQueryForwarder) GetChannelFunnel(
 	ctx context.Context,
 	req *connect.Request[analyticsv1.GetChannelFunnelRequest],

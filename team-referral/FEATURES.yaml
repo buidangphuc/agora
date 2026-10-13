@@ -1,0 +1,72 @@
+# Feature manifest for team-referral (referral codes and the mock reward ledger).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-referral
+owner: referral-team
+
+features:
+  # Change migrate-team-referral-to-go-sdk: runtime behaviour with no UI journey; every entry is
+  # not-testable and names its unit/integration test.
+  - id: referral-runtime.team-referral-fails-boot-on-an-unreachable-database-outside-local
+    title: team-referral fails boot on an unreachable database outside local
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-referral]
+    acceptance:
+      - When team-referral starts with ENV=staging and DATABASE_URL pointing at a closed port
+      - Then app.Run returns an error and no listener is opened
+    tags: [referral-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-referral-to-go-sdk: not producible end to end; verified by team-referral/internal/app TestBootFailsWhenDatabaseUnreachableOutsideLocal."
+
+  - id: referral-runtime.team-referral-falls-back-to-memory-locally
+    title: team-referral falls back to memory locally
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-referral]
+    acceptance:
+      - When team-referral starts with ENV=local and an unreachable database
+      - Then its RPCs are served from the in-memory store and health is SERVING
+    tags: [referral-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-referral-to-go-sdk: not producible end to end; verified by team-referral/internal/app TestLocalFallsBackToMemoryStore."
+
+  - id: referral-runtime.team-referral-declares-no-enable-flags
+    title: team-referral declares no enable flags
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-referral]
+    acceptance:
+      - When the declared env keys of team-referral's Settings are listed
+      - Then none of DATABASE_ENABLED and GRPC_REFLECTION_ENABLED is declared
+    tags: [referral-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-referral-to-go-sdk: not producible end to end; verified by team-referral/internal/config TestNoEnableFlagsDeclared."
+
+  - id: referral-runtime.team-referral-health-fails-to-not-serving-when-the-database-is-lost
+    title: team-referral health fails to NOT_SERVING when the database is lost
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-referral]
+    acceptance:
+      - When the database used by a running team-referral stops accepting connections
+      - Then within one probe interval health is NOT_SERVING
+    tags: [referral-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-referral-to-go-sdk: not producible end to end; verified by team-referral/internal/app TestHealthReportsDatabaseDown (testkit Postgres)."
+
+  - id: referral-runtime.team-referral-existing-suites-do-not-regress-and-no-assertion-is-weakened
+    title: team-referral existing suites do not regress and no assertion is weakened
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-referral]
+    acceptance:
+      - When make check runs after the restructure
+      - Then TestHandlerRejectsAnonymous, TestHandlerScopesToPrincipal, TestMapErrHidesInternalCause, TestInterceptorTreatsGatewayAnonymousAsAnonymous, TestCreateThenGetRoundtrip, TestRedeemAttributesReferee, TestRedeemRejectsSelfAndUnknown, TestCrossUserIsolation, TestEmptyUserRejected and TestListRewardsPagination pass with no assertion removed or loosened
+    tags: [referral-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-referral-to-go-sdk: not producible end to end; verified by team-referral `make check`."

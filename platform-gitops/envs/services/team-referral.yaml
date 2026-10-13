@@ -15,6 +15,10 @@ resources:
   limits:
     cpu: 250m
     memory: 256Mi
+# ENV has no default in go-sdk v1 (a missing ENV fails boot); staging and prod
+# overlays set their own value.
+env:
+  ENV: local
 secrets:
   enabled: true
 # Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50062; only the

@@ -31,6 +31,7 @@ spec:
           grpcPort: 50066          # native gRPC health probes (grpc.health.v1.Health)
           env:
             GRPC_PORT: "50066"
+            ENV: "local"
           resources:
             requests:
               cpu: 50m

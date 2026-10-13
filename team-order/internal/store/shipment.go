@@ -1,0 +1,439 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
+)
+
+// ErrShipmentNotFound is returned when no shipment matches the lookup.
+var (
+	ErrShipmentNotFound = errors.New("shipment not found")
+)
+
+// ShipmentStatus is the delivery state of a shipment; the values match the order.v1 wire enum.
+type ShipmentStatus int32
+
+// The shipment statuses; ShipmentStatusUnspecified is the zero value, never stored.
+const (
+	ShipmentStatusUnspecified ShipmentStatus = 0
+	ShipmentStatusPending     ShipmentStatus = 1
+	ShipmentStatusPickedUp    ShipmentStatus = 2
+	ShipmentStatusInTransit   ShipmentStatus = 3
+	ShipmentStatusDelivered   ShipmentStatus = 4
+	ShipmentStatusFailed      ShipmentStatus = 5
+)
+
+// ShipmentCheckpoint is one tracking event of a shipment.
+type ShipmentCheckpoint struct {
+	ID          string
+	ShipmentID  string
+	Timestamp   time.Time
+	Location    string
+	Description string
+	CreatedAt   time.Time
+}
+
+// Shipment is a parcel handed to a carrier for an order.
+type Shipment struct {
+	ID           string
+	OrderID      string
+	Carrier      string
+	TrackingCode string
+	Status       ShipmentStatus
+	Checkpoints  []ShipmentCheckpoint
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+
+	// BuyerID and SellerID are NOT persisted on the shipment row. The caller fills
+	// them from the order so the OrderShipped outbox row can name the buyer to notify.
+	BuyerID  string
+	SellerID string
+}
+
+// ShipmentOutboxBuilder turns a shipment that is being created into the outbox row
+// to persist in the SAME transaction (ADR-0013). Injected by internal/events so the
+// repository stays free of an events dependency (same shape as PaidOutboxBuilder).
+type ShipmentOutboxBuilder func(s Shipment) (OutboxRow, error)
+
+// ShipmentRepoOption customizes a shipment repository.
+type ShipmentRepoOption func(*shipmentRepoConfig)
+
+type shipmentRepoConfig struct {
+	shippedOutbox ShipmentOutboxBuilder
+	outbox        OutboxWriter // in-memory repo only
+}
+
+// WithShipmentOutbox makes every CreateShipment write an outbox row built by b in
+// the SAME transaction as the shipment insert. If building or enqueueing the row
+// fails, the shipment is rolled back too.
+func WithShipmentOutbox(b ShipmentOutboxBuilder) ShipmentRepoOption {
+	return func(c *shipmentRepoConfig) { c.shippedOutbox = b }
+}
+
+// WithInMemoryShipmentOutbox sets the outbox store the in-memory repository writes
+// to, atomically with the shipment. Ignored by the Postgres repository.
+func WithInMemoryShipmentOutbox(o OutboxWriter) ShipmentRepoOption {
+	return func(c *shipmentRepoConfig) { c.outbox = o }
+}
+
+func newShipmentRepoConfig(opts []ShipmentRepoOption) shipmentRepoConfig {
+	var c shipmentRepoConfig
+	for _, o := range opts {
+		o(&c)
+	}
+	return c
+}
+
+// ShipmentRepository persists shipments and their checkpoints.
+type ShipmentRepository interface {
+	CreateShipment(ctx context.Context, s Shipment) (Shipment, error)
+	GetShipment(ctx context.Context, id string) (Shipment, error)
+	GetShipmentByTrackingCode(ctx context.Context, trackingCode string) (Shipment, error)
+	GetShipmentByOrderID(ctx context.Context, orderID string) (Shipment, error)
+	AddShipmentCheckpoint(ctx context.Context, cp ShipmentCheckpoint) (ShipmentCheckpoint, error)
+	UpdateShipmentStatus(ctx context.Context, id string, status ShipmentStatus) (Shipment, error)
+}
+
+// PostgresShipmentRepository is the durable ShipmentRepository over Postgres.
+type PostgresShipmentRepository struct {
+	pool          *pgxpool.Pool
+	queue         *outbox.Store
+	shippedOutbox ShipmentOutboxBuilder
+}
+
+// NewPostgresShipmentRepository returns the Postgres ShipmentRepository.
+func NewPostgresShipmentRepository(pool *pgxpool.Pool, opts ...ShipmentRepoOption) *PostgresShipmentRepository {
+	cfg := newShipmentRepoConfig(opts)
+	return &PostgresShipmentRepository{pool: pool, queue: mustQueue(pool), shippedOutbox: cfg.shippedOutbox}
+}
+
+const (
+	shipmentColumns   = `id, order_id, carrier, tracking_code, status, created_at, updated_at`
+	checkpointColumns = `id, shipment_id, timestamp, location, description, created_at`
+)
+
+func scanShipment(row pgx.Row, s *Shipment) error {
+	var statusInt int32
+	if err := row.Scan(&s.ID, &s.OrderID, &s.Carrier, &s.TrackingCode, &statusInt, &s.CreatedAt, &s.UpdatedAt); err != nil {
+		return err
+	}
+	s.Status = ShipmentStatus(statusInt)
+	return nil
+}
+
+func (r *PostgresShipmentRepository) loadCheckpoints(ctx context.Context, shipmentID string) ([]ShipmentCheckpoint, error) {
+	const q = `SELECT ` + checkpointColumns + ` FROM shipment_checkpoints WHERE shipment_id = $1 ORDER BY timestamp ASC, created_at ASC`
+	rows, err := r.pool.Query(ctx, q, shipmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checkpoints []ShipmentCheckpoint
+	for rows.Next() {
+		var cp ShipmentCheckpoint
+		if err := rows.Scan(&cp.ID, &cp.ShipmentID, &cp.Timestamp, &cp.Location, &cp.Description, &cp.CreatedAt); err != nil {
+			return nil, err
+		}
+		checkpoints = append(checkpoints, cp)
+	}
+	return checkpoints, rows.Err()
+}
+
+// CreateShipment implements ShipmentRepository.CreateShipment against Postgres.
+func (r *PostgresShipmentRepository) CreateShipment(ctx context.Context, s Shipment) (Shipment, error) {
+	if s.ID == "" {
+		s.ID = uuid.NewString()
+	}
+	if s.Status == 0 {
+		s.Status = ShipmentStatusPending
+	}
+	s.CreatedAt = time.Now()
+	s.UpdatedAt = time.Now()
+
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		const qShipment = `INSERT INTO shipments (` + shipmentColumns + `)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		if _, err := tx.Exec(ctx, qShipment, s.ID, s.OrderID, s.Carrier, s.TrackingCode, int32(s.Status), s.CreatedAt, s.UpdatedAt); err != nil {
+			return fmt.Errorf("insert shipment: %w", err)
+		}
+
+		for i := range s.Checkpoints {
+			cp := &s.Checkpoints[i]
+			if cp.ID == "" {
+				cp.ID = uuid.NewString()
+			}
+			cp.ShipmentID = s.ID
+			if cp.Timestamp.IsZero() {
+				cp.Timestamp = time.Now()
+			}
+			cp.CreatedAt = time.Now()
+
+			const qCp = `INSERT INTO shipment_checkpoints (` + checkpointColumns + `)
+				VALUES ($1, $2, $3, $4, $5, $6)`
+			if _, err := tx.Exec(ctx, qCp, cp.ID, cp.ShipmentID, cp.Timestamp, cp.Location, cp.Description, cp.CreatedAt); err != nil {
+				return fmt.Errorf("insert checkpoint: %w", err)
+			}
+		}
+
+		// The OrderShipped outbox row commits with the shipment (ADR-0013); a build or
+		// enqueue failure rolls the shipment back too.
+		if r.shippedOutbox != nil {
+			row, err := r.shippedOutbox(s)
+			if err != nil {
+				return fmt.Errorf("build order shipped outbox row: %w", err)
+			}
+			if err := r.queue.EnqueueTx(ctx, tx, row); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return Shipment{}, err
+	}
+	return s, nil
+}
+
+// GetShipment implements ShipmentRepository.GetShipment against Postgres.
+func (r *PostgresShipmentRepository) GetShipment(ctx context.Context, id string) (Shipment, error) {
+	const q = `SELECT ` + shipmentColumns + ` FROM shipments WHERE id = $1`
+	var s Shipment
+	if err := scanShipment(r.pool.QueryRow(ctx, q, id), &s); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return Shipment{}, ErrShipmentNotFound
+		}
+		return Shipment{}, fmt.Errorf("get shipment %q: %w", id, err)
+	}
+	cps, err := r.loadCheckpoints(ctx, s.ID)
+	if err != nil {
+		return Shipment{}, fmt.Errorf("load checkpoints for shipment %q: %w", id, err)
+	}
+	s.Checkpoints = cps
+	return s, nil
+}
+
+// GetShipmentByTrackingCode implements ShipmentRepository.GetShipmentByTrackingCode against Postgres.
+func (r *PostgresShipmentRepository) GetShipmentByTrackingCode(ctx context.Context, trackingCode string) (Shipment, error) {
+	const q = `SELECT ` + shipmentColumns + ` FROM shipments WHERE tracking_code = $1`
+	var s Shipment
+	if err := scanShipment(r.pool.QueryRow(ctx, q, trackingCode), &s); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return Shipment{}, ErrShipmentNotFound
+		}
+		return Shipment{}, fmt.Errorf("get shipment by tracking code %q: %w", trackingCode, err)
+	}
+	cps, err := r.loadCheckpoints(ctx, s.ID)
+	if err != nil {
+		return Shipment{}, fmt.Errorf("load checkpoints for shipment %q: %w", s.ID, err)
+	}
+	s.Checkpoints = cps
+	return s, nil
+}
+
+// GetShipmentByOrderID implements ShipmentRepository.GetShipmentByOrderID against Postgres.
+func (r *PostgresShipmentRepository) GetShipmentByOrderID(ctx context.Context, orderID string) (Shipment, error) {
+	const q = `SELECT ` + shipmentColumns + ` FROM shipments WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1`
+	var s Shipment
+	if err := scanShipment(r.pool.QueryRow(ctx, q, orderID), &s); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return Shipment{}, ErrShipmentNotFound
+		}
+		return Shipment{}, fmt.Errorf("get shipment by order %q: %w", orderID, err)
+	}
+	cps, err := r.loadCheckpoints(ctx, s.ID)
+	if err != nil {
+		return Shipment{}, fmt.Errorf("load checkpoints for shipment %q: %w", s.ID, err)
+	}
+	s.Checkpoints = cps
+	return s, nil
+}
+
+// AddShipmentCheckpoint implements ShipmentRepository.AddShipmentCheckpoint against Postgres.
+func (r *PostgresShipmentRepository) AddShipmentCheckpoint(ctx context.Context, cp ShipmentCheckpoint) (ShipmentCheckpoint, error) {
+	if cp.ID == "" {
+		cp.ID = uuid.NewString()
+	}
+	if cp.Timestamp.IsZero() {
+		cp.Timestamp = time.Now()
+	}
+	cp.CreatedAt = time.Now()
+
+	const q = `INSERT INTO shipment_checkpoints (` + checkpointColumns + `)
+		VALUES ($1, $2, $3, $4, $5, $6)`
+	if _, err := r.pool.Exec(ctx, q, cp.ID, cp.ShipmentID, cp.Timestamp, cp.Location, cp.Description, cp.CreatedAt); err != nil {
+		return ShipmentCheckpoint{}, fmt.Errorf("add shipment checkpoint: %w", err)
+	}
+	return cp, nil
+}
+
+// UpdateShipmentStatus implements ShipmentRepository.UpdateShipmentStatus against Postgres.
+func (r *PostgresShipmentRepository) UpdateShipmentStatus(ctx context.Context, id string, status ShipmentStatus) (Shipment, error) {
+	const q = `UPDATE shipments SET status = $2, updated_at = now() WHERE id = $1 RETURNING ` + shipmentColumns
+	var s Shipment
+	if err := scanShipment(r.pool.QueryRow(ctx, q, id, int32(status)), &s); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return Shipment{}, ErrShipmentNotFound
+		}
+		return Shipment{}, fmt.Errorf("update shipment status %q: %w", id, err)
+	}
+	cps, err := r.loadCheckpoints(ctx, s.ID)
+	if err != nil {
+		return Shipment{}, err
+	}
+	s.Checkpoints = cps
+	return s, nil
+}
+
+// InMemoryShipmentRepository is the in-memory ShipmentRepository.
+type InMemoryShipmentRepository struct {
+	mu            sync.RWMutex
+	shipments     map[string]Shipment
+	checkpoints   map[string][]ShipmentCheckpoint
+	shippedOutbox ShipmentOutboxBuilder
+	outbox        OutboxWriter
+}
+
+// NewInMemoryShipmentRepository returns the in-memory ShipmentRepository.
+func NewInMemoryShipmentRepository(opts ...ShipmentRepoOption) *InMemoryShipmentRepository {
+	cfg := newShipmentRepoConfig(opts)
+	return &InMemoryShipmentRepository{
+		shipments:     make(map[string]Shipment),
+		checkpoints:   make(map[string][]ShipmentCheckpoint),
+		shippedOutbox: cfg.shippedOutbox,
+		outbox:        cfg.outbox,
+	}
+}
+
+// CreateShipment implements ShipmentRepository.CreateShipment in memory.
+func (r *InMemoryShipmentRepository) CreateShipment(ctx context.Context, s Shipment) (Shipment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if s.ID == "" {
+		s.ID = uuid.NewString()
+	}
+	if s.Status == 0 {
+		s.Status = ShipmentStatusPending
+	}
+	s.CreatedAt = time.Now()
+	s.UpdatedAt = time.Now()
+
+	for i := range s.Checkpoints {
+		cp := &s.Checkpoints[i]
+		if cp.ID == "" {
+			cp.ID = uuid.NewString()
+		}
+		cp.ShipmentID = s.ID
+		if cp.Timestamp.IsZero() {
+			cp.Timestamp = time.Now()
+		}
+		cp.CreatedAt = time.Now()
+	}
+
+	// Mirror the Postgres repo: shipment and outbox row are one unit. Nothing is
+	// stored unless the row was enqueued (the in-memory analogue of a rollback).
+	if r.shippedOutbox != nil && r.outbox != nil {
+		row, err := r.shippedOutbox(s)
+		if err != nil {
+			return Shipment{}, fmt.Errorf("build order shipped outbox row: %w", err)
+		}
+		if err := r.outbox.Enqueue(ctx, row); err != nil {
+			return Shipment{}, err
+		}
+	}
+
+	r.shipments[s.ID] = s
+	r.checkpoints[s.ID] = append([]ShipmentCheckpoint{}, s.Checkpoints...)
+	return s, nil
+}
+
+// GetShipment implements ShipmentRepository.GetShipment in memory.
+func (r *InMemoryShipmentRepository) GetShipment(_ context.Context, id string) (Shipment, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	s, ok := r.shipments[id]
+	if !ok {
+		return Shipment{}, ErrShipmentNotFound
+	}
+	s.Checkpoints = append([]ShipmentCheckpoint{}, r.checkpoints[id]...)
+	return s, nil
+}
+
+// GetShipmentByTrackingCode implements ShipmentRepository.GetShipmentByTrackingCode in memory.
+func (r *InMemoryShipmentRepository) GetShipmentByTrackingCode(_ context.Context, trackingCode string) (Shipment, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, s := range r.shipments {
+		if s.TrackingCode == trackingCode {
+			s.Checkpoints = append([]ShipmentCheckpoint{}, r.checkpoints[s.ID]...)
+			return s, nil
+		}
+	}
+	return Shipment{}, ErrShipmentNotFound
+}
+
+// GetShipmentByOrderID implements ShipmentRepository.GetShipmentByOrderID in memory.
+func (r *InMemoryShipmentRepository) GetShipmentByOrderID(_ context.Context, orderID string) (Shipment, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, s := range r.shipments {
+		if s.OrderID == orderID {
+			s.Checkpoints = append([]ShipmentCheckpoint{}, r.checkpoints[s.ID]...)
+			return s, nil
+		}
+	}
+	return Shipment{}, ErrShipmentNotFound
+}
+
+// AddShipmentCheckpoint implements ShipmentRepository.AddShipmentCheckpoint in memory.
+func (r *InMemoryShipmentRepository) AddShipmentCheckpoint(_ context.Context, cp ShipmentCheckpoint) (ShipmentCheckpoint, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.shipments[cp.ShipmentID]; !ok {
+		return ShipmentCheckpoint{}, ErrShipmentNotFound
+	}
+
+	if cp.ID == "" {
+		cp.ID = uuid.NewString()
+	}
+	if cp.Timestamp.IsZero() {
+		cp.Timestamp = time.Now()
+	}
+	cp.CreatedAt = time.Now()
+
+	r.checkpoints[cp.ShipmentID] = append(r.checkpoints[cp.ShipmentID], cp)
+	return cp, nil
+}
+
+// UpdateShipmentStatus implements ShipmentRepository.UpdateShipmentStatus in memory.
+func (r *InMemoryShipmentRepository) UpdateShipmentStatus(_ context.Context, id string, status ShipmentStatus) (Shipment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	s, ok := r.shipments[id]
+	if !ok {
+		return Shipment{}, ErrShipmentNotFound
+	}
+	s.Status = status
+	s.UpdatedAt = time.Now()
+	r.shipments[id] = s
+	s.Checkpoints = append([]ShipmentCheckpoint{}, r.checkpoints[id]...)
+	return s, nil
+}

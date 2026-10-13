@@ -1,0 +1,280 @@
+package events
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"strings"
+
+	"google.golang.org/protobuf/proto"
+
+	eventsv1 "github.com/buidangphuc/team-search/generated/platform/events/v1"
+	listingv1 "github.com/buidangphuc/team-search/generated/platform/listing/v1"
+	"github.com/buidangphuc/team-search/internal/index"
+	"github.com/buidangphuc/team-search/internal/retrieval"
+	"github.com/buidangphuc/team-search/internal/taxonomy"
+)
+
+// Handler processes one event record. An error is retried by the consumer with
+// bounded backoff and, if the record still fails, it is parked on the DLQ before
+// the offset advances: it is never silently dropped.
+type Handler func(ctx context.Context, key, value []byte) error
+
+// Discriminator types carried in EventEnvelope.Type
+const (
+	listingChangedType         = "platform.listing.v1.ListingChanged"
+	listingBaseInfoChangedType = "platform.listing.v1.ListingBaseInfoChanged"
+	listingPricingChangedType  = "platform.listing.v1.ListingPricingChanged"
+	listingStockChangedType    = "platform.listing.v1.ListingStockChanged"
+	listingStatusChangedType   = "platform.listing.v1.ListingStatusChanged"
+)
+
+// ListingEventHandler decodes listing events and applies changes to OpenSearch read-model.
+// Fine-grained events perform Partial Updates on OpenSearch to save CPU/Memory and avoid re-indexing text.
+func ListingEventHandler(idx index.Index) Handler {
+	return ListingEventHandlerWithEmbedder(idx, nil)
+}
+
+// ListingEventHandlerWithEmbedder decodes listing events, vectorizes content using embedder, and applies changes to OpenSearch.
+// If embedder is nil or embedding fails (D4), it sets vector_pending: true without failing the ingestion.
+func ListingEventHandlerWithEmbedder(idx index.Index, embedder retrieval.EmbedClient) Handler {
+	return NewListingEventHandler(idx, embedder, nil)
+}
+
+// NewListingEventHandler is ListingEventHandlerWithEmbedder plus the tag classifier
+// (add-tag-classifier-filter-enrichment): create/update events carry the
+// listing's canonical SPU tags and per-variant attributes into the read-model, and a
+// base-info event refreshes the SPU tags. A nil classifier skips classification. A
+// classifier error never fails the ingestion (like the embedder): the document is
+// written with tags_pending and keeps the tags it already had.
+func NewListingEventHandler(idx index.Index, embedder retrieval.EmbedClient, classifier taxonomy.Classifier) Handler {
+	return func(ctx context.Context, _ []byte, value []byte) error {
+		var env eventsv1.EventEnvelope
+		if err := proto.Unmarshal(value, &env); err != nil {
+			return fmt.Errorf("unmarshal envelope: %w", err)
+		}
+
+		// version (AD2): the read-model version is the event's occurred_at in
+		// nanoseconds, so out-of-order/redelivered events are ordered by the guard.
+		version := envVersion(&env)
+
+		switch env.GetType() {
+		case listingChangedType:
+			var changed listingv1.ListingChanged
+			if err := proto.Unmarshal(env.GetPayload(), &changed); err != nil {
+				return fmt.Errorf("unmarshal ListingChanged: %w", err)
+			}
+			l := changed.GetListing()
+			if l == nil || l.GetId() == "" {
+				return fmt.Errorf("event has no listing id")
+			}
+			if changed.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
+				return idx.Delete(ctx, l.GetId(), version)
+			}
+			doc := toDoc(l, version)
+			classifyDoc(ctx, classifier, l, &doc)
+			// D7: the creation time is the CREATED envelope's occurred_at; the
+			// index keeps the earliest, so UPDATED events never touch it.
+			if changed.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_CREATED && env.GetOccurredAt() != nil {
+				ms := env.GetOccurredAt().AsTime().UnixMilli()
+				doc.CreatedAt = &ms
+			}
+			if embedder != nil {
+				text := strings.TrimSpace(l.GetTitle() + " " + l.GetDescription())
+				if text != "" {
+					vec, err := embedder.Embed(ctx, text)
+					if err == nil && len(vec) > 0 {
+						doc.Embedding = vec
+						doc.VectorPending = false
+					} else {
+						doc.VectorPending = true
+					}
+				}
+			}
+			return idx.Upsert(ctx, doc)
+
+		case listingBaseInfoChangedType:
+			var base listingv1.ListingBaseInfoChanged
+			if err := proto.Unmarshal(env.GetPayload(), &base); err != nil {
+				return fmt.Errorf("unmarshal ListingBaseInfoChanged: %w", err)
+			}
+			if base.GetListingId() == "" {
+				return fmt.Errorf("event has no listing id")
+			}
+			if base.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
+				return idx.Delete(ctx, base.GetListingId(), version)
+			}
+			// Partial update base descriptive fields
+			fields := map[string]interface{}{
+				"id":          base.GetListingId(),
+				"title":       base.GetTitle(),
+				"description": base.GetDescription(),
+				"category_id": base.GetCategoryId(),
+				"seller_id":   base.GetSellerId(),
+				"status":      statusString(base.GetStatus()),
+				"version":     version,
+			}
+			if classifier != nil {
+				res, err := classifier.Classify(ctx, taxonomy.Listing{
+					Title: base.GetTitle(), Description: base.GetDescription(), CategoryID: base.GetCategoryId(),
+				})
+				if err != nil {
+					slog.WarnContext(ctx, "taxonomy classify failed, marking tags_pending", "listing_id", base.GetListingId(), "err", err)
+					fields["tags_pending"] = true
+				} else {
+					fields["facet_tags"] = nonNil(res.FacetTags)
+					fields["tags_pending"] = false
+				}
+			}
+			if embedder != nil {
+				text := strings.TrimSpace(base.GetTitle() + " " + base.GetDescription())
+				if text != "" {
+					vec, err := embedder.Embed(ctx, text)
+					if err == nil && len(vec) > 0 {
+						fields["embedding"] = vec
+						fields["vector_pending"] = false
+					} else {
+						fields["vector_pending"] = true
+					}
+				}
+			}
+			return idx.PartialUpdate(ctx, base.GetListingId(), fields)
+
+		case listingPricingChangedType:
+			var pricing listingv1.ListingPricingChanged
+			if err := proto.Unmarshal(env.GetPayload(), &pricing); err != nil {
+				return fmt.Errorf("unmarshal ListingPricingChanged: %w", err)
+			}
+			if pricing.GetListingId() == "" {
+				return fmt.Errorf("event has no listing id")
+			}
+			effectivePrice := pricing.GetOriginalPrice()
+			if pricing.GetIsOnSale() && pricing.GetPromotionalPrice() > 0 {
+				effectivePrice = pricing.GetPromotionalPrice()
+			}
+			// Partial update price field in OpenSearch without re-indexing text
+			return idx.PartialUpdate(ctx, pricing.GetListingId(), map[string]interface{}{
+				"price":    effectivePrice,
+				"currency": pricing.GetCurrency(),
+				"version":  version,
+			})
+
+		case listingStockChangedType:
+			var sc listingv1.ListingStockChanged
+			if err := proto.Unmarshal(env.GetPayload(), &sc); err != nil {
+				return fmt.Errorf("unmarshal ListingStockChanged: %w", err)
+			}
+			// A malformed stock event is an error, never a silent ack: AD1 retries
+			// it and parks it on the DLQ. Variants only refresh the nested skus' stock (below).
+			if sc.GetListingId() == "" {
+				return fmt.Errorf("ListingStockChanged has no listing id")
+			}
+			if sc.GetStock() < 0 {
+				return fmt.Errorf("ListingStockChanged %q: negative stock %d", sc.GetListingId(), sc.GetStock())
+			}
+			if version <= 0 {
+				return fmt.Errorf("ListingStockChanged %q: missing occurred_at", sc.GetListingId())
+			}
+			// Variant stock keeps the nested skus' is_in_stock current (a sold-out
+			// variant must stop matching sku.* filters); same stock_version guard.
+			if vu, ok := idx.(index.VariantStockUpdater); ok && len(sc.GetVariants()) > 0 {
+				vs := make([]index.VariantStock, 0, len(sc.GetVariants()))
+				for _, v := range sc.GetVariants() {
+					vs = append(vs, index.VariantStock{ID: v.GetId(), Stock: max(v.GetStock(), 0)})
+				}
+				return vu.UpdateStockWithVariants(ctx, sc.GetListingId(), sc.GetStock(), version, vs)
+			}
+			return idx.UpdateStock(ctx, sc.GetListingId(), sc.GetStock(), version)
+
+		case listingStatusChangedType:
+			var st listingv1.ListingStatusChanged
+			if err := proto.Unmarshal(env.GetPayload(), &st); err != nil {
+				return fmt.Errorf("unmarshal ListingStatusChanged: %w", err)
+			}
+			if st.GetListingId() == "" {
+				return fmt.Errorf("event has no listing id")
+			}
+			if st.GetStatus() == listingv1.ListingStatus_LISTING_STATUS_REJECTED {
+				return idx.Delete(ctx, st.GetListingId(), version)
+			}
+			return idx.PartialUpdate(ctx, st.GetListingId(), map[string]interface{}{
+				"status":  statusString(st.GetStatus()),
+				"version": version,
+			})
+
+		default:
+			return nil // not ours; ignore
+		}
+	}
+}
+
+// classifyDoc fills the doc's SPU tags and nested SKUs from the classifier; on
+// error it only sets TagsPending so the write guard keeps the stored tags.
+func classifyDoc(ctx context.Context, c taxonomy.Classifier, l *listingv1.Listing, doc *index.ListingDoc) {
+	if c == nil {
+		return
+	}
+	in := taxonomy.Listing{Title: l.GetTitle(), Description: l.GetDescription(), CategoryID: l.GetCategoryId()}
+	for _, v := range l.GetVariants() {
+		in.Variants = append(in.Variants, taxonomy.Variant{
+			ID: v.GetId(), Name: v.GetName(), SkuCode: v.GetSku(), Price: v.GetPrice(), Stock: v.GetStock(),
+		})
+	}
+	res, err := c.Classify(ctx, in)
+	if err != nil {
+		slog.WarnContext(ctx, "taxonomy classify failed, marking tags_pending", "listing_id", l.GetId(), "err", err)
+		doc.TagsPending = true
+		return
+	}
+	doc.FacetTags = res.FacetTags
+	doc.SKUs = res.SKUs
+}
+
+func nonNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
+}
+
+// toDoc maps a proto Listing to the indexed document, stamping the read-model
+// version (AD2) so the index can reject out-of-order writes.
+func toDoc(l *listingv1.Listing, version int64) index.ListingDoc {
+	stock := l.GetStock()
+	return index.ListingDoc{
+		Stock:       &stock,
+		ID:          l.GetId(),
+		Title:       l.GetTitle(),
+		Description: l.GetDescription(),
+		Status:      statusString(l.GetStatus()),
+		Currency:    l.GetCurrency(),
+		Price:       l.GetPrice(),
+		CategoryID:  l.GetCategoryId(),
+		SellerID:    l.GetSellerId(),
+		Version:     version,
+	}
+}
+
+// envVersion derives the monotonic read-model version from the envelope's
+// occurred_at (nanoseconds). Returns 0 when the timestamp is absent, which
+// disables the version guard for that write.
+func envVersion(env *eventsv1.EventEnvelope) int64 {
+	ts := env.GetOccurredAt()
+	if ts == nil {
+		return 0
+	}
+	return ts.AsTime().UnixNano()
+}
+
+func statusString(s listingv1.ListingStatus) string {
+	switch s {
+	case listingv1.ListingStatus_LISTING_STATUS_DRAFT:
+		return "draft"
+	case listingv1.ListingStatus_LISTING_STATUS_PUBLISHED:
+		return "published"
+	case listingv1.ListingStatus_LISTING_STATUS_REJECTED:
+		return "rejected"
+	default:
+		return "unspecified"
+	}
+}

@@ -1,0 +1,92 @@
+// Package events builds the domain events team-domain publishes to Kafka
+// (ADR-0002): each one is a platform.events.v1.EventEnvelope, stored in the
+// transactional outbox and published by the go-sdk outbox relayer, keyed by
+// listing id for per-entity ordering.
+package events
+
+import (
+	"fmt"
+
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
+	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
+	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
+)
+
+// listingChangedType is the discriminator carried in EventEnvelope.Type for the
+// ListingChanged event the outbox enqueues.
+const listingChangedType = "platform.listing.v1.ListingChanged"
+
+// ListingChangedEventType is the exported discriminator the outbox enqueue path
+// stamps on the row (and the EventEnvelope), so the handler and the store agree
+// on a single source of truth.
+const ListingChangedEventType = listingChangedType
+
+// ListingStockChangedEventType is the discriminator for stock-level events
+// (reserve / release / TTL sweep) on listing.events.
+const ListingStockChangedEventType = "platform.listing.v1.ListingStockChanged"
+
+// BuildListingStockChangedEnvelope marshals an EventEnvelope carrying a
+// ListingStockChanged, with the outbox row's event_id as the stable dedupe id.
+// Same topic (listing.events), key (listing_id) and envelope shape as
+// ListingChanged, so the relayer needs no change. occurred_at is stamped now:
+// the event is built inside the stock-change transaction, and carries absolute
+// values, so a consumer can order by occurred_at.
+func BuildListingStockChangedEnvelope(
+	eventID string,
+	change *listingv1.ListingStockChanged,
+	principal *commonv1.Principal,
+	requestID string,
+) ([]byte, error) {
+	payload, err := proto.Marshal(change)
+	if err != nil {
+		return nil, fmt.Errorf("marshal ListingStockChanged: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       ListingStockChangedEventType,
+		OccurredAt: timestamppb.Now(),
+		Principal:  principal,
+		RequestId:  requestID,
+		Payload:    payload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return value, nil
+}
+
+// BuildListingChangedEnvelope marshals the exact EventEnvelope the KafkaPublisher
+// produced inline before the outbox — same fields, same inner ListingChanged —
+// but with a caller-supplied eventID (the outbox row id) rather than a fresh
+// UUID, so a re-delivered row carries a STABLE event_id every time. That
+// stability is what lets idempotent consumers dedupe under at-least-once. The
+// returned bytes are stored verbatim in the outbox and produced unchanged by the
+// relayer, keeping the wire contract byte-identical (no consumer/proto change).
+func BuildListingChangedEnvelope(
+	eventID string,
+	listing *listingv1.Listing,
+	change listingv1.ChangeType,
+	principal *commonv1.Principal,
+	requestID string,
+) ([]byte, error) {
+	payload, err := proto.Marshal(&listingv1.ListingChanged{Listing: listing, ChangeType: change})
+	if err != nil {
+		return nil, fmt.Errorf("marshal ListingChanged: %w", err)
+	}
+	envelope := &eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       listingChangedType,
+		OccurredAt: timestamppb.Now(),
+		Principal:  principal,
+		RequestId:  requestID,
+		Payload:    payload,
+	}
+	value, err := proto.Marshal(envelope)
+	if err != nil {
+		return nil, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return value, nil
+}

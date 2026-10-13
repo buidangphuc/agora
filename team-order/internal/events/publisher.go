@@ -1,9 +1,10 @@
+// Package events is team-order's event layer: the order.events envelopes and the
+// outbox rows built from them, and the consumer of payment.events that drives
+// orders to PAID. The go-sdk outbox relayer and consume loop move the bytes.
 package events
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,7 +13,7 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 // OrderPaidEventType is the fully-qualified proto type for OrderPaidEvent.
@@ -27,13 +28,14 @@ const OrderCancelledEventType = "platform.order.v1.OrderCancelled"
 // ReturnRefundedEventType is the fully-qualified proto type for ReturnRefunded.
 const ReturnRefundedEventType = "platform.order.v1.ReturnRefunded"
 
-// OrderEventsTopic is the Kafka topic for order lifecycle events.
+// OrderEventsTopic is the default Kafka topic for order lifecycle events (the
+// relayer publishes the outbox rows there; ORDER_EVENTS_TOPIC overrides it).
 const OrderEventsTopic = "order.events"
 
 // BuildOrderPaidEnvelope constructs the EventEnvelope carrying OrderPaidEvent with line items.
 func BuildOrderPaidEnvelope(
 	eventID string,
-	order repository.Order,
+	order store.Order,
 	occurredAt time.Time,
 	requestID string,
 ) ([]byte, error) {
@@ -86,11 +88,11 @@ func OrderPaidEventID(orderID string) string {
 	return uuid.NewSHA1(orderPaidNamespace, []byte(orderID)).String()
 }
 
-// BuildPaidOutboxRow is the repository.PaidOutboxBuilder for team-order: it wraps
+// BuildPaidOutboxRow is the store.PaidOutboxBuilder for team-order: it wraps
 // the order's OrderPaidEvent (with line items) in an EventEnvelope, keyed by
 // order_id, ready to commit in the same transaction as the PAID transition.
 // order.UpdatedAt is the transition time and becomes occurred_at / paid_at.
-func BuildPaidOutboxRow(order repository.Order) (repository.OutboxRow, error) {
+func BuildPaidOutboxRow(order store.Order) (store.OutboxRow, error) {
 	occurredAt := order.UpdatedAt
 	if occurredAt.IsZero() {
 		occurredAt = time.Now()
@@ -98,9 +100,9 @@ func BuildPaidOutboxRow(order repository.Order) (repository.OutboxRow, error) {
 	eventID := OrderPaidEventID(order.ID)
 	payload, err := BuildOrderPaidEnvelope(eventID, order, occurredAt.UTC(), "")
 	if err != nil {
-		return repository.OutboxRow{}, err
+		return store.OutboxRow{}, err
 	}
-	return repository.OutboxRow{
+	return store.OutboxRow{
 		EventID:       eventID,
 		AggregateType: "Order",
 		AggregateID:   order.ID,
@@ -119,13 +121,13 @@ func OrderCancelledEventID(orderID string) string {
 	return uuid.NewSHA1(orderCancelledNamespace, []byte(orderID)).String()
 }
 
-// BuildCancelledOutboxRow is the repository.CancelledOutboxBuilder for team-order:
+// BuildCancelledOutboxRow is the store.CancelledOutboxBuilder for team-order:
 // it wraps OrderCancelled in an EventEnvelope keyed by order_id, ready to commit in
 // the same transaction as the winning claim to CANCELLED. order is the row the
 // claim returned: previous_status is PAID iff paid_at is set (paid_at is written
 // only by the move to Paid, and only Pending or Paid orders can be cancelled),
 // otherwise PENDING. order.UpdatedAt is the claim time and becomes cancelled_at.
-func BuildCancelledOutboxRow(order repository.Order) (repository.OutboxRow, error) {
+func BuildCancelledOutboxRow(order store.Order) (store.OutboxRow, error) {
 	cancelledAt := order.UpdatedAt
 	if cancelledAt.IsZero() {
 		cancelledAt = time.Now()
@@ -146,7 +148,7 @@ func BuildCancelledOutboxRow(order repository.Order) (repository.OutboxRow, erro
 		CancelledAt:    timestamppb.New(cancelledAt),
 	})
 	if err != nil {
-		return repository.OutboxRow{}, fmt.Errorf("marshal OrderCancelled: %w", err)
+		return store.OutboxRow{}, fmt.Errorf("marshal OrderCancelled: %w", err)
 	}
 	value, err := proto.Marshal(&eventsv1.EventEnvelope{
 		EventId:    eventID,
@@ -155,9 +157,9 @@ func BuildCancelledOutboxRow(order repository.Order) (repository.OutboxRow, erro
 		Payload:    payload,
 	})
 	if err != nil {
-		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+		return store.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
 	}
-	return repository.OutboxRow{
+	return store.OutboxRow{
 		EventID:       eventID,
 		AggregateType: "Order",
 		AggregateID:   order.ID,
@@ -174,10 +176,10 @@ func OrderShippedEventID(shipmentID string) string {
 	return uuid.NewSHA1(orderShippedNamespace, []byte(shipmentID)).String()
 }
 
-// BuildShippedOutboxRow is the repository.ShipmentOutboxBuilder for team-order: it
+// BuildShippedOutboxRow is the store.ShipmentOutboxBuilder for team-order: it
 // wraps OrderShipped in an EventEnvelope keyed by order_id, ready to commit in the
 // same transaction as the shipment. s.BuyerID/SellerID come from the order.
-func BuildShippedOutboxRow(s repository.Shipment) (repository.OutboxRow, error) {
+func BuildShippedOutboxRow(s store.Shipment) (store.OutboxRow, error) {
 	shippedAt := s.CreatedAt
 	if shippedAt.IsZero() {
 		shippedAt = time.Now()
@@ -193,7 +195,7 @@ func BuildShippedOutboxRow(s repository.Shipment) (repository.OutboxRow, error) 
 		ShippedAt:    timestamppb.New(shippedAt),
 	})
 	if err != nil {
-		return repository.OutboxRow{}, fmt.Errorf("marshal OrderShipped: %w", err)
+		return store.OutboxRow{}, fmt.Errorf("marshal OrderShipped: %w", err)
 	}
 	value, err := proto.Marshal(&eventsv1.EventEnvelope{
 		EventId:    eventID,
@@ -202,9 +204,9 @@ func BuildShippedOutboxRow(s repository.Shipment) (repository.OutboxRow, error) 
 		Payload:    payload,
 	})
 	if err != nil {
-		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+		return store.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
 	}
-	return repository.OutboxRow{
+	return store.OutboxRow{
 		EventID:       eventID,
 		AggregateType: "Order",
 		AggregateID:   s.OrderID,
@@ -223,13 +225,13 @@ func ReturnRefundedEventID(returnID string) string {
 	return uuid.NewSHA1(returnRefundedNamespace, []byte(returnID)).String()
 }
 
-// BuildReturnRefundedOutboxRow is the repository.ReturnOutboxBuilder for
+// BuildReturnRefundedOutboxRow is the store.ReturnOutboxBuilder for
 // team-order: it wraps ReturnRefunded in an EventEnvelope keyed by order_id, ready
 // to commit in the same transaction as the won APPROVED -> REFUNDED
 // compare-and-set. ret is the row that CAS returned, so refund_amount is the
 // stored return amount (never a client value) and ret.UpdatedAt the refund time;
 // currency is the order's.
-func BuildReturnRefundedOutboxRow(ret repository.OrderReturn, currency string) (repository.OutboxRow, error) {
+func BuildReturnRefundedOutboxRow(ret store.OrderReturn, currency string) (store.OutboxRow, error) {
 	refundedAt := ret.UpdatedAt
 	if refundedAt.IsZero() {
 		refundedAt = time.Now()
@@ -246,7 +248,7 @@ func BuildReturnRefundedOutboxRow(ret repository.OrderReturn, currency string) (
 		RefundedAt:   timestamppb.New(refundedAt),
 	})
 	if err != nil {
-		return repository.OutboxRow{}, fmt.Errorf("marshal ReturnRefunded: %w", err)
+		return store.OutboxRow{}, fmt.Errorf("marshal ReturnRefunded: %w", err)
 	}
 	value, err := proto.Marshal(&eventsv1.EventEnvelope{
 		EventId:    eventID,
@@ -255,33 +257,13 @@ func BuildReturnRefundedOutboxRow(ret repository.OrderReturn, currency string) (
 		Payload:    payload,
 	})
 	if err != nil {
-		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+		return store.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
 	}
-	return repository.OutboxRow{
+	return store.OutboxRow{
 		EventID:       eventID,
 		AggregateType: "Order",
 		AggregateID:   ret.OrderID,
 		EventType:     ReturnRefundedEventType,
 		Payload:       value,
 	}, nil
-}
-
-// KafkaPublisher sends byte payloads to a Kafka topic.
-type KafkaPublisher interface {
-	Publish(ctx context.Context, topic, key string, payload []byte) error
-}
-
-// LoggingPublisher logs published events; used in testing and local fallback.
-type LoggingPublisher struct {
-	logger *slog.Logger
-}
-
-// NewLoggingPublisher constructs a logging publisher.
-func NewLoggingPublisher(logger *slog.Logger) *LoggingPublisher {
-	return &LoggingPublisher{logger: logger}
-}
-
-func (p *LoggingPublisher) Publish(ctx context.Context, topic, key string, payload []byte) error {
-	p.logger.Info("relaying outbox event", "topic", topic, "key", key, "bytes", len(payload))
-	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -20,10 +19,10 @@ type mockAnalyticsPublisher struct {
 }
 
 func (m *mockAnalyticsPublisher) PublishTrackingEvent(
-	ctx context.Context,
+	_ context.Context,
 	ev *analyticsv1.TrackingEvent,
-	principal *commonv1.Principal,
-	requestID string,
+	_ *commonv1.Principal,
+	_ string,
 	eventID string,
 ) error {
 	m.ids = append(m.ids, eventID)
@@ -38,7 +37,7 @@ func TestHandleTrackWithAttribution(t *testing.T) {
 		publicScopes: []string{"public"},
 	}
 	pub := &mockAnalyticsPublisher{}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	handler := HandleTrack(edge, pub, logger)
 
 	beacon := trackBeacon{
@@ -96,7 +95,7 @@ func TestHandleTrackEcommerceBatchAndGA4Aliases(t *testing.T) {
 		publicScopes: []string{"public"},
 	}
 	pub := &mockAnalyticsPublisher{}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	handler := HandleTrack(edge, pub, logger)
 
 	batch := []trackBeacon{
@@ -167,7 +166,7 @@ func TestHandleTrackExceedsBatchLimit(t *testing.T) {
 		publicScopes: []string{"public"},
 	}
 	pub := &mockAnalyticsPublisher{}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	handler := HandleTrack(edge, pub, logger)
 
 	oversized := make([]trackBeacon, 101)

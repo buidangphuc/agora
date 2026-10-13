@@ -22,6 +22,7 @@ func NewSearchForwarder(client searchv1.SearchServiceClient, edge *Edge) *Search
 	return &SearchForwarder{client: client, edge: edge}
 }
 
+// SearchListings forwards the SearchListings RPC to the upstream service.
 func (f *SearchForwarder) SearchListings(
 	ctx context.Context,
 	req *connect.Request[searchv1.SearchListingsRequest],
@@ -38,6 +39,7 @@ func (f *SearchForwarder) SearchListings(
 	return connect.NewResponse(out), nil
 }
 
+// Suggest forwards the Suggest RPC to the upstream service.
 func (f *SearchForwarder) Suggest(
 	ctx context.Context,
 	req *connect.Request[searchv1.SuggestRequest],
@@ -56,6 +58,7 @@ func (f *SearchForwarder) Suggest(
 
 // ── Saved Searches ──
 
+// SaveSearch forwards the SaveSearch RPC to the upstream service.
 func (f *SearchForwarder) SaveSearch(
 	ctx context.Context,
 	req *connect.Request[searchv1.SaveSearchRequest],
@@ -72,6 +75,7 @@ func (f *SearchForwarder) SaveSearch(
 	return connect.NewResponse(out), nil
 }
 
+// ListSavedSearches forwards the ListSavedSearches RPC to the upstream service.
 func (f *SearchForwarder) ListSavedSearches(
 	ctx context.Context,
 	req *connect.Request[searchv1.ListSavedSearchesRequest],
@@ -88,6 +92,7 @@ func (f *SearchForwarder) ListSavedSearches(
 	return connect.NewResponse(out), nil
 }
 
+// DeleteSavedSearch forwards the DeleteSavedSearch RPC to the upstream service.
 func (f *SearchForwarder) DeleteSavedSearch(
 	ctx context.Context,
 	req *connect.Request[searchv1.DeleteSavedSearchRequest],
@@ -104,6 +109,7 @@ func (f *SearchForwarder) DeleteSavedSearch(
 	return connect.NewResponse(out), nil
 }
 
+// RunSavedSearch forwards the RunSavedSearch RPC to the upstream service.
 func (f *SearchForwarder) RunSavedSearch(
 	ctx context.Context,
 	req *connect.Request[searchv1.RunSavedSearchRequest],

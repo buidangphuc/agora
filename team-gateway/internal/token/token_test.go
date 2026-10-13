@@ -15,19 +15,12 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/jwtx"
+
 	"github.com/buidangphuc/team-gateway/internal/token"
 )
 
 // --- test JWKS server ---------------------------------------------------------
-
-type testJWK struct {
-	Kty string `json:"kty"`
-	Use string `json:"use"`
-	Alg string `json:"alg"`
-	Kid string `json:"kid"`
-	N   string `json:"n"`
-	E   string `json:"e"`
-}
 
 // jwksServer serves a mutable JWKS document (mirrors team-identity's publisher)
 // so the verifier exercises its real HTTP fetch/parse/cache path.
@@ -39,14 +32,14 @@ type jwksServer struct {
 
 func newJWKSServer() *jwksServer {
 	js := &jwksServer{keys: map[string]*rsa.PublicKey{}}
-	js.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	js.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		js.mu.Lock()
 		defer js.mu.Unlock()
 		doc := struct {
-			Keys []testJWK `json:"keys"`
+			Keys []jwtx.JWK `json:"keys"`
 		}{}
 		for kid, pub := range js.keys {
-			doc.Keys = append(doc.Keys, testJWK{
+			doc.Keys = append(doc.Keys, jwtx.JWK{
 				Kty: "RSA", Use: "sig", Alg: "RS256", Kid: kid,
 				N: base64.RawURLEncoding.EncodeToString(pub.N.Bytes()),
 				E: base64.RawURLEncoding.EncodeToString(big.NewInt(int64(pub.E)).Bytes()),
@@ -72,16 +65,14 @@ func (js *jwksServer) close() { js.srv.Close() }
 // signRS256 mints a token with the given key + kid, as team-identity would.
 func signRS256(t *testing.T, key *rsa.PrivateKey, kid, subject string) string {
 	t.Helper()
-	claims := &token.Claims{
-		Name:   subject,
-		Type:   "user",
-		Scopes: []string{"listing.read"},
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   subject,
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		},
-	}
+	claims := &token.Claims{Claims: jwtx.Claims{
+		Name:      subject,
+		Type:      "user",
+		Scopes:    []string{"listing.read"},
+		Subject:   subject,
+		IssuedAt:  time.Now().Unix(),
+		ExpiresAt: time.Now().Add(time.Hour).Unix(),
+	}}
 	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tok.Header["kid"] = kid
 	s, err := tok.SignedString(key)
@@ -194,8 +185,9 @@ func TestVerifierRequiresExpAndSub(t *testing.T) {
 	if err := v.Prime(context.Background()); err != nil {
 		t.Fatalf("prime: %v", err)
 	}
-	mint := func(rc jwt.RegisteredClaims) string {
-		claims := &token.Claims{Type: "user", Scopes: []string{"admin"}, RegisteredClaims: rc}
+	mint := func(c jwtx.Claims) string {
+		c.Type, c.Scopes = "user", []string{"admin"}
+		claims := &token.Claims{Claims: c}
 		tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 		tok.Header["kid"] = "kid-1"
 		s, err := tok.SignedString(key)
@@ -204,15 +196,15 @@ func TestVerifierRequiresExpAndSub(t *testing.T) {
 		}
 		return s
 	}
-	exp := jwt.NewNumericDate(time.Now().Add(time.Hour))
+	exp := time.Now().Add(time.Hour).Unix()
 
-	if _, err := v.Verify(mint(jwt.RegisteredClaims{Subject: "user-1", ExpiresAt: exp})); err != nil {
+	if _, err := v.Verify(mint(jwtx.Claims{Subject: "user-1", ExpiresAt: exp})); err != nil {
 		t.Fatalf("valid token rejected: %v", err)
 	}
-	if _, err := v.Verify(mint(jwt.RegisteredClaims{Subject: "user-1"})); err == nil {
+	if _, err := v.Verify(mint(jwtx.Claims{Subject: "user-1"})); err == nil {
 		t.Error("token without exp must be rejected")
 	}
-	if _, err := v.Verify(mint(jwt.RegisteredClaims{ExpiresAt: exp})); err == nil {
+	if _, err := v.Verify(mint(jwtx.Claims{ExpiresAt: exp})); err == nil {
 		t.Error("token with empty sub must be rejected")
 	}
 }

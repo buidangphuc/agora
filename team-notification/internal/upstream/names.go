@@ -10,36 +10,30 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
+
+	sdkupstream "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/upstream"
 
 	identityv1 "github.com/buidangphuc/team-notification/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-notification/generated/platform/listing/v1"
 )
 
-// Service-principal convention for internal gRPC calls (same wire shape as
-// team-order's upstream client): the caller sets x-principal-* metadata itself,
-// because a Kafka consumer has no user request to forward. Scopes are the least
-// this service needs: listing.read for team-domain's BatchGetStorefronts and
-// identity.read for team-identity's GetPublicProfiles. Never write scopes.
+// Service-principal convention for internal gRPC calls: each SDK upstream
+// connection presents the service principal (sdkupstream.AsService) as
+// x-principal-* metadata, because a Kafka consumer has no user request to
+// forward. Scopes are the least this service needs: listing.read for
+// team-domain's BatchGetStorefronts and identity.read for team-identity's
+// GetPublicProfiles. Never write scopes.
 const (
-	servicePrincipalID     = "service-team-notification"
-	servicePrincipalType   = "service"
-	servicePrincipalScopes = "listing.read,identity.read"
+	servicePrincipalID = "service-team-notification"
 
 	// lookupTimeout bounds one name lookup (storefront + profile combined). A slow
 	// upstream must never stall the chat.events consumer for long.
 	lookupTimeout = 2 * time.Second
 )
 
-// withServicePrincipal returns ctx carrying the service principal as outgoing
-// gRPC metadata. It replaces any incoming principal: a consumer context has none.
-func withServicePrincipal(ctx context.Context) context.Context {
-	return metadata.NewOutgoingContext(ctx, metadata.Pairs(
-		"x-principal-id", servicePrincipalID,
-		"x-principal-type", servicePrincipalType,
-		"x-principal-scopes", servicePrincipalScopes,
-	))
+// asService is the connection option that sets the service principal.
+func asService() sdkupstream.Option {
+	return sdkupstream.AsService(servicePrincipalID, "listing.read", "identity.read")
 }
 
 // StorefrontClient is the slice of team-domain's ListingService used here.
@@ -79,13 +73,13 @@ func (r *NameResolver) ResolveSenderName(ctx context.Context, senderID, sellerID
 	if senderID == "" {
 		return ""
 	}
-	ctx, cancel := context.WithTimeout(withServicePrincipal(ctx), r.timeout)
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
 	if sellerID != "" && sellerID == senderID && r.storefronts != nil {
 		res, err := r.storefronts.BatchGetStorefronts(ctx, &listingv1.BatchGetStorefrontsRequest{SellerIds: []string{senderID}})
 		if err != nil {
-			r.logger.WarnContext(ctx, "shop name lookup failed", slog.String("seller_id", senderID), slog.Any("err", err))
+			r.logger.WarnContext(ctx, "shop name lookup failed", "seller_id", senderID, "err", err)
 		} else {
 			for _, shop := range res.GetShops() {
 				if shop.GetSellerId() == senderID {
@@ -101,7 +95,7 @@ func (r *NameResolver) ResolveSenderName(ctx context.Context, senderID, sellerID
 	}
 	res, err := r.profiles.GetPublicProfiles(ctx, &identityv1.GetPublicProfilesRequest{UserIds: []string{senderID}})
 	if err != nil {
-		r.logger.WarnContext(ctx, "user name lookup failed", slog.String("user_id", senderID), slog.Any("err", err))
+		r.logger.WarnContext(ctx, "user name lookup failed", "user_id", senderID, "err", err)
 		return ""
 	}
 	for _, p := range res.GetProfiles() {
@@ -121,15 +115,14 @@ type Clients struct {
 // Dial opens lazy connections to team-domain and team-identity (no network I/O
 // until the first call, so a down upstream cannot block startup).
 func Dial(domainAddr, identityAddr string, logger *slog.Logger) (*Clients, error) {
-	insec := grpc.WithTransportCredentials(insecure.NewCredentials())
-	domainConn, err := grpc.NewClient(domainAddr, insec)
+	domainConn, err := sdkupstream.NewClient(domainAddr, asService(), sdkupstream.WithTimeout(lookupTimeout))
 	if err != nil {
-		return nil, fmt.Errorf("dial domain %s: %w", domainAddr, err)
+		return nil, fmt.Errorf("team-domain: %w", err)
 	}
-	identityConn, err := grpc.NewClient(identityAddr, insec)
+	identityConn, err := sdkupstream.NewClient(identityAddr, asService(), sdkupstream.WithTimeout(lookupTimeout))
 	if err != nil {
 		_ = domainConn.Close()
-		return nil, fmt.Errorf("dial identity %s: %w", identityAddr, err)
+		return nil, fmt.Errorf("team-identity: %w", err)
 	}
 	return &Clients{
 		conns: []*grpc.ClientConn{domainConn, identityConn},

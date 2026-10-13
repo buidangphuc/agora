@@ -1,0 +1,5 @@
+# Per-service, per-env overlay for team-chat in staging. go-sdk v1 requires ENV and treats
+# "staging" as a strict environment (KAFKA_BROKERS must be set, no in-memory fallbacks). Merged
+# over the baseline env map.
+env:
+  ENV: "staging"

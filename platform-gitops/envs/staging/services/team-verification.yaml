@@ -1,0 +1,4 @@
+# Per-service, per-env overlay for team-verification in staging. Sets ENV, which the service
+# requires (no default); "staging" also turns on its strict-ENV boot rules. Merged over the baseline env map.
+env:
+  ENV: "staging"

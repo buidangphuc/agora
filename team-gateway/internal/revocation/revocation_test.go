@@ -8,6 +8,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+
 	eventsv1 "github.com/buidangphuc/team-gateway/generated/platform/events/v1"
 	identityv1 "github.com/buidangphuc/team-gateway/generated/platform/identity/v1"
 )
@@ -127,7 +129,7 @@ func TestExpiredEntriesAreRejectedAndPruned(t *testing.T) {
 func TestConsumerStatsStartDown(t *testing.T) {
 	d := NewDenylist()
 	d.Add("s1", time.Now().Add(time.Hour))
-	c := NewConsumer([]string{"localhost:1"}, "identity.events", d, nil)
+	c := NewConsumer(sdkconfig.Kafka{Brokers: "localhost:1"}, "identity.events", d, nil)
 	s := c.Stats()
 	if s.Up || s.Lag != 0 || s.DenylistSize != 1 {
 		t.Fatalf("unexpected initial stats: %+v", s)
@@ -138,7 +140,7 @@ func TestConsumerStatsStartDown(t *testing.T) {
 // retrying in the background, reports up=false, and stops promptly on shutdown.
 func TestRunWithUnreachableKafkaFailsOpen(t *testing.T) {
 	d := NewDenylist()
-	c := NewConsumer([]string{"127.0.0.1:1"}, "identity.events", d, nil)
+	c := NewConsumer(sdkconfig.Kafka{Brokers: "127.0.0.1:1"}, "identity.events", d, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { c.Run(ctx); close(done) }()

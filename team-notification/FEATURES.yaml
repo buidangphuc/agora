@@ -360,3 +360,57 @@ features:
     covered_by: "notification/c1_shipment_event.feature::Order analytics ignores the new event"
     notes: "green after the fix and rebuild: notification/c1_shipment_event.feature::Order analytics ignores the new event"
 
+
+  # Change migrate-team-notification-to-go-sdk: runtime behaviour with no UI journey; every entry is
+  # not-testable and names its unit/integration test.
+  - id: notification-runtime.declares-no-always-on-enable-flags
+    title: team-notification declares no always-on enable flags
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - When the declared env keys of team-notification's Settings are listed
+      - Then none of DATABASE_ENABLED, KAFKA_ENABLED, OUTBOX_ENABLED and GRPC_REFLECTION_ENABLED is declared
+    tags: [notification-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-notification-to-go-sdk: not producible end to end; verified by team-notification/internal/config TestNoEnableFlagsDeclared."
+
+  - id: notification-runtime.unreachable-database-fails-boot-when-deployed
+    title: team-notification fails boot on an unreachable database when deployed
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - When the service starts with ENV=staging and DATABASE_URL pointing at a closed port
+      - Then app.Run returns an error before any port opens
+    tags: [notification-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-notification-to-go-sdk: not producible end to end; verified by team-notification/internal/app TestBootFailsWhenDatabaseUnreachableDeployed."
+
+  - id: notification-runtime.consumer-does-not-commit-when-the-dlq-produce-fails
+    title: team-notification consumer does not commit when the DLQ produce fails
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - When handling a record fails permanently and the DLQ produce also fails
+      - Then the consumer stops with an error and the record is redelivered after restart
+    tags: [notification-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-notification-to-go-sdk: not producible end to end; verified by team-notification/internal/events TestConsumerDoesNotCommitOnDLQFailure (testkit Redpanda)."
+
+  - id: notification-runtime.existing-suites-do-not-regress
+    title: team-notification existing suites do not regress and no assertion is weakened
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - When make check runs after the restructure
+      - Then every pre-existing test passes, and no assertion is removed or loosened beyond removed-flag fields
+    tags: [notification-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-notification-to-go-sdk: not producible end to end; verified by team-notification `make check`."

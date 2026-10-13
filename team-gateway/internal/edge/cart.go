@@ -9,16 +9,19 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/order/v1/orderv1connect"
 )
 
+// CartForwarder serves its Connect handler RPCs by forwarding them to the upstream gRPC client.
 type CartForwarder struct {
 	orderv1connect.UnimplementedCartServiceHandler
 	client orderv1.CartServiceClient
 	edge   *Edge
 }
 
+// NewCartForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewCartForwarder(client orderv1.CartServiceClient, edge *Edge) *CartForwarder {
 	return &CartForwarder{client: client, edge: edge}
 }
 
+// GetCart forwards the GetCart RPC to the upstream service.
 func (f *CartForwarder) GetCart(
 	ctx context.Context,
 	req *connect.Request[orderv1.GetCartRequest],
@@ -35,6 +38,7 @@ func (f *CartForwarder) GetCart(
 	return connect.NewResponse(out), nil
 }
 
+// AddToCart forwards the AddToCart RPC to the upstream service.
 func (f *CartForwarder) AddToCart(
 	ctx context.Context,
 	req *connect.Request[orderv1.AddToCartRequest],
@@ -51,6 +55,7 @@ func (f *CartForwarder) AddToCart(
 	return connect.NewResponse(out), nil
 }
 
+// UpdateCartItem forwards the UpdateCartItem RPC to the upstream service.
 func (f *CartForwarder) UpdateCartItem(
 	ctx context.Context,
 	req *connect.Request[orderv1.UpdateCartItemRequest],
@@ -67,6 +72,7 @@ func (f *CartForwarder) UpdateCartItem(
 	return connect.NewResponse(out), nil
 }
 
+// RemoveFromCart forwards the RemoveFromCart RPC to the upstream service.
 func (f *CartForwarder) RemoveFromCart(
 	ctx context.Context,
 	req *connect.Request[orderv1.RemoveFromCartRequest],
@@ -83,6 +89,7 @@ func (f *CartForwarder) RemoveFromCart(
 	return connect.NewResponse(out), nil
 }
 
+// ClearCart forwards the ClearCart RPC to the upstream service.
 func (f *CartForwarder) ClearCart(
 	ctx context.Context,
 	req *connect.Request[orderv1.ClearCartRequest],

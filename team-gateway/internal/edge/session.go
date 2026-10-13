@@ -17,10 +17,12 @@ type SessionForwarder struct {
 	edge   *Edge
 }
 
+// NewSessionForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewSessionForwarder(client identityv1.SessionServiceClient, edge *Edge) *SessionForwarder {
 	return &SessionForwarder{client: client, edge: edge}
 }
 
+// ListSessions forwards the ListSessions RPC to the upstream service.
 func (f *SessionForwarder) ListSessions(
 	ctx context.Context,
 	req *connect.Request[identityv1.ListSessionsRequest],
@@ -37,6 +39,7 @@ func (f *SessionForwarder) ListSessions(
 	return connect.NewResponse(out), nil
 }
 
+// RevokeSession forwards the RevokeSession RPC to the upstream service.
 func (f *SessionForwarder) RevokeSession(
 	ctx context.Context,
 	req *connect.Request[identityv1.RevokeSessionRequest],
@@ -53,6 +56,7 @@ func (f *SessionForwarder) RevokeSession(
 	return connect.NewResponse(out), nil
 }
 
+// ListLoginHistory forwards the ListLoginHistory RPC to the upstream service.
 func (f *SessionForwarder) ListLoginHistory(
 	ctx context.Context,
 	req *connect.Request[identityv1.ListLoginHistoryRequest],

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-analytics/internal/warehouse"
+	"github.com/buidangphuc/team-analytics/internal/store"
 )
 
 // fakeClock is a deterministic, manually advanced clock.
@@ -23,8 +23,8 @@ func newTestHandler(t *testing.T) (*MappingHandler, MappingStore, *fakeClock) {
 
 // ev builds a tracking record as the consumer emits it: the buyer is the
 // envelope principal id, consent comes from the TrackingEvent consent state.
-func ev(buyer, clientID string, analytics bool) warehouse.TrackingRecord {
-	return warehouse.TrackingRecord{
+func ev(buyer, clientID string, analytics bool) store.TrackingRecord {
+	return store.TrackingRecord{
 		PrincipalID:      buyer,
 		PrincipalType:    "user",
 		GaClientID:       clientID,
@@ -32,9 +32,9 @@ func ev(buyer, clientID string, analytics bool) warehouse.TrackingRecord {
 	}
 }
 
-func mustGet(t *testing.T, s MappingStore, buyer string) (string, bool) {
+func mustGet(ctx context.Context, t *testing.T, s MappingStore, buyer string) (string, bool) {
 	t.Helper()
-	id, ok, err := s.Get(context.Background(), buyer)
+	id, ok, err := s.Get(ctx, buyer)
 	if err != nil {
 		t.Fatalf("Get(%q): %v", buyer, err)
 	}
@@ -51,7 +51,7 @@ func TestMappingLatestConsentedClientIDWins(t *testing.T) { // Scenario: Latest 
 	if err := h.Handle(ctx, ev("b1", "222.2", true)); err != nil {
 		t.Fatal(err)
 	}
-	if id, ok := mustGet(t, s, "b1"); !ok || id != "222.2" {
+	if id, ok := mustGet(t.Context(), t, s, "b1"); !ok || id != "222.2" {
 		t.Fatalf("mapping = %q,%v; want 222.2,true", id, ok)
 	}
 }
@@ -63,7 +63,7 @@ func TestMappingEmptyClientIDDoesNotOverwrite(t *testing.T) { // Scenario: Lates
 	if err := h.Handle(ctx, ev("b1", "", true)); err != nil {
 		t.Fatal(err)
 	}
-	if id, ok := mustGet(t, s, "b1"); !ok || id != "111.1" {
+	if id, ok := mustGet(t.Context(), t, s, "b1"); !ok || id != "111.1" {
 		t.Fatalf("mapping = %q,%v; want 111.1,true", id, ok)
 	}
 }
@@ -75,7 +75,7 @@ func TestMappingDeniedConsentDeletesMapping(t *testing.T) { // Scenario: Denied 
 	if err := h.Handle(ctx, ev("b1", "222.2", false)); err != nil {
 		t.Fatal(err)
 	}
-	if id, ok := mustGet(t, s, "b1"); ok {
+	if id, ok := mustGet(t.Context(), t, s, "b1"); ok {
 		t.Fatalf("mapping still present: %q", id)
 	}
 	if got := h.SkippedCount("no_consent"); got != 1 {
@@ -89,7 +89,7 @@ func TestMappingDeniedConsentDoesNotAffectOtherBuyers(t *testing.T) { // Scenari
 	_ = h.Handle(ctx, ev("b1", "111.1", true))
 	_ = h.Handle(ctx, ev("b2", "222.2", true))
 	_ = h.Handle(ctx, ev("b1", "", false))
-	if id, ok := mustGet(t, s, "b2"); !ok || id != "222.2" {
+	if id, ok := mustGet(t.Context(), t, s, "b2"); !ok || id != "222.2" {
 		t.Fatalf("b2 mapping = %q,%v; want 222.2,true", id, ok)
 	}
 }
@@ -104,7 +104,7 @@ func TestMappingAnonymousEventIsIgnored(t *testing.T) { // Scenario: Anonymous e
 		t.Fatal(err)
 	}
 	for _, key := range []string{"", "anon-1"} {
-		if id, ok := mustGet(t, s, key); ok {
+		if id, ok := mustGet(t.Context(), t, s, key); ok {
 			t.Fatalf("mapping written for key %q: %q", key, id)
 		}
 	}
@@ -117,11 +117,11 @@ func TestMappingExpiresAfter30Days(t *testing.T) { // Scenario: Mapping expires
 		t.Fatal(err)
 	}
 	clk.Advance(30*24*time.Hour - time.Second)
-	if id, ok := mustGet(t, s, "b1"); !ok || id != "222.2" {
+	if id, ok := mustGet(t.Context(), t, s, "b1"); !ok || id != "222.2" {
 		t.Fatalf("before 30d: mapping = %q,%v; want 222.2,true", id, ok)
 	}
 	clk.Advance(2 * time.Second) // now 30d + 1s after the last consented event
-	if id, ok := mustGet(t, s, "b1"); ok {
+	if id, ok := mustGet(t.Context(), t, s, "b1"); ok {
 		t.Fatalf("after 30d: mapping still present: %q", id)
 	}
 }
@@ -133,7 +133,7 @@ func TestMappingTTLRefreshedByNewConsentedEvent(t *testing.T) { // Scenario: Map
 	clk.Advance(20 * 24 * time.Hour)
 	_ = h.Handle(ctx, ev("b1", "111.1", true))
 	clk.Advance(20 * 24 * time.Hour) // 40d after first, 20d after last
-	if id, ok := mustGet(t, s, "b1"); !ok || id != "111.1" {
+	if id, ok := mustGet(t.Context(), t, s, "b1"); !ok || id != "111.1" {
 		t.Fatalf("mapping = %q,%v; want 111.1,true", id, ok)
 	}
 }
@@ -147,7 +147,7 @@ func TestMappingConsentRevokedBeforePayment(t *testing.T) { // Scenario: Consent
 	if err := h.Handle(ctx, ev("b1", "222.2", false)); err != nil {
 		t.Fatal(err)
 	}
-	if id, ok := mustGet(t, s, "b1"); ok {
+	if id, ok := mustGet(t.Context(), t, s, "b1"); ok {
 		t.Fatalf("lookup at payment time found %q; want no mapping", id)
 	}
 }

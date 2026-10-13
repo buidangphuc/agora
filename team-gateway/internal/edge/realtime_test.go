@@ -10,21 +10,21 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/jwtx"
+
 	"github.com/buidangphuc/team-gateway/internal/edge"
 	"github.com/buidangphuc/team-gateway/internal/token"
 )
 
 func (f *cockpitFixture) tokenFor(t *testing.T, sub, typ string, scopes ...string) string {
 	t.Helper()
-	claims := &token.Claims{
-		Type:   typ,
-		Scopes: scopes,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   sub,
-			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-time.Minute)),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		},
-	}
+	claims := &token.Claims{Claims: jwtx.Claims{
+		Type:      typ,
+		Scopes:    scopes,
+		Subject:   sub,
+		IssuedAt:  time.Now().Add(-time.Minute).Unix(),
+		ExpiresAt: time.Now().Add(time.Hour).Unix(),
+	}}
 	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	tok.Header["kid"] = "kid-1"
 	s, err := tok.SignedString(f.key)

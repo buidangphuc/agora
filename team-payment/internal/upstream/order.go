@@ -1,12 +1,12 @@
+// Package upstream is team-payment's client of team-order.
 package upstream
 
 import (
 	"context"
-	"fmt"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/upstream"
 
 	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
 )
@@ -15,35 +15,28 @@ import (
 // and allows a service principal holding order.read; the caller's user principal
 // is deliberately not forwarded (the order may belong to someone else).
 const (
-	servicePrincipalID     = "service-team-payment"
-	servicePrincipalType   = "service"
-	servicePrincipalScopes = "order.read"
+	servicePrincipalID    = "service-team-payment"
+	servicePrincipalScope = "order.read"
 )
 
-// serviceMetadata returns the outgoing x-principal-* metadata for team-order calls.
-func serviceMetadata() metadata.MD {
-	return metadata.Pairs(
-		"x-principal-id", servicePrincipalID,
-		"x-principal-type", servicePrincipalType,
-		"x-principal-scopes", servicePrincipalScopes,
-	)
-}
-
-// servicePrincipalInterceptor replaces any outgoing principal with the service one.
-func servicePrincipalInterceptor(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	return invoker(metadata.NewOutgoingContext(ctx, serviceMetadata()), method, req, reply, cc, opts...)
-}
-
+// OrderClient is the slice of team-order's client the payment service uses.
+// UpdateOrderStatus is gone: the order transition is event-carried via
+// PaymentSettled on payment.events (ADR-0009).
 type OrderClient interface {
 	GetOrder(ctx context.Context, req *orderv1.GetOrderRequest, opts ...grpc.CallOption) (*orderv1.GetOrderResponse, error)
-	// UpdateOrderStatus removed: order transition is now event-carried via
-	// PaymentSettled on payment.events (ADR-0009); payment no longer pushes it.
 }
 
-func DialOrderService(addr string) (orderv1.OrderServiceClient, *grpc.ClientConn, error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithUnaryInterceptor(servicePrincipalInterceptor))
-	if err != nil {
-		return nil, nil, fmt.Errorf("dial order service %s: %w", addr, err)
-	}
-	return orderv1.NewOrderServiceClient(conn), conn, nil
+// orderClient replaces whatever principal the incoming request carried with the
+// service principal on every call.
+type orderClient struct{ cli orderv1.OrderServiceClient }
+
+// NewOrderClient wraps conn (from the SDK upstream.NewClient) as an OrderClient that
+// calls team-order as team-payment's service principal.
+func NewOrderClient(conn grpc.ClientConnInterface) OrderClient {
+	return orderClient{cli: orderv1.NewOrderServiceClient(conn)}
+}
+
+// GetOrder calls team-order's GetOrder as the service principal.
+func (c orderClient) GetOrder(ctx context.Context, req *orderv1.GetOrderRequest, opts ...grpc.CallOption) (*orderv1.GetOrderResponse, error) {
+	return c.cli.GetOrder(upstream.WithServicePrincipal(ctx, servicePrincipalID, servicePrincipalScope), req, opts...)
 }

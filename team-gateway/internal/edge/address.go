@@ -16,10 +16,12 @@ type AddressForwarder struct {
 	edge   *Edge
 }
 
+// NewAddressForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewAddressForwarder(client identityv1.AddressServiceClient, edge *Edge) *AddressForwarder {
 	return &AddressForwarder{client: client, edge: edge}
 }
 
+// ListAddresses forwards the ListAddresses RPC to the upstream service.
 func (f *AddressForwarder) ListAddresses(
 	ctx context.Context,
 	req *connect.Request[identityv1.ListAddressesRequest],
@@ -36,6 +38,7 @@ func (f *AddressForwarder) ListAddresses(
 	return connect.NewResponse(out), nil
 }
 
+// CreateAddress forwards the CreateAddress RPC to the upstream service.
 func (f *AddressForwarder) CreateAddress(
 	ctx context.Context,
 	req *connect.Request[identityv1.CreateAddressRequest],
@@ -52,6 +55,7 @@ func (f *AddressForwarder) CreateAddress(
 	return connect.NewResponse(out), nil
 }
 
+// UpdateAddress forwards the UpdateAddress RPC to the upstream service.
 func (f *AddressForwarder) UpdateAddress(
 	ctx context.Context,
 	req *connect.Request[identityv1.UpdateAddressRequest],
@@ -68,6 +72,7 @@ func (f *AddressForwarder) UpdateAddress(
 	return connect.NewResponse(out), nil
 }
 
+// DeleteAddress forwards the DeleteAddress RPC to the upstream service.
 func (f *AddressForwarder) DeleteAddress(
 	ctx context.Context,
 	req *connect.Request[identityv1.DeleteAddressRequest],
@@ -84,6 +89,7 @@ func (f *AddressForwarder) DeleteAddress(
 	return connect.NewResponse(out), nil
 }
 
+// SetDefaultAddress forwards the SetDefaultAddress RPC to the upstream service.
 func (f *AddressForwarder) SetDefaultAddress(
 	ctx context.Context,
 	req *connect.Request[identityv1.SetDefaultAddressRequest],

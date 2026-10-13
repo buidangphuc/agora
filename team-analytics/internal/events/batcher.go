@@ -1,0 +1,132 @@
+package events
+
+import (
+	"context"
+	"sync"
+
+	"github.com/buidangphuc/team-analytics/internal/store"
+)
+
+// FlushFunc durably writes a batch AND, on success, advances the source of truth
+// (the consumer wires this to store.Write followed by a Kafka offset commit).
+// Returning an error means the batch was NOT durably written: the Batcher keeps
+// the buffer so nothing is dropped, and the caller must not have advanced
+// offsets (at-least-once — a crash reprocesses).
+type FlushFunc func(ctx context.Context, batch []*store.TrackingRecord) error
+
+// Batcher accumulates records and flushes on whichever comes first: the buffer
+// reaching maxSize, or an external interval tick (Flush). It is deliberately
+// transport-agnostic — it knows nothing about Kafka — so it is unit-testable
+// with a plain FlushFunc.
+type Batcher struct {
+	mu      sync.Mutex
+	buf     []*store.TrackingRecord
+	maxSize int
+	flush   FlushFunc
+}
+
+// NewBatcher returns a Batcher that flushes when the buffer reaches maxSize
+// (maxSize <= 0 is treated as 1 — flush every record).
+func NewBatcher(maxSize int, flush FlushFunc) *Batcher {
+	if maxSize <= 0 {
+		maxSize = 1
+	}
+	return &Batcher{maxSize: maxSize, flush: flush}
+}
+
+// Add appends a record and flushes synchronously if the buffer is now full. A
+// flush error is propagated and the buffer is retained (not dropped).
+func (b *Batcher) Add(ctx context.Context, rec *store.TrackingRecord) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.buf = append(b.buf, rec)
+	if len(b.buf) >= b.maxSize {
+		return b.flushLocked(ctx)
+	}
+	return nil
+}
+
+// Flush writes whatever is buffered (a no-op when empty). Called by the interval
+// ticker and on graceful shutdown so a partial batch is not held indefinitely.
+func (b *Batcher) Flush(ctx context.Context) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.flushLocked(ctx)
+}
+
+// Len reports the current buffered count (for tests/metrics).
+func (b *Batcher) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return len(b.buf)
+}
+
+// flushLocked flushes under b.mu. On success the buffer is cleared; on failure
+// the buffer is kept intact so the records are retried on the next flush and no
+// offsets are advanced for them.
+func (b *Batcher) flushLocked(ctx context.Context) error {
+	if len(b.buf) == 0 {
+		return nil
+	}
+	if err := b.flush(ctx, b.buf); err != nil {
+		return err
+	}
+	// Release the flushed slice so it can be GC'd; start a fresh buffer.
+	b.buf = nil
+	return nil
+}
+
+// OrderFactFlushFunc durably writes a batch of order facts.
+type OrderFactFlushFunc func(ctx context.Context, batch []*store.OrderFactRecord) error
+
+// OrderFactBatcher accumulates order fact records and flushes on maxSize or interval.
+type OrderFactBatcher struct {
+	mu      sync.Mutex
+	buf     []*store.OrderFactRecord
+	maxSize int
+	flush   OrderFactFlushFunc
+}
+
+// NewOrderFactBatcher returns an OrderFactBatcher.
+func NewOrderFactBatcher(maxSize int, flush OrderFactFlushFunc) *OrderFactBatcher {
+	if maxSize <= 0 {
+		maxSize = 1
+	}
+	return &OrderFactBatcher{maxSize: maxSize, flush: flush}
+}
+
+// Add appends order facts and flushes if buffer is full.
+func (b *OrderFactBatcher) Add(ctx context.Context, recs ...*store.OrderFactRecord) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.buf = append(b.buf, recs...)
+	if len(b.buf) >= b.maxSize {
+		return b.flushLocked(ctx)
+	}
+	return nil
+}
+
+// Flush writes whatever is buffered.
+func (b *OrderFactBatcher) Flush(ctx context.Context) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.flushLocked(ctx)
+}
+
+// Len reports current buffered count.
+func (b *OrderFactBatcher) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return len(b.buf)
+}
+
+func (b *OrderFactBatcher) flushLocked(ctx context.Context) error {
+	if len(b.buf) == 0 {
+		return nil
+	}
+	if err := b.flush(ctx, b.buf); err != nil {
+		return err
+	}
+	b.buf = nil
+	return nil
+}

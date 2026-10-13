@@ -16,6 +16,7 @@ type AuditForwarder struct {
 	edge   *Edge
 }
 
+// NewAuditForwarder returns the forwarder that serves its RPCs from the given upstream client.
 func NewAuditForwarder(client auditv1.AuditServiceClient, edge *Edge) *AuditForwarder {
 	return &AuditForwarder{client: client, edge: edge}
 }
@@ -25,6 +26,7 @@ func NewAuditForwarder(client auditv1.AuditServiceClient, edge *Edge) *AuditForw
 // UnimplementedAuditServiceHandler answers `unimplemented` (HTTP 501) for every
 // caller.
 
+// QueryAuditLog forwards the QueryAuditLog RPC to the upstream service.
 func (f *AuditForwarder) QueryAuditLog(
 	ctx context.Context,
 	req *connect.Request[auditv1.QueryAuditLogRequest],

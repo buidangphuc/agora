@@ -34,13 +34,15 @@ spec:
         - name: consumer
           image: localhost:5001/team-analytics
           env:
-            - { name: KAFKA_ENABLED, value: "true" }
+            # ENV is required (no default). This path deploys the local kind cluster only.
+            - { name: ENV, value: "local" }
             - { name: KAFKA_BROKERS, value: "redpanda:9092" }
             - { name: KAFKA_ANALYTICS_TOPIC, value: "analytics.events" }
             - { name: KAFKA_ORDER_TOPIC, value: "order.events" }
             - { name: ENGAGEMENT_EVENTS_TOPIC, value: "engagement.events" }
             - { name: ENGAGEMENT_DLQ_TOPIC, value: "engagement.events.analytics.dlq" }
             - { name: ENGAGEMENT_CONSUMER_GROUP, value: "team-analytics.engagement" }
+            - { name: KAFKA_LISTING_DLQ_TOPIC, value: "listing.events.analytics.dlq" }
             - { name: KAFKA_CONSUMER_GROUP, value: "team-analytics" }
             - { name: WAREHOUSE_DRIVER, value: "duckdb" }
             - { name: DUCKDB_PATH, value: "/data/analytics.duckdb" }

@@ -52,6 +52,7 @@ job_repo() {
   done
   $PY scripts/asdlc_config.py --check
   $PY scripts/asdlc/check_gates.py
+  bash platform-core/tools/check-go-sdk-vendor.sh
 }
 job_proto() {
   ( cd platform-core/packages/proto && buf lint \

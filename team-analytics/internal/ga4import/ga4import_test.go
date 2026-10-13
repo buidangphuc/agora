@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/buidangphuc/team-analytics/internal/ga4import"
-	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
+	"github.com/buidangphuc/team-analytics/internal/store/duckdb"
 )
 
 var (

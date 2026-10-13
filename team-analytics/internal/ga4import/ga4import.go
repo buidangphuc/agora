@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/buidangphuc/team-analytics/internal/warehouse"
-	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
+	"github.com/buidangphuc/team-analytics/internal/store"
+	"github.com/buidangphuc/team-analytics/internal/store/duckdb"
 )
 
 // Session is one (user_pseudo_id, session_id) row; LandingPage has no query string.
@@ -56,9 +56,9 @@ func Run(ctx context.Context, w *duckdb.Writer, src Source, day time.Time) (Resu
 	defer func() { _ = tx.Rollback() }()
 
 	for _, t := range []struct{ table, col string }{
-		{warehouse.GA4SessionsTableName, "export_date"},
-		{warehouse.GA4EventsDailyTableName, "day"},
-		{warehouse.GA4ImportRunsTableName, "export_date"},
+		{store.GA4SessionsTableName, "export_date"},
+		{store.GA4EventsDailyTableName, "day"},
+		{store.GA4ImportRunsTableName, "export_date"},
 	} {
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s WHERE %s = ?", t.table, t.col), day); err != nil {
 			return Result{}, fmt.Errorf("replace %s: %w", t.table, err)

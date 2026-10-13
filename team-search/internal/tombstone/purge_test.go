@@ -41,61 +41,55 @@ type syncBuf struct {
 }
 
 func (s *syncBuf) Write(p []byte) (int, error) { s.mu.Lock(); defer s.mu.Unlock(); return s.b.Write(p) }
-func (s *syncBuf) String() string              { s.mu.Lock(); defer s.mu.Unlock(); return s.b.String() }
+
+func (s *syncBuf) String() string { s.mu.Lock(); defer s.mu.Unlock(); return s.b.String() }
 
 // D6: each tick purges tombstones older than now - TTL, logs the count, and a
 // failure is logged and retried on the next tick, not fatal.
 func TestLoop_PurgesEveryIntervalWithTTLCutoff(t *testing.T) {
-	clock := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
-	ticks := make(chan time.Time)
-	var gotInterval []time.Duration
+	// Each clock reading advances 2s, so the Nth purge computes now = base + N*2s.
+	base := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
 	var mu sync.Mutex
-	p := &fakePurger{done: make(chan struct{}), errs: []error{nil, errors.New("cluster down"), nil}}
+	clock := base
+	now := func() time.Time { mu.Lock(); defer mu.Unlock(); clock = clock.Add(2 * time.Second); return clock }
+	p := &fakePurger{done: make(chan struct{}, 8), errs: []error{nil, errors.New("cluster down"), nil}}
 	logs := &syncBuf{}
+	comp, err := tombstone.Loop{
+		Purger: p, TTL: 30 * time.Second, Interval: 5 * time.Millisecond,
+		Logger: slog.New(slog.NewTextHandler(logs, nil)), Now: now,
+	}.Component()
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := make(chan struct{})
-	go func() {
-		tombstone.Loop{
-			Purger: p, TTL: 30 * time.Second, Interval: 2 * time.Second,
-			Logger: slog.New(slog.NewTextHandler(logs, nil)),
-			Now:    func() time.Time { mu.Lock(); defer mu.Unlock(); return clock },
-			After: func(d time.Duration) <-chan time.Time {
-				mu.Lock()
-				gotInterval = append(gotInterval, d)
-				mu.Unlock()
-				return ticks
-			},
-		}.Run(ctx)
-		close(stopped)
-	}()
+	go func() { _ = comp.Run(ctx); close(stopped) }()
 
 	for i := 0; i < 3; i++ {
-		mu.Lock()
-		clock = clock.Add(2 * time.Second)
-		mu.Unlock()
-		ticks <- clock
 		<-p.done
 	}
 	cancel()
 	<-stopped
 
-	if len(p.cutoffs) != 3 {
-		t.Fatalf("want 3 purges, got %d", len(p.cutoffs))
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.cutoffs) < 3 {
+		t.Fatalf("want at least 3 purges, got %d", len(p.cutoffs))
 	}
-	base := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
 	for i, c := range p.cutoffs {
 		want := base.Add(time.Duration(i+1)*2*time.Second - 30*time.Second)
 		if !c.Equal(want) {
 			t.Errorf("purge %d cutoff = %s, want %s", i, c, want)
 		}
 	}
-	for _, d := range gotInterval {
-		if d != 2*time.Second {
-			t.Errorf("waited %s, want the 2s interval", d)
-		}
-	}
 	out := logs.String()
-	if strings.Count(out, "purged=3") != 2 || !strings.Contains(out, "cluster down") {
-		t.Errorf("want two purge counts and the failure logged, got:\n%s", out)
+	if strings.Count(out, "purged=3") < 2 || !strings.Contains(out, "cluster down") {
+		t.Errorf("want the purge counts and the failure logged, got:\n%s", out)
+	}
+}
+
+func TestLoop_RejectsNonPositiveInterval(t *testing.T) {
+	if _, err := (tombstone.Loop{Purger: &fakePurger{}, TTL: time.Hour, Logger: slog.Default()}).Component(); err == nil {
+		t.Fatal("a zero interval must be rejected")
 	}
 }
