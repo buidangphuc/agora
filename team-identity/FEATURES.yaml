@@ -610,3 +610,16 @@ features:
     tags: [identity-runtime, unit]
     status: not-testable
     notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity/internal/token TestIssuedTokenDecodesIntoJWTXClaims and TestJWKSEndpointJSONShape."
+
+  - id: identity-runtime.rejects-invalid-signing-key
+    title: "team-identity rejects an invalid signing key or an empty key id"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "When the signer is built from a value that is not a PEM key, or with a blank kid"
+      - "Then construction fails, so no token is issued without a key id the JWKS can serve"
+    tags: [identity-runtime, unit]
+    status: not-testable
+    notes: "migrate-team-identity-to-go-sdk: not producible end to end; verified by team-identity/internal/token TestNewSignerRejectsBadInput."
