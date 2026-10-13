@@ -144,3 +144,48 @@ func TestPayoutHoldWindow(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateNamesEveryInvalidSetting(t *testing.T) {
+	cases := []struct {
+		name string
+		s    config.Settings
+		keys []string
+	}{
+		{
+			name: "invalid hold window without a database url",
+			s:    config.Settings{GRPC: sdkconfig.GRPC{Port: 50056}, Payout: config.Payout{HoldDays: 7, HoldWindow: "soon"}},
+			keys: []string{"DATABASE_URL", "PAYOUT_HOLD_WINDOW"},
+		},
+		{
+			name: "mock payments in production without a database url",
+			s: config.Settings{
+				Runtime: sdkconfig.Runtime{Env: "production"},
+				GRPC:    sdkconfig.GRPC{Port: 50056},
+				Mock:    config.Mock{MockPayments: true},
+			},
+			keys: []string{"DATABASE_URL", "MOCK_PAYMENTS"},
+		},
+		{
+			name: "bad port, hold days and hold window together",
+			s: config.Settings{
+				GRPC:     sdkconfig.GRPC{Port: 999999},
+				Postgres: sdkconfig.Postgres{URL: "postgres://u:p@localhost/db"},
+				Payout:   config.Payout{HoldDays: -1, HoldWindow: "soon"},
+			},
+			keys: []string{"GRPC_PORT", "PAYOUT_HOLD_DAYS"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.s.Validate()
+			if err == nil {
+				t.Fatal("expected Validate to fail")
+			}
+			for _, k := range tc.keys {
+				if !strings.Contains(err.Error(), k) {
+					t.Errorf("error must name %s: %v", k, err)
+				}
+			}
+		})
+	}
+}
