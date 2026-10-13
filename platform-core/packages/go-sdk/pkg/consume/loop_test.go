@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -342,7 +343,7 @@ func TestPollIsBoundedByMaxPollRecords(t *testing.T) {
 }
 
 func TestLostGenerationCommitIsLoggedAndLoopContinues(t *testing.T) {
-	for _, lost := range []error{kerr.UnknownMemberID, kerr.IllegalGeneration, kerr.RebalanceInProgress} {
+	for _, lost := range []error{kerr.UnknownMemberID, kerr.IllegalGeneration, kerr.RebalanceInProgress, kerr.StaleMemberEpoch, kerr.FencedMemberEpoch, kerr.FencedInstanceID} {
 		t.Run(lost.Error(), func(t *testing.T) {
 			wrapped := fmt.Errorf("commit: %w", lost)
 
@@ -427,5 +428,105 @@ func TestInvalidRequestIDHeaderIsNotTrusted(t *testing.T) {
 	rec := &kgo.Record{Headers: []kgo.RecordHeader{{Key: kafkax.HeaderRequestID, Value: []byte("req-1.a_b")}}}
 	if got := reqctx.RequestID(recordContext(context.Background(), rec)); got != "req-1.a_b" {
 		t.Errorf("valid request id = %q", got)
+	}
+}
+
+func TestLostGenerationFetchErrorSkipsTheFetch(t *testing.T) {
+	lostFetch := func() kgo.Fetches {
+		f := fetchOf("orders", span{partition: 0, from: 0, count: 3})
+		f[0].Topics[0].Partitions[0].Err = fmt.Errorf("fetch: %w", kerr.IllegalGeneration)
+		return f
+	}
+	fc := newFakeClient(lostFetch(), fetchOf("orders", span{partition: 0, from: 0, count: 1}))
+	seen := 0
+	c, _ := newConsumer(fc, "g", func(context.Context, Record) error { seen++; return nil }, nopDLQ{}, fastOpts())
+	if err := runUntil(t, c.Run, func() { fc.waitForEvent(t, "commit", 1) }); err != nil {
+		t.Fatalf("Consumer.Run = %v, want nil", err)
+	}
+	if seen != 1 {
+		t.Fatalf("handled %d records, want 1: the fetch of a lost generation must not be handled", seen)
+	}
+
+	fb := newFakeClient(lostFetch(), fetchOf("orders", span{partition: 0, from: 0, count: 1}))
+	bseen := 0
+	b, _ := newBatchConsumer(fb, "g", func(_ context.Context, rs []Record) error { bseen += len(rs); return nil }, nopDLQ{}, fastBatchOpts())
+	if err := runUntil(t, b.Run, func() { fb.waitForEvent(t, "commit", 1) }); err != nil {
+		t.Fatalf("BatchConsumer.Run = %v, want nil", err)
+	}
+	if bseen != 1 {
+		t.Fatalf("batch handled %d records, want 1", bseen)
+	}
+}
+
+func TestRevokedContextStopsTheFetchAndCommitsWhatWasHandled(t *testing.T) {
+	fc := newFakeClient(fetchOf("orders", span{partition: 0, from: 0, count: 4}))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var offsets []int64
+	c, _ := newConsumer(fc, "g", func(_ context.Context, r Record) error {
+		offsets = append(offsets, r.Offset)
+		if r.Offset == 1 {
+			cancel()
+		}
+		return nil
+	}, nopDLQ{}, fastOpts())
+	if err := c.Run(ctx); err != nil {
+		t.Fatalf("Consumer.Run = %v, want nil", err)
+	}
+	if len(offsets) != 2 {
+		t.Fatalf("handled offsets %v, want [0 1]: nothing after the cancel", offsets)
+	}
+	if got := commitOffsets(func() [][]*kgo.Record { _, c := fc.snapshot(); return c }())[0]; len(got) != 1 || got[0] != 1 {
+		t.Fatalf("commits = %v, want [1]", got)
+	}
+}
+
+func TestDeadLetterTruncatesTheErrorHeader(t *testing.T) {
+	rec := &kgo.Record{Topic: "orders", Value: []byte("v")}
+	dl := deadLetter("orders.dlq", "g", rec, errors.New(strings.Repeat("é", MaxDLQErrorBytes)))
+	var got []byte
+	for _, h := range dl.Headers {
+		if h.Key == kafkax.HeaderDLQError {
+			got = h.Value
+		}
+	}
+	if len(got) > MaxDLQErrorBytes || len(got) < MaxDLQErrorBytes-3 {
+		t.Fatalf("dlq-error is %d bytes, want <= %d", len(got), MaxDLQErrorBytes)
+	}
+	if !utf8.Valid(got) {
+		t.Fatal("dlq-error was cut inside a rune")
+	}
+	short := deadLetter("orders.dlq", "g", rec, errors.New("boom"))
+	if v := headerValue(short, kafkax.HeaderDLQError); v != "boom" {
+		t.Fatalf("short dlq-error = %q, want it untouched", v)
+	}
+}
+
+func TestDeadLetterReplacesStaleDLQHeaders(t *testing.T) {
+	rec := &kgo.Record{Topic: "orders", Partition: 2, Offset: 7, Value: []byte("v"), Headers: []kgo.RecordHeader{
+		{Key: "x-request-id", Value: []byte("abc")},
+		{Key: kafkax.HeaderDLQError, Value: []byte("old")},
+		{Key: kafkax.HeaderDLQSourceTopic, Value: []byte("old-topic")},
+		{Key: kafkax.HeaderDLQSourceGroup, Value: []byte("old-group")},
+		{Key: "dlq-custom", Value: []byte("x")},
+	}}
+	dl := deadLetter("orders.dlq", "g", rec, errors.New("new"))
+	counts := map[string]int{}
+	for _, h := range dl.Headers {
+		counts[h.Key]++
+	}
+	for _, k := range []string{kafkax.HeaderDLQError, kafkax.HeaderDLQSourceTopic, kafkax.HeaderDLQSourcePartition, kafkax.HeaderDLQSourceOffset, kafkax.HeaderDLQSourceGroup} {
+		if counts[k] != 1 {
+			t.Errorf("header %s appears %d times, want 1", k, counts[k])
+		}
+	}
+	if counts["dlq-custom"] != 0 || counts["x-request-id"] != 1 {
+		t.Errorf("headers = %v, want dlq-custom dropped and x-request-id kept", counts)
+	}
+	if v := headerValue(dl, kafkax.HeaderDLQSourceTopic); v != "orders" {
+		t.Errorf("dlq-source-topic = %q, want orders", v)
+	}
+	if rec.Headers[1].Key != kafkax.HeaderDLQError || string(rec.Headers[1].Value) != "old" {
+		t.Error("the source record's headers were modified")
 	}
 }

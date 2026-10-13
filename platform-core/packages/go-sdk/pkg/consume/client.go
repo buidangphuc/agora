@@ -42,9 +42,32 @@ func clientGroup(client *kgo.Client) (string, error) {
 
 // lostGeneration reports whether err says the member no longer belongs to the
 // group generation it committed under: a rebalance (or a session timeout)
-// replaced it while the fetch was handled.
+// replaced it while the fetch was handled. The member-epoch and instance-id
+// errors are the same condition under the KIP-848 protocol and static
+// membership.
 func lostGeneration(err error) bool {
-	return errors.Is(err, kerr.UnknownMemberID) || errors.Is(err, kerr.IllegalGeneration) || errors.Is(err, kerr.RebalanceInProgress)
+	for _, k := range []*kerr.Error{
+		kerr.UnknownMemberID, kerr.IllegalGeneration, kerr.RebalanceInProgress,
+		kerr.StaleMemberEpoch, kerr.FencedMemberEpoch, kerr.FencedInstanceID,
+	} {
+		if errors.Is(err, k) {
+			return true
+		}
+	}
+	return false
+}
+
+// fetchLostGeneration logs the errors of fetches and reports whether one of
+// them says the member lost its generation. The records of such a fetch belong
+// to partitions the group has handed to another member, so the loops skip them
+// instead of handling what the new owner will redeliver.
+func fetchLostGeneration(ctx context.Context, log *slog.Logger, fetches kgo.Fetches) bool {
+	lost := false
+	for _, fe := range fetches.Errors() {
+		log.WarnContext(ctx, "consume: fetch error", "topic", fe.Topic, "partition", fe.Partition, "err", fe.Err)
+		lost = lost || lostGeneration(fe.Err)
+	}
+	return lost
 }
 
 // commitFetch commits done. A commit that fails because the member lost its

@@ -161,4 +161,4 @@ Owns: `pkg/outbox/**`, `pkg/config/**` (P13 only), README outbox/migration/confi
 
 Owns: `pkg/consume/**`.
 
-- [ ] 22.1 P10, P11, P12.
+- [x] 22.1 P10, P11, P12.

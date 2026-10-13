@@ -32,8 +32,10 @@ type BatchHandler func(ctx context.Context, records []Record) error
 type BatchOptions struct {
 	DLQTopic string // required; NewBatchConsumer fails when empty
 	// MaxPollRecords caps the records of one poll, which is one batch (default
-	// 500). Rebalances are blocked while a batch is handled, so an unbounded
-	// batch could outlast the group's rebalance timeout.
+	// 500). Rebalances are blocked while a batch is handled, so the handler
+	// time x MaxAttempts (plus backoff) for a batch of MaxPollRecords must fit
+	// the group's rebalance timeout; otherwise the member is kicked and the
+	// batch is redelivered to another member.
 	MaxPollRecords int
 	MaxAttempts    int           // handler attempts per batch before it is dead-lettered (default 5)
 	BaseBackoff    time.Duration // delay after the first failure, doubling (default 100ms)
@@ -113,8 +115,9 @@ func (c *BatchConsumer) Run(ctx context.Context) error {
 
 func (c *BatchConsumer) fetch(ctx context.Context, fetches kgo.Fetches) error {
 	defer c.client.AllowRebalance()
-	for _, fe := range fetches.Errors() {
-		c.opts.Logger.WarnContext(ctx, "consume: fetch error", "topic", fe.Topic, "partition", fe.Partition, "err", fe.Err)
+	if fetchLostGeneration(ctx, c.opts.Logger, fetches) {
+		c.opts.Logger.WarnContext(ctx, "consume: generation lost; fetch skipped, records will be redelivered")
+		return nil
 	}
 	var recs []*kgo.Record
 	fetches.EachRecord(func(r *kgo.Record) { recs = append(recs, r) })

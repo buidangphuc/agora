@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/plugin/kotel"
@@ -68,8 +70,10 @@ func Permanent(err error) error {
 type Options struct {
 	DLQTopic string // required; NewConsumer fails when empty
 	// MaxPollRecords caps the records of one poll, and so of one commit
-	// (default 500). Rebalances are blocked while a poll is handled, so an
-	// unbounded poll could outlast the group's rebalance timeout.
+	// (default 500). Rebalances are blocked while a poll is handled, so
+	// MaxPollRecords x MaxAttempts x handler time (plus backoff) must fit the
+	// group's rebalance timeout; otherwise the member is kicked and the poll's
+	// records are redelivered to another member.
 	MaxPollRecords int
 	MaxAttempts    int           // handler attempts per record (default 5)
 	BaseBackoff    time.Duration // delay after the first failure, doubling (default 100ms)
@@ -171,15 +175,19 @@ func (c *Consumer) Run(ctx context.Context) error {
 // Run therefore polls at most Options.MaxPollRecords records. If the member is
 // kicked anyway, the commit fails with a lost-generation error; that is logged
 // and the loop goes on, since the new owner redelivers the uncommitted records.
+// A fetch that reports a lost generation is skipped without handling, and a
+// cancelled ctx stops the fetch before its next record (what was handled is
+// still committed).
 func (c *Consumer) fetch(ctx context.Context, fetches kgo.Fetches) error {
 	defer c.client.AllowRebalance()
-	for _, fe := range fetches.Errors() {
-		c.opts.Logger.WarnContext(ctx, "consume: fetch error", "topic", fe.Topic, "partition", fe.Partition, "err", fe.Err)
+	if fetchLostGeneration(ctx, c.opts.Logger, fetches) {
+		c.opts.Logger.WarnContext(ctx, "consume: generation lost; fetch skipped, records will be redelivered")
+		return nil
 	}
 	done := handled{}
 	var failure error
 	iter := fetches.RecordIter()
-	for !iter.Done() {
+	for !iter.Done() && ctx.Err() == nil {
 		rec := iter.Next()
 		if err := c.process(ctx, rec); err != nil {
 			failure = err
@@ -278,11 +286,34 @@ func headerValue(rec *kgo.Record, key string) string {
 	return ""
 }
 
+// MaxDLQErrorBytes caps the dlq-error header value; a longer handler error is
+// cut at a UTF-8 boundary so a huge error cannot exceed the broker's record
+// size limit and make the dead-letter write itself fail.
+const MaxDLQErrorBytes = 4096
+
+func truncateError(msg string) string {
+	if len(msg) <= MaxDLQErrorBytes {
+		return msg
+	}
+	n := MaxDLQErrorBytes
+	for n > 0 && !utf8.RuneStart(msg[n]) {
+		n--
+	}
+	return msg[:n]
+}
+
+// deadLetter builds the dead-letter record of rec. The source headers are
+// copied except dlq-*: a record that was replayed from a dead-letter topic
+// carries the previous failure's, which the new ones replace.
 func deadLetter(topic, group string, rec *kgo.Record, cause error) *kgo.Record {
 	headers := make([]kgo.RecordHeader, 0, len(rec.Headers)+5)
-	headers = append(headers, rec.Headers...)
+	for _, h := range rec.Headers {
+		if !strings.HasPrefix(h.Key, "dlq-") {
+			headers = append(headers, h)
+		}
+	}
 	headers = append(headers,
-		kgo.RecordHeader{Key: kafkax.HeaderDLQError, Value: []byte(cause.Error())},
+		kgo.RecordHeader{Key: kafkax.HeaderDLQError, Value: []byte(truncateError(cause.Error()))},
 		kgo.RecordHeader{Key: kafkax.HeaderDLQSourceTopic, Value: []byte(rec.Topic)},
 		kgo.RecordHeader{Key: kafkax.HeaderDLQSourcePartition, Value: []byte(strconv.FormatInt(int64(rec.Partition), 10))},
 		kgo.RecordHeader{Key: kafkax.HeaderDLQSourceOffset, Value: []byte(strconv.FormatInt(rec.Offset, 10))},
