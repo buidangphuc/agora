@@ -6,14 +6,14 @@ package rpc
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 
-	"github.com/buidangphuc/team-domain/internal/listing"
 	"github.com/buidangphuc/team-domain/internal/store"
 )
 
@@ -37,18 +37,7 @@ func (h *ListingHandler) UpsertStorefront(
 
 	saved, err := h.storefronts.Upsert(ctx, storefrontFromWire(req.GetStorefront()), ownerID)
 	if err != nil {
-		switch {
-		case errors.Is(err, listing.ErrSlugRequired):
-			return nil, status.Error(codes.InvalidArgument, "slug is required")
-		case errors.Is(err, listing.ErrDisplayNameInvalid):
-			return nil, status.Error(codes.InvalidArgument, "invalid display_name")
-		case errors.Is(err, listing.ErrForbidden):
-			return nil, status.Error(codes.PermissionDenied, "no authenticated seller")
-		case errors.Is(err, store.ErrSlugTaken):
-			return nil, status.Error(codes.AlreadyExists, "slug already taken")
-		default:
-			return nil, status.Error(codes.Internal, "internal error")
-		}
+		return nil, grpcx.Status(ctx, nil, err, sellerErrs)
 	}
 	return &listingv1.UpsertStorefrontResponse{Storefront: storefrontToWire(saved)}, nil
 }
@@ -71,10 +60,7 @@ func (h *ListingHandler) GetStorefront(
 
 	sf, err := h.storefronts.Get(ctx, req.GetSellerId(), req.GetSlug())
 	if err != nil {
-		if errors.Is(err, store.ErrStorefrontNotFound) {
-			return nil, status.Error(codes.NotFound, "not_found")
-		}
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, grpcx.Status(ctx, nil, err, sellerErrs)
 	}
 	return &listingv1.GetStorefrontResponse{Storefront: storefrontToWire(sf)}, nil
 }
@@ -94,10 +80,7 @@ func (h *ListingHandler) BatchGetStorefronts(
 	}
 	found, err := h.storefronts.GetMany(ctx, req.GetSellerIds())
 	if err != nil {
-		if errors.Is(err, listing.ErrTooManySellerIDs) {
-			return nil, status.Error(codes.InvalidArgument, "too many seller_ids (max 100)")
-		}
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, grpcx.Status(ctx, nil, err, sellerErrs)
 	}
 	shops := make([]*listingv1.ShopSummary, 0, len(found))
 	for _, sf := range found {

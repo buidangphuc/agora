@@ -20,11 +20,11 @@ Behaviour, wire messages and env names stay the same; existing tests keep their 
 
 Owns: `team-domain/**` except `third_party/**` (domain: the re-sync writes `third_party/**`).
 
-- [ ] 2.1 Re-sync to the existing tag `go-sdk/v0.2.1` (`platform-core/tools/sync-go-sdk.sh go-sdk/v0.2.1 team-domain`); do not touch other services. Verify `make check`.
-- [ ] 2.2 Replace the own outbox store, relayer and Kafka producer (`internal/store/outbox_pg.go`, `internal/events/relayer.go`, `internal/events/publisher.go` client setup) with SDK `outbox.NewStore`/`NewRelayer` and `kafkax.NewProducer`; use `config.Kafka`/`config.Outbox` keeping the current env names via tags; replace `afterServer` with `lifecycle.StopAfter`. Compare the existing outbox table with `outbox.SchemaSQL`; if they differ add a forward-only migration that keeps the previous release working. Verify `make check`.
-- [ ] 2.3 Use `pgx.WithTx` for hand-rolled `Begin/Commit/Rollback` blocks. Verify `make check`.
-- [ ] 2.4 Tests that apply every migration use `migrate.Up` instead of globbing `*.up.sql`. Verify `make check`.
-- [ ] 2.5 Use `grpcx.Status` + `ErrorTable` where the client message stays identical. Verify `make check`.
+- [x] 2.1 Re-sync to the existing tag `go-sdk/v0.2.1` (`platform-core/tools/sync-go-sdk.sh go-sdk/v0.2.1 team-domain`); do not touch other services. Verify `make check`.
+- [x] 2.2 Replace the own outbox store, relayer and Kafka producer (`internal/store/outbox_pg.go`, `internal/events/relayer.go`, `internal/events/publisher.go` client setup) with SDK `outbox.NewStore`/`NewRelayer` and `kafkax.NewProducer`; use `config.Kafka`/`config.Outbox` keeping the current env names via tags; replace `afterServer` with `lifecycle.StopAfter`. Compare the existing outbox table with `outbox.SchemaSQL`; if they differ add a forward-only migration that keeps the previous release working. Verify `make check`.
+- [x] 2.3 Use `pgx.WithTx` for hand-rolled `Begin/Commit/Rollback` blocks. Verify `make check`.
+- [x] 2.4 Tests that apply every migration use `migrate.Up` instead of globbing `*.up.sql`. Verify `make check`.
+- [x] 2.5 Use `grpcx.Status` + `ErrorTable` where the client message stays identical. Verify `make check`.
 
 ## 3. Adopt go-sdk v1.0.0
 
@@ -32,7 +32,7 @@ Follow `platform-core/packages/go-sdk/README.md` "Upgrading to v1" and "Outbox t
 
 Owns: `team-domain/**`, the team-domain blocks of `docker-compose*.yaml` and `platform-gitops/**` for team-domain.
 
-- [ ] 3.1 Sync `go-sdk/v1.0.0` into team-domain only and fix every breaking change (package renames, ErrorTable, constructors returning errors, ENV required, renamed duration env keys and removed `OUTBOX_MAX_ATTEMPTS`, outbox `PublishRecord`, consume Record and DLQ headers, .env.example, compose and gitops).
-- [ ] 3.2 Outbox table: forward-only migrations implementing `outbox.UpgradeSQL` (Prepare, Backfill, Switch in one transaction, Finish; `CONCURRENTLY` statements in their own migration files), a test that applies them to a table in the previous schema with rows and checks order, and a README deploy note (stop v0 relayers, purge published rows, requeue or delete v0 `failed` rows).
-- [ ] 3.3 Replace local copies with SDK packages where the SDK now has them (as in the earlier task list, against v1). Sites left local get a one-line reason in the report.
-- [ ] 3.4 Verify `make check`, `docker build`, red_first, openspec validate.
+- [x] 3.1 Sync `go-sdk/v1.0.0` into team-domain only and fix every breaking change (package renames, ErrorTable, constructors returning errors, ENV required, renamed duration env keys and removed `OUTBOX_MAX_ATTEMPTS`, outbox `PublishRecord`, consume Record and DLQ headers, .env.example, compose and gitops).
+- [x] 3.2 Outbox table: forward-only migrations implementing `outbox.UpgradeSQL` (Prepare, Backfill, Switch in one transaction, Finish; `CONCURRENTLY` statements in their own migration files), a test that applies them to a table in the previous schema with rows and checks order, and a README deploy note (stop v0 relayers, purge published rows, requeue or delete v0 `failed` rows).
+- [x] 3.3 Replace local copies with SDK packages where the SDK now has them (as in the earlier task list, against v1). Sites left local get a one-line reason in the report.
+- [x] 3.4 Verify `make check`, `docker build`, red_first, openspec validate.

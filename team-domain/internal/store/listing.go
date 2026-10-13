@@ -9,6 +9,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 )
 
 // ErrNotFound is returned by Get/Update/Delete when the row is absent.
@@ -161,7 +163,7 @@ type InMemoryListingRepository struct {
 	// stockEvent, when set, is called for every REAL stock change (reserve,
 	// release, sweep); its rows are kept in stockRows.
 	stockEvent StockEventBuilder
-	stockRows  []OutboxRow
+	stockRows  []outbox.Row
 }
 
 // memReservation is the in-memory analogue of one `reservations` row.

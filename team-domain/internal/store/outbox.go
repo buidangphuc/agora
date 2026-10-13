@@ -4,37 +4,16 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"time"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 )
-
-// OutboxRow is the enqueue input: one pending domain event to persist in the
-// SAME transaction as the business write. Payload is the fully-marshalled
-// platform.events.v1.EventEnvelope (produced verbatim by the relayer), and
-// EventID is that envelope's event_id — the stable dedupe key consumers use.
-type OutboxRow struct {
-	EventID       string
-	AggregateType string // 'Listing'
-	AggregateID   string // listing_id; the Kafka partition key
-	EventType     string // e.g. 'platform.listing.v1.ListingChanged'
-	Payload       []byte // marshalled EventEnvelope bytes
-	RequestID     string
-}
-
-// PendingEvent is a claimed outbox row the relayer will produce. Attempts is the
-// number of prior failed relays, used to compute the retry backoff.
-type PendingEvent struct {
-	EventID     string
-	AggregateID string
-	Payload     []byte
-	Attempts    int
-}
 
 // EnqueueFn builds the outbox row for a persisted listing. The transactional
 // writer calls it INSIDE the write transaction (with the just-written listing),
 // so the handler can construct the EventEnvelope from the final row while the
 // business write and the outbox INSERT still commit atomically. Returning an
 // error rolls the whole transaction back.
-type EnqueueFn func(written Listing) (OutboxRow, error)
+type EnqueueFn func(written Listing) (outbox.Row, error)
 
 // TxWriter persists a listing write and its outbox event in one transaction.
 // The Postgres implementation (PgTxWriter) opens a pgx.Tx; the in-memory fake
@@ -57,7 +36,7 @@ type InMemoryTxWriter struct {
 	FailWrite bool
 
 	mu   sync.Mutex
-	rows []OutboxRow
+	rows []outbox.Row
 }
 
 // NewInMemoryTxWriter wraps repo so reads observe the writes it commits.
@@ -115,69 +94,12 @@ func (w *InMemoryTxWriter) enqueue(out Listing, ev EnqueueFn) (Listing, error) {
 }
 
 // Rows returns a copy of the enqueued outbox rows for assertions.
-func (w *InMemoryTxWriter) Rows() []OutboxRow {
+func (w *InMemoryTxWriter) Rows() []outbox.Row {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	out := make([]OutboxRow, len(w.rows))
+	out := make([]outbox.Row, len(w.rows))
 	copy(out, w.rows)
 	return out
-}
-
-// InMemoryOutbox is a fake OutboxStore claim/mark surface for relayer tests.
-// It is intentionally simple (no locking semantics) — the FOR UPDATE SKIP
-// LOCKED behaviour is only meaningful against real Postgres.
-type InMemoryOutbox struct {
-	mu        sync.Mutex
-	pending   []PendingEvent
-	Published map[string]time.Time
-	Failed    map[string]string    // event_id -> last error (parked)
-	Retried   map[string]time.Time // event_id -> next available_at
-	Attempts  map[string]int
-}
-
-// NewInMemoryOutbox builds an outbox holding seed as pending rows.
-func NewInMemoryOutbox(seed ...PendingEvent) *InMemoryOutbox {
-	return &InMemoryOutbox{
-		pending:   append([]PendingEvent(nil), seed...),
-		Published: map[string]time.Time{},
-		Failed:    map[string]string{},
-		Retried:   map[string]time.Time{},
-		Attempts:  map[string]int{},
-	}
-}
-
-// ClaimPending returns (and removes) up to batch pending events. lockSeconds is
-// accepted for interface parity but unused by the fake.
-func (o *InMemoryOutbox) ClaimPending(_ context.Context, batch, _ int) ([]PendingEvent, error) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if batch > len(o.pending) {
-		batch = len(o.pending)
-	}
-	claimed := o.pending[:batch]
-	o.pending = o.pending[batch:]
-	return append([]PendingEvent(nil), claimed...), nil
-}
-
-// MarkPublished records the row as published at the given time.
-func (o *InMemoryOutbox) MarkPublished(_ context.Context, eventID string, at time.Time) error {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	o.Published[eventID] = at
-	return nil
-}
-
-// MarkFailed records a failed attempt, parking the row when availableAt is nil.
-func (o *InMemoryOutbox) MarkFailed(_ context.Context, eventID, reason string, availableAt *time.Time) error {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	o.Attempts[eventID]++
-	if availableAt != nil {
-		o.Retried[eventID] = *availableAt
-		return nil
-	}
-	o.Failed[eventID] = reason
-	return nil
 }
 
 var _ TxWriter = (*InMemoryTxWriter)(nil)

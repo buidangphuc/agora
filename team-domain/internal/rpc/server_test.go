@@ -16,6 +16,7 @@ import (
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
@@ -32,7 +33,7 @@ import (
 // inner ListingChanged, asserting the envelope's event_id matches the row id
 // (the stable dedupe id the relayer re-delivers). It mirrors what a consumer
 // sees on the wire, proving the bytes are a normal EventEnvelope.
-func decodeChange(t *testing.T, row store.OutboxRow) *listingv1.ListingChanged {
+func decodeChange(t *testing.T, row outbox.Row) *listingv1.ListingChanged {
 	t.Helper()
 	var env eventsv1.EventEnvelope
 	if err := proto.Unmarshal(row.Payload, &env); err != nil {
@@ -81,10 +82,14 @@ func startServerOutbox(t *testing.T, repo store.ListingRepository, txw *store.In
 		svc = listing.NewListingService(repo)
 	}
 	h := rpc.NewListingHandler(svc, catRepo, s3)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		t.Fatalf("health: %v", err)
+	}
 	srv := grpcx.NewServer(grpcx.ServerOptions{
 		Config: cfg.GRPC,
 		Logger: logger,
-		Health: healthx.New(healthx.DefaultInterval, logger),
+		Health: health,
 	})
 	rpc.Register(srv, h)
 

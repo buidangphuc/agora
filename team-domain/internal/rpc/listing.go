@@ -8,6 +8,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
@@ -84,10 +87,7 @@ func (h *ListingHandler) GetListing(
 
 	l, err := h.svc.Get(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "not_found")
-		}
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, grpcx.Status(ctx, nil, err, listingErrs)
 	}
 
 	// Non-published (draft, rejected) listings are visible only to the owner,
@@ -132,7 +132,7 @@ func (h *ListingHandler) ListListings(
 
 	page, err := h.svc.List(ctx, cursor, pageSize, st)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, grpcx.Status(ctx, nil, err, listingErrs)
 	}
 	return &listingv1.ListListingsResponse{
 		Listings: toWireList(page.Items),
@@ -159,7 +159,7 @@ func (h *ListingHandler) ListMyListings(
 
 	page, err := h.svc.ListMine(ctx, ownerID, cursor, pageSize)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, grpcx.Status(ctx, nil, err, listingErrs)
 	}
 	return &listingv1.ListMyListingsResponse{
 		Listings: toWireList(page.Items),
@@ -183,7 +183,7 @@ func (h *ListingHandler) CreateListing(
 	created, err := h.svc.CreateWithEvent(ctx, fromWire(req.GetListing()), ownerID,
 		h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_CREATED))
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, grpcx.Status(ctx, nil, err, listingErrs)
 	}
 	return &listingv1.CreateListingResponse{Listing: toWire(created)}, nil
 }
@@ -203,14 +203,7 @@ func (h *ListingHandler) UpdateListing(
 	updated, err := h.svc.UpdateWithEvent(ctx, fromWire(req.GetListing()), ownerID, isAdmin,
 		h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_UPDATED))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			return nil, status.Error(codes.NotFound, "not_found")
-		case errors.Is(err, listing.ErrForbidden):
-			return nil, status.Error(codes.PermissionDenied, "not the listing owner")
-		default:
-			return nil, status.Error(codes.Internal, "internal error")
-		}
+		return nil, grpcx.Status(ctx, nil, err, listingErrs)
 	}
 	return &listingv1.UpdateListingResponse{Listing: toWire(updated)}, nil
 }
@@ -230,14 +223,7 @@ func (h *ListingHandler) DeleteListing(
 	_, err := h.svc.DeleteWithEvent(ctx, req.GetId(), ownerID, isAdmin,
 		h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_DELETED))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			return nil, status.Error(codes.NotFound, "not_found")
-		case errors.Is(err, listing.ErrForbidden):
-			return nil, status.Error(codes.PermissionDenied, "not the listing owner")
-		default:
-			return nil, status.Error(codes.Internal, "internal error")
-		}
+		return nil, grpcx.Status(ctx, nil, err, listingErrs)
 	}
 	return &listingv1.DeleteListingResponse{}, nil
 }
@@ -444,14 +430,14 @@ func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listi
 		principal = p
 	}
 	requestID, _ := requestIDFromContext(ctx)
-	return func(written store.Listing) (store.OutboxRow, error) {
+	return func(written store.Listing) (outbox.Row, error) {
 		wire := toWire(written)
 		eventID := uuid.NewString()
 		payload, err := events.BuildListingChangedEnvelope(eventID, wire, change, principal, requestID)
 		if err != nil {
-			return store.OutboxRow{}, err
+			return outbox.Row{}, err
 		}
-		return store.OutboxRow{
+		return outbox.Row{
 			EventID:       eventID,
 			AggregateType: "Listing",
 			AggregateID:   written.ID,
@@ -468,7 +454,7 @@ func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listi
 // back) with the stock change. The principal and request id come from the
 // request context when present (the TTL sweep has neither).
 func NewStockEventBuilder() store.StockEventBuilder {
-	return func(ctx context.Context, snap store.StockSnapshot) (store.OutboxRow, error) {
+	return func(ctx context.Context, snap store.StockSnapshot) (outbox.Row, error) {
 		var principal *commonv1.Principal
 		if p, ok := principalFromContext(ctx); ok {
 			principal = p
@@ -482,9 +468,9 @@ func NewStockEventBuilder() store.StockEventBuilder {
 		eventID := uuid.NewString()
 		payload, err := events.BuildListingStockChangedEnvelope(eventID, change, principal, requestID)
 		if err != nil {
-			return store.OutboxRow{}, err
+			return outbox.Row{}, err
 		}
-		return store.OutboxRow{
+		return outbox.Row{
 			EventID:       eventID,
 			AggregateType: "Listing",
 			AggregateID:   snap.ListingID,

@@ -13,3 +13,4 @@ resources:
 # engages its IsProd() refusals (weak secrets, exposed tokens, ...). Never override with local.
 env:
   ENV: "production"
+  KAFKA_BROKERS: "redpanda.marketplace.svc:9092"   # no default in a strict ENV

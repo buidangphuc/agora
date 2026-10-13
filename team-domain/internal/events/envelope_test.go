@@ -11,13 +11,6 @@ import (
 	"github.com/buidangphuc/team-domain/internal/events"
 )
 
-// TestNoopPublisherClose asserts the no-op producer tears
-// down cleanly. It no longer has inline Publish* methods — publishing goes only
-// through the outbox + relayer (AD6).
-func TestNoopPublisherClose(_ *testing.T) {
-	events.NoopPublisher{}.Close()
-}
-
 // TestBuildListingChangedEnvelopeUsesSuppliedEventID pins the AD6 property that
 // the ONLY envelope builder stamps the caller-supplied event_id (the stable
 // outbox row id) rather than minting a random UUID. A re-delivered row therefore

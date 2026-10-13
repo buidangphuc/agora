@@ -9,6 +9,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+
 	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-domain/internal/rpc"
@@ -55,7 +57,7 @@ func pendingStockEvents(ctx context.Context, t *testing.T, pool *pgxpool.Pool) [
 func stockEventRepo(ctx context.Context, t *testing.T) (*store.PostgresListingRepository, *pgxpool.Pool) {
 	t.Helper()
 	repo, pool := newPGRepo(ctx, t)
-	repo.WithStockEvents(store.NewOutboxStore(pool), rpc.NewStockEventBuilder())
+	repo.WithStockEvents(newOutboxStore(t, pool), rpc.NewStockEventBuilder())
 	return repo, pool
 }
 
@@ -168,8 +170,8 @@ func TestPG_StockEvents_RollbackLeavesNothing(t *testing.T) {
 	repo, pool := newPGRepo(ctx, t)
 	seedPGListing(ctx, t, repo, "L1", 10)
 	boom := errors.New("outbox down")
-	failing := func(context.Context, store.StockSnapshot) (store.OutboxRow, error) {
-		return store.OutboxRow{}, boom
+	failing := func(context.Context, store.StockSnapshot) (outbox.Row, error) {
+		return outbox.Row{}, boom
 	}
 	countRows := func(q string) int {
 		var n int
@@ -179,7 +181,7 @@ func TestPG_StockEvents_RollbackLeavesNothing(t *testing.T) {
 		return n
 	}
 
-	repo.WithStockEvents(store.NewOutboxStore(pool), failing)
+	repo.WithStockEvents(newOutboxStore(t, pool), failing)
 	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 2, farFuture); !errors.Is(err, boom) {
 		t.Fatalf("reserve: want builder error, got %v", err)
 	}
@@ -198,7 +200,7 @@ func TestPG_StockEvents_RollbackLeavesNothing(t *testing.T) {
 	if err := repo.ReserveStockIdempotent(ctx, "r3", "L1", "", 3, time.Now().Add(-time.Minute)); err != nil {
 		t.Fatalf("reserve r3: %v", err)
 	}
-	repo.WithStockEvents(store.NewOutboxStore(pool), failing)
+	repo.WithStockEvents(newOutboxStore(t, pool), failing)
 	if _, err := repo.ReleaseReservation(ctx, "r2"); !errors.Is(err, boom) {
 		t.Fatalf("release: want builder error, got %v", err)
 	}

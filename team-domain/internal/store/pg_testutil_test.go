@@ -3,23 +3,23 @@ package store_test
 import (
 	"context"
 	"os"
-	"path/filepath"
-	"sort"
-	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/migrations"
 )
 
 // newPGRepo returns a PostgresListingRepository over a FRESH, throw-away schema
-// with every migrations/*.up.sql applied in order, so the tests exercise the real
-// SQL (including migration 0010's constraints). It uses TEST_DATABASE_URL when
-// set, otherwise a testkit Postgres container, e.g.:
+// with every migration applied (migrate.Up over the embedded migrations), so the
+// tests exercise the real SQL (including migration 0010's constraints). It uses
+// TEST_DATABASE_URL when set, otherwise the test binary's shared testkit Postgres
+// container, e.g.:
 //
 //	docker compose -f docker-compose.local.yaml up -d postgres-listing
 //	TEST_DATABASE_URL=postgresql://listing_svc:listing_pass@localhost:5433/listing_db go test ./internal/store/...
@@ -27,51 +27,30 @@ func newPGRepo(ctx context.Context, t *testing.T) (*store.PostgresListingReposit
 	t.Helper()
 	url := os.Getenv("TEST_DATABASE_URL")
 	if url == "" {
-		// No database given: start a throw-away container (skips without Docker
+		// No database given: use the shared container (skips without Docker
 		// unless GO_SDK_REQUIRE_DOCKER is set, as `make check` does).
-		url = testkit.Postgres(t)
+		url = testkit.SharedPostgres(t)
 	}
-
-	admin, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatalf("connect admin pool: %v", err)
+	dsn := testkit.Schema(t, url)
+	if err := migrate.Up(ctx, dsn, migrations.Files); err != nil {
+		t.Fatalf("apply migrations: %v", err)
 	}
-	schema := "t_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
-		admin.Close()
-		t.Fatalf("create schema: %v", err)
-	}
-
-	cfg, err := pgxpool.ParseConfig(url)
-	if err != nil {
-		t.Fatalf("parse url: %v", err)
-	}
-	cfg.ConnConfig.RuntimeParams["search_path"] = schema
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatalf("connect pool: %v", err)
 	}
-	t.Cleanup(func() {
-		pool.Close()
-		_, _ = admin.Exec(context.WithoutCancel(ctx), "DROP SCHEMA "+schema+" CASCADE")
-		admin.Close()
-	})
-
-	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
-	if err != nil || len(files) == 0 {
-		t.Fatalf("find migrations: %v (n=%d)", err, len(files))
-	}
-	sort.Strings(files)
-	for _, f := range files {
-		sqlText, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatalf("read %s: %v", f, err)
-		}
-		if _, err := pool.Exec(ctx, string(sqlText)); err != nil {
-			t.Fatalf("apply %s: %v", filepath.Base(f), err)
-		}
-	}
+	t.Cleanup(pool.Close)
 	return store.NewPostgresListingRepository(pool), pool
+}
+
+// newOutboxStore returns the SDK outbox store over the service's outbox table.
+func newOutboxStore(t *testing.T, pool *pgxpool.Pool) *outbox.Store {
+	t.Helper()
+	s, err := outbox.NewStore(pool, store.OutboxTable)
+	if err != nil {
+		t.Fatalf("outbox store: %v", err)
+	}
+	return s
 }
 
 // seedPGListing inserts a base-stock listing.
