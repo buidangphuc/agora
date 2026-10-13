@@ -49,8 +49,13 @@ USER_COLS = ["user_key", "views_7d", "clicks_7d", "add_to_cart_7d", "favorites_c
              "paid_orders_30d"]  # fmt: skip
 
 
-def _dataset(directory: str) -> str:
-    """Two taste clusters over six listings (3 users each): a governed als_interactions fixture."""
+def _dataset(directory: str, variant: str = "base") -> str:
+    """Two taste clusters over six listings (3 users each): a governed als_interactions fixture.
+
+    `variant` "better" keeps the same users, items, weights and per-user / per-item counts (so the
+    feature distributions the drift check compares do not move) and only changes WHEN each user
+    met each listing, so that the held-out newest listing is the one the cluster-mates share.
+    """
     now = datetime.now(timezone.utc)
     rows = []
     clusters = [
@@ -61,11 +66,16 @@ def _dataset(directory: str) -> str:
         ("u5", "def"),
         ("u6", "def"),
     ]
-    for user, items in clusters:
+    for n, (user, items) in enumerate(clusters):
         for h, ch in enumerate(items):
+            hours = h + 1
+            if variant == "rev":
+                hours = len(items) - h
+            elif variant == "rot":
+                hours = (h + n) % len(items) + 1
             rows.append(
                 {"user_key": f"mlr-{user}", "listing_id": f"l{ch}", "weight": 3.0 - h, "interactions": 1,
-                 "last_occurred_at": now - timedelta(hours=h + 1)}
+                 "last_occurred_at": now - timedelta(hours=hours)}
             )  # fmt: skip
     df = pd.DataFrame(rows).astype({"weight": "float64", "interactions": "int32"})
     os.makedirs(directory, exist_ok=True)
@@ -201,6 +211,8 @@ def main() -> int:
                     if step.get("seed"):
                         registry.seed_champion(step["seed"])
                 before = registry.counts()
+                if step.get("dataset"):
+                    env["DATASET_PATH"] = _dataset(f"{WORK}/dataset-{index}", step["dataset"])
                 env.update(_features(step.get("features"), f"{WORK}/feat-{index}"))
                 env.setdefault("MODEL_VERSION", f"als-mlr-{nonce}-{index}")
                 code, out = _run([sys.executable, "-m", "recsys"], env)

@@ -406,8 +406,8 @@ features:
       login: guest
       data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
     acceptance:
-      - "When the recsys job runs twice on the same governed dataset"
-      - "Then the second run's drift names the first as baseline with a PSI and level per feature, none flagged"
+      - "When the recsys job runs a second time on a governed dataset on which the model improves ndcg@10"
+      - "Then the second run's drift names the first as baseline with a PSI and level per feature, none flagged, and the second run is promoted"
     tags: [recsys, recommendations, batch]
     status: automated
     covered_by: "recommendations/mlr_ml_recsys.feature::A second run records its drift against the first"

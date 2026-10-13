@@ -6,6 +6,7 @@ Every scenario runs in the worker's own Redis DB / Qdrant namespace; nothing tou
 
 from __future__ import annotations
 
+import time
 import uuid
 
 from pytest_bdd import given, then, when
@@ -52,7 +53,11 @@ def _beacon(world: World, event_type: str, listing: str, session: str, category:
         "itemCategory": category,
         "path": f"/listing/{listing}",
     }
-    resp = world.service_factory.tracking.send("POST", ep.TRACK, json_body=body)
+    # personalisation consent (p=1): the nearline layer drops events without it
+    consent = f"agora_consent=v=1&a=1&m=0&p=1&ts={int(time.time())}"
+    resp = world.service_factory.tracking.send(
+        "POST", ep.TRACK, json_body=body, extra_headers={"Cookie": consent}
+    )
     assert resp.status_code == 202, f"beacon refused: {resp.status_code} {resp.text}"
 
 
@@ -164,22 +169,34 @@ def stores_distribution(world: World) -> None:
     assert set(dist) == set(FEATURES) and all(dist[f] for f in FEATURES), dist
 
 
-def _two_runs(world: World, second_env: dict | None = None, first_env: dict | None = None) -> None:
+def _two_runs(
+    world: World,
+    second_env: dict | None = None,
+    first_env: dict | None = None,
+    second_dataset: str | None = None,
+) -> None:
     results = _steps(
         world,
         [
             {"op": "recsys", "env": first_env or {}},
             # the second run keeps the first run's champion: it is the drift baseline
-            {"op": "recsys", "env": second_env or {}, "keep_registry": True},
+            {
+                "op": "recsys",
+                "env": second_env or {},
+                "keep_registry": True,
+                **({"dataset": second_dataset} if second_dataset else {}),
+            },
         ],
     )
     assert all(r["exit_code"] == 0 for r in results), [r["log_tail"] for r in results]
     _ctx(world)["first"], _ctx(world)["last"] = results
 
 
-@when("the recsys job runs twice on the same governed dataset")
+@when("the recsys job runs a second time on a governed dataset on which the model improves ndcg@10")
 def run_twice(world: World) -> None:
-    _two_runs(world)
+    # "rot": the same users, listings, weights and counts (so no feature distribution moves), met in
+    # an order that makes the newest listing the one the cluster-mates share: a genuine improvement.
+    _two_runs(world, second_dataset="rot")
 
 
 @then(
@@ -190,7 +207,10 @@ def second_run_drift(world: World) -> None:
     drift = last["summary"]["drift"]
     # The baseline is named by its registry version (the first run's version of recsys-als).
     first_registry_version = first["models"][first["model_version"]]["registry_version"]
-    assert str(drift["baseline_version"]) == str(first_registry_version), (drift, first_registry_version)
+    assert str(drift["baseline_version"]) == str(first_registry_version), (
+        drift,
+        first_registry_version,
+    )
     assert set(drift["features"]) == set(FEATURES)
     assert all("psi" in v and "drift_level" in v for v in drift["features"].values())
 
@@ -207,7 +227,7 @@ def none_flagged(world: World) -> None:
 
 @when("the recsys job runs a second time with DRIFT_ALERT_THRESHOLD set to 0")
 def run_second_with_zero_threshold(world: World) -> None:
-    _two_runs(world, second_env={"DRIFT_ALERT_THRESHOLD": "0"})
+    _two_runs(world, second_env={"DRIFT_ALERT_THRESHOLD": "0"}, second_dataset="rot")
 
 
 @then(
@@ -221,16 +241,14 @@ def all_flagged(world: World) -> None:
     assert last["models"][last["model_version"]]["parameters"]["drift"]["status"] == drift["status"]
 
 
-@then("the second run is decided by the gate alone")
-def second_decided_by_gate(world: World) -> None:
-    # Drift never changes the decision. The second run retrains on the same data, so it scores
-    # the same as the first champion and cannot clear the +1 % the recsys-als policy asks for:
-    # the gate rejects it, whatever the drift verdict says.
+@then("the second run is promoted")
+def second_promoted(world: World) -> None:
+    # No forcing and no seeding: the second dataset genuinely improves ndcg@10 over the first
+    # champion, so the gate promotes it and drift is measured against that champion's sketches.
     last = _ctx(world)["last"]
-    assert last["summary"]["decision"] == "rejected", last["summary"]
-    assert "ndcg@10" in last["summary"]["reason"], last["summary"]["reason"]
-    assert last["models"][last["model_version"]]["status"] == "rejected"
-    assert last["champion"] != last["model_version"], last["champion"]
+    assert last["summary"]["decision"] == "promoted", last["summary"]
+    assert last["models"][last["model_version"]]["status"] == "promoted"
+    assert last["champion"] == last["model_version"], last["champion"]
 
 
 _PROM = "/tmp/mlr-drift.prom"

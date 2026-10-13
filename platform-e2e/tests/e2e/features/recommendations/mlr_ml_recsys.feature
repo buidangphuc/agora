@@ -26,14 +26,15 @@ Feature: ML recsys changes run end to end (add-recsys-nearline-signals, add-recs
     And the model stores its distribution summary for the next run
 
   Scenario: A second run records its drift against the first
-    When the recsys job runs twice on the same governed dataset
+    When the recsys job runs a second time on a governed dataset on which the model improves ndcg@10
     Then the second run's drift names the first run as its baseline and reports a PSI and a level for each feature
     And none of the features is flagged
+    And the second run is promoted
 
   Scenario: A drifted run is flagged and still decided by the gate
     When the recsys job runs a second time with DRIFT_ALERT_THRESHOLD set to 0
     Then every feature of the second run's drift is flagged and its metadata carries the same verdict
-    And the second run is decided by the gate alone
+    And the second run is promoted
 
   Scenario: A drift report is written as Prometheus text
     When the recsys job runs twice with DRIFT_METRICS_PATH set
