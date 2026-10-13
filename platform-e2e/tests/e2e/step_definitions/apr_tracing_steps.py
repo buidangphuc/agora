@@ -57,9 +57,9 @@ def langfuse_on(world: World) -> None:
     apr.dc("-f", str(OVERLAY), "up", "-d", "--no-deps", "team-ai")
     pe.wait_healthy(pe.ai_container(), 120)
     env = apr.ai_env()
-    assert (
-        env.get("LANGFUSE_ENABLED", "").lower() == "true"
-    ), "team-ai did not pick up LANGFUSE_ENABLED=true; is the wrapper applying the overlay?"
+    assert env.get("LANGFUSE_PUBLIC_KEY") and env.get(
+        "LANGFUSE_SECRET_KEY"
+    ), "team-ai did not pick up the Langfuse keys; is the wrapper applying the overlay?"
     _wait_chat(token)
 
 

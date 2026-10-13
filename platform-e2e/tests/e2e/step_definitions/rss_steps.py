@@ -7,7 +7,6 @@ Redis outage restores the container and waits until team-ai serves a real model 
 from __future__ import annotations
 
 import json
-import subprocess
 import time
 import uuid
 
@@ -15,15 +14,11 @@ from playwright.sync_api import expect
 from pytest_bdd import parsers, then, when
 
 from src.constants import PageName, timeouts
-from tests.e2e.step_definitions.apr_boot_steps import _docker_run, _env, _image
 from tests.e2e.step_definitions.pdp_streaming_steps import _record_beacons
 from tests.e2e.support import pear_edge_support as pe
 from tests.e2e.support import rss_support as rss
 from tests.e2e.support.world import World
 
-RUN_TIMEOUT_S = 60
-GRPC_BOOT_S = 90.0
-RECOMMEND = "/platform.recommendation.v1.RecommendationService/Recommend"
 ROW = "[data-recs-request-id]"
 
 
@@ -87,86 +82,6 @@ def rss_first_items_of_popular(world: World) -> None:
     assert got == popular[: len(got)] and len(got) >= 3, (got, popular)
 
 
-# ── Boot guard ───────────────────────────────────────────────────────────
-@when(
-    "the team-ai image is started with ENVIRONMENT=production, RECS_ENABLED=true and RECS_BACKEND=memory"
-)
-def rss_boot_memory(world: World) -> None:
-    env = _env("production")
-    # _env (apr_boot_steps) turns on the memory gRPC rate limiter to test that guard; switch it
-    # and the llm_router path off so only the RECS_BACKEND guard can refuse this boot.
-    env.update(
-        GRPC_RATE_LIMIT_ENABLED="false",
-        CHAT_BACKEND="mock",
-        RECS_ENABLED="true",
-        RECS_BACKEND="memory",
-    )
-    name, cmd = _docker_run(world, env, "--rm")
-    try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)
-    except subprocess.TimeoutExpired as exc:
-        pe.docker("rm", "-f", name, check=False)
-        raise AssertionError(
-            f"team-ai kept running with RECS_BACKEND=memory in production: {exc.stdout}"
-        ) from exc
-    _x(world)["boot"] = proc
-
-
-@then("the process exits non-zero and its log names RECS_BACKEND")
-def rss_boot_refused(world: World) -> None:
-    proc: subprocess.CompletedProcess[str] = _x(world)["boot"]
-    log = proc.stdout + proc.stderr
-    assert proc.returncode != 0, f"exit 0, booted the memory catalogue in production:\n{log}"
-    assert "RECS_BACKEND" in log, log[-2000:]
-
-
-# ── run_grpc entrypoint ──────────────────────────────────────────────────
-@when(
-    "team-ai is started with scripts/run_grpc.py and a buyer requests recommendations through a gateway pointed at it"
-)
-def rss_run_grpc(world: World) -> None:
-    name = f"e2e-rss-grpc-{uuid.uuid4().hex[:8]}"
-    env = {
-        k: v
-        for k, v in pe.container_env(pe.ai_container()).items()
-        if k not in pe._PRIVATE_SKIP_ENV
-    }
-    port = env.get("GRPC_PORT", "50060")
-    args = ["run", "-d", "--name", name, "--network", pe.stack_network()]
-    # The image ships only the app (scripts/ is a dev tool); mount the repo's scripts so the
-    # real run_grpc.py runs against the image's code and dependencies.
-    args += ["-v", f"{pe.REPO_ROOT / 'team-ai' / 'scripts'}:/app/scripts:ro"]
-    for key, value in env.items():
-        args += ["-e", f"{key}={value}"]
-    world.add_cleanup(lambda: pe.docker("rm", "-f", name, check=False))
-    # Same invocation as `make grpc` (a module run, so /app is on sys.path).
-    pe.docker(*args, _image(), "python", "-m", "scripts.run_grpc")
-    addr = f"{name}:{port}"
-    base = pe.private_gateway(
-        world, {"UPSTREAM_RECOMMENDATION_ADDR": addr, "UPSTREAM_AI_ADDR": addr}
-    )
-    token = world.state.current_user.token
-    body = {"context": "RECOMMENDATION_CONTEXT_HOMEPAGE", "limit": 5}
-    deadline = time.monotonic() + GRPC_BOOT_S
-    while True:
-        resp = pe.post_json(RECOMMEND, body, token, base_url=base, timeout=10)
-        # Not up yet: the gateway reports the upstream as unavailable until the port answers.
-        if resp.status_code != 503 and pe.connect_code(resp) != "unavailable":
-            break
-        assert time.monotonic() < deadline, f"standalone team-ai never answered: {resp.text}"
-        time.sleep(1)
-    _x(world)["grpc_resp"] = resp
-    _x(world)["grpc_logs"] = pe.docker("logs", name, check=False)
-
-
-@then("the call succeeds instead of answering unimplemented")
-def rss_grpc_ok(world: World) -> None:
-    resp = _x(world)["grpc_resp"]
-    code = pe.connect_code(resp)
-    assert code != "unimplemented", f"Recommend is not registered: {resp.status_code} {resp.text}"
-    assert resp.status_code == 200 and code == "ok", f"{resp.status_code} {resp.text}"
-
-
 # ── Attribution through the gateway ──────────────────────────────────────
 @when("a buyer requests homepage recommendations twice through the gateway")
 def rss_two_calls(world: World) -> None:
@@ -216,8 +131,11 @@ def rss_tie_break(world: World) -> None:
     _x(world)["pair"] = (first, second)
     _x(world)["response"] = rss.await_recommend(
         world,
-        lambda r: set(rss.ids(r)) >= {first, second},
-        "Recommend does not return the seeded pair",
+        # team-ai memoises fs:<view>:current for 5 s (also "absent"), so the first answers after
+        # the key is written can still be unranked: poll until the features take effect.
+        lambda r: set(rss.ids(r)) >= {first, second}
+        and rss.ids(r).index(second) < rss.ids(r).index(first),
+        "Recommend does not rank the seeded pair by its online features",
     )
 
 

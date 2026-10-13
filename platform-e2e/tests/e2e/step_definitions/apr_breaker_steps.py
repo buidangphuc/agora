@@ -3,7 +3,7 @@
 The breakers live in the team-ai process and are shared by every scenario, so these run
 serially. The primary is driven with the fake's global mode (`POST /_mode`), not a
 per-request directive, and the modes are cleared again in teardown. Timings come from the
-running container (`LLM_BREAKER_THRESHOLD`, `LLM_BREAKER_COOLDOWN_SECONDS`).
+running container (`LLM_BREAKER_FAILURE_THRESHOLD`, `LLM_BREAKER_COOLDOWN_SECONDS`).
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ def _x(world: World) -> dict:
 
 
 def _threshold() -> int:
-    return apr.ai_int("LLM_BREAKER_THRESHOLD", 2)
+    return apr.ai_int("LLM_BREAKER_FAILURE_THRESHOLD", 2)
 
 
 def _cooldown() -> float:
@@ -46,8 +46,8 @@ def _wait_team_ai() -> None:
 
 
 def _real_breaker(world: World) -> None:
-    """Recreate team-ai with LLM_BREAKER_THRESHOLD=2; restore the standing stack in teardown."""
-    if apr.ai_int("LLM_BREAKER_THRESHOLD", 0) == 2:
+    """Recreate team-ai with LLM_BREAKER_FAILURE_THRESHOLD=2; restore the standing stack in teardown."""
+    if apr.ai_int("LLM_BREAKER_FAILURE_THRESHOLD", 0) == 2:
         return
 
     def restore() -> None:
@@ -58,7 +58,7 @@ def _real_breaker(world: World) -> None:
     apr.dc("-f", str(BREAKER_OVERLAY), "up", "-d", "--no-deps", "team-ai")
     _wait_team_ai()
     assert (
-        apr.ai_int("LLM_BREAKER_THRESHOLD", 0) == 2
+        apr.ai_int("LLM_BREAKER_FAILURE_THRESHOLD", 0) == 2
     ), "team-ai did not pick up the breaker overlay"
 
 
@@ -85,7 +85,7 @@ def breaker_opened(world: World) -> None:
 
 @when(
     parsers.parse(
-        "the primary answers {status} for LLM_BREAKER_THRESHOLD consecutive chat requests "
+        "the primary answers {status} for LLM_BREAKER_FAILURE_THRESHOLD consecutive chat requests "
         "and then becomes healthy"
     )
 )

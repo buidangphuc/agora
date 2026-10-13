@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import struct
 import subprocess
 import time
@@ -95,7 +96,18 @@ def compose_env(service: str) -> dict[str, str]:
 
     compose = yaml.safe_load((REPO_ROOT / "docker-compose.services.yaml").read_text())
     entries = compose["services"][service]["environment"]
-    return dict(e.split("=", 1) for e in entries if isinstance(e, str) and "=" in e)
+    return {
+        key: _expand_compose_vars(value)
+        for key, _, value in (e.partition("=") for e in entries if isinstance(e, str) and "=" in e)
+    }
+
+
+_COMPOSE_VAR = re.compile(r"\$\{(\w+)(?::-([^}]*))?\}")
+
+
+def _expand_compose_vars(value: str) -> str:
+    """Resolve `${NAME:-default}` the way compose does (environment first, then the default)."""
+    return _COMPOSE_VAR.sub(lambda m: os.environ.get(m[1]) or m[2] or "", value)
 
 
 def wait_healthy(name: str, timeout_s: float = 120.0) -> None:

@@ -7,7 +7,7 @@ and not a direct browser call to team-ai. The gateway probe uses the buyer token
 already active on the service factory (set by `login_via_api`), i.e. the SAME
 session the server components use, so a non-empty response proves the real
 frontend → gateway → team-ai path. Needs the live stack + team-ai
-RECS_ENABLED=true with the training-job Qdrant/Redis data to be populated.
+with the training-job Qdrant/Redis data populated.
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ def row_sourced_via_gateway(world: World) -> None:
     items = world.state.extra["recs_items"]
     assert items, (
         "gateway Recommend returned no items — the row cannot be sourced from "
-        "team-ai (is RECS_ENABLED=true with training data?)"
+        "team-ai (is the training-job data populated?)"
     )
     # The RPC returns id-only items (Rule 3); those ids must be the /listing/<id>
     # cards hydrated into the row — proving the row reflects the RPC response and
@@ -146,7 +146,7 @@ def no_teamai_in_markup(world: World) -> None:
 # ── Graceful degradation ───────────────────────────────────────────────────
 @when("the recommendation service is unavailable")
 def recommendation_service_unavailable(world: World) -> None:
-    # We cannot flip RECS_ENABLED from e2e; probe the current availability so the
+    # We cannot break the recommendation stores from e2e; probe the current availability so the
     # assertion can branch. The contract holds either way: an UNAVAILABLE /
     # empty response must degrade to a hidden row, never a page error.
     _probe_gateway(world, context=CONTEXT_HOMEPAGE)

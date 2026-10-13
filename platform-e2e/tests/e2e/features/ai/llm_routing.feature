@@ -40,7 +40,8 @@ Feature: The chat path routes each request and falls back only before the first 
     When the buyer streams a chat message with the fake provider scripted "primary=hang fb1=ok fb2=ok"
     Then the reply comes from "fb1" within the first-token timeout plus 3 seconds
 
+  # The chain walks each target once; only the SDK's own retries (LLM_MAX_RETRIES) repeat a call.
   Scenario: Attempts are bounded
     Given a freshly registered buyer for the LLM checks
     When the buyer streams a chat message with the fake provider scripted "primary=500 fb1=500 fb2=500"
-    Then the fake provider received at most LLM_MAX_ATTEMPTS requests for that message
+    Then the fake provider received at most one request per target and SDK retry for that message

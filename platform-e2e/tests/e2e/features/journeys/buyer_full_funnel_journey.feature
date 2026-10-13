@@ -38,7 +38,7 @@ Feature: Buyer Full Funnel Journey
     Then the order is placed with the voucher discount and listed for the buyer
     And a purchase event for that order is pushed to the GA4 dataLayer
 
-  # serve-trained-recs-locally: team-ai serves the trained generation (RECS_ENABLED=true, Qdrant backend),
+  # serve-trained-recs-locally: team-ai serves the trained generation (Qdrant backend),
   # so the home row renders cards and its row impressions reach the data layer.
   @needsBuyer
   Scenario: Home page shows AI recommendations with viewable impressions
