@@ -143,14 +143,18 @@ func (c *Consumer) process(ctx context.Context, rec *kgo.Record) error {
 }
 
 func (c *Consumer) backoff(attempt int) time.Duration {
-	d := c.opts.BaseBackoff
+	return backoff(c.opts.BaseBackoff, c.opts.MaxBackoff, attempt)
+}
+
+func backoff(base, ceiling time.Duration, attempt int) time.Duration {
+	d := base
 	for i := 1; i < attempt; i++ {
 		d *= 2
-		if d >= c.opts.MaxBackoff {
-			return c.opts.MaxBackoff
+		if d >= ceiling {
+			return ceiling
 		}
 	}
-	return min(d, c.opts.MaxBackoff)
+	return min(d, ceiling)
 }
 
 func sleep(ctx context.Context, d time.Duration) bool {

@@ -35,8 +35,8 @@ Owns: `pkg/lifecycle/**`, `pkg/flags/**`, `pkg/resilience/**`, `pkg/upstream/**`
 
 Owns: `pkg/consume/**`, `pkg/kafkax/**`, `go.mod`, `go.sum`, `platform-core/tools/sync-go-sdk.sh`, `platform-core/tools/sync-go-sdk_test.sh`.
 
-- [ ] 5.1 Port from commit `967bcc7a` (withdrawn v0.2.3; `git show 967bcc7a -- <path>`): `Dedupe.Processed`, the group-less `NewConsumerClient`, the sync `require` handling, the kadm dependency. Do not take its `openspec/` hunk. Tests `TestDedupeProcessedIsReadOnly`, `TestDedupeProcessedReturnsErrors`, `TestGroupLessConsumerClient`, `sync-go-sdk_test.sh`.
-- [ ] 5.2 `consume.NewBatchConsumer`, `BatchHandler`, `BatchOptions`; `TestBatchRetriesWithoutCommit`, `TestBatchPermanentGoesToDLQ`. Reuse the per-record consumer's DLQ header code. Read `team-analytics/internal/events/{listing,engagement,consumer}.go` (read only) for the loops it replaces.
+- [x] 5.1 Port from commit `967bcc7a` (withdrawn v0.2.3; `git show 967bcc7a -- <path>`): `Dedupe.Processed`, the group-less `NewConsumerClient`, the sync `require` handling, the kadm dependency. Do not take its `openspec/` hunk. Tests `TestDedupeProcessedIsReadOnly`, `TestDedupeProcessedReturnsErrors`, `TestGroupLessConsumerClient`, `sync-go-sdk_test.sh`.
+- [x] 5.2 `consume.NewBatchConsumer`, `BatchHandler`, `BatchOptions`; `TestBatchRetriesWithoutCommit`, `TestBatchPermanentGoesToDLQ`. Reuse the per-record consumer's DLQ header code. Read `team-analytics/internal/events/{listing,engagement,consumer}.go` (read only) for the loops it replaces.
 
 ## 6. testkit (wave 1)
 
