@@ -16,7 +16,7 @@ help:
 	@echo "check-env    - .env.example drift gate"
 	@echo "sample       - generate a tiny governed dataset (parquet + manifest) in the SAMPLE dir"
 	@echo "run-local    - run the batch in local[*] (needs PySpark + Qdrant/Redis)"
-	@echo "docker-build - build the Spark job image"
+	@echo "docker-build - build the Spark job image (context: monorepo root)"
 	@echo "docker-run   - run the job container on platform-core_default"
 
 .PHONY: compile
@@ -59,7 +59,7 @@ run-local:
 
 .PHONY: docker-build
 docker-build:
-	docker build -t $(IMAGE) .
+	docker build -f platform-recsys/Dockerfile -t $(IMAGE) ..
 
 .PHONY: docker-run
 docker-run:
