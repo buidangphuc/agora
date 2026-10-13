@@ -18,14 +18,19 @@ import (
 
 func quietLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
-func newHandler() *rpc.Handler {
-	return rpc.NewHandler(sharelink.NewService(store.NewInMemoryShareLinkRepo()), quietLogger())
+func newHandler(t *testing.T) *rpc.Handler {
+	t.Helper()
+	h, err := rpc.NewHandler(sharelink.NewService(store.NewInMemoryShareLinkRepo()), quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
 }
 
 // The full gRPC surface: CreateShareLink returns a short code, ResolveShareLink
 // echoes the target, UTM and OG meta back through the proto messages.
 func TestHandlerCreateThenResolve(t *testing.T) {
-	h := newHandler()
+	h := newHandler(t)
 	ctx := context.Background()
 
 	createResp, err := h.CreateShareLink(ctx, &sharingv1.CreateShareLinkRequest{
@@ -59,7 +64,7 @@ func TestHandlerCreateThenResolve(t *testing.T) {
 
 // An unknown short code maps to gRPC NotFound.
 func TestHandlerResolveUnknownIsNotFound(t *testing.T) {
-	h := newHandler()
+	h := newHandler(t)
 
 	_, err := h.ResolveShareLink(context.Background(), &sharingv1.ResolveShareLinkRequest{ShortCode: "nope"})
 	if got := status.Code(err); got != codes.NotFound {
@@ -69,7 +74,7 @@ func TestHandlerResolveUnknownIsNotFound(t *testing.T) {
 
 // Missing target fields map to gRPC InvalidArgument.
 func TestHandlerCreateInvalidArgument(t *testing.T) {
-	h := newHandler()
+	h := newHandler(t)
 
 	_, err := h.CreateShareLink(context.Background(), &sharingv1.CreateShareLinkRequest{TargetType: "", TargetId: "x"})
 	if got := status.Code(err); got != codes.InvalidArgument {
@@ -81,11 +86,14 @@ func TestHandlerCreateInvalidArgument(t *testing.T) {
 // legacy x-user-id header; anonymous callers can still create and resolve.
 func TestHandlerCreateAttributesPrincipal(t *testing.T) {
 	repo := store.NewInMemoryShareLinkRepo()
-	h := rpc.NewHandler(sharelink.NewService(repo), quietLogger())
+	h, err := rpc.NewHandler(sharelink.NewService(repo), quietLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
 	req := &sharingv1.CreateShareLinkRequest{TargetType: "listing", TargetId: "l1"}
 
 	user := auth.WithPrincipal(context.Background(),
-		auth.Principal{ID: "user-1", Type: "user"})
+		auth.Principal{ID: "user-1", Type: auth.TypeUser})
 	resp, err := h.CreateShareLink(user, req)
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +104,7 @@ func TestHandlerCreateAttributesPrincipal(t *testing.T) {
 	}
 
 	anon := auth.WithPrincipal(context.Background(),
-		auth.Principal{ID: "anonymous", Type: "anonymous"})
+		auth.Principal{ID: "anonymous", Type: auth.TypeAnonymous})
 	resp, err = h.CreateShareLink(anon, req)
 	if err != nil {
 		t.Fatalf("anonymous create should be allowed: %v", err)
@@ -104,5 +112,28 @@ func TestHandlerCreateAttributesPrincipal(t *testing.T) {
 	link, _ = repo.Resolve(context.Background(), resp.GetShortCode())
 	if link.CreatedBy != "" {
 		t.Fatalf("anonymous created_by = %q", link.CreatedBy)
+	}
+}
+
+// Clients see the same text per error as before the SDK error table.
+func TestHandlerErrorMessages(t *testing.T) {
+	h := newHandler(t)
+	ctx := context.Background()
+
+	_, err := h.CreateShareLink(ctx, &sharingv1.CreateShareLinkRequest{TargetId: "x"})
+	if st, _ := status.FromError(err); st.Code() != codes.InvalidArgument || st.Message() != "target_type is required" {
+		t.Fatalf("empty target_type: %v", err)
+	}
+	_, err = h.CreateShareLink(ctx, &sharingv1.CreateShareLinkRequest{TargetType: "listing"})
+	if st, _ := status.FromError(err); st.Code() != codes.InvalidArgument || st.Message() != "target_id is required" {
+		t.Fatalf("empty target_id: %v", err)
+	}
+	_, err = h.ResolveShareLink(ctx, &sharingv1.ResolveShareLinkRequest{})
+	if st, _ := status.FromError(err); st.Code() != codes.InvalidArgument || st.Message() != "short_code is required" {
+		t.Fatalf("empty short_code: %v", err)
+	}
+	_, err = h.ResolveShareLink(ctx, &sharingv1.ResolveShareLinkRequest{ShortCode: "nope"})
+	if st, _ := status.FromError(err); st.Code() != codes.NotFound || st.Message() != "share link not found" {
+		t.Fatalf("unknown code: %v", err)
 	}
 }

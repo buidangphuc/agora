@@ -32,7 +32,10 @@ func create(t *testing.T, h *rpc.Handler, md metadata.MD) (string, error) {
 
 func TestCreateAnonymousStoresEmptyCreator(t *testing.T) {
 	repo := store.NewInMemoryShareLinkRepo()
-	h := rpc.NewHandler(sharelink.NewService(repo), slog.New(slog.DiscardHandler))
+	h, err := rpc.NewHandler(sharelink.NewService(repo), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	cases := map[string]struct {
 		md   metadata.MD

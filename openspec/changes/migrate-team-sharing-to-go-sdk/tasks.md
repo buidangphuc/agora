@@ -26,3 +26,13 @@ Owns: `platform-core/packages/go-sdk/**`, `platform-core/docs/ADR/0016-go-servic
 - [x] 2.2 Update the acceptance lines (not the title) of the FEATURES entry "Enabled database without a URL fails validation" in `platform-core/FEATURES.yaml` to match the modified scenario.
 - [x] 2.3 (orchestrator) Tag `go-sdk/v0.1.1` on the 2.1 commit and push the tag.
 - [x] 2.4 team-sharing: re-sync to `go-sdk/v0.1.1`, drop `DATABASE_ENABLED` from Settings use, `.env.example`, README and tests. The database is always opened; the local in-memory fallback still triggers on an unreachable database with `ENV=local`. Verify `make -C team-sharing check`.
+
+## 3. Adopt go-sdk v1.0.0
+
+Follow `platform-core/packages/go-sdk/README.md` "Upgrading to v1" at tag `go-sdk/v1.0.0`. Behaviour, wire messages and gRPC codes stay the same unless a step below says otherwise; existing test assertions are not loosened.
+
+Owns: `team-sharing/**`, the team-sharing blocks of `docker-compose*.yaml` and `platform-gitops/**` for team-sharing.
+
+- [x] 3.1 Sync `go-sdk/v1.0.0` into team-sharing only and fix every breaking change (package renames, ErrorTable, constructors returning errors, ENV required, renamed duration env keys in config, .env.example, compose and gitops).
+- [x] 3.2 Replace local copies with SDK packages where the SDK now has them: auth type gates and anonymous scope checks, `postgres.OpenOrLocal` (fallback only when local), `postgres.WithTx`, `migrate.Up` in full-apply tests, `grpcx.Status` with rule messages that keep today's client text, `config.Runtime.IsStrict`/`PositiveDuration`/`keepempty`, `pagination` only where the token encoding stays the same, `lifecycle.Every`/`HTTP`, `testkit` helpers (FreePort, Eventually, Recorder, SharedPostgres+Schema, Produce/ReadAll). Sites left local get a one-line reason in the report.
+- [x] 3.3 Verify `make check`, `docker build`, red_first, openspec validate.
