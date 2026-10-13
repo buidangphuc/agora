@@ -15,3 +15,7 @@ initiative: training-platform | base: 84d59c0c | worktree: .claude/worktrees/add
 - build note (task 3): MLflow 3.2 rejects `@` in metric names; the library encodes `@`→`_at_` on write and decodes on read, transparent to callers and policies (no requirement change).
 - note: red_first for py-modelregistry needs REDFIRST_PYTHON with mlflow-skinny; CI tdd job uses platform-e2e venv → check at converge.
 - deferred minors (task 4): vault kv put guard, pg_isready -U, mlflow image in push script + sha tag, prometheus/finetune labels.
+| 5 CI | 5.x | approved | 1 | f06287cb | PASS | - | approve | - |
+## Gates       e2e=4/4 green (live mlflow) features-check=valid spec_sync --strict=e2e-ready feature-reviewer=pass decide=ENGINE_DOWN (LLM fallback) privacy=n/a (no pii route)
+CI local (base asdlc/training-platform): specs PASS, repo PASS, tests-asdlc PASS, tdd PASS, security PASS; py-modelregistry job simulated in clean venv: ruff/mypy/pytest pass.
+Merged into asdlc/training-platform at e8421515.

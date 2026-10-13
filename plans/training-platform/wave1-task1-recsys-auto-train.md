@@ -8,13 +8,15 @@ Implement OpenSpec change `recsys-auto-train` test-first per its tasks.md; conte
 
 ## Write-set (EXCLUSIVE)
 - platform-recsys/**
-- platform-core/packages/py-modelregistry/policies.yaml
+- platform-core/packages/py-modelregistry/src/modelregistry/policies.yaml (packaged policy file)
 - platform-gitops/platform/recsys/**
 - docker-compose.services.yaml
+- .dockerignore (recsys builds from the monorepo root)
+- .github/workflows/asdlc-gates.yml (tdd: install uv deps from the owning dir)
+- openspec/changes/recsys-auto-train/** (human-approved clarifications 2026-10-13)
 - platform-e2e/tests/e2e/features/recommendations/**
-- platform-e2e/tests/e2e/step_definitions/recsys_auto_train_steps.py
-- platform-e2e/tests/e2e/step_definitions/test_recsys_auto_train.py
-- platform-e2e/tests/e2e/step_definitions/recommendations_steps.py
+- platform-e2e/tests/e2e/step_definitions/** (re-pointed recsys steps off PROMOTION_FORCE)
+- platform-e2e/tests/e2e/flows/** (recsys job drivers + registry_support.py)
 - platform-e2e/src/api/**
 
 ## Read-only dependencies

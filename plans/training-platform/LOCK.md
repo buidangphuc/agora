@@ -8,7 +8,7 @@ spec: plans/training-platform/00-spec.md (Locked 2026-10-13)
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
 | add-model-registry | platform-core | [] | 3 (r3 = non-blocking polish) | pass | pass | pass (r2) | ENGINE_DOWN (LLM fallback) | 28d7497e15e2 | [x] |
-| recsys-auto-train | platform-recsys | [add-model-registry] | 3 (r3 = non-blocking polish) | pass | pass | pass (r2) | ENGINE_DOWN (LLM fallback) | 1f41d4edad92 | [x] |
+| recsys-auto-train | platform-recsys | [add-model-registry] | 3 (r3 = non-blocking polish) | pass | pass | pass (r2) | ENGINE_DOWN (LLM fallback) | 36bb6a0c1a64 (re-approved 2026-10-13: clarifications) | [x] |
 | add-platform-finetune | platform-finetune | [add-model-registry, recsys-auto-train] | 3 | pass | pass | pass (r3) | ENGINE_DOWN (LLM fallback) | 0b738ab054d9 | [x] |
 
 ## Build order (cross_change_check)
@@ -28,7 +28,9 @@ Assumptions locked in. Confirm or change each before you sign:
 - **D10 policy numbers:**
   - `recsys-als`: +1 % ndcg@10, coverage@10 guard 0.8× (ADR-0014)
   - `recsys-gbdt`: +0.5 % ndcg@10, recall@10 guard 0.95×
-  - `recsys-two-tower`: +0.5 % recall@10, coverage@10 guard 0.8×, coverage@10 floor 0.5
+  - `recsys-two-tower`: +0.5 % recall@10, coverage@10 guard 0.8×, floor recall@10 ≥ 0.000001 (coverage floor removed by the human 2026-10-13: unreachable on a real catalogue)
+  - GBDT: candidate below fixed-weight baseline × 1.01 is rejected structurally (human 2026-10-13)
+  - Drift: the second run is promoted on a genuinely better dataset (human 2026-10-13)
   - `finetune-classifier`: +1 % macro_f1, macro_f1 floor 0.5
   - Thresholds are inclusive, with a 1e-9 tolerance.
 - **Schedules:**
