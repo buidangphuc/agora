@@ -22,7 +22,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-engagement/internal/config"
 	"github.com/buidangphuc/team-engagement/internal/engagement"

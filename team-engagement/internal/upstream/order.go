@@ -52,7 +52,7 @@ func NewOrderClient(addr string, callTimeout time.Duration) (*OrderClient, error
 	if callTimeout <= 0 {
 		callTimeout = DefaultCallTimeout
 	}
-	conn, err := sdkupstream.Dial(addr, sdkupstream.WithTimeout(callTimeout))
+	conn, err := sdkupstream.NewClient(addr, sdkupstream.WithTimeout(callTimeout))
 	if err != nil {
 		return nil, fmt.Errorf("dial team-order at %s: %w", addr, err)
 	}
