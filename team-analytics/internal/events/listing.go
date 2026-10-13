@@ -9,6 +9,8 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
+
 	eventsv1 "github.com/buidangphuc/team-analytics/generated/platform/events/v1"
 	listingv1 "github.com/buidangphuc/team-analytics/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-analytics/internal/store"
@@ -52,34 +54,28 @@ func ListingSellerFromEnvelope(value []byte) (rec *store.ListingSellerRecord, ok
 // It uses its OWN consumer group, reset to the earliest offset, so listings that
 // existed before this consumer was deployed are backfilled.
 type ListingConsumer struct {
-	client *kgo.Client
+	client   *kgo.Client
+	dlqTopic string
 }
 
 // NewListingConsumer wraps a consumer-group client with auto-commit disabled
 // (kafkax.NewConsumerClient). The caller builds it with
 // kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()) so listings that existed
-// before the group was deployed are backfilled.
-func NewListingConsumer(client *kgo.Client) *ListingConsumer {
-	return &ListingConsumer{client: client}
+// before the group was deployed are backfilled. A batch the warehouse still
+// cannot write after the SDK batch consumer's attempts goes to dlqTopic.
+func NewListingConsumer(client *kgo.Client, dlqTopic string) *ListingConsumer {
+	return &ListingConsumer{client: client, dlqTopic: dlqTopic}
 }
 
-// Run upserts each polled batch, committing offsets only after the upsert
-// succeeded (at-least-once; the upsert is idempotent). On a write failure the
-// batch is retried after a short pause and offsets stay uncommitted.
+// Run upserts each polled batch through the SDK batch consumer: offsets are
+// committed only after the upsert succeeded (at-least-once; the upsert is
+// idempotent), a failed upsert retries the same batch with backoff, and a batch
+// that still fails is dead-lettered whole. An undecodable record is skipped. It
+// returns nil when ctx ends.
 func (c *ListingConsumer) Run(ctx context.Context, w store.ListingSellerWriter, logger *slog.Logger) error {
-	for ctx.Err() == nil {
-		fetches := c.client.PollFetches(ctx)
-		if errs := fetches.Errors(); len(errs) > 0 {
-			if ctx.Err() != nil {
-				break
-			}
-			logger.WarnContext(ctx, "listing kafka fetch error", "errs", errs)
-			continue
-		}
+	bc, err := consume.NewBatchConsumer(c.client, func(ctx context.Context, recs []consume.Record) error {
 		var batch []*store.ListingSellerRecord
-		iter := fetches.RecordIter()
-		for !iter.Done() {
-			rec := iter.Next()
+		for _, rec := range recs {
 			m, ok, err := ListingSellerFromEnvelope(rec.Value)
 			if err != nil {
 				logger.WarnContext(ctx, "decode listing record failed; skipping", "key", string(rec.Key), "err", err)
@@ -89,27 +85,15 @@ func (c *ListingConsumer) Run(ctx context.Context, w store.ListingSellerWriter, 
 				batch = append(batch, m)
 			}
 		}
-		// Retry the same batch until it lands: already-fetched records are not
-		// re-polled, and the upsert is idempotent, so retrying is safe.
-		for len(batch) > 0 && ctx.Err() == nil {
-			err := w.UpsertListingSellers(ctx, batch)
-			if err == nil {
-				break
-			}
-			logger.WarnContext(ctx, "listing_sellers upsert failed; will retry", "err", err)
-			select {
-			case <-ctx.Done():
-			case <-time.After(time.Second):
-			}
+		if len(batch) == 0 {
+			return nil
 		}
-		if ctx.Err() != nil {
-			break
-		}
-		if err := c.client.CommitUncommittedOffsets(ctx); err != nil && ctx.Err() == nil {
-			logger.WarnContext(ctx, "listing offset commit failed", "err", err)
-		}
+		return w.UpsertListingSellers(ctx, batch)
+	}, clientDLQ{c.client}, consume.BatchOptions{DLQTopic: c.dlqTopic, Logger: logger})
+	if err != nil {
+		return err
 	}
-	return nil
+	return bc.Run(ctx)
 }
 
 // Close shuts the client down.

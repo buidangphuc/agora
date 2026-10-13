@@ -14,6 +14,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/kmsg"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
@@ -57,7 +58,7 @@ func RunGA4Relay(ctx context.Context, s config.Settings) error {
 		return nil
 	}
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
+		ShutdownGrace: s.ShutdownGrace,
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
 	}, lifecycle.Func(func(ctx context.Context) error {
@@ -144,9 +145,10 @@ type relayConsumer struct {
 // purgeInterval is how often expired ledger and mapping rows are deleted.
 const purgeInterval = time.Hour
 
-// runPurger purges every purger immediately, then per interval, until ctx is done.
+// runPurger purges every purger immediately, then per interval, until ctx is
+// done (lifecycle.Every). A failed purge is logged and does not stop the others.
 func runPurger(ctx context.Context, interval time.Duration, logger *slog.Logger, purgers ...ga4relay.Purger) {
-	purge := func() {
+	purge := func(ctx context.Context) error {
 		for _, p := range purgers {
 			n, err := p.Purge(ctx)
 			if err != nil {
@@ -157,18 +159,14 @@ func runPurger(ctx context.Context, interval time.Duration, logger *slog.Logger,
 			}
 			logger.InfoContext(ctx, "ga4 relay retention purge", "deleted", n)
 		}
+		return nil
 	}
-	purge()
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			purge()
-		}
+	c, err := lifecycle.Every(interval, purge, lifecycle.RunAtStart(), lifecycle.WithLogger(logger))
+	if err != nil {
+		logger.ErrorContext(ctx, "ga4 relay retention purge disabled", "err", err)
+		return
 	}
+	_ = c.Run(ctx)
 }
 
 // buildConsumer opens the relay's ledger and mapping store on its own DuckDB
@@ -192,13 +190,13 @@ func buildConsumer(ctx context.Context, s *config.Settings, logger *slog.Logger,
 	if err != nil {
 		return nil, fmt.Errorf("kafka client: %w", err)
 	}
-	stack.Push(func(context.Context) error { client.Close(); return nil })
+	stack.Push(func(context.Context) error { client.AllowRebalance(); client.Close(); return nil })
 	sender := ga4relay.NewClient(ga4relay.ClientConfig{
 		Endpoint: s.GA4.Endpoint, MeasurementID: s.GA4.MeasurementID, APISecret: s.GA4.APISecret, Logger: logger,
 	})
 	relay := ga4relay.NewRelay(ga4relay.RelayConfig{
 		Mappings: mappings, Ledger: ledger, Sender: sender,
-		DLQ:       dlqProducer{client: client, topic: s.GA4.RelayDLQTopic},
+		DLQ:       dlqProducer{client: client, topic: s.GA4.RelayDLQTopic, group: s.GA4.RelayConsumerGroup},
 		Committer: committer{client: client, logger: logger},
 		Now:       time.Now,
 	})
@@ -212,7 +210,11 @@ func buildConsumer(ctx context.Context, s *config.Settings, logger *slog.Logger,
 	}, nil
 }
 
+// loop polls and handles record by record; each handled record commits its own
+// offset. The group client blocks rebalances after every poll (kafkax), so they
+// are allowed again once the fetch is handled and when the loop ends.
 func (c *relayConsumer) loop(ctx context.Context, logger *slog.Logger) {
+	defer c.client.AllowRebalance()
 	for ctx.Err() == nil {
 		fetches := c.client.PollFetches(ctx)
 		if ctx.Err() != nil {
@@ -241,6 +243,7 @@ func (c *relayConsumer) loop(ctx context.Context, logger *slog.Logger) {
 				return
 			}
 		}
+		c.client.AllowRebalance()
 	}
 }
 
@@ -290,15 +293,17 @@ func (c committer) Commit(ctx context.Context, m ga4relay.Message) error {
 type dlqProducer struct {
 	client *kgo.Client
 	topic  string
+	group  string
 }
 
 func (p dlqProducer) Publish(ctx context.Context, m ga4relay.Message, reason string) error {
-	rec := &kgo.Record{
-		Topic: p.topic, Key: m.Key, Value: m.Value,
-		Headers: []kgo.RecordHeader{
-			{Key: "error", Value: []byte(reason)},
-			{Key: "source_topic", Value: []byte(m.Topic)},
-		},
-	}
-	return p.client.ProduceSync(ctx, rec).FirstErr()
+	return p.client.ProduceSync(ctx, relayDLQRecord(p.topic, p.group, m, reason)).FirstErr()
+}
+
+// relayDLQRecord is the dead-letter record of m: its key and value with the
+// kafkax dlq-* headers, the reason (invalid, 4xx, exhausted) as dlq-error.
+func relayDLQRecord(topic, group string, m ga4relay.Message, reason string) *kgo.Record {
+	return events.DeadLetterRecord(topic, group, consume.Record{
+		Topic: m.Topic, Partition: m.Partition, Offset: m.Offset, Key: m.Key, Value: m.Value,
+	}, errors.New(reason))
 }

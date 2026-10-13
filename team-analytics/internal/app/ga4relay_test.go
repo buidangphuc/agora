@@ -219,3 +219,32 @@ func TestRunPurger_ErrorLoggedAndContinues(t *testing.T) {
 		t.Errorf("error not logged: %q", buf.String())
 	}
 }
+
+// Scenario: a relay dead letter carries the kafkax dlq-* headers; the reason (invalid, 4xx, exhausted)
+// is the dlq-error value. The v0 "error" and "source_topic" names are gone.
+func TestRelayDLQRecord_CarriesKafkaxHeaders(t *testing.T) {
+	m := ga4relay.Message{Topic: "order.events", Partition: 2, Offset: 17, Key: []byte("k"), Value: []byte("v")}
+	rec := relayDLQRecord("analytics.ga4-relay.dlq", "team-analytics.ga4-relay", m, "4xx")
+	if rec.Topic != "analytics.ga4-relay.dlq" || string(rec.Key) != "k" || string(rec.Value) != "v" {
+		t.Fatalf("record = %+v", rec)
+	}
+	got := map[string]string{}
+	for _, h := range rec.Headers {
+		got[h.Key] = string(h.Value)
+	}
+	want := map[string]string{
+		"dlq-error": "4xx", "dlq-source-topic": "order.events", "dlq-source-partition": "2",
+		"dlq-source-offset": "17", "dlq-source-group": "team-analytics.ga4-relay",
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("header %s = %q, want %q", k, got[k], v)
+		}
+	}
+	if _, ok := got["error"]; ok {
+		t.Error("the v0 header \"error\" must be gone")
+	}
+	if _, ok := got["source_topic"]; ok {
+		t.Error("the v0 header \"source_topic\" must be gone")
+	}
+}

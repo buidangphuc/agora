@@ -33,7 +33,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events analytics.events engagement.events engagement.events.analytics.dlq analytics.ga4-relay.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events analytics.events engagement.events engagement.events.analytics.dlq listing.events.analytics.dlq analytics.ga4-relay.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -806,6 +806,7 @@ services:
       - ENGAGEMENT_EVENTS_TOPIC=engagement.events
       - ENGAGEMENT_DLQ_TOPIC=engagement.events.analytics.dlq
       - ENGAGEMENT_CONSUMER_GROUP=team-analytics.engagement
+      - KAFKA_LISTING_DLQ_TOPIC=listing.events.analytics.dlq
     volumes:
       - analytics_data:/data
 
@@ -818,6 +819,7 @@ services:
     container_name: ga4-relay-svc
     entrypoint: ["/ga4-relay"]
     environment:
+      - ENV=local
       - KAFKA_BROKERS=redpanda:9092
       - WAREHOUSE_DRIVER=duckdb
       - DUCKDB_PATH=/data/ga4-relay.duckdb

@@ -7,8 +7,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
-	"reflect"
 	"strings"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
@@ -23,7 +21,8 @@ const (
 // Settings is the whole configuration surface. Runtime and GRPC are embedded
 // because nothing else collides with their fields; the other groups are named.
 // The gRPC server serves the read-only query API and the health probes; GRPC
-// also carries SHUTDOWN_GRACE_SECONDS and SHUTDOWN_DRAIN_DELAY_SECONDS.
+// also carries SHUTDOWN_GRACE and SHUTDOWN_DRAIN_DELAY (Go durations). ENV is
+// required, and KAFKA_BROKERS is required when ENV is staging or prod.
 type Settings struct {
 	sdkconfig.Runtime
 	sdkconfig.GRPC
@@ -41,45 +40,50 @@ type Settings struct {
 // Metrics configures the HTTP listener of GET /metrics and the GA4 import trigger.
 type Metrics struct {
 	// Addr is the HTTP listen address (empty disables it).
-	Addr string `env:"METRICS_ADDR" default:":9109"`
+	Addr string `env:"METRICS_ADDR" default:":9109" keepempty:"true"`
 }
 
 // Kafka configures the analytics-events consumer (ADR-0002).
 type Kafka struct {
-	sdkconfig.Kafka        // KAFKA_BROKERS
-	ConsumerGroup   string `env:"KAFKA_CONSUMER_GROUP" default:"team-analytics"`
-	AnalyticsTopic  string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
-	OrderTopic      string `env:"KAFKA_ORDER_TOPIC" default:"order.events"`
+	// Kafka holds KAFKA_BROKERS. It is a named field, not embedded, so Load resolves
+	// it once (an embedded group would also promote its ResolveFor to this group).
+	Kafka          sdkconfig.Kafka
+	ConsumerGroup  string `env:"KAFKA_CONSUMER_GROUP" default:"team-analytics" keepempty:"true"`
+	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events" keepempty:"true"`
+	OrderTopic     string `env:"KAFKA_ORDER_TOPIC" default:"order.events" keepempty:"true"`
 	// ListingTopic feeds the listing -> seller / category / price table (ListingChanged). It is
 	// read by its own consumer group, from the earliest offset, so existing listings backfill.
 	// The group name was bumped from team-analytics-listing-sellers when category and price
 	// were added (featurestore-item-attributes): a new group replays the topic once and
 	// refreshes every row.
-	ListingTopic         string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
-	ListingConsumerGroup string `env:"KAFKA_LISTING_CONSUMER_GROUP" default:"team-analytics-listing-attrs"`
+	ListingTopic         string `env:"KAFKA_LISTING_TOPIC" default:"listing.events" keepempty:"true"`
+	ListingConsumerGroup string `env:"KAFKA_LISTING_CONSUMER_GROUP" default:"team-analytics-listing-attrs" keepempty:"true"`
+	// ListingDLQTopic receives a listing batch the warehouse still cannot write after the
+	// SDK batch consumer's attempts, instead of blocking the group.
+	ListingDLQTopic string `env:"KAFKA_LISTING_DLQ_TOPIC" default:"listing.events.analytics.dlq" keepempty:"true"`
 }
 
 // Engagement configures the engagement.events consumer (engagement-fact-events D3).
 // It runs in its own consumer group; undecodable or unknown records are
 // republished to DLQTopic and the consumer commits past them.
 type Engagement struct {
-	EventsTopic   string `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events"`
-	DLQTopic      string `env:"ENGAGEMENT_DLQ_TOPIC" default:"engagement.events.analytics.dlq"`
-	ConsumerGroup string `env:"ENGAGEMENT_CONSUMER_GROUP" default:"team-analytics.engagement"`
+	EventsTopic   string `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events" keepempty:"true"`
+	DLQTopic      string `env:"ENGAGEMENT_DLQ_TOPIC" default:"engagement.events.analytics.dlq" keepempty:"true"`
+	ConsumerGroup string `env:"ENGAGEMENT_CONSUMER_GROUP" default:"team-analytics.engagement" keepempty:"true"`
 }
 
 // Warehouse selects and configures the WarehouseWriter adapter. DuckDB is the
 // local/test default (zero external deps, columnar Parquet); BigQuery is prod.
 type Warehouse struct {
-	Driver string `env:"WAREHOUSE_DRIVER" default:"duckdb"` // duckdb | bigquery
+	Driver string `env:"WAREHOUSE_DRIVER" default:"duckdb" keepempty:"true"` // duckdb | bigquery
 
 	// DuckDB adapter: filesystem path to the database/Parquet store.
-	DuckDBPath string `env:"DUCKDB_PATH" default:"/data/analytics.duckdb"`
+	DuckDBPath string `env:"DUCKDB_PATH" default:"/data/analytics.duckdb" keepempty:"true"`
 
 	// BigQuery adapter: project/dataset/table the rows are streamed into.
 	BigQueryProject string `env:"BIGQUERY_PROJECT" default:""`
-	BigQueryDataset string `env:"BIGQUERY_DATASET" default:"analytics"`
-	BigQueryTable   string `env:"BIGQUERY_TABLE" default:"tracking_events"`
+	BigQueryDataset string `env:"BIGQUERY_DATASET" default:"analytics" keepempty:"true"`
+	BigQueryTable   string `env:"BIGQUERY_TABLE" default:"tracking_events" keepempty:"true"`
 
 	// Offline-training export (DuckDB only): every ParquetExportIntervalSeconds the
 	// tracking_events table is written to ParquetExportPath (atomic replace) for
@@ -119,13 +123,13 @@ type Recs struct {
 // while ExportDataset is empty.
 type GA4 struct {
 	// ExportSource: bigquery (default when empty) | fixture (Parquet files for local/e2e).
-	ExportSource string `env:"GA4_EXPORT_SOURCE" default:"bigquery"`
+	ExportSource string `env:"GA4_EXPORT_SOURCE" default:"bigquery" keepempty:"true"`
 	// ExportDataset: BigQuery dataset holding events_YYYYMMDD ("dataset" or "project.dataset").
 	ExportDataset string `env:"GA4_EXPORT_DATASET" default:""`
 	// FixtureDir holds events_YYYYMMDD.parquet when ExportSource=fixture.
 	FixtureDir string `env:"GA4_EXPORT_FIXTURE_DIR" default:""`
 	// ImportAt: daily UTC "HH:MM" the consumer imports yesterday's export.
-	ImportAt string `env:"GA4_IMPORT_AT" default:"03:30"`
+	ImportAt string `env:"GA4_IMPORT_AT" default:"03:30" keepempty:"true"`
 	// ReconcileMaxDiffRatio: GA4 vs first-party event divergence threshold (>= 0).
 	ReconcileMaxDiffRatio float64 `env:"GA4_RECONCILE_MAX_DIFF_RATIO" default:"0.35"`
 
@@ -133,22 +137,19 @@ type GA4 struct {
 	// APISecret is a secret: never log it or include it in errors.
 	APISecret          string `env:"GA4_API_SECRET" default:""`
 	MeasurementID      string `env:"GA4_MEASUREMENT_ID" default:""`
-	Endpoint           string `env:"GA4_ENDPOINT" default:"https://www.google-analytics.com/mp/collect"`
-	RelayConsumerGroup string `env:"GA4_RELAY_CONSUMER_GROUP" default:"team-analytics.ga4-relay"`
-	RelayDLQTopic      string `env:"GA4_RELAY_DLQ_TOPIC" default:"analytics.ga4-relay.dlq"`
+	Endpoint           string `env:"GA4_ENDPOINT" default:"https://www.google-analytics.com/mp/collect" keepempty:"true"`
+	RelayConsumerGroup string `env:"GA4_RELAY_CONSUMER_GROUP" default:"team-analytics.ga4-relay" keepempty:"true"`
+	RelayDLQTopic      string `env:"GA4_RELAY_DLQ_TOPIC" default:"analytics.ga4-relay.dlq" keepempty:"true"`
 	RelayProbePort     int    `env:"GA4_RELAY_PROBE_PORT" default:"8085"`
 }
 
 // Validate enforces cross-field invariants and prod-safety.
 func (s Settings) Validate() error {
-	if err := s.GRPC.Validate(); err != nil {
-		return err
-	}
 	if s.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Port)
 	}
-	if s.ShutdownGraceSeconds < 0 {
-		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.ShutdownGraceSeconds)
+	if s.ShutdownGrace < 0 {
+		return fmt.Errorf("SHUTDOWN_GRACE must be >= 0: %v", s.ShutdownGrace)
 	}
 	if s.Batch.MaxSize <= 0 {
 		return fmt.Errorf("BATCH_MAX_SIZE must be > 0: %d", s.Batch.MaxSize)
@@ -214,42 +215,14 @@ func (s Settings) GA4RelayEnabled() bool {
 	return strings.TrimSpace(s.GA4.APISecret) != "" && strings.TrimSpace(s.GA4.MeasurementID) != ""
 }
 
-// Load reads Settings from the environment and validates it.
+// Load reads Settings from the environment and validates it. The SDK binder
+// validates every group (ENV, GRPC_PORT) and applies the KAFKA_BROKERS rule for
+// the ENV; Settings.Validate adds the cross-field checks.
 //
-// The SDK binder replaces a string variable that is set but empty with its
-// default. This service has always honoured an explicit empty string (for
-// example GA4_ENDPOINT= or DUCKDB_PATH=, which Validate then rejects), so Load
-// restores it and validates again.
+// A string variable that is set but empty keeps the empty string where its
+// field is tagged keepempty (for example GA4_ENDPOINT= or DUCKDB_PATH=, which
+// Validate then rejects): this service has always honoured an explicit empty
+// string instead of substituting the default.
 func Load() (Settings, error) {
-	s, err := sdkconfig.Load[Settings]()
-	if err != nil {
-		return s, err
-	}
-	honourExplicitEmpty(reflect.ValueOf(&s).Elem())
-	if err := s.Validate(); err != nil {
-		return s, err
-	}
-	return s, nil
-}
-
-// honourExplicitEmpty sets every string field whose env variable is set to ""
-// back to "", recursing into nested groups.
-func honourExplicitEmpty(v reflect.Value) {
-	t := v.Type()
-	for i := range t.NumField() {
-		f, fv := t.Field(i), v.Field(i)
-		if !f.IsExported() {
-			continue
-		}
-		if tag, ok := f.Tag.Lookup("env"); ok {
-			key, _, _ := strings.Cut(tag, ",")
-			if val, set := os.LookupEnv(key); set && val == "" && fv.Kind() == reflect.String {
-				fv.SetString("")
-			}
-			continue
-		}
-		if fv.Kind() == reflect.Struct {
-			honourExplicitEmpty(fv)
-		}
-	}
+	return sdkconfig.Load[Settings]()
 }

@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
+
 	"github.com/buidangphuc/team-analytics/internal/store"
 )
 
@@ -110,19 +112,15 @@ func Cycle(ctx context.Context, e Exporter, path string, logger *slog.Logger) er
 	return first
 }
 
-// Run exports once at start and then every interval until ctx is done. A failed
-// file is logged and retried on the next tick; it never stops the caller.
+// Run exports once at start and then every interval until ctx is done
+// (lifecycle.Every). A failed file is logged and retried on the next tick; it
+// never stops the caller.
 func Run(ctx context.Context, e Exporter, path string, interval time.Duration, logger *slog.Logger) {
-	tick := time.NewTicker(interval)
-	defer tick.Stop()
-	for {
-		if err := Cycle(ctx, e, path, logger); err != nil && ctx.Err() != nil {
-			return
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick.C:
-		}
+	c, err := lifecycle.Every(interval, func(ctx context.Context) error { return Cycle(ctx, e, path, logger) },
+		lifecycle.RunAtStart(), lifecycle.WithLogger(logger))
+	if err != nil {
+		logger.ErrorContext(ctx, "parquet export disabled", "err", err)
+		return
 	}
+	_ = c.Run(ctx)
 }

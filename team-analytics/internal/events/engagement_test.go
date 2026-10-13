@@ -9,9 +9,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
 
 	engagementv1 "github.com/buidangphuc/team-analytics/generated/platform/engagement/v1"
 	eventsv1 "github.com/buidangphuc/team-analytics/generated/platform/events/v1"
@@ -102,18 +103,18 @@ type engDLQ struct {
 	fail error
 }
 
-func (d *engDLQ) DeadLetter(_ context.Context, k, v []byte, _ error) error {
+func (d *engDLQ) DeadLetter(_ context.Context, r consume.Record, _ error) error {
 	if d.fail != nil {
 		return d.fail
 	}
-	d.keys, d.vals = append(d.keys, k), append(d.vals, v)
+	d.keys, d.vals = append(d.keys, r.Key), append(d.vals, r.Value)
 	return nil
 }
 
 func TestProcessEngagementRecordsDeadLettersAndContinues(t *testing.T) {
 	bad := []byte("garbage \xff\xff")
 	good := engEnvelope(t, "e1", events.FavoriteAddedEventType, &engagementv1.FavoriteAdded{UserId: "u", ListingId: "l"})
-	recs := []*kgo.Record{{Key: []byte("k0"), Value: bad}, {Key: []byte("k1"), Value: good}}
+	recs := []consume.Record{{Key: []byte("k0"), Value: bad}, {Key: []byte("k1"), Value: good}}
 	w, d := &engWriter{}, &engDLQ{}
 
 	require.NoError(t, events.ProcessEngagementRecords(context.Background(), recs, w, d, slog.Default()))
@@ -126,10 +127,10 @@ func TestProcessEngagementRecordsDeadLettersAndContinues(t *testing.T) {
 
 func TestProcessEngagementRecordsFailuresAreRetryable(t *testing.T) {
 	good := engEnvelope(t, "e1", events.FavoriteAddedEventType, &engagementv1.FavoriteAdded{UserId: "u", ListingId: "l"})
-	recs := []*kgo.Record{{Value: good}}
+	recs := []consume.Record{{Value: good}}
 	err := events.ProcessEngagementRecords(context.Background(), recs, &engWriter{fail: errors.New("disk")}, &engDLQ{}, slog.Default())
 	assert.Error(t, err, "a failed write must surface so offsets are not committed")
 
-	err = events.ProcessEngagementRecords(context.Background(), []*kgo.Record{{Value: []byte("\xff")}}, &engWriter{}, &engDLQ{fail: errors.New("broker")}, slog.Default())
+	err = events.ProcessEngagementRecords(context.Background(), []consume.Record{{Value: []byte("\xff")}}, &engWriter{}, &engDLQ{fail: errors.New("broker")}, slog.Default())
 	assert.Error(t, err, "a failed DLQ publish must surface so offsets are not committed")
 }

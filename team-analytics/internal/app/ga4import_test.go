@@ -12,11 +12,13 @@ import (
 	"time"
 )
 
-// GRPC_PORT is required (no default) in the SDK settings and every ga4import run
-// loads them; the image sets it, so the tests do the same.
+// GRPC_PORT and ENV are required (no default) in the SDK settings and every
+// ga4import run loads them; the image sets them, so the tests do the same.
 func TestMain(m *testing.M) {
-	if err := os.Setenv("GRPC_PORT", "50059"); err != nil {
-		panic(err)
+	for k, v := range map[string]string{"GRPC_PORT": "50059", "ENV": "test"} {
+		if err := os.Setenv(k, v); err != nil {
+			panic(err)
+		}
 	}
 	os.Exit(m.Run())
 }

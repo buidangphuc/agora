@@ -4,17 +4,20 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 
 	"github.com/buidangphuc/team-analytics/internal/config"
 )
 
-// GRPC_PORT is required (no default) in the SDK settings; the Dockerfile and the
-// deploy manifests set it, so the tests do the same.
+// GRPC_PORT and ENV are required (no default) in the SDK settings; the
+// Dockerfile and the deploy manifests set them, so the tests do the same.
 func TestMain(m *testing.M) {
-	if err := os.Setenv("GRPC_PORT", "50059"); err != nil {
-		panic(err)
+	for k, v := range map[string]string{"GRPC_PORT": "50059", "ENV": "test"} {
+		if err := os.Setenv(k, v); err != nil {
+			panic(err)
+		}
 	}
 	os.Exit(m.Run())
 }
@@ -278,5 +281,77 @@ func TestGA4RelayInvalidConfigErrorDoesNotContainSecret(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "TOP-SECRET-VALUE") {
 		t.Errorf("error leaks the API secret: %v", err)
+	}
+}
+
+// unsetEnv removes key for the test and restores it afterwards.
+func unsetEnv(t *testing.T, key string) {
+	t.Helper()
+	t.Setenv(key, "")
+	os.Unsetenv(key)
+}
+
+// Scenario: v1 SDK settings: ENV is required and has no default.
+func TestEnvIsRequired(t *testing.T) {
+	unsetEnv(t, "ENV")
+	_, err := config.Load()
+	if err == nil || !strings.Contains(err.Error(), "ENV") {
+		t.Fatalf("Load without ENV: want an error naming ENV, got %v", err)
+	}
+}
+
+// Scenario: v1 SDK settings: the shutdown timings are Go durations without a unit suffix.
+func TestShutdownTimingsAreGoDurations(t *testing.T) {
+	s, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.ShutdownGrace != 10*time.Second || s.DrainDelay != 0 {
+		t.Errorf("defaults = %v / %v, want 10s / 0s", s.ShutdownGrace, s.DrainDelay)
+	}
+	t.Setenv("SHUTDOWN_GRACE", "3s")
+	t.Setenv("SHUTDOWN_DRAIN_DELAY", "250ms")
+	s, err = config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.ShutdownGrace != 3*time.Second || s.DrainDelay != 250*time.Millisecond {
+		t.Errorf("SHUTDOWN_GRACE / SHUTDOWN_DRAIN_DELAY = %v / %v, want 3s / 250ms", s.ShutdownGrace, s.DrainDelay)
+	}
+	t.Setenv("SHUTDOWN_GRACE", "-1s")
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "SHUTDOWN_GRACE") {
+		t.Errorf("negative SHUTDOWN_GRACE: want an error naming it, got %v", err)
+	}
+}
+
+// Scenario: v1 SDK settings: KAFKA_BROKERS has no default in a deployed ENV.
+func TestKafkaBrokersRequiredInStrictEnv(t *testing.T) {
+	t.Setenv("ENV", "prod")
+	unsetEnv(t, "KAFKA_BROKERS")
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "KAFKA_BROKERS") {
+		t.Fatalf("prod without KAFKA_BROKERS: want an error naming it, got %v", err)
+	}
+	t.Setenv("KAFKA_BROKERS", "kafka:9092")
+	if _, err := config.Load(); err != nil {
+		t.Fatalf("prod with KAFKA_BROKERS: %v", err)
+	}
+}
+
+// Scenario: the listing consumer dead-letters a batch it cannot write.
+func TestListingDLQTopicDefault(t *testing.T) {
+	s, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "listing.events.analytics.dlq"; s.Kafka.ListingDLQTopic != want {
+		t.Errorf("KAFKA_LISTING_DLQ_TOPIC default = %q, want %q", s.Kafka.ListingDLQTopic, want)
+	}
+}
+
+// An explicitly empty string variable is honoured (keepempty), so Validate sees it.
+func TestExplicitEmptyDuckDBPathIsRejected(t *testing.T) {
+	t.Setenv("DUCKDB_PATH", "")
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "DUCKDB_PATH") {
+		t.Fatalf("empty DUCKDB_PATH: want an error naming it, got %v", err)
 	}
 }

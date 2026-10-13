@@ -17,10 +17,14 @@ import (
 // and registers the query service when one is supplied.
 func newTestServer(q analyticsv1.AnalyticsQueryServiceServer) *grpc.Server {
 	logger := slog.New(slog.DiscardHandler)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		panic(err)
+	}
 	srv := grpcx.NewServer(grpcx.ServerOptions{
 		Config: sdkconfig.GRPC{},
 		Logger: logger,
-		Health: healthx.New(healthx.DefaultInterval, logger),
+		Health: health,
 	})
 	if q != nil {
 		rpc.Register(srv, q)

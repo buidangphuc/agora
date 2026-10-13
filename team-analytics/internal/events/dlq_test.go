@@ -3,6 +3,7 @@ package events_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"sync"
@@ -17,6 +18,8 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
+	engagementv1 "github.com/buidangphuc/team-analytics/generated/platform/engagement/v1"
+	listingv1 "github.com/buidangphuc/team-analytics/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-analytics/internal/events"
 	"github.com/buidangphuc/team-analytics/internal/store"
 )
@@ -111,4 +114,97 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 	}
 	require.NotNil(t, got, "record was not redelivered after restart")
 	assert.Equal(t, poison, got.Value)
+	c2.AllowRebalance() // the group client blocks rebalances after a poll; Close waits for them
+}
+
+type listingFailWriter struct{}
+
+func (listingFailWriter) UpsertListingSellers(context.Context, []*store.ListingSellerRecord) error {
+	return errors.New("warehouse down")
+}
+
+func headersOf(r *kgo.Record) map[string]string {
+	m := map[string]string{}
+	for _, h := range r.Headers {
+		m[h.Key] = string(h.Value)
+	}
+	return m
+}
+
+// Scenario: an undecodable engagement record is dead-lettered with the kafkax dlq-* headers
+// and the rest of its batch is still written.
+func TestEngagementConsumerDeadLettersWithKafkaxHeaders(t *testing.T) {
+	brokers := testkit.Redpanda(t)
+	kc := sdkconfig.Kafka{Brokers: brokers}
+	const (
+		topic = "engagement.events"
+		dlq   = "engagement.events.analytics.dlq"
+		group = "team-analytics.engagement.headers"
+	)
+	poison := []byte("not an envelope \xff\xff")
+	good := engEnvelope(t, "e1", events.FavoriteAddedEventType, &engagementv1.FavoriteAdded{UserId: "u", ListingId: "l"})
+	testkit.Produce(t, brokers, topic, "k0", poison)
+	testkit.Produce(t, brokers, topic, "k1", good)
+
+	client, err := kafkax.NewConsumerClient(kc, group, []string{topic},
+		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()), kgo.AllowAutoTopicCreation())
+	require.NoError(t, err)
+	w := &recordingWriter{}
+	c := events.NewEngagementConsumer(client, dlq)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = c.Run(ctx, w, slog.New(slog.DiscardHandler))
+	}()
+	defer func() { cancel(); <-done; c.Close() }()
+
+	got := testkit.ReadAll(t, brokers, dlq, 1, 60*time.Second)
+	assert.Equal(t, poison, got[0].Value)
+	h := headersOf(got[0])
+	assert.Contains(t, h[kafkax.HeaderDLQError], "unmarshal envelope")
+	assert.Equal(t, topic, h[kafkax.HeaderDLQSourceTopic])
+	assert.Equal(t, "0", h[kafkax.HeaderDLQSourcePartition])
+	assert.Equal(t, "0", h[kafkax.HeaderDLQSourceOffset])
+	assert.Equal(t, group, h[kafkax.HeaderDLQSourceGroup])
+	assert.NotContains(t, h, "error", "the v0 header name is gone")
+	testkit.Eventually(t, 30*time.Second, func() bool {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		return len(w.rows) == 1
+	})
+}
+
+// Scenario: a listing batch the warehouse cannot write is dead-lettered after the batch
+// consumer's attempts instead of blocking the group forever.
+func TestListingConsumerDeadLettersBatchItCannotWrite(t *testing.T) {
+	brokers := testkit.Redpanda(t)
+	kc := sdkconfig.Kafka{Brokers: brokers}
+	const (
+		topic = "listing.events"
+		dlq   = "listing.events.analytics.dlq"
+		group = "team-analytics-listing-attrs.test"
+	)
+	value := listingEnvelope(t, events.ListingChangedEventType,
+		&listingv1.ListingChanged{Listing: &listingv1.Listing{Id: "lst-1", SellerId: "seller-1"}}, time.Now())
+	testkit.Produce(t, brokers, topic, "lst-1", value)
+
+	client, err := kafkax.NewConsumerClient(kc, group, []string{topic},
+		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()), kgo.AllowAutoTopicCreation())
+	require.NoError(t, err)
+	c := events.NewListingConsumer(client, dlq)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = c.Run(ctx, listingFailWriter{}, slog.New(slog.DiscardHandler))
+	}()
+	defer func() { cancel(); <-done; c.Close() }()
+
+	got := testkit.ReadAll(t, brokers, dlq, 1, 90*time.Second)
+	assert.Equal(t, value, got[0].Value)
+	h := headersOf(got[0])
+	assert.Contains(t, h[kafkax.HeaderDLQError], "warehouse down")
+	assert.Equal(t, topic, h[kafkax.HeaderDLQSourceTopic])
+	assert.Equal(t, group, h[kafkax.HeaderDLQSourceGroup])
 }

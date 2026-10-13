@@ -26,6 +26,7 @@ type Consumer struct {
 type pollClient interface {
 	PollFetches(ctx context.Context) kgo.Fetches
 	CommitUncommittedOffsets(ctx context.Context) error
+	AllowRebalance()
 	Close()
 }
 
@@ -40,6 +41,11 @@ func New(client *kgo.Client) *Consumer {
 // ctx is cancelled, doing a best-effort final flush so a partial batch is not
 // lost on graceful shutdown.
 //
+// Rebalances: the group client blocks them after every poll
+// (kafkax.NewConsumerClient, kgo.BlockRebalanceOnPoll). They are allowed again
+// when the polled records are committed and when Run returns, which Close
+// waits for.
+//
 // Offsets: CommitUncommittedOffsets commits the head of EVERYTHING polled, so it
 // is called only when no polled record is still buffered in either batcher
 // (commitIfDrained). Flush funcs therefore only write. Skipped records (unknown
@@ -53,6 +59,7 @@ func (c *Consumer) Run(
 	flushInterval time.Duration,
 	logger *slog.Logger,
 ) error {
+	defer c.client.AllowRebalance()
 	flushTracking := func(ctx context.Context, batch []*store.TrackingRecord) error {
 		return writer.Write(ctx, batch)
 	}
@@ -73,6 +80,7 @@ func (c *Consumer) Run(
 		if err := c.client.CommitUncommittedOffsets(ctx); err != nil && ctx.Err() == nil {
 			logger.WarnContext(ctx, "offset commit failed; will retry", "err", err)
 		}
+		c.client.AllowRebalance()
 	}
 
 	// Interval flush: bound how long a partial batch lingers (design.md).

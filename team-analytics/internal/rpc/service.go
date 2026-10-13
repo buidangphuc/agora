@@ -22,8 +22,6 @@ import (
 const (
 	// scopeAdmin gates the platform-wide order RPCs; it spans every seller.
 	scopeAdmin = "admin"
-	// principalTypeUser is the gateway-forwarded type of an end-user principal.
-	principalTypeUser = "user"
 	// defaultOrderWindow is the summary window when the caller sends none.
 	defaultOrderWindow = 24 * time.Hour
 	// defaultRecentOrders / maxRecentOrders bound ListRecentOrders.
@@ -92,7 +90,7 @@ func WithLogger(l *slog.Logger) Option {
 // internal returns the caller-facing Internal status for a repository failure:
 // the cause is logged, never sent (grpcx.Status).
 func (s *Service) internal(ctx context.Context, op string, err error) error {
-	return grpcx.Status(ctx, s.logger, fmt.Errorf("%s: %w", op, err), nil)
+	return grpcx.Status(ctx, s.logger, fmt.Errorf("%s: %w", op, err), grpcx.ErrorTable{})
 }
 
 // WithClock overrides the clock the report window is measured from (tests).
@@ -123,7 +121,7 @@ func requireSellerAccess(ctx context.Context, sellerID string) error {
 		return nil
 	}
 	sellerID = strings.TrimSpace(sellerID)
-	if p.Type == principalTypeUser && sellerID != "" && p.ID == sellerID {
+	if p.Type == auth.TypeUser && sellerID != "" && p.ID == sellerID {
 		return nil
 	}
 	return status.Error(codes.PermissionDenied, "not allowed to read this seller's analytics")

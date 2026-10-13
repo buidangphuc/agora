@@ -30,6 +30,7 @@ func freePort(t *testing.T) int {
 func TestBootFailsWhenDatabaseUnreachableDeployed(t *testing.T) {
 	port := freePort(t)
 	t.Setenv("ENV", "staging")
+	t.Setenv("KAFKA_BROKERS", "localhost:9092") // required when deployed
 	t.Setenv("GRPC_PORT", strconv.Itoa(port))
 	t.Setenv("METRICS_ADDR", "")
 	t.Setenv("WAREHOUSE_DRIVER", "duckdb")

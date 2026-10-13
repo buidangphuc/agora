@@ -26,12 +26,15 @@ type scriptedClient struct {
 	cancel        context.CancelFunc
 	commits       int
 	commitsAtPoll []int
+	allows        int
+	allowsAtPoll  []int
 }
 
 func (s *scriptedClient) PollFetches(context.Context) kgo.Fetches {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.commitsAtPoll = append(s.commitsAtPoll, s.commits)
+	s.allowsAtPoll = append(s.allowsAtPoll, s.allows)
 	if len(s.script) == 0 {
 		s.cancel()
 		return nil
@@ -46,6 +49,12 @@ func (s *scriptedClient) CommitUncommittedOffsets(context.Context) error {
 	defer s.mu.Unlock()
 	s.commits++
 	return nil
+}
+
+func (s *scriptedClient) AllowRebalance() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.allows++
 }
 
 func (s *scriptedClient) Close() {}
@@ -142,5 +151,32 @@ func TestRunNoCommitOnFailedWrite(t *testing.T) {
 	sc := runScripted(t, w, 1, fetchOf(trackingValue(t)))
 	if sc.commits != 0 {
 		t.Fatalf("commits = %d after failed write, want 0", sc.commits)
+	}
+}
+
+// The group client blocks rebalances after each poll (kafkax.NewConsumerClient),
+// so the loop must allow them again once the polled records are committed.
+func TestRunAllowsRebalanceAfterCommit(t *testing.T) {
+	shipped := envelope(t, "platform.order.v1.OrderShipped", &orderv1.OrderShipped{OrderId: "o1"})
+	sc := runScripted(t, fake.New(), 10, fetchOf(shipped))
+	if sc.allowsAtPoll[1] != 1 {
+		t.Fatalf("rebalance allowed %d time(s) after the committed fetch, want 1", sc.allowsAtPoll[1])
+	}
+}
+
+// While polled records are still buffered (not committed) rebalances stay
+// blocked: a revoked partition must not be committed after its new owner started.
+func TestRunKeepsRebalanceBlockedWhileBuffered(t *testing.T) {
+	sc := runScripted(t, fake.New(), 10, fetchOf(trackingValue(t))) // below the batch size: stays buffered
+	if sc.allowsAtPoll[1] != 0 {
+		t.Fatalf("rebalance allowed %d time(s) while a record was still buffered", sc.allowsAtPoll[1])
+	}
+}
+
+// Close waits for rebalances to be allowed, so Run allows them on the way out.
+func TestRunAllowsRebalanceBeforeReturning(t *testing.T) {
+	sc := runScripted(t, fake.New(), 10, fetchOf(trackingValue(t)))
+	if sc.allows == 0 {
+		t.Fatal("Run returned without allowing rebalances")
 	}
 }
