@@ -144,7 +144,7 @@ Owns: `pkg/outbox/**`, `platform-core/packages/go-sdk/README.md` (outbox and hea
 
 ## 20. Close re-review (orchestrator)
 
-- [ ] 20.1 Merge, full checks, FEATURES, third staff pass on the outbox and consume changes only.
+- [x] 20.1 Merge, full checks, FEATURES, third staff pass on the outbox and consume changes only.
 
 ## Third-pass fixes
 

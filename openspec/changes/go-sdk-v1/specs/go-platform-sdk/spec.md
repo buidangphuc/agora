@@ -243,7 +243,7 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 
 ### Requirement: Outbox rows publish in order with headers
 
-`outbox.Publisher` SHALL be `PublishRecord(ctx, *kgo.Record) error`. The relayer SHALL publish every row as a record keyed by `AggregateID`, on the row's `Topic` or else the relayer's `Topic`, with headers `event_id`, `event_type`, `x-request-id` and the `traceparent` stored at enqueue. Order SHALL hold per aggregate: a row SHALL NOT be claimed while an older unpublished row of the same aggregate exists, whether it is backing off, leased or parked; other aggregates SHALL NOT be held back. One relay batch SHALL be bounded by half of `Outbox.ClaimLock` (`OUTBOX_CLAIM_LOCK`). `EnqueueTx` SHALL reject an empty `EventID` with `ErrEmptyEventID`, and `Store.Purge(ctx, olderThan)` SHALL delete only published rows older than the duration. `SchemaSQL` SHALL add the `topic`, `traceparent` and `seq` columns and the two supporting indexes to a table created by an older SDK.
+`outbox.Publisher` SHALL be `PublishRecord(ctx, *kgo.Record) error`. The relayer SHALL publish every row as a record keyed by `AggregateID`, on the row's `Topic` or else the relayer's `Topic`, with the `kafkax` headers `event-id`, `event-type`, `x-request-id` and the `traceparent` stored at enqueue. Order SHALL hold per aggregate: a row SHALL NOT be claimed while an older unpublished row of the same aggregate exists, whether it is backing off, leased or parked; other aggregates SHALL NOT be held back. One relay batch SHALL be bounded by half of `Outbox.ClaimLock` (`OUTBOX_CLAIM_LOCK`). `EnqueueTx` SHALL reject an empty `EventID` with `ErrEmptyEventID`, and `Store.Purge(ctx, olderThan)` SHALL delete only published rows older than the duration. Only record-level errors (`MessageTooLarge`, `RecordListTooLarge`, `CorruptMessage`, `InvalidRecord`, `InvalidTimestamp`, or an error wrapped with `outbox.Permanent`) SHALL park a row; every other error SHALL retry with capped backoff, logging at ERROR once attempts exceed `RelayerOptions.AlertAfter`. `Store.Requeue` and `Store.RequeueParked` SHALL return parked rows to pending with attempts reset. The head scan SHALL resume after the last claimed aggregate and wrap around, so every aggregate is served. `SchemaSQL` SHALL create a fresh table; `UpgradeSQL` SHALL return the steps that move a table created by an older SDK to the new schema while numbering existing rows in `(created_at, event_id)` order.
 
 #### Scenario: Rows of one aggregate publish in enqueue order
 - **WHEN** several rows of one aggregate are enqueued, some in the same transaction
@@ -255,6 +255,21 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 - **THEN** B's rows are published and A's newer rows wait
 - **VERIFIED BY**: `TestFailingRowBlocksItsAggregateOnly`
 
+#### Scenario: Topic-level errors do not park rows
+- **WHEN** publishing fails with `UnknownTopicOrPartition` or a topic authorization error
+- **THEN** the row backs off and stays pending, and a `MessageTooLarge` error parks it
+- **VERIFIED BY**: `TestPublishErrorClassification`
+
+#### Scenario: Upgrading an older table keeps creation order
+- **WHEN** an older table with rows still unnumbered at Switch is upgraded and new rows are inserted after Switch
+- **THEN** every row has a unique `seq` in creation order and the relayer publishes in that order
+- **VERIFIED BY**: `TestUpgradeSQLKeepsOrderOfAV0Table`
+
+#### Scenario: High aggregate keys are not starved
+- **WHEN** more aggregates have a backlog than the batch size
+- **THEN** every aggregate publishes a row within a bounded number of passes
+- **VERIFIED BY**: `TestHeadScanCursorServesEveryAggregate`
+
 #### Scenario: A parked row keeps blocking its aggregate
 - **WHEN** a row of aggregate A is parked as failed
 - **THEN** newer rows of A are not claimed
@@ -262,7 +277,7 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 
 #### Scenario: Published records carry the headers
 - **WHEN** a row is enqueued in a context with a request id and a trace
-- **THEN** the published record has `event_id`, `event_type`, `x-request-id` and `traceparent` headers
+- **THEN** the published record has `event-id`, `event-type`, `x-request-id` and `traceparent` headers
 - **VERIFIED BY**: `TestPublishedRecordCarriesHeaders`
 
 #### Scenario: A row topic overrides the relayer topic
@@ -375,7 +390,7 @@ New package `pagination` SHALL export `Clamp(size, def, max int) int` (non-posit
 
 ### Requirement: Settings load from environment with the services' existing tags
 
-`config.Load[T]()` SHALL populate a settings struct from environment variables. It reads `env:"NAME"` and `default:"value"` tags, the tag names the services use today, and recurses into nested structs without prefixing. It SHALL return an error naming every variable that fails to parse or is marked `required` and unset. After parsing, `Load` SHALL call `Validate() error` on `T` when it has one, and on every nested or embedded group that has one, and SHALL return all their errors joined. `config.Postgres.Validate()` SHALL reject an empty `URL`: the database has no enable flag. `config.Runtime.Validate()` SHALL reject an empty `ENV`. The SDK SHALL provide the embeddable groups `Runtime`, `GRPC`, `Postgres`, `OTel`, `Kafka`, `Outbox` and `Flags`. Their variable names and defaults SHALL be `ENV` (required, no default), `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_PORT` (required), `SHUTDOWN_GRACE` (`10s`), `SHUTDOWN_DRAIN_DELAY` (`0s`), `DATABASE_URL`, `DB_MAX_CONNS`, `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `KAFKA_BROKERS` (no tag default), `OUTBOX_POLL_INTERVAL` (`1s`), `OUTBOX_BATCH_SIZE`, `OUTBOX_CLAIM_LOCK` (`60s`), `OUTBOX_MAX_ATTEMPTS`, `FEATURE_FLAGS_ENABLED`, `FLIPT_ADDR` (no tag default) and `FEATURE_FLAGS_EVAL_TIMEOUT` (`500ms`). Every duration SHALL be a `time.Duration` field read as a Go duration, and no key carries a unit suffix. `KAFKA_BROKERS`, and `FLIPT_ADDR` while `FEATURE_FLAGS_ENABLED` is true, SHALL be required when `Runtime.IsStrict()` and default to `localhost:9092` and `localhost:9000` otherwise. `Load` SHALL enforce this by calling `ResolveFor(Runtime)` on `config.Kafka` and `config.Flags` with the `Runtime` it finds in the settings struct (embedded or a named field; the zero `Runtime`, so the local behaviour, when there is none); a `Settings` type needs nothing beyond holding `Runtime` and the group. There is no `GRPC_REFLECTION_ENABLED` and no `DATABASE_ENABLED`. `Runtime.IsLocal()` SHALL be true only for an explicit `ENV` of `local` or `test`.
+`config.Load[T]()` SHALL populate a settings struct from environment variables. It reads `env:"NAME"` and `default:"value"` tags, the tag names the services use today, and recurses into nested structs without prefixing. It SHALL return an error naming every variable that fails to parse or is marked `required` and unset. After parsing, `Load` SHALL call `Validate() error` on `T` when it has one, and on every nested or embedded group that has one, and SHALL return all their errors joined. `config.Postgres.Validate()` SHALL reject an empty `URL`: the database has no enable flag. `config.Runtime.Validate()` SHALL reject an empty `ENV`. The SDK SHALL provide the embeddable groups `Runtime`, `GRPC`, `Postgres`, `OTel`, `Kafka`, `Outbox` and `Flags`. Their variable names and defaults SHALL be `ENV` (required, no default), `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_PORT` (required), `SHUTDOWN_GRACE` (`10s`), `SHUTDOWN_DRAIN_DELAY` (`0s`), `DATABASE_URL`, `DB_MAX_CONNS`, `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `KAFKA_BROKERS` (no tag default), `OUTBOX_POLL_INTERVAL` (`1s`), `OUTBOX_BATCH_SIZE`, `OUTBOX_CLAIM_LOCK` (`60s`), `FEATURE_FLAGS_ENABLED`, `FLIPT_ADDR` (no tag default) and `FEATURE_FLAGS_EVAL_TIMEOUT` (`500ms`). Every duration SHALL be a `time.Duration` field read as a Go duration, and no key carries a unit suffix. `KAFKA_BROKERS`, and `FLIPT_ADDR` while `FEATURE_FLAGS_ENABLED` is true, SHALL be required when `Runtime.IsStrict()` and default to `localhost:9092` and `localhost:9000` otherwise. `Load` SHALL enforce this by calling `ResolveFor(Runtime)` on `config.Kafka` and `config.Flags` with the `Runtime` it finds in the settings struct (embedded or a named field; the zero `Runtime`, so the local behaviour, when there is none); a `Settings` type needs nothing beyond holding `Runtime` and the group. There is no `GRPC_REFLECTION_ENABLED` and no `DATABASE_ENABLED`. `Runtime.IsLocal()` SHALL be true only for an explicit `ENV` of `local` or `test`.
 
 #### Scenario: Defaults apply and env overrides them
 - **WHEN** a struct embedding `config.Runtime` and `config.GRPC` is loaded with only `ENV=local`, `GRPC_PORT=50065` and `LOG_LEVEL=debug` set

@@ -2270,3 +2270,123 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestBootFailsWhenDatabaseUnreachableOutsideLocal"
+  - id: go-sdk.bad-rules-are-rejected
+    title: "Bad rules are rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When NewErrorTable receives a rule with a nil Target or with codes.OK"
+    - "Then it returns an error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestNewErrorTableRejectsBadRules"
+  - id: go-sdk.topic-level-errors-do-not-park-rows
+    title: "Topic-level errors do not park rows"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When publishing fails with UnknownTopicOrPartition or a topic authorization error"
+    - "Then the row backs off and stays pending, and a MessageTooLarge error parks it"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestPublishErrorClassification"
+  - id: go-sdk.upgrading-an-older-table-keeps-creation-order
+    title: "Upgrading an older table keeps creation order"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When an older table with rows still unnumbered at Switch is upgraded and new rows are inserted after Switch"
+    - "Then every row has a unique seq in creation order and the relayer publishes in that order"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestUpgradeSQLKeepsOrderOfAV0Table"
+  - id: go-sdk.high-aggregate-keys-are-not-starved
+    title: "High aggregate keys are not starved"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When more aggregates have a backlog than the batch size"
+    - "Then every aggregate publishes a row within a bounded number of passes"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestHeadScanCursorServesEveryAggregate"
+  - id: go-sdk.deployed-environments-require-the-broker-and-flipt-addresses
+    title: "Deployed environments require the broker and Flipt addresses"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When ENV=prod and KAFKA_BROKERS or FLIPT_ADDR (with flags enabled) is unset or empty, and again with ENV=local"
+    - "Then Load returns an error naming each missing variable, and for local fills localhost:9092 and localhost:9000"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestStrictEnvRequiresKafkaAndFlipt, TestStrictEnvRejectsEmptyKafkaBrokers, TestStrictEnvIgnoresFliptWhenFlagsDisabled and TestLocalEnvKeepsKafkaAndFliptDefaults"
+  - id: go-sdk.withtx-rolls-back-when-fn-exits-its-goroutine
+    title: "WithTx rolls back when fn exits its goroutine"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When fn calls runtime.Goexit inside a transaction on a one-connection pool"
+    - "Then no row is committed and the connection can be acquired again"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestWithTxGoexitRollsBack"
+  - id: go-sdk.closers-keep-a-live-context
+    title: "Closers keep a live context"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a component ignores cancellation for the whole grace period"
+    - "Then it is abandoned after ShutdownGrace minus CloseGrace and the closers still receive about CloseGrace of time"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestCloseGraceReservesTimeForClosers and TestDefaultCloseGraceKeepsClosersAlive"
+  - id: go-sdk.a-zero-policy-is-an-error-not-a-panic
+    title: "A zero Policy is an error, not a panic"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When Do receives resilience.Policy{}"
+    - "Then it returns an error and does not call fn"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestDoRejectsZeroPolicy"
