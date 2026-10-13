@@ -1,0 +1,12 @@
+# Publish-gate policies, one entry per registered model name.
+# No model is configured here yet; entries are added by the change that owns the model.
+#
+# Example (commented out, not loaded):
+#
+# my-model:
+#   primary: ndcg@10                  # required: metric compared against the champion
+#   min_relative_improvement: 0.01    # optional, default 0.0 (inclusive, >=)
+#   guards:                           # optional: candidate >= ratio * champion
+#     coverage@10: 0.8
+#   floors:                           # optional: candidate >= absolute value
+#     coverage@10: 0.5
