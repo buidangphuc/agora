@@ -46,7 +46,6 @@ def _start_analytics(world: World, env: dict[str, str]) -> tuple[str, Path]:
     base = {
         "ENV": "local",
         "GRPC_PORT": "50059",
-        "KAFKA_ENABLED": "true",
         "KAFKA_BROKERS": "redpanda:9092",
         "KAFKA_CONSUMER_GROUP": group,
         "ENGAGEMENT_CONSUMER_GROUP": f"{group}.engagement",
