@@ -10,11 +10,31 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
-// requestIDFrom returns the incoming x-request-id, or a new uuid when the
-// caller sent none.
+// maxRequestIDLen bounds an accepted incoming x-request-id.
+const maxRequestIDLen = 128
+
+// validRequestID reports whether id is 1..128 characters of [A-Za-z0-9._-].
+func validRequestID(id string) bool {
+	if id == "" || len(id) > maxRequestIDLen {
+		return false
+	}
+	for i := range len(id) {
+		c := id[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '.', c == '_', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// requestIDFrom returns the incoming x-request-id when it is at most 128
+// characters of [A-Za-z0-9._-], otherwise a new uuid: an id from the wire ends
+// up in logs and response headers, so it is not trusted as is.
 func requestIDFrom(ctx context.Context) string {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if v := md.Get(reqctx.MetadataRequestID); len(v) > 0 && v[0] != "" {
+		if v := md.Get(reqctx.MetadataRequestID); len(v) > 0 && validRequestID(v[0]) {
 			return v[0]
 		}
 	}

@@ -212,3 +212,18 @@ func TestRequireUserRejectsServiceAndAnonymous(t *testing.T) {
 		t.Fatalf("user: %+v, %v", p, err)
 	}
 }
+
+func TestPrincipalTypeConstants(t *testing.T) {
+	if _, ok := any(auth.Principal{}.Type).(auth.PrincipalType); !ok {
+		t.Fatal("Principal.Type is not auth.PrincipalType")
+	}
+	for typ, want := range map[auth.PrincipalType]string{auth.TypeUser: "user", auth.TypeService: "service", auth.TypeAnonymous: "anonymous"} {
+		if string(typ) != want {
+			t.Errorf("%q != %q", typ, want)
+		}
+	}
+	ctx := run(incoming(auth.MDPrincipalID, "u1", auth.MDPrincipalType, "service"), t)
+	if p, _ := auth.FromContext(ctx); p.Type != auth.TypeService {
+		t.Fatalf("type = %q", p.Type)
+	}
+}

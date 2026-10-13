@@ -92,8 +92,8 @@ Owns: `pkg/consume/**`, `pkg/kafkax/**`.
 
 Owns: `pkg/grpcx/**`, `pkg/auth/**`, `pkg/idempotency/**`, `examples/hello/internal/rpc/**`, `platform-core/templates/_service-go/internal/rpc/**`, `go.mod`, `go.sum`.
 
-- [ ] 13.1 M14 ordered error table; m3 default message is the sentinel text; M12 context errors map to Canceled/DeadlineExceeded without an ERROR log; m8 request-id validation.
-- [ ] 13.2 m15 `type PrincipalType string` for `Principal.Type` and the constants; `idempotency.ErrInvalidKey`.
+- [x] 13.1 M14 ordered error table; m3 default message is the sentinel text; M12 context errors map to Canceled/DeadlineExceeded without an ERROR log; m8 request-id validation.
+- [x] 13.2 m15 `type PrincipalType string` for `Principal.Type` and the constants; `idempotency.ErrInvalidKey`.
 
 ## 14. resilience, flags, lifecycle, healthx, upstream, testkit (wave 3)
 

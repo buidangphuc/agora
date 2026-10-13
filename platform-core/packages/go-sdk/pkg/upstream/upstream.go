@@ -123,7 +123,7 @@ func (o options) outgoing(ctx context.Context) context.Context {
 	p, ok := o.principal(ctx)
 	if ok {
 		md.Set(auth.MDPrincipalID, p.ID)
-		md.Set(auth.MDPrincipalType, p.Type)
+		md.Set(auth.MDPrincipalType, string(p.Type))
 		if len(p.Scopes) > 0 {
 			md.Set(auth.MDPrincipalScopes, strings.Join(p.Scopes, ","))
 		} else {

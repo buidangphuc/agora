@@ -161,6 +161,33 @@ func TestRequestIDPropagates(t *testing.T) {
 	}
 }
 
+func TestRequestIDRejectsOversizedOrBadCharset(t *testing.T) {
+	e := start(t, map[string]grpc.MethodHandler{"Ping": unary("Ping", echoRequestID)})
+
+	bad := map[string]string{
+		"too long": strings.Repeat("a", 129),
+		"space":    "a b",
+		"slash":    "a/b",
+	}
+	for name, id := range bad {
+		var hdr metadata.MD
+		ctx := metadata.AppendToOutgoingContext(context.Background(), reqctx.MetadataRequestID, id)
+		got, err := call(ctx, e.conn, "Ping", "", grpc.Header(&hdr))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got == id || got == "" || hdr.Get(reqctx.MetadataRequestID)[0] != got {
+			t.Errorf("%s: id %q was kept or header mismatch (got %q, hdr %v)", name, id, got, hdr)
+		}
+	}
+	for _, id := range []string{strings.Repeat("a", 128), "Abc-1_2.3"} {
+		ctx := metadata.AppendToOutgoingContext(context.Background(), reqctx.MetadataRequestID, id)
+		if got, err := call(ctx, e.conn, "Ping", ""); err != nil || got != id {
+			t.Errorf("valid id %q: got %q, %v", id, got, err)
+		}
+	}
+}
+
 func TestLoggingRecordsCallWithoutPayload(t *testing.T) {
 	e := start(t, map[string]grpc.MethodHandler{"Ping": unary("Ping", echoRequestID)})
 
@@ -189,12 +216,12 @@ var (
 )
 
 func TestStatusMapsKnownErrors(t *testing.T) {
-	table := grpcx.ErrorTable{errNotFound: grpcx.Code(codes.NotFound), errTaken: grpcx.Code(codes.AlreadyExists)}
+	table := grpcx.NewErrorTable(grpcx.Rule{Target: errNotFound, Code: codes.NotFound}, grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists})
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 
 	err := grpcx.Status(context.Background(), logger, fmt.Errorf("lookup 7: %w", errNotFound), table)
 	st, _ := status.FromError(err)
-	if st.Code() != codes.NotFound || st.Message() != "lookup 7: thing not found" {
+	if st.Code() != codes.NotFound || st.Message() != "thing not found" {
 		t.Fatalf("got %v", err)
 	}
 	if err := grpcx.Status(context.Background(), logger, nil, table); err != nil {
@@ -203,7 +230,7 @@ func TestStatusMapsKnownErrors(t *testing.T) {
 }
 
 func TestStatusUsesRuleMessage(t *testing.T) {
-	table := grpcx.ErrorTable{errTaken: {Code: codes.AlreadyExists, Message: "that name is already in use"}}
+	table := grpcx.NewErrorTable(grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists, Message: "that name is already in use"})
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 
 	err := grpcx.Status(context.Background(), logger, fmt.Errorf("insert pq: duplicate key: %w", errTaken), table)
@@ -213,14 +240,63 @@ func TestStatusUsesRuleMessage(t *testing.T) {
 	}
 }
 
-func TestStatusKeepsErrorTextWithoutMessage(t *testing.T) {
-	table := grpcx.ErrorTable{errNotFound: grpcx.Code(codes.NotFound)}
+func TestStatusDefaultsToSentinelText(t *testing.T) {
+	table := grpcx.NewErrorTable(grpcx.Rule{Target: errNotFound, Code: codes.NotFound})
 	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
 
 	err := grpcx.Status(context.Background(), logger, fmt.Errorf("lookup 7: %w", errNotFound), table)
 	st, _ := status.FromError(err)
-	if st.Code() != codes.NotFound || st.Message() != "lookup 7: thing not found" {
-		t.Fatalf("got %v, want NotFound with the error text", err)
+	if st.Code() != codes.NotFound || st.Message() != "thing not found" {
+		t.Fatalf("got %v, want NotFound with the sentinel text only", err)
+	}
+}
+
+func TestStatusFirstMatchingRuleWins(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+	both := fmt.Errorf("x: %w", errors.Join(errNotFound, errTaken))
+	for range 50 {
+		table := grpcx.NewErrorTable(
+			grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists},
+			grpcx.Rule{Target: errNotFound, Code: codes.NotFound})
+		if got := status.Code(grpcx.Status(context.Background(), logger, both, table)); got != codes.AlreadyExists {
+			t.Fatalf("code = %v, want AlreadyExists (first rule)", got)
+		}
+	}
+	rev := grpcx.NewErrorTable(
+		grpcx.Rule{Target: errNotFound, Code: codes.NotFound},
+		grpcx.Rule{Target: errTaken, Code: codes.AlreadyExists})
+	if got := status.Code(grpcx.Status(context.Background(), logger, both, rev)); got != codes.NotFound {
+		t.Fatalf("code = %v, want NotFound (first rule)", got)
+	}
+}
+
+func TestStatusMapsContextErrorsWithoutErrorLog(t *testing.T) {
+	cases := map[string]struct {
+		err  error
+		want codes.Code
+	}{
+		"canceled":          {context.Canceled, codes.Canceled},
+		"deadline":          {context.DeadlineExceeded, codes.DeadlineExceeded},
+		"wrapped canceled":  {fmt.Errorf("pq: query: %w", context.Canceled), codes.Canceled},
+		"wrapped deadline":  {fmt.Errorf("rpc: %w", context.DeadlineExceeded), codes.DeadlineExceeded},
+		"joined wins first": {errors.Join(errNotFound, context.Canceled), codes.Canceled},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			logs := &syncBuffer{}
+			logger := slog.New(slog.NewJSONHandler(logs, nil))
+			err := grpcx.Status(context.Background(), logger, c.err, grpcx.NewErrorTable())
+			st, _ := status.FromError(err)
+			if st.Code() != c.want {
+				t.Fatalf("code = %v, want %v", st.Code(), c.want)
+			}
+			if strings.Contains(st.Message(), "pq:") || strings.Contains(st.Message(), "rpc:") {
+				t.Errorf("message leaks the wrapped chain: %q", st.Message())
+			}
+			if strings.Contains(logs.String(), `"level":"ERROR"`) {
+				t.Errorf("context error logged at ERROR: %s", logs.String())
+			}
+		})
 	}
 }
 
@@ -228,7 +304,7 @@ func TestStatusHidesUnknownErrors(t *testing.T) {
 	logs := &syncBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
 
-	err := grpcx.Status(context.Background(), logger, errors.New("pq: password=secret"), grpcx.ErrorTable{})
+	err := grpcx.Status(context.Background(), logger, errors.New("pq: password=secret"), grpcx.NewErrorTable())
 	st, _ := status.FromError(err)
 	if st.Code() != codes.Internal || st.Message() != "internal error" {
 		t.Fatalf("got %v, want Internal %q", err, "internal error")
@@ -345,12 +421,12 @@ func TestStatusPassesThroughGRPCStatus(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
 	in := status.Error(codes.Unauthenticated, "authentication required")
 
-	out := grpcx.Status(context.Background(), logger, in, grpcx.ErrorTable{})
+	out := grpcx.Status(context.Background(), logger, in, grpcx.NewErrorTable())
 	if out != in { //nolint:errorlint // identity is the point: the error must be returned unchanged
 		t.Fatalf("got %v, want the same error", out)
 	}
 	// An Unknown status is not trusted: it is hidden like any other error.
-	unk := grpcx.Status(context.Background(), logger, status.Error(codes.Unknown, "pq: secret"), grpcx.ErrorTable{})
+	unk := grpcx.Status(context.Background(), logger, status.Error(codes.Unknown, "pq: secret"), grpcx.NewErrorTable())
 	if st, _ := status.FromError(unk); st.Code() != codes.Internal || st.Message() != "internal error" {
 		t.Fatalf("Unknown status leaked: %v", unk)
 	}

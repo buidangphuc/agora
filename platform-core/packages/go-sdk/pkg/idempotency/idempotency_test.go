@@ -1,6 +1,7 @@
 package idempotency_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -35,5 +36,13 @@ func TestValidateRule(t *testing.T) {
 	}
 	if idempotency.MDKey != "idempotency-key" {
 		t.Fatalf("MDKey = %q", idempotency.MDKey)
+	}
+}
+
+func TestValidateReturnsErrInvalidKey(t *testing.T) {
+	for _, k := range []string{"", strings.Repeat("a", 256), "a\nb"} {
+		if err := idempotency.Validate(k); !errors.Is(err, idempotency.ErrInvalidKey) {
+			t.Errorf("Validate(%q) = %v, want ErrInvalidKey", k, err)
+		}
 	}
 }

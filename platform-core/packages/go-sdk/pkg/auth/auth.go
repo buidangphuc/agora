@@ -20,11 +20,15 @@ const (
 	MDPrincipalScopes = "x-principal-scopes"
 )
 
-// Principal types carried in x-principal-type and the JWT typ claim.
+// PrincipalType is the kind of caller, carried in x-principal-type and the JWT
+// typ claim.
+type PrincipalType string
+
+// Principal types.
 const (
-	TypeUser      = "user"
-	TypeService   = "service"
-	TypeAnonymous = "anonymous"
+	TypeUser      PrincipalType = "user"
+	TypeService   PrincipalType = "service"
+	TypeAnonymous PrincipalType = "anonymous"
 )
 
 const anonymous = TypeAnonymous
@@ -32,13 +36,13 @@ const anonymous = TypeAnonymous
 // Principal is the caller identity forwarded by the gateway.
 type Principal struct {
 	ID     string
-	Type   string
+	Type   PrincipalType
 	Scopes []string
 }
 
 // Anonymous reports whether p is the gateway's anonymous principal.
 func (p Principal) Anonymous() bool {
-	return p.ID == "" || p.ID == anonymous || p.Type == anonymous
+	return p.ID == "" || p.ID == string(anonymous) || p.Type == anonymous
 }
 
 // HasScope reports whether p holds s by exact match.
@@ -122,7 +126,7 @@ func RequireUser(ctx context.Context) (Principal, error) {
 	return requireType(ctx, TypeUser, nil)
 }
 
-func requireType(ctx context.Context, typ string, scopes []string) (Principal, error) {
+func requireType(ctx context.Context, typ PrincipalType, scopes []string) (Principal, error) {
 	p, err := RequirePrincipal(ctx)
 	if err != nil {
 		return Principal{}, err
@@ -160,7 +164,7 @@ func withMetadataPrincipal(ctx context.Context) context.Context {
 	}
 	return WithPrincipal(ctx, Principal{
 		ID:     id,
-		Type:   first(md, MDPrincipalType),
+		Type:   PrincipalType(first(md, MDPrincipalType)),
 		Scopes: splitScopes(first(md, MDPrincipalScopes)),
 	})
 }
