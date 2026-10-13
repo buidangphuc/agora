@@ -17,16 +17,17 @@ const (
 	// scopePromoReserve is service-only (held by service-team-order, granted to no
 	// user role): it gates the voucher redemption saga RPCs.
 	scopePromoReserve = "promotion.reserve"
-
-	principalTypeService = "service"
 )
 
-// isService reports whether p is a service principal (type "service").
-func isService(p auth.Principal) bool { return p.Type == principalTypeService }
+// isService reports whether p is a service principal.
+func isService(p auth.Principal) bool { return p.Type == auth.TypeService }
 
 // requireService demands a principal of type service that also holds scope. The
 // type is checked, not only the scope string: a user principal that carries the
-// scope is PERMISSION_DENIED.
+// scope is PERMISSION_DENIED. It stays local because auth.RequireService checks
+// the type first and answers "principal type not allowed" (or "missing scope"),
+// where promotion has always answered "service principal required" after the
+// scope check; the text is client-visible.
 func requireService(ctx context.Context, scope string) (auth.Principal, error) {
 	p, err := auth.RequireScopes(ctx, scope)
 	if err != nil {

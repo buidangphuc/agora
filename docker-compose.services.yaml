@@ -369,7 +369,7 @@ services:
       - DATABASE_URL=postgres://promotion_svc:promotion_pass@postgres:5432/promotion_db?sslmode=disable
       - FEATURE_FLAGS_ENABLED=true
       - FLIPT_ADDR=flipt:9000
-      - FEATURE_FLAGS_EVAL_TIMEOUT_MS=500
+      - FEATURE_FLAGS_EVAL_TIMEOUT=500ms
       - KAFKA_BROKERS=redpanda:9092
       - PROMOTION_EVENTS_TOPIC=promotion.events
       # CreateCampaign checks listing ownership against team-domain (fails closed if unset).

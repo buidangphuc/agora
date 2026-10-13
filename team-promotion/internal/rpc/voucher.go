@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"strings"
 
@@ -13,7 +12,6 @@ import (
 
 	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-promotion/internal/promotion"
-	"github.com/buidangphuc/team-promotion/internal/store"
 )
 
 // VoucherHandler serves platform.promotion.v1.VoucherService: CRUD plus the
@@ -75,9 +73,6 @@ func (h *VoucherHandler) CreateVoucher(ctx context.Context, req *promotionv1.Cre
 		EndsAt:        promotion.TimeFromProto(req.GetEndsAt()),
 	})
 	if err != nil {
-		if errors.Is(err, promotion.ErrInvalidVoucher) {
-			return nil, status.Error(codes.InvalidArgument, "invalid voucher")
-		}
 		return nil, internalError(ctx, h.logger, "create voucher", err)
 	}
 	return &promotionv1.CreateVoucherResponse{Voucher: promotion.VoucherToProto(v)}, nil
@@ -90,9 +85,6 @@ func (h *VoucherHandler) GetVoucher(ctx context.Context, req *promotionv1.GetVou
 	}
 	v, err := h.svc.GetVoucher(ctx, req.GetCode())
 	if err != nil {
-		if errors.Is(err, store.ErrVoucherNotFound) {
-			return nil, status.Error(codes.NotFound, "voucher not found")
-		}
 		return nil, internalError(ctx, h.logger, "get voucher", err)
 	}
 	return &promotionv1.GetVoucherResponse{Voucher: promotion.VoucherToProto(v)}, nil

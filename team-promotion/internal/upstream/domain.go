@@ -38,7 +38,7 @@ func Dial(addr string, timeout time.Duration) (*Domain, error) {
 	if timeout > 0 {
 		opts = append(opts, sdkupstream.WithTimeout(timeout))
 	}
-	conn, err := sdkupstream.Dial(addr, opts...)
+	conn, err := sdkupstream.NewClient(addr, opts...)
 	if err != nil {
 		return nil, err
 	}

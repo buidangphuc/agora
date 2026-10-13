@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/flags"
+
 	listingv1 "github.com/buidangphuc/team-promotion/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-promotion/internal/events"
 	"github.com/buidangphuc/team-promotion/internal/store"
@@ -18,7 +20,9 @@ import (
 // stubFlags is a fixed-answer feature-flag evaluator for tests.
 type stubFlags struct{ enabled bool }
 
-func (s stubFlags) BooleanEnabled(_ context.Context, _ string, _ bool) bool { return s.enabled }
+func (s stubFlags) BooleanEnabled(_ context.Context, _ string, _ bool, _ ...flags.EvalOption) bool {
+	return s.enabled
+}
 
 func newFlashSvc(t *testing.T, flagEnabled bool) (*FlashSaleService, *capturePublisher) {
 	t.Helper()

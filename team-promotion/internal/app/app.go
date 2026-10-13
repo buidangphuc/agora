@@ -15,7 +15,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-promotion/internal/config"
 	"github.com/buidangphuc/team-promotion/internal/events"
@@ -54,22 +54,23 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("health: %w", err), stack.Close(ctx))
+	}
 
-	// Outside ENV=local an unreachable database fails boot. Locally the
-	// in-memory repositories keep the service usable; their data lives only for
-	// the process.
+	// Outside ENV=local and ENV=test an unreachable database fails boot. Locally
+	// the in-memory repositories keep the service usable; their data lives only
+	// for the process.
 	r := inMemoryRepos()
-	pool, err := pgx.Open(ctx, s.Database)
-	switch {
-	case err == nil:
-		r = postgresRepos(pool)
-		health.Register("postgres", pgx.Checker(pool))
-		stack.Push(func(context.Context) error { pool.Close(); return nil })
-	case s.Runtime.IsLocal():
-		logger.WarnContext(ctx, "database unreachable, using in-memory repositories", "err", err)
-	default:
+	pool, err := postgres.OpenOrLocal(ctx, s.Database, s.Runtime, logger)
+	if err != nil {
 		return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
+	}
+	if pool != nil {
+		r = postgresRepos(pool)
+		health.Register("postgres", postgres.Checker(pool))
+		stack.Push(func(context.Context) error { pool.Close(); return nil })
 	}
 
 	publisher, err := events.NewKafkaPublisher(s.Kafka, s.Events.Topic)
@@ -80,15 +81,8 @@ func Run(ctx context.Context, s config.Settings) error {
 
 	// A flag-system outage must not stop the service: degrade to the callers'
 	// defaults.
-	var evaluator flags.Evaluator
-	flagClient, err := flags.New(ctx, s.Flags, logger)
-	if err != nil {
-		logger.WarnContext(ctx, "feature flags unavailable; using defaults", "err", err)
-		evaluator = flags.Disabled()
-	} else {
-		evaluator = flagClient
-		stack.Push(flagClient.Close)
-	}
+	evaluator, closeFlags := flags.NewOrDisabled(ctx, s.Flags, logger)
+	stack.Push(closeFlags)
 
 	var domain *upstream.Domain
 	if addr := s.Upstream.DomainAddr; addr != "" {
@@ -116,8 +110,8 @@ func Run(ctx context.Context, s config.Settings) error {
 	)
 
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.Server.ShutdownGrace(),
-		DrainDelay:    s.Server.DrainDelay(),
+		ShutdownGrace: s.Server.ShutdownGrace,
+		DrainDelay:    s.Server.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,

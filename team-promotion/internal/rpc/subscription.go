@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"google.golang.org/grpc/codes"
@@ -60,14 +59,7 @@ func (h *SubscriptionHandler) Subscribe(ctx context.Context, req *promotionv1.Su
 	}
 	sub, err := h.svc.Subscribe(ctx, principal.ID, req.GetPlanId())
 	if err != nil {
-		switch {
-		case errors.Is(err, promotion.ErrPlanNotFound):
-			return nil, status.Error(codes.NotFound, "plan not found")
-		case errors.Is(err, promotion.ErrInvalidSubscription):
-			return nil, status.Error(codes.InvalidArgument, "invalid subscription")
-		default:
-			return nil, internalError(ctx, h.logger, "subscribe", err)
-		}
+		return nil, internalError(ctx, h.logger, "subscribe", err)
 	}
 	return &promotionv1.SubscribeResponse{Subscription: promotion.SubscriptionToProto(sub)}, nil
 }

@@ -37,7 +37,7 @@ func freePort(t *testing.T) int {
 func settings(port int, env string) config.Settings {
 	return config.Settings{
 		Runtime:  sdkconfig.Runtime{Env: env, LogLevel: "error", LogJSON: true},
-		Server:   sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGraceSeconds: 5},
+		Server:   sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGrace: 5 * time.Second},
 		Database: sdkconfig.Postgres{URL: closedDatabaseURL},
 		Kafka:    sdkconfig.Kafka{Brokers: "127.0.0.1:1"},
 		Events:   config.Events{Topic: "promotion.events"},

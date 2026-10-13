@@ -10,7 +10,7 @@ import (
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	"github.com/buidangphuc/team-promotion/internal/store"
@@ -27,7 +27,7 @@ func newTestPool(t *testing.T) *pgxpool.Pool {
 	if err := migrate.Up(ctx, url, fs.FS(migrations.Files)); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
-	pool, err := pgx.Open(ctx, config.Postgres{URL: url})
+	pool, err := postgres.Open(ctx, config.Postgres{URL: url})
 	if err != nil {
 		t.Fatalf("open pool: %v", err)
 	}

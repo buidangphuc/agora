@@ -21,6 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
 
 	commonv1 "github.com/buidangphuc/team-promotion/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-promotion/generated/platform/events/v1"
@@ -89,7 +90,7 @@ func (e *Emitter) emit(ctx context.Context, key, eventType string, payload []byt
 		OccurredAt:  timestamppb.New(e.nowFn().UTC()),
 		Principal:   principalFromContext(ctx),
 		Traceparent: firstIncomingMD(ctx, "traceparent"),
-		RequestId:   firstIncomingMD(ctx, "x-request-id"),
+		RequestId:   reqctx.RequestID(ctx),
 		Payload:     payload,
 	}
 	value, err := proto.Marshal(env)
@@ -107,13 +108,13 @@ func principalFromContext(ctx context.Context) *commonv1.Principal {
 	return &commonv1.Principal{Id: p.ID, Type: principalType(p.Type), Scopes: p.Scopes}
 }
 
-func principalType(t string) commonv1.PrincipalType {
+func principalType(t auth.PrincipalType) commonv1.PrincipalType {
 	switch t {
-	case "user":
+	case auth.TypeUser:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_USER
-	case "service":
+	case auth.TypeService:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
-	case "anonymous":
+	case auth.TypeAnonymous:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS
 	default:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_UNSPECIFIED

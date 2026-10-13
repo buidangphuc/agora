@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"google.golang.org/grpc/codes"
@@ -52,12 +51,6 @@ func (h *SponsoredHandler) CreateAdCampaign(ctx context.Context, req *promotionv
 		IsAdmin:   isAdmin(principal),
 	})
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return nil, err
-		}
-		if errors.Is(err, promotion.ErrInvalidAdCampaign) {
-			return nil, status.Error(codes.InvalidArgument, "invalid ad campaign")
-		}
 		return nil, internalError(ctx, h.logger, "create ad campaign", err)
 	}
 	return &promotionv1.CreateAdCampaignResponse{Campaign: promotion.AdCampaignToProto(campaign)}, nil

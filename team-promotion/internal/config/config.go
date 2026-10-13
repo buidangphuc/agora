@@ -60,16 +60,11 @@ func Load() (Settings, error) { return sdkconfig.Load[Settings]() }
 // DeclaredEnvKeys lists every env key Settings declares, for the drift test.
 func DeclaredEnvKeys() []string { return sdkconfig.DeclaredEnvKeys(Settings{}) }
 
-// Validate enforces the invariants the SDK groups and the service groups carry.
+// Validate enforces the invariants the service adds; sdkconfig.Load validates
+// the SDK groups itself.
 func (s Settings) Validate() error {
-	if err := s.Server.Validate(); err != nil {
-		return err
-	}
 	if s.Server.Port > maxPort {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
-	}
-	if err := s.Database.Validate(); err != nil {
-		return err
 	}
 	if s.Ads.MaxBid <= 0 {
 		return fmt.Errorf("MAX_AD_BID must be > 0: %d", s.Ads.MaxBid)

@@ -29,6 +29,7 @@ func TestConfigLoadSettings(t *testing.T) {
 }
 
 func TestAdCapsAndTimeoutDefaultsAndValidation(t *testing.T) {
+	t.Setenv("ENV", "test")
 	t.Setenv("DATABASE_URL", "postgres://x/y")
 	t.Setenv("GRPC_PORT", "50061")
 	cfg, err := config.Load()
@@ -128,6 +129,7 @@ func TestFeatureFlagsToggleKept(t *testing.T) {
 	if !slices.Contains(config.DeclaredEnvKeys(), "FEATURE_FLAGS_ENABLED") {
 		t.Fatal("FEATURE_FLAGS_ENABLED must stay declared")
 	}
+	t.Setenv("ENV", "test")
 	t.Setenv("DATABASE_URL", "postgres://x/y")
 	t.Setenv("GRPC_PORT", "50061")
 	cfg, err := config.Load()
@@ -136,5 +138,37 @@ func TestFeatureFlagsToggleKept(t *testing.T) {
 	}
 	if !cfg.Flags.Enabled {
 		t.Error("FEATURE_FLAGS_ENABLED must default to true")
+	}
+}
+
+// ENV has no default, and a deployed ENV must name its Kafka brokers and, with
+// flags enabled, its Flipt address: a silent localhost default there would boot
+// a pod that cannot publish or evaluate.
+func TestEnvRequiredAndStrictEnvNeedsBrokers(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x/y")
+	t.Setenv("GRPC_PORT", "50061")
+
+	t.Setenv("ENV", "")
+	if _, err := config.Load(); err == nil {
+		t.Error("empty ENV accepted, want error")
+	}
+
+	t.Setenv("ENV", "staging")
+	t.Setenv("KAFKA_BROKERS", "")
+	t.Setenv("FEATURE_FLAGS_ENABLED", "false")
+	if _, err := config.Load(); err == nil {
+		t.Error("ENV=staging without KAFKA_BROKERS accepted, want error")
+	}
+
+	t.Setenv("KAFKA_BROKERS", "redpanda:9092")
+	t.Setenv("FEATURE_FLAGS_ENABLED", "true")
+	t.Setenv("FLIPT_ADDR", "")
+	if _, err := config.Load(); err == nil {
+		t.Error("ENV=staging with flags enabled and no FLIPT_ADDR accepted, want error")
+	}
+
+	t.Setenv("FLIPT_ADDR", "flipt:9000")
+	if _, err := config.Load(); err != nil {
+		t.Errorf("ENV=staging with brokers and Flipt set: %v", err)
 	}
 }

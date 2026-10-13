@@ -82,22 +82,22 @@ drifts from the declared keys in either direction. The Makefile auto-loads `.env
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | `local` and `test` count as local: an unreachable database falls back to in-memory repositories |
+| `ENV` | required | no default; unset fails boot. `local` and `test` count as local: an unreachable database falls back to in-memory repositories. `staging`, `stage`, `prod`, `production` are strict: `KAFKA_BROKERS` and, with flags enabled, `FLIPT_ADDR` must be set |
 | `LOG_LEVEL` | `info` | |
 | `LOG_JSON` | `true` | JSON vs text slog |
 | `GRPC_HOST` | `0.0.0.0` | |
 | `GRPC_PORT` | required | `.env.example` and the Dockerfile use `50061` |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | graceful stop deadline |
-| `SHUTDOWN_DRAIN_DELAY_SECONDS` | `0` | keep serving this long after health reports NOT_SERVING |
+| `SHUTDOWN_GRACE` | `10s` | graceful stop deadline (Go duration) |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | keep serving this long after health reports NOT_SERVING (Go duration) |
 | `DATABASE_URL` | required | startup fails when empty; an unreachable database fails boot outside `ENV=local` |
 | `DB_MAX_CONNS` | `10` | pgx pool size |
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `""` | `.env.example` uses `localhost:4317` |
 | `OTEL_SERVICE_NAME` | `team-promotion` | |
 | `FEATURE_FLAGS_ENABLED` | `true` | a real toggle (gitops runs it `false`): `false` skips Flipt and flags return the caller default |
-| `FLIPT_ADDR` | `localhost:9000` | Flipt gRPC endpoint |
-| `FEATURE_FLAGS_EVAL_TIMEOUT_MS` | `500` | |
-| `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
+| `FLIPT_ADDR` | `localhost:9000` locally | Flipt gRPC endpoint; required in a strict `ENV` when flags are enabled |
+| `FEATURE_FLAGS_EVAL_TIMEOUT` | `500ms` | Go duration |
+| `KAFKA_BROKERS` | `localhost:9092` locally | comma-separated; required in a strict `ENV` |
 | `PROMOTION_EVENTS_TOPIC` | `promotion.events` | |
 | `UPSTREAM_DOMAIN_ADDR` | `""` | team-domain gRPC address (`team-domain-svc:50051` in compose). Unset: non-admin `CreateCampaign` fails closed; `.env.example` uses `localhost:50051` |
 

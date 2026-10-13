@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"google.golang.org/grpc/codes"
@@ -13,7 +12,6 @@ import (
 	commonv1 "github.com/buidangphuc/team-promotion/generated/platform/common/v1"
 	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-promotion/internal/promotion"
-	"github.com/buidangphuc/team-promotion/internal/store"
 )
 
 // FlashSaleHandler serves platform.promotion.v1.FlashSaleService.
@@ -57,12 +55,6 @@ func (h *FlashSaleHandler) CreateCampaign(ctx context.Context, req *promotionv1.
 		IsAdmin:   isAdmin(principal),
 	})
 	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return nil, err
-		}
-		if errors.Is(err, promotion.ErrInvalidCampaign) {
-			return nil, status.Error(codes.InvalidArgument, "invalid campaign")
-		}
 		return nil, internalError(ctx, h.logger, "create campaign", err)
 	}
 	return &promotionv1.CreateCampaignResponse{Campaign: promotion.CampaignToProto(c)}, nil
@@ -107,9 +99,6 @@ func (h *FlashSaleHandler) GetFlashSaleStock(ctx context.Context, req *promotion
 	}
 	remaining, stockCap, err := h.svc.GetFlashSaleStock(ctx, req.GetCampaignId())
 	if err != nil {
-		if errors.Is(err, store.ErrCampaignNotFound) {
-			return nil, status.Error(codes.NotFound, "campaign not found")
-		}
 		return nil, internalError(ctx, h.logger, "get flash sale stock", err)
 	}
 	return &promotionv1.GetFlashSaleStockResponse{Remaining: remaining, StockCap: stockCap}, nil
