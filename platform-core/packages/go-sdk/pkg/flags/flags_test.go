@@ -141,8 +141,8 @@ func TestTargetingKeyFromPrincipal(t *testing.T) {
 	}
 
 	c.BooleanEnabled(context.Background(), "f", false)
-	if got := r.context()[openfeature.TargetingKey]; got != auth.TypeAnonymous {
-		t.Errorf("targeting key without principal = %v, want %q", got, auth.TypeAnonymous)
+	if got := r.context()[openfeature.TargetingKey]; got != string(auth.TypeAnonymous) {
+		t.Errorf("targeting key without principal = %v, want %q", got, string(auth.TypeAnonymous))
 	}
 }
 
