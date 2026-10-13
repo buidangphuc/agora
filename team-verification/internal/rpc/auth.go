@@ -9,13 +9,6 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
 )
 
-// Principal types the gateway forwards in x-principal-type. A principal of any
-// other type (including none) is not trusted as a caller.
-const (
-	typeUser    = "user"
-	typeService = "service"
-)
-
 // authenticated returns the caller when it is an end user or a service.
 // No principal, an anonymous one, or a type that is neither user nor service is
 // Unauthenticated. The SDK's auth.RequirePrincipal alone also admits a missing
@@ -25,7 +18,7 @@ func authenticated(ctx context.Context) (auth.Principal, error) {
 	if err != nil {
 		return auth.Principal{}, err
 	}
-	if p.Type != typeUser && p.Type != typeService {
+	if p.Type != auth.TypeUser && p.Type != auth.TypeService {
 		return auth.Principal{}, status.Error(codes.Unauthenticated, "authentication required")
 	}
 	return p, nil
@@ -39,7 +32,7 @@ func userPrincipal(ctx context.Context) (auth.Principal, error) {
 	if err != nil {
 		return auth.Principal{}, err
 	}
-	if p.Type != typeUser {
+	if p.Type != auth.TypeUser {
 		return auth.Principal{}, status.Error(codes.PermissionDenied, "user principal required")
 	}
 	return p, nil

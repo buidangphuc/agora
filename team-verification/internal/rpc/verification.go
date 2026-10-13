@@ -29,21 +29,22 @@ type Handler struct {
 	errs   grpcx.ErrorTable
 }
 
-// NewHandler returns a Handler that maps domain errors with its error table.
-func NewHandler(svc *verification.Service, logger *slog.Logger) *Handler {
-	return &Handler{
-		svc:    svc,
-		logger: logger,
-		errs: grpcx.ErrorTable{
-			verification.ErrEmptyUser:       codes.InvalidArgument,
-			verification.ErrEmptyDocType:    codes.InvalidArgument,
-			verification.ErrEmptyDocRef:     codes.InvalidArgument,
-			verification.ErrEmptyID:         codes.InvalidArgument,
-			verification.ErrInvalidReview:   codes.InvalidArgument,
-			verification.ErrNotFound:        codes.NotFound,
-			verification.ErrAlreadyReviewed: codes.FailedPrecondition,
-		},
+// NewHandler returns a Handler that maps domain errors with its error table;
+// the client sees each sentinel error's own text.
+func NewHandler(svc *verification.Service, logger *slog.Logger) (*Handler, error) {
+	errs, err := grpcx.NewErrorTable(
+		grpcx.Rule{Target: verification.ErrEmptyUser, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: verification.ErrEmptyDocType, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: verification.ErrEmptyDocRef, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: verification.ErrEmptyID, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: verification.ErrInvalidReview, Code: codes.InvalidArgument},
+		grpcx.Rule{Target: verification.ErrNotFound, Code: codes.NotFound},
+		grpcx.Rule{Target: verification.ErrAlreadyReviewed, Code: codes.FailedPrecondition},
+	)
+	if err != nil {
+		return nil, err
 	}
+	return &Handler{svc: svc, logger: logger, errs: errs}, nil
 }
 
 // Register adds the verification service to s.
@@ -87,7 +88,7 @@ func (h *Handler) GetVerificationStatus(ctx context.Context, req *verificationv1
 	switch userID {
 	case "", p.ID:
 		// Own status is only meaningful for an end user.
-		if p.Type != typeUser {
+		if p.Type != auth.TypeUser {
 			return nil, status.Error(codes.PermissionDenied, "user principal required")
 		}
 		userID = p.ID

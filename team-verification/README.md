@@ -12,7 +12,7 @@ a **mock**: only an opaque `doc_ref` string (storage key) is stored, never real 
 Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module
 `github.com/buidangphuc/team-verification`. The platform layer (config, logging, tracing, auth,
 health, lifecycle, Postgres, gRPC server chain) is
-[go-sdk](../platform-core/packages/go-sdk/README.md) v0.1.1, vendored in `third_party/go-sdk` (see
+[go-sdk](../platform-core/packages/go-sdk/README.md) v1.0.0, vendored in `third_party/go-sdk` (see
 `third_party/go-sdk/VERSION`) by `platform-core/tools/sync-go-sdk.sh`; never edit it by hand. Layout
 follows [ADR-0016](../platform-core/docs/ADR/0016-go-service-convention-and-sdk.md):
 
@@ -78,10 +78,10 @@ and compose set 50064).
 
 | Var | Default | Meaning |
 |---|---|---|
-| `ENV` | `local` | `local` or `test` allow the in-memory fallback; anything else requires a reachable database. |
+| `ENV` | required, no default | `local` or `test` allow the in-memory fallback; anything else requires a reachable database. |
 | `LOG_LEVEL`, `LOG_JSON` | `info`, `true` | Logging. |
 | `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, required | Listen address. |
-| `SHUTDOWN_GRACE_SECONDS`, `SHUTDOWN_DRAIN_DELAY_SECONDS` | `10`, `0` | Shutdown drains health first, then stops within the grace period. |
+| `SHUTDOWN_GRACE`, `SHUTDOWN_DRAIN_DELAY` | `10s`, `0s` (Go durations) | Shutdown drains health first, then stops within the grace period. |
 | `DATABASE_URL`, `DB_MAX_CONNS` | required, `10` | Postgres. A missing `DATABASE_URL` fails at load. |
 | `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false`, none, none | Telemetry, off by default. |
 

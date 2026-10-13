@@ -30,6 +30,7 @@ spec:
             port: 50064
           grpcPort: 50064          # native gRPC health probes (grpc.health.v1.Health)
           env:
+            ENV: "local"          # required, no default; deployed envs set it in envs/<env>/services/
             GRPC_PORT: "50064"
           resources:
             requests:

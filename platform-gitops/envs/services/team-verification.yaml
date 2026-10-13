@@ -8,6 +8,10 @@ containerPort: 50064
 service:
   port: 50064
 grpcPort: 50064          # native gRPC health probes (grpc.health.v1.Health)
+# ENV is required and has no default: each env overlay sets it (envs/<env>/services/
+# team-verification.yaml); the local app (argocd/apps/team-verification.yaml) sets "local".
+env:
+  GRPC_PORT: "50064"
 resources:
   requests:
     cpu: 50m
