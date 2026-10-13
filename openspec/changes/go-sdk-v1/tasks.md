@@ -137,10 +137,10 @@ Owns: `pkg/grpcx/**` except request id files, `pkg/postgres/**`, `pkg/resilience
 
 Owns: `pkg/outbox/**`, `platform-core/packages/go-sdk/README.md` (outbox and header sections).
 
-- [ ] 19.1 N1 per-mark timeout; test with a slow publisher and a large ClaimLock.
-- [ ] 19.2 N2 stepwise, order-preserving migration in the SchemaSQL godoc and README (and `SchemaSQL` itself for fresh tables), "stop v0 relayers first"; N15 drop `claim_idx`.
-- [ ] 19.3 N3 claim an aggregate's consecutive run per pass, blocked aggregates out of the scan, blocked/parked counts exposed; a backlog test that bounds per-pass work.
-- [ ] 19.4 N5 park only non-retriable errors, transient errors retry with capped backoff; `Store.Requeue(ctx, eventID)`. N9 `NewStore`/`NewRelayer` return `(T, error)`; missing topic is not an attempt. N6 outbox uses the `kafkax` header constants.
+- [x] 19.1 N1 per-mark timeout; test with a slow publisher and a large ClaimLock.
+- [x] 19.2 N2 stepwise, order-preserving migration in the SchemaSQL godoc and README (and `SchemaSQL` itself for fresh tables), "stop v0 relayers first"; N15 drop `claim_idx`.
+- [x] 19.3 N3 claim an aggregate's consecutive run per pass, blocked aggregates out of the scan, blocked/parked counts exposed; a backlog test that bounds per-pass work.
+- [x] 19.4 N5 park only non-retriable errors, transient errors retry with capped backoff; `Store.Requeue(ctx, eventID)`. N9 `NewStore`/`NewRelayer` return `(T, error)`; missing topic is not an attempt. N6 outbox uses the `kafkax` header constants.
 
 ## 20. Close re-review (orchestrator)
 
