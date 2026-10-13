@@ -20,7 +20,11 @@ import (
 
 func newHandler() *rpc.Handler {
 	svc := verification.NewService(store.NewInMemoryKycRepo())
-	return rpc.NewHandler(svc, slog.New(slog.DiscardHandler))
+	h, err := rpc.NewHandler(svc, slog.New(slog.DiscardHandler))
+	if err != nil {
+		panic(err)
+	}
+	return h
 }
 
 // ctxAs resolves a principal exactly as the gRPC server does: forwarded
