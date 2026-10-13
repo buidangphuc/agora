@@ -222,6 +222,11 @@ def generation_present(settings, gen: str, client) -> bool:
     return bool(client.exists(settings.gen_popular_key(gen)))
 
 
+def ranker_present(settings, gen: str, client) -> bool:
+    """True when the generation carries a GBDT ranker artifact."""
+    return bool(client.exists(settings.gen_ranker_key(gen)))
+
+
 def prune_generations(settings, keep: set[str], client=None) -> int:
     """Delete the keys of every generation not in ``keep``. Returns the number of keys deleted.
 

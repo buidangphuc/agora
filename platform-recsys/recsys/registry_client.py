@@ -64,6 +64,7 @@ __all__ = [
     "PayloadRejected",
     "RegistryUnavailable",
     "alias_generation",
+    "alias_info",
     "apply",
     "build_als_artifact",
     "champion_drift_baseline",
@@ -74,6 +75,7 @@ __all__ = [
     "mark_rejected",
     "preflight",
     "register_rejected",
+    "restore_aliases",
     "rollback_champion",
     "snapshot_lineage",
     "start_run",
@@ -208,6 +210,35 @@ def alias_generation(alias: str, model: str = ALS_MODEL) -> str | None:
             return None
         raise
     return mv.tags.get("lineage.model_version")
+
+
+def alias_info(model: str, alias: str) -> dict[str, Any] | None:
+    """``{version, run_id, generation, has_artifact}`` of the version ``alias`` names, or None.
+
+    ``generation`` is the ``lineage.model_version`` tag; ``has_artifact`` is False for a metrics-only
+    version (one made by ``seed`` without an artifact)."""
+    s = Session()
+    try:
+        mv = s.call(s.client.get_model_version_by_alias, model, alias)
+    except MlflowException as exc:
+        if "not found" in str(exc).lower() or getattr(exc, "error_code", "") == "RESOURCE_DOES_NOT_EXIST":
+            return None
+        raise
+    files = s.call(s.client.list_artifacts, mv.run_id, "model") if mv.run_id else []
+    return {
+        "version": int(mv.version),
+        "run_id": mv.run_id,
+        "generation": mv.tags.get("lineage.model_version"),
+        "has_artifact": bool(files),
+    }
+
+
+def restore_aliases(model: str, champion: int, previous: int | None) -> None:
+    """Write ``champion`` (and ``previous``) back to the given versions: the undo of a rollback swap."""
+    s = Session()
+    if previous is not None:
+        s.call(s.client.set_registered_model_alias, model, "previous", str(previous))
+    s.call(s.client.set_registered_model_alias, model, "champion", str(champion))
 
 
 def dataset_lineage(lineage: Mapping[str, Any]) -> dict[str, Any]:

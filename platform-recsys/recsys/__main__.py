@@ -51,6 +51,26 @@ def _rollback(settings) -> int:
     return 0
 
 
+def _migrate_registry(settings) -> int:
+    from .load import redis_cache  # noqa: PLC0415
+    from .migrate import migrate  # noqa: PLC0415
+
+    log = logging.getLogger("recsys")
+    try:
+        client = redis_cache.connect(settings)
+        client.ping()
+    except Exception as exc:  # the champions to seed live in Redis
+        log.error("migrate-registry needs Redis: %s", exc)
+        return EXIT_FAILED
+    try:
+        outcome = migrate(settings, redis_client=client)
+    except RegistryUnavailable as exc:
+        log.error("migrate-registry failed, the registry is unavailable: %s", exc)
+        return EXIT_FAILED
+    log.info("migrate-registry done: %s", outcome)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     try:
@@ -65,8 +85,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     if argv and argv[0] == "rollback":
         return _rollback(settings)
+    if argv and argv[0] == "migrate-registry":
+        return _migrate_registry(settings)
     if argv:
-        logging.getLogger("recsys").error("unknown command %r (only 'rollback' is supported)", argv[0])
+        logging.getLogger("recsys").error(
+            "unknown command %r (only 'rollback' and 'migrate-registry' are supported)", argv[0]
+        )
         return EXIT_REFUSED
     try:
         summary = run(settings)

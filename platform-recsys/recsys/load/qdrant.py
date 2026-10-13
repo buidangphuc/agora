@@ -261,6 +261,14 @@ def generation_present(settings, generation: str, client=None) -> bool:
     return all(generation_collection(b, generation) in existing for b in _bases(settings))
 
 
+def two_tower_present(settings, generation: str, client=None) -> bool:
+    """True when the generation carries a two-tower item collection."""
+    if client is None:
+        client = _connect(settings)
+    name = generation_collection(settings.qdrant_two_tower_collection, generation)
+    return name in _real_collections(client)
+
+
 def activate_aliases(settings, generation: str, client=None) -> None:
     """Point the item and user aliases at the generation's collections in ONE atomic call."""
     if client is None:
