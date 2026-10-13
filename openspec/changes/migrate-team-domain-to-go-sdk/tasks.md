@@ -12,4 +12,27 @@ Owns: `team-domain/**`; for 1.8 also the team-domain entries in `platform-gitops
 - [x] 1.6 Review fixes. Remove the `os.Setenv("GRPC_PORT", …)` default from `config.Load`: compose (`GRPC_PORT=50051`), the Dockerfile `ENV` and `.env.example` already set it, and ADR-0016 says `GRPC_PORT` has no default. `TestLoadDefaults` sets `GRPC_PORT` explicitly; that is the only assertion-setup change allowed. Add or identify `TestAnonymousStockCallIsPermissionDenied`. Add `not-testable` FEATURES entries for "The publisher is not used after it is closed", "Existing suites stay green after the move" and "Anonymous callers are still denied stock RPCs with PermissionDenied". Verify `make check`, `features-check` and `spec_sync --strict`.
 - [x] 1.7 Drop `KAFKA_ENABLED` and `OUTBOX_ENABLED`: always wire the Kafka publisher and the relayer, and remove the strict-config `KAFKA_ENABLED=false` check, the no-op publisher path in app wiring (keep `NoopPublisher` only if tests use it) and both keys from `.env.example`, README and tests. Add `TestNoEnableFlagsDeclared` (Settings declares none of `DATABASE_ENABLED`, `KAFKA_ENABLED`, `OUTBOX_ENABLED`, `GRPC_REFLECTION_ENABLED`). Verify `make check`.
 - [x] 1.8 Re-sync to `go-sdk/v0.1.1` (after the orchestrator tags it): drop `DATABASE_ENABLED` and `GRPC_REFLECTION_ENABLED` uses; `TestBootRequiresDatabase` now covers a missing `DATABASE_URL`; retitle the FEATURES entry to "Missing database URL is rejected". Remove `KAFKA_ENABLED` from `platform-gitops/argocd/apps/team-domain.yaml` and `platform-gitops/envs/services/team-domain.yaml` and from the team-domain block in `docker-compose.services.yaml`, and `OUTBOX_ENABLED` there too. Verify `make check`, `features-check`, `spec_sync --strict`.
-- [ ] 1.9 (orchestrator) Rebuild team-domain from this branch in the local stack and run its automated platform-e2e features.
+- [x] 1.9 (orchestrator) Rebuild team-domain from this branch in the local stack and run its automated platform-e2e features.
+
+## 2. Use existing SDK packages instead of local copies
+
+Behaviour, wire messages and env names stay the same; existing tests keep their assertions. Where a switch would change a client-visible message or a retry rule, leave that site and note it in the report.
+
+Owns: `team-domain/**` except `third_party/**` (domain: the re-sync writes `third_party/**`).
+
+- [x] 2.1 Re-sync to the existing tag `go-sdk/v0.2.1` (`platform-core/tools/sync-go-sdk.sh go-sdk/v0.2.1 team-domain`); do not touch other services. Verify `make check`.
+- [x] 2.2 Replace the own outbox store, relayer and Kafka producer (`internal/store/outbox_pg.go`, `internal/events/relayer.go`, `internal/events/publisher.go` client setup) with SDK `outbox.NewStore`/`NewRelayer` and `kafkax.NewProducer`; use `config.Kafka`/`config.Outbox` keeping the current env names via tags; replace `afterServer` with `lifecycle.StopAfter`. Compare the existing outbox table with `outbox.SchemaSQL`; if they differ add a forward-only migration that keeps the previous release working. Verify `make check`.
+- [x] 2.3 Use `pgx.WithTx` for hand-rolled `Begin/Commit/Rollback` blocks. Verify `make check`.
+- [x] 2.4 Tests that apply every migration use `migrate.Up` instead of globbing `*.up.sql`. Verify `make check`.
+- [x] 2.5 Use `grpcx.Status` + `ErrorTable` where the client message stays identical. Verify `make check`.
+
+## 3. Adopt go-sdk v1.0.0
+
+Follow `platform-core/packages/go-sdk/README.md` "Upgrading to v1" and "Outbox table migration" at tag `go-sdk/v1.0.0`. Behaviour, wire messages, gRPC codes and Kafka payloads stay the same unless a step below says otherwise; existing test assertions are not loosened. Any earlier unchecked "Use existing SDK packages" items are done here against v1.
+
+Owns: `team-domain/**`, the team-domain blocks of `docker-compose*.yaml` and `platform-gitops/**` for team-domain.
+
+- [x] 3.1 Sync `go-sdk/v1.0.0` into team-domain only and fix every breaking change (package renames, ErrorTable, constructors returning errors, ENV required, renamed duration env keys and removed `OUTBOX_MAX_ATTEMPTS`, outbox `PublishRecord`, consume Record and DLQ headers, .env.example, compose and gitops).
+- [x] 3.2 Outbox table: forward-only migrations implementing `outbox.UpgradeSQL` (Prepare, Backfill, Switch in one transaction, Finish; `CONCURRENTLY` statements in their own migration files), a test that applies them to a table in the previous schema with rows and checks order, and a README deploy note (stop v0 relayers, purge published rows, requeue or delete v0 `failed` rows).
+- [x] 3.3 Replace local copies with SDK packages where the SDK now has them (as in the earlier task list, against v1). Sites left local get a one-line reason in the report.
+- [x] 3.4 Verify `make check`, `docker build`, red_first, openspec validate.

@@ -6,16 +6,16 @@ package rpc
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 
-	"github.com/buidangphuc/team-domain/internal/listing"
 	"github.com/buidangphuc/team-domain/internal/store"
 )
 
@@ -40,14 +40,7 @@ func (h *ListingHandler) CreateBundle(
 		BundlePrice: req.GetBundlePrice(),
 	}, ownerID)
 	if err != nil {
-		switch {
-		case errors.Is(err, listing.ErrTitleRequired):
-			return nil, status.Error(codes.InvalidArgument, "title is required")
-		case errors.Is(err, listing.ErrForbidden):
-			return nil, status.Error(codes.PermissionDenied, "no authenticated seller")
-		default:
-			return nil, status.Error(codes.Internal, "internal error")
-		}
+		return nil, grpcx.Status(ctx, nil, err, sellerErrs)
 	}
 	return &listingv1.CreateBundleResponse{Bundle: bundleToWire(created)}, nil
 }
@@ -70,10 +63,7 @@ func (h *ListingHandler) GetBundle(
 
 	b, err := h.bundles.Get(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, store.ErrBundleNotFound) {
-			return nil, status.Error(codes.NotFound, "not_found")
-		}
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, grpcx.Status(ctx, nil, err, sellerErrs)
 	}
 	return &listingv1.GetBundleResponse{Bundle: bundleToWire(b)}, nil
 }
@@ -102,7 +92,7 @@ func (h *ListingHandler) ListBundlesBySeller(
 
 	page, err := h.bundles.ListBySeller(ctx, req.GetSellerId(), cursor, pageSize)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, grpcx.Status(ctx, nil, err, sellerErrs)
 	}
 	return &listingv1.ListBundlesBySellerResponse{
 		Bundles: bundlesToWire(page.Items),

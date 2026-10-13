@@ -29,6 +29,7 @@ func TestLoadDefaults(t *testing.T) {
 	// DATABASE_URL is required; set it so Validate passes, then assert the other struct defaults apply.
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("GRPC_PORT", "50051")
+	t.Setenv("ENV", "local")
 	s, err := Load()
 	if err != nil {
 		t.Fatalf("Load with defaults: %v", err)
@@ -36,16 +37,17 @@ func TestLoadDefaults(t *testing.T) {
 	if s.Port != 50051 {
 		t.Errorf("default GRPC_PORT = %d, want 50051", s.Port)
 	}
-	if got := s.KafkaBrokers(); len(got) != 1 || got[0] != "localhost:9092" {
-		t.Errorf("default KafkaBrokers = %v, want [localhost:9092]", got)
+	if got := s.Kafka.BrokerList(); len(got) != 1 || got[0] != "localhost:9092" {
+		t.Errorf("default Kafka.BrokerList = %v, want [localhost:9092]", got)
 	}
 }
 
 func TestValidateDatabaseURLRequired(t *testing.T) {
-	s := &Settings{}
-	s.Port = 50051
-	s.Postgres.URL = ""
-	if err := s.Validate(); err == nil {
+	// The SDK Postgres group rejects an empty URL; Load runs every group's Validate.
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("GRPC_PORT", "50051")
+	t.Setenv("ENV", "local")
+	if _, err := Load(); err == nil {
 		t.Fatal("expected error: a missing DATABASE_URL")
 	}
 }
@@ -98,6 +100,7 @@ func TestRequireSafeStrictConfig_FromEnvironment(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("GRPC_PORT", "50051")
 	t.Setenv("ENV", "production")
+	t.Setenv("KAFKA_BROKERS", "")
 	if _, err := Load(); err == nil {
 		t.Fatal("production with default Kafka/storage settings must be refused by Load")
 	}
@@ -111,6 +114,7 @@ func reservationSettings(t *testing.T, env map[string]string) *Settings {
 	t.Helper()
 	t.Setenv("DATABASE_URL", "postgresql://x/y")
 	t.Setenv("GRPC_PORT", "50051")
+	t.Setenv("ENV", "local")
 	for k, v := range env {
 		t.Setenv(k, v)
 	}

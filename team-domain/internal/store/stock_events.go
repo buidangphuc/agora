@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sort"
+
+	"github.com/jackc/pgx/v5"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
 )
 
 // StockSnapshot is what a ListingStockChanged event announces: the listing's
@@ -20,7 +24,7 @@ type StockSnapshot struct {
 // row commits (or rolls back) with the stock change; a builder error rolls the
 // stock change back. Idempotent no-ops (repeated reserve, repeated or unknown
 // release, commit) never call it.
-type StockEventBuilder func(ctx context.Context, snap StockSnapshot) (OutboxRow, error)
+type StockEventBuilder func(ctx context.Context, snap StockSnapshot) (outbox.Row, error)
 
 // stockChanges collects, within one transaction, the listings whose stock really
 // changed and, per listing, the variants that changed ("" = base stock).
@@ -55,18 +59,18 @@ func (c stockChanges) variants(listingID string) []string {
 }
 
 // WithStockEvents makes every real stock change (reserve, release, sweep)
-// enqueue one ListingStockChanged row per affected listing on outbox, inside the
+// enqueue one ListingStockChanged row per affected listing on ob, inside the
 // stock-change transaction. Without it (DB-only tests, outbox disabled) no event
 // is written. Returns the repo for chaining.
-func (r *PostgresListingRepository) WithStockEvents(outbox *OutboxStore, b StockEventBuilder) *PostgresListingRepository {
-	r.outbox, r.stockEvent = outbox, b
+func (r *PostgresListingRepository) WithStockEvents(ob *outbox.Store, b StockEventBuilder) *PostgresListingRepository {
+	r.outbox, r.stockEvent = ob, b
 	return r
 }
 
 // emitStockChanges enqueues one ListingStockChanged row per changed listing over
 // tx, reading the post-change stock inside the same transaction. A listing
 // deleted meanwhile announces nothing. No-op when events are not configured.
-func (r *PostgresListingRepository) emitStockChanges(ctx context.Context, tx DBTX, changes stockChanges) error {
+func (r *PostgresListingRepository) emitStockChanges(ctx context.Context, tx pgx.Tx, changes stockChanges) error {
 	if r.outbox == nil || r.stockEvent == nil {
 		return nil
 	}
@@ -119,10 +123,10 @@ func (r *InMemoryListingRepository) WithStockEvents(b StockEventBuilder) *InMemo
 
 // StockEventRows returns a copy of the stock-change outbox rows recorded so far
 // (the in-memory analogue of the pending rows the Postgres repo writes).
-func (r *InMemoryListingRepository) StockEventRows() []OutboxRow {
+func (r *InMemoryListingRepository) StockEventRows() []outbox.Row {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return append([]OutboxRow(nil), r.stockRows...)
+	return append([]outbox.Row(nil), r.stockRows...)
 }
 
 // txLocked runs mutate as an all-or-nothing unit (the caller holds r.mu): the
@@ -150,7 +154,7 @@ func (r *InMemoryListingRepository) txLocked(ctx context.Context, mutate func(ch
 	if r.stockEvent == nil {
 		return nil
 	}
-	var rows []OutboxRow
+	var rows []outbox.Row
 	for _, listingID := range changes.listings() {
 		l, ok := r.byID[listingID]
 		if !ok {

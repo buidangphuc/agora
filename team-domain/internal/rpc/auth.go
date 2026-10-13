@@ -12,12 +12,6 @@ import (
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 )
 
-const (
-	principalTypeUser      = "user"
-	principalTypeService   = "service"
-	principalTypeAnonymous = "anonymous"
-)
-
 // requireScopes denies unless the forwarded principal holds every scope in want.
 // No principal is Unauthenticated; a missing scope is PermissionDenied.
 //
@@ -46,7 +40,7 @@ func requireServiceScope(ctx context.Context, want ...string) error {
 	if !ok {
 		return status.Error(codes.Unauthenticated, "authentication required")
 	}
-	if p.Type != principalTypeService {
+	if p.Type != auth.TypeService {
 		return status.Error(codes.PermissionDenied, "service principal required")
 	}
 	return requireScopes(ctx, want...)
@@ -62,13 +56,13 @@ func principalFromContext(ctx context.Context) (*commonv1.Principal, bool) {
 	return &commonv1.Principal{Id: p.ID, Type: wirePrincipalType(p.Type), Scopes: p.Scopes}, true
 }
 
-func wirePrincipalType(t string) commonv1.PrincipalType {
+func wirePrincipalType(t auth.PrincipalType) commonv1.PrincipalType {
 	switch t {
-	case principalTypeUser:
+	case auth.TypeUser:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_USER
-	case principalTypeService:
+	case auth.TypeService:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
-	case principalTypeAnonymous:
+	case auth.TypeAnonymous:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS
 	default:
 		return commonv1.PrincipalType_PRINCIPAL_TYPE_UNSPECIFIED

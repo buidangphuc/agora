@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/twmb/franz-go/pkg/kgo"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 )
@@ -22,5 +23,18 @@ func TestPostgresFixtureIsReachable(t *testing.T) {
 	var one int
 	if err := conn.QueryRow(ctx, "SELECT 1").Scan(&one); err != nil || one != 1 {
 		t.Fatalf("SELECT 1 = %d, err %v", one, err)
+	}
+}
+
+func TestRedpandaFixtureIsReachable(t *testing.T) {
+	brokers := testkit.Redpanda(t)
+
+	client, err := kgo.NewClient(kgo.SeedBrokers(brokers))
+	if err != nil {
+		t.Fatalf("client: %v", err)
+	}
+	defer client.Close()
+	if err := client.Ping(context.Background()); err != nil {
+		t.Fatalf("ping %s: %v", brokers, err)
 	}
 }

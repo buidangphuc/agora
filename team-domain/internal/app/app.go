@@ -10,15 +10,17 @@ import (
 	"log/slog"
 	"os"
 
+	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-domain/internal/config"
-	"github.com/buidangphuc/team-domain/internal/events"
 	"github.com/buidangphuc/team-domain/internal/listing"
 	"github.com/buidangphuc/team-domain/internal/objects"
 	"github.com/buidangphuc/team-domain/internal/rpc"
@@ -27,10 +29,17 @@ import (
 
 const service = "team-domain"
 
+// Publisher is what the outbox relayer publishes through, plus the close handle
+// the app registers on the stack. *kafkax.Producer satisfies it.
+type Publisher interface {
+	outbox.Publisher
+	Close()
+}
+
 // Options are the seams tests use; Run passes the zero value.
 type Options struct {
-	// NewPublisher builds the Kafka publisher. Default: events.NewKafkaPublisher.
-	NewPublisher func(brokers []string, topic string) (events.Publisher, error)
+	// NewPublisher builds the Kafka publisher. Default: kafkax.NewProducer.
+	NewPublisher func(sdkconfig.Kafka) (Publisher, error)
 	// LogOut receives the service log. Default: os.Stdout.
 	LogOut io.Writer
 }
@@ -40,7 +49,7 @@ type Options struct {
 // database, publisher, domain, server. Everything opened goes on the stack;
 // closers run in reverse order on shutdown and on an early failure.
 //
-// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY_SECONDS passes, the gRPC
+// Shutdown order: health drains, SHUTDOWN_DRAIN_DELAY passes, the gRPC
 // server stops, then the relayer and the sweeper stop, then the publisher and
 // the pool close.
 //
@@ -68,24 +77,30 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("health: %w", err), stack.Close(ctx))
+	}
 
-	pool, err := pgx.Open(ctx, s.Postgres)
+	pool, err := postgres.Open(ctx, s.Postgres)
 	if err != nil {
 		return errors.Join(fmt.Errorf("open database: %w", err), stack.Close(ctx))
 	}
 	stack.Push(func(context.Context) error { pool.Close(); return nil })
-	health.Register("postgres", pgx.Checker(pool))
+	health.Register("postgres", postgres.Checker(pool))
 
 	// The transactional outbox lives over the same pool; each write enqueues its
 	// event in its own transaction (ADR-0002) and the relayer publishes the rows.
-	outbox := store.NewOutboxStore(pool)
+	outboxStore, err := outbox.NewStore(pool, store.OutboxTable)
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox store: %w", err), stack.Close(ctx))
+	}
 
 	newPublisher := o.NewPublisher
 	if newPublisher == nil {
 		newPublisher = newKafkaPublisher
 	}
-	publisher, err := newPublisher(s.KafkaBrokers(), s.Events.ListingTopic)
+	publisher, err := newPublisher(s.Kafka)
 	if err != nil {
 		return errors.Join(fmt.Errorf("kafka publisher: %w", err), stack.Close(ctx))
 	}
@@ -94,8 +109,8 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 	repo := store.NewPostgresListingRepository(pool)
 	// Reserve / release / sweep announce ListingStockChanged on the same outbox,
 	// inside their own stock-change transaction.
-	repo.WithStockEvents(outbox, rpc.NewStockEventBuilder())
-	svc := listing.NewListingServiceWithOutbox(repo, store.NewPgTxWriter(pool, outbox))
+	repo.WithStockEvents(outboxStore, rpc.NewStockEventBuilder())
+	svc := listing.NewListingServiceWithOutbox(repo, store.NewPgTxWriter(pool, outboxStore))
 	svc.WithReservationTTL(s.ReservationTTL(logger))
 
 	handler := rpc.NewListingHandler(svc, store.NewPostgresCategoryRepository(pool), objects.NewS3Storage(s.Storage)).
@@ -105,50 +120,30 @@ func run(ctx context.Context, s config.Settings, o Options) error {
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
 	rpc.Register(srv, handler)
 
-	serverStopped := make(chan struct{})
-	serve := grpcx.Serve(srv, s.GRPC)
-	components := []lifecycle.Component{
-		lifecycle.Func(func(ctx context.Context) error {
-			defer close(serverStopped)
-			return serve.Run(ctx)
-		}),
-		lifecycle.Func(health.Run),
-		// Reservation sweeper (AD3): releases stock held past its TTL so a crashed
-		// checkout never leaks inventory.
-		afterServer(serverStopped, listing.NewReservationSweeper(svc, s.ReservationSweepInterval(logger), logger)),
-	}
 	// Outbox relayer: publishes the rows each write recorded (ADR-0002).
-	relayer := events.NewRelayer(outbox, publisher, logger, events.RelayerConfig{
-		PollInterval: s.OutboxPollInterval(),
-		BatchSize:    s.Outbox.BatchSize,
-		LockSeconds:  s.Outbox.ClaimLockSeconds,
-		MaxAttempts:  s.Outbox.MaxAttempts,
+	relayer, err := outbox.NewRelayer(outboxStore, publisher, outbox.RelayerOptions{
+		Topic:  s.Events.ListingTopic,
+		Config: s.Outbox,
+		Logger: logger,
 	})
-	components = append(components, afterServer(serverStopped, relayer))
+	if err != nil {
+		return errors.Join(fmt.Errorf("outbox relayer: %w", err), stack.Close(ctx))
+	}
+	// Reservation sweeper (AD3): releases stock held past its TTL so a crashed
+	// checkout never leaks inventory.
+	sweeper := listing.NewReservationSweeper(svc, s.ReservationSweepInterval(logger), logger)
 
+	// The relayer and the sweeper keep running until the gRPC server has stopped,
+	// so in-flight RPCs that enqueue outbox rows are drained before they stop.
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
-	}, components...)
+	}, lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, sweeper), lifecycle.Func(health.Run))
 }
 
-func newKafkaPublisher(brokers []string, topic string) (events.Publisher, error) {
-	return events.NewKafkaPublisher(brokers, topic)
-}
-
-// afterServer runs c until the gRPC server has stopped, so in-flight RPCs that
-// enqueue outbox rows are drained before the relayer and the sweeper stop.
-func afterServer(serverStopped <-chan struct{}, c lifecycle.Component) lifecycle.Component {
-	return lifecycle.Func(func(ctx context.Context) error {
-		runCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
-		defer cancel()
-		go func() {
-			<-serverStopped
-			cancel()
-		}()
-		return c.Run(runCtx)
-	})
+func newKafkaPublisher(c sdkconfig.Kafka) (Publisher, error) {
+	return kafkax.NewProducer(c)
 }

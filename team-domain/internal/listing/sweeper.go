@@ -2,8 +2,11 @@ package listing
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
+
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
 )
 
 // ReservationSweeper periodically releases stock held by reservations past their
@@ -39,28 +42,25 @@ func (s *ReservationSweeper) SweepOnce(ctx context.Context, now time.Time) (int,
 }
 
 // Run sweeps on the configured interval until ctx is cancelled. A sweep error is
-// transient (e.g. a DB blip) — it is logged and retried on the next tick.
+// transient (e.g. a DB blip): lifecycle.Every logs it and the next tick retries.
 func (s *ReservationSweeper) Run(ctx context.Context) error {
 	// The effective values are logged as strings ("15m0s") so operators and the
 	// e2e config scenarios can read them in either log format.
 	s.logger.InfoContext(ctx, "reservation sweeper started",
 		"reservation_ttl", s.svc.ReservationTTL().String(),
 		"sweep_interval", s.interval.String())
-	ticker := time.NewTicker(s.interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case now := <-ticker.C:
-			released, err := s.SweepOnce(ctx, now)
-			if err != nil {
-				s.logger.WarnContext(ctx, "reservation sweep failed", "err", err)
-				continue
-			}
-			if released > 0 {
-				s.logger.InfoContext(ctx, "released expired reservations", "released", released)
-			}
+	every, err := lifecycle.Every(s.interval, func(ctx context.Context) error {
+		released, err := s.SweepOnce(ctx, time.Now())
+		if err != nil {
+			return fmt.Errorf("reservation sweep failed: %w", err)
 		}
+		if released > 0 {
+			s.logger.InfoContext(ctx, "released expired reservations", "released", released)
+		}
+		return nil
+	}, lifecycle.WithLogger(s.logger))
+	if err != nil {
+		return err
 	}
+	return every.Run(ctx)
 }

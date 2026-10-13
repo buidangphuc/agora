@@ -4,27 +4,29 @@ import (
 	"bytes"
 	"context"
 	"net"
-	"os"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	"github.com/buidangphuc/team-domain/internal/app"
 	"github.com/buidangphuc/team-domain/internal/config"
-	"github.com/buidangphuc/team-domain/internal/events"
 	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/migrations"
 )
 
 // freePort asks the kernel for an unused port and releases it for the service.
@@ -41,7 +43,7 @@ func freePort(t *testing.T) int {
 func baseSettings(port int) config.Settings {
 	return config.Settings{
 		Runtime: sdkconfig.Runtime{Env: "local", LogLevel: "error", LogJSON: true},
-		GRPC:    sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGraceSeconds: 10},
+		GRPC:    sdkconfig.GRPC{Host: "127.0.0.1", Port: port, ShutdownGrace: 10 * time.Second},
 	}
 }
 
@@ -97,9 +99,9 @@ type fakePublisher struct {
 	produced chan struct{}
 }
 
-func (p *fakePublisher) ProduceRaw(_ context.Context, key string, _ []byte) error {
+func (p *fakePublisher) PublishRecord(_ context.Context, rec *kgo.Record) error {
 	p.mu.Lock()
-	p.calls = append(p.calls, "produce:"+key)
+	p.calls = append(p.calls, "produce:"+string(rec.Key))
 	p.mu.Unlock()
 	select {
 	case p.produced <- struct{}{}:
@@ -120,40 +122,29 @@ func (p *fakePublisher) log() []string {
 	return append([]string(nil), p.calls...)
 }
 
-var _ events.Publisher = (*fakePublisher)(nil)
-
-// applyMigrations applies every migrations/*.up.sql in order, as the compose
-// job team-domain-migrate does in the stack.
-func applyMigrations(t *testing.T, pool *pgxpool.Pool) {
-	t.Helper()
-	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
-	if err != nil || len(files) == 0 {
-		t.Fatalf("find migrations: %v (n=%d)", err, len(files))
-	}
-	sort.Strings(files)
-	for _, f := range files {
-		sql, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := pool.Exec(context.Background(), string(sql)); err != nil {
-			t.Fatalf("apply %s: %v", filepath.Base(f), err)
-		}
-	}
-}
+var _ app.Publisher = (*fakePublisher)(nil)
 
 func TestShutdownStopsRelayerBeforePoolClose(t *testing.T) {
-	url := testkit.Postgres(t)
+	// Every migration applied, as the compose job team-domain-migrate does in the stack.
+	url := testkit.Schema(t, testkit.SharedPostgres(t))
 	ctx := context.Background()
+	if err := migrate.Up(ctx, url, migrations.Files); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
 
 	admin, err := pgxpool.New(ctx, url)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer admin.Close()
-	applyMigrations(t, admin)
-	if err := store.NewOutboxStore(admin).EnqueueTx(ctx, admin, store.OutboxRow{
-		EventID: "e1", AggregateType: "Listing", AggregateID: "l1", EventType: "t", Payload: []byte("env"),
+	ob, err := outbox.NewStore(admin, store.OutboxTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := postgres.WithTx(ctx, admin, func(tx pgx.Tx) error {
+		return ob.EnqueueTx(ctx, tx, outbox.Row{
+			EventID: "e1", AggregateType: "Listing", AggregateID: "l1", EventType: "t", Payload: []byte("env"),
+		})
 	}); err != nil {
 		t.Fatalf("seed outbox row: %v", err)
 	}
@@ -162,13 +153,14 @@ func TestShutdownStopsRelayerBeforePoolClose(t *testing.T) {
 	port := freePort(t)
 	s := baseSettings(port)
 	s.Postgres = sdkconfig.Postgres{URL: url + "&application_name=" + appName, MaxConns: 4}
-	s.Events = config.Events{Brokers: "unused:9092", ListingTopic: "listing.events"}
-	s.Outbox = config.Outbox{PollInterval: "10ms", BatchSize: 10, ClaimLockSeconds: 60, MaxAttempts: 10}
+	s.Kafka = sdkconfig.Kafka{Brokers: "unused:9092"}
+	s.Events = config.Events{ListingTopic: "listing.events"}
+	s.Outbox = sdkconfig.Outbox{PollInterval: 10 * time.Millisecond, BatchSize: 10, ClaimLock: time.Minute}
 
 	pub := &fakePublisher{produced: make(chan struct{}, 1)}
 	logs := &syncBuffer{}
 	opts := app.Options{
-		NewPublisher: func([]string, string) (events.Publisher, error) { return pub, nil },
+		NewPublisher: func(sdkconfig.Kafka) (app.Publisher, error) { return pub, nil },
 		LogOut:       logs,
 	}
 

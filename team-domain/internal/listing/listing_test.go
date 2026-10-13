@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/outbox"
+
 	"github.com/buidangphuc/team-domain/internal/listing"
 	"github.com/buidangphuc/team-domain/internal/store"
 )
@@ -91,8 +93,8 @@ func TestListingService(t *testing.T) {
 		svc := listing.NewListingServiceWithOutbox(repo, txw)
 
 		created, err := svc.CreateWithEvent(ctx, store.Listing{Title: "Tx OK", Currency: "VND"}, "seller_1",
-			func(l store.Listing) (store.OutboxRow, error) {
-				return store.OutboxRow{EventID: "evt-ok", AggregateID: l.ID, EventType: "test"}, nil
+			func(l store.Listing) (outbox.Row, error) {
+				return outbox.Row{EventID: "evt-ok", AggregateID: l.ID, EventType: "test"}, nil
 			})
 		if err != nil {
 			t.Fatalf("CreateWithEvent: %v", err)
@@ -113,8 +115,8 @@ func TestListingService(t *testing.T) {
 		svc := listing.NewListingServiceWithOutbox(repo, txw)
 
 		created, err := svc.CreateWithEvent(ctx, store.Listing{ID: "rollback-1", Title: "boom", Currency: "VND"}, "seller_1",
-			func(l store.Listing) (store.OutboxRow, error) {
-				return store.OutboxRow{EventID: "evt-x", AggregateID: l.ID}, nil
+			func(l store.Listing) (outbox.Row, error) {
+				return outbox.Row{EventID: "evt-x", AggregateID: l.ID}, nil
 			})
 		if err == nil {
 			t.Fatal("expected error when the write fails")
