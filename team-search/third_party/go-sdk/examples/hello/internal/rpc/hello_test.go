@@ -18,9 +18,12 @@ import (
 // A handler is a plain method, so it is tested without a server. NewTo with
 // io.Discard keeps the test output quiet.
 func TestGreetMapsErrors(t *testing.T) {
-	h := rpc.NewHandler(logx.NewTo(io.Discard, config.Runtime{LogLevel: "error"}, "test"))
+	h, err := rpc.NewHandler(logx.NewTo(io.Discard, config.Runtime{LogLevel: "error"}, "test"))
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
 
-	_, err := h.Greet(context.Background(), wrapperspb.String("Ann"))
+	_, err = h.Greet(context.Background(), wrapperspb.String("Ann"))
 	if status.Code(err) != codes.Unauthenticated {
 		t.Fatalf("no principal: %v, want Unauthenticated", err)
 	}

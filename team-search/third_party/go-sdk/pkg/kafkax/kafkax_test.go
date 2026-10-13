@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
@@ -170,7 +171,51 @@ func TestConsumerClientAcceptsOptions(t *testing.T) {
 		}
 		got = f.Records()
 	}
+	// The client blocks rebalances after a poll; Close waits for them to be allowed.
+	client.AllowRebalance()
 	if string(got[0].Value) != "v" {
 		t.Errorf("value = %q, want v", got[0].Value)
+	}
+}
+
+func TestGroupLessConsumerClient(t *testing.T) {
+	brokers := testkit.Redpanda(t)
+	cfg := config.Kafka{Brokers: brokers}
+
+	p, err := kafkax.NewProducer(cfg, kgo.AllowAutoTopicCreation())
+	if err != nil {
+		t.Fatalf("NewProducer: %v", err)
+	}
+	defer p.Close()
+
+	const topic = "kafkax.groupless"
+	if err := p.Publish(context.Background(), topic, []byte("k1"), []byte("v1")); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+
+	c, err := kafkax.NewConsumerClient(cfg, "", []string{topic})
+	if err != nil {
+		t.Fatalf("NewConsumerClient: %v", err)
+	}
+	defer c.Close()
+
+	pollCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	fetches := c.PollFetches(pollCtx)
+	if err := fetches.Err(); err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+	recs := fetches.Records()
+	if len(recs) != 1 || string(recs[0].Value) != "v1" {
+		t.Fatalf("records = %d, want the one published from the start", len(recs))
+	}
+
+	adm := kadm.NewClient(c)
+	groups, err := adm.ListGroups(context.Background())
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	if got := groups.Groups(); len(got) != 0 {
+		t.Fatalf("consumer groups on the broker = %v, want none", got)
 	}
 }
