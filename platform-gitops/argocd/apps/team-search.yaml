@@ -38,6 +38,9 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
+          env:
+            ENV: "local"
+            KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
           secrets:
             enabled: true
   syncPolicy:

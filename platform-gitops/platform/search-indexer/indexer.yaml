@@ -21,6 +21,10 @@ spec:
           envFrom:
             - secretRef: { name: team-search-env }
           env:
+            # ENV has no default in go-sdk v1, and KAFKA_BROKERS is required when it is strict. This
+            # manifest runs only on the local cluster (localhost:5001 image), so ENV is local.
+            - { name: ENV, value: "local" }
+            - { name: KAFKA_BROKERS, value: "redpanda.marketplace.svc:9092" }
             - { name: KAFKA_LISTING_TOPIC, value: "listing.events" }
             - { name: KAFKA_CONSUMER_GROUP, value: "team-search-indexer" }
             # Index-time embedding via platform-modelserve (fail-open to vector_pending).
