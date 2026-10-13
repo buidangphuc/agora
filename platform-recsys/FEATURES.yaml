@@ -1725,8 +1725,9 @@ features:
       - "When the ALS candidate is `promotable` with generation `g2` while `recs:v1:serving` names `g1`"
       - "Then `recs:v1:serving` names `g2`, `recs:v1:previous` names `g1`, and team-ai `Recommend` answers from `g2`'s lists and vectors"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Gate pass serves the new generation. Scenario id RAT-15; becomes automated after the implementation turns it green."
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::Gate pass serves the new generation"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Gate pass serves the new generation. Scenario id RAT-15; green against the implementation."
 
   - id: recsys.rat-16-gate-fail-keeps-the-previous-generation
     title: "RAT-16 Gate fail keeps the previous generation"
@@ -1741,8 +1742,9 @@ features:
       - "When the ALS candidate is rejected while `recs:v1:serving` names `g1`"
       - "Then `recs:v1:serving` still names `g1`, `recs:v1:previous` is unchanged, no `g2` keys or collections exist, and `Recommend` answers are identical to before the run"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Gate fail keeps the previous generation. Scenario id RAT-16; becomes automated after the implementation turns it green."
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::Gate fail keeps the previous generation"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Gate fail keeps the previous generation. Scenario id RAT-16; green against the implementation."
 
   - id: recsys.rat-17-a-failed-publish-rejects-the-versions-and-leaves-every-alias
     title: "RAT-17 A failed publish rejects the versions and leaves every alias alone"
@@ -1821,8 +1823,9 @@ features:
       - "When `MLFLOW_TRACKING_URI` points at a port with no listener"
       - "Then the job exits 1 within 20 s of start, Spark is not started, `recs:v1:serving` and `recs:v1:previous` are unchanged, and no new Qdrant collection or Redis generation key exists"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Registry down fails closed. Scenario id RAT-19; becomes automated after the implementation turns it green."
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::Registry down fails closed"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Registry down fails closed. Scenario id RAT-19; green against the implementation."
 
   - id: recsys.rat-20-registry-goes-down-after-the-als-evaluation
     title: "RAT-20 Registry goes down after the ALS evaluation"
@@ -1885,8 +1888,9 @@ features:
       - "When the newest snapshot is 26 hours old and `MAX_DATASET_AGE_MINUTES=1500`"
       - "Then the job exits 2, MLflow has no new version of any `recsys-*` model, and serving is unchanged"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Stale dataset is refused. Scenario id RAT-22; becomes automated after the implementation turns it green."
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::Stale dataset is refused"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Stale dataset is refused. Scenario id RAT-22; green against the implementation."
 
   - id: recsys.rat-23-boundary-a-dataset-just-inside-the-window-trains
     title: "RAT-23 Boundary, a dataset just inside the window trains"
@@ -1949,8 +1953,9 @@ features:
       - "When a full run completes on a dataset whose user keys are `u-0001` ... `u-0050`"
       - "Then a scan of every param, metric, tag (system tags and run name included) and the contents of every artifact file of the run's MLflow runs finds none of those keys, and no artifact named like user factors exists"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Registry holds no user data. Scenario id RAT-25; becomes automated after the implementation turns it green."
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::Registry holds no user data"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Registry holds no user data. Scenario id RAT-25; green against the implementation."
 
   - id: recsys.rat-49-the-pii-scan-detects-a-planted-key
     title: "RAT-49 The PII scan detects a planted key"
@@ -1965,8 +1970,9 @@ features:
       - "When the scan runs against a run in which the key `u-0001` was deliberately logged as a param and as artifact text"
       - "Then the scan reports both hits (negative control: the scan can fail)"
     tags: [recsys, recommendations, destructive]
-    status: planned
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::PII scan negative control. Scenario id RAT-49; becomes automated after the implementation turns it green."
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::PII scan negative control"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::PII scan negative control. Scenario id RAT-49; green against the implementation."
 
   - id: recsys.rat-26-the-adapter-rejects-a-payload-keyed-by-user-id
     title: "RAT-26 The adapter rejects a payload keyed by user id"

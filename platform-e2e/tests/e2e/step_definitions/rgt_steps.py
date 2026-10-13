@@ -116,7 +116,8 @@ def ctr_sources(world: World) -> None:
     assert rows and set(sources) == {"debiased", "fallback"}, {
         s: sources.count(s) for s in set(sources)
     }
-    counts = _gbdt_meta(last)["parameters"]["ctr_source_counts"]
+    # The registry keeps only allow-listed params; the counts are in the job's own GBDT summary.
+    counts = last["summary"]["gbdt"]["ctr_source"]
     assert counts == {
         "debiased": sources.count("debiased"),
         "fallback": sources.count("fallback"),
@@ -136,7 +137,7 @@ def evaluates(world: World) -> None:
 def holdout(world: World) -> None:
     meta = _gbdt_meta(_ctx(world)["last"])
     assert meta["metrics"]["eval_protocol"] == PROTOCOL, meta["metrics"]
-    h = meta["parameters"]["holdout"]
+    h = _ctx(world)["last"]["summary"]["gbdt"]["holdout"]  # not an allow-listed registry param
     assert (
         h["cutoff"]
         and h["train_last_at"] < h["test_first_at"]

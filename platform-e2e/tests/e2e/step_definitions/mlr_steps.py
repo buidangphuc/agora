@@ -188,7 +188,9 @@ def run_twice(world: World) -> None:
 def second_run_drift(world: World) -> None:
     first, last = _ctx(world)["first"], _ctx(world)["last"]
     drift = last["summary"]["drift"]
-    assert drift["baseline_version"] == first["model_version"], drift
+    # The baseline is named by its registry version (the first run's version of recsys-als).
+    first_registry_version = first["models"][first["model_version"]]["registry_version"]
+    assert str(drift["baseline_version"]) == str(first_registry_version), (drift, first_registry_version)
     assert set(drift["features"]) == set(FEATURES)
     assert all("psi" in v and "drift_level" in v for v in drift["features"].values())
 
@@ -215,14 +217,20 @@ def all_flagged(world: World) -> None:
     last = _ctx(world)["last"]
     drift = last["summary"]["drift"]
     assert drift["is_drifted"] is True and drift["num_features_drifted"] == len(FEATURES), drift
-    assert last["models"][last["model_version"]]["parameters"]["drift"] == drift
+    # the run's params carry the drift status (the full verdict stays in the summary)
+    assert last["models"][last["model_version"]]["parameters"]["drift"]["status"] == drift["status"]
 
 
-@then("the second run is promoted")
-def second_promoted(world: World) -> None:
+@then("the second run is decided by the gate alone")
+def second_decided_by_gate(world: World) -> None:
+    # Drift never changes the decision. The second run retrains on the same data, so it scores
+    # the same as the first champion and cannot clear the +1 % the recsys-als policy asks for:
+    # the gate rejects it, whatever the drift verdict says.
     last = _ctx(world)["last"]
-    assert last["summary"]["decision"] == "promoted", last["summary"]
-    assert last["champion"] == last["model_version"]
+    assert last["summary"]["decision"] == "rejected", last["summary"]
+    assert "ndcg@10" in last["summary"]["reason"], last["summary"]["reason"]
+    assert last["models"][last["model_version"]]["status"] == "rejected"
+    assert last["champion"] != last["model_version"], last["champion"]
 
 
 _PROM = "/tmp/mlr-drift.prom"
@@ -323,7 +331,7 @@ def reports_loss(world: World) -> None:
 @then("the model's metadata records the pairs, the epochs and the feature snapshots it trained on")
 def records_lineage(world: World) -> None:
     last = _ctx(world)["last"]
-    meta = last["models"][last["model_version"]]["parameters"]["two_tower"]
+    meta = last["summary"]["two_tower"]  # the registry keeps only allow-listed params and tags
     assert meta["pairs"] > 0 and meta["epochs"] > 0, meta
     snap = meta["features"]["items"]
     assert (

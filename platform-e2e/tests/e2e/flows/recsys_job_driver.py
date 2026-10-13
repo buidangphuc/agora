@@ -228,7 +228,7 @@ def _snapshot(
 ) -> dict:
     reg = registry.snapshot(model_version, before)
     models = {
-        label: {k: m[k] for k in ("status", "metrics", "parameters")}
+        label: {k: m[k] for k in ("status", "metrics", "parameters", "tags")}
         for label, m in reg["models"].items()
     }
     gens: dict[str, int] = {}
@@ -300,6 +300,15 @@ def main() -> int:
             run_env = dict(raw_env)
             variant = run_env.pop("@fixture", None)
             command = run_env.pop("@command", None)
+            # "@seed": "weak" | "strong" seeds a recsys-als champion before this run (after the
+            # namespace reset); "@seed_protocol": "none" leaves it without `lineage.eval_protocol`.
+            seed_kind = run_env.pop("@seed", None)
+            seed_protocol = run_env.pop("@seed_protocol", None)
+            if seed_kind:
+                if seed_protocol == "none":
+                    registry.seed_champion(seed_kind, protocol=None)
+                else:
+                    registry.seed_champion(seed_kind)
             if variant:
                 # An explicit version per run: the default one is the run clock to the second.
                 slug = variant.replace("_", "-")

@@ -315,10 +315,12 @@ def unique_targets(world: World) -> None:
 def legacy_champion(world: World) -> None:
     # A seeded v1 with no `lineage.eval_protocol` tag and a score no candidate can match: the
     # gate must not compare it, so the candidate is judged on the policy floors only.
+    # The driver resets the registry when a namespace plan starts, so the seed is a run key.
     registry(world).reset_registry()
-    registry(world).seed(ALS, {"ndcg@10": 0.99, "coverage@10": 1.0}, protocol=None)
-    assert "lineage.eval_protocol" not in registry(world).tags(newest_als(world))
-    world.state.extra["tpr_plan"] = (_unique_target_events(), [dict(_MLFLOW_ENV)])
+    world.state.extra["tpr_plan"] = (
+        _unique_target_events(),
+        [{**_MLFLOW_ENV, "@seed": "strong", "@seed_protocol": "none"}],
+    )
 
 
 @when("the pipeline evaluates and trains over those interactions")
@@ -365,7 +367,9 @@ def candidate_is_champion(world: World) -> None:
     (run,) = _runs(world)
     assert run.summary["decision"] == "promoted", run.summary
     # The candidate's own score is far below the incumbent's 0.99: a comparison would reject it.
-    assert run.summary["candidate_value"] < 0.99, run.summary
+    assert run.summary["metrics"]["ndcg@10"] < 0.99, run.summary
+    seeded = registry(world).versions(ALS)[0]
+    assert "lineage.eval_protocol" not in registry(world).tags(seeded), registry(world).tags(seeded)
     newest = int(newest_als(world)["version"])
     assert newest == 2, registry(world).version_counts()  # v1 is the seeded incumbent
     assert newest_tags(world).get("gate.outcome") == "promoted", newest_tags(world)

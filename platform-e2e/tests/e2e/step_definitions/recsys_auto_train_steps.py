@@ -165,7 +165,7 @@ def run_job_with_age_limit(world: World) -> None:
     _run_job(world, env={"MAX_DATASET_AGE_MINUTES": "1500"})
 
 
-@when("the featurestore dataset job and then the recsys compose job run")
+@when("the featurestore materialize and dataset jobs and then the recsys compose job run")
 def run_compose_chain(world: World) -> None:
     ctx = _ctx(world)
     wrapper = os.getenv("DC_WRAPPER", DC_WRAPPER_DEFAULT)
@@ -197,7 +197,12 @@ def chain_exit_zero(world: World) -> None:
     chain = _ctx(world)["chain"]
     for step in chain:
         assert step.exit_code == 0, f"{step.step} exited {step.exit_code}:\n{step.output[-3000:]}"
-    assert [s.step for s in chain] == ["featurestore-dataset", "platform-recsys"], chain
+    assert [s.step for s in chain] == [
+        "featurestore-job@early",
+        "featurestore-job",
+        "featurestore-dataset",
+        "platform-recsys",
+    ], chain
 
 
 # ── Then: the registry ────────────────────────────────────────────────────

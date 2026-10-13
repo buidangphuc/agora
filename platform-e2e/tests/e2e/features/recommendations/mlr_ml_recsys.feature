@@ -33,7 +33,7 @@ Feature: ML recsys changes run end to end (add-recsys-nearline-signals, add-recs
   Scenario: A drifted run is flagged and still decided by the gate
     When the recsys job runs a second time with DRIFT_ALERT_THRESHOLD set to 0
     Then every feature of the second run's drift is flagged and its metadata carries the same verdict
-    And the second run is promoted
+    And the second run is decided by the gate alone
 
   Scenario: A drift report is written as Prometheus text
     When the recsys job runs twice with DRIFT_METRICS_PATH set

@@ -24,6 +24,14 @@ import urllib.request
 PREFIX = "recsys-"
 ALS, GBDT, TWO_TOWER = "recsys-als", "recsys-gbdt", "recsys-two-tower"
 EVAL_PROTOCOL = "leave-last-new-item-v1"
+# The protocol each model's candidates carry (`lineage.eval_protocol`): a champion seeded with
+# another one would make the gate judge the candidate on the floors only.
+PROTOCOLS = {
+    "recsys-als": EVAL_PROTOCOL,
+    "recsys-gbdt": "temporal-lists-v1",
+    "recsys-two-tower": "seeded-pair-holdout-v1",
+}
+_OWN = "own"
 # Kept in step with src/api/mlflow_registry.py (WEAK / STRONG): a champion the candidate beats, and
 # one nothing can match (ndcg, recall and coverage live in [0, 1]).
 WEAK = {
@@ -76,14 +84,22 @@ def reset() -> None:
         _call("DELETE", "/api/2.0/mlflow/registered-models/delete", body={"name": name})
 
 
-def seed_champion(kind: str, models: tuple[str, ...] = (ALS,)) -> None:
-    """Seed a `weak` (candidate beats it) or `strong` (nothing beats it) champion for `models`."""
+def seed_champion(
+    kind: str, models: tuple[str, ...] = (ALS,), *, protocol: str | None = _OWN
+) -> None:
+    """Seed a `weak` (candidate beats it) or `strong` (nothing beats it) champion for `models`.
+
+    `protocol=None` seeds a version with no `lineage.eval_protocol` tag (an unversioned incumbent).
+    """
     from modelregistry import seed  # noqa: PLC0415 - only the job image has it
 
     os.environ.setdefault("MLFLOW_TRACKING_URI", base())
     metrics = WEAK if kind == "weak" else STRONG
     for model in models:
-        lineage = {"data_version": "e2e-seed", "eval_protocol": EVAL_PROTOCOL}
+        lineage = {"data_version": "e2e-seed"}
+        own = PROTOCOLS[model] if protocol == _OWN else protocol
+        if own is not None:
+            lineage["eval_protocol"] = own
         seed(model, metrics[model], lineage, f"e2e seeded {kind} champion")
 
 
@@ -166,6 +182,7 @@ def _meta(version: dict, model_version: str) -> dict:
         "status": tags.get("gate.outcome"),
         "metrics": metrics,
         "parameters": params,
+        "tags": tags,
     }
 
 

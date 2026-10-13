@@ -20,7 +20,7 @@ import time
 import pytest
 from pytest_bdd import given, then, when
 
-from src.api.mlflow_registry import STRONG, MlflowRegistry
+from src.api.mlflow_registry import MlflowRegistry
 from src.api.recsys_job import MLFLOW_IN_STACK
 from tests.e2e.flows.recsys_job_flow import JobRun, run_recsys_job
 from tests.e2e.support.world import World
@@ -109,10 +109,10 @@ def window_without_holdout(world: World) -> None:
 @given("an incumbent champion model in the registry")
 def seeded_strong_champion(world: World) -> None:
     # A champion seeded in MLflow that no candidate can reach: the run's candidate is rejected.
-    _plan(world, _warehouse_events(), [{}])
-    registry(world).seed(ALS, STRONG[ALS])
-    world.state.extra["seeded_version"] = registry(world).alias(ALS, "champion")
-    assert world.state.extra["seeded_version"] is not None
+    # The driver resets the registry when a namespace plan starts, so the seed is a run key: it
+    # seeds the strong champion (version 1) in the job image right before the run.
+    _plan(world, _warehouse_events(), [{"@seed": "strong"}])
+    world.state.extra["seeded_version"] = 1
 
 
 @given("a candidate model rejected by the promotion gate")
@@ -222,8 +222,8 @@ def summary_is_auditable(world: World) -> None:
     s = run.summary
     assert s["model_version"] and isinstance(s["metrics"], dict)
     assert s["decision"] in ("promoted", "rejected") and s["reason"]
-    # The comparison itself: which metric and the candidate's value ...
-    assert s["primary_metric"] == "ndcg@10"
-    assert s["candidate_value"] == s["metrics"]["ndcg@10"]
-    # ... and the summary agrees with what the registry recorded for this candidate.
+    # The candidate's metrics in the summary are the ones MLflow holds for its version ...
+    recorded = registry(world).run_metrics(newest_als(world)["run_id"])
+    assert recorded.get("ndcg_at_10") == pytest.approx(s["metrics"]["ndcg@10"]), recorded
+    # ... and the summary agrees with the decision the registry recorded for this candidate.
     assert newest_tags(world).get("gate.outcome") == s["decision"], (newest_tags(world), s)

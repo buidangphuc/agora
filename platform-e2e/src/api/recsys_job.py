@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -216,20 +217,29 @@ def compose_chain(wrapper: str, *, job_env: dict[str, str] | None = None) -> lis
     that the compose file's own wiring (MLFLOW_TRACKING_URI, ENABLE_*) is what is under test.
     """
     flags = [part for k, v in (job_env or {}).items() for part in ("-e", f"{k}={v}")]
-    steps = {
-        "featurestore-dataset": [
-            "--profile",
-            "featurestore",
-            "run",
-            "--rm",
+    # The gbdt stage joins impressions to the feature snapshot taken BEFORE them (point in time),
+    # so the snapshots are made present explicitly (D13): one as of 30 days ago, one as of now.
+    early = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    materialize = ["--profile", "featurestore", "run", "--rm", "featurestore-job"]
+    steps = [
+        ("featurestore-job@early", materialize, {"AS_OF": early}),
+        ("featurestore-job", materialize, {"AS_OF": ""}),
+        (
             "featurestore-dataset",
-        ],
-        "platform-recsys": ["--profile", "jobs", "run", "--rm", *flags, "platform-recsys"],
-    }
+            ["--profile", "featurestore", "run", "--rm", "featurestore-dataset"],
+            {},
+        ),
+        ("platform-recsys", ["--profile", "jobs", "run", "--rm", *flags, "platform-recsys"], {}),
+    ]
     out: list[ComposeRun] = []
-    for name, args in steps.items():
+    for name, args, env in steps:
         proc = subprocess.run(
-            [wrapper, *args], capture_output=True, text=True, timeout=1500, check=False
+            [wrapper, *args],
+            capture_output=True,
+            text=True,
+            timeout=1500,
+            check=False,
+            env={**os.environ, **env},
         )
         out.append(ComposeRun(name, proc.returncode, proc.stdout + proc.stderr))
         if proc.returncode != 0:
@@ -248,7 +258,7 @@ def restore_real_generation(wrapper: str) -> None:
     runs = compose_chain(wrapper, job_env={"MLFLOW_TRACKING_URI": MLFLOW_IN_STACK})
     failed = [r for r in runs if r.exit_code != 0]
     assert (
-        not failed and len(runs) == 2
+        not failed and len(runs) == 4
     ), f"[recsys] restore step {runs[-1].step} failed:\n{runs[-1].output[-3000:]}"
     assert redis_get(f"{PREFIX}:serving"), (
         "[recsys] the restore left no serving generation (structural gate rejected the real data?):\n"

@@ -81,6 +81,6 @@ Feature: The nightly recsys job is gated by the MLflow model registry (recsys-au
   Scenario: Nightly chain registers all three models
     Given the recsys serving state and the recsys registry are reset
     And weak champions are seeded for recsys-als, recsys-gbdt and recsys-two-tower
-    When the featurestore dataset job and then the recsys compose job run
+    When the featurestore materialize and dataset jobs and then the recsys compose job run
     Then the chain's jobs both exit 0
     And each of recsys-als, recsys-gbdt and recsys-two-tower has a newest version tagged promoted
