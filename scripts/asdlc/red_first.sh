@@ -188,6 +188,10 @@ run_test() { # run_test <worktree> <kind> <relfile> -> exit status of the test c
       (cd "$wt/$mod" && go test -count=1 "./$rel/" -run "^($names)\$" >"$SCRATCH/out.log" 2>&1) ;;
     py)
       mod=$(nearest_up "$wt" "$f" pyproject.toml) || mod=$(dirname "$f")
+      # Services whose gRPC stubs are generated, not committed (team-ai): build them once per worktree.
+      if [ -f "$wt/$mod/scripts/gen_proto.py" ] && [ ! -e "$wt/$mod/.redfirst-proto" ]; then
+        (cd "$wt/$mod" && "$PY" -m scripts.gen_proto >"$SCRATCH/proto.log" 2>&1) && touch "$wt/$mod/.redfirst-proto"
+      fi
       (cd "$wt/$mod" && "$PY" -m pytest -q -x -p no:cacheprovider "${f#"$mod"/}" >"$SCRATCH/out.log" 2>&1) ;;
     ts)
       mod=$(nearest_up "$wt" "$f" package.json) || return 97

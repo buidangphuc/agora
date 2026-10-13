@@ -1,5 +1,5 @@
 # Fault-injecting LLM provider + team-ai on the real `llm_router` chat path
-# (change ai-path-resilience, design D8; e2e features ai/llm_*.feature, ops/boot_guard_ai.feature).
+# (change ai-path-resilience, design D8; e2e features ai/llm_*.feature).
 #
 # Layer it on top of the stack, from the workspace root (any compose project name):
 #   docker compose -f docker-compose.yaml -f platform-e2e/compose/llm-fake.override.yaml up -d --build llm-fake team-ai
@@ -16,11 +16,15 @@
 # i.e. the published port below; change both together with LLM_FAKE_HOST_PORT.
 #
 # Deviation from design D8: QUOTA_CHAT_REPLIES_PER_WINDOW is 15, not 30. The per-principal
-# rate limit is 20 calls/min, so a quota of 30 could never be exhausted inside one window.
+# rate limit is 200 calls/min, so a quota of 30 could be exhausted only
+# by a longer burst. The limit also guards team-ai's HTTP routes (one principal per API key), and
+# the tag taxonomy scenarios send about 70 calls with a few API keys within seconds; at 20/min
+# the later ones were refused with 429.
 # The quota steps read this value from the running container, so changing it is safe as long
 # as it stays below RATE_LIMIT_PRINCIPAL_PER_MINUTE.
 #
-# The Langfuse trace scenario needs LANGFUSE_* on as well; that is a second overlay,
+# The quota and the rate limits are always on and live in the stack's Redis (keys are per principal, and
+# every scenario registers its own buyers). The Langfuse trace scenario needs LANGFUSE_* keys as well; that is a second overlay,
 # llm-fake-langfuse.override.yaml, applied (and removed) by the scenario itself.
 # Keys by service name only (no container_name), so it works under any project.
 services:
@@ -32,7 +36,7 @@ services:
       - "127.0.0.1:${LLM_FAKE_HOST_PORT:-18099}:8099"
   team-ai:
     # The llm_router path needs the optional `ai` extra (langchain, langchain-openai); the committed
-    # compose builds team-ai with "recs ai kafka" (assistant-rag-default-on), so no build arg here.
+    # compose builds team-ai with "ai kafka" (assistant-rag-default-on), so no build arg here.
     depends_on:
       llm-fake:
         condition: service_healthy
@@ -43,19 +47,14 @@ services:
       OPENAI_BASE_URL: http://llm-fake:8099/v1
       OPENAI_API_KEY: fake
       CHAT_SYSTEM_PROMPT: "You are the Agora shopping assistant. (e2e fixed system prompt)"
-      LLM_FIRST_TOKEN_TIMEOUT_SECONDS: "2"
-      LLM_MAX_ATTEMPTS: "3"
+      CHAT_FIRST_TOKEN_TIMEOUT_SECONDS: "2"
       # Breaker state lives in the team-ai process and is shared by every scenario, so the
       # standing stack keeps it effectively off (parallel routing scenarios inject failures
       # into the same targets). ai/llm_breaker.feature layers llm-fake-breaker.override.yaml
       # (threshold 2) for its own serial run and restores this afterwards.
-      LLM_BREAKER_THRESHOLD: "1000"
+      LLM_BREAKER_FAILURE_THRESHOLD: "1000"
       LLM_BREAKER_COOLDOWN_SECONDS: "5"
       CHAT_HISTORY_MAX_TURNS: "4"
-      QUOTA_ENABLED: "true"
-      QUOTA_BACKEND: memory
       QUOTA_CHAT_REPLIES_PER_WINDOW: "15"
       QUOTA_CHAT_WINDOW_SECONDS: "3600"
-      GRPC_RATE_LIMIT_ENABLED: "true"
-      RATE_LIMIT_BACKEND: memory
-      RATE_LIMIT_PRINCIPAL_PER_MINUTE: "20"
+      RATE_LIMIT_PRINCIPAL_PER_MINUTE: "200"

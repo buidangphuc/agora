@@ -10,7 +10,6 @@
 services:
   team-ai:
     environment:
-      LANGFUSE_ENABLED: "true"
       LANGFUSE_PUBLIC_KEY: pk-lf-e2e-dummy
       LANGFUSE_SECRET_KEY: sk-lf-e2e-dummy
       LANGFUSE_BASE_URL: http://llm-fake:8099

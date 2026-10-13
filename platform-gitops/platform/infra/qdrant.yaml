@@ -1,5 +1,5 @@
 # Qdrant — vector store for recommendations (recs-on-cluster). platform-recsys writes the item/user ALS
-# vectors here nightly; team-ai reads them (RECS_BACKEND=qdrant). Reconciled by infra-shared (wave 0).
+# vectors here nightly; team-ai reads them. Reconciled by infra-shared (wave 0).
 # Image tag matches platform-core/infra/docker-compose.yaml: qdrant-client 1.19 rejects a server more than one
 # minor version apart. No auth, like compose; reachability is limited by the NetworkPolicy below.
 # RWO claim: single-node kind cluster.

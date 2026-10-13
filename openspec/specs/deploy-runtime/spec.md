@@ -228,13 +228,14 @@ The team-ai deployment SHALL ship an ingress NetworkPolicy that admits only thes
 - **THEN** a `NetworkPolicy` selects `app: team-ai` and its only ingress sources are `app: team-gateway`,
   `app: team-search-indexer` and `app: prometheus`
 
-### Requirement: Local compose gives team-ai no literal foreign database credentials
+### Requirement: Local compose gives team-ai no database credentials
 
-The root compose file SHALL NOT hand team-ai the database credentials of another service. team-ai's `POSTGRES_USER`,
-`POSTGRES_PASSWORD` and `POSTGRES_DB` SHALL come from `TEAM_AI_POSTGRES_*` variables with placeholder defaults, documented
-in the root `.env.example`.
+team-ai owns no database and has no database settings, so the root compose file SHALL NOT give it any `POSTGRES_*`,
+`DATABASE_*` or `DB_*` variable, and in particular never the credentials of another service. Its only secret is
+`AUTH_API_KEYS` (sha256 digests of API tokens), which defaults to the digests of the local placeholder tokens and can be
+replaced through `TEAM_AI_AUTH_API_KEYS`, documented in the root `.env.example`.
 
-#### Scenario: The team-ai container does not hold listing's credentials
+#### Scenario: The team-ai container does not hold database credentials
 
 - **WHEN** the running `team-ai-svc` container's environment is inspected
-- **THEN** none of its `POSTGRES_*` values is `listing_svc`, `listing_pass` or `listing_db`
+- **THEN** none of its variables starts with `POSTGRES_`, `DATABASE_` or `DB_`, and none holds `listing_svc` or `listing_pass`

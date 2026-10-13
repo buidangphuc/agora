@@ -14,8 +14,49 @@ permissions:
   contents: read
 
 jobs:
+  # Mirrors team-ai/docs/agents/project.md "Checks". `.env.example` is team-ai's; the eval gate and the
+  # core-only import read it through `--env-file`.
   team-ai-uv:
-    name: team-ai pytest + eval gate
+    name: team-ai lint, types, tests, eval gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: team-ai
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: team-ai/uv.lock
+      - name: Install (dev group + all extras)
+        run: uv sync --dev --all-extras
+      - name: Generate gRPC stubs (gitignored per ADR-0001)
+        run: uv run --all-extras python -m scripts.gen_proto
+      - name: Format
+        run: uv run ruff format --check app tests scripts
+      - name: Lint
+        run: uv run ruff check app tests scripts
+      - name: Types
+        run: uv run --all-extras pyright --project pyproject.toml
+      - name: .env.example matches Settings
+        run: uv run --all-extras python -m scripts.check_env_example
+      - name: Run tests
+        run: uv run --all-extras pytest -q --cov=app --cov-report=term-missing --cov-fail-under=80
+      - name: Real Redis (rate limiter and quota; fakeredis hid real bugs)
+        env:
+          REAL_REDIS_URL: redis://localhost:6379/15
+        run: uv run --all-extras pytest -q -p tests.plugins.real_redis tests/unit/modules/test_rate_limit.py tests/unit/modules/test_quota.py
+      - name: Eval gate (deterministic cases; judge cases are skipped without a judge)
+        run: uv run --env-file .env.example --all-extras python -m scripts.run_eval --min-score 0.8
+
+  team-ai-core-only:
+    name: team-ai boots on core dependencies only
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,14 +66,13 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-      - name: Install (all extras)
-        run: uv sync --dev --all-extras
-      - name: Generate gRPC stubs (gitignored per ADR-0001)
-        run: uv run --all-extras python -m scripts.gen_proto
-      - name: Run tests
-        run: uv run --all-extras pytest -q
-      - name: Eval gate (deterministic + chat resilience cases; an unscored judge case fails it)
-        run: uv run --all-extras python -m scripts.run_eval --min-score 0.8
+          cache-dependency-glob: team-ai/uv.lock
+      - name: Install (no dev, no extras)
+        run: uv sync --frozen --no-dev
+      - name: Generate gRPC stubs (grpcio-tools is a dev dependency, so run it from uvx)
+        run: uvx --from grpcio-tools python -m scripts.gen_proto
+      - name: Import main
+        run: uv run --no-dev --env-file .env.example python -c "import main; print('ok')"
 
   platform-recsys:
     name: platform-recsys Lint, Test & Eval

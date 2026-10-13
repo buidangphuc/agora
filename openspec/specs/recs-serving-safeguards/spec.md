@@ -2,7 +2,7 @@
 
 ## Purpose
 Defines how team-ai recommendation serving degrades instead of failing, cold-starts from the producer's popular list,
-refuses an in-process catalogue outside local, identifies each response for attribution, and uses online features.
+identifies each response for attribution, and uses online features.
 
 ## Requirements
 
@@ -10,8 +10,8 @@ refuses an in-process catalogue outside local, identifies each response for attr
 
 When reading the cache or Qdrant fails, `Recommend` SHALL still answer `OK`. It SHALL return the serving generation's
 popular list, or an empty list if that cannot be read either, with `model_version` `serving-fallback`. It SHALL answer
-`UNAVAILABLE` only when recommendations are disabled (`RECS_ENABLED=false`) or the vector collection does not match the
-producer's contract (a deployment error, not an outage).
+`UNAVAILABLE` only when the vector collection does not match the producer's contract (a deployment error, not an
+outage). Recommendations have no on/off flag: they are always served.
 
 #### Scenario: Recommendations survive a Redis outage
 
@@ -29,26 +29,6 @@ sample of the vector collection.
 - **WHEN** the serving generation's popular list is L and a buyer with no recommendations of their own requests homepage
   recommendations
 - **THEN** the returned listing ids are the first items of L, in L's order
-
-### Requirement: Serving refuses an in-process catalogue outside local
-
-team-ai SHALL refuse to start with `RECS_ENABLED=true` and `RECS_BACKEND=memory` when `ENVIRONMENT` is anything other
-than dev, local or test. The error SHALL name `RECS_BACKEND`.
-
-#### Scenario: Production refuses the memory recommendation backend
-
-- **WHEN** the team-ai image is started with `ENVIRONMENT=production`, `RECS_ENABLED=true` and `RECS_BACKEND=memory`
-- **THEN** the process exits non-zero and its log names `RECS_BACKEND`
-
-### Requirement: Every gRPC entrypoint serves recommendations
-
-Every way of starting team-ai's gRPC server SHALL register the recommendation service with the same configuration.
-
-#### Scenario: The standalone gRPC server answers Recommend
-
-- **WHEN** team-ai is started with `scripts/run_grpc.py` and a buyer requests recommendations through a gateway pointed at
-  it
-- **THEN** the call succeeds instead of answering `unimplemented`
 
 ### Requirement: A recommendation response identifies itself for attribution
 

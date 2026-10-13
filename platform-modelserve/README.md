@@ -37,7 +37,7 @@ shapes: a bare list, `{"embeddings": ...}`, or OpenAI `{"data": [{"embedding": .
 
 | Consumer | Setting | Notes |
 |---|---|---|
-| team-ai | `RAG_EMBED_BACKEND=model_server`, `RAG_EMBED_SERVER_URL=http://modelserve-router:8100`, `RAG_EMBED_DIM` | Defaults are `mock` and an empty URL. Calls `POST /embed` with `{"texts": [...]}`. Dim default 384 must match the TEI model (the local compose uses bge-small, 384). |
+| team-ai | `RAG_ENABLED=true` with `RAG_EMBED_SERVER_URL=http://modelserve-router:8100`, `RAG_EMBED_DIM` | Required when RAG is on; the URL has no default. Calls `POST /embed` with `{"texts": [...]}`. Dim default 384 must match the TEI model (the local compose uses bge-small, 384). |
 | team-search | `MODEL_SERVER_URL` (default `http://localhost:8100`), `ENABLE_RERANKER` (default `false`) | Calls `/embed` and, if enabled, `/rerank`, with 2 s timeouts. Embed errors fall back to lexical search. |
 
 `platform-recsys` has no reference to modelserve.

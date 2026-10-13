@@ -36,7 +36,7 @@ row SHALL be seeded with the current listing id; the browser SHALL never call te
 
 #### Scenario: Recommendations are unavailable without breaking the page
 
-- **WHEN** the recommendation service returns `UNAVAILABLE` (e.g. `RECS_ENABLED=false`)
+- **WHEN** the recommendation service returns `UNAVAILABLE` (e.g. the vector collection is missing)
 - **THEN** the page still renders and the "Gợi ý cho bạn" row is hidden or empty rather than
   erroring the whole page
 
@@ -50,22 +50,20 @@ itself.
 
 #### Scenario: Recommend returns a Top-10 product list
 
-- **WHEN** a caller invokes `RecommendationService/Recommend` with a `user_id` while
-  `RECS_ENABLED=true`
+- **WHEN** a caller invokes `RecommendationService/Recommend` with a `user_id`
 - **THEN** team-ai returns a `RecommendResponse` carrying at most ten recommended product cards
   produced by the recommend module (not an empty or mocked response)
 
-### Requirement: Recommendations are gated behind RECS_ENABLED
+### Requirement: Recommendations are always on
 
-The system SHALL provide the recommend module to the servicer only when `RECS_ENABLED=true`.
-When the flag is `false`, `Recommend` SHALL abort with gRPC status `UNAVAILABLE` and a message
-naming the flag, mirroring how SearchService behaves under `RAG_ENABLED=false`.
+team-ai SHALL register the recommend module on its gRPC server in every environment; there is no flag that turns
+recommendations off. `Recommend` SHALL abort with gRPC status `UNAVAILABLE` only when the vector collection does not match
+the producer's contract.
 
-#### Scenario: Recommend is unavailable when the flag is off
+#### Scenario: Recommend is served without any enabling setting
 
-- **WHEN** a caller invokes `Recommend` while `RECS_ENABLED=false`
-- **THEN** the call fails with `UNAVAILABLE` and a message indicating recommendations are not
-  enabled, and no Qdrant or Redis access is attempted
+- **WHEN** team-ai starts with default settings except for the backend endpoints
+- **THEN** `Recommend` answers instead of `UNAVAILABLE`/`UNIMPLEMENTED`
 
 ### Requirement: Two-stage retrieval then ranking with business-rule filtering
 
@@ -387,7 +385,7 @@ no usable data for a candidate, serving SHALL continue on the prior CTR without 
 
 - **WHEN** the nearline Redis cannot be read, or has only rows below the impression floor
 - **THEN** the request is answered with the prior ordering and a non-degraded status
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_nearline_outage_does_not_fail_or_degrade_the_request, test_nearline_below_the_impression_floor_is_not_used; team-ai/tests/unit/modules/recommend/test_redis_nearline_store.py. Not verifiable end to end: it needs the stack's Redis (also the serving cache) to fail and `status` is not on the gateway wire.
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_factory.py; team-ai/tests/unit/modules/recommendation/test_redis_adapters.py. Not verifiable end to end: it needs the stack's Redis (also the serving cache) to fail and `status` is not on the gateway wire.
 
 ### Requirement: Nearline signals are consumed from analytics.events
 
@@ -434,7 +432,7 @@ rates inflated by favourable display positions.
 - **WHEN** two candidates have accumulated identical raw click-through rates, but one item's
   impressions occurred at consistently worse positions
 - **THEN** the item shown at worse positions receives the higher `historical_ctr` feature value
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_debiased_ctr_ranking.py › test_equal_raw_ctr_worse_position_yields_higher_debiased_ctr_and_gbdt_score, test_extract_features_records_source_and_keeps_the_prior_value_on_fallback. Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`). The accumulation of positions happens in the platform-recsys consumer, outside team-ai.
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_ranking.py. Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`). The accumulation of positions happens in the platform-recsys consumer, outside team-ai.
 
 #### Scenario: Debiased value changes the ranking score
 
@@ -450,14 +448,14 @@ serving-time feature provenance can be compared.
 
 - **WHEN** the nearline store holds a debiased CTR for the candidate
 - **THEN** the feature vector reports `ctr_source` as `"nearline"`
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_debiased_ctr_ranking.py › test_extract_features_records_source_and_keeps_the_prior_value_on_fallback, test_ranked_items_carry_the_ctr_source_of_their_feature_vector; team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_explain_reports_the_ctr_source_of_every_returned_item. Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`).
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_ranking.py; team-ai/tests/unit/modules/recommendation/test_factory.py. Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`).
 
 #### Scenario: Nearline data absent
 
 - **WHEN** the nearline store holds no usable data for the candidate
 - **THEN** `historical_ctr` retains its prior value
 - **AND** the feature vector reports `ctr_source` as `"fallback"`
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_debiased_ctr_ranking.py › test_extract_features_records_source_and_keeps_the_prior_value_on_fallback; team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_without_nearline_every_item_reports_fallback. Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`).
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_ranking.py; team-ai/tests/unit/modules/recommendation/test_factory.py. Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`).
 
 ### Requirement: Serving path supplies the nearline source
 
@@ -470,7 +468,7 @@ training.
 - **WHEN** a recommendation request runs for a placement whose ranking model is `gbdt`
 - **THEN** candidate features were built with the nearline source
 - **AND** the response `explain` payload reports the nearline enrichment (`nearline_enabled`, `nearline_hit_count`, and `ctr_sources`, the count of returned items per CTR source)
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_factory_built_service_consults_the_nearline_store, test_explain_reports_the_ctr_source_of_every_returned_item (service built by `build_recommendation_service`). Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`).
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_factory.py (service built by `build_recommendation_service`). Not verifiable end to end: the feature vector and `explain` are not on the gateway wire (the ordering effect is the e2e scenario `Debiased value changes the ranking score`).
 
 ### Requirement: Declared ranking model governs the serving path
 
@@ -485,14 +483,14 @@ actually ran.
   a candidate fixture where the GBDT weights rank two candidates opposite to their cosine order
 - **THEN** the returned item order matches the GBDT ordering and differs from the cosine ordering
 - **AND** `explain["ranking_model"]` equals `"gbdt"`
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_placement_engine.py › test_home_feed_personalized_gbdt_and_featurestore_hit_count; team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_factory_built_service_reads_the_feature_store_and_ranks_with_gbdt. Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id).
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_placements.py; team-ai/tests/unit/modules/recommendation/test_factory.py. Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id).
 
 #### Scenario: Placement without a GBDT model keeps retrieval ordering
 
 - **WHEN** `service.recommend` is called for a placement whose `ranking.model` is not `gbdt`
 - **THEN** the returned order is the retrieval-score order
 - **AND** `explain["ranking_model"]` reports that model
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_placement_engine.py › test_similar_items_placement_keeps_cosine_order; team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_non_gbdt_placement_keeps_retrieval_order_through_the_factory. Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id).
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_placements.py; team-ai/tests/unit/modules/recommendation/test_factory.py. Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id).
 
 ### Requirement: Feature-store enrichment is observable per request
 
@@ -504,7 +502,7 @@ with item features before ranking and SHALL report how many candidates were enri
 - **WHEN** `service.recommend` runs for a placement with `use_featurestore: true` and the feature
   store holds features for at least one returned candidate
 - **THEN** `explain["featurestore_hit_count"]` is greater than zero
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_factory_built_service_reads_the_feature_store_and_ranks_with_gbdt (RedisFeatureStore built from RECS_FEATURESTORE_REDIS_URL). Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id). The feature store's effect on order is covered end to end by `recommendations/serving_safeguards.feature` (Online features break a tie).
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_factory.py (RedisFeatureStore built from RECS_FEATURESTORE_REDIS_URL). Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id). The feature store's effect on order is covered end to end by `recommendations/serving_safeguards.feature` (Online features break a tie).
 
 ### Requirement: Placements cannot declare unbound capabilities
 
@@ -517,7 +515,7 @@ that has no bound implementation. A declared capability that no code reads SHALL
   registered implementation
 - **THEN** application startup fails with an error naming the placement and the missing binding
 - **AND** no request is served with the unbound configuration
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_placement_engine.py › test_startup_validation_rejects_unbound_ranking_model. Not verifiable end to end: it needs a placement file with an unbound model and a service restart, and a refused start serves nothing to probe.
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_placements.py. Not verifiable end to end: it needs a placement file with an unbound model and a service restart, and a refused start serves nothing to probe.
 
 ### Requirement: Ranking failure degrades rather than errors
 
@@ -529,7 +527,7 @@ retrieval-score ordering and mark the response degraded.
 - **WHEN** the ranker raises during `service.recommend`
 - **THEN** items are returned in retrieval-score order
 - **AND** the response `status` is `"degraded"`
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_placement_engine.py › test_ranker_failure_degrades_to_cosine_order. Not verifiable end to end: it needs the ranker to raise inside the running service, and `status` is not on the gateway wire.
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_placements.py. Not verifiable end to end: it needs the ranker to raise inside the running service, and `status` is not on the gateway wire.
 
 ### Requirement: The factory binds what the placements declare
 
@@ -542,7 +540,7 @@ and not only in a service assembled by hand.
 - **WHEN** a service is built with `build_recommendation_service` from settings that set `RECS_FEATURESTORE_REDIS_URL`, and a `home_feed` request runs against features that invert the cosine order
 - **THEN** `explain["featurestore_hit_count"]` is greater than zero and the order differs from the cosine order
 - **AND** with the setting empty, `featurestore_hit_count` is `0` and the order is the cosine order
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_factory_serving_wiring.py › test_factory_built_service_reads_the_feature_store_and_ranks_with_gbdt, test_without_a_feature_store_url_the_same_request_keeps_cosine_order. Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id).
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_factory.py. Not verifiable end to end: the response `explain` payload and `status` are not on the gateway wire (`RecommendResponse` carries items, model_version, placement_id, request_id).
 
 ### Requirement: Serving reads the feature store's registry features
 
@@ -555,7 +553,7 @@ counted in `explain["feature_defaults"]`, and SHALL NOT fail the request.
 - **WHEN** a request ranks candidates whose online rows carry the registry names, and another whose row carries only names the registry does not declare
 - **THEN** the first rows' `ctr_7d` and engagement counts reach the ranker's inputs, the other row ranks as an empty row, and `explain["feature_defaults"]` counts its missing registry features
 - **AND** the request is not degraded
-- **VERIFIED BY**: team-ai/tests/unit/modules/recommend/test_item_feature_contract.py › test_registry_names_drive_the_ranker_vector, test_service_counts_defaulted_features_and_does_not_crash, test_item_feature_list_matches_the_registry_view. Not verifiable end to end: `explain` is not on the gateway wire (the feature store's effect on order is covered by `recommendations/serving_safeguards.feature`).
+- **VERIFIED BY**: team-ai/tests/unit/modules/recommendation/test_contract.py. Not verifiable end to end: `explain` is not on the gateway wire (the feature store's effect on order is covered by `recommendations/serving_safeguards.feature`).
 
 ### Requirement: Batch pipeline produces two-tower vectors
 
@@ -704,7 +702,7 @@ team-ai's Qdrant backend SHALL look up a seed listing by the producer's point id
 
 The local compose stack SHALL provide a runnable training job that reads the exported
 tracking events and fills Qdrant and Redis, and team-ai SHALL serve recommendations
-from them (`RECS_ENABLED=true`, Qdrant backend).
+from them.
 
 #### Scenario: Home page shows trained recommendations
 
