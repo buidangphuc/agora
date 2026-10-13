@@ -823,3 +823,1252 @@ features:
     - unit
     status: not-testable
     notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.
+  - id: model-registry.server-is-up-with-the-pinned-version
+    title: Server is up with the pinned version
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the infra stack is started and `GET http://localhost:5050/version` is called
+    - Then the response status is 200 and the body is `3.2.0`
+    tags:
+    - model-registry
+    - registry
+    - e2e
+    kind: contract
+    status: planned
+    notes: 'add-model-registry: e2e scenario mlflow_server_up in model_registry/model_registry.feature (red
+      until the infra services exist).'
+  - id: model-registry.a-run-and-a-registered-model-version-are-stored-with-artifacts-in-mini
+    title: A run and a registered model version are stored with artifacts in MinIO
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a client logs one run with a model artifact and creates a version of registered model `e2e-registry-probe`
+      against `http://localhost:5050`
+    - Then the version exists in the registry and the artifact object exists in bucket `mlflow-artifacts`
+    tags:
+    - model-registry
+    - registry
+    - e2e
+    kind: contract
+    status: planned
+    notes: 'add-model-registry: e2e scenario run_and_artifact_stored in model_registry/model_registry.feature
+      (red until the infra services exist).'
+  - id: model-registry.bucket-creation-is-idempotent
+    title: Bucket creation is idempotent
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `minio-init` runs a second time on a stack where `mlflow-artifacts` already exists
+    - Then the job exits with status 0 and the bucket and its objects are unchanged
+    tags:
+    - model-registry
+    - registry
+    - e2e
+    kind: contract
+    status: planned
+    notes: 'add-model-registry: e2e scenario bucket_init_idempotent in model_registry/model_registry.feature
+      (red until the infra services exist).'
+  - id: model-registry.unit-backend-store-is-not-the-shared-postgres
+    title: Backend store is not the shared postgres
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the rendered infra compose config is inspected
+    - Then the `mlflow` backend store URI points at host `postgres-mlflow` and no `mlflow` database exists
+      in the shared `postgres` init script
+    tags:
+    - model-registry
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by platform-core/packages/py-modelregistry/tests/test_infra_config.py::test_backend_store_is_dedicated.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-registry.unit-no-ingress-is-rendered
+    title: No ingress is rendered
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `kustomize build platform-gitops/platform/mlflow` is rendered
+    - Then the output contains zero resources of kind `Ingress` and exactly one Service of type ClusterIP
+      exposing port 5050
+    tags:
+    - model-registry
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by platform-gitops/tests/test_mlflow_manifests.py::test_no_ingress_clusterip_only.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-registry.unit-manifests-without-a-literal-secret
+    title: Manifests without a literal secret
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the rendered manifests are scanned for `password`, `secret` and `access_key` values
+    - Then every such value is a reference to a Secret or ExternalSecret and a literal credential string
+      fails the test
+    tags:
+    - model-registry
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by platform-gitops/tests/test_mlflow_manifests.py::test_credentials_from_vault_refs.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-registry.unit-argocd-application-points-at-the-manifests
+    title: ArgoCD application points at the manifests
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `platform-gitops/argocd/apps/mlflow.yaml` is parsed
+    - Then its source path is `platform/mlflow` and it defines a destination namespace
+    tags:
+    - model-registry
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by platform-gitops/tests/test_mlflow_manifests.py::test_argocd_app_source_path.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-registry.unit-supersession-is-visible-from-the-old-adrs
+    title: Supersession is visible from the old ADRs
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When ADR-0014 and ADR-0013 are read
+    - Then each carries a status line naming ADR-0017 as superseding it (ADR-0013 for its MLflow alternative
+      only)
+    tags:
+    - model-registry
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by platform-core/packages/py-modelregistry/tests/test_adr.py::test_supersession_lines.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-registry.unit-consumer-privacy-rule-is-recorded
+    title: Consumer privacy rule is recorded
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When ADR-0017 is read
+    - Then it contains a statement that MLflow runs, tags and artifacts must not contain person identifiers,
+      interaction rows or per-person lists
+    tags:
+    - model-registry
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by tests/test_adr.py::test_privacy_rule_present. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-registry.unit-job-triggers-on-library-changes
+    title: Job triggers on library changes
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a pull request changes a file under `platform-core/packages/py-modelregistry/**`
+    - Then the `py-modelregistry` job is scheduled by the workflow path filter
+    tags:
+    - model-registry
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by tests/test_ci_workflow.py::test_job_and_path_filter_present.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-registry.unit-a-failing-test-fails-the-job
+    title: A failing test fails the job
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When one library test fails
+    - Then the job exits non-zero and the workflow run is red
+    tags:
+    - model-registry
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by tests/test_ci_workflow.py::test_job_runs_pytest_without_continue_on_error.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-registry.unit-single-writer-assumption-is-written-down
+    title: Single-writer assumption is written down
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When ADR-0017 is read
+    - 'Then it names `concurrencyPolicy: Forbid`, the four version states and the statement that no lock
+      is taken'
+    tags:
+    - model-registry
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by tests/test_adr.py::test_single_writer_and_states_recorded. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-registry.unit-adr-without-the-state-model-fails-the-check
+    title: ADR without the state model fails the check
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When the ADR text lacks `concurrencyPolicy: Forbid` or any of the four state names'
+    - Then the check fails and names the missing term
+    tags:
+    - model-registry
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by tests/test_adr.py::test_adr_rejects_missing_sections. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-passing-candidate-is-promotable-and-no-alias-moves
+    title: Passing candidate is promotable and no alias moves
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When the champion is version 1 with `ndcg@10=0.100` and `coverage@10=0.50`, the policy is `min_relative_improvement=0.01`
+      with guard `coverage@10: 0.8`, and `evaluate` is called with `ndcg@10=0.102` and `coverage@10=0.45`'
+    - Then the Decision outcome is `promotable`, the new version has tag `gate.outcome=promotable`, alias
+      `champion` still points at version 1 and no alias `previous` was created
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_pass_is_promotable_and_moves_no_alias.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-insufficient-improvement-is-rejected
+    title: Insufficient improvement is rejected
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the same champion and policy are used and `evaluate` is called with `ndcg@10=0.1005`
+    - Then the Decision outcome is `rejected`, the reason names `ndcg@10` and the required 0.01, the version
+      has tags `gate.outcome=rejected` and a non-empty `gate.reason`, and alias `champion` is unchanged
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_insufficient_improvement_rejected. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-guard-violation-is-rejected
+    title: Guard violation is rejected
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When the champion has `coverage@10=0.50` and `evaluate` is called with `ndcg@10=0.120` and `coverage@10=0.39`
+      under guard `coverage@10: 0.8`'
+    - Then the Decision outcome is `rejected` and the reason names `coverage@10`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_guard_violation_rejected. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-thresholds-are-inclusive
+    title: Thresholds are inclusive
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a candidate has relative improvement exactly equal to `min_relative_improvement` and a guard
+      metric exactly equal to `ratio * champion[g]`
+    - Then the Decision outcome is `promotable`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_thresholds_are_inclusive. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-floating-point-rounding-at-the-threshold-is-tolerated
+    title: Floating-point rounding at the threshold is tolerated
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the champion `ndcg@10` is 0.5, `min_relative_improvement` is 0.005 and a candidate with `ndcg@10=0.5025`
+      is evaluated
+    - Then the Decision outcome is `promotable`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_threshold_tolerance_1e9. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-champion-metric-is-the-latest-value
+    title: Champion metric is the latest value
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the champion's source run logged `ndcg@10` at steps 0 and 1 with values 0.4 and 0.5
+    - Then the comparison uses 0.5
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_champion_metric_uses_latest_value. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-run-artifact-and-lineage-are-attached-to-the-version
+    title: Run, artifact and lineage are attached to the version
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When `evaluate` is called with `run_id=R`, `artifact_path=P` (a directory with one file) and lineage
+      `{data_version: "als_interactions@v1", eval_protocol: "p1", train_hw: "cpu"}`'
+    - Then the version's run id is `R`, run `R` holds that file under `model/`, and the version has tags
+      `lineage.data_version=als_interactions@v1`, `lineage.eval_protocol=p1` and `lineage.train_hw=cpu`;
+      tag `lineage.train_hw` is absent when `train_hw` was not given
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_artifact_run_and_lineage_tags. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-decision-is-deterministic
+    title: Decision is deterministic
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the same candidate metrics, champion metrics, protocols and policy are evaluated twice, each
+      against an identical fresh registry
+    - Then both Decisions have equal `outcome` and equal `reason` strings
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_decision_is_deterministic. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-protocol-mismatch-judges-floors-only
+    title: Protocol mismatch judges floors only
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When the champion has protocol `p1` and `ndcg@10=0.300`, the policy has floors `{ndcg@10: 0.05}`,
+      and a candidate with protocol `p2` and `ndcg@10=0.060` is evaluated'
+    - 'Then the Decision outcome is `promotable` and the reason starts with `eval_protocol changed: p1 ->
+      p2`, even though the candidate is below the champion'
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_protocol_mismatch_floors_only. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-protocol-mismatch-below-a-floor-is-rejected
+    title: Protocol mismatch below a floor is rejected
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the same setup is used with a candidate `ndcg@10=0.040`
+    - Then the Decision outcome is `rejected` and the reason names `ndcg@10` and 0.05
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_protocol_mismatch_below_floor_rejected.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-matching-protocol-is-compared
+    title: Matching protocol is compared
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When candidate and champion both have protocol `p1` and the candidate is below the champion by more
+      than the policy allows
+    - Then the Decision outcome is `rejected` with a reason that names the improvement shortfall and does
+      not start with `eval_protocol changed`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_protocol_match_is_compared. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-champion-without-a-protocol-tag
+    title: Champion without a protocol tag
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the champion version has no `lineage.eval_protocol` tag and a candidate with protocol `p1` is
+      evaluated
+    - 'Then metrics are not compared and the reason starts with `eval_protocol changed: none -> p1`'
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_champion_without_protocol_tag. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-candidate-missing-the-primary-metric
+    title: Candidate missing the primary metric
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `evaluate` is called without the `primary` metric
+    - Then no exception is raised, the version is registered with `gate.outcome=rejected`, and the reason
+      names the metric as missing
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_missing_primary_rejected. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-candidate-metric-is-nan-or-infinite
+    title: Candidate metric is NaN or infinite
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a guard metric is NaN, or a floor metric is infinite
+    - Then the Decision outcome is `rejected` and the reason names that metric as not finite
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_non_finite_metrics_rejected. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-candidate-missing-a-floor-metric
+    title: Candidate missing a floor metric
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When the model has no champion, the floors are `{coverage@10: 0.5}` and the candidate has no `coverage@10`'
+    - Then the Decision outcome is `rejected` and the reason names `coverage@10`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_missing_floor_metric_rejected. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-guard-missing-on-the-champion-is-skipped-and-noted
+    title: Guard missing on the champion is skipped and noted
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the policy guards `recall@10`, the champion run has no `recall@10`, and the candidate clears
+      the primary threshold
+    - Then the Decision outcome is `promotable` and the reason contains `recall@10` and `skipped`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_guard_missing_on_champion_skipped. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-champion-primary-is-zero-or-negative
+    title: Champion primary is zero or negative
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the champion `primary` is 0 (or -0.2) and a candidate with `primary=0.05` meeting all floors
+      is evaluated
+    - Then no arithmetic error is raised and the Decision outcome is `promotable`; a candidate with `primary`
+      equal to the champion's is `rejected`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_champion_primary_not_positive. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-first-champion-via-floors
+    title: First champion via floors
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When model `m` has no champion, the floors are `{ndcg@10: 0.05}`, `evaluate` is called with `ndcg@10=0.06`
+      and then `apply` is called on the returned version'
+    - Then the Decision outcome is `promotable`, after `apply` alias `champion` points at that version and
+      alias `previous` does not exist
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_first_champion_meets_floors. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-candidate-below-a-floor-is-rejected-and-no-champion-is-set
+    title: Candidate below a floor is rejected and no champion is set
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When model `m` has no champion, the floors are `{ndcg@10: 0.05}`, and `evaluate` is called with `ndcg@10=0.049`'
+    - Then the Decision outcome is `rejected`, the reason names `ndcg@10` and 0.05, and the model has no
+      alias `champion`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_first_candidate_below_floor_rejected.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-candidate-exactly-at-the-floor-passes
+    title: Candidate exactly at the floor passes
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the candidate `ndcg@10` equals the floor 0.05 exactly
+    - Then the Decision outcome is `promotable`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_evaluate.py::test_floor_is_inclusive. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-read-the-champion
+    title: Read the champion
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a model was seeded or promoted with run `R` holding `ndcg@10=0.5`, and `get_champion` is called
+    - Then it returns the champion's version number, `run_id=R`, `metrics` containing `ndcg@10=0.5`, and
+      the version tags including `gate.outcome=promoted`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_apply.py::test_get_champion_returns_run_and_metrics. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-no-champion-returns-none-not-an-error
+    title: No champion returns None, not an error
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `get_champion` is called for a model with no `champion` alias, or no versions
+    - Then it returns `None` and does not raise and creates nothing
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_apply.py::test_get_champion_none_without_champion. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-apply-after-evaluate-moves-the-aliases
+    title: Apply after evaluate moves the aliases
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `evaluate` returned `promotable` for version 2 while version 1 is champion, then `apply(m, 2)`
+      runs
+    - Then alias `champion` points at version 2, alias `previous` points at version 1 and version 2 has
+      tag `gate.outcome=promoted`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_apply.py::test_apply_moves_champion_and_sets_previous.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-apply-is-refused-on-a-rejected-version
+    title: Apply is refused on a rejected version
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `apply(m, 3)` runs and version 3 has `gate.outcome=rejected`
+    - Then `GateError` is raised and aliases and tags are unchanged
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_apply.py::test_apply_refused_on_rejected. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-apply-is-refused-on-a-pending-version
+    title: Apply is refused on a pending version
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `apply(m, 4)` runs and version 4 has no `gate.outcome` tag
+    - Then `GateError` is raised and aliases are unchanged
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_apply.py::test_apply_refused_on_pending. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-crash-between-evaluate-and-apply-changes-nothing-served
+    title: Crash between evaluate and apply changes nothing served
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `evaluate` returns `promotable` and the process ends before `apply`
+    - Then alias `champion` and alias `previous` are unchanged, the version stays `promotable`, and a later
+      `evaluate` of a new candidate compares with the unchanged champion and ignores the stale `promotable`
+      version
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_apply.py::test_crash_between_evaluate_and_apply_leaves_aliases.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-mark-rejected-after-a-downstream-failure
+    title: mark_rejected after a downstream failure
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `mark_rejected(m, 2, "publish failed")` runs on a `promotable` version
+    - Then version 2 has `gate.outcome=rejected` and `gate.reason=publish failed`, and the aliases are unchanged
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_apply.py::test_mark_rejected_touches_no_alias. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-register-rejected-records-a-structural-rejection
+    title: register_rejected records a structural rejection
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `register_rejected(m, run_id, "dataset stale", lineage)` runs
+    - Then a new version exists with `gate.outcome=rejected`, `gate.reason=dataset stale` and the lineage
+      tags, the policy was not read, and the aliases are unchanged
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_apply.py::test_register_rejected_skips_policy. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-submit-is-evaluate-then-apply
+    title: Submit is evaluate then apply
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `submit` is called twice, the second candidate better than the first by more than the policy
+      minimum
+    - Then the second Decision has outcome `promoted`, alias `champion` is on version 2 and alias `previous`
+      on version 1; a failing third candidate returns `rejected` and leaves both aliases
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_apply.py::test_submit_is_evaluate_then_apply. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.submit-against-a-real-mlflow-server
+    title: Submit against a real MLflow server
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When two versions of `e2e-gate-probe` are submitted to `http://localhost:5050`, the second better
+      than the first by more than the policy minimum
+    - Then the registry shows alias `champion` on version 2 and alias `previous` on version 1
+    tags:
+    - model-publish-gate
+    - registry
+    - e2e
+    kind: contract
+    status: planned
+    notes: 'add-model-registry: e2e scenario gate_against_real_server in model_registry/model_registry.feature
+      (red until the infra services exist).'
+  - id: model-publish-gate.unit-unknown-model-has-no-policy
+    title: Unknown model has no policy
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `evaluate` is called for model `not-in-policies`
+    - Then `PolicyError` is raised naming the model, and no version is created
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_policy.py::test_unknown_model_raises_before_any_write.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-malformed-policy-is-rejected
+    title: Malformed policy is rejected
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When a policy entry has `guards: {coverage@10: 0}` or an unknown key `min_improvment`'
+    - Then loading raises `PolicyError` whose message names the model and the offending key
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_policy.py::test_malformed_entries_raise. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-resolution-order
+    title: Resolution order
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a model is defined in the argument file, in the file named by `MODELREGISTRY_POLICIES` with a
+      different `primary`, and in the packaged file
+    - Then the argument file wins; without the argument the env file wins; without both the packaged file
+      is used
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_policy.py::test_resolution_order. Platform library / infra
+      / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-shipped-policies-yaml-loads-and-holds-no-live-model
+    title: Shipped policies.yaml loads and holds no live model
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the `policies.yaml` shipped in the package is loaded
+    - Then loading succeeds and the file holds no model entries other than those the later slices add; the
+      documented example is in a comment and is not loaded
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_policy.py::test_shipped_file_loads. Platform library /
+      infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-omitted-optional-keys-take-defaults
+    title: Omitted optional keys take defaults
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When an entry has only `primary: f1`'
+    - Then it loads with `min_relative_improvement=0.0`, no guards and no floors
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_policy.py::test_defaults. Platform library / infra / docs
+      behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-force-moves-the-alias-and-records-the-override
+    title: Force moves the alias and records the override
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `python -m modelregistry promote m 3 --force --reason "hotfix for stale data"` runs and version
+      3 was `rejected`
+    - Then the exit code is 0, alias `champion` points at version 3, alias `previous` points at the old
+      champion, and version 3 has tags `gate.forced=true`, `gate.outcome=promoted` and `gate.reason=hotfix
+      for stale data`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_cli.py::test_force_promote_records_override. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-force-without-a-reason-is-refused
+    title: Force without a reason is refused
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `python -m modelregistry promote m 3 --force` runs with no `--reason`, or with an empty one
+    - Then the exit code is 2, nothing is written to the registry and the error text names `--reason`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_cli.py::test_force_without_reason_refused. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-promoting-an-unknown-version-fails
+    title: Promoting an unknown version fails
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `promote m 99 --force --reason x` runs and version 99 does not exist
+    - Then the exit code is 2, the error names version 99 and the aliases are unchanged
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_cli.py::test_unknown_version_exit_2. Platform library /
+      infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-unforced-promote-that-fails-the-gate-exits-0-with-the-decision
+    title: Unforced promote that fails the gate exits 0 with the decision
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `python -m modelregistry promote m 3` runs (no `--force`) and version 3 fails the policy against
+      the champion
+    - Then the exit code is 0, stdout is a JSON object with `outcome` equal to `rejected`, the `version`
+      and the `reason`, and alias `champion` is unchanged
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_cli.py::test_unforced_promote_rejected_exits_0_with_json.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-unforced-promote-that-passes-applies-it
+    title: Unforced promote that passes applies it
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `promote m 3` runs and version 3 passes the policy
+    - Then the exit code is 0, stdout JSON has `outcome` equal to `promoted` and alias `champion` points
+      at version 3
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_cli.py::test_unforced_promote_passes_applies. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-rollback-swaps-the-aliases
+    title: Rollback swaps the aliases
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `python -m modelregistry rollback m` runs with champion version 2 and previous version 1
+    - Then the exit code is 0, alias `champion` points at version 1 and alias `previous` points at version
+      2
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_cli.py::test_rollback_swaps_champion_and_previous. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-a-second-rollback-toggles-back
+    title: A second rollback toggles back
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `rollback m` runs twice in a row
+    - Then after the second call alias `champion` points at version 2 and alias `previous` at version 1
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_promote.py::test_double_rollback_toggles. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-rollback-without-a-previous-is-refused
+    title: Rollback without a previous is refused
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `rollback m` runs on a model that has a champion and no `previous` alias
+    - Then `RollbackError` is raised, the CLI exit code is 2 and alias `champion` is unchanged
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_cli.py::test_rollback_without_previous_exit_2. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-seed-creates-the-first-champion
+    title: Seed creates the first champion
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - 'When `seed("m", {"ndcg@10": 0.1}, {"data_version": "d1", "eval_protocol": "p1"}, "migrate from redis")`
+      runs on a model with no versions'
+    - 'Then version 1 exists with alias `champion`, tags `gate.outcome=promoted`, `gate.reason=seed: migrate
+      from redis` and `lineage.eval_protocol=p1`, and its run holds `ndcg@10=0.1`'
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_seed.py::test_seed_creates_first_champion. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-seed-without-an-artifact-is-allowed
+    title: Seed without an artifact is allowed
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `seed` runs with `artifact_path=None`
+    - Then the version is created and has no files under `model/` on its run
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_seed.py::test_seed_metrics_only. Platform library / infra
+      / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-seed-refused-when-versions-exist
+    title: Seed refused when versions exist
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `seed` runs for a model that already has a version, including a `rejected` one
+    - Then `GateError` is raised and no version, alias or tag is written
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_seed.py::test_seed_refused_when_versions_exist. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-the-next-evaluate-compares-against-the-seeded-champion
+    title: The next evaluate compares against the seeded champion
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a model was seeded with `ndcg@10=0.1` and protocol `p1`, and a candidate with `ndcg@10=0.2` and
+      protocol `p1` is evaluated
+    - Then the Decision is `promotable` with a reason showing the relative improvement, not a floors-only
+      reason
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_seed.py::test_evaluate_after_seed_compares. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-unreachable-registry-raises-and-decides-nothing
+    title: Unreachable registry raises and decides nothing
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `evaluate` runs with `MLFLOW_TRACKING_URI` pointing at a closed port
+    - Then `RegistryUnavailable` is raised and no Decision is returned
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_failclosed.py::test_evaluate_raises_when_unreachable. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-cli-exits-1-when-the-registry-is-down
+    title: CLI exits 1 when the registry is down
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `python -m modelregistry rollback m` runs with the registry unreachable
+    - Then the exit code is 1 and stderr contains `RegistryUnavailable`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_failclosed.py::test_cli_exit_1_when_unreachable. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-a-hanging-registry-times-out-within-the-deadline
+    title: A hanging registry times out within the deadline
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `evaluate` runs against a TCP listener that accepts connections and never replies
+    - Then `RegistryUnavailable` is raised after no more than 12 s of wall time
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_failclosed.py::test_hanging_server_times_out_within_deadline.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-first-call-answers-then-the-registry-stalls
+    title: First call answers, then the registry stalls
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When a stub server answers the first request normally and then accepts connections without replying,
+      and `submit` runs
+    - Then `RegistryUnavailable` is raised within 12 s total, not 10 s per remaining call
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_failclosed.py::test_total_deadline_across_calls. Platform
+      library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-timeout-is-capped-at-10-s-per-call
+    title: Timeout is capped at 10 s per call
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the environment sets `MLFLOW_HTTP_REQUEST_TIMEOUT=300` and the client is built
+    - Then the effective request timeout is 10 s
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_failclosed.py::test_timeout_is_capped. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-reachability-check
+    title: Reachability check
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the reachability check runs against a closed port and then against a live file or server store
+    - Then the first raises `RegistryUnavailable` within 12 s and the second returns without error
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_failclosed.py::test_reachability_check. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-outage-mid-evaluate-leaves-no-champion-change-and-no-promoted-version
+    title: Outage mid-evaluate leaves no champion change and no promoted version
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the registry becomes unreachable after the version is created and before the tags are written
+    - Then `RegistryUnavailable` is raised, the version has no `gate.outcome=promoted`, alias `champion`
+      points at the old champion once the registry is back, and `apply` on that version raises `GateError`
+      if it is still `pending`
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_failclosed.py::test_outage_mid_evaluate_keeps_champion.
+      Platform library / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-policyerror-exits-2
+    title: PolicyError exits 2
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `python -m modelregistry promote m 3` runs and `m` has no policy entry
+    - Then the exit code is 2 and stderr names `PolicyError` and the model
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_cli.py::test_policy_error_exit_2. Platform library / infra
+      / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-unknown-subcommand-or-missing-argument-exits-2
+    title: Unknown subcommand or missing argument exits 2
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When `python -m modelregistry rollback` runs with no model argument
+    - Then the exit code is 2 and usage text is printed
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_cli.py::test_usage_error_exit_2. Platform library / infra
+      / docs behaviour with no user journey; not producible end to end.'
+  - id: model-publish-gate.unit-unexpected-exception-exits-1
+    title: Unexpected exception exits 1
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - When the client layer raises an unexpected `RuntimeError` during `rollback m`
+    - Then the exit code is 1 and stderr contains the exception text
+    tags:
+    - model-publish-gate
+    - registry
+    - unit
+    status: not-testable
+    notes: 'add-model-registry: verified by test_cli.py::test_unexpected_exception_exit_1. Platform library
+      / infra / docs behaviour with no user journey; not producible end to end.'
