@@ -3,6 +3,7 @@ package events_test
 import (
 	"context"
 	"errors"
+	"net"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -10,6 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
@@ -174,18 +178,40 @@ func TestRolledBackTransitionIsNotDeduped(t *testing.T) {
 	}
 }
 
-// failingVoucher fails its first commit, then succeeds.
+// failingVoucher is a real VoucherService that fails its first commit with
+// Unavailable, then succeeds.
 type failingVoucher struct {
+	promotionv1.UnimplementedVoucherServiceServer
 	attempts  atomic.Int32
 	committed atomic.Int32
 }
 
-func (f *failingVoucher) CommitReservation(context.Context, *promotionv1.CommitReservationRequest, ...grpc.CallOption) (*promotionv1.CommitReservationResponse, error) {
+func (f *failingVoucher) CommitReservation(context.Context, *promotionv1.CommitReservationRequest) (*promotionv1.CommitReservationResponse, error) {
 	if f.attempts.Add(1) == 1 {
-		return nil, errors.New("promotion unavailable")
+		return nil, status.Error(codes.Unavailable, "promotion unavailable")
 	}
 	f.committed.Add(1)
 	return &promotionv1.CommitReservationResponse{Committed: true}, nil
+}
+
+// serveVoucher runs srv on a loopback gRPC server and returns a generated
+// client connected to it.
+func serveVoucher(t *testing.T, srv promotionv1.VoucherServiceServer) promotionv1.VoucherServiceClient {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gs := grpc.NewServer()
+	promotionv1.RegisterVoucherServiceServer(gs, srv)
+	go func() { _ = gs.Serve(lis) }()
+	t.Cleanup(gs.Stop)
+	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return promotionv1.NewVoucherServiceClient(conn)
 }
 
 // The PAID transition and its outbox row commit before the voucher commit, so a
@@ -197,7 +223,7 @@ func TestVoucherCommitFailureKeepsOrderPaidAndRetriesCommit(t *testing.T) {
 	pool := orderDB(t)
 	orders := store.NewPostgresOrderRepository(pool, store.WithPaidOutbox(events.BuildPaidOutboxRow))
 	promo := &failingVoucher{}
-	c := events.NewPaymentConsumer(store.NewPostgresTransactor(pool, orders), nil, events.WithVoucherCommitter(promo))
+	c := events.NewPaymentConsumer(store.NewPostgresTransactor(pool, orders), nil, events.WithVoucherCommitter(serveVoucher(t, promo)))
 	o := pendingOrder(t, orders, "SAVE")
 	rec := settledRecord(t, "evt-v", o.ID)
 
