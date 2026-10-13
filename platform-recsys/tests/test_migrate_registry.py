@@ -202,3 +202,40 @@ def test_existing_versions_left_alone(monkeypatch, reg):
     assert _stored_metrics(reg, GBDT, existing)[enc("ndcg@10")] == pytest.approx(0.9)
     assert _versions(reg, ALS) == [1]
     assert reg.aliases(ALS) == {"champion": 1}
+
+
+def test_corrupt_meta_is_skipped_with_a_warning(monkeypatch, reg, caplog):
+    # RAT-27 (robustness): a champion whose meta JSON is corrupt is skipped with a warning, the other model is
+    # still seeded, exit 0, the Redis keys stay
+    r = FakeRedis()
+    _champion(r, "als-1", {"ndcg@10": 0.1, "coverage@10": 0.5}, PROTOCOL)
+    r.set("recs:model:meta:als-1", "{not json")
+    _champion(r, "gbdt-1", {"ndcg@10": 0.2, "recall@10": 0.4}, "gbdt-protocol-v1", gbdt=True)
+
+    with caplog.at_level("WARNING"):
+        assert _migrate(monkeypatch, reg, r) == 0
+
+    assert _versions(reg, ALS) == []
+    assert _versions(reg, GBDT) == [1]
+    assert any(rec.levelname == "WARNING" and "recsys-als" in rec.getMessage() for rec in caplog.records)
+    assert r.store["recs:model:champion"] == "als-1"
+
+
+def test_unexpected_seed_error_exits_1(monkeypatch, reg):
+    # RAT-29 (generic registry error): a registry error that is not a refusal makes the command exit 1 and
+    # leaves the Redis keys alone
+    from mlflow import MlflowClient
+    from mlflow.exceptions import MlflowException
+
+    r = FakeRedis()
+    _champion(r, "als-1", {"ndcg@10": 0.1, "coverage@10": 0.5}, PROTOCOL)
+    before = dict(r.store)
+
+    def broken(self, *_a, **_k):
+        raise MlflowException("internal server error while creating the run")
+
+    monkeypatch.setattr(MlflowClient, "create_run", broken)
+
+    assert _migrate(monkeypatch, reg, r) == 1
+
+    assert r.store == before

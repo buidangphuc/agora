@@ -558,6 +558,78 @@ def test_rollback_registry_down_exit_1(redis_client, qdrant, monkeypatch):
     assert ({k: redis_client.get(k) for k in keys}, _aliases(qdrant)) == before
 
 
+def test_stale_pointer_swap_refuses_and_leaves_serving_consistent(reg, redis_client, qdrant, monkeypatch):
+    # RAT-31 (concurrency): a concurrent rollback completes between our registry swap and our pointer swap, so
+    # the compare-and-set returns SWAP_STALE -> exit 2, the registry swap is undone, and the Qdrant aliases
+    # name the generation the pointer CURRENTLY serves (g1, the concurrent rollback's), not the one we read
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    ids = _registry_with(reg, "g1", "g2")
+    real_swap = redis_cache.swap_generations
+
+    def racing_swap(settings, expected_serving, client=None):
+        real_swap(settings, expected_serving, client=client)  # the other rollback wins: serving g1
+        qdrant_load.activate_aliases(settings, "g1", client=qdrant)
+        return real_swap(settings, expected_serving, client=client)  # ours: now stale
+
+    monkeypatch.setattr(redis_cache, "swap_generations", racing_swap)
+
+    assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 2
+
+    assert redis_client.get("recs:v1:serving") == "g1"
+    assert redis_client.get("recs:v1:previous") == "g2"
+    assert reg.aliases(ALS) == {"champion": ids["g2"], "previous": ids["g1"]}
+    assert _aliases(qdrant) == {
+        "item_als_vectors": "item_als_vectors__g1",
+        "user_als_vectors": "user_als_vectors__g1",
+    }
+
+
+@pytest.mark.parametrize("failing", ["activate_aliases", "swap_generations"])
+def test_pointer_step_failure_restores_the_registry(reg, redis_client, qdrant, monkeypatch, failing):
+    # RAT-56 (pointer step): the registry was swapped, then the alias move or the pointer swap raises ->
+    # registry restored, pointer unchanged, Qdrant aliases still name the serving generation, exit 1
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    _registry_with(reg, "g1", "g2")
+    before = _snapshot(reg, redis_client, qdrant, ALS)
+
+    def boom(*_a, **_k):
+        raise ConnectionError("redis/qdrant went away")
+
+    target = qdrant_load if failing == "activate_aliases" else redis_cache
+    monkeypatch.setattr(target, failing, boom)
+
+    assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 1
+
+    assert _snapshot(reg, redis_client, qdrant, ALS) == before
+    assert redis_client.get("recs:v1:serving") == "g2"
+    assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g2"
+    assert _aliases(qdrant)["user_als_vectors"] == "user_als_vectors__g2"
+
+
+def test_rollback_retry_after_crash_between_registry_and_pointer(
+    reg, redis_client, qdrant, monkeypatch, caplog
+):
+    # RAT-31 (retry): registry already swapped (champion g1), pointer still serves g2 -> a re-run
+    # finishes the pointer swap without swapping the registry again, exit 0, log says already swapped
+    _publish(redis_client, qdrant, "g1")
+    _publish(redis_client, qdrant, "g2")
+    ids = _registry_with(reg, "g1", "g2")
+    reg.client.set_registered_model_alias(ALS, "champion", str(ids["g1"]))
+    reg.client.set_registered_model_alias(ALS, "previous", str(ids["g2"]))
+
+    with caplog.at_level("INFO"):
+        assert _main_with(monkeypatch, redis_client, qdrant, ["rollback"]) == 0
+
+    assert redis_client.get("recs:v1:serving") == "g1"
+    assert redis_client.get("recs:v1:previous") == "g2"
+    assert redis_client.get("recs:v1:model_version") == "g1"
+    assert _aliases(qdrant)["item_als_vectors"] == "item_als_vectors__g1"
+    assert reg.aliases(ALS) == {"champion": ids["g1"], "previous": ids["g2"]}  # not swapped a second time
+    assert "already swapped" in caplog.text.lower()
+
+
 # ── command ──────────────────────────────────────────────────────────────────────────────────────
 
 
