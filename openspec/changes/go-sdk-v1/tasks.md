@@ -114,7 +114,7 @@ Owns: everything under `platform-core/packages/go-sdk/**`, `platform-core/templa
 
 ## 16. Close review fixes (orchestrator)
 
-- [ ] 16.1 FEATURES entries for new scenarios; full SDK tests with `-race`, lint, template smoke, sync test, `ci_local`; re-run the staff review on the result.
+- [x] 16.1 FEATURES entries for new scenarios; full SDK tests with `-race`, lint, template smoke, sync test, `ci_local`; re-run the staff review on the result.
 
 ## Re-review fixes
 
