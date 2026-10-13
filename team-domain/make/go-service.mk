@@ -58,5 +58,5 @@ migrate: ## Apply migrations (the binary must implement `migrate up`)
 	go run ./cmd/$(BIN) migrate up
 
 .PHONY: docker
-docker: ## Build the service image
-	docker build -t $(SERVICE):dev --build-arg BIN=$(BIN) .
+docker: proto ## Build the service image (generates stubs first; they are not committed)
+	docker build -t $(SERVICE):dev --build-arg BIN=$(BIN) --build-arg GRPC_PORT=$(GRPC_PORT) .

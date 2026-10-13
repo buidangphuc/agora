@@ -15,7 +15,7 @@ import (
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pgx"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 const service = "hello"
@@ -38,12 +38,15 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("init health: %w", err), stack.Close(ctx))
+	}
 
-	pool, err := pgx.Open(ctx, s.Postgres)
+	pool, err := postgres.Open(ctx, s.Postgres)
 	switch {
 	case err == nil:
-		health.Register("postgres", pgx.Checker(pool))
+		health.Register("postgres", postgres.Checker(pool))
 		stack.Push(func(context.Context) error { pool.Close(); return nil })
 	case s.IsLocal():
 		logger.WarnContext(ctx, "database unreachable, continuing without it", "err", err)
@@ -52,11 +55,15 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
-	rpc.Register(srv, rpc.NewHandler(logger))
+	handler, err := rpc.NewHandler(logger)
+	if err != nil {
+		return errors.Join(fmt.Errorf("build handler: %w", err), stack.Close(ctx))
+	}
+	rpc.Register(srv, handler)
 
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
