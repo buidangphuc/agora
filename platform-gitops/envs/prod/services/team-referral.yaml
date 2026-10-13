@@ -1,0 +1,4 @@
+# Per-service, per-env overlay for team-referral in prod. go-sdk v1 requires ENV and treats
+# "production" as a strict environment. Merged over the baseline env map.
+env:
+  ENV: "production"
