@@ -329,7 +329,6 @@ services:
       - DATABASE_URL=postgres://order_svc:order_pass@postgres:5432/order_db?sslmode=disable
       - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
       - UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053
-      - FEATURE_FLAGS_ENABLED=true
       - FLIPT_ADDR=flipt:9000
       - FEATURE_FLAGS_EVAL_TIMEOUT=500ms
       # PaymentSettled consumer (AD4/AD1): consume payment.events, drive order→PAID

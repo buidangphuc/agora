@@ -50,7 +50,6 @@ spec:
             OUTBOX_BATCH_SIZE: "100"
             OUTBOX_CLAIM_LOCK: "60s"
             FLIPT_ADDR: "flipt:9000"
-            FEATURE_FLAGS_ENABLED: "true"
             ENV: "local"
           secrets:
             enabled: true

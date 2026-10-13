@@ -5,8 +5,8 @@
 // loading and the .env.example drift test (config_test.go).
 //
 // There are no enable flags for always-on capabilities (database, Kafka, the
-// outbox relayer, reflection). FEATURE_FLAGS_ENABLED and OTEL_ENABLED stay: they
-// are real toggles.
+// outbox relayer, reflection, feature flags). OTEL_ENABLED stays: it is a real
+// toggle.
 package config
 
 import (
