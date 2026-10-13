@@ -18,10 +18,13 @@ import (
 const waitFor = 25 * time.Second
 
 type fakeDLQ struct {
-	mu   sync.Mutex
-	err  error
-	recs []*kgo.Record
+	mu     sync.Mutex
+	err    error
+	recs   []*kgo.Record
+	parked chan struct{} // receives once per dead-lettered record
 }
+
+func newFakeDLQ() *fakeDLQ { return &fakeDLQ{parked: make(chan struct{}, 16)} }
 
 func (f *fakeDLQ) PublishRecord(_ context.Context, r *kgo.Record) error {
 	f.mu.Lock()
@@ -30,6 +33,10 @@ func (f *fakeDLQ) PublishRecord(_ context.Context, r *kgo.Record) error {
 		return f.err
 	}
 	f.recs = append(f.recs, r)
+	select {
+	case f.parked <- struct{}{}:
+	default:
+	}
 	return nil
 }
 
@@ -62,6 +69,15 @@ func opts() consume.Options {
 	}
 }
 
+func newConsumer(t *testing.T, client *kgo.Client, h consume.Handler, dlq consume.DLQProducer) *consume.Consumer {
+	t.Helper()
+	c, err := consume.NewConsumer(client, h, dlq, opts())
+	if err != nil {
+		t.Fatalf("NewConsumer: %v", err)
+	}
+	return c
+}
+
 func TestPermanentErrorGoesToDLQ(t *testing.T) {
 	brokers := testkit.Redpanda(t)
 	produce(t, brokers, "orders", "k1", "v1", kgo.RecordHeader{Key: "x-h", Value: []byte("hv")})
@@ -74,22 +90,23 @@ func TestPermanentErrorGoesToDLQ(t *testing.T) {
 
 	var mu sync.Mutex
 	calls := 0
-	dlq := &fakeDLQ{}
-	c := consume.NewConsumer(client, func(context.Context, consume.Record) error {
+	dlq := newFakeDLQ()
+	c := newConsumer(t, client, func(context.Context, consume.Record) error {
 		mu.Lock()
 		calls++
 		mu.Unlock()
 		return consume.Permanent(errors.New("bad payload"))
-	}, dlq, opts())
+	}, dlq)
 
 	ctx, cancel := context.WithTimeout(context.Background(), waitFor)
 	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- c.Run(ctx) }()
 
-	deadline := time.Now().Add(waitFor)
-	for len(dlq.records()) == 0 && time.Now().Before(deadline) {
-		time.Sleep(20 * time.Millisecond)
+	select {
+	case <-dlq.parked:
+	case <-ctx.Done():
+		t.Fatal("record was not dead-lettered in time")
 	}
 	cancel()
 	if err := <-done; err != nil {
@@ -108,7 +125,8 @@ func TestPermanentErrorGoesToDLQ(t *testing.T) {
 	for _, x := range r.Headers {
 		h[x.Key] = string(x.Value)
 	}
-	if h["x-h"] != "hv" || h["source-topic"] != "orders" || h["error"] == "" {
+	if h["x-h"] != "hv" || h[kafkax.HeaderDLQSourceTopic] != "orders" || h[kafkax.HeaderDLQError] == "" ||
+		h[kafkax.HeaderDLQSourcePartition] != "0" || h[kafkax.HeaderDLQSourceOffset] != "0" || h[kafkax.HeaderDLQSourceGroup] != "g-perm" {
 		t.Fatalf("dlq headers = %v", h)
 	}
 	mu.Lock()
@@ -130,21 +148,22 @@ func TestTransientErrorRetriesThenParks(t *testing.T) {
 
 	var mu sync.Mutex
 	calls := 0
-	dlq := &fakeDLQ{}
-	c := consume.NewConsumer(client, func(context.Context, consume.Record) error {
+	dlq := newFakeDLQ()
+	c := newConsumer(t, client, func(context.Context, consume.Record) error {
 		mu.Lock()
 		calls++
 		mu.Unlock()
 		return errors.New("flaky")
-	}, dlq, opts())
+	}, dlq)
 
 	ctx, cancel := context.WithTimeout(context.Background(), waitFor)
 	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- c.Run(ctx) }()
-	deadline := time.Now().Add(waitFor)
-	for len(dlq.records()) == 0 && time.Now().Before(deadline) {
-		time.Sleep(20 * time.Millisecond)
+	select {
+	case <-dlq.parked:
+	case <-ctx.Done():
+		t.Fatal("record was not dead-lettered in time")
 	}
 	cancel()
 	if err := <-done; err != nil {
@@ -167,9 +186,9 @@ func TestDLQFailureDoesNotCommit(t *testing.T) {
 		t.Fatalf("client: %v", err)
 	}
 	dlqErr := errors.New("dlq down")
-	c := consume.NewConsumer(first, func(context.Context, consume.Record) error {
+	c := newConsumer(t, first, func(context.Context, consume.Record) error {
 		return consume.Permanent(errors.New("bad"))
-	}, &fakeDLQ{err: dlqErr}, opts())
+	}, &fakeDLQ{err: dlqErr})
 
 	ctx, cancel := context.WithTimeout(context.Background(), waitFor)
 	defer cancel()
@@ -184,13 +203,13 @@ func TestDLQFailureDoesNotCommit(t *testing.T) {
 	}
 	defer second.Close()
 	got := make(chan consume.Record, 1)
-	c2 := consume.NewConsumer(second, func(_ context.Context, r consume.Record) error {
+	c2 := newConsumer(t, second, func(_ context.Context, r consume.Record) error {
 		select {
 		case got <- r:
 		default:
 		}
 		return nil
-	}, &fakeDLQ{}, opts())
+	}, newFakeDLQ())
 	ctx2, cancel2 := context.WithTimeout(context.Background(), waitFor)
 	defer cancel2()
 	done := make(chan error, 1)
