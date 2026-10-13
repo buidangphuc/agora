@@ -2,6 +2,7 @@ package healthx
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sort"
 	"sync"
@@ -35,8 +36,12 @@ type Health struct {
 	serving  bool
 }
 
-// New returns a Health that probes every interval. It starts SERVING.
-func New(interval time.Duration, logger *slog.Logger) *Health {
+// New returns a Health that probes every interval. It starts SERVING. It
+// returns an error when interval is not positive.
+func New(interval time.Duration, logger *slog.Logger) (*Health, error) {
+	if interval <= 0 {
+		return nil, fmt.Errorf("healthx: interval must be positive, got %s", interval)
+	}
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -45,7 +50,7 @@ func New(interval time.Duration, logger *slog.Logger) *Health {
 		logger:   logger,
 		server:   health.NewServer(),
 		serving:  true,
-	}
+	}, nil
 }
 
 // Register adds a named check. Call it before Run.
