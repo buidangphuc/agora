@@ -48,13 +48,16 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 	stack.Push(shutdownOTel)
 
-	health := healthx.New(healthx.DefaultInterval, logger)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		return fail(fmt.Errorf("health: %w", err))
+	}
 
 	pool, err := openDatabase(ctx, s, logger)
 	if err != nil {
 		return fail(err)
 	}
-	health.Register("postgres", pgx.Checker(pool))
+	health.Register("postgres", postgres.Checker(pool))
 	stack.Push(func(context.Context) error { pool.Close(); return nil })
 
 	repo := store.NewPostgresNotificationRepo(pool)
@@ -109,7 +112,11 @@ func Run(ctx context.Context, s config.Settings) error {
 		}
 		stack.Push(func(context.Context) error { closeClient(client); return nil })
 		logger.InfoContext(ctx, c.name+" consumer configured", "topic", c.topic, "group", c.group)
-		consumers = append(consumers, events.NewRunner(client, c.handle, dlq, c.dlqTopic, logger))
+		runner, err := events.NewRunner(client, c.handle, dlq, c.dlqTopic, logger)
+		if err != nil {
+			return fail(fmt.Errorf("%s consumer: %w", c.name, err))
+		}
+		consumers = append(consumers, runner)
 	}
 
 	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
@@ -118,8 +125,8 @@ func Run(ctx context.Context, s config.Settings) error {
 	// The consumers write through the same store the server reads, so they stop
 	// only after the server has drained.
 	return lifecycle.Run(ctx, lifecycle.Options{
-		ShutdownGrace: s.ShutdownGrace(),
-		DrainDelay:    s.DrainDelay(),
+		ShutdownGrace: s.ShutdownGrace,
+		DrainDelay:    s.DrainDelay,
 		OnShutdown:    []func(){health.Drain},
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
@@ -130,7 +137,7 @@ func Run(ctx context.Context, s config.Settings) error {
 // database fails boot. Locally the service starts anyway on a pool that connects
 // lazily, as it always did: calls fail until the database is up.
 func openDatabase(ctx context.Context, s config.Settings, logger *slog.Logger) (*pgxpool.Pool, error) {
-	pool, err := pgx.Open(ctx, s.Postgres)
+	pool, err := postgres.Open(ctx, s.Postgres)
 	if err == nil {
 		return pool, nil
 	}

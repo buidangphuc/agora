@@ -17,8 +17,8 @@ import (
 	listingv1 "github.com/buidangphuc/team-notification/generated/platform/listing/v1"
 )
 
-// Service-principal convention for internal gRPC calls: the SDK upstream
-// connection presents the principal given by sdkupstream.WithServicePrincipal as
+// Service-principal convention for internal gRPC calls: each SDK upstream
+// connection presents the service principal (sdkupstream.AsService) as
 // x-principal-* metadata, because a Kafka consumer has no user request to
 // forward. Scopes are the least this service needs: listing.read for
 // team-domain's BatchGetStorefronts and identity.read for team-identity's
@@ -31,11 +31,9 @@ const (
 	lookupTimeout = 2 * time.Second
 )
 
-// withServicePrincipal returns ctx carrying the service principal for the SDK
-// upstream connections. It replaces any incoming principal: a consumer context
-// has none.
-func withServicePrincipal(ctx context.Context) context.Context {
-	return sdkupstream.WithServicePrincipal(ctx, servicePrincipalID, "listing.read", "identity.read")
+// asService is the connection option that sets the service principal.
+func asService() sdkupstream.Option {
+	return sdkupstream.AsService(servicePrincipalID, "listing.read", "identity.read")
 }
 
 // StorefrontClient is the slice of team-domain's ListingService used here.
@@ -75,7 +73,7 @@ func (r *NameResolver) ResolveSenderName(ctx context.Context, senderID, sellerID
 	if senderID == "" {
 		return ""
 	}
-	ctx, cancel := context.WithTimeout(withServicePrincipal(ctx), r.timeout)
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
 	if sellerID != "" && sellerID == senderID && r.storefronts != nil {
@@ -117,11 +115,11 @@ type Clients struct {
 // Dial opens lazy connections to team-domain and team-identity (no network I/O
 // until the first call, so a down upstream cannot block startup).
 func Dial(domainAddr, identityAddr string, logger *slog.Logger) (*Clients, error) {
-	domainConn, err := sdkupstream.Dial(domainAddr, sdkupstream.WithTimeout(lookupTimeout))
+	domainConn, err := sdkupstream.NewClient(domainAddr, asService(), sdkupstream.WithTimeout(lookupTimeout))
 	if err != nil {
 		return nil, fmt.Errorf("team-domain: %w", err)
 	}
-	identityConn, err := sdkupstream.Dial(identityAddr, sdkupstream.WithTimeout(lookupTimeout))
+	identityConn, err := sdkupstream.NewClient(identityAddr, asService(), sdkupstream.WithTimeout(lookupTimeout))
 	if err != nil {
 		_ = domainConn.Close()
 		return nil, fmt.Errorf("team-identity: %w", err)

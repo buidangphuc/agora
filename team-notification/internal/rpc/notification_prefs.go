@@ -13,10 +13,10 @@ import (
 	"github.com/buidangphuc/team-notification/internal/notification"
 )
 
-var prefsErrs = grpcx.ErrorTable{
-	notification.ErrEmptyUser: codes.InvalidArgument,
-	notification.ErrNilPrefs:  codes.InvalidArgument,
-}
+var prefsErrs = mustTable(
+	grpcx.Rule{Target: notification.ErrEmptyUser, Code: codes.InvalidArgument},
+	grpcx.Rule{Target: notification.ErrNilPrefs, Code: codes.InvalidArgument},
+)
 
 // mapPrefsErr turns a service validation error into the right gRPC status.
 func mapPrefsErr(ctx context.Context, err error) error {

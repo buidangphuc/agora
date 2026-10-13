@@ -9,17 +9,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume"
-	sdkpgx "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
 )
 
-// processedEventsTable is the existing dedupe ledger (migration 004). Its columns
-// are exactly the SDK ledger's: (consumer, event_id, processed_at).
-const processedEventsTable = "processed_events"
-
-// PostgresProcessedEventRepo is the durable dedupe ledger (processed_events). It
-// satisfies events.Deduper. The mark is the SDK's consume.Dedupe on the existing
-// table; the lookup is a plain SELECT because the SDK ledger has no read-only
-// check and this service records an event after its effect, not before.
+// PostgresProcessedEventRepo is the durable dedupe ledger (processed_events,
+// migration 004). It satisfies events.Deduper over the SDK's consume.Dedupe: the
+// zero Dedupe uses that default table, whose columns are the SDK ledger's
+// (consumer, event_id, processed_at). The lookup (Processed) and the mark (Seen)
+// are separate because this service records an event after its effect, not before.
 type PostgresProcessedEventRepo struct {
 	pool   *pgxpool.Pool
 	dedupe consume.Dedupe
@@ -27,31 +23,21 @@ type PostgresProcessedEventRepo struct {
 
 // NewPostgresProcessedEventRepo returns the ledger over pool.
 func NewPostgresProcessedEventRepo(pool *pgxpool.Pool) *PostgresProcessedEventRepo {
-	return &PostgresProcessedEventRepo{pool: pool, dedupe: consume.NewDedupe(processedEventsTable)}
+	return &PostgresProcessedEventRepo{pool: pool}
 }
 
 // IsProcessed reports whether eventID was already applied for consumer.
 func (r *PostgresProcessedEventRepo) IsProcessed(ctx context.Context, consumer, eventID string) (bool, error) {
-	var one int
-	err := r.pool.QueryRow(ctx,
-		`SELECT 1 FROM `+processedEventsTable+` WHERE consumer = $1 AND event_id = $2`, consumer, eventID).Scan(&one)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
-	}
+	processed, err := r.dedupe.Processed(ctx, r.pool, consumer, eventID)
 	if err != nil {
 		return false, fmt.Errorf("lookup processed event: %w", err)
 	}
-	return true, nil
+	return processed, nil
 }
 
 // MarkProcessed records eventID; it reports whether the row was newly inserted.
 func (r *PostgresProcessedEventRepo) MarkProcessed(ctx context.Context, consumer, eventID string) (bool, error) {
-	var seen bool
-	err := sdkpgx.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
-		var err error
-		seen, err = r.dedupe.Seen(ctx, tx, consumer, eventID)
-		return err
-	})
+	seen, err := r.dedupe.Seen(ctx, r.pool, consumer, eventID)
 	if err != nil {
 		return false, fmt.Errorf("mark processed event: %w", err)
 	}

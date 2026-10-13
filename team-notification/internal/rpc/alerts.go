@@ -13,12 +13,12 @@ import (
 	"github.com/buidangphuc/team-notification/internal/notification"
 )
 
-var alertErrs = grpcx.ErrorTable{
-	notification.ErrEmptyListing: codes.InvalidArgument,
-	notification.ErrInvalidType:  codes.InvalidArgument,
-	notification.ErrEmptySubID:   codes.InvalidArgument,
-	notification.ErrEmptyUser:    codes.InvalidArgument,
-}
+var alertErrs = mustTable(
+	grpcx.Rule{Target: notification.ErrEmptyListing, Code: codes.InvalidArgument},
+	grpcx.Rule{Target: notification.ErrInvalidType, Code: codes.InvalidArgument},
+	grpcx.Rule{Target: notification.ErrEmptySubID, Code: codes.InvalidArgument},
+	grpcx.Rule{Target: notification.ErrEmptyUser, Code: codes.InvalidArgument},
+)
 
 // mapAlertErr turns a service validation error into the right gRPC status.
 func mapAlertErr(ctx context.Context, err error) error {

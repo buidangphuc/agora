@@ -42,16 +42,7 @@ func (d *recordingDLQ) records() []*kgo.Record {
 
 func produce(t *testing.T, brokers, topic, value string) {
 	t.Helper()
-	p, err := kafkax.NewProducer(config.Kafka{Brokers: brokers}, kgo.AllowAutoTopicCreation())
-	if err != nil {
-		t.Fatalf("producer: %v", err)
-	}
-	defer p.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	if err := p.Publish(ctx, topic, []byte("k"), []byte(value)); err != nil {
-		t.Fatalf("produce: %v", err)
-	}
+	testkit.Produce(t, brokers, topic, "k", []byte(value))
 }
 
 // runner starts events.NewRunner in group over topic with a chat consumer's
@@ -63,7 +54,10 @@ func runner(ctx context.Context, t *testing.T, brokers, group string, dlq *recor
 		t.Fatalf("client: %v", err)
 	}
 	h := events.NewChatConsumer(nil, nil, nil)
-	c := events.NewRunner(client, h.HandleRaw, dlq, "chat.events.dlq", nil)
+	c, err := events.NewRunner(client, h.HandleRaw, dlq, "chat.events.dlq", nil)
+	if err != nil {
+		t.Fatalf("runner: %v", err)
+	}
 	done := make(chan error, 1)
 	go func() {
 		err := c.Run(ctx)
@@ -97,9 +91,7 @@ func TestConsumerDoesNotCommitOnDLQFailure(t *testing.T) {
 	ctx2, cancel2 := context.WithTimeout(context.Background(), waitFor)
 	defer cancel2()
 	done := runner(ctx2, t, brokers, "g-dlq", healthy)
-	for deadline := time.Now().Add(waitFor); len(healthy.records()) == 0 && time.Now().Before(deadline); {
-		time.Sleep(20 * time.Millisecond)
-	}
+	testkit.Eventually(t, waitFor, func() bool { return len(healthy.records()) > 0 })
 	cancel2()
 	if err := <-done; err != nil {
 		t.Fatalf("second Run: %v", err)

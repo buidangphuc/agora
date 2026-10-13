@@ -48,14 +48,5 @@ type Settings struct {
 	Order    OrderEvents
 }
 
-// Validate runs after parsing; sdkconfig.Load calls it. It replaces the hook
-// Settings would promote from the embedded GRPC, so it calls that one too.
-func (s Settings) Validate() error {
-	if err := s.GRPC.Validate(); err != nil {
-		return err
-	}
-	return s.Postgres.Validate()
-}
-
 // Load reads Settings from the environment and validates it.
 func Load() (Settings, error) { return sdkconfig.Load[Settings]() }

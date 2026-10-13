@@ -5,13 +5,14 @@ package rpc
 
 import (
 	"context"
-	"errors"
+	"log/slog"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
 
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
 	"github.com/buidangphuc/team-notification/internal/notification"
@@ -94,10 +95,7 @@ func (h *NotificationHandler) MarkAsRead(ctx context.Context, req *notificationv
 		return nil, err
 	}
 	if err := h.repo.MarkAsRead(ctx, req.GetId(), userID); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "notification not found")
-		}
-		return nil, internalErr(ctx, "mark as read", err)
+		return nil, grpcx.Status(ctx, slog.With("op", "mark as read"), err, notificationErrs)
 	}
 	return &notificationv1.MarkAsReadResponse{Success: true}, nil
 }
@@ -127,7 +125,7 @@ func callerUserID(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if p.Type != "user" {
+	if p.Type != auth.TypeUser {
 		return "", status.Error(codes.PermissionDenied, "per-user notification RPCs require a user principal")
 	}
 	return p.ID, nil

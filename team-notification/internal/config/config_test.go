@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
 
@@ -37,6 +38,7 @@ func TestEnvExampleInSync(t *testing.T) {
 }
 
 func TestConfigLoad(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "50099")
 	t.Setenv("DATABASE_URL", "postgres://test:pass@localhost:5432/db")
 	t.Setenv("KAFKA_BROKERS", "localhost:9092")
@@ -57,6 +59,7 @@ func TestConfigLoad(t *testing.T) {
 }
 
 func TestConfigLoadRequiresDatabaseURLAndPort(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "50099")
 	t.Setenv("DATABASE_URL", "")
 	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
@@ -72,8 +75,52 @@ func TestConfigLoadRequiresDatabaseURLAndPort(t *testing.T) {
 
 func baseEnv(t *testing.T) {
 	t.Helper()
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "50099")
 	t.Setenv("DATABASE_URL", "postgres://test:pass@localhost:5432/db")
+}
+
+func TestConfigLoadRequiresEnv(t *testing.T) {
+	baseEnv(t)
+	t.Setenv("ENV", "")
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "ENV") {
+		t.Fatalf("err = %v, want an error naming ENV", err)
+	}
+}
+
+func TestKafkaBrokersRequiredWhenDeployed(t *testing.T) {
+	baseEnv(t)
+	t.Setenv("ENV", "staging")
+	t.Setenv("KAFKA_BROKERS", "")
+	if _, err := config.Load(); err == nil || !strings.Contains(err.Error(), "KAFKA_BROKERS") {
+		t.Fatalf("err = %v, want an error naming KAFKA_BROKERS", err)
+	}
+	t.Setenv("KAFKA_BROKERS", "redpanda:9092")
+	if _, err := config.Load(); err != nil {
+		t.Fatalf("Load with KAFKA_BROKERS set: %v", err)
+	}
+}
+
+func TestShutdownDurationsAreGoDurations(t *testing.T) {
+	baseEnv(t)
+	t.Setenv("SHUTDOWN_GRACE", "")
+	t.Setenv("SHUTDOWN_DRAIN_DELAY", "")
+	s, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.ShutdownGrace != 10*time.Second || s.DrainDelay != 0 {
+		t.Errorf("defaults = %v / %v, want 10s / 0s", s.ShutdownGrace, s.DrainDelay)
+	}
+	t.Setenv("SHUTDOWN_GRACE", "25s")
+	t.Setenv("SHUTDOWN_DRAIN_DELAY", "500ms")
+	s, err = config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.ShutdownGrace != 25*time.Second || s.DrainDelay != 500*time.Millisecond {
+		t.Errorf("overrides = %v / %v", s.ShutdownGrace, s.DrainDelay)
+	}
 }
 
 func TestUpstreamAddrs(t *testing.T) {

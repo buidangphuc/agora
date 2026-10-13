@@ -17,31 +17,10 @@ import (
 
 const runWait = 30 * time.Second
 
-func waitFor(t *testing.T, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(runWait)
-	for time.Now().Before(deadline) {
-		if cond() {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("condition not met in time")
-}
-
 func produceTo(t *testing.T, brokers, topic string, values ...[]byte) {
 	t.Helper()
-	p, err := kafkax.NewProducer(config.Kafka{Brokers: brokers}, kgo.AllowAutoTopicCreation())
-	if err != nil {
-		t.Fatalf("producer: %v", err)
-	}
-	defer p.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
 	for _, v := range values {
-		if err := p.Publish(ctx, topic, []byte("k"), v); err != nil {
-			t.Fatalf("produce: %v", err)
-		}
+		testkit.Produce(t, brokers, topic, "k", v)
 	}
 }
 
@@ -54,7 +33,10 @@ func startRunner(ctx context.Context, t *testing.T, brokers, group, topic string
 	}
 	done := make(chan error, 1)
 	go func() {
-		err := NewRunner(client, handle, dlq, topic+".dlq", nil).Run(ctx)
+		c, err := NewRunner(client, handle, dlq, topic+".dlq", nil)
+		if err == nil {
+			err = c.Run(ctx)
+		}
 		client.Close() // leave the group so a restart in it is assigned the partition at once
 		done <- err
 	}()
@@ -91,24 +73,15 @@ func TestRun_MalformedRecord_RoutedToDLQAndCommitted(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), runWait)
 	defer cancel()
 	done := startRunner(ctx, t, brokers, "g-run", "listing.events", c.HandleRaw, dlq)
-	waitFor(t, func() bool { return notif.count() == 1 })
+	testkit.Eventually(t, runWait, func() bool { return notif.count() == 1 })
 	cancel()
 	if err := <-done; err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
-	// Exactly the poison record is on the DLQ topic.
-	reader, err := kgo.NewClient(kgo.SeedBrokers(brokers), kgo.ConsumeTopics("listing.events.dlq"),
-		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer reader.Close()
-	pctx, pcancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer pcancel()
-	var parked [][]byte
-	reader.PollFetches(pctx).EachRecord(func(r *kgo.Record) { parked = append(parked, r.Value) })
-	if len(parked) != 1 || string(parked[0]) != string(poison) {
+	// The poison record is on the DLQ topic.
+	parked := testkit.ReadAll(t, brokers, "listing.events.dlq", 1, 15*time.Second)
+	if len(parked) != 1 || string(parked[0].Value) != string(poison) {
 		t.Fatalf("want exactly the poison record on listing.events.dlq, got %d records", len(parked))
 	}
 
@@ -125,7 +98,7 @@ func TestRun_MalformedRecord_RoutedToDLQAndCommitted(t *testing.T) {
 		seen = append(seen, v)
 		return nil
 	}, dlq)
-	waitFor(t, func() bool { mu.Lock(); defer mu.Unlock(); return len(seen) >= 1 })
+	testkit.Eventually(t, runWait, func() bool { mu.Lock(); defer mu.Unlock(); return len(seen) >= 1 })
 	cancel2()
 	if err := <-done2; err != nil {
 		t.Fatalf("second Run: %v", err)
@@ -136,6 +109,12 @@ func TestRun_MalformedRecord_RoutedToDLQAndCommitted(t *testing.T) {
 		t.Fatalf("restart redelivered committed records: got %d records", len(seen))
 	}
 }
+
+// noDLQ is a dead-letter producer for a loop that never receives a record: the
+// SDK consumer requires one.
+type noDLQ struct{}
+
+func (noDLQ) PublishRecord(context.Context, *kgo.Record) error { return nil }
 
 // Fetch errors (a broker that cannot be reached) must not stop the loop while its
 // own context is alive; cancelling the context ends it cleanly.
@@ -149,9 +128,11 @@ func TestRun_TransientFetchErrorsDoNotStopTheLoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)
-	go func() {
-		done <- NewRunner(client, func(context.Context, []byte) error { return nil }, nil, "listing.events.dlq", nil).Run(ctx)
-	}()
+	c, err := NewRunner(client, func(context.Context, []byte) error { return nil }, noDLQ{}, "listing.events.dlq", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { done <- c.Run(ctx) }()
 
 	select {
 	case err := <-done:

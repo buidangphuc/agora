@@ -77,9 +77,11 @@ record is applied or dead-lettered. A transient error is retried (5 attempts, ba
 neither handled nor dead-lettered, the consumer stops with an error without committing, the service
 exits, and the record is redelivered after restart. Chat and order notifications honour the recipient's
 `type_enabled` pref (a type with no stored setting counts as enabled). Listing alerts do not check prefs.
+A dead-lettered record keeps its key and value and carries the SDK's `dlq-*` headers (cause, source topic,
+partition, offset and group).
 
 Idempotency: a ledger keyed by (`consumer`, `event_id`) in `processed_events` (SDK `consume.Dedupe` on the
-existing table), recorded after the effect succeeds. Consumer names: `team-notification.listing`,
+existing table: `Processed` reads, `Seen` records), recorded after the effect succeeds. Consumer names: `team-notification.listing`,
 `team-notification.chat`, `team-notification.order`.
 
 Kafka has no enable flag: the three consumers always run. Brokers are shared (`KAFKA_BROKERS`); topic, DLQ
@@ -102,8 +104,8 @@ Consumer state is durable, so a restart neither re-notifies a redelivered event 
 baseline. In-memory variants (`InMemoryDeduper`, `InMemoryPriceStateStore`, `InMemoryStockStateStore`) are used
 in unit tests only; `internal/app` always wires the Postgres ones.
 
-The pool is opened with a ping. Outside `ENV=local` an unreachable database fails boot (non-nil error, port
-never opened). With `ENV=local` the service logs a warning and starts on a lazily connecting pool: calls that
+The pool is opened with a ping. Outside `ENV=local` or `test` an unreachable database fails boot (non-nil error, port
+never opened). With `ENV=local` (or `test`) the service logs a warning and starts on a lazily connecting pool: calls that
 need the database fail with `Internal` until it is up, and health reports `NOT_SERVING`.
 
 ## Configuration
@@ -113,13 +115,13 @@ sync (`make check-env`). `GRPC_PORT` and `DATABASE_URL` are required and have no
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | `local` or `test` allow starting without the database. |
+| `ENV` | required | `local` or `test` allow starting without the database; `staging`, `stage`, `prod`, `production` also require `KAFKA_BROKERS`. |
 | `LOG_LEVEL`, `LOG_JSON` | `info`, `true` | |
 | `GRPC_HOST`, `GRPC_PORT` | `0.0.0.0`, required | Compose and the Dockerfile set `50058`. |
-| `SHUTDOWN_GRACE_SECONDS`, `SHUTDOWN_DRAIN_DELAY_SECONDS` | `10`, `0` | |
+| `SHUTDOWN_GRACE`, `SHUTDOWN_DRAIN_DELAY` | `10s`, `0s` | Go durations. |
 | `DATABASE_URL`, `DB_MAX_CONNS` | required, `10` | |
 | `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false`, none, none | |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated; the only broker setting. |
+| `KAFKA_BROKERS` | `localhost:9092` locally, required otherwise | Comma-separated; the only broker setting. |
 | `LISTING_EVENTS_TOPIC` / `LISTING_EVENTS_DLQ_TOPIC` | `listing.events` / `listing.events.dlq` | |
 | `NOTIFICATION_LISTING_CONSUMER_GROUP` | `team-notification.listing` | |
 | `CHAT_EVENTS_TOPIC` / `CHAT_EVENTS_DLQ_TOPIC` | `chat.events` / `chat.events.dlq` | |

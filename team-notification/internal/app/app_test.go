@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -20,8 +19,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
 
 	chatv1 "github.com/buidangphuc/team-notification/generated/platform/chat/v1"
@@ -33,18 +30,6 @@ import (
 
 // closedDatabaseURL points at a port nothing listens on.
 const closedDatabaseURL = "postgres://u:p@127.0.0.1:1/db?sslmode=disable"
-
-// freePort asks the kernel for an unused port, then releases it for the service
-// to bind. GRPC_PORT has no default and 0 is not usable.
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port
-}
 
 func load(t *testing.T, env string, port int, databaseURL string) config.Settings {
 	t.Helper()
@@ -61,7 +46,8 @@ func load(t *testing.T, env string, port int, databaseURL string) config.Setting
 }
 
 func TestBootFailsWhenDatabaseUnreachableDeployed(t *testing.T) {
-	port := freePort(t)
+	port := testkit.FreePort(t)
+	t.Setenv("KAFKA_BROKERS", "127.0.0.1:19092") // required when ENV is staging
 	s := load(t, "staging", port, closedDatabaseURL)
 
 	done := make(chan error, 1)
@@ -120,7 +106,7 @@ func asUser(id string) context.Context {
 // Locally an unreachable database does not stop the service from serving: calls
 // that need it fail with Internal until it is up.
 func TestLocalStartsWithUnreachableDatabase(t *testing.T) {
-	s := load(t, "local", freePort(t), closedDatabaseURL)
+	s := load(t, "local", testkit.FreePort(t), closedDatabaseURL)
 	r := start(t, s)
 
 	ctx, cancel := context.WithTimeout(asUser("user-1"), 30*time.Second)
@@ -155,36 +141,24 @@ func TestConsumesChatEventIntoInbox(t *testing.T) {
 	}
 
 	t.Setenv("KAFKA_BROKERS", brokers)
-	s := load(t, "local", freePort(t), dbURL)
+	s := load(t, "local", testkit.FreePort(t), dbURL)
 	r := start(t, s)
 
 	payload, _ := proto.Marshal(&chatv1.ChatMessage{ThreadId: "thread-1", SenderId: "seller-1", RecipientId: "buyer-1", Content: "xin chào"})
 	raw, _ := proto.Marshal(&eventsv1.EventEnvelope{EventId: "evt-1", Type: "platform.chat.v1.ChatMessage", Payload: payload})
-	p, err := kafkax.NewProducer(sdkconfig.Kafka{Brokers: brokers}, kgo.AllowAutoTopicCreation())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer p.Close()
-	if err := p.Publish(context.Background(), "chat.events", []byte("thread-1"), raw); err != nil {
-		t.Fatal(err)
-	}
+	testkit.Produce(t, brokers, "chat.events", "thread-1", raw)
 
 	client := notificationv1.NewNotificationServiceClient(r.conn)
-	deadline := time.Now().Add(60 * time.Second)
-	for {
+	var last *notificationv1.ListNotificationsResponse
+	var lastErr error
+	testkit.Eventually(t, 60*time.Second, func() bool {
 		ctx, cancel := context.WithTimeout(asUser("buyer-1"), 5*time.Second)
-		res, err := client.ListNotifications(ctx, &notificationv1.ListNotificationsRequest{}, grpc.WaitForReady(true))
-		cancel()
-		if err == nil && len(res.GetNotifications()) == 1 {
-			n := res.GetNotifications()[0]
-			if !strings.HasPrefix(n.GetTitle(), "Tin nhắn mới từ") || n.GetLinkUrl() != "/chat/thread-1" {
-				t.Fatalf("notification = %v", n)
-			}
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("no notification for buyer-1 after the chat event: %v, %v", res, err)
-		}
-		time.Sleep(200 * time.Millisecond)
+		defer cancel()
+		last, lastErr = client.ListNotifications(ctx, &notificationv1.ListNotificationsRequest{}, grpc.WaitForReady(true))
+		return lastErr == nil && len(last.GetNotifications()) == 1
+	})
+	n := last.GetNotifications()[0]
+	if !strings.HasPrefix(n.GetTitle(), "Tin nhắn mới từ") || n.GetLinkUrl() != "/chat/thread-1" {
+		t.Fatalf("notification = %v (%v)", n, lastErr)
 	}
 }
