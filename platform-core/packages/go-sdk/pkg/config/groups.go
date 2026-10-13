@@ -9,14 +9,25 @@ import (
 	"time"
 )
 
-// Runtime holds settings every service shares.
+// Runtime holds settings every service shares. ENV has no default: a service
+// that forgets it must fail at load, not run as local.
 type Runtime struct {
-	Env      string `env:"ENV" default:"local"`
+	Env      string `env:"ENV,required"`
 	LogLevel string `env:"LOG_LEVEL" default:"info"`
 	LogJSON  bool   `env:"LOG_JSON" default:"true"`
 }
 
-// IsLocal reports whether the service runs in a developer or test environment.
+// Validate rejects an empty ENV. An empty ENV= counts as set, so "required"
+// alone lets it through.
+func (r Runtime) Validate() error {
+	if strings.TrimSpace(r.Env) == "" {
+		return errors.New("ENV is required (local, test, staging or prod)")
+	}
+	return nil
+}
+
+// IsLocal reports whether the service runs in a developer or test environment:
+// true only for an explicit ENV of "local" or "test".
 func (r Runtime) IsLocal() bool { return r.Env == "local" || r.Env == "test" }
 
 // IsStrict reports whether the service runs in a deployed environment where

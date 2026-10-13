@@ -15,8 +15,7 @@ type Settings struct {
 	OTel     sdkconfig.OTel
 }
 
-// Validate runs after parsing; sdkconfig.Load calls it. Add each group's check.
-func (s Settings) Validate() error { return s.Postgres.Validate() }
-
+// Load validates every group above itself (Runtime, GRPC, Postgres), so
+// Settings needs no Validate of its own; add one only for cross-field checks.
 // Load reads Settings from the environment and validates it.
 func Load() (Settings, error) { return sdkconfig.Load[Settings]() }

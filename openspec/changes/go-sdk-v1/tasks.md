@@ -65,8 +65,8 @@ Findings and fixes are listed in `review.md` (ids B*, M*, m*). Every packet: a r
 
 Owns: `pkg/config/**`, `examples/hello/internal/config/**`, `examples/hello/.env.example`.
 
-- [ ] 9.1 B1: `ENV` required (no default); `IsLocal` true only for explicit `local`/`test`; tests for unset ENV.
-- [ ] 9.2 M8: `Load` calls `Validate()` on every nested/embedded group and joins the errors; test with `GRPC` and `Postgres` embedded together.
+- [x] 9.1 B1: `ENV` required (no default); `IsLocal` true only for explicit `local`/`test`; tests for unset ENV.
+- [x] 9.2 M8: `Load` calls `Validate()` on every nested/embedded group and joins the errors; test with `GRPC` and `Postgres` embedded together.
 
 ## 10. postgres pool (wave 3)
 

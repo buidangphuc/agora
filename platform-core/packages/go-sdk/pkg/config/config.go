@@ -11,8 +11,10 @@ import (
 )
 
 // Load fills a T from the process environment. The returned error names every
-// variable that failed to parse or is required and unset. When T has a
-// Validate() error method, Load calls it after parsing and returns its error.
+// variable that failed to parse or is required and unset. After parsing, Load
+// calls Validate() error on T when it has one and on every group (nested or
+// embedded struct field), and joins all the errors. Embedded groups that each
+// define Validate do not promote it to T, so the walk is what reaches them.
 //
 // A string field tagged keepempty:"true" stays empty when its variable is set
 // to the empty string, instead of taking its default. Unset still applies the
@@ -29,12 +31,41 @@ func Load[T any]() (T, error) {
 		return v, nameVariables(err, reflect.TypeFor[T]())
 	}
 	keepEmpty(reflect.ValueOf(&v).Elem())
-	if val, ok := any(v).(interface{ Validate() error }); ok {
-		if err := val.Validate(); err != nil {
-			return v, err
-		}
+	if err := validateAll(reflect.ValueOf(v)); err != nil {
+		return v, err
 	}
 	return v, nil
+}
+
+type validator interface{ Validate() error }
+
+// validateAll runs Validate on v and on every struct field below it, joining
+// the errors. A promoted Validate and the group it comes from report the same
+// message, so identical messages are kept once.
+func validateAll(v reflect.Value) error {
+	var errs []error
+	seen := map[string]struct{}{}
+	var walk func(reflect.Value)
+	walk = func(v reflect.Value) {
+		if val, ok := v.Interface().(validator); ok {
+			if err := val.Validate(); err != nil {
+				if _, dup := seen[err.Error()]; !dup {
+					seen[err.Error()] = struct{}{}
+					errs = append(errs, err)
+				}
+			}
+		}
+		if v.Kind() != reflect.Struct {
+			return
+		}
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() && v.Field(i).Kind() == reflect.Struct {
+				walk(v.Field(i))
+			}
+		}
+	}
+	walk(v)
+	return errors.Join(errs...)
 }
 
 // nameVariables rewrites parse errors, which env reports by Go field name, to

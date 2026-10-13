@@ -16,6 +16,7 @@ type svcSettings struct {
 }
 
 func TestLoadDefaultsAndOverrides(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "50065")
 	t.Setenv("LOG_LEVEL", "debug")
 
@@ -39,11 +40,12 @@ func TestLoadDefaultsAndOverrides(t *testing.T) {
 		t.Errorf("Addr = %q", got)
 	}
 	if !s.IsLocal() {
-		t.Error("IsLocal = false for default ENV=local")
+		t.Error("IsLocal = false for ENV=local")
 	}
 }
 
 func TestLoadReportsBadVariable(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "abc")
 	t.Setenv("LOG_JSON", "maybe")
 
@@ -59,6 +61,7 @@ func TestLoadReportsBadVariable(t *testing.T) {
 }
 
 func TestLoadRequiredUnset(t *testing.T) {
+	t.Setenv("ENV", "local")
 	_, err := config.Load[svcSettings]()
 	if err == nil || !strings.Contains(err.Error(), "GRPC_PORT") {
 		t.Fatalf("err = %v, want one naming GRPC_PORT", err)
@@ -131,6 +134,7 @@ type validatedSettings struct {
 func (s validatedSettings) Validate() error { return s.Postgres.Validate() }
 
 func TestLoadRunsValidate(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "1")
 
 	_, err := config.Load[validatedSettings]() // DATABASE_URL unset
@@ -147,6 +151,7 @@ func TestLoadRunsValidate(t *testing.T) {
 // The database has no enable flag any more: a leftover DATABASE_ENABLED=false
 // in an old environment must not let a missing URL through.
 func TestDatabaseURLRequiredEvenWithLegacyDisableFlag(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "1")
 	t.Setenv("DATABASE_ENABLED", "false")
 	t.Setenv("DATABASE_URL", "")
@@ -158,6 +163,7 @@ func TestDatabaseURLRequiredEvenWithLegacyDisableFlag(t *testing.T) {
 }
 
 func TestDrainDelay(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "1")
 	t.Setenv("SHUTDOWN_DRAIN_DELAY_SECONDS", "1.5")
 	s, err := config.Load[svcSettings]()
@@ -168,6 +174,7 @@ func TestDrainDelay(t *testing.T) {
 
 // An empty GRPC_PORT= parses as 0 and would otherwise pass "required".
 func TestEmptyGRPCPortFailsValidation(t *testing.T) {
+	t.Setenv("ENV", "local")
 	t.Setenv("GRPC_PORT", "")
 
 	_, err := config.Load[svcSettings]()
@@ -242,5 +249,76 @@ func TestKeepEmpty(t *testing.T) {
 	keys := config.DeclaredEnvKeys(keepEmptySettings{})
 	if strings.Join(keys, ",") != "KE_INNER,KE_NAME,KE_PLAIN" {
 		t.Errorf("DeclaredEnvKeys = %v", keys)
+	}
+}
+
+func TestLoadRequiresEnv(t *testing.T) {
+	t.Setenv("GRPC_PORT", "1")
+	t.Setenv("ENV", "")
+	if err := os.Unsetenv("ENV"); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := config.Load[svcSettings]()
+	if err == nil || !strings.Contains(err.Error(), "ENV") {
+		t.Fatalf("unset ENV: err = %v, want one naming ENV", err)
+	}
+
+	t.Setenv("ENV", "")
+	_, err = config.Load[svcSettings]()
+	if err == nil || !strings.Contains(err.Error(), "ENV") {
+		t.Fatalf("empty ENV: err = %v, want one naming ENV", err)
+	}
+}
+
+func TestIsLocalOnlyForExplicitLocalOrTest(t *testing.T) {
+	for env, want := range map[string]bool{
+		"local": true, "test": true, "": false, "dev": false, "prod": false, "staging": false,
+	} {
+		if got := (config.Runtime{Env: env}).IsLocal(); got != want {
+			t.Errorf("IsLocal(%q) = %v, want %v", env, got, want)
+		}
+	}
+}
+
+type embeddedGroups struct {
+	config.Runtime
+	config.GRPC
+	config.Postgres
+}
+
+// GRPC and Postgres both have Validate; embedded together neither is promoted,
+// so Load must reach each group itself and report every failure.
+func TestLoadValidatesEveryEmbeddedGroup(t *testing.T) {
+	t.Setenv("ENV", "local")
+	t.Setenv("GRPC_PORT", "")
+	t.Setenv("DATABASE_URL", "")
+
+	_, err := config.Load[embeddedGroups]()
+	if err == nil {
+		t.Fatal("Load returned nil error")
+	}
+	for _, name := range []string{"GRPC_PORT", "DATABASE_URL"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("error %q does not name %s", err, name)
+		}
+	}
+
+	t.Setenv("GRPC_PORT", "1")
+	t.Setenv("DATABASE_URL", "postgres://u:p@h/db")
+	if _, err := config.Load[embeddedGroups](); err != nil {
+		t.Fatalf("valid settings: %v", err)
+	}
+}
+
+type singleEmbedded struct{ config.GRPC }
+
+// A promoted Validate on T and the same group reached by the walk report once.
+func TestLoadReportsEachFailureOnce(t *testing.T) {
+	t.Setenv("GRPC_PORT", "")
+
+	_, err := config.Load[singleEmbedded]()
+	if err == nil || strings.Count(err.Error(), "GRPC_PORT") != 1 {
+		t.Fatalf("err = %v, want GRPC_PORT named once", err)
 	}
 }
