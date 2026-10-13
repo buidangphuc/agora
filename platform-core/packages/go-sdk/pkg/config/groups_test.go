@@ -37,6 +37,8 @@ func TestMessagingGroupOverrides(t *testing.T) {
 	t.Setenv("OUTBOX_POLL_INTERVAL", "250ms")
 	t.Setenv("OUTBOX_MAX_ATTEMPTS", "3")
 	t.Setenv("FEATURE_FLAGS_ENABLED", "false")
+	t.Setenv("OUTBOX_CLAIM_LOCK", "90s")
+	t.Setenv("FEATURE_FLAGS_EVAL_TIMEOUT", "250ms")
 
 	s, err := config.Load[messagingSettings]()
 	if err != nil {
@@ -50,5 +52,8 @@ func TestMessagingGroupOverrides(t *testing.T) {
 	}
 	if s.Flags.Enabled {
 		t.Error("Flags.Enabled = true, want false")
+	}
+	if s.Outbox.ClaimLock != 90*time.Second || s.Flags.EvalTimeout != 250*time.Millisecond {
+		t.Errorf("durations = %v, %v", s.Outbox.ClaimLock, s.Flags.EvalTimeout)
 	}
 }
