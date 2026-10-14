@@ -1,7 +1,7 @@
 # ASDLC v2 — process source of truth
 
 Agentic SDLC for this polyrepo. Derived from `ASDLC-v2-PLAN.md` (sections 3-8, 13); where a file differs from the plan, this doc
-describes the file and flags it in "Known differences". One-page quick start: [ONBOARDING.md](ONBOARDING.md). `$PY` =
+describes the file and flags it in "Known differences". One-page quick start: [ONBOARDING.md](../ONBOARDING.md). `$PY` =
 `platform-e2e/.venv/bin/python` (system python lacks PyYAML). Everything runs locally (CI = same commands, see [ci.md](ci.md)).
 
 ## 1. Lifecycle (10 phases)
@@ -21,8 +21,8 @@ describes the file and flags it in "Known differences". One-page quick start: [O
 | 6 | Review | decision table per FEATURES.yaml entry / scenario | Feature gate: no veto | `feature-reviewer` (+ `privacy-reviewer` if routing flags PII); `decide.py --gate gates/feature.v1.yaml` |
 | 7 | Integrate | branch `asdlc/<change>` merged; one fix = one commit | converge: features-check + full e2e | `openspec archive <change>` (human) |
 | 8 | Release | commit-sha image tag, staging overlay on kind, smoke | Release gate; rollback tried once | skill `release`; `make -C deploy release-tag`, `make -C deploy gitops-push`, `make -C deploy smoke-staging` ([release.md](release.md)) |
-| 9 | Operate | health, logs, alerts, runbooks | alert reaches local webhook-logger | `kubectl -n marketplace logs deploy/webhook-logger`; `incident-triager`; [runbooks/](runbooks/) |
-| 10 | Learn | proposed `AGENTS.md` / ADR diffs from incidents and `metrics/` | human approves | `$PY scripts/asdlc/metrics.py` ([metrics/README.md](../metrics/README.md)) |
+| 9 | Operate | health, logs, alerts, runbooks | alert reaches local webhook-logger | `kubectl -n marketplace logs deploy/webhook-logger`; `incident-triager`; [runbooks/](../runbooks/) |
+| 10 | Learn | proposed `AGENTS.md` / ADR diffs from incidents and `metrics/` | human approves | `$PY scripts/asdlc/metrics.py` ([metrics/README.md](../../metrics/README.md)) |
 
 **Red-first proof** (`scripts/asdlc/red_first.sh --base <ref>`, CI job `tdd`, run per task in `feature-run`) has two modes: **unit/integration** — new or changed tests are copied onto the base (merge-base) and must FAIL there, then PASS at HEAD; **e2e** — commit order: the first commit touching the `.feature`/steps must precede the first implementation commit. Exit 1 if a test is green at base, red at head, or e2e came after the code.
 

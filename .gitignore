@@ -16,6 +16,7 @@
 **/bin/
 **/*.test
 **/*.out
+**/coverage.summary
 
 # ── Python ──
 **/__pycache__/

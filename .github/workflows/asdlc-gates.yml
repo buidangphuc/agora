@@ -108,7 +108,7 @@ jobs:
   tdd:
     # red_first runs the real tests at base and head, so it needs their dependencies. CI therefore
     # runs Go (go mod download per changed module) and Python (deps of changed dirs) only;
-    # TypeScript is skipped here (no node_modules) and stays a local `red_first.sh` check. See docs/ci.md.
+    # TypeScript is skipped here (no node_modules) and stays a local `red_first.sh` check. See docs/asdlc/ci.md.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -11,7 +11,7 @@
 
 ## Checks
 <!-- read by: pre-commit-ci. Mirror CI exactly. -->
-- Source: `.github/workflows/asdlc-gates.yml`, `.github/workflows/services-ci.yml`, `docs/ci.md` (last read: 2026-10-12)
+- Source: `.github/workflows/asdlc-gates.yml`, `.github/workflows/services-ci.yml`, `docs/asdlc/ci.md` (last read: 2026-10-12)
 - `scripts/asdlc/ci_local.sh [specs features repo proto tests-asdlc tdd security]` — runs every asdlc-gates job locally; `BASE=<ref>` (default `main`), `ALLOW_DIRTY=1` for tdd with an untracked worktree, `--docker-tools` for gitleaks/trivy/semgrep.
   - specs: `scripts/asdlc/spec_job.sh <merge-base>` (openspec validate --strict, spec_lint, spec_sync, cross_change_check) — lint
   - features: `make -C platform-e2e features-check` — lint
@@ -33,12 +33,12 @@
 
 ## Docs
 <!-- read by: domain-modeling, research -->
-- Glossary: N/A (none yet) | ADRs: `platform-core/docs/ADR/` | Architecture: `platform-core/docs/` | Process: `docs/ASDLC-v2.md`, `docs/ci.md` | Runbooks: `docs/runbooks/` | Specs: `openspec/specs/`
+- Glossary: N/A (none yet) | ADRs: `platform-core/docs/ADR/` | Architecture: `platform-core/docs/` | Process: `docs/asdlc/ASDLC-v2.md`, `docs/asdlc/ci.md` | Runbooks: `docs/runbooks/` | Specs: `openspec/specs/`
 
 ## Hot paths
 <!-- read by: everyone. Things that look alike but must not be confused. -->
 - `.github/workflows/` at repo root is the only live CI; nested per-repo workflows are dead.
 - Local e2e stack is built from `../agora-deps`, not this checkout — a stale image gives a wrong-reason red.
 - `.claude/worktrees/<change>/` lacks gitignored artifacts (stubs, node_modules, `platform-e2e/.venv` symlink — never commit it); red_first temp worktrees report false "red at head" for stub-dependent tests.
-- `plans/` (initiatives, ASDLC) vs `plan-analytics/`, `plan-mlops/` (older free-form plans).
+- `plans/`: initiatives (ASDLC) plus `plans/mlops/` (older free-form plan). ASDLC process docs: `docs/asdlc/`.
 - `order_facts` is the only revenue source; never sum money from `tracking_events` or GA4.

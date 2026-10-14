@@ -15,7 +15,7 @@ Hai hệ giải cùng một bài toán ở hai tầng khác nhau. Repo AWS là *
 được huấn luyện thật, có vòng đời, có nơi phục vụ. Agora là **chiều rộng product platform**:
 contract chặt, ranh giới domain rõ, gate spec→e2e nghiêm.
 
-Điều đáng học nhất lại không nằm ở so sánh tính năng. Nó nằm ở chỗ này: `plan-mlops/INDEX.md`
+Điều đáng học nhất lại không nằm ở so sánh tính năng. Nó nằm ở chỗ này: `plans/mlops/INDEX.md`
 tự đánh giá track là **13/13 task `done`, "MLOps Level 2"**. Đọc code thì phần lớn lớp ML là
 **scaffolding chưa có call site production** — module có unit test xanh nhưng không ai gọi,
 model mang tên thuật toán mà không thực hiện thuật toán đó, gate chất lượng chưa từng chạy
@@ -459,7 +459,7 @@ train,recommend}.py`, `recsys/{two_tower,ranker,registry,evals,monitoring,nearli
 admission,config}.py`, `platform-featurestore/featurestore/{online,offline,parity,definitions}.py`,
 `team-search/internal/retrieval/rerank_client.go`, `team-gateway/internal/edge/recommendation.go`,
 `platform-gitops/platform/recsys/cronjob.yaml`, `openspec/changes/`, `platform-e2e/scripts/
-{features,spec_sync}.py`, `platform-core/docs/ADR/{0011,0012,0014}`, `plan-mlops/INDEX.md`.
+{features,spec_sync}.py`, `platform-core/docs/ADR/{0011,0012,0014}`, `plans/mlops/INDEX.md`.
 
 **Repo AWS**: `src/model_item2vec/{model,trainer,dataset}.py`,
 `src/model_ranking_sequence/{model,trainer,dataset}.py`,

@@ -201,7 +201,7 @@ deferred (above).
 New requirements flow through **OpenSpec** (`openspec/`), not ad-hoc. speckit is
 retired. Pipeline: `requirement → change → (code ∥ e2e) → gate → archive`, designed
 so many changes/agents run in parallel (each change is an isolated
-`openspec/changes/<id>/`). Full plan: `SPEC_DRIVEN_WORKFLOW.md`.
+`openspec/changes/<id>/`). Full plan: `docs/asdlc/SPEC_DRIVEN_WORKFLOW.md`.
 
 - Propose: `/opsx:propose "<idea>"` (or author `openspec/changes/<id>/{proposal,tasks}.md` + `specs/<capability>/spec.md`); `openspec validate <id> --strict`.
 - Build in parallel with the **`spec-dispatch`** skill: code track (per repo, obey rules §3) ∥ e2e track (**`spec-to-e2e`** skill → updates the owning repo's `FEATURES.yaml` + a `.feature` in `platform-e2e`).
@@ -211,7 +211,7 @@ so many changes/agents run in parallel (each change is an isolated
 
 ## 9c. ASDLC v2 (agentic SDLC)
 
-- Process source of truth: [`docs/ASDLC-v2.md`](docs/ASDLC-v2.md) (10 phases, roles, decision engine, initiative workflow, test guard, human approval points). One-page start: [`docs/ONBOARDING.md`](docs/ONBOARDING.md). Plan: `ASDLC-v2-PLAN.md`.
+- Process source of truth: [`docs/asdlc/ASDLC-v2.md`](docs/asdlc/ASDLC-v2.md) (10 phases, roles, decision engine, initiative workflow, test guard, human approval points). One-page start: [`docs/ONBOARDING.md`](docs/ONBOARDING.md). Plan: `docs/asdlc/ASDLC-v2-PLAN.md`.
 - Config and profile (`solo` / `team`): `asdlc.config.yaml`; gates: `gates/`; scripts: `scripts/asdlc/`; agents/skills: `.claude/`.
 - Skills: `initiative-plan` -> human lock -> `initiative-build` -> `feature-run`; `spec-clarify` before the lock; `release` for phase 8.
 - The `implementer` subagent cannot edit test files (`.claude/hooks/guard-tests.sh`); only `test-author` / `e2e-author` do.

@@ -19,8 +19,8 @@ gates and the evidence that keep agent output correct as it scales.
 | Gates | **4** versioned question sets (`spec`, `task`, `feature`, `release`; 33 questions, each traced to a standard) · **9** CI jobs, 5 required on `main` |
 | Guardrails | **16** skills · **11** sub-agents · **4** hooks · **15** ADRs |
 
-Process source of truth: [`docs/ASDLC-v2.md`](docs/ASDLC-v2.md). One-page start:
-[`docs/ONBOARDING.md`](docs/ONBOARDING.md). Plan and status: [`ASDLC-v2-PLAN.md`](ASDLC-v2-PLAN.md).
+Process source of truth: [`docs/asdlc/ASDLC-v2.md`](docs/asdlc/ASDLC-v2.md). One-page start:
+[`docs/ONBOARDING.md`](docs/ONBOARDING.md). Plan and status: [`docs/asdlc/ASDLC-v2-PLAN.md`](docs/asdlc/ASDLC-v2-PLAN.md).
 
 ---
 
@@ -154,7 +154,7 @@ A change is done when **all** of these hold.
       `.feature` scenario; a wrong requirement is fixed by a `MODIFIED` delta via `spec-clarify`.
 
 **Tests**
-- [ ] Minimum tests per scenario type ([`docs/ASDLC-v2.md` §7](docs/ASDLC-v2.md)): e2e + unit for
+- [ ] Minimum tests per scenario type ([`docs/asdlc/ASDLC-v2.md` §7](docs/asdlc/ASDLC-v2.md)): e2e + unit for
       behaviour, contract test + `buf breaking` for proto, an attack probe for permissions,
       property tests for invariants, a real broker for Kafka, a black-box job + leakage check for ML.
 - [ ] Red-first proven; tests written by someone other than the implementer.
@@ -192,7 +192,7 @@ A change is done when **all** of these hold.
 | Live release drill (W4) | Smoke tests pointed at the wrong host; `gitops-push` silently skipped same-size files; a bad canary was auto-aborted in ~100 s |
 | Red-first in CI | Tests added after the code (green at base) are reported instead of counted as proof |
 
-Baseline before v2 (from git history, `docs/baseline.md`): median change cycle time 9.6 h,
+Baseline before v2 (from git history, `docs/asdlc/baseline.md`): median change cycle time 9.6 h,
 p90 477 h. `metrics.py` reports against it.
 
 ## 9. The testbed
@@ -246,4 +246,4 @@ openspec archive <change>
   refused in strict environments).
 - **E2E is a local gate.** The full stack does not fit a hosted runner; CI runs everything else.
 - **`feature-run` has not yet been exercised end to end on a new feature.**
-- Plan status per task: [`ASDLC-v2-PLAN.md`](ASDLC-v2-PLAN.md) §7.
+- Plan status per task: [`docs/asdlc/ASDLC-v2-PLAN.md`](docs/asdlc/ASDLC-v2-PLAN.md) §7.

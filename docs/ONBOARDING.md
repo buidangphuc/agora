@@ -1,6 +1,6 @@
 # ASDLC v2 onboarding (one page)
 
-Source of truth: `ASDLC-v2-PLAN.md` (sections 3, 4, 13), `asdlc.config.yaml`, `gates/README.md`. Python for every
+Source of truth: `docs/asdlc/ASDLC-v2-PLAN.md` (sections 3, 4, 13), `asdlc.config.yaml`, `gates/README.md`. Python for every
 script: `platform-e2e/.venv/bin/python` (`$PY` below). Agents and humans follow the same flow; only strictness differs.
 
 ## The 10 phases and what you run
@@ -48,7 +48,7 @@ Do not start a new change when the WIP limit is reached; finish or archive one f
 | CI workflow (source of truth for gates) | `.github/workflows/asdlc-gates.yml` |
 | Agents / skills / hooks | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/guard-tests.sh` (implementer cannot edit tests) |
 | Config | `asdlc.config.yaml` |
-| Metrics | `metrics/` (`README.md`; `$PY scripts/asdlc/metrics.py`), baseline `docs/baseline.md` |
+| Metrics | `metrics/` (`README.md`; `$PY scripts/asdlc/metrics.py`), baseline `docs/asdlc/baseline.md` |
 | Ownership | `CODEOWNERS` (spec capability -> team; placeholders `@agora/<repo>`) |
 
 ## Rules that bite

@@ -1,6 +1,6 @@
 # Replay: `plans/backend` through initiative-plan steps 1-2 (W2-8 evidence)
 
-Date: 2026-10-11. Dry run, read-only on `plans/backend/`: no OpenSpec change was written, no
+Date: 2026-10-11. (`plans/backend/` was removed in the 2026-10-14 workspace cleanup; read it at commit `6e17300b`.) Dry run, read-only on `plans/backend/`: no OpenSpec change was written, no
 subagent was called (step 3 team spec and step 4 review were not executed). Only
 `plans/_template/00-spec.md` was added; the slices below exist only in this note.
 

@@ -2,7 +2,7 @@
 
 | File | Written by | Purpose |
 |---|---|---|
-| `baseline.json` | `scripts/asdlc/baseline.py` | "Before" numbers from git history (see `docs/baseline.md`) |
+| `baseline.json` | `scripts/asdlc/baseline.py` | "Before" numbers from git history (see `docs/asdlc/baseline.md`) |
 | `runs/<change>.jsonl` | the `feature-run` skill (one line per event) | raw events of one change run |
 | `summary.json` | `scripts/asdlc/metrics.py` | per-run aggregates + comparison with the baseline |
 
@@ -46,4 +46,4 @@ Other `feature-run` events (`preflight`, `e2e_red`, `escalation`, `task_done`) o
 - **post-merge fixes**: `fix` commits on the change's repos within 14 days after archive
   (`baseline.py` heuristic, repo-level not change-level); `-` while the window is incomplete or not archived.
 - Comparison: median cycle hours and fix rate vs `metrics/baseline.json` summary. Baseline is a proxy
-  (batch proposals, see `docs/baseline.md` caveats), so quote deltas only with >= 3 finished runs.
+  (batch proposals, see `docs/asdlc/baseline.md` caveats), so quote deltas only with >= 3 finished runs.
