@@ -278,9 +278,10 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 
 ## 10. Known gaps
 
-- `recsys/ranker/` (CVR / eGMV) is a library module with unit tests; `pipeline.py` does not call it. `recsys/nearline/` runs as its own process
-  (section 2); its compose service is proposed in the change's `design.md`, not yet in the root compose. There is no online reranker here and
-  `lightgbm` is not a dependency.
+- `pipeline.py` calls the GBDT ranker stage (`recsys/ranker/stage.py`) only when `ENABLE_GBDT=true` (see "GBDT ranker" below).
+  `recsys/ranker/cvr.py` (CVR / eGMV) is still a library module with unit tests that the pipeline does not call. `recsys/nearline/`
+  runs as its own process (section 2), as the `platform-recsys-nearline` service in the root `docker-compose.services.yaml`. There is
+  no online reranker here and `lightgbm` is not a dependency.
 - Two-Tower trains on featurestore snapshots and the dataset's pairs and is published with the generation; a zero
   vector is refused and if none is usable the candidate is rejected (nothing published).
 - **Apply-failure gap**: the champion alias moves only after the generation is published. If `apply` fails (MLflow
