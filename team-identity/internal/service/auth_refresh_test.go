@@ -677,18 +677,106 @@ func TestRefreshHashConflictNotSurfacedVerbatim(t *testing.T) { // reviewer carr
 	}
 }
 
-func TestRefreshOutboxFailureIsNotUnauthenticated(t *testing.T) { // scenario: Revoke and event are atomic (service maps to non-generic error -> Internal)
+func TestRefreshOutboxFailureIsInternal(t *testing.T) { // scenario: Revoke and event are atomic (outbox failure -> Internal)
 	e := newRefreshEnv(t)
 	r1 := e.first.RefreshToken
 	e.mustRefresh(t, r1)
 	e.clock.Advance(time.Minute)
 	e.sess.FailOutbox = true
-	_, err := e.refresh(r1)
-	if err == nil || errors.Is(err, service.ErrInvalidRefreshToken) {
-		t.Fatalf("outbox failure must not be the generic invalid error, got %v", err)
+	res, err := e.refresh(r1)
+	if !errors.Is(err, service.ErrRefreshInternal) {
+		t.Fatalf("want ErrRefreshInternal, got %v", err)
+	}
+	if errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrInvalidRefreshToken) {
+		t.Fatalf("outbox failure must be neither Unavailable nor Invalid: %v", err)
+	}
+	if res.Token != "" || res.RefreshToken != "" {
+		t.Fatalf("no tokens on failure: %+v", res)
 	}
 	if s := e.sessionRow(t, e.uid); s.Revoked {
 		t.Fatalf("session must stay unrevoked when the outbox write fails")
+	}
+}
+
+// faultSessions makes RotateRefresh fail with the given error.
+type faultSessions struct {
+	*spySessions
+	err error
+}
+
+func (c faultSessions) RotateRefresh(context.Context, string, string, time.Time, time.Duration, time.Duration, repository.EnqueueFn) (repository.RotateResult, error) {
+	return repository.RotateResult{}, c.err
+}
+
+func TestRefreshWrappedRotateFaultIsInternal(t *testing.T) { // scenario: Revoke and event are atomic (hash conflict / ev fault -> Internal)
+	e := newRefreshEnv(t)
+	fault := fmt.Errorf("refresh hash conflict: %w", repository.ErrRotateFault)
+	svc := service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(faultSessions{e.sess, fault}).WithClock(e.clock.Now)
+	_, err := svc.RefreshSession(context.Background(), e.first.RefreshToken)
+	if !errors.Is(err, service.ErrRefreshInternal) {
+		t.Fatalf("want ErrRefreshInternal, got %v", err)
+	}
+	if errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrInvalidRefreshToken) {
+		t.Fatalf("rotate fault must be neither Unavailable nor Invalid: %v", err)
+	}
+	if strings.Contains(err.Error(), "refresh hash conflict") {
+		t.Fatalf("raw repository error leaked: %v", err)
+	}
+}
+
+func TestRefreshPlainRotateErrorIsUnavailableNotInternal(t *testing.T) { // scenario: Identity database down is not a logout
+	e := newRefreshEnv(t)
+	e.sess.rotateErr = errors.New("connection refused")
+	_, err := e.refresh(e.first.RefreshToken)
+	if !errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrRefreshInternal) {
+		t.Fatalf("want Unavailable and not Internal, got %v", err)
+	}
+}
+
+// revokeFailSessions injects an error into RevokeSession (deleted-user path).
+type revokeFailSessions struct {
+	*spySessions
+	err error
+}
+
+func (c revokeFailSessions) RevokeSession(context.Context, string, string, repository.EnqueueFn) error {
+	return c.err
+}
+
+func TestRefreshDeletedUserRevokeOutboxFailureIsInternal(t *testing.T) { // scenario: Revoke and event are atomic (deleted-user revoke)
+	e := newRefreshEnv(t)
+	e.users.deleted = true
+	e.sess.FailOutbox = true
+	_, err := e.refresh(e.first.RefreshToken)
+	if !errors.Is(err, service.ErrRefreshInternal) {
+		t.Fatalf("want ErrRefreshInternal, got %v", err)
+	}
+	if errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrInvalidRefreshToken) {
+		t.Fatalf("must be neither Unavailable nor Invalid: %v", err)
+	}
+	if s := e.sessionRow(t, e.uid); s.Revoked {
+		t.Fatalf("session must stay unrevoked when the outbox write fails")
+	}
+}
+
+func TestRefreshDeletedUserRevokeDBErrorIsUnavailable(t *testing.T) { // scenario: Identity database down is not a logout (deleted-user revoke)
+	e := newRefreshEnv(t)
+	e.users.deleted = true
+	svc := service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(revokeFailSessions{e.sess, errors.New("connection refused")}).WithClock(e.clock.Now)
+	_, err := svc.RefreshSession(context.Background(), e.first.RefreshToken)
+	if !errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrRefreshInternal) || errors.Is(err, service.ErrInvalidRefreshToken) {
+		t.Fatalf("want Unavailable only, got %v", err)
+	}
+}
+
+func TestRefreshDeletedUserRevokeFaultIsInternal(t *testing.T) { // scenario: Revoke and event are atomic (RevokeSession wraps ErrRotateFault)
+	e := newRefreshEnv(t)
+	e.users.deleted = true
+	fault := fmt.Errorf("enqueue: %w", repository.ErrRotateFault)
+	svc := service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(revokeFailSessions{e.sess, fault}).WithClock(e.clock.Now)
+	_, err := svc.RefreshSession(context.Background(), e.first.RefreshToken)
+	if !errors.Is(err, service.ErrRefreshInternal) {
+		t.Fatalf("want ErrRefreshInternal, got %v", err)
 	}
 }
 

@@ -274,6 +274,9 @@ func TestReuseOutboxFailureRollsBack_Postgres(t *testing.T) {
 		if err == nil || res.Outcome == RotateReuse && err == nil {
 			t.Fatalf("want an error, got %+v %v", res, err)
 		}
+		if !errors.Is(err, ErrRotateFault) {
+			t.Fatalf("want errors.Is ErrRotateFault, got %v", err)
+		}
 		var revoked bool
 		var rh, ph string
 		if err := pool.QueryRow(ctx, `SELECT revoked, refresh_hash, prev_refresh_hash FROM sessions WHERE id=$1`, s.ID).Scan(&revoked, &rh, &ph); err != nil {
@@ -513,6 +516,9 @@ func TestRotateRefresh_UniqueViolationErrorDoesNotLeakHash_Postgres(t *testing.T
 	}
 	if strings.Contains(err.Error(), secretHash) {
 		t.Fatalf("error leaks the hash: %v", err)
+	}
+	if !errors.Is(err, ErrRotateFault) {
+		t.Fatalf("hash conflict must wrap ErrRotateFault, got %v", err)
 	}
 	if after := pgRowOf(t, pool, s1.ID); after != before {
 		t.Fatalf("row changed: %+v", after)

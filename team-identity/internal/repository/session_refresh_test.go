@@ -18,6 +18,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -406,5 +407,80 @@ func TestRotateRefresh_NilEvIsRejected_NoChange(t *testing.T) {
 	}
 	if after := getSession(t, r, "u1", s.ID); after != before {
 		t.Fatalf("row changed: %+v", after)
+	}
+}
+
+func TestRotateRefresh_FaultsWrapErrRotateFault_NoHashText(t *testing.T) { // scenario: Revoke and event are atomic (typed fault)
+	const secret = "LEAKCHECK-deadbeefcafef00d"
+	boom := errors.New("boom")
+	cases := map[string]func(t *testing.T) error{
+		"ev error": func(t *testing.T) error {
+			r := NewInMemorySessionRepository()
+			seedRefreshSession(t, r, "u1", "h1")
+			mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
+			_, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge,
+				func(Session) (OutboxRow, error) { return OutboxRow{}, boom })
+			return err
+		},
+		"FailOutbox": func(t *testing.T) error {
+			r := NewInMemorySessionRepository()
+			seedRefreshSession(t, r, "u1", "h1")
+			mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
+			r.FailOutbox = true
+			_, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, okEv("e"))
+			return err
+		},
+		"lifetime exceeded FailOutbox": func(t *testing.T) error {
+			r := NewInMemorySessionRepository()
+			seedRaw(t, r, Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
+				CreatedAt: refreshT0.Add(-refreshMaxAge - time.Second)})
+			r.FailOutbox = true
+			_, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, okEv("e"))
+			return err
+		},
+		"newHash conflict": func(t *testing.T) error {
+			r := NewInMemorySessionRepository()
+			seedRefreshSession(t, r, "u1", "k1")
+			seedRefreshSession(t, r, "u2", secret)
+			_, err := r.RotateRefresh(context.Background(), "k1", secret, refreshT0, refreshGrace, refreshMaxAge, okEv("e"))
+			return err
+		},
+	}
+	for name, run := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := run(t)
+			if !errors.Is(err, ErrRotateFault) {
+				t.Fatalf("want errors.Is ErrRotateFault, got %v", err)
+			}
+			if err != nil && strings.Contains(err.Error(), secret) {
+				t.Fatalf("error leaks the hash: %v", err)
+			}
+		})
+	}
+}
+
+func TestRotateRefresh_PlainStaleAndNilEvAreNotRotateFaults(t *testing.T) { // scenario: Identity database down is not a logout (faults are only ev/outbox/conflict)
+	r := NewInMemorySessionRepository()
+	seedRefreshSession(t, r, "u1", "h1")
+	res, err := r.RotateRefresh(context.Background(), "nope", "h2", refreshT0, refreshGrace, refreshMaxAge, okEv("e"))
+	if err != nil || res.Outcome != RotateStale {
+		t.Fatalf("stale must be nil error: %+v %v", res, err)
+	}
+}
+
+func TestRevokeSession_EnqueueFailuresWrapErrRotateFault(t *testing.T) { // scenario: Revoke and event are atomic (revoke path)
+	boom := errors.New("boom")
+	r := NewInMemorySessionRepository()
+	s := seedRefreshSession(t, r, "u1", "h1")
+	err := r.RevokeSession(context.Background(), s.ID, "u1", func(Session) (OutboxRow, error) { return OutboxRow{}, boom })
+	if !errors.Is(err, ErrRotateFault) {
+		t.Fatalf("ev error: want ErrRotateFault, got %v", err)
+	}
+	r.FailOutbox = true
+	if err := r.RevokeSession(context.Background(), s.ID, "u1", okEv("e")); !errors.Is(err, ErrRotateFault) {
+		t.Fatalf("FailOutbox: want ErrRotateFault, got %v", err)
+	}
+	if getSession(t, r, "u1", s.ID).Revoked {
+		t.Fatal("must stay unrevoked")
 	}
 }
