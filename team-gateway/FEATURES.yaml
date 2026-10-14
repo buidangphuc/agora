@@ -1176,8 +1176,8 @@ features:
     acceptance:
       - "See spec scenario: Anonymous caller reaches identity"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Anonymous caller reaches identity (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Anonymous caller reaches identity"
 
   - id: auth.session-refresh-unit-upstream-unavailable-is-not-retried
     title: "Upstream Unavailable is not retried"
@@ -1208,8 +1208,8 @@ features:
     acceptance:
       - "See spec scenario: Unauthenticated passes through"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Unauthenticated passes through (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Unauthenticated passes through"
 
   - id: auth.session-refresh-unit-anonymous-rate-limit-bucket-applies
     title: "Anonymous rate-limit bucket applies"

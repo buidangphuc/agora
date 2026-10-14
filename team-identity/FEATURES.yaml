@@ -542,8 +542,8 @@ features:
     acceptance:
       - "See spec scenario: Login returns a refresh token"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Login returns a refresh token (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Login returns a refresh token"
 
   - id: auth.session-refresh-register-returns-a-refresh-token
     title: "Register returns a refresh token"
@@ -559,8 +559,8 @@ features:
     acceptance:
       - "See spec scenario: Register returns a refresh token"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Register returns a refresh token (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Register returns a refresh token"
 
   - id: auth.session-refresh-unit-only-the-hash-is-persisted
     title: "Only the hash is persisted"
@@ -636,8 +636,8 @@ features:
     acceptance:
       - "See spec scenario: Successful rotation"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Successful rotation keeps the session id (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Successful rotation keeps the session id"
 
   - id: auth.session-refresh-unit-expiry-slides-on-use
     title: "Expiry slides on use"
@@ -668,8 +668,8 @@ features:
     acceptance:
       - "See spec scenario: The rotated token is the only live one"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::The rotated token is the only live one (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::The rotated token is the only live one"
 
   - id: auth.session-refresh-unit-scopes-follow-current-roles
     title: "Scopes follow current roles"
@@ -715,8 +715,8 @@ features:
     acceptance:
       - "See spec scenario: Missing or oversized token is Unauthenticated"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Missing or oversized token is Unauthenticated (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Missing or oversized token is Unauthenticated"
 
   - id: auth.session-refresh-maximum-length-token-is-accepted-for-lookup
     title: "Maximum-length token is accepted for lookup"
@@ -732,8 +732,8 @@ features:
     acceptance:
       - "See spec scenario: Maximum-length token is accepted for lookup"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Maximum-length token is accepted for lookup (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Maximum-length token is accepted for lookup"
 
   - id: auth.session-refresh-unit-refresh-is-callable-without-a-principal
     title: "Refresh is callable without a Principal"
@@ -779,8 +779,8 @@ features:
     acceptance:
       - "See spec scenario: Unknown token"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Unknown token (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Unknown token"
 
   - id: auth.session-refresh-unit-expired-token
     title: "Expired token"
@@ -811,8 +811,8 @@ features:
     acceptance:
       - "See spec scenario: Revoked session"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Logout then refresh, end to end (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Logout then refresh, end to end"
 
   - id: auth.session-refresh-unit-owning-user-deleted
     title: "Owning user deleted"
@@ -903,8 +903,8 @@ features:
     acceptance:
       - "See spec scenario: Failure messages do not leak the cause"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Failure messages do not leak the cause (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Failure messages do not leak the cause"
 
   - id: auth.session-refresh-reuse-after-the-grace-window-revokes
     title: "Reuse after the grace window revokes"
@@ -920,8 +920,8 @@ features:
     acceptance:
       - "See spec scenario: Reuse after the grace window revokes"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Reuse after the grace window revokes the session (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Reuse after the grace window revokes the session"
 
   - id: auth.session-refresh-unit-sessionrevoked-is-published-on-reuse
     title: "SessionRevoked is published on reuse"
@@ -982,8 +982,8 @@ features:
     acceptance:
       - "See spec scenario: Grace replay returns an access token only"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Grace replay returns an access token only (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Grace replay returns an access token only"
 
   - id: auth.session-refresh-parallel-tabs-do-not-trip-reuse-detection
     title: "Parallel tabs do not trip reuse detection"
@@ -999,8 +999,8 @@ features:
     acceptance:
       - "See spec scenario: Parallel tabs do not trip reuse detection"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Parallel tabs do not trip reuse detection (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Parallel tabs do not trip reuse detection"
 
   - id: auth.session-refresh-token-older-than-one-rotation-is-rejected-without-revoke
     title: "Token older than one rotation is rejected without revoke"
@@ -1016,8 +1016,8 @@ features:
     acceptance:
       - "See spec scenario: Token older than one rotation is rejected without revoke"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Token older than one rotation is rejected without revoke (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Token older than one rotation is rejected without revoke"
 
   - id: auth.session-refresh-prev-token-replay-within-grace-after-logout
     title: "Prev-token replay within grace after logout"
@@ -1033,8 +1033,8 @@ features:
     acceptance:
       - "See spec scenario: Prev-token replay within grace after logout"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Prev-token replay within grace after logout (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Prev-token replay within grace after logout"
 
   - id: auth.session-refresh-unit-lost-response-retried-after-the-grace-window-counts-as-reuse
     title: "Lost response retried after the grace window counts as reuse"
@@ -1095,8 +1095,8 @@ features:
     acceptance:
       - "See spec scenario: Logout then refresh, end to end"
     tags: [auth, buyer]
-    status: planned
-    notes: "Scenario in auth/session_refresh.feature::Logout then refresh, end to end (flip to automated + covered_by once green)."
+    status: automated
+    covered_by: "auth/session_refresh.feature::Logout then refresh, end to end"
 
   - id: auth.session-refresh-unit-legacy-session-without-a-refresh-hash
     title: "Legacy session without a refresh hash"
