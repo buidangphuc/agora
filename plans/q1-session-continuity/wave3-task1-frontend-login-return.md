@@ -32,6 +32,8 @@ Implement OpenSpec change `frontend-login-return` test-first per its tasks.md (s
 - team-frontend/src/features/listing/qa/QuestionList.tsx
 - team-frontend/src/lib/analytics/destinations/gtm.ts
 - team-frontend/src/lib/analytics/destinations/gtm.test.ts
+- team-frontend/analytics/gtm-container.json (human decision 2026-10-14: map page_location)
+- team-frontend/analytics/*.test.* or src/**/gtm-container*.test.ts (container mapping test)
 - team-frontend/FEATURES.yaml
 - platform-e2e/tests/e2e/features/auth/login_return*.feature
 - platform-e2e/tests/e2e/step_definitions/login_return*_steps.py

@@ -11,3 +11,4 @@ initiative: q1-session-continuity | base: e333dfac | worktree: .claude/worktrees
 | L4 (1.7-1.8 cart) | guest add / buy-now | todo | 0 | | | | | |
 ## Gates
 ## Escalations
+- HUMAN DECISION 2026-10-14 (L1 BLOCKING: dataLayer {page_location} push is a no-op for GA4): change the GTM container — DLV `page_location` + fieldsToSet page_location on the GA4 Configuration tag in team-frontend/analytics/gtm-container.json, with a test asserting the mapping, and re-push on SPA navigation to /login. Container must be imported into the real GTM workspace on deploy.
