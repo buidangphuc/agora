@@ -27,6 +27,35 @@ type Session struct {
 	CreatedAt time.Time
 	LastSeen  time.Time
 	Revoked   bool
+
+	// Refresh-token state. Only SHA-256 hashes are stored. "" / zero time map to NULL.
+	RefreshHash      string
+	PrevRefreshHash  string
+	RefreshExpiresAt time.Time
+	RotatedAt        time.Time
+}
+
+// RefreshTTL is the sliding lifetime of a refresh token, extended on each rotation.
+const RefreshTTL = 30 * 24 * time.Hour
+
+// RotateOutcome is the result class of RotateRefresh.
+type RotateOutcome int
+
+const (
+	// RotateRotated: the live token was presented and replaced by the new hash.
+	RotateRotated RotateOutcome = iota + 1
+	// RotateReplayedInGrace: the previous token was replayed within the grace window; no change.
+	RotateReplayedInGrace
+	// RotateStale: the hash matches no live session; no change.
+	RotateStale
+	// RotateReuse: the previous token was replayed after the grace window; the session is revoked.
+	RotateReuse
+)
+
+// RotateResult carries the outcome and the (post-operation) session, if one matched.
+type RotateResult struct {
+	Outcome RotateOutcome
+	Session Session
 }
 
 // LoginEvent is a recorded login attempt (successful or failed) for a user.
@@ -51,6 +80,10 @@ type SessionRepository interface {
 	// row it builds from the revoked session is inserted in the SAME transaction:
 	// if building or writing it fails, the revoke is rolled back.
 	RevokeSession(ctx context.Context, sessionID, userID string, ev EnqueueFn) error
+	// RotateRefresh atomically validates and rotates a refresh token (see RotateOutcome).
+	// Reuse revokes the session, clears both hashes and, when ev is non-nil, inserts the
+	// outbox row in the same transaction (any error leaves the session unchanged).
+	RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace time.Duration, ev EnqueueFn) (RotateResult, error)
 	// RecordLogin appends a login attempt to the user's history.
 	RecordLogin(ctx context.Context, e LoginEvent) (LoginEvent, error)
 	// ListLoginHistory returns a page of the user's login history (newest first)
@@ -68,10 +101,30 @@ func NewPostgresSessionRepository(pool *pgxpool.Pool) *PostgresSessionRepository
 	return &PostgresSessionRepository{pool: pool}
 }
 
-const sessionColumns = `id, user_id, device, ip, created_at, last_seen, revoked`
+const sessionColumns = `id, user_id, device, ip, created_at, last_seen, revoked,
+	COALESCE(refresh_hash, ''), COALESCE(prev_refresh_hash, ''), refresh_expires_at, rotated_at`
 
 func scanSession(row pgx.Row, s *Session) error {
-	return row.Scan(&s.ID, &s.UserID, &s.Device, &s.IP, &s.CreatedAt, &s.LastSeen, &s.Revoked)
+	var exp, rot *time.Time
+	if err := row.Scan(&s.ID, &s.UserID, &s.Device, &s.IP, &s.CreatedAt, &s.LastSeen, &s.Revoked,
+		&s.RefreshHash, &s.PrevRefreshHash, &exp, &rot); err != nil {
+		return err
+	}
+	s.RefreshExpiresAt, s.RotatedAt = time.Time{}, time.Time{}
+	if exp != nil {
+		s.RefreshExpiresAt = *exp
+	}
+	if rot != nil {
+		s.RotatedAt = *rot
+	}
+	return nil
+}
+
+func nullTime(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }
 
 func (r *PostgresSessionRepository) CreateSession(ctx context.Context, s Session) (Session, error) {
@@ -84,11 +137,12 @@ func (r *PostgresSessionRepository) CreateSession(ctx context.Context, s Session
 	if s.LastSeen.IsZero() {
 		s.LastSeen = s.CreatedAt
 	}
-	const q = `INSERT INTO sessions (id, user_id, device, ip, created_at, last_seen, revoked)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	const q = `INSERT INTO sessions (id, user_id, device, ip, created_at, last_seen, revoked, refresh_hash, refresh_expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9)
 		RETURNING ` + sessionColumns
 	var out Session
-	if err := scanSession(r.pool.QueryRow(ctx, q, s.ID, s.UserID, s.Device, s.IP, s.CreatedAt, s.LastSeen, s.Revoked), &out); err != nil {
+	if err := scanSession(r.pool.QueryRow(ctx, q, s.ID, s.UserID, s.Device, s.IP, s.CreatedAt, s.LastSeen, s.Revoked,
+		s.RefreshHash, nullTime(s.RefreshExpiresAt)), &out); err != nil {
 		return Session{}, fmt.Errorf("create session: %w", err)
 	}
 	return out, nil
@@ -120,7 +174,7 @@ func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	const q = `UPDATE sessions SET revoked = true WHERE id = $1 AND user_id = $2 RETURNING ` + sessionColumns
+	const q = `UPDATE sessions SET revoked = true, refresh_hash = NULL, prev_refresh_hash = NULL WHERE id = $1 AND user_id = $2 RETURNING ` + sessionColumns
 	var s Session
 	if err := scanSession(tx.QueryRow(ctx, q, sessionID, userID), &s); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -141,6 +195,63 @@ func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID
 		return fmt.Errorf("commit tx: %w", err)
 	}
 	return nil
+}
+
+func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace time.Duration, ev EnqueueFn) (RotateResult, error) {
+	if presentedHash == "" {
+		return RotateResult{Outcome: RotateStale}, nil
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return RotateResult{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	const sel = `SELECT ` + sessionColumns + ` FROM sessions
+		WHERE (refresh_hash = $1 OR prev_refresh_hash = $1) AND NOT revoked FOR UPDATE`
+	var s Session
+	if err := scanSession(tx.QueryRow(ctx, sel, presentedHash), &s); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RotateResult{Outcome: RotateStale}, nil
+		}
+		return RotateResult{}, fmt.Errorf("select session for refresh: %w", err)
+	}
+
+	switch {
+	case s.RefreshHash == presentedHash:
+		const upd = `UPDATE sessions SET prev_refresh_hash = refresh_hash, refresh_hash = $2,
+			rotated_at = $3, last_seen = $3, refresh_expires_at = $4 WHERE id = $1 RETURNING ` + sessionColumns
+		var out Session
+		if err := scanSession(tx.QueryRow(ctx, upd, s.ID, newHash, now, now.Add(RefreshTTL)), &out); err != nil {
+			return RotateResult{}, fmt.Errorf("rotate refresh: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return RotateResult{}, fmt.Errorf("commit tx: %w", err)
+		}
+		return RotateResult{Outcome: RotateRotated, Session: out}, nil
+	case !s.RotatedAt.IsZero() && now.Sub(s.RotatedAt) <= grace:
+		return RotateResult{Outcome: RotateReplayedInGrace, Session: s}, nil
+	default:
+		const rev = `UPDATE sessions SET revoked = true, refresh_hash = NULL, prev_refresh_hash = NULL
+			WHERE id = $1 RETURNING ` + sessionColumns
+		var out Session
+		if err := scanSession(tx.QueryRow(ctx, rev, s.ID), &out); err != nil {
+			return RotateResult{}, fmt.Errorf("revoke on reuse: %w", err)
+		}
+		if ev != nil {
+			row, err := ev(out)
+			if err != nil {
+				return RotateResult{}, err
+			}
+			if err := enqueueTx(ctx, tx, row); err != nil {
+				return RotateResult{}, err
+			}
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return RotateResult{}, fmt.Errorf("commit tx: %w", err)
+		}
+		return RotateResult{Outcome: RotateReuse, Session: out}, nil
+	}
 }
 
 func (r *PostgresSessionRepository) RecordLogin(ctx context.Context, e LoginEvent) (LoginEvent, error) {
@@ -254,6 +365,7 @@ func (r *InMemorySessionRepository) RevokeSession(_ context.Context, sessionID, 
 		return ErrSessionNotFound
 	}
 	s.Revoked = true
+	s.RefreshHash, s.PrevRefreshHash = "", ""
 	// Mirror the Postgres transaction: build/record the outbox row first and only
 	// then commit the revoke, so a failing outbox write leaves the session intact.
 	if ev != nil {
@@ -268,6 +380,52 @@ func (r *InMemorySessionRepository) RevokeSession(_ context.Context, sessionID, 
 	}
 	r.sessions[sessionID] = s
 	return nil
+}
+
+func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHash, newHash string, now time.Time, grace time.Duration, ev EnqueueFn) (RotateResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if presentedHash == "" {
+		return RotateResult{Outcome: RotateStale}, nil
+	}
+	var s Session
+	found := false
+	for _, c := range r.sessions {
+		if !c.Revoked && (c.RefreshHash == presentedHash || c.PrevRefreshHash == presentedHash) {
+			s, found = c, true
+			break
+		}
+	}
+	if !found {
+		return RotateResult{Outcome: RotateStale}, nil
+	}
+	switch {
+	case s.RefreshHash == presentedHash:
+		s.PrevRefreshHash = s.RefreshHash
+		s.RefreshHash = newHash
+		s.RotatedAt = now
+		s.LastSeen = now
+		s.RefreshExpiresAt = now.Add(RefreshTTL)
+		r.sessions[s.ID] = s
+		return RotateResult{Outcome: RotateRotated, Session: s}, nil
+	case !s.RotatedAt.IsZero() && now.Sub(s.RotatedAt) <= grace:
+		return RotateResult{Outcome: RotateReplayedInGrace, Session: s}, nil
+	default:
+		s.Revoked = true
+		s.RefreshHash, s.PrevRefreshHash = "", ""
+		if ev != nil {
+			row, err := ev(s)
+			if err != nil {
+				return RotateResult{}, err
+			}
+			if r.FailOutbox {
+				return RotateResult{}, errors.New("simulated outbox write failure")
+			}
+			r.outbox = append(r.outbox, row)
+		}
+		r.sessions[s.ID] = s
+		return RotateResult{Outcome: RotateReuse, Session: s}, nil
+	}
 }
 
 // OutboxRows returns a copy of the outbox rows recorded by revokes, for assertions.
