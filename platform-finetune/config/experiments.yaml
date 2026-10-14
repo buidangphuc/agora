@@ -1,0 +1,33 @@
+# The tuning LOOP (Layer 2). Each variant is a sparse override deep-merged onto
+# params.yaml — so a variant only states what it changes. Run:
+#
+#   python main.py tune              # train+eval every variant, rank by metrics.objective
+#   python main.py promote <name>    # version the chosen variant into the registry
+#
+# Every variant trains+evals through the SAME Layer-1 pipeline and is logged as its own
+# MLflow run (tagged variant=<name>), so they compare side by side. Nothing is promoted
+# automatically — you pick the winner after reading the ranking.
+
+experiment_name: topic-sft-tuning
+
+variants:
+  - name: baseline                 # params.yaml as-is: full fine-tune
+
+  - name: lora                     # adapters only; needs a higher lr than full fine-tuning
+    finetune: {method: lora}
+    training: {lr: 2.0e-4}
+
+  - name: qlora                    # LoRA over a 4-bit nf4 base (quant extra, GPU box)
+    finetune: {method: qlora}
+    training: {lr: 2.0e-4}
+
+  - name: qat-int8                 # quantization-aware training for int8-dyn (group 3)
+    finetune: {method: qat, qat: {scheme: int8-dyn}}
+
+  # - name: qwen-1.5b              # swap the backbone (downloads weights)
+  #   model:
+  #     base_model: Qwen/Qwen2.5-1.5B-Instruct
+
+  # - name: dapt-then-finetune     # fine-tune from the DAPT-adapted backbone
+  #   model:                       #   (run `datascience dapt` first)
+  #     base_model: artifacts/dapt

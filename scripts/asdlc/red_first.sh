@@ -192,7 +192,12 @@ run_test() { # run_test <worktree> <kind> <relfile> -> exit status of the test c
       if [ -f "$wt/$mod/scripts/gen_proto.py" ] && [ ! -e "$wt/$mod/.redfirst-proto" ]; then
         (cd "$wt/$mod" && "$PY" -m scripts.gen_proto >"$SCRATCH/proto.log" 2>&1) && touch "$wt/$mod/.redfirst-proto"
       fi
-      (cd "$wt/$mod" && "$PY" -m pytest -q -x -p no:cacheprovider "${f#"$mod"/}" >"$SCRATCH/out.log" 2>&1) ;;
+      # The module and the shared in-repo packages (platform-core/packages/*/src) must resolve from
+      # THIS worktree, never from an install of the head checkout, or base runs import head code.
+      # Absolute paths, so test subprocesses with another cwd see them too.
+      local pp="$wt/$mod:$wt/$mod/src" p
+      for p in "$wt"/platform-core/packages/*/src; do [ -d "$p" ] && pp="$pp:$p"; done
+      (cd "$wt/$mod" && PYTHONPATH="$pp${PYTHONPATH:+:$PYTHONPATH}" "$PY" -m pytest -q -x -p no:cacheprovider "${f#"$mod"/}" >"$SCRATCH/out.log" 2>&1) ;;
     ts)
       mod=$(nearest_up "$wt" "$f" package.json) || return 97
       [ -d "$ROOT/$mod/node_modules" ] && [ ! -e "$wt/$mod/node_modules" ] && ln -s "$ROOT/$mod/node_modules" "$wt/$mod/node_modules"

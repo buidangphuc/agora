@@ -7,3 +7,5 @@ redis>=5.0
 pandas>=2.0
 pyarrow>=14.0
 confluent-kafka>=2.3
+# model registry + publish gate: monorepo path (Docker copies it to /platform-core/packages/py-modelregistry)
+../platform-core/packages/py-modelregistry

@@ -44,6 +44,7 @@ Second, the forecasting workload's resource profile — nightly batch, Spark-sha
 - **A second job inside platform-recsys.** Shares the Spark session, warehouse reader, and `model_version` scaffolding. Rejected: different cadence sensitivity and a different output store shape, and a failing forecast run would share a CronJob and an alert surface with recommendations. One repo, one artifact lifecycle.
 - **A team-forecast service.** Rejected by the §6 decision rule — it owns no tables a user mutates and has no lifecycle beyond its batch run.
 - **MLflow + MinIO + Postgres registry (the reference system's choice).** Genuinely the right answer once models are compared, promoted, and rolled back. Rejected for now: three stateful components to version one nightly artifact that `model_version` + generation prune already versions. The trigger to revisit is recorded in (12) — more than one concurrently-served model, or a need to roll back to a prior artifact.
+  *Superseded by ADR-0017: the revisit trigger was met and MLflow is now the registry; the rest of this ADR stands.*
 - **Ray Tune / Airflow / Flink (the rest of the reference stack).** HPO over a seasonal-naive baseline is premature; the gitops CronJob is our scheduler; and Flink's schema-validation stage duplicates what proto plus the analytics consumer already enforce at the edge.
 
 ## Consequences

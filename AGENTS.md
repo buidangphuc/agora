@@ -50,6 +50,11 @@ browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) �
 | **team-audit** | Go | Audit event log (owns its DB) | :50066 |
 | **platform-recsys** | Python | Offline ALS recommendation model trainer + candidate indexing (owns DB/Qdrant collection) | — |
 | **platform-modelserve** | Python | Internal ML model serving router + Hugging Face TEI / vLLM runtime integration (ADR-0011) | :8100 (router HTTP) |
+| **platform-finetune** | Python | LLM fine-tune pipeline imported from MLOps (Qwen2.5-0.5B on AG News); weekly gated training job publishing `finetune-classifier` to the shared registry; no consumer yet | — |
+
+Shared library (not a service): **`platform-core/packages/py-modelregistry`** (package
+`modelregistry`) — the MLflow registry client + publish gate that every trainer runs in-process
+(ADR-0017). See §5b.
 
 ## 3. The rules you must not break
 
@@ -121,12 +126,39 @@ identity `:50053`, engagement `:50054`, promotion `:50061`. Modelserve router: `
 postgres-search `5434`, postgres-identity `5435`, postgres-engagement `5436`,
 postgres-promotion `5440`, postgres-notification `5441`,
 redis `6379`, qdrant `6333/6334`, redpanda `19092` (host), rabbitmq `5672/15672`,
-opensearch `9200`, otel-collector `4317`.
+opensearch `9200`, otel-collector `4317`, MLflow `5050` (backed by `postgres-mlflow`, which has
+no host port — reach it only from the compose network).
 
 Gateway env (must match reality): `HTTP_PORT`, `UPSTREAM_{SEARCH,LISTING,IDENTITY,
 ENGAGEMENT}_ADDR`, `JWKS_URL`, `RATE_LIMIT_RPS/BURST`, `CORS_ORIGINS`,
 `OTEL_EXPORTER_OTLP_ENDPOINT`. (No shared `JWT_SECRET` — ADR-0006 made the gateway
 a verify-only party that holds no signing material; it fetches identity's JWKS.)
+
+## 5b. Training & model registry (ADR-0017)
+
+- **Trainers** (batch jobs, no port): `platform-recsys` (ALS; GBDT ranker and Two-Tower when
+  `ENABLE_GBDT` / `ENABLE_TWO_TOWER`) and `platform-finetune`. Locally:
+  `docker compose --profile jobs run --rm platform-recsys` (or `platform-finetune`, CPU).
+- **Schedules** (`platform-gitops/platform/`): recsys CronJob nightly `0 3 * * *` (03:00 UTC), after
+  the featurestore materialization at 02:15; finetune CronJob weekly `0 4 * * 0` (Sun 04:00 UTC) on
+  the GPU pool (one `nvidia.com/gpu`).
+- **One registry**: MLflow Model Registry (`MLFLOW_TRACKING_URI=http://mlflow:5050`). Models
+  `recsys-als`, `recsys-gbdt`, `recsys-two-tower`, `finetune-classifier`. Aliases `champion` (should
+  be served) and `previous` (prior holder); audit in `gate.*` / `lineage.*` tags. Per-trainer
+  registries are gone (ADR-0017 supersedes ADR-0014).
+- **One gate**: `py-modelregistry`, run inside each trainer. Policies per model in
+  `platform-core/packages/py-modelregistry/src/modelregistry/policies.yaml` (`primary`,
+  `min_relative_improvement`, `guards`, `floors`; override path via `MODELREGISTRY_POLICIES`).
+- **Two-phase**: `evaluate` (registers the version, tags `promotable`/`rejected`, moves no alias) →
+  trainer publishes → `apply` (moves `champion`, old one becomes `previous`). Recsys publishes its
+  generation between the two; finetune has no publish step and calls `submit` (= evaluate + apply).
+- **Fail closed**: registry unreachable → nothing published, serving keeps the last champion. Each
+  call times out at 10 s (12 s per operation). Exit codes: `0` done (a rejected candidate included),
+  `1` registry unavailable or unexpected error, `2` usage/config/policy/gate error.
+- **Operator verbs**: `python -m modelregistry promote <model> <version> [--force --reason TEXT]`,
+  `python -m modelregistry rollback <model>` (swaps `champion` and `previous`).
+- Never log user ids, interaction rows or per-user lists to MLflow — aggregates and model
+  artifacts only.
 
 ## 6. Recipe — add a feature
 
@@ -201,7 +233,7 @@ deferred (above).
 New requirements flow through **OpenSpec** (`openspec/`), not ad-hoc. speckit is
 retired. Pipeline: `requirement → change → (code ∥ e2e) → gate → archive`, designed
 so many changes/agents run in parallel (each change is an isolated
-`openspec/changes/<id>/`). Full plan: `SPEC_DRIVEN_WORKFLOW.md`.
+`openspec/changes/<id>/`). Full plan: `docs/asdlc/SPEC_DRIVEN_WORKFLOW.md`.
 
 - Propose: `/opsx:propose "<idea>"` (or author `openspec/changes/<id>/{proposal,tasks}.md` + `specs/<capability>/spec.md`); `openspec validate <id> --strict`.
 - Build in parallel with the **`spec-dispatch`** skill: code track (per repo, obey rules §3) ∥ e2e track (**`spec-to-e2e`** skill → updates the owning repo's `FEATURES.yaml` + a `.feature` in `platform-e2e`).
@@ -211,7 +243,7 @@ so many changes/agents run in parallel (each change is an isolated
 
 ## 9c. ASDLC v2 (agentic SDLC)
 
-- Process source of truth: [`docs/ASDLC-v2.md`](docs/ASDLC-v2.md) (10 phases, roles, decision engine, initiative workflow, test guard, human approval points). One-page start: [`docs/ONBOARDING.md`](docs/ONBOARDING.md). Plan: `ASDLC-v2-PLAN.md`.
+- Process source of truth: [`docs/asdlc/ASDLC-v2.md`](docs/asdlc/ASDLC-v2.md) (10 phases, roles, decision engine, initiative workflow, test guard, human approval points). One-page start: [`docs/ONBOARDING.md`](docs/ONBOARDING.md). Plan: `docs/asdlc/ASDLC-v2-PLAN.md`.
 - Config and profile (`solo` / `team`): `asdlc.config.yaml`; gates: `gates/`; scripts: `scripts/asdlc/`; agents/skills: `.claude/`.
 - Skills: `initiative-plan` -> human lock -> `initiative-build` -> `feature-run`; `spec-clarify` before the lock; `release` for phase 8.
 - The `implementer` subagent cannot edit test files (`.claude/hooks/guard-tests.sh`); only `test-author` / `e2e-author` do.

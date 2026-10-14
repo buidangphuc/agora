@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modelregistry"
+version = "0.1.0"
+description = "Unified model registry client and publish gate (MLflow, ADR-0017)"
+requires-python = ">=3.10"
+dependencies = [
+  "mlflow-skinny>=3.2,<3.3",
+  "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "mypy", "types-PyYAML"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/modelregistry"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint.per-file-ignores]
+# test files are fixed (not editable by the implementer): style rules apply to src only
+"tests/**" = ["I001", "FURB167", "UP035", "E501", "E741", "SIM105"]
+
+[tool.mypy]
+python_version = "3.10"

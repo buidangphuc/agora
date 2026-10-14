@@ -6,8 +6,11 @@ an HTTP contract adapter, a Redis embedding cache and a global in-flight limit w
 
 - **Bounded context:** platform (ML inference plumbing). It owns no business data, no database and no
   proto contract. The only state is the Redis embedding cache.
-- **Status:** the router is **not** part of the root `docker-compose.services.yaml` (no modelserve,
-  TEI or vLLM service there). It is opt-in, started from this repo's own `docker-compose.local.yaml`.
+- **Status:** the router runs in the root `docker-compose.services.yaml` as `modelserve-router`
+  (no host port), with `tei-fake` (a deterministic TEI stand-in, dim 384) as the upstream for embed,
+  rerank and generate. team-ai depends on it for RAG embeddings (`RAG_EMBED_SERVER_URL`). No real TEI
+  or vLLM service is in the root compose; this repo's `docker-compose.local.yaml` runs the router
+  standalone against a real TEI CPU embed container.
 - **Runtimes are not provisioned here.** Only a TEI embed container is defined
   (`docker-compose.local.yaml`). `/rerank` and `/generate` need a TEI reranker and a vLLM server that
   you supply yourself.
@@ -151,7 +154,7 @@ shapes), `test_env_drift`, `test_router` (mock upstreams).
 ## 9. Known gaps
 
 - No authn/authz on any endpoint; it relies on network isolation.
-- Not in the root compose, and not wired into team-ai or team-search by default.
+- In the root compose only against `tei-fake`; wired into team-ai (RAG embeddings) there, not into team-search.
 - `/rerank` and `/generate` have no runtime anywhere in the repo.
 - No streaming for `/generate` or chat completions.
 - The vLLM proxy is e2e-tested against the TEI fake's stand-in, not a real vLLM; the rerank and chat paths have no real runtime.

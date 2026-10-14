@@ -6,7 +6,7 @@ license: MIT
 metadata:
   author: asdlc-v2
   version: "1.0"
-  plan: ASDLC-v2-PLAN.md W2-8, section 13 steps 1-3
+  plan: docs/asdlc/ASDLC-v2-PLAN.md W2-8, section 13 steps 1-3
 ---
 
 # initiative-plan — spec an initiative, stop at the lock

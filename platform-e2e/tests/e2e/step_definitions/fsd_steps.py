@@ -310,12 +310,20 @@ def model_names_dataset(fsd_ctx):
     version = run.summary["model_version"]
     model = run.state["models"].get(version)
     assert model is not None, f"{version} not in registry: {run.state['models']}\n{run.summary}"
-    lineage = (model["parameters"] or {}).get("dataset")
-    assert lineage, f"parameters.dataset missing: {model['parameters']}"
-    assert lineage["name"] == DATASET_NAME, lineage
-    assert str(lineage["version"]) == str(DATASET_VERSION), lineage
-    assert _parse(lineage["as_of"]) == _parse(manifest["as_of"]), (lineage, manifest["as_of"])
-    assert lineage["sha256"] == manifest["file_sha256"], (lineage, manifest["file_sha256"])
+    # The registry records the dataset as the version's lineage tags (name@version, as_of, sha256).
+    tags = model.get("tags") or {}
+    assert tags.get("lineage.dataset"), f"lineage.dataset tag missing: {tags}"
+    name, _, ver = tags["lineage.dataset"].partition("@")
+    assert name == DATASET_NAME, tags
+    assert ver.lstrip("v") == str(DATASET_VERSION), tags  # the tag reads name@v<version>
+    assert _parse(tags["lineage.dataset_as_of"]) == _parse(manifest["as_of"]), (
+        tags,
+        manifest["as_of"],
+    )
+    assert tags["lineage.dataset_sha256"] == manifest["file_sha256"], (
+        tags,
+        manifest["file_sha256"],
+    )
 
 
 # ── scenario 6 ───────────────────────────────────────────────────────────

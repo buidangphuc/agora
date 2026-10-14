@@ -21,7 +21,7 @@ only check a mock, a spec outcome no test can verify). A unit must stay under
 
 Thresholds start at `threshold: 0.85` (noul) and `min_confidence: 0.6` (choice/score).
 They are placeholders: W3-6 recalibrates them from the precision/recall curve on the
-seeded-defect eval set (ASDLC-v2-PLAN.md §14).
+seeded-defect eval set (docs/asdlc/ASDLC-v2-PLAN.md §14).
 
 ## Versioning
 

@@ -6,7 +6,7 @@ license: MIT
 metadata:
   author: asdlc-v2
   version: "1.0"
-  plan: ASDLC-v2-PLAN.md W2-8, section 13 steps 4-5
+  plan: docs/asdlc/ASDLC-v2-PLAN.md W2-8, section 13 steps 4-5
 ---
 
 # initiative-build — slices in DAG order, then converge
