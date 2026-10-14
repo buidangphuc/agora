@@ -7,6 +7,11 @@ import { redirect } from "next/navigation";
 import { makeClients } from "@/lib/gateway/client";
 import { clientContextFrom } from "@/lib/gateway/client-context";
 import { SESSION_COOKIE } from "@/lib/gateway/session";
+import {
+  REFRESH_COOKIE,
+  accessCookieOptions,
+  refreshCookieOptions,
+} from "@/lib/gateway/session-cookie";
 
 import {
   type CredentialErrors,
@@ -40,13 +45,13 @@ function failure(
     : { ok: false, error, username };
 }
 
-async function setSession(token: string) {
-  (await cookies()).set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 3600,
-  });
+async function setSession(token: string, refreshToken: string) {
+  const jar = await cookies();
+  const secure = (await headers()).get("x-forwarded-proto") === "https";
+  jar.set(SESSION_COOKIE, token, accessCookieOptions(secure));
+  if (refreshToken) {
+    jar.set(REFRESH_COOKIE, refreshToken, refreshCookieOptions(secure));
+  }
 }
 
 export async function loginAction(
@@ -66,11 +71,13 @@ export async function loginAction(
   }
 
   let token = "";
+  let refreshToken = "";
   try {
     const res = await makeClients(undefined, {
       client: clientContextFrom(await headers()),
     }).auth.login({ username, password });
     token = res.result?.token ?? "";
+    refreshToken = res.result?.refreshToken ?? "";
   } catch (err) {
     if (err instanceof ConnectError) {
       if (
@@ -90,7 +97,7 @@ export async function loginAction(
     return failure(username, "Không thể kết nối đến máy chủ xác thực.");
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
-  await setSession(token);
+  await setSession(token, refreshToken);
   redirect("/");
 }
 
@@ -112,11 +119,13 @@ export async function registerAction(
   }
 
   let token = "";
+  let refreshToken = "";
   try {
     const res = await makeClients(undefined, {
       client: clientContextFrom(await headers()),
     }).auth.register({ username, password, role });
     token = res.result?.token ?? "";
+    refreshToken = res.result?.refreshToken ?? "";
   } catch (err) {
     if (err instanceof ConnectError && err.code === Code.AlreadyExists) {
       return failure(username, "Tên đăng nhập đã tồn tại.", {
@@ -126,7 +135,7 @@ export async function registerAction(
     return failure(username, `Đăng ký lỗi: ${String(err)}`);
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
-  await setSession(token);
+  await setSession(token, refreshToken);
   redirect("/");
 }
 
