@@ -10,17 +10,6 @@ fine-tune pipeline, all behind one model registry and one publish gate) is the *
 big and coupled enough that unstructured "prompt and hope" development fails quickly. What this
 repository shows is the lifecycle, the gates and the evidence that keep agent output correct as it scales.
 
-| | |
-|---|---|
-| Bounded contexts coordinated | **25** (`team-*` services, `platform-*` platforms), one git repository |
-| Commits | **1451**, of which **1263** are agent co-authored |
-| Requirement changes run through the lifecycle | **97** OpenSpec changes (96 archived) · **79** capability specs |
-| Capabilities with a machine-readable contract | `FEATURES.yaml` acceptance coverage **1033/1040 automated (99%)** |
-| End-to-end suite | **220** `.feature` files against the real stack (parallel lane + serial destructive lane) |
-| Gates | **4** versioned question sets (`spec`, `task`, `feature`, `release`; 33 questions, each traced to a standard) · **9** CI jobs, 5 required on `main` |
-| AI layer | **4** models in one MLflow registry (`recsys-als`, `recsys-gbdt`, `recsys-two-tower`, `finetune-classifier`) · **1** shared publish gate · LLM eval gate in CI |
-| Guardrails | **16** skills · **11** sub-agents · **4** hooks · **17** ADRs |
-
 Process source of truth: [`docs/asdlc/ASDLC-v2.md`](docs/asdlc/ASDLC-v2.md). One-page start:
 [`docs/ONBOARDING.md`](docs/ONBOARDING.md). Plan and status: [`docs/asdlc/ASDLC-v2-PLAN.md`](docs/asdlc/ASDLC-v2-PLAN.md).
 
