@@ -1,0 +1,38 @@
+# Publish-gate policies, one entry per registered model name.
+# Entries are added by the change that owns the model.
+#
+# Example (commented out, not loaded):
+#
+# my-model:
+#   primary: ndcg@10                  # required: metric compared against the champion
+#   min_relative_improvement: 0.01    # optional, default 0.0 (inclusive, >=)
+#   guards:                           # optional: candidate >= ratio * champion
+#     coverage@10: 0.8
+#   floors:                           # optional: candidate >= absolute value
+#     coverage@10: 0.5
+
+recsys-als:                         # ADR-0014
+  primary: ndcg@10
+  min_relative_improvement: 0.01
+  guards:
+    coverage@10: 0.8
+
+recsys-gbdt:
+  primary: ndcg@10
+  min_relative_improvement: 0.005
+  guards:
+    recall@10: 0.95
+
+recsys-two-tower:
+  primary: recall@10
+  min_relative_improvement: 0.005
+  guards:
+    coverage@10: 0.8
+  floors:
+    recall@10: 0.000001
+
+finetune-classifier:
+  primary: macro_f1
+  min_relative_improvement: 0.01
+  floors:
+    macro_f1: 0.5

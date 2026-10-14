@@ -6,7 +6,7 @@ license: MIT
 metadata:
   author: asdlc-v2
   version: "1.0"
-  plan: ASDLC-v2-PLAN.md W2-7 (lifecycle phases 4-6, sections 4-6)
+  plan: docs/asdlc/ASDLC-v2-PLAN.md W2-7 (lifecycle phases 4-6, sections 4-6)
 ---
 
 # feature-run — one change, test-first, reviewed

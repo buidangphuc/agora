@@ -1,4 +1,4 @@
-"""team-search production boot guard (port-security-hardening / deploy-runtime).
+"""team-search boot guard: a deployed ENV needs a reachable database (migrate-team-search-to-go-sdk).
 
 Runs the real team-search image built by the stack (agora-team-search:local) as a black box with `docker run --rm`; the
 assertions are the exit code and the log, nothing in-process.
@@ -15,7 +15,10 @@ from tests.e2e.support.world import World
 
 # the image the agora stack builds (compose project "agora"); override for other stacks
 IMAGE = os.environ.get("SEARCH_BOOT_IMAGE", "agora-team-search:local")
-GUARD_MARKER = "refusing to start with in-memory saved-search storage"
+# go-sdk v1 requires brokers for a strict ENV; set so the database check is what fails.
+BROKERS = "redpanda:9092"
+UNREACHABLE_DB = "postgres://u:p@127.0.0.1:1/db?sslmode=disable"
+FALLBACK_MARKER = "saved searches use an in-memory store"
 
 
 def _run(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -34,9 +37,11 @@ def team_search_image(world: World) -> None:
     assert probe.returncode == 0, f"{IMAGE} is not built locally: {probe.stderr}"
 
 
-@when("it is started with ENV production and DATABASE_ENABLED false")
+@when("it is started with ENV production and no DATABASE_URL")
 def start_production(world: World) -> None:
-    world.state.extra["boot"] = _run({"ENV": "production", "DATABASE_ENABLED": "false"})
+    world.state.extra["boot"] = _run(
+        {"ENV": "production", "GRPC_PORT": "50052", "KAFKA_BROKERS": BROKERS}
+    )
 
 
 @then("the process exits non-zero")
@@ -45,22 +50,38 @@ def exits_non_zero(world: World) -> None:
     assert proc.returncode != 0, f"exit {proc.returncode}: {proc.stdout}{proc.stderr}"
 
 
-@then("its log names the storage setting")
-def log_names_storage(world: World) -> None:
+@then("its log names the database setting")
+def log_names_database(world: World) -> None:
     proc: subprocess.CompletedProcess[str] = world.state.extra["boot"]
     log = proc.stdout + proc.stderr
-    assert "DATABASE_ENABLED" in log and GUARD_MARKER in log, log
+    assert "DATABASE_URL is required" in log, log
 
 
-@then("the same image with ENV local does not trip the storage guard")
-def local_passes_guard(world: World) -> None:
-    """Control: the failure above is the guard, not a generic boot failure."""
-    # Unreachable OpenSearch makes the local boot exit quickly, after the guard.
+@then("the same image with ENV production and an unreachable database exits non-zero")
+def production_unreachable(world: World) -> None:
+    proc = _run(
+        {
+            "ENV": "production",
+            "GRPC_PORT": "50052",
+            "KAFKA_BROKERS": BROKERS,
+            "DATABASE_URL": UNREACHABLE_DB,
+        }
+    )
+    log = proc.stdout + proc.stderr
+    assert proc.returncode != 0 and "open database" in log, log
+
+
+@then("the same image with ENV local and an unreachable database falls back to in-memory storage")
+def local_falls_back(world: World) -> None:
+    """Control: the failure above is the database rule, not a generic boot failure."""
+    # Unreachable OpenSearch makes the local boot exit quickly, after the database step.
     proc = _run(
         {
             "ENV": "local",
-            "DATABASE_ENABLED": "false",
+            "GRPC_PORT": "50052",
+            "DATABASE_URL": UNREACHABLE_DB,
             "OPENSEARCH_URL": "http://opensearch.invalid:9200",
         }
     )
-    assert GUARD_MARKER not in proc.stdout + proc.stderr, proc.stdout + proc.stderr
+    log = proc.stdout + proc.stderr
+    assert FALLBACK_MARKER in log and "open database" not in log, log

@@ -1,0 +1,26 @@
+env/
+venv/
+.venv/
+logs/
+
+__pycache__/
+*.pyc
+
+# Pipeline outputs — code is the product, artifacts are regenerated
+artifacts/
+data/
+
+# Experiment tracking (local)
+mlruns/
+mlartifacts/
+mlflow.db
+
+.env
+.env.*
+# but DO commit the env templates (.env.example, .env.test.example, .env.staging.example)
+!.env.example
+!.env.*.example
+*.pem
+*.key
+.DS_Store
+.claude/

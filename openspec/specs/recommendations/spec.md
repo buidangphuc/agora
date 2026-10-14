@@ -245,8 +245,9 @@ SHALL NOT leak into the scored model:
 - the scored ranking excludes the user's training items.
 
 The published model MAY be trained on every event. A run that cannot produce metrics SHALL NOT
-be treated as a promotable candidate. The promotion gate SHALL NOT compare metrics produced
-under different evaluation protocols.
+be treated as a promotable candidate. The evaluation protocol SHALL be recorded as the version's tag `lineage.eval_protocol`. When the candidate's and the champion's protocol differ, or the champion has no such tag, the gate SHALL NOT compare metrics: it SHALL judge the candidate on the policy `floors` only, with the reason `eval_protocol changed: <old> -> <new>`.
+
+_Migration note (recsys-auto-train): the protocol rule is kept (decision D2) but is now bounded by the policy floors instead of promoting unconditionally; the champion's protocol is read from `lineage.eval_protocol` (seeded from the Redis meta by `migrate-registry`)._
 
 #### Scenario: A run produces ranking metrics for the generation it trained
 
@@ -272,22 +273,21 @@ under different evaluation protocols.
 #### Scenario: Metrics from another evaluation protocol are not compared
 
 - **WHEN** the incumbent champion's metrics were produced under a different evaluation protocol
-- **THEN** the gate does not compare the two values, and the candidate becomes the champion with
-  a reason that names both protocols
+- **THEN** the gate does not compare the two values and judges the candidate on the policy floors only, with the reason `eval_protocol changed: <old> -> <new>` naming both protocols (a model with no floors is `promotable`)
 
 ### Requirement: A candidate SHALL reach serving only after passing the promotion gate
 
-The pipeline SHALL register the evaluated run as a `ModelMetadata` candidate and SHALL call the
-promotion gate before any serving artifact is published. Vectors and cache entries for a rejected
+The pipeline SHALL evaluate the run through the model registry (`evaluate`: registers a version and moves no alias) before any serving artifact is published, and SHALL move `champion` (`apply`) only after the artifacts of that model were published. Vectors and cache entries for a rejected
 candidate SHALL NOT replace the generation currently being served, and the previous generation
 SHALL remain readable.
 
+_Migration note (recsys-auto-train): `ModelMetadata` and `recs:model:champion` are gone; the bootstrap scenario now depends on the registry having no champion (or on `migrate-registry` having seeded v1)._
+
 #### Scenario: A regressing candidate does not become champion
 
-- **WHEN** a run evaluates below the incumbent champion's `ndcg@10` by more than the configured
-  tolerance
-- **THEN** the candidate is recorded with status `rejected`
-- **AND** `recs:model:champion` still names the previous version
+- **WHEN** a run evaluates below the ALS policy's required improvement over the champion's `ndcg@10`
+- **THEN** the candidate is registered as a version tagged `gate.outcome=rejected`
+- **AND** the `champion` alias of `recsys-als` still names the previous version
 
 #### Scenario: A rejected candidate leaves the previous generation serving
 
@@ -298,7 +298,7 @@ SHALL remain readable.
 
 #### Scenario: The first run bootstraps the registry
 
-- **WHEN** a run completes and no champion is registered yet
+- **WHEN** a run completes and the registry has no `champion` for `recsys-als`
 - **THEN** that run is promoted and becomes the champion
 - **AND** its artifacts are published to Qdrant and Redis
 
@@ -559,7 +559,7 @@ counted in `explain["feature_defaults"]`, and SHALL NOT fail the request.
 
 The offline recommendation pipeline SHALL, when the two-tower stage is enabled, train the
 two-tower model and load its item vectors into a dedicated vector-store collection named for the run's generation
-(`<QDRANT_TWO_TOWER_COLLECTION>__<model_version>`) as part of the same run that produces ALS factors. The collection SHALL
+(`<QDRANT_TWO_TOWER_COLLECTION>__<model_version>`) as part of the same run that produces ALS factors, when the `recsys-two-tower` candidate is evaluated `promotable` (a rejected candidate leaves the generation without a two-tower collection). The collection SHALL
 be written before the serving pointer moves, so a generation is complete or not visible. The run summary SHALL report the
 number of items indexed.
 
@@ -570,7 +570,9 @@ price are not in those views yet; the towers read them as 0 and nothing substitu
 
 The towers SHALL be trained (in-batch softmax over the dataset's pairs) and the run summary SHALL report the first and last
 epoch loss. A vector that is all zeros or not finite SHALL NOT be written to the vector store; it SHALL be counted in the
-summary, and when no usable vector remains the stage SHALL fail, reject the candidate and publish nothing.
+summary, and when no usable vector remains the stage SHALL fail, mark the candidate rejected in the registry and publish nothing.
+
+_Migration note (recsys-auto-train): the two-tower stage is now evaluated on a holdout and gated like ALS (see ADDED requirements); it is no longer published merely because its vectors are non-degenerate._
 
 #### Scenario: Pipeline run indexes two-tower vectors and reports the count
 
@@ -702,7 +704,9 @@ team-ai's Qdrant backend SHALL look up a seed listing by the producer's point id
 
 The local compose stack SHALL provide a runnable training job that reads the exported
 tracking events and fills Qdrant and Redis, and team-ai SHALL serve recommendations
-from them.
+from them. The compose job SHALL reach the stack's MLflow service for its registry gate and fails closed when it cannot.
+
+_Migration note (recsys-auto-train): the compose `platform-recsys` job now needs `mlflow` (profile of the infra stack) in addition to qdrant and redis; `trained_recs_local.feature` is re-pointed._
 
 #### Scenario: Home page shows trained recommendations
 

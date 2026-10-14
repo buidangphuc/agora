@@ -3,7 +3,7 @@ name: release
 description: Release a built and reviewed change through the local GitOps plane (ASDLC v2 phase 8): gates green, tag images with the commit sha, bump the staging overlay, ArgoCD sync, smoke-staging, canary watch, human approval for prod, rollback path. Use after the Feature gate when the user says "release", "deploy to staging", "ship it", or after initiative-build converges. Needs the kind stack up; never runs against a stack that is not approved for this session.
 ---
 
-Read `docs/release.md` first (details, commands, failure table). The deploy plane is the local kind cluster + Gitea + ArgoCD. Never `kubectl apply` or `helm upgrade` by hand; change `platform-gitops` and let ArgoCD pull.
+Read `docs/asdlc/release.md` first (details, commands, failure table). The deploy plane is the local kind cluster + Gitea + ArgoCD. Never `kubectl apply` or `helm upgrade` by hand; change `platform-gitops` and let ArgoCD pull.
 
 ## Steps (stop at the first red; each line is `step -> check`)
 1. Gates green -> Feature gate decision table has no veto; `make check` and e2e per the repo's CI config are green; working tree committed (tags are commit shas). Say which checks were run.

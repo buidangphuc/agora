@@ -17,6 +17,7 @@ from typing import Any
 from config.settings import get_settings
 
 _DRIVER = Path(__file__).with_name("rgt_job_driver.py")
+_REGISTRY_SUPPORT = Path(__file__).with_name("registry_support.py")
 _TIMEOUT_S = 1500
 
 
@@ -27,6 +28,7 @@ def run_plan(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     work = Path(tempfile.mkdtemp(prefix="rgt-e2e-"))
     try:
         shutil.copy(_DRIVER, work / "driver.py")
+        shutil.copy(_REGISTRY_SUPPORT, work / "registry_support.py")
         plan = {"namespace": f"e2e_rgt_gw{idx}", "redis_db": 10 + idx, "steps": steps}
         (work / "plan.json").write_text(json.dumps(plan))
         work.chmod(0o777)  # the job image runs as uid 1001

@@ -1,4 +1,16 @@
-"""The GBDT stage: gate, registry, artifact and its place in the generation (no Spark)."""
+"""The GBDT stage: gate, registry, artifact and its place in the generation (no Spark).
+
+Ported to the MLflow registry (model ``recsys-gbdt``).
+
+INTERFACE ASSUMPTION: ``stage.run_stage(settings, inputs, model_version) -> RankerResult`` starts its own
+MLflow run, calls ``registry_client.evaluate`` (or ``register_rejected`` for a structural rejection) on
+``recsys-gbdt`` and returns
+  .decision : the modelregistry.Decision (outcome ``promotable`` | ``rejected``; a stage never applies it)
+  .reason   : the decision's reason
+  .artifact : the ``agora-gbdt/1`` dict when promotable, else None
+  .summary  : metrics (incl. ``baseline_ndcg@10``, ``holdout_lists_with_positive``), ``rows``, ``ctr_source``,
+              ``holdout`` as before
+"""
 
 from __future__ import annotations
 
@@ -6,39 +18,47 @@ import json
 
 import pandas as pd
 import pytest
+from modelregistry import apply
 
 from recsys.config import ConfigError, Settings
 from recsys.load import redis_cache
 from recsys.publish import publish_generation
 from recsys.ranker import contract, gbdt, stage, training
-from recsys.registry.registry import CHAMPION_KEY, GBDT_CHAMPION_KEY, ModelRegistry
 from tests import ranker_fixture as fx
 from tests.fakes import FakeQdrantClient, FakeRedis
+from tests.pipeline_fixture import GBDT, newest, outcome, registered_models, seed_strong, seed_weak, versions
 
 
-def _settings(tmp_path, signal=True, **kw) -> Settings:
+def _settings(tmp_path, reg, signal=True, **kw) -> Settings:
     values = fx.write_all(tmp_path, signal=signal)
     # No item has this many impressions: ctr stays the snapshot's constant, so only the price carries signal.
     values.update(gbdt_trees=25, gbdt_min_leaf=10, enable_gbdt=True, gbdt_ctr_min_impressions=10**6)
+    values.update(mlflow_tracking_uri=reg.tracking_uri)
     values.update(kw)
     return Settings(**values)
 
 
-def _run(settings, version="gen-1", registry=None):
-    registry = registry or ModelRegistry()
-    return stage.run_stage(settings, stage.resolve_inputs(settings), version, registry), registry
+def _run(settings, version="gen-1"):
+    return stage.run_stage(settings, stage.resolve_inputs(settings), version)
 
 
-def test_the_trainer_learns_the_price_signal_and_beats_the_fixed_weight_baseline(tmp_path):
-    result, _ = _run(_settings(tmp_path))
+def _recorded(reg, version) -> str:
+    """Everything the registry holds about a version: tags and the params of its run."""
+    mv = reg.client.get_model_version(GBDT, str(version))
+    return json.dumps([dict(mv.tags), dict(reg.client.get_run(mv.run_id).data.params)])
+
+
+def test_the_trainer_learns_the_price_signal_and_beats_the_fixed_weight_baseline(tmp_path, reg):
+    result = _run(_settings(tmp_path, reg))
     m = result.summary["metrics"]
-    assert result.promoted and result.summary["decision"] == "promoted", result.reason
+    assert result.decision.outcome == "promotable", result.reason
     assert m["ndcg@10"] > m["baseline_ndcg@10"] * 1.05, m  # the baseline cannot tell the items apart
-    assert m["eval_protocol"] == contract.EVAL_PROTOCOL and m["holdout_lists_with_positive"] > 20
+    assert m["holdout_lists_with_positive"] > 20
+    assert reg.tags(GBDT, result.decision.version)["lineage.eval_protocol"] == contract.EVAL_PROTOCOL
 
 
-def test_the_artifact_scores_a_cheap_item_above_an_expensive_one_the_way_the_trainer_does(tmp_path):
-    result, _ = _run(_settings(tmp_path))
+def test_the_artifact_scores_a_cheap_item_above_an_expensive_one_the_way_the_trainer_does(tmp_path, reg):
+    result = _run(_settings(tmp_path, reg))
     art = json.loads(json.dumps(result.artifact))
     assert art["features"] == list(contract.RANKING_FEATURES) and art["generation"] == "gen-1"
     assert art["model_version"] == "gbdt-gen-1" and art["format"] == "agora-gbdt/1"
@@ -48,86 +68,93 @@ def test_the_artifact_scores_a_cheap_item_above_an_expensive_one_the_way_the_tra
     assert gbdt.score_vector(art, cheap) > gbdt.score_vector(art, dear)
 
 
-def test_a_promoted_candidate_is_recorded_and_gated_against_its_own_champion(tmp_path):
-    result, registry = _run(_settings(tmp_path))
-    meta = registry.get_model("gbdt-gen-1")
-    assert meta.model_type == "gbdt" and meta.status == "candidate"  # promoted only after the publish
-    assert registry.get_champion_version() is None  # the ALS champion pointer is not touched
-    result.registry.apply_promotion(result.decision)
-    assert registry.scoped(GBDT_CHAMPION_KEY).get_champion_version() == "gbdt-gen-1"
-    assert registry.get_champion_version() is None
-    assert registry.get_model("gbdt-gen-1").status == "champion"
-    assert registry.champion_key == CHAMPION_KEY
+def test_a_promotable_candidate_is_recorded_as_recsys_gbdt_and_applied_only_after_the_publish(tmp_path, reg):
+    result = _run(_settings(tmp_path, reg))
+    v = result.decision.version
+    assert registered_models(reg) == {GBDT}  # its own model: never the ALS one
+    assert versions(reg, GBDT) == [v] and outcome(reg, GBDT, v) == "promotable"
+    assert reg.aliases(GBDT) == {}  # the stage moves no alias
+    apply(GBDT, v)  # what the pipeline does once the generation is published
+    assert reg.aliases(GBDT) == {"champion": v} and outcome(reg, GBDT, v) == "promoted"
 
 
-def test_the_model_records_its_lineage_rows_and_ctr_sources(tmp_path):
+def test_the_model_records_its_lineage_rows_and_ctr_sources(tmp_path, reg):
     rows = tmp_path / "rows.parquet"
-    result, registry = _run(_settings(tmp_path, gbdt_rows_path=str(rows)))
-    p = registry.get_model("gbdt-gen-1").parameters
-    assert p["dataset"]["name"] == "rank_training" and len(p["dataset"]["sha256"]) == 64
-    assert p["feature_list"] == list(contract.RANKING_FEATURES)
-    assert [s["snapshot"] for s in p["features"]["item_popularity"]["snapshots"]] == [
-        f"as_of={fx.SNAPSHOT_AS_OF}.parquet"
-    ]
-    assert p["features"]["item_attributes"]["view"] == "item_attributes"
-    assert p["rows"]["rows"] == fx.LISTS * fx.SHOWN and p["rows"]["rows_dropped_no_snapshot"] == 0
+    result = _run(_settings(tmp_path, reg, gbdt_rows_path=str(rows)))
+    blob = _recorded(reg, result.decision.version)
+    ds = (next((tmp_path / "rank").glob("as_of=*.manifest.json"))).read_text()
+    assert json.loads(ds)["file_sha256"] in blob  # the dataset it trained on
+    assert fx.SNAPSHOT_AS_OF in blob  # and the feature snapshots in force
+    s = result.summary
+    assert s["rows"] == fx.LISTS * fx.SHOWN
     # every training row records its CTR source
     written = pd.read_parquet(rows)
-    assert len(written) == p["rows"]["rows"]
+    assert len(written) == s["rows"]
     assert set(written["ctr_source"]) <= {"debiased", "fallback"} and written["ctr_source"].notna().all()
     counts = written["ctr_source"].value_counts().to_dict()
-    assert {k: counts.get(k, 0) for k in ("debiased", "fallback")} == p["ctr_source_counts"]
+    assert {k: counts.get(k, 0) for k in ("debiased", "fallback")} == s["ctr_source"]
     assert set(written["split"]) == {"train", "holdout"}
 
 
-def test_both_ctr_sources_occur_when_some_items_are_rare(tmp_path):
-    s = _settings(tmp_path, gbdt_rows_path=str(tmp_path / "rows.parquet"), gbdt_ctr_min_impressions=100)
-    result, registry = _run(s)
-    counts = registry.get_model("gbdt-gen-1").parameters["ctr_source_counts"]
+def test_both_ctr_sources_occur_when_some_items_are_rare(tmp_path, reg):
+    s = _settings(tmp_path, reg, gbdt_rows_path=str(tmp_path / "rows.parquet"), gbdt_ctr_min_impressions=100)
+    counts = _run(s).summary["ctr_source"]
     assert counts["debiased"] > 0 and counts["fallback"] > 0  # ~100 impressions per item: about half pass
 
 
-def test_the_holdout_is_strictly_later_than_training(tmp_path):
-    _, registry = _run(_settings(tmp_path))
-    h = registry.get_model("gbdt-gen-1").parameters["holdout"]
+def test_the_holdout_is_strictly_later_than_training(tmp_path, reg):
+    h = _run(_settings(tmp_path, reg)).summary["holdout"]
     assert h["train_last_at"] < h["test_first_at"] == h["cutoff"]
     assert h["train_lists"] + h["test_lists"] == fx.LISTS and h["test_lists"] == fx.LISTS // 5
 
 
-def test_a_candidate_below_the_threshold_is_rejected_and_has_no_artifact(tmp_path):
-    result, registry = _run(_settings(tmp_path, promotion_min_relative_improvement=10.0))
-    assert not result.promoted and result.artifact is None and "baseline" in result.reason
-    assert registry.get_model("gbdt-gen-1").status == "rejected"
-    assert registry.get_model("gbdt-gen-1").parameters["gate_reason"] == result.reason
+def test_a_candidate_below_its_champion_is_rejected_and_has_no_artifact(tmp_path, reg):
+    old = seed_strong(reg, GBDT)
+    result = _run(_settings(tmp_path, reg))
+    v = newest(reg, GBDT)
+    assert result.decision.outcome == "rejected" and result.artifact is None
+    assert v != old[GBDT] and outcome(reg, GBDT, v) == "rejected"
+    assert reg.tags(GBDT, v)["gate.reason"] == result.reason and "ndcg@10" in result.reason
+    assert reg.aliases(GBDT) == {"champion": old[GBDT]}
 
 
-def test_a_signalless_dataset_does_not_pass_a_strict_gate(tmp_path):
-    result, _ = _run(_settings(tmp_path, signal=False, promotion_min_relative_improvement=0.5))
-    assert not result.promoted and result.artifact is None
+def test_a_signalless_dataset_does_not_pass_a_strict_champion(tmp_path, reg):
+    seed_strong(reg, GBDT)
+    result = _run(_settings(tmp_path, reg, signal=False))
+    assert result.decision.outcome == "rejected" and result.artifact is None
 
 
-def test_force_skips_the_gate(tmp_path):
-    result, _ = _run(_settings(tmp_path, promotion_min_relative_improvement=10.0, promotion_force=True))
-    assert result.promoted and result.artifact is not None
+def test_the_stage_cannot_force_the_gate(tmp_path, reg, monkeypatch):
+    # was: test_force_skips_the_gate. The removed PROMOTION_FORCE changes nothing (RAT-35).
+    monkeypatch.setenv("PROMOTION_FORCE", "true")
+    old = seed_strong(reg, GBDT)
+    result = _run(_settings(tmp_path, reg))
+    v = newest(reg, GBDT)
+    assert result.decision.outcome == "rejected" and result.artifact is None
+    assert not any("forced" in k for k in reg.tags(GBDT, v))
+    assert reg.aliases(GBDT) == {"champion": old[GBDT]}
 
 
-def test_a_second_run_on_the_same_data_is_gated_against_the_champion(tmp_path):
-    s = _settings(tmp_path)
-    first, registry = _run(s, "gen-1")
-    first.registry.apply_promotion(first.decision)
-    second, _ = _run(s, "gen-2", registry)
-    assert not second.promoted and "improvement" in second.reason  # equal metrics: below the 1% threshold
-    assert registry.scoped(GBDT_CHAMPION_KEY).get_champion_version() == "gbdt-gen-1"
+def test_a_second_run_on_the_same_data_is_gated_against_the_champion(tmp_path, reg):
+    s = _settings(tmp_path, reg)
+    first = _run(s, "gen-1")
+    apply(GBDT, first.decision.version)
+    second = _run(s, "gen-2")
+    # equal metrics: below the +0.5 % improvement, so the champion is not churned
+    assert second.decision.outcome == "rejected" and "ndcg@10" in second.reason
+    assert reg.aliases(GBDT) == {"champion": first.decision.version}
 
 
-def test_rows_before_every_snapshot_are_dropped_and_a_run_with_none_left_is_rejected(tmp_path):
-    s = _settings(tmp_path)
+def test_rows_before_every_snapshot_are_dropped_and_a_run_with_none_left_is_rejected(tmp_path, reg):
+    s = _settings(tmp_path, reg)
     fx.write_popularity(tmp_path / "late", as_of="20261101T000000Z")  # a snapshot after every impression
-    result, registry = _run(Settings(**{**s.__dict__, "item_features_dir": str(tmp_path / "late")}))
-    assert not result.promoted and "no usable rows" in result.reason
-    assert (
-        registry.get_model("gbdt-gen-1").parameters["rows"]["rows_dropped_no_snapshot"] == fx.LISTS * fx.SHOWN
-    )
+    result = _run(Settings(**{**s.__dict__, "item_features_dir": str(tmp_path / "late")}))
+    assert result.decision.outcome == "rejected" and result.artifact is None
+    assert "no usable rows" in result.reason and f"{fx.LISTS * fx.SHOWN} dropped" in result.reason
+    # a structural rejection is still recorded (register_rejected), with its reason
+    v = newest(reg, GBDT)
+    assert outcome(reg, GBDT, v) == "rejected" and "no usable rows" in reg.tags(GBDT, v)["gate.reason"]
+    assert reg.aliases(GBDT) == {}
 
 
 def test_missing_inputs_refuse_to_start_naming_the_setting(tmp_path):
@@ -171,9 +198,48 @@ def test_the_default_run_does_not_read_the_ranking_settings():
     assert s.enable_gbdt is False and s.rank_dataset_dir.endswith("rank_training/v1")
 
 
-def test_the_training_columns_follow_the_contract(tmp_path):
-    result, _ = _run(_settings(tmp_path, gbdt_rows_path=str(tmp_path / "r.parquet")))
-    assert result.promoted
+def test_the_training_columns_follow_the_contract(tmp_path, reg):
+    result = _run(_settings(tmp_path, reg, gbdt_rows_path=str(tmp_path / "r.parquet")))
+    assert result.decision.outcome == "promotable"
     written = pd.read_parquet(tmp_path / "r.parquet")
     assert list(contract.RANKING_FEATURES) == [c for c in written.columns if c in contract.RANKING_FEATURES]
     assert (written["item_attributes.price"] > 0).all() and training.CTR_COL == 6
+
+
+def test_below_baseline_is_structurally_rejected(tmp_path, reg, monkeypatch):
+    # RAT-62: holdout ndcg@10 < baseline_ndcg@10 x 1.01 -> register_rejected, policy not evaluated
+    # A model that scores everything alike cannot beat the fixed-weight baseline by 1 %.
+    monkeypatch.setattr(stage, "_fit", lambda *_a, **_k: gbdt.Model([], 0.1))
+    result = _run(_settings(tmp_path, reg))
+    m = result.summary["metrics"]
+    assert m["ndcg@10"] < m["baseline_ndcg@10"] * 1.01, m
+    assert result.decision.outcome == "rejected" and result.artifact is None
+    assert result.reason.startswith("below fixed-weight baseline"), result.reason
+    v = newest(reg, GBDT)
+    assert outcome(reg, GBDT, v) == "rejected"
+    assert reg.tags(GBDT, v)["gate.reason"].startswith("below fixed-weight baseline")
+    assert reg.aliases(GBDT) == {}
+
+
+def test_below_baseline_rejection_skips_the_policy_even_with_a_weak_champion(tmp_path, reg, monkeypatch):
+    # RAT-62: the policy would promote over a weak champion; the structural check comes first
+    old = seed_weak(reg, GBDT)
+    monkeypatch.setattr(stage, "_fit", lambda *_a, **_k: gbdt.Model([], 0.1))
+    result = _run(_settings(tmp_path, reg))
+    assert result.decision.outcome == "rejected"
+    assert result.reason.startswith("below fixed-weight baseline"), result.reason
+    assert reg.aliases(GBDT) == {"champion": old[GBDT]}
+
+
+def test_at_or_above_the_baseline_threshold_the_policy_decides(tmp_path, reg):
+    # RAT-62: ndcg@10 >= baseline x 1.01 is not a structural rejection; the policy decides
+    result = _run(_settings(tmp_path, reg))
+    m = result.summary["metrics"]
+    assert m["ndcg@10"] >= m["baseline_ndcg@10"] * 1.01, m
+    assert result.decision.outcome == "promotable"
+    assert reg.tags(GBDT, result.decision.version)["gate.outcome"] == "promotable"
+    # a policy rejection of such a candidate carries a policy reason, not the baseline one
+    seed_strong(reg, GBDT)
+    again = _run(_settings(tmp_path, reg), "gen-2")
+    assert again.decision.outcome == "rejected"
+    assert not again.reason.startswith("below fixed-weight baseline") and "ndcg@10" in again.reason

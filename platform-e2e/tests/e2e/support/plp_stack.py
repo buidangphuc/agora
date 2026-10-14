@@ -280,11 +280,16 @@ def run_payment_with_env(env: dict[str, str], timeout_s: float = 12.0) -> tuple[
     """Start the team-payment image on the stack network with `env`; (exit code | None, logs).
 
     The exit code is None when the process was still running after `timeout_s` (it is removed).
-    Database and Kafka are off: only configuration loading and validation run.
+    ENV is local and the database URL points nowhere, so configuration loading and validation
+    run first and nothing reaches the stack's database or Kafka.
     """
     name = f"plp-startup-{uuid.uuid4().hex[:8]}"
     args = ["run", "-d", "--name", name, "--network", stack_network()]
-    base = {"DATABASE_ENABLED": "false", "KAFKA_ENABLED": "false", "GRPC_PORT": "50999"}
+    base = {
+        "ENV": "local",
+        "DATABASE_URL": "postgres://e2e@invalid.invalid:5432/none",
+        "GRPC_PORT": "50999",
+    }
     for k, v in {**base, **env}.items():
         args += ["-e", f"{k}={v}"]
     args.append(image_name("team-payment"))

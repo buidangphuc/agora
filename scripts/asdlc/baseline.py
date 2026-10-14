@@ -5,9 +5,9 @@ Reads only git history (stdlib + `git` subprocess). Deterministic for a given HE
 
 Usage:
   python scripts/asdlc/baseline.py [--since YYYY-MM-DD] [--until YYYY-MM-DD]
-                                   [--out metrics/baseline.json] [--md docs/baseline.md]
+                                   [--out metrics/baseline.json] [--md docs/asdlc/baseline.md]
 
---since/--until filter on the ARCHIVE date (inclusive). See docs/baseline.md for the method
+--since/--until filter on the ARCHIVE date (inclusive). See docs/asdlc/baseline.md for the method
 and the weaknesses of each heuristic.
 """
 from __future__ import annotations
@@ -360,7 +360,7 @@ def main(argv=None) -> int:
     ap.add_argument("--since", type=date.fromisoformat, help="archive date >= (YYYY-MM-DD)")
     ap.add_argument("--until", type=date.fromisoformat, help="archive date <= (YYYY-MM-DD)")
     ap.add_argument("--out", default="metrics/baseline.json")
-    ap.add_argument("--md", default="docs/baseline.md")
+    ap.add_argument("--md", default="docs/asdlc/baseline.md")
     a = ap.parse_args(argv)
 
     res = collect(a.since, a.until)

@@ -395,12 +395,10 @@ def seller_has_no_orders(world: World) -> None:
 )
 def start_payment_image(world: World, env: str, mock: str) -> None:
     image = os.getenv("PAYMENT_BOOT_IMAGE", "agora-team-payment:local")
-    # DATABASE_ENABLED=false is the minimum for config loading to reach the guard.
     cmd = [
         "docker", "run", "--rm",
         "-e", f"ENV={env}",
         "-e", f"MOCK_PAYMENTS={mock}",
-        "-e", "DATABASE_ENABLED=false",
         image,
     ]  # fmt: skip
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90, check=False)

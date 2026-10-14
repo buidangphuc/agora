@@ -32,7 +32,8 @@ def _tower(step: dict) -> list[dict]:
 
 
 def _tower_params(step: dict) -> dict:
-    return step["models"][step["model_version"]]["parameters"]["two_tower"]
+    # pairs, epochs and the snapshot lineage are in the job summary; the registry keeps only tags
+    return step["summary"]["two_tower"]
 
 
 @when(
