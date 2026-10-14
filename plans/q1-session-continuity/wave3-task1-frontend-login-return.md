@@ -16,6 +16,8 @@ Implement OpenSpec change `frontend-login-return` test-first per its tasks.md (s
 - team-frontend/src/features/auth/RegisterForm.tsx
 - team-frontend/src/features/auth/forms.test.tsx
 - team-frontend/src/app/guards.test.ts
+- team-frontend/src/app/**/*.test.ts(x) (new test files for this slice)
+- team-frontend/src/features/**/*.test.ts(x) (new or extended test files for this slice)
 - team-frontend/src/app/(shop)/**/page.tsx (guard lines only)
 - team-frontend/src/app/(shop)/**/layout.tsx (guard lines only)
 - team-frontend/src/app/(checkout)/**/page.tsx (guard lines only)
