@@ -4,6 +4,7 @@ import {
   REFRESH_COOKIE,
   SESSION_COOKIE,
   accessCookieOptions,
+  isSecureRequest,
   refreshCookieOptions,
 } from "./session-cookie";
 
@@ -42,5 +43,19 @@ describe("session cookie helpers", () => {
     expect(refreshCookieOptions(true).secure).toBe(true);
     expect(Boolean(accessCookieOptions(false).secure)).toBe(false);
     expect(Boolean(refreshCookieOptions(false).secure)).toBe(false);
+  });
+});
+
+// Assumed API: isSecureRequest(headers: Headers): boolean, true iff
+// x-forwarded-proto === "https". Used by setSession and the middleware.
+describe("isSecureRequest", () => {
+  it("S2: https forwarded proto is secure", () => {
+    expect(isSecureRequest(new Headers({ "x-forwarded-proto": "https" }))).toBe(true);
+  });
+  it("S2: http forwarded proto is not secure", () => {
+    expect(isSecureRequest(new Headers({ "x-forwarded-proto": "http" }))).toBe(false);
+  });
+  it("S2: absent forwarded proto is not secure", () => {
+    expect(isSecureRequest(new Headers())).toBe(false);
   });
 });
