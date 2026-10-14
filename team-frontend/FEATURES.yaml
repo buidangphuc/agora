@@ -8704,7 +8704,8 @@ features:
       - "When a user submits valid credentials on `/login?returnUrl=%2Flisting%2Fabc%3Fvariant%3Dv2`"
       - "Then the browser lands on `/listing/abc?variant=v2`"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Successful login returns to the requested page"
 
   - id: auth.login-return.login-without-returnurl-goes-home
     title: "Login without returnUrl goes home"
@@ -8735,7 +8736,8 @@ features:
       - "When a user opens `/login?returnUrl=https://evil.example` (or tampers the hidden field) and submits valid credentials"
       - "Then the browser lands on `/` and never on the external host"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Tampered returnUrl is rejected server-side"
 
   - id: auth.login-return.failed-login-does-not-redirect
     title: "Failed login does not redirect"
@@ -8799,7 +8801,8 @@ features:
       - "When an anonymous visitor requests `/account/orders/o-9`"
       - "Then the response is a redirect to `/login?returnUrl=%2Faccount%2Forders%2Fo-9`"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Guest opening a protected page is sent to login with its path"
 
   - id: auth.login-return.query-string-of-the-guarded-page-is-preserved-with-repeated
     title: "Query string of the guarded page is preserved with repeated keys in order"
@@ -8814,7 +8817,8 @@ features:
       - "When an anonymous visitor requests `/chat?thread=t1&tag=a&tag=b`"
       - "Then the response is a redirect to `/login?returnUrl=%2Fchat%3Fthread%3Dt1%26tag%3Da%26tag%3Db`"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Query string of the guarded page is preserved with repeated keys in order"
 
   - id: auth.login-return.param-less-layout-uses-the-x-pathname-header
     title: "Param-less layout uses the x-pathname header"
@@ -8830,7 +8834,8 @@ features:
       - "Then `seller/layout.tsx` redirects to `/login?returnUrl=%2Fseller%2Forders`"
       - "And when the header is absent it redirects to `/login` with no returnUrl"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Param-less layout uses the x-pathname header"
 
   - id: auth.login-return.over-length-path-falls-back-to-plain-login
     title: "Over-length path falls back to plain login"
@@ -8846,7 +8851,8 @@ features:
       - "Then the response is a redirect to `/login` with no `returnUrl` parameter"
       - "And a request whose rebuilt path plus query is exactly 2048 characters keeps its returnUrl"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Over-length path falls back to plain login"
 
   - id: auth.login-return.cart-page-guard-covers-update-and-remove
     title: "Cart page guard covers update and remove"
@@ -8861,7 +8867,8 @@ features:
       - "When an anonymous visitor requests `/cart`"
       - "Then the response is a redirect to `/login?returnUrl=%2Fcart`"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Cart page guard covers update and remove"
 
   - id: auth.login-return.every-guard-uses-the-helper
     title: "Every guard uses the helper"
@@ -8892,7 +8899,8 @@ features:
       - "When a signed-in buyer requests `/seller/new`"
       - "Then the page renders the \"Cần tài khoản Người Bán\" result (text present in `seller/layout.tsx`) and issues no redirect to `/login`"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Signed-in user without the scope is not redirected to login"
 
   - id: auth.login-return.returned-user-passes-through-the-guard-after-login
     title: "Returned user passes through the guard after login"
@@ -8907,7 +8915,8 @@ features:
       - "When an anonymous visitor requests `/favorites`, logs in on the resulting login page"
       - "Then the browser lands on `/favorites`"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Returned user passes through the guard after login"
 
   - id: auth.login-return.guest-add-to-cart-goes-to-login-with-the-variant
     title: "Guest add-to-cart goes to login with the variant"
@@ -8922,7 +8931,8 @@ features:
       - "When a guest on `/listing/abc?variant=v2` clicks \"Thêm vào giỏ\" and the gateway answers Unauthenticated"
       - "Then the browser navigates to `/login?returnUrl=%2Flisting%2Fabc%3Fvariant%3Dv2`"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Guest add-to-cart goes to login with the variant"
 
   - id: auth.login-return.guest-buy-now-goes-to-login-then-lands-on-the-pdp
     title: "Guest buy-now goes to login, then lands on the PDP"
@@ -8937,7 +8947,8 @@ features:
       - "When a guest clicks \"Mua ngay\" and the gateway answers Unauthenticated, then logs in"
       - "Then the browser navigates to the login URL for the PDP, `/checkout` is never visited, and after login the browser lands on `/listing/<id>?variant=<v>` with zero `addToCart` RPCs issued"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Guest buy-now goes to login, then lands on the PDP"
 
   - id: auth.login-return.listing-without-variants-omits-the-variant-parameter
     title: "Listing without variants omits the variant parameter"
@@ -8984,7 +8995,8 @@ features:
       - "When a guest returns to `/listing/abc?variant=v2` after logging in"
       - "Then zero `addToCart` RPCs are issued until the shopper clicks \"Thêm vào giỏ\" again, and the cart item count is unchanged"
     tags: [auth, login-return]
-    status: planned
+    status: automated
+    covered_by: "auth/login_return.feature::Add-to-cart is not replayed after login"
 
   - id: auth.login-return.signed-in-shopper-is-unaffected
     title: "Signed-in shopper is unaffected"
