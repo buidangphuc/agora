@@ -20,7 +20,7 @@ const ROLE_OPTIONS = [
   { value: "seller", label: "Người bán (seller)" },
 ];
 
-export function RegisterForm() {
+export function RegisterForm({ returnUrl }: { returnUrl?: string }) {
   const [state, action] = useActionState(registerAction, initial);
   const form = useCredentialForm(state, validateRegister);
 
@@ -42,6 +42,9 @@ export function RegisterForm() {
           noValidate
           className="space-y-4"
         >
+          {returnUrl ? (
+            <input type="hidden" name="returnUrl" value={returnUrl} />
+          ) : null}
           <FormItem
             label="Tên đăng nhập"
             required
@@ -100,7 +103,11 @@ export function RegisterForm() {
           <p className="text-center text-sm text-text-secondary">
             Đã có tài khoản?{" "}
             <Link
-              href="/login"
+              href={
+                returnUrl
+                  ? `/login?returnUrl=${encodeURIComponent(returnUrl)}`
+                  : "/login"
+              }
               className="font-medium text-action-primary hover:underline"
             >
               Đăng nhập ngay

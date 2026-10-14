@@ -14,7 +14,7 @@ import { validateLogin } from "./validation";
 
 const initial: AuthState = { ok: false };
 
-export function LoginForm() {
+export function LoginForm({ returnUrl }: { returnUrl?: string }) {
   const [state, action] = useActionState(loginAction, initial);
   const form = useCredentialForm(state, validateLogin);
 
@@ -36,6 +36,9 @@ export function LoginForm() {
           noValidate
           className="space-y-4"
         >
+          {returnUrl ? (
+            <input type="hidden" name="returnUrl" value={returnUrl} />
+          ) : null}
           <FormItem
             label="Tên đăng nhập"
             required
@@ -84,7 +87,11 @@ export function LoginForm() {
           <p className="text-center text-sm text-text-secondary">
             Chưa có tài khoản?{" "}
             <Link
-              href="/register"
+              href={
+                returnUrl
+                  ? `/register?returnUrl=${encodeURIComponent(returnUrl)}`
+                  : "/register"
+              }
               className="font-medium text-action-primary hover:underline"
             >
               Đăng ký ngay
