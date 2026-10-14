@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeClients } from "@/lib/gateway/client";
+import { refreshSession } from "@/lib/gateway/refresh";
 
 import {
   type AuthState,
@@ -13,6 +14,62 @@ import {
 } from "./actions";
 
 vi.mock("@/lib/gateway/client", () => ({ makeClients: vi.fn() }));
+vi.mock("@/lib/gateway/refresh", () => ({ refreshSession: vi.fn() }));
+
+// Fake the connect-node transport at the true boundary: it runs the configured
+// interceptors so the bearer that would reach the gateway is observable.
+const seen = vi.hoisted(() => ({
+  calls: [] as {
+    headers: Headers;
+    timeoutMs: number | undefined;
+    message: unknown;
+    method: string;
+  }[],
+  reply: (() => ({})) as () => unknown,
+}));
+
+vi.mock("@connectrpc/connect-node", () => ({
+  createConnectTransport: (opts: {
+    interceptors?: ((
+      next: (r: unknown) => Promise<unknown>,
+    ) => (r: unknown) => Promise<unknown>)[];
+    defaultTimeoutMs?: number;
+  }) => ({
+    async unary(
+      service: unknown,
+      method: { name: string },
+      _signal: unknown,
+      timeoutMs: number | undefined,
+      header: HeadersInit | undefined,
+      message: unknown,
+    ) {
+      const terminal = async (req: { header: Headers }) => {
+        seen.calls.push({
+          headers: req.header,
+          timeoutMs: timeoutMs ?? opts.defaultTimeoutMs,
+          message,
+          method: method.name,
+        });
+        return {
+          message: seen.reply(),
+          header: new Headers(),
+          trailer: new Headers(),
+        };
+      };
+      let fn = terminal as (r: never) => Promise<unknown>;
+      for (const i of [...(opts.interceptors ?? [])].reverse()) {
+        fn = i(fn as never) as never;
+      }
+      return (await fn({
+        header: new Headers(header),
+        service,
+        method,
+        message,
+      } as never)) as { message: unknown };
+    },
+    stream: vi.fn(),
+  }),
+}));
 
 const initial: AuthState = { ok: false };
 
@@ -318,5 +375,186 @@ describe("refresh cookie (frontend-session-continuity)", () => {
       error: "Tên đăng nhập hoặc mật khẩu không chính xác.",
       username: "x",
     });
+  });
+});
+
+describe("logoutAction revokes the server session (frontend-session-continuity)", () => {
+  const b64 = (o: object) =>
+    Buffer.from(JSON.stringify(o)).toString("base64url");
+  const jwt = (claims: object) => `h.${b64(claims)}.s`;
+  const future = () => Math.floor(Date.now() / 1000) + 3600;
+  const past = () => Math.floor(Date.now() / 1000) - 3600;
+
+  async function seed(cookiesToSet: Record<string, string>) {
+    const jar = await cookies();
+    for (const n of ["session", "agora_refresh"]) jar.delete(n);
+    for (const [k, v] of Object.entries(cookiesToSet)) jar.set(k, v);
+    vi.mocked(jar.delete).mockClear();
+    vi.mocked(jar.set).mockClear();
+    return jar;
+  }
+  function expectCleared(jar: Awaited<ReturnType<typeof cookies>>) {
+    expect(jar.delete).toHaveBeenCalledWith("session");
+    expect(jar.delete).toHaveBeenCalledWith("agora_refresh");
+    expect(redirect).toHaveBeenCalledWith("/");
+  }
+
+  beforeEach(() => {
+    seen.calls.length = 0;
+    seen.reply = () => ({});
+  });
+
+  it("S13: usable access token with sid -> RevokeSession(sid) with its bearer, both cookies cleared", async () => {
+    const tok = jwt({ sub: "u1", sid: "sess-X", exp: future() });
+    const jar = await seed({ session: tok, agora_refresh: "rt" });
+
+    await logoutAction();
+
+    expect(seen.calls).toHaveLength(1);
+    expect(seen.calls[0]!.method).toBe("RevokeSession");
+    expect(seen.calls[0]!.message).toEqual(
+      expect.objectContaining({ sessionId: "sess-X" }),
+    );
+    expect(seen.calls[0]!.headers.get("authorization")).toBe(`bearer ${tok}`);
+    expect(seen.calls[0]!.timeoutMs).toBe(3000);
+    expect(refreshSession).not.toHaveBeenCalled();
+    expectCleared(jar);
+  });
+
+  it("S14: revoke failure is swallowed, cookies cleared, redirect", async () => {
+    seen.reply = () => {
+      throw new ConnectError("boom", Code.Unavailable);
+    };
+    const jar = await seed({
+      session: jwt({ sid: "sess-X", exp: future() }),
+      agora_refresh: "rt",
+    });
+
+    await expect(logoutAction()).resolves.toBeUndefined();
+
+    expect(seen.calls).toHaveLength(1);
+    expectCleared(jar);
+  });
+
+  it("S15: expired access + refresh cookie -> refresh first, revoke with fresh sid and bearer", async () => {
+    const fresh = jwt({ sub: "u1", sid: "sess-F", exp: future() });
+    vi.mocked(refreshSession).mockResolvedValue({
+      token: fresh,
+      refreshToken: "rt-2",
+    } as never);
+    const jar = await seed({
+      session: jwt({ sid: "sess-OLD", exp: past() }),
+      agora_refresh: "rt-1",
+    });
+
+    await logoutAction();
+
+    expect(refreshSession).toHaveBeenCalledWith("rt-1");
+    expect(seen.calls).toHaveLength(1);
+    expect(seen.calls[0]!.method).toBe("RevokeSession");
+    expect(seen.calls[0]!.message).toEqual(
+      expect.objectContaining({ sessionId: "sess-F" }),
+    );
+    expect(seen.calls[0]!.headers.get("authorization")).toBe(`bearer ${fresh}`);
+    expect(seen.calls[0]!.timeoutMs).toBe(3000);
+    expectCleared(jar);
+  });
+
+  it("S15: missing access cookie + refresh cookie takes the refresh path", async () => {
+    const fresh = jwt({ sid: "sess-F", exp: future() });
+    vi.mocked(refreshSession).mockResolvedValue({ token: fresh } as never);
+    const jar = await seed({ agora_refresh: "rt-1" });
+
+    await logoutAction();
+
+    expect(refreshSession).toHaveBeenCalledWith("rt-1");
+    expect(seen.calls.map((c) => c.method)).toEqual(["RevokeSession"]);
+    expectCleared(jar);
+  });
+
+  it("S24: RefreshSession fails -> no revoke, cookies cleared, redirect", async () => {
+    vi.mocked(refreshSession).mockRejectedValue(
+      new ConnectError("no", Code.Unauthenticated),
+    );
+    const jar = await seed({ agora_refresh: "rt-1" });
+
+    await expect(logoutAction()).resolves.toBeUndefined();
+
+    expect(seen.calls).toHaveLength(0);
+    expectCleared(jar);
+  });
+
+  it("S24: refreshed token has no sid -> no revoke, cookies cleared", async () => {
+    vi.mocked(refreshSession).mockResolvedValue({
+      token: jwt({ sub: "u1", exp: future() }),
+    } as never);
+    const jar = await seed({ agora_refresh: "rt-1" });
+
+    await logoutAction();
+
+    expect(seen.calls).toHaveLength(0);
+    expectCleared(jar);
+  });
+
+  it("S24: refresh ok but revoke fails -> swallowed, cookies cleared", async () => {
+    vi.mocked(refreshSession).mockResolvedValue({
+      token: jwt({ sid: "sess-F", exp: future() }),
+    } as never);
+    seen.reply = () => {
+      throw new ConnectError("boom", Code.Internal);
+    };
+    const jar = await seed({ agora_refresh: "rt-1" });
+
+    await expect(logoutAction()).resolves.toBeUndefined();
+
+    expectCleared(jar);
+  });
+
+  it("S25: no cookies -> no gateway call, both cookies deleted, redirect", async () => {
+    const jar = await seed({});
+
+    await logoutAction();
+
+    expect(refreshSession).not.toHaveBeenCalled();
+    expect(seen.calls).toHaveLength(0);
+    expectCleared(jar);
+  });
+
+  it("S25: legacy usable token without sid and no refresh cookie -> no revoke, cleared", async () => {
+    const jar = await seed({ session: jwt({ sub: "u1", exp: future() }) });
+
+    await logoutAction();
+
+    expect(refreshSession).not.toHaveBeenCalled();
+    expect(seen.calls).toHaveLength(0);
+    expectCleared(jar);
+  });
+
+  it("S13: legacy usable token without sid (with refresh cookie) -> no revoke call, both cleared", async () => {
+    const jar = await seed({
+      session: jwt({ sub: "u1", exp: future() }),
+      agora_refresh: "rt",
+    });
+
+    await logoutAction();
+
+    expect(seen.calls).toHaveLength(0);
+    expectCleared(jar);
+  });
+
+  it("S17: only the caller's own sid is revoked (no user-supplied id)", async () => {
+    await seed({
+      session: jwt({ sub: "alice", sid: "alice-sess", exp: future() }),
+      agora_refresh: "rt",
+    });
+
+    await (logoutAction as unknown as (arg?: unknown) => Promise<void>)(
+      "attacker-sess",
+    );
+
+    expect(seen.calls).toHaveLength(1);
+    expect(seen.calls[0]!.message).toEqual(
+      expect.objectContaining({ sessionId: "alice-sess" }),
+    );
   });
 });
