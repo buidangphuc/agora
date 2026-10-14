@@ -1,3 +1,0 @@
-test(e2e): cover migrate-jwt-rs256-jwks scenarios for archive gate
-
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

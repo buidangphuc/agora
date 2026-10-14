@@ -1,5 +1,0 @@
-refactor(infra): single shared Postgres (logical DB-per-service) for local compose
-
-Replace the 9 per-service postgres containers with one shared postgres:16-alpine whose initdb (postgres-init/) creates <svc>_db/<svc>_svc for every service — mirrors the kind gitops shared-postgres. Cuts 13 postgres containers (9 here + 4 in the services overlay) to 1, so 'docker compose up' starts one instance for all repos.
-
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
