@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 // team-identity (Go) owns this: user accounts + credential verification. It
-// issues signed tokens (HS256 JWT today) whose claims the Gateway verifies at
+// issues signed tokens (RS256 JWT) whose claims the Gateway verifies at
 // the edge and turns into a platform.common.v1.Principal (ADR-0003). Downstream
 // services never see credentials — only the resolved Principal.
 package platform.identity.v1;
@@ -17,6 +17,19 @@ service AuthService {
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
   rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
   rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+  // RefreshSession exchanges a refresh_token for a new access token and a
+  // rotated refresh_token. It is a public RPC (no Principal or Authorization is
+  // required, like Login and Register) because the access token is expired by
+  // definition when it is called; the gateway does not retry it (not retried).
+  // The new access token carries the same sid, so ListSessions and
+  // RevokeSession keep working unchanged.
+  // Errors: UNAUTHENTICATED for an unknown, expired, revoked or reused token,
+  // and for an empty or malformed refresh_token. Presenting a reused
+  // (already-rotated) token also revokes the session (SessionRevoked event).
+  // Grace: replaying the token that was just rotated within 10 s (inclusive) of
+  // the rotation is not reuse; it returns a fresh access token and an empty
+  // refresh_token.
+  rpc RefreshSession(RefreshSessionRequest) returns (RefreshSessionResponse);
 }
 
 message RegisterRequest {
@@ -37,6 +50,18 @@ message AuthResult {
   string token = 1;
   platform.common.v1.Principal principal = 2;
   string username = 3;
+  // Opaque rotating refresh token; empty when sessions are disabled.
+  string refresh_token = 4;
+  google.protobuf.Timestamp refresh_expires_at = 5;
+}
+
+message RefreshSessionRequest {
+  string refresh_token = 1;
+}
+
+// result carries the new access token and the rotated refresh token.
+message RefreshSessionResponse {
+  AuthResult result = 1;
 }
 
 message RegisterResponse {
@@ -206,4 +231,29 @@ message ListLoginHistoryRequest {
 message ListLoginHistoryResponse {
   repeated LoginEvent events = 1;
   platform.common.v1.PageResponse page = 2;
+}
+
+// PublicProfileService resolves public display names for other users. It is an
+// internal, service-to-service surface: callers MUST be service principals
+// carrying the identity.read scope (e.g. team-notification naming a chat sender).
+// User principals are rejected with PERMISSION_DENIED.
+service PublicProfileService {
+  // GetPublicProfiles returns the public profile of each known user id. Unknown
+  // ids are omitted and duplicates ignored. Max 100 ids (INVALID_ARGUMENT above).
+  rpc GetPublicProfiles(GetPublicProfilesRequest) returns (GetPublicProfilesResponse);
+}
+
+message GetPublicProfilesRequest {
+  repeated string user_ids = 1;
+}
+
+// PublicProfile is the only user data exposed to other services: the id and the
+// name to show. display_name is the username unless a display name exists.
+message PublicProfile {
+  string user_id = 1;
+  string display_name = 2;
+}
+
+message GetPublicProfilesResponse {
+  repeated PublicProfile profiles = 1;
 }
