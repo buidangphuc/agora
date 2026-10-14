@@ -9,7 +9,7 @@ spec: plans/q1-session-continuity/00-spec.md (Locked 2026-10-14, Amendments from
 |---|---|---|---|---|---|---|---|---|---|
 | q1-session-refresh-contract | platform-core | [] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 82be5e99af6b | [x] |
 | identity-session-refresh | team-identity | [q1-session-refresh-contract] | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 9b4796f21a14 | [x] |
-| frontend-session-continuity | team-frontend | [identity-session-refresh] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | f4446b856121 | [x] |
+| frontend-session-continuity | team-frontend | [identity-session-refresh] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a8c72e1b1d6d (re-locked 2026-10-14, was f4446b856121) | [x] |
 | frontend-login-return | team-frontend | [frontend-session-continuity] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 2ec945cfd7db | [x] |
 
 ## Build order (cross_change_check)
@@ -65,3 +65,6 @@ pass (`cross_change_check: OK`).
 - `decide.py` does not produce a spec-gate decision. Under the system python it fails with a missing yaml module. Under the venv, the kev engine fails with "give exactly one of --state or --part", so every unit escalates to the LLM.
 - `validate_plan.py plans/q1-session-continuity` expects parallel-scrum task packets (`wave{N}-task{M}-*.md`) and fails here. The initiative-plan flow does not produce those packets.
 - Both gaps are already tracked under ASDLC tooling gaps.
+
+## Re-lock
+- 2026-10-14 — frontend-session-continuity: added **VERIFIED BY** metadata lines to 7 unit-only scenarios for spec_sync --strict; no behaviour change. Re-approved by Bùi Đăng Phúc. New digest a8c72e1b1d6d.
