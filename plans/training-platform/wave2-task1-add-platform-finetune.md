@@ -8,14 +8,13 @@ Implement OpenSpec change `add-platform-finetune` test-first per its tasks.md; c
 
 ## Write-set (EXCLUSIVE)
 - platform-finetune/**
-- platform-core/packages/py-modelregistry/policies.yaml
+- platform-core/packages/py-modelregistry/src/modelregistry/policies.yaml (packaged policy file)
 - platform-gitops/platform/finetune/**
 - platform-gitops/argocd/apps/finetune.yaml
+- platform-gitops/platform/vault-config/vault-config.yaml (vault role platform-finetune)
 - docker-compose.services.yaml
 - .github/workflows/services-ci.yml
-- platform-e2e/tests/e2e/features/finetune/**
-- platform-e2e/tests/e2e/step_definitions/finetune_steps.py
-- platform-e2e/tests/e2e/step_definitions/test_finetune.py
+- platform-e2e/tests/e2e/static/** (static import/deploy checks)
 
 ## Read-only dependencies
 - openspec/changes/add-platform-finetune/** (frozen by LOCK.md digest)
