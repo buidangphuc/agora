@@ -24,7 +24,8 @@ service AuthService {
   // The new access token carries the same sid, so ListSessions and
   // RevokeSession keep working unchanged.
   // Errors: UNAUTHENTICATED for an unknown, expired, revoked or reused token,
-  // and for an empty or malformed refresh_token. Presenting a reused
+  // and for an empty or malformed refresh_token. The error message is a fixed
+  // string that does not distinguish causes. Presenting a reused
   // (already-rotated) token also revokes the session (SessionRevoked event).
   // Grace: replaying the token that was just rotated within 10 s (inclusive) of
   // the rotation is not reuse; it returns a fresh access token and an empty
@@ -51,11 +52,17 @@ message AuthResult {
   platform.common.v1.Principal principal = 2;
   string username = 3;
   // Opaque rotating refresh token; empty when sessions are disabled.
+  // Secret bearer credential. Never log it and never send it to analytics; the
+  // server stores only its SHA-256 hash.
   string refresh_token = 4;
+  // Absolute expiry of the refresh token, used as the client cookie maxAge;
+  // unset when refresh_token is empty.
   google.protobuf.Timestamp refresh_expires_at = 5;
 }
 
 message RefreshSessionRequest {
+  // Secret bearer credential. Never log it and never send it to analytics; the
+  // server stores only its SHA-256 hash.
   string refresh_token = 1;
 }
 
