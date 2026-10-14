@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { AuthSubmitButton } from "./AuthSubmitButton";
 import { type AuthState, registerAction } from "./actions";
+import { loginPath } from "./returnUrlShared";
 import { useCredentialForm } from "./useCredentialForm";
 import { MIN_PASSWORD, MIN_USERNAME, validateRegister } from "./validation";
 
@@ -103,11 +104,7 @@ export function RegisterForm({ returnUrl }: { returnUrl?: string }) {
           <p className="text-center text-sm text-text-secondary">
             Đã có tài khoản?{" "}
             <Link
-              href={
-                returnUrl
-                  ? `/login?returnUrl=${encodeURIComponent(returnUrl)}`
-                  : "/login"
-              }
+              href={loginPath(returnUrl)}
               className="font-medium text-action-primary hover:underline"
             >
               Đăng nhập ngay

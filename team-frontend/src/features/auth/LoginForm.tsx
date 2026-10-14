@@ -9,6 +9,7 @@ import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
 import { AuthSubmitButton } from "./AuthSubmitButton";
 import { type AuthState, loginAction } from "./actions";
+import { registerPath } from "./returnUrlShared";
 import { useCredentialForm } from "./useCredentialForm";
 import { validateLogin } from "./validation";
 
@@ -87,11 +88,7 @@ export function LoginForm({ returnUrl }: { returnUrl?: string }) {
           <p className="text-center text-sm text-text-secondary">
             Chưa có tài khoản?{" "}
             <Link
-              href={
-                returnUrl
-                  ? `/register?returnUrl=${encodeURIComponent(returnUrl)}`
-                  : "/register"
-              }
+              href={registerPath(returnUrl)}
               className="font-medium text-action-primary hover:underline"
             >
               Đăng ký ngay
