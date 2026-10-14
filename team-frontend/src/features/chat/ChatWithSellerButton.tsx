@@ -1,8 +1,9 @@
-import { loginPath } from "@/features/auth/returnUrlShared";
-("use client");
+"use client";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
+import { loginPath } from "@/features/auth/returnUrlShared";
 
 import { getOrCreateThreadAction } from "./actions";
 
