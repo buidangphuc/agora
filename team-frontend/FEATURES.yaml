@@ -8574,3 +8574,474 @@ features:
     tags: [auth, session, unit]
     status: not-testable
     notes: "frontend-session-continuity S26: VERIFIED BY team-frontend/src/middleware.test.ts middleware.test.ts (incoming x-pathname overwritten by the real path and query). The render-visible header has no observable signal end to end (see S23)."
+
+  # ── frontend-login-return (openspec/changes/frontend-login-return) ──
+
+  - id: auth.login-return.same-origin-path-with-query-is-kept
+    title: "Same-origin path with query is kept"
+    persona: buyer
+    priority: P2
+    summary: "Same-origin path with query is kept"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `safeReturnUrl(\"/listing/abc?variant=v2\")` is called"
+      - "Then it returns `/listing/abc?variant=v2` unchanged"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `team-frontend/src/features/auth/returnUrl.test.ts` `keeps a same-origin path with query`"
+
+  - id: auth.login-return.absolute-protocol-relative-and-scheme-urls-are-rejected
+    title: "Absolute, protocol-relative and scheme URLs are rejected"
+    persona: buyer
+    priority: P2
+    summary: "Absolute, protocol-relative and scheme URLs are rejected"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `safeReturnUrl` is called with `https://evil.example`, `//evil`, `/\\evil`, `javascript:alert(1)` and `/\\t/evil` (tab after the slash)"
+      - "Then each call returns `/`"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `returnUrl.test.ts` `rejects open-redirect shapes`"
+
+  - id: auth.login-return.percent-encoded-tricks-are-rejected
+    title: "Percent-encoded tricks are rejected"
+    persona: buyer
+    priority: P2
+    summary: "Percent-encoded tricks are rejected"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `safeReturnUrl` is called with `/a%0d%0ab`, `/a%0Ab`, `/a%09b`, `/a%5Cb`, `/%5Cevil` and `/%2F%2Fevil`"
+      - "Then each call returns `/`"
+      - "And `/a%20b` and `/a%2Fb` are returned unchanged"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `returnUrl.test.ts` `rejects percent-encoded tricks`"
+
+  - id: auth.login-return.login-and-register-targets-are-rejected-to-avoid-a-loop
+    title: "Login and register targets are rejected to avoid a loop"
+    persona: buyer
+    priority: P2
+    summary: "Login and register targets are rejected to avoid a loop"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `safeReturnUrl` is called with `/login`, `/login?returnUrl=%2Fx`, `/Register`, `/register/`, `/LOGIN`, `/login#x` and `/login/x`"
+      - "Then each call returns `/`"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `returnUrl.test.ts` `rejects login and register targets`"
+
+  - id: auth.login-return.paths-merely-prefixed-by-login-or-register-are-kept
+    title: "Paths merely prefixed by login or register are kept"
+    persona: buyer
+    priority: P2
+    summary: "Paths merely prefixed by login or register are kept"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `safeReturnUrl` is called with `/loginfoo` and `/registered`"
+      - "Then each is returned unchanged"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `returnUrl.test.ts` `keeps look-alike prefixes`"
+
+  - id: auth.login-return.missing-empty-and-oversize-input-fall-back
+    title: "Missing, empty and oversize input fall back"
+    persona: buyer
+    priority: P2
+    summary: "Missing, empty and oversize input fall back"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `safeReturnUrl` is called with `undefined`, `null`, `\"\"`, and a 2049-character path starting with `/`"
+      - "Then each call returns `/`, and a 2048-character path starting with `/` is returned unchanged"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `returnUrl.test.ts` `falls back on missing and oversize input`"
+
+  - id: auth.login-return.loginpath-encodes-the-return-target
+    title: "loginPath encodes the return target"
+    persona: buyer
+    priority: P2
+    summary: "loginPath encodes the return target"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `loginPath(\"/listing/abc?variant=v2\")` is called"
+      - "Then it returns `/login?returnUrl=%2Flisting%2Fabc%3Fvariant%3Dv2`"
+      - "And `loginPath(\"//evil\")` and `loginPath(undefined)` return `/login` with no `returnUrl` parameter"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `returnUrl.test.ts` `loginPath encodes and guards`"
+
+  - id: auth.login-return.successful-login-returns-to-the-requested-page
+    title: "Successful login returns to the requested page"
+    persona: buyer
+    priority: P1
+    summary: "Successful login returns to the requested page"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user submits valid credentials on `/login?returnUrl=%2Flisting%2Fabc%3Fvariant%3Dv2`"
+      - "Then the browser lands on `/listing/abc?variant=v2`"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Successful login returns to the requested page"
+
+  - id: auth.login-return.login-without-returnurl-goes-home
+    title: "Login without returnUrl goes home"
+    persona: buyer
+    priority: P2
+    summary: "Login without returnUrl goes home"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a user submits valid credentials with no `returnUrl` field"
+      - "Then `loginAction` redirects to `/`"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `actions.test.ts` `login without returnUrl redirects home`"
+
+  - id: auth.login-return.tampered-returnurl-is-rejected-server-side
+    title: "Tampered returnUrl is rejected server-side"
+    persona: buyer
+    priority: P1
+    summary: "Tampered returnUrl is rejected server-side"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a user opens `/login?returnUrl=https://evil.example` (or tampers the hidden field) and submits valid credentials"
+      - "Then the browser lands on `/` and never on the external host"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Tampered returnUrl is rejected server-side"
+
+  - id: auth.login-return.failed-login-does-not-redirect
+    title: "Failed login does not redirect"
+    persona: buyer
+    priority: P2
+    summary: "Failed login does not redirect"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the gateway answers Unauthenticated to `auth.login` with a `returnUrl` present"
+      - "Then `loginAction` resolves `{ ok: false }` with the credentials error and does not call `redirect`"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `actions.test.ts` `failed login keeps the form` (the gateway failure is not producible end to end without breaking credentials; covered by unit only)"
+
+  - id: auth.login-return.register-carries-returnurl-through
+    title: "Register carries returnUrl through"
+    persona: buyer
+    priority: P2
+    summary: "Register carries returnUrl through"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a new user submits the register form opened from `/register?returnUrl=%2Flisting%2Fabc`"
+      - "Then `registerAction` redirects to `/listing/abc` after success"
+      - "And the register page's link to login is `/login?returnUrl=%2Flisting%2Fabc`"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `actions.test.ts` `register redirects to returnUrl`; `forms.test.tsx` `forms keep returnUrl on cross links`"
+
+  - id: auth.login-return.register-with-an-existing-account-does-not-redirect
+    title: "Register with an existing account does not redirect"
+    persona: buyer
+    priority: P2
+    summary: "Register with an existing account does not redirect"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a user submits the register form with `returnUrl=/listing/abc` and the gateway answers `AlreadyExists`"
+      - "Then `registerAction` resolves `{ ok: false }` with the already-exists error and does not call `redirect`"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `actions.test.ts` `register already exists keeps the form`"
+
+  - id: auth.login-return.guest-opening-a-protected-page-is-sent-to-login-with-its-pat
+    title: "Guest opening a protected page is sent to login with its path"
+    persona: buyer
+    priority: P1
+    summary: "Guest opening a protected page is sent to login with its path"
+    entry_route: "/account/orders/o-9"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous visitor requests `/account/orders/o-9`"
+      - "Then the response is a redirect to `/login?returnUrl=%2Faccount%2Forders%2Fo-9`"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Guest opening a protected page is sent to login with its path"
+
+  - id: auth.login-return.query-string-of-the-guarded-page-is-preserved-with-repeated
+    title: "Query string of the guarded page is preserved with repeated keys in order"
+    persona: buyer
+    priority: P1
+    summary: "Query string of the guarded page is preserved with repeated keys in order"
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous visitor requests `/chat?thread=t1&tag=a&tag=b`"
+      - "Then the response is a redirect to `/login?returnUrl=%2Fchat%3Fthread%3Dt1%26tag%3Da%26tag%3Db`"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Query string of the guarded page is preserved with repeated keys in order"
+
+  - id: auth.login-return.param-less-layout-uses-the-x-pathname-header
+    title: "Param-less layout uses the x-pathname header"
+    persona: buyer
+    priority: P1
+    summary: "Param-less layout uses the x-pathname header"
+    entry_route: "/seller/orders"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous visitor requests `/seller/orders` and the middleware has set `x-pathname: /seller/orders`"
+      - "Then `seller/layout.tsx` redirects to `/login?returnUrl=%2Fseller%2Forders`"
+      - "And when the header is absent it redirects to `/login` with no returnUrl"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Param-less layout uses the x-pathname header"
+
+  - id: auth.login-return.over-length-path-falls-back-to-plain-login
+    title: "Over-length path falls back to plain login"
+    persona: buyer
+    priority: P1
+    summary: "Over-length path falls back to plain login"
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous visitor requests `/chat?thread=` followed by 2100 characters"
+      - "Then the response is a redirect to `/login` with no `returnUrl` parameter"
+      - "And a request whose rebuilt path plus query is exactly 2048 characters keeps its returnUrl"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Over-length path falls back to plain login"
+
+  - id: auth.login-return.cart-page-guard-covers-update-and-remove
+    title: "Cart page guard covers update and remove"
+    persona: buyer
+    priority: P1
+    summary: "Cart page guard covers update and remove"
+    entry_route: "/cart"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When an anonymous visitor requests `/cart`"
+      - "Then the response is a redirect to `/login?returnUrl=%2Fcart`"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Cart page guard covers update and remove"
+
+  - id: auth.login-return.every-guard-uses-the-helper
+    title: "Every guard uses the helper"
+    persona: buyer
+    priority: P2
+    summary: "Every guard uses the helper"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When all occurrences under `team-frontend/src/app` (27 occurrences in 26 files at spec time) of `redirect(\"/login\")` and `redirect(\"/login?` are searched"
+      - "Then zero matches remain; all guards call `redirectToLogin`"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `team-frontend/src/features/auth/guards.test.ts` `no bare redirect to login` (static scan, cannot be produced end to end)"
+
+  - id: auth.login-return.signed-in-user-without-the-scope-is-not-redirected-to-login
+    title: "Signed-in user without the scope is not redirected to login"
+    persona: buyer
+    priority: P1
+    summary: "Signed-in user without the scope is not redirected to login"
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer requests `/seller/new`"
+      - "Then the page renders the \"Cần tài khoản Người Bán\" result (text present in `seller/layout.tsx`) and issues no redirect to `/login`"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Signed-in user without the scope is not redirected to login"
+
+  - id: auth.login-return.returned-user-passes-through-the-guard-after-login
+    title: "Returned user passes through the guard after login"
+    persona: buyer
+    priority: P1
+    summary: "Returned user passes through the guard after login"
+    entry_route: "/favorites"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When an anonymous visitor requests `/favorites`, logs in on the resulting login page"
+      - "Then the browser lands on `/favorites`"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Returned user passes through the guard after login"
+
+  - id: auth.login-return.guest-add-to-cart-goes-to-login-with-the-variant
+    title: "Guest add-to-cart goes to login with the variant"
+    persona: buyer
+    priority: P1
+    summary: "Guest add-to-cart goes to login with the variant"
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-gateway, team-identity, team-domain, team-order]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a guest on `/listing/abc?variant=v2` clicks \"Thêm vào giỏ\" and the gateway answers Unauthenticated"
+      - "Then the browser navigates to `/login?returnUrl=%2Flisting%2Fabc%3Fvariant%3Dv2`"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Guest add-to-cart goes to login with the variant"
+
+  - id: auth.login-return.guest-buy-now-goes-to-login-then-lands-on-the-pdp
+    title: "Guest buy-now goes to login, then lands on the PDP"
+    persona: buyer
+    priority: P1
+    summary: "Guest buy-now goes to login, then lands on the PDP"
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-gateway, team-identity, team-domain, team-order]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a guest clicks \"Mua ngay\" and the gateway answers Unauthenticated, then logs in"
+      - "Then the browser navigates to the login URL for the PDP, `/checkout` is never visited, and after login the browser lands on `/listing/<id>?variant=<v>` with zero `addToCart` RPCs issued"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Guest buy-now goes to login, then lands on the PDP"
+
+  - id: auth.login-return.listing-without-variants-omits-the-variant-parameter
+    title: "Listing without variants omits the variant parameter"
+    persona: buyer
+    priority: P2
+    summary: "Listing without variants omits the variant parameter"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a guest clicks \"Thêm vào giỏ\" on `/listing/abc` whose selected variant id is empty"
+      - "Then the browser navigates to `/login?returnUrl=%2Flisting%2Fabc`"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `PurchasePanel.test.tsx` `guest add without variant` (needs a variant-less fixture listing; unit coverage)"
+
+  - id: auth.login-return.other-cart-errors-keep-the-toast
+    title: "Other cart errors keep the toast"
+    persona: buyer
+    priority: P2
+    summary: "Other cart errors keep the toast"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the gateway answers `FailedPrecondition` (out of stock) to add-to-cart"
+      - "Then the error toast is shown, no navigation happens and the result has no `unauthenticated` flag"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `team-frontend/src/features/cart/actions.test.ts` `non-auth errors stay generic` (out-of-stock state is not reliably producible end to end)"
+
+  - id: auth.login-return.add-to-cart-is-not-replayed-after-login
+    title: "Add-to-cart is not replayed after login"
+    persona: buyer
+    priority: P1
+    summary: "Add-to-cart is not replayed after login"
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-gateway, team-identity, team-domain, team-order]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a guest returns to `/listing/abc?variant=v2` after logging in"
+      - "Then zero `addToCart` RPCs are issued until the shopper clicks \"Thêm vào giỏ\" again, and the cart item count is unchanged"
+    tags: [auth, login-return]
+    status: automated
+    covered_by: "auth/login_return.feature::Add-to-cart is not replayed after login"
+
+  - id: auth.login-return.signed-in-shopper-is-unaffected
+    title: "Signed-in shopper is unaffected"
+    persona: buyer
+    priority: P2
+    summary: "Signed-in shopper is unaffected"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a signed-in shopper clicks \"Thêm vào giỏ\" and the gateway succeeds"
+      - "Then the success toast is shown and no navigation to `/login` occurs"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `PurchasePanel.test.tsx` `signed-in add still succeeds`"
+
+  - id: auth.login-return.page-location-has-no-returnurl
+    title: "page_location has no returnUrl"
+    persona: buyer
+    priority: P2
+    summary: "page_location has no returnUrl"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the login page is viewed at `/login?returnUrl=%2Faccount%2Forders%2Fo-9`"
+      - "Then the pushed `page_location` equals the origin plus `/login` and contains no `returnUrl` and no `o-9`"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `team-frontend/src/lib/analytics/destinations/gtm.test.ts` `strips returnUrl from page_location` (dataLayer content is asserted at unit level)"
+
+  - id: auth.login-return.other-query-parameters-are-not-removed
+    title: "Other query parameters are not removed"
+    persona: buyer
+    priority: P2
+    summary: "Other query parameters are not removed"
+    entry_route: "/login"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a page is viewed at `/search?q=ao&returnUrl=%2Fx&page=2`"
+      - "Then `page_location` keeps `q=ao` and `page=2` and does not contain `returnUrl`; a URL without `returnUrl` is not changed"
+    tags: [auth, login-return, unit]
+    status: not-testable
+    notes: "frontend-login-return: VERIFIED BY `gtm.test.ts` `keeps other params`"

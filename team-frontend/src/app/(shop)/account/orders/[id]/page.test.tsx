@@ -153,7 +153,9 @@ describe("/account/orders/[id] page", () => {
   it("redirects a guest to /login before loading anything", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null as never);
     await expect(renderPage()).rejects.toThrow("NEXT_REDIRECT");
-    expect(redirect).toHaveBeenCalledWith("/login");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Faccount%2Forders%2Fo1",
+    );
     expect(getOrderResult).not.toHaveBeenCalled();
   });
 

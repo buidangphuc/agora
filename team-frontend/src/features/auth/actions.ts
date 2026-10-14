@@ -17,6 +17,7 @@ import {
 } from "@/lib/gateway/session-cookie";
 import { isUsableToken } from "@/lib/gateway/token-expiry";
 
+import { safeReturnUrl } from "./returnUrl";
 import {
   type CredentialErrors,
   validateLogin,
@@ -102,7 +103,7 @@ export async function loginAction(
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
   await setSession(token, refreshToken);
-  redirect("/");
+  redirect(safeReturnUrl(String(formData.get("returnUrl") ?? "")));
 }
 
 export async function registerAction(
@@ -140,7 +141,7 @@ export async function registerAction(
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
   await setSession(token, refreshToken);
-  redirect("/");
+  redirect(safeReturnUrl(String(formData.get("returnUrl") ?? "")));
 }
 
 export async function logoutAction() {

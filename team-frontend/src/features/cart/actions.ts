@@ -1,5 +1,6 @@
 "use server";
 
+import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, fail, ok } from "@/lib/action-result";
@@ -10,7 +11,14 @@ import {
   updateCartItem,
 } from "@/lib/gateway/cart";
 
-export type CartActionResult = ActionResult;
+export type CartActionResult = ActionResult | AddToCartUnauthenticated;
+
+/** addToCartAction only: the caller has no session and should go to login. */
+export type AddToCartUnauthenticated = {
+  ok: false;
+  error: string;
+  unauthenticated: true;
+};
 
 function messageOf(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -27,6 +35,13 @@ export async function addToCartAction(
     revalidatePath("/checkout");
     return ok();
   } catch (err: unknown) {
+    if (err instanceof ConnectError && err.code === Code.Unauthenticated) {
+      return {
+        ok: false,
+        error: "Chưa đăng nhập",
+        unauthenticated: true,
+      };
+    }
     return fail(messageOf(err, "Thêm vào giỏ hàng thất bại."));
   }
 }

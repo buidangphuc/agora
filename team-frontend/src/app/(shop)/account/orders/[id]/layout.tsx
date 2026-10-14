@@ -1,4 +1,5 @@
-import { notFound, redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { getPrincipal } from "@/lib/gateway/session";
@@ -18,7 +19,8 @@ export default async function BuyerOrderLayout(props: {
 
   const { children } = props;
 
-  if (!getPrincipal()) redirect("/login");
+  if (!getPrincipal())
+    redirectGuestToLogin(`/account/orders/${encodeURIComponent(params.id)}`);
   const res = await loadOrderResult(params.id);
   if (res.kind === "not_found") notFound();
   return children;
