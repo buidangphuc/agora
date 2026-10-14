@@ -138,7 +138,7 @@ There is **no `FEATURES.yaml`** in this repo: it has no user-facing capabilities
 Contract changes ride along with the OpenSpec change of the feature that needs them
 (`openspec/changes/<id>` at the monorepo root, per the root README's ASDLC). Behaviour
 is verified in `platform-e2e`: `make -C platform-e2e features-check` and
-`make -C platform-e2e spec-check CHANGE=<id>`. See `SPEC_DRIVEN_WORKFLOW.md`.
+`make -C platform-e2e spec-check CHANGE=<id>`. See `docs/asdlc/SPEC_DRIVEN_WORKFLOW.md`.
 
 Proto change recipe: edit `packages/proto` additively, `make check`, then re-vendor
 `proto/` into each affected consumer and run `buf generate` there.

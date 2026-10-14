@@ -16,6 +16,7 @@
 **/bin/
 **/*.test
 **/*.out
+**/coverage.summary
 
 # ── Python ──
 **/__pycache__/
@@ -63,3 +64,6 @@ Thumbs.db
 metrics/kev-eval/states/
 metrics/kev-eval/runs/*/raw/
 metrics/kev-eval/runs/*/*/raw/
+
+# ── Leftover nested git dirs from the polyrepo snapshot era ──
+**/.git__snapshot_disabled/

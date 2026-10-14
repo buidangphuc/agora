@@ -6,7 +6,7 @@ license: MIT
 metadata:
   author: asdlc-v2
   version: "1.0"
-  plan: ASDLC-v2-PLAN.md W2-4
+  plan: docs/asdlc/ASDLC-v2-PLAN.md W2-4
 ---
 
 # spec-clarify — ask before the spec is locked
