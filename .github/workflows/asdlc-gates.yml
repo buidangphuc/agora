@@ -148,7 +148,17 @@ jobs:
               continue
             fi
             [ -f "$d/requirements.txt" ] && pip install -r "$d/requirements.txt"
-            if [ -f "$d/pyproject.toml" ]; then pip install -e "./$d[dev]" || pip install -e "./$d"; fi
+            # uv (not pip) so [tool.uv.sources] path deps such as ../platform-core/packages/* resolve
+            if [ -f "$d/pyproject.toml" ]; then
+              uv pip install --system -e "./$d[dev]" || uv pip install --system -e "./$d"
+            fi
+          done
+          # Keep only third-party deps installed: in-repo projects in site-packages point at the head
+          # checkout, so red_first's base run would import head code ("green at base"). red_first puts
+          # each worktree's own module and platform-core/packages/*/src on PYTHONPATH instead.
+          for p in */pyproject.toml platform-core/packages/*/pyproject.toml; do
+            n=$(sed -n 's/^name *= *"\([^"]*\)".*/\1/p' "$p" | head -1)
+            [ -n "$n" ] && pip uninstall -y -q "$n" 2>/dev/null
           done
           true
       - name: red-first (go, python)
