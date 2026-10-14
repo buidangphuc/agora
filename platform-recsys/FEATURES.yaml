@@ -1374,7 +1374,7 @@ features:
       - "Then MLflow shows a new `recsys-als` version tagged `gate.outcome=promoted` after the publish, the alias `champion` names it and the old holder is under `previous`"
     tags: [recsys, unit]
     status: not-testable
-    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_als_promotable_then_applied_after_publish. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/recsys_auto_train.feature::Gate pass serves the new generation."
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_als_promotable_then_applied_after_publish. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/recsys_auto_train.feature::RAT-15 Gate pass swaps the generation pointer."
 
   - id: recsys.rat-02-a-candidate-below-the-improvement-threshold-is-rejected
     title: "RAT-02 A candidate below the improvement threshold is rejected"
@@ -1518,7 +1518,7 @@ features:
       - "Then each of `recsys-als`, `recsys-gbdt` and `recsys-two-tower` has a new version tagged `gate.outcome=promoted`, and the generation in Redis and Qdrant holds the ranker key and the two-tower collection"
     tags: [recsys, unit]
     status: not-testable
-    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_all_three_promoted_in_one_generation. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/recsys_auto_train.feature::Nightly chain registers all three models."
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_all_three_promoted_in_one_generation. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/recsys_auto_train.feature::RAT-34 The nightly chain end to end on the stack."
 
   - id: recsys.rat-08-a-rejected-gbdt-leaves-the-ranker-out-of-the-generation
     title: "RAT-08 A rejected GBDT leaves the ranker out of the generation"
@@ -1742,8 +1742,8 @@ features:
       - "Then `recs:v1:serving` names `g2`, `recs:v1:previous` names `g1`, and team-ai `Recommend` answers from `g2`'s lists and vectors"
     tags: [recsys, recommendations, destructive]
     status: automated
-    covered_by: "recommendations/recsys_auto_train.feature::Gate pass serves the new generation"
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Gate pass serves the new generation. Scenario id RAT-15; green against the implementation."
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-15 Gate pass swaps the generation pointer"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::RAT-15 Gate pass swaps the generation pointer. Scenario id RAT-15; green against the implementation."
 
   - id: recsys.rat-16-gate-fail-keeps-the-previous-generation
     title: "RAT-16 Gate fail keeps the previous generation"
@@ -1840,8 +1840,8 @@ features:
       - "Then the job exits 1 within 20 s of start, Spark is not started, `recs:v1:serving` and `recs:v1:previous` are unchanged, and no new Qdrant collection or Redis generation key exists"
     tags: [recsys, recommendations, destructive]
     status: automated
-    covered_by: "recommendations/recsys_auto_train.feature::Registry down fails closed"
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Registry down fails closed. Scenario id RAT-19; green against the implementation."
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-19 Registry down at start"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::RAT-19 Registry down at start. Scenario id RAT-19; green against the implementation."
 
   - id: recsys.rat-20-registry-goes-down-after-the-als-evaluation
     title: "RAT-20 Registry goes down after the ALS evaluation"
@@ -1905,8 +1905,8 @@ features:
       - "Then the job exits 2, MLflow has no new version of any `recsys-*` model, and serving is unchanged"
     tags: [recsys, recommendations, destructive]
     status: automated
-    covered_by: "recommendations/recsys_auto_train.feature::Stale dataset is refused"
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Stale dataset is refused. Scenario id RAT-22; green against the implementation."
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-22 A 26-hour-old dataset is refused"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::RAT-22 A 26-hour-old dataset is refused. Scenario id RAT-22; green against the implementation."
 
   - id: recsys.rat-23-boundary-a-dataset-just-inside-the-window-trains
     title: "RAT-23 Boundary, a dataset just inside the window trains"
@@ -1970,8 +1970,8 @@ features:
       - "Then a scan of every param, metric, tag (system tags and run name included) and the contents of every artifact file of the run's MLflow runs finds none of those keys, and no artifact named like user factors exists"
     tags: [recsys, recommendations, destructive]
     status: automated
-    covered_by: "recommendations/recsys_auto_train.feature::Registry holds no user data"
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Registry holds no user data. Scenario id RAT-25; green against the implementation."
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-25 A full run leaks no user id"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::RAT-25 A full run leaks no user id. Scenario id RAT-25; green against the implementation."
 
   - id: recsys.rat-49-the-pii-scan-detects-a-planted-key
     title: "RAT-49 The PII scan detects a planted key"
@@ -1987,8 +1987,8 @@ features:
       - "Then the scan reports both hits (negative control: the scan can fail)"
     tags: [recsys, recommendations, destructive]
     status: automated
-    covered_by: "recommendations/recsys_auto_train.feature::PII scan negative control"
-    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::PII scan negative control. Scenario id RAT-49; green against the implementation."
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-49 The PII scan detects a planted key"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::RAT-49 The PII scan detects a planted key. Scenario id RAT-49; green against the implementation."
 
   - id: recsys.rat-26-the-adapter-rejects-a-payload-keyed-by-user-id
     title: "RAT-26 The adapter rejects a payload keyed by user id"
@@ -2340,7 +2340,7 @@ features:
       - "Then MLflow on :5050 shows a new version of each of `recsys-als`, `recsys-gbdt` and `recsys-two-tower` tagged `gate.outcome=promoted`, and the job exits 0"
     tags: [recsys, recommendations, destructive]
     status: automated
-    covered_by: "recommendations/recsys_auto_train.feature::Nightly chain registers all three models"
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-34 The nightly chain end to end on the stack"
     notes: "recsys-auto-train: the fixture seeds price-dependent impression/click events (impression ids prefixed rat34-) through the gateway so the GBDT genuinely beats the fixed-weight baseline."
 
   - id: recsys.rat-36-a-manifest-without-the-mlflow-uri-is-rejected-by-the-manifes

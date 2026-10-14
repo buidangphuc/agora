@@ -13,7 +13,7 @@ Feature: The nightly recsys job is gated by the MLflow model registry (recsys-au
   # version of recsys-als"; no generation to version mapping is assumed. A module teardown republishes
   # a real generation, so other recommendation scenarios do not read fixture listings.
 
-  Scenario: Gate pass serves the new generation
+  Scenario: RAT-15 Gate pass swaps the generation pointer
     Given a buyer is logged in
     And the recsys serving state and the recsys registry are reset
     And a prior generation g1 is published and serving, then the registry is cleared again
@@ -40,7 +40,7 @@ Feature: The nightly recsys job is gated by the MLflow model registry (recsys-au
     And no new generation keys or collections exist
     And a buyer's Recommend answers are identical to before the run
 
-  Scenario: Registry down fails closed
+  Scenario: RAT-19 Registry down at start
     Given the recsys serving state and the recsys registry are reset
     And a prior generation g1 is published and serving, then the registry is cleared again
     And the recsys registry is down
@@ -50,7 +50,7 @@ Feature: The nightly recsys job is gated by the MLflow model registry (recsys-au
     And the serving and previous pointers are unchanged
     And no new generation keys or collections exist
 
-  Scenario: Stale dataset is refused
+  Scenario: RAT-22 A 26-hour-old dataset is refused
     Given the recsys serving state and the recsys registry are reset
     And a prior generation g1 is published and serving, then the registry is cleared again
     And a weak champion is seeded for "recsys-als"
@@ -61,7 +61,7 @@ Feature: The nightly recsys job is gated by the MLflow model registry (recsys-au
     And the serving and previous pointers are unchanged
     And no new generation keys or collections exist
 
-  Scenario: Registry holds no user data
+  Scenario: RAT-25 A full run leaks no user id
     Given the recsys serving state and the recsys registry are reset
     And a weak champion is seeded for "recsys-als"
     And a dataset of fifty users keyed u-0001 to u-0050
@@ -73,14 +73,14 @@ Feature: The nightly recsys job is gated by the MLflow model registry (recsys-au
 
   # Support scenario (negative control of the scan used above): it needs no recsys code, so it is
   # expected to pass before the change is implemented. It proves the scan CAN fail.
-  Scenario: PII scan negative control
+  Scenario: RAT-49 The PII scan detects a planted key
     Given a scratch MLflow run with "u-0001" logged as a param and as artifact text
     And a scratch registered model version with "u-0001" in a version tag
     When the PII scan runs on that run for the fixture user keys
     Then the scan reports "u-0001" in a param and in an artifact
     And the scan reports "u-0001" in a model version tag
 
-  Scenario: Nightly chain registers all three models
+  Scenario: RAT-34 The nightly chain end to end on the stack
     Given the recsys serving state and the recsys registry are reset
     And weak champions are seeded for recsys-als, recsys-gbdt and recsys-two-tower
     And the stack's ranking events are seeded so that clicks depend on item price

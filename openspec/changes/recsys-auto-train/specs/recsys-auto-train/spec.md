@@ -131,7 +131,7 @@ The job SHALL run, in this order: (1) `evaluate` every candidate (ALS first; GBD
 #### Scenario: RAT-15 Gate pass swaps the generation pointer
 - **WHEN** the ALS candidate is `promotable` with generation `g2` while `recs:v1:serving` names `g1`
 - **THEN** `recs:v1:serving` names `g2`, `recs:v1:previous` names `g1`, and team-ai `Recommend` answers from `g2`'s lists and vectors
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::Gate pass serves the new generation`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::RAT-15 Gate pass swaps the generation pointer`
 
 #### Scenario: RAT-16 Gate fail keeps the previous generation
 - **WHEN** the ALS candidate is rejected while `recs:v1:serving` names `g1`
@@ -165,7 +165,7 @@ At job start, before any training, the job SHALL run a registry reachability pre
 #### Scenario: RAT-19 Registry down at start
 - **WHEN** `MLFLOW_TRACKING_URI` points at a port with no listener
 - **THEN** the job exits 1 within 20 s of start, Spark is not started, `recs:v1:serving` and `recs:v1:previous` are unchanged, and no new Qdrant collection or Redis generation key exists
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::Registry down fails closed`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::RAT-19 Registry down at start`
 
 #### Scenario: RAT-20 Registry goes down after the ALS evaluation
 - **WHEN** the registry stops answering after `evaluate` of the ALS candidate returned `promotable`, during the GBDT evaluation
@@ -189,7 +189,7 @@ At job start, before any training, the job SHALL run a registry reachability pre
 #### Scenario: RAT-22 A 26-hour-old dataset is refused
 - **WHEN** the newest snapshot is 26 hours old and `MAX_DATASET_AGE_MINUTES=1500`
 - **THEN** the job exits 2, MLflow has no new version of any `recsys-*` model, and serving is unchanged
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::Stale dataset is refused`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::RAT-22 A 26-hour-old dataset is refused`
 
 #### Scenario: RAT-23 Boundary, a dataset just inside the window trains
 - **WHEN** the newest snapshot is 1499 minutes old and `MAX_DATASET_AGE_MINUTES=1500`
@@ -213,12 +213,12 @@ The job SHALL send to MLflow only numeric metrics, an allow-listed set of params
 #### Scenario: RAT-25 A full run leaks no user id
 - **WHEN** a full run completes on a dataset whose user keys are `u-0001` ... `u-0050`
 - **THEN** a scan of every param, metric, tag (system tags and run name included) and the contents of every artifact file of the run's MLflow runs finds none of those keys, and no artifact named like user factors exists
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::Registry holds no user data`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::RAT-25 A full run leaks no user id`
 
 #### Scenario: RAT-49 The PII scan detects a planted key
 - **WHEN** the scan runs against a run in which the key `u-0001` was deliberately logged as a param and as artifact text
 - **THEN** the scan reports both hits (negative control: the scan can fail)
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::PII scan negative control`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::RAT-49 The PII scan detects a planted key`
 
 #### Scenario: RAT-26 The adapter rejects a payload keyed by user id
 - **WHEN** code passes a param dict or artifact path holding a user key to the recsys registry adapter
@@ -344,7 +344,7 @@ The gitops CronJob `platform-recsys` SHALL set `ENABLE_GBDT=true`, `ENABLE_TWO_T
 #### Scenario: RAT-34 The nightly chain end to end on the stack
 - **WHEN** the featurestore dataset job finishes and then the recsys job runs on the compose stack with the `jobs` profile against seeded weak champions
 - **THEN** MLflow on :5050 shows a new version of each of `recsys-als`, `recsys-gbdt` and `recsys-two-tower` tagged `gate.outcome=promoted`, and the job exits 0
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::Nightly chain registers all three models`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/recommendations/recsys_auto_train.feature::RAT-34 The nightly chain end to end on the stack`
 
 #### Scenario: RAT-36 A manifest without the MLflow URI is rejected by the manifest check
 - **WHEN** the CronJob `recsys-config` lacks `MLFLOW_TRACKING_URI` or sets `ENABLE_GBDT=false`
