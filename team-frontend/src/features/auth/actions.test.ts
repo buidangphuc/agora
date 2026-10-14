@@ -192,3 +192,131 @@ describe("logoutAction", () => {
     expect(redirect).toHaveBeenCalledWith("/");
   });
 });
+
+describe("refresh cookie (frontend-session-continuity)", () => {
+  function setCalls(jar: Awaited<ReturnType<typeof cookies>>) {
+    return vi.mocked(jar.set).mock.calls as unknown as [
+      string,
+      string,
+      Record<string, unknown>,
+    ][];
+  }
+  const find = (
+    calls: [string, string, Record<string, unknown>][],
+    name: string,
+  ) => calls.find((c) => c[0] === name);
+
+  it("S1: login sets session (3600) and agora_refresh with matching secure", async () => {
+    const jar = await cookies();
+    vi.mocked(jar.set).mockClear();
+    stubAuth({
+      login: vi.fn().mockResolvedValue({
+        result: { token: "jwt-1", refreshToken: "rt-1" },
+      }),
+    });
+    await loginAction(initial, form({ username: "alice", password: "pw" }));
+
+    const calls = setCalls(jar);
+    const session = find(calls, "session")!;
+    const refresh = find(calls, "agora_refresh")!;
+    expect(session[1]).toBe("jwt-1");
+    expect(session[2]).toEqual(expect.objectContaining({ maxAge: 3600 }));
+    expect(refresh[1]).toBe("rt-1");
+    expect(refresh[2]).toEqual(
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 2592000,
+      }),
+    );
+    expect(refresh[2].secure).toBe(session[2].secure);
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("S2: register sets both cookies with the same attributes", async () => {
+    const jar = await cookies();
+    vi.mocked(jar.set).mockClear();
+    stubAuth({
+      register: vi.fn().mockResolvedValue({
+        result: { token: "jwt-2", refreshToken: "rt-2" },
+      }),
+    });
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass", role: "buyer" }),
+    );
+
+    const calls = setCalls(jar);
+    const session = find(calls, "session")!;
+    const refresh = find(calls, "agora_refresh")!;
+    expect(session[1]).toBe("jwt-2");
+    expect(session[2]).toEqual(expect.objectContaining({ maxAge: 3600 }));
+    expect(refresh[1]).toBe("rt-2");
+    expect(refresh[2]).toEqual(
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 2592000,
+      }),
+    );
+    expect(refresh[2].secure).toBe(session[2].secure);
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("S3: empty refreshToken sets only session and still redirects (login)", async () => {
+    const jar = await cookies();
+    vi.mocked(jar.set).mockClear();
+    stubAuth({
+      login: vi.fn().mockResolvedValue({
+        result: { token: "jwt-3", refreshToken: "" },
+      }),
+    });
+    await loginAction(initial, form({ username: "alice", password: "pw" }));
+
+    const calls = setCalls(jar);
+    expect(find(calls, "session")![1]).toBe("jwt-3");
+    expect(find(calls, "agora_refresh")).toBeUndefined();
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("S3: empty refreshToken sets only session and still redirects (register)", async () => {
+    const jar = await cookies();
+    vi.mocked(jar.set).mockClear();
+    stubAuth({
+      register: vi.fn().mockResolvedValue({
+        result: { token: "jwt-4", refreshToken: "" },
+      }),
+    });
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass", role: "buyer" }),
+    );
+
+    const calls = setCalls(jar);
+    expect(find(calls, "session")![1]).toBe("jwt-4");
+    expect(find(calls, "agora_refresh")).toBeUndefined();
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("S4: failed login sets no cookie and keeps the error message", async () => {
+    const jar = await cookies();
+    vi.mocked(jar.set).mockClear();
+    stubAuth({
+      login: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("no", Code.Unauthenticated)),
+    });
+    const res = await loginAction(
+      initial,
+      form({ username: "x", password: "y" }),
+    );
+    expect(jar.set).not.toHaveBeenCalled();
+    expect(res).toEqual({
+      ok: false,
+      error: "Tên đăng nhập hoặc mật khẩu không chính xác.",
+      username: "x",
+    });
+  });
+});
