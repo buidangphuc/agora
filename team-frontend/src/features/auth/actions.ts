@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 
 import { makeClients } from "@/lib/gateway/client";
 import { clientContextFrom } from "@/lib/gateway/client-context";
+import { refreshSession } from "@/lib/gateway/refresh";
+import { revokeOwnSession, sessionIdOf } from "@/lib/gateway/revoke";
 import { SESSION_COOKIE } from "@/lib/gateway/session";
 import {
   REFRESH_COOKIE,
@@ -13,6 +15,7 @@ import {
   isSecureRequest,
   refreshCookieOptions,
 } from "@/lib/gateway/session-cookie";
+import { isUsableToken } from "@/lib/gateway/token-expiry";
 
 import {
   type CredentialErrors,
@@ -141,6 +144,22 @@ export async function registerAction(
 }
 
 export async function logoutAction() {
-  (await cookies()).delete(SESSION_COOKIE);
+  const jar = await cookies();
+  try {
+    let bearer: string | undefined;
+    const access = jar.get(SESSION_COOKIE)?.value;
+    const refresh = jar.get(REFRESH_COOKIE)?.value;
+    if (access && isUsableToken(access)) {
+      bearer = access;
+    } else if (refresh) {
+      bearer = (await refreshSession(refresh)).token || undefined;
+    }
+    const sid = bearer ? sessionIdOf(bearer) : undefined;
+    if (bearer && sid) await revokeOwnSession(sid, bearer);
+  } catch {
+    // Best effort: logout must always clear the cookies.
+  }
+  jar.delete(SESSION_COOKIE);
+  jar.delete(REFRESH_COOKIE);
   redirect("/");
 }
