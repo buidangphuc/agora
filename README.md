@@ -4,20 +4,22 @@
 It is a standard for letting AI coding agents build and maintain a large multi-service system
 without the system drifting, breaking its own rules, or passing tests that prove nothing.
 
-The marketplace itself (24 bounded contexts: Go gRPC services, a Next.js storefront, Kafka/CQRS,
-a recommender pipeline) is the **testbed**. It is big and coupled enough that unstructured
-"prompt and hope" development fails quickly. What this repository shows is the lifecycle, the
-gates and the evidence that keep agent output correct as it scales.
+The marketplace itself (25 bounded contexts: Go gRPC services, a Next.js storefront, Kafka/CQRS,
+and a real AI layer: an LLM assistant with RAG, recommenders retrained every night, an LLM
+fine-tune pipeline, all behind one model registry and one publish gate) is the **testbed**. It is
+big and coupled enough that unstructured "prompt and hope" development fails quickly. What this
+repository shows is the lifecycle, the gates and the evidence that keep agent output correct as it scales.
 
 | | |
 |---|---|
-| Bounded contexts coordinated | **24** (`team-*` services, `platform-*` platforms), one git repository |
-| Commits | **1092**, of which **1016** are agent co-authored |
-| Requirement changes run through the lifecycle | **87** OpenSpec changes (86 archived) · **69** capability specs |
-| Capabilities with a machine-readable contract | `FEATURES.yaml` acceptance coverage **925/932 automated (99%)** |
-| End-to-end suite | **209** `.feature` files against the real stack (parallel lane + serial destructive lane) |
+| Bounded contexts coordinated | **25** (`team-*` services, `platform-*` platforms), one git repository |
+| Commits | **1451**, of which **1263** are agent co-authored |
+| Requirement changes run through the lifecycle | **97** OpenSpec changes (96 archived) · **79** capability specs |
+| Capabilities with a machine-readable contract | `FEATURES.yaml` acceptance coverage **1033/1040 automated (99%)** |
+| End-to-end suite | **220** `.feature` files against the real stack (parallel lane + serial destructive lane) |
 | Gates | **4** versioned question sets (`spec`, `task`, `feature`, `release`; 33 questions, each traced to a standard) · **9** CI jobs, 5 required on `main` |
-| Guardrails | **16** skills · **11** sub-agents · **4** hooks · **15** ADRs |
+| AI layer | **4** models in one MLflow registry (`recsys-als`, `recsys-gbdt`, `recsys-two-tower`, `finetune-classifier`) · **1** shared publish gate · LLM eval gate in CI |
+| Guardrails | **16** skills · **11** sub-agents · **4** hooks · **17** ADRs |
 
 Process source of truth: [`docs/asdlc/ASDLC-v2.md`](docs/asdlc/ASDLC-v2.md). One-page start:
 [`docs/ONBOARDING.md`](docs/ONBOARDING.md). Plan and status: [`docs/asdlc/ASDLC-v2-PLAN.md`](docs/asdlc/ASDLC-v2-PLAN.md).
@@ -200,12 +202,40 @@ p90 477 h. `metrics.py` reports against it.
 An AI-first marketplace (Shopee-like). `platform-core` owns the gRPC contract, infrastructure
 and ADRs; each `team-*` directory owns exactly one bounded context and its own database.
 Browsers reach services only through `team-gateway`. Write-side services publish Kafka events
-through a transactional outbox, and read-side services build projections (CQRS). The AI side is
-a RAG assistant plus an ALS recommender trained offline from tracked events. Deployment is
+through a transactional outbox, and read-side services build projections (CQRS). Deployment is
 local GitOps: kind + ArgoCD + Argo Rollouts, fed from a local Gitea (`deploy/`, `platform-gitops/`).
 
 - Architecture: [`platform-core/docs/ARCHITECTURE.md`](platform-core/docs/ARCHITECTURE.md) · Decisions: [`platform-core/docs/ADR/`](platform-core/docs/ADR)
 - Repository map, ports and rules: [`AGENTS.md`](AGENTS.md) · Ownership: [`CODEOWNERS`](CODEOWNERS)
+
+### The AI layer
+
+The AI layer is more than a demo: it trains on its own schedule, gates every model before it is
+served, and degrades safely when a dependency fails.
+
+```mermaid
+flowchart LR
+  EV["Tracked events<br/>(Kafka → warehouse)"] --> FS["platform-featurestore<br/>governed datasets · 02:15"]
+  FS --> RS["platform-recsys<br/>ALS · GBDT · Two-Tower · 03:00"]
+  FT["platform-finetune<br/>Qwen2.5-0.5B · weekly, GPU"]
+  RS --> G{"py-modelregistry<br/>one publish gate"}
+  FT --> G
+  G -->|promoted| REG[("MLflow registry<br/>champion / previous")]
+  G -->|rejected| KEEP["previous champion<br/>keeps serving"]
+  REG --> PUB["Qdrant vectors ·<br/>Redis generation"]
+  PUB --> AI["team-ai<br/>gRPC + HTTP"]
+  MS["platform-modelserve<br/>embeddings (TEI / vLLM)"] --> AI
+  AI --> GW["team-gateway"] --> FE["team-frontend"]
+```
+
+| Part | What it does |
+|---|---|
+| [`team-ai`](team-ai/README.md) | Shopping assistant, magic listing, chat copilot, tag classifier, streaming chat, recommendations, listing search. LLM calls go through a LangChain router (`CHAT_BACKEND=llm_router`, model + fallback chain, any LangChain provider); `mock` is the offline default. RAG with LlamaIndex over Qdrant, fed by a Kafka listing indexer. Langfuse + OpenTelemetry tracing, per-principal rate limit and reply quota, scope-gated gRPC. An eval gate (`run_eval --min-score 0.8`) runs in CI. |
+| [`platform-recsys`](platform-recsys/README.md) | Nightly job: trains ALS, a GBDT ranker and a Two-Tower model on a leakage-free holdout, submits each to the gate, publishes only promoted models (Qdrant vectors, Redis generation pointer). team-ai serves the new generation with no code change. |
+| [`platform-finetune`](platform-finetune/README.md) | LLM fine-tune pipeline (full, LoRA, QLoRA, QAT): ingest → validate → train → evaluate (calibration, confidence intervals) → gate. Weekly on one GPU; also a GPU perf toolkit that binds every tuned config to the GPU it was measured on. |
+| [`platform-modelserve`](platform-modelserve/README.md) | Inference router in front of TEI / vLLM: embedding cache, in-flight limit with 429 backpressure. |
+| [`platform-featurestore`](platform-featurestore/README.md) | Materializes governed training datasets (offline snapshot + online Redis copy). |
+| `py-modelregistry` (`platform-core/packages/`) | The one gate ([ADR-0017](platform-core/docs/ADR/0017-unified-model-registry-and-publish-gate.md)): per-model policy in one file (primary metric, minimum relative improvement, guard ratios, floors), two-phase evaluate → publish → apply, fail-closed when the registry is down, `promote --force --reason` and `rollback` for operators. |
 
 ## 10. Using the lifecycle
 
@@ -227,6 +257,11 @@ make -C platform-e2e spec-check CHANGE=<change>
 # Run the system the tests run against
 docker compose up -d --build
 
+# Train, gate and roll back models (MLflow UI on :5050)
+docker compose --profile jobs run --rm platform-recsys      # or platform-finetune (CPU locally)
+python -m modelregistry promote <model> <version> --force --reason "<text>"
+python -m modelregistry rollback <model>
+
 # 8-9  Release to local staging, roll back
 make -C deploy cluster-up
 make -C deploy release-tag TAG=<sha> RELEASE_ENV=staging
@@ -246,4 +281,7 @@ openspec archive <change>
   refused in strict environments).
 - **E2E is a local gate.** The full stack does not fit a hosted runner; CI runs everything else.
 - **`feature-run` has not yet been exercised end to end on a new feature.**
+- **AI layer:** the `finetune-classifier` champion has no consumer yet, and the finetune serving
+  files are not ported. Locally, model serving uses `tei-fake` (no real TEI or vLLM in compose),
+  and team-ai chat defaults to the `mock` backend until an LLM provider is configured.
 - Plan status per task: [`docs/asdlc/ASDLC-v2-PLAN.md`](docs/asdlc/ASDLC-v2-PLAN.md) §7.
