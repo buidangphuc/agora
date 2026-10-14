@@ -1,0 +1,16 @@
+# Root build context: only what platform-recsys/Dockerfile COPYs.
+*
+!platform-recsys
+!platform-core
+platform-core/*
+!platform-core/packages
+platform-core/packages/*
+!platform-core/packages/py-modelregistry
+**/__pycache__
+**/*.pyc
+**/.venv
+**/venv
+**/.git
+**/.pytest_cache
+**/.ruff_cache
+**/*.egg-info

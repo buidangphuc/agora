@@ -1,32 +1,35 @@
 """The GBDT stage of the batch run: governed impressions in, a gated ranker artifact out.
 
 Order of the run (``pipeline.py``): resolve the inputs before Spark starts (ConfigError, exit 2), train after
-the ALS promotion decision, publish the artifact with the generation, promote the GBDT candidate only after
-the publish succeeded. The candidate is registered as ``gbdt-<model_version>`` and gated against its own
-champion pointer (``recs:model:champion:gbdt``), never the ALS champion.
+the ALS candidate is promotable, publish the artifact with the generation, apply the GBDT candidate only
+after the publish succeeded. The candidate is a version of ``recsys-gbdt`` in the MLflow registry, judged by
+its own policy against its own champion, never the ALS one. The stage evaluates; it never applies.
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+from modelregistry import Decision
 
+from recsys import registry_client as rc
 from recsys.config import ConfigError, Settings
 from recsys.dataset import Dataset, resolve_rank_dataset
 from recsys.ranker import contract, gbdt, training
-from recsys.registry.metadata import ModelMetadata
-from recsys.registry.registry import GBDT_CHAMPION_KEY, ModelRegistry, PromotionDecision
 
 log = logging.getLogger("recsys.ranker.stage")
 
-MODEL_NAME = "recsys-gbdt-ranker"
 NDCG_K = 10
 PRIMARY_METRIC = "ndcg@10"
+BASELINE_MARGIN = 1.01
 
 
 @dataclass
@@ -38,12 +41,13 @@ class RankerInputs:
 
 @dataclass
 class RankerResult:
-    promoted: bool
+    """``decision`` is the registry's verdict (``promotable`` | ``rejected``); ``artifact`` is the
+    ``agora-gbdt/1`` document when promotable, else None."""
+
+    decision: Decision
     reason: str
     summary: dict[str, Any]
     artifact: dict[str, Any] | None
-    decision: PromotionDecision
-    registry: ModelRegistry
 
 
 def resolve_inputs(settings: Settings) -> RankerInputs:
@@ -134,7 +138,7 @@ def _evaluate_context(settings: Settings, matrix: training.Matrix, split: traini
     try:
         with_ctx = evaluate_variant(settings, matrix, split, with_context=True)
     except Exception as exc:  # noqa: BLE001 - context never fails the run
-        log.warning("context evaluation failed: %s", exc)
+        log.warning("context evaluation failed: %s", type(exc).__name__, exc_info=True)
         return {
             "context_features": "disabled",
             "context_reason": "evaluation_failed",
@@ -167,25 +171,17 @@ def _write_rows(
     pd.DataFrame(out).to_parquet(path, index=False)
 
 
-def run_stage(
-    settings: Settings, inputs: RankerInputs, model_version: str, registry: ModelRegistry
-) -> RankerResult:
-    """Train, evaluate on the temporal holdout, gate. Returns the verdict; a promoted result carries the
-    artifact to publish. A rejected candidate is already recorded as rejected."""
+def run_stage(settings: Settings, inputs: RankerInputs, model_version: str) -> RankerResult:
+    """Train, evaluate on the temporal holdout, register and evaluate as ``recsys-gbdt``. Returns the
+    verdict; a promotable result carries the artifact to publish. A rejected candidate is already recorded
+    as rejected; a promotable one is applied by the pipeline once the generation is published."""
     gbdt_version = f"gbdt-{model_version}"
-    reg = registry.scoped(GBDT_CHAMPION_KEY)
 
     frame = training.read_dataset(inputs.dataset.path)
     frame = training.limit_lists(frame, settings.gbdt_max_list, settings.gbdt_max_lists)
     matrix = training.build_matrix(frame, inputs.popularity, inputs.attributes)
     split = training.temporal_split(matrix.frame, settings.gbdt_holdout_fraction)
     params: dict[str, Any] = {
-        "dataset": inputs.dataset.lineage,
-        "feature_list": list(contract.RANKING_FEATURES),
-        "features": {
-            "item_popularity": inputs.popularity.lineage,
-            "item_attributes": inputs.attributes.lineage if inputs.attributes else None,
-        },
         "rows": matrix.counts,
         "holdout": {
             "fraction": settings.gbdt_holdout_fraction,
@@ -195,49 +191,51 @@ def run_stage(
             "train_lists": split.train_lists,
             "test_lists": split.test_lists,
         },
-        "hyper": {
-            "trees": settings.gbdt_trees,
-            "max_depth": settings.gbdt_max_depth,
-            "learning_rate": settings.gbdt_learning_rate,
-            "min_leaf": settings.gbdt_min_leaf,
-            "ctr_min_impressions": settings.gbdt_ctr_min_impressions,
-        },
     }
-    metrics: dict[str, Any] = {"eval_protocol": contract.EVAL_PROTOCOL}
+    lineage: dict[str, Any] = {
+        "eval_protocol": contract.EVAL_PROTOCOL,
+        "model_version": model_version,
+        **rc.dataset_lineage(inputs.dataset.lineage),
+        **rc.snapshot_lineage("item_popularity", inputs.popularity.lineage),
+        **rc.snapshot_lineage("item_attributes", inputs.attributes.lineage if inputs.attributes else None),
+    }
+    run_id = rc.start_run(
+        f"recsys-gbdt-{model_version}",
+        {
+            "gbdt_trees": settings.gbdt_trees,
+            "gbdt_max_depth": settings.gbdt_max_depth,
+            "gbdt_learning_rate": settings.gbdt_learning_rate,
+            "gbdt_min_leaf": settings.gbdt_min_leaf,
+            "gbdt_holdout_fraction": settings.gbdt_holdout_fraction,
+        },
+    )
+    metrics: dict[str, float] = {}
     context: dict[str, Any] = {}
 
     def reject(reason: str) -> RankerResult:
-        candidate = ModelMetadata(
-            model_version=gbdt_version,
-            model_name=MODEL_NAME,
-            model_type="gbdt",
-            metrics=metrics,
-            parameters=params,
-            status="candidate",
-        )
-        reg.register_model(candidate)
-        decision = PromotionDecision(False, reason, candidate)
-        reg.reject(decision, reason=reason)
+        decision = rc.register_rejected(rc.GBDT_MODEL, run_id, reason, lineage)
         log.warning("GBDT candidate %s rejected: %s", gbdt_version, reason)
         return RankerResult(
-            False, reason, _summary(gbdt_version, "rejected", reason, metrics, params), None, decision, reg
+            decision, reason, _summary(gbdt_version, "rejected", reason, metrics, params, context), None
         )
 
     if len(matrix.frame) == 0 or split.train_lists == 0 or split.test_lists == 0:
         return reject(
             f"no usable rows: {matrix.counts['rows']} rows after the point-in-time join "
-            f"({matrix.counts['rows_dropped_no_snapshot']} dropped for lack of an earlier snapshot), "
-            f"{split.train_lists} train and {split.test_lists} holdout impressions"
+            f"({matrix.counts['rows_dropped_no_snapshot']} dropped for lack of an earlier snapshot) "
+            f"and {split.train_lists} train and {split.test_lists} holdout impressions"
         )
 
     # ── evaluation: train on the split, judge on the holdout ─────────────────
-    x_eval, source_eval = training.apply_debiased_ctr(matrix, split.train, settings.gbdt_ctr_min_impressions)
+    x_eval, _source_eval = training.apply_debiased_ctr(matrix, split.train, settings.gbdt_ctr_min_impressions)
     eval_model = _fit(settings, x_eval, matrix, split.train)
-    ndcg, scored_lists = _ndcg(matrix, split.test, eval_model.predict(x_eval[split.test]))
+    scores = eval_model.predict(x_eval[split.test])
+    ndcg, scored_lists = _ndcg(matrix, split.test, scores)
     baseline, _ = _ndcg(matrix, split.test, training.baseline_scores(x_eval[split.test]))
     metrics.update(
         {
             PRIMARY_METRIC: round(ndcg, 6),
+            "recall@10": round(_recall(matrix, split.test, scores), 6),
             "baseline_ndcg@10": round(baseline, 6),
             "holdout_lists_with_positive": scored_lists,
             "train_events_count": int(len(split.train)),
@@ -247,12 +245,10 @@ def run_stage(
     if scored_lists == 0:
         return reject("no usable holdout: no held-out impression has a click or an add-to-cart")
     context.update(_evaluate_context(settings, matrix, split))
-
-    threshold = settings.promotion_min_relative_improvement
-    if not settings.promotion_force and not ndcg > baseline * (1.0 + threshold):
+    if ndcg < baseline * BASELINE_MARGIN:
         return reject(
-            f"{PRIMARY_METRIC} {ndcg:.4f} does not beat the fixed-weight baseline {baseline:.4f} "
-            f"by the required {threshold:.2%}"
+            f"below fixed-weight baseline: holdout {PRIMARY_METRIC} {ndcg:.6f} < "
+            f"baseline {baseline:.6f} x {BASELINE_MARGIN}"
         )
 
     # ── the model that ships: refit on every row, CTR recomputed over all of them ──
@@ -261,48 +257,20 @@ def run_stage(
     final = _fit(settings, x_final, matrix, everything)
     counts = {s: int((source_final == s).sum()) for s in (training.DEBIASED, training.FALLBACK)}
     params["ctr_source_counts"] = counts
-    params["trees"] = len(final.trees)
     if settings.gbdt_rows_path:
         _write_rows(settings.gbdt_rows_path, matrix, x_final, source_final, split)
 
-    candidate = ModelMetadata(
-        model_version=gbdt_version,
-        model_name=MODEL_NAME,
-        model_type="gbdt",
-        metrics=metrics,
-        parameters=params,
-        status="candidate",
-    )
-    reg.register_model(candidate)
-    decision = reg.evaluate(
-        gbdt_version,
-        primary_metric=PRIMARY_METRIC,
-        min_relative_improvement=threshold,
-        min_coverage_ratio=settings.promotion_min_coverage_ratio,
-        force=settings.promotion_force,
-    )
-    if not decision.promoted:
-        reg.reject(decision)
-        log.warning("GBDT candidate %s rejected by the registry gate: %s", gbdt_version, decision.reason)
-        return RankerResult(
-            False,
-            decision.reason,
-            _summary(gbdt_version, "rejected", decision.reason, metrics, params, context),
-            None,
-            decision,
-            reg,
-        )
     artifact = gbdt.to_artifact(
         final, model_version=gbdt_version, generation=model_version, metrics=dict(metrics)
     )
-    return RankerResult(
-        True,
-        decision.reason,
-        _summary(gbdt_version, "promoted", decision.reason, metrics, params, context),
-        artifact,
-        decision,
-        reg,
-    )
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "ranker.json").write_text(json.dumps(artifact), encoding="utf-8")
+        decision = rc.evaluate(rc.GBDT_MODEL, run_id, metrics, Path(tmp), lineage)
+    summary = _summary(gbdt_version, decision.outcome, decision.reason, metrics, params, context)
+    if decision.outcome != "promotable":
+        log.warning("GBDT candidate %s rejected by the registry gate: %s", gbdt_version, decision.reason)
+        return RankerResult(decision, decision.reason, summary, None)
+    return RankerResult(decision, decision.reason, summary, artifact)
 
 
 def _summary(

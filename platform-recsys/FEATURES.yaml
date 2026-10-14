@@ -406,8 +406,8 @@ features:
       login: guest
       data: "The real recsys job image run against the stack in an isolated Redis DB / Qdrant namespace (mlr_job_flow)."
     acceptance:
-      - "When the recsys job runs twice on the same governed dataset"
-      - "Then the second run's drift names the first as baseline with a PSI and level per feature, none flagged"
+      - "When the recsys job runs a second time on a governed dataset on which the model improves ndcg@10"
+      - "Then the second run's drift names the first as baseline with a PSI and level per feature, none flagged, and the second run is promoted"
     tags: [recsys, recommendations, batch]
     status: automated
     covered_by: "recommendations/mlr_ml_recsys.feature::A second run records its drift against the first"
@@ -1359,3 +1359,1002 @@ features:
     tags: [recsys, unit, consent]
     status: not-testable
     notes: "recsys-consent-and-context: unit-verified: platform-recsys/tests/test_ranker_debias.py test_sparse_list_cell_falls_back_to_position_only. Not producible end to end."
+
+  - id: recsys.rat-01-a-better-als-candidate-is-promotable-and-becomes-champion-af
+    title: "RAT-01 A better ALS candidate is promotable and becomes champion after its publish"
+    persona: guest
+    priority: P1
+    summary: "A better ALS candidate is promotable and becomes champion after its publish"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the nightly job runs with champion metrics `ndcg@10=0.100, coverage@10=0.50` and the candidate scores `ndcg@10=0.102, coverage@10=0.45`"
+      - "Then MLflow shows a new `recsys-als` version tagged `gate.outcome=promoted` after the publish, the alias `champion` names it and the old holder is under `previous`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_als_promotable_then_applied_after_publish. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/recsys_auto_train.feature::RAT-15 Gate pass swaps the generation pointer."
+
+  - id: recsys.rat-02-a-candidate-below-the-improvement-threshold-is-rejected
+    title: "RAT-02 A candidate below the improvement threshold is rejected"
+    persona: guest
+    priority: P1
+    summary: "A candidate below the improvement threshold is rejected"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the candidate scores `ndcg@10=0.1005` against a champion at `0.100`"
+      - "Then the new version is tagged `gate.outcome=rejected` with a `gate.reason` naming `ndcg@10`, and the alias `champion` still names the old version"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_als_below_threshold_rejected. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/recsys_auto_train.feature::Gate fail keeps the previous generation."
+
+  - id: recsys.rat-03-the-coverage-guard-rejects-a-candidate-that-wins-on-ndcg
+    title: "RAT-03 The coverage guard rejects a candidate that wins on ndcg"
+    persona: guest
+    priority: P1
+    summary: "The coverage guard rejects a candidate that wins on ndcg"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the candidate scores `ndcg@10=0.150` and `coverage@10=0.39` against a champion with `coverage@10=0.50`"
+      - "Then the version is tagged `gate.outcome=rejected` with a `gate.reason` naming `coverage@10`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_als_coverage_guard. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-04-boundary-exactly-1-and-exactly-0-8x-passes
+    title: "RAT-04 Boundary, exactly +1 % and exactly 0.8x passes"
+    persona: guest
+    priority: P1
+    summary: "Boundary, exactly +1 % and exactly 0.8x passes"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the candidate scores `ndcg@10=0.101` and `coverage@10=0.40` against a champion at `0.100` and `0.50`"
+      - "Then the version is tagged `gate.outcome=promotable` by `evaluate`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_als_boundary_values_pass. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-05-a-degenerate-candidate-is-registered-as-rejected-without-a-m
+    title: "RAT-05 A degenerate candidate is registered as rejected without a metric gate call"
+    persona: guest
+    priority: P1
+    summary: "A degenerate candidate is registered as rejected without a metric gate call"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the structural check finds an empty Top-N list for a user"
+      - "Then the version is registered through `register_rejected` with `gate.outcome=rejected` and `gate.reason` carrying the structural reason, `evaluate` is not called, no alias moves, nothing is published and the job exits 0"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_structural_reject_uses_register_rejected. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/generation_publish.feature::A one-size-fits-all model is rejected."
+
+  - id: recsys.rat-06-a-run-with-no-usable-holdout-is-not-registered
+    title: "RAT-06 A run with no usable holdout is not registered"
+    persona: guest
+    priority: P1
+    summary: "A run with no usable holdout is not registered"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the temporal split leaves no test events"
+      - "Then the job registers no version, moves no alias, publishes nothing and exits 0 with decision `skipped`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_no_holdout_not_a_candidate. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/pipeline_eval_registry.feature::A run with no usable holdout is not a candidate."
+
+  - id: recsys.rat-37-the-first-als-candidate-with-no-champion-is-promotable
+    title: "RAT-37 The first ALS candidate with no champion is promotable"
+    persona: guest
+    priority: P1
+    summary: "The first ALS candidate with no champion is promotable"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `recsys-als` has no `champion` and the candidate has finite `ndcg@10` and `coverage@10`"
+      - "Then the version is tagged `gate.outcome=promotable` with a `gate.reason` saying there is no champion"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_first_candidate_without_champion. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/pipeline_eval_registry.feature::The first run bootstraps the registry."
+
+  - id: recsys.rat-38-a-missing-or-non-finite-policy-metric-rejects-the-candidate
+    title: "RAT-38 A missing or non-finite policy metric rejects the candidate"
+    persona: guest
+    priority: P1
+    summary: "A missing or non-finite policy metric rejects the candidate"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the candidate's `coverage@10` is NaN"
+      - "Then the version is registered with `gate.outcome=rejected` and a `gate.reason` naming `coverage@10`, no exception is raised and the job exits 0"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_nan_guard_metric_rejected. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-39-a-changed-evaluation-protocol-is-judged-on-the-floors-only
+    title: "RAT-39 A changed evaluation protocol is judged on the floors only"
+    persona: guest
+    priority: P1
+    summary: "A changed evaluation protocol is judged on the floors only"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the champion's `lineage.eval_protocol` is `leave-last-new-item-v0` and the candidate's is `leave-last-new-item-v1`"
+      - "Then the metrics are not compared, the version is judged on the policy floors only and its `gate.reason` is `eval_protocol changed: leave-last-new-item-v0 -> leave-last-new-item-v1`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_protocol_change_floors_only. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/trained_recs_local.feature::Metrics from another evaluation protocol are not compared."
+
+  - id: recsys.rat-07-three-models-become-promotable-and-ride-one-generation
+    title: "RAT-07 Three models become promotable and ride one generation"
+    persona: guest
+    priority: P1
+    summary: "Three models become promotable and ride one generation"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the ALS, GBDT and two-tower candidates are all evaluated `promotable` (the e2e fixture is sized so that they are, against seeded weak champions) and the publish succeeds"
+      - "Then each of `recsys-als`, `recsys-gbdt` and `recsys-two-tower` has a new version tagged `gate.outcome=promoted`, and the generation in Redis and Qdrant holds the ranker key and the two-tower collection"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_all_three_promoted_in_one_generation. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/recsys_auto_train.feature::RAT-34 The nightly chain end to end on the stack."
+
+  - id: recsys.rat-08-a-rejected-gbdt-leaves-the-ranker-out-of-the-generation
+    title: "RAT-08 A rejected GBDT leaves the ranker out of the generation"
+    persona: guest
+    priority: P1
+    summary: "A rejected GBDT leaves the ranker out of the generation"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When ALS is `promotable` and the GBDT candidate's `ndcg@10` is below its champion's by the policy rule"
+      - "Then `recsys-gbdt` has a version tagged `gate.outcome=rejected`, its `champion` alias is unchanged, the new generation has no `recs:v1:gen:<generation>:ranker` key, and the job exits 0"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_gbdt_rejected_generation_ships_without_ranker. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-09-a-rejected-two-tower-leaves-its-vectors-out-of-the-generatio
+    title: "RAT-09 A rejected two-tower leaves its vectors out of the generation"
+    persona: guest
+    priority: P1
+    summary: "A rejected two-tower leaves its vectors out of the generation"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When ALS is `promotable` and the two-tower candidate's `recall@10` is below the champion's by the policy rule"
+      - "Then `recsys-two-tower` has a version tagged `gate.outcome=rejected`, its `champion` alias is unchanged, the new generation has no two-tower Qdrant collection, and the job exits 0"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_two_tower_rejected_generation_ships_without_vectors. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-10-a-rejected-als-candidate-stops-gbdt-and-two-tower
+    title: "RAT-10 A rejected ALS candidate stops GBDT and two-tower"
+    persona: guest
+    priority: P1
+    summary: "A rejected ALS candidate stops GBDT and two-tower"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the ALS candidate is rejected"
+      - "Then no `recsys-gbdt` or `recsys-two-tower` version is created, and nothing is published"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_als_rejected_skips_other_stages. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-11-a-stage-that-raises-rejects-the-evaluated-candidates-and-pub
+    title: "RAT-11 A stage that raises rejects the evaluated candidates and publishes nothing"
+    persona: guest
+    priority: P1
+    summary: "A stage that raises rejects the evaluated candidates and publishes nothing"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT or two-tower stage raises during training after ALS was evaluated `promotable`"
+      - "Then `mark_rejected` is called on the ALS version with a reason starting `gbdt stage failed` or `two-tower stage failed`, every `champion` alias is unchanged, serving is unchanged and the job exits 1"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_stage_failure_marks_rejected_and_exits_1. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-12-the-first-two-tower-candidate-must-meet-the-policy-floors
+    title: "RAT-12 The first two-tower candidate must meet the policy floors"
+    persona: guest
+    priority: P1
+    summary: "The first two-tower candidate must meet the policy floors"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `recsys-two-tower` has no `champion` and the candidate scores `recall@10=0`"
+      - "Then the version is tagged `gate.outcome=rejected` with a `gate.reason` naming the `recall@10` floor of 0.000001"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_two_tower.py::test_first_candidate_with_zero_recall_rejected. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-62-a-model-below-the-fixed-weight-baseline-is-structurally-reje
+    title: "RAT-62 A model below the fixed-weight baseline is structurally rejected"
+    persona: guest
+    priority: P1
+    summary: "A model below the fixed-weight baseline is structurally rejected"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT candidate's holdout `ndcg@10` is 0.2000 and the fixed-weight ranker scores `baseline_ndcg@10=0.2000` on the same holdout (below 0.2020 = baseline x 1.01)"
+      - "Then the version is registered with `gate.outcome=rejected` through `register_rejected`, its `gate.reason` starts `below fixed-weight baseline`, the policy is not evaluated and the generation ships without a ranker artifact"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_ranker_stage.py::test_below_baseline_is_structurally_rejected. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-40-an-equal-gbdt-model-does-not-churn-the-champion
+    title: "RAT-40 An equal GBDT model does not churn the champion"
+    persona: guest
+    priority: P1
+    summary: "An equal GBDT model does not churn the champion"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT candidate's `ndcg@10` equals its champion's"
+      - "Then the version is tagged `gate.outcome=rejected` with a `gate.reason` naming `ndcg@10`, and `champion` is unchanged"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_gbdt.py::test_equal_metric_rejected. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-41-boundary-exactly-0-5-passes-the-gbdt-and-two-tower-policies
+    title: "RAT-41 Boundary, exactly +0.5 % passes the GBDT and two-tower policies"
+    persona: guest
+    priority: P1
+    summary: "Boundary, exactly +0.5 % passes the GBDT and two-tower policies"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT candidate has `ndcg@10=0.2010` against a champion at `0.2000` with `recall@10` at 0.95 times the champion's, and the two-tower candidate has `recall@10=0.2010` against `0.2000` with `coverage@10` 0.8 times the champion's and `recall@10` above 0"
+      - "Then both versions are tagged `gate.outcome=promotable`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_gbdt.py::test_boundary_inclusive, platform-recsys/tests/test_gate_two_tower.py::test_boundary_inclusive. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-42-a-champion-without-a-guard-metric-skips-that-guard
+    title: "RAT-42 A champion without a guard metric skips that guard"
+    persona: guest
+    priority: P1
+    summary: "A champion without a guard metric skips that guard"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the GBDT champion (seeded from Redis) has no `recall@10`"
+      - "Then the guard is skipped, the decision is made on `ndcg@10`, and the `gate.reason` notes the skipped guard"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_gbdt.py::test_champion_without_guard_metric. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-13-metrics-are-computed-on-pairs-the-towers-did-not-train-on
+    title: "RAT-13 Metrics are computed on pairs the towers did not train on"
+    persona: guest
+    priority: P1
+    summary: "Metrics are computed on pairs the towers did not train on"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the stage runs on 1000 pairs with the default fraction and seed 42"
+      - "Then exactly 100 pairs are held out, none of them appears in the training pairs, and the registered version carries numeric `recall@10` and `coverage@10`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_two_tower_holdout.py::test_holdout_is_disjoint_and_reproducible. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-14-fewer-than-10-pairs-is-not-a-candidate
+    title: "RAT-14 Fewer than 10 pairs is not a candidate"
+    persona: guest
+    priority: P1
+    summary: "Fewer than 10 pairs is not a candidate"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the stage has 9 pairs"
+      - "Then no `recsys-two-tower` version is registered, the vectors are not published and the job exits 0 with `two_tower` decision `skipped`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_two_tower_holdout.py::test_too_few_pairs_skipped. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-43-exactly-10-pairs-is-enough
+    title: "RAT-43 Exactly 10 pairs is enough"
+    persona: guest
+    priority: P1
+    summary: "Exactly 10 pairs is enough"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the stage has 10 pairs with the default fraction"
+      - "Then one pair is held out and a `recsys-two-tower` version with numeric metrics is registered"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_two_tower_holdout.py::test_ten_pairs_is_a_candidate. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-44-a-holdout-fraction-outside-0-1-is-a-configuration-error
+    title: "RAT-44 A holdout fraction outside (0, 1) is a configuration error"
+    persona: guest
+    priority: P1
+    summary: "A holdout fraction outside (0, 1) is a configuration error"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `TWO_TOWER_HOLDOUT_FRACTION` is `0`, `1` or `1.5`"
+      - "Then the job exits 2 before starting Spark and registers nothing"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_config.py::test_holdout_fraction_bounds. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-15-gate-pass-swaps-the-generation-pointer
+    title: "RAT-15 Gate pass swaps the generation pointer"
+    persona: guest
+    priority: P1
+    summary: "Gate pass swaps the generation pointer"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the ALS candidate is `promotable` with generation `g2` while `recs:v1:serving` names `g1`"
+      - "Then `recs:v1:serving` names `g2`, `recs:v1:previous` names `g1`, and team-ai `Recommend` answers from `g2`'s lists and vectors"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-15 Gate pass swaps the generation pointer"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::RAT-15 Gate pass swaps the generation pointer. Scenario id RAT-15; green against the implementation."
+
+  - id: recsys.rat-16-gate-fail-keeps-the-previous-generation
+    title: "RAT-16 Gate fail keeps the previous generation"
+    persona: guest
+    priority: P1
+    summary: "Gate fail keeps the previous generation"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the ALS candidate is rejected while `recs:v1:serving` names `g1`"
+      - "Then `recs:v1:serving` still names `g1`, `recs:v1:previous` is unchanged, no `g2` keys or collections exist, and `Recommend` answers are identical to before the run"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::Gate fail keeps the previous generation"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::Gate fail keeps the previous generation. Scenario id RAT-16; green against the implementation."
+
+  - id: recsys.rat-17-a-failed-publish-rejects-the-versions-and-leaves-every-alias
+    title: "RAT-17 A failed publish rejects the versions and leaves every alias alone"
+    persona: guest
+    priority: P1
+    summary: "A failed publish rejects the versions and leaves every alias alone"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the Qdrant write fails after the evaluation returned `promotable`"
+      - "Then the pointer is not swapped, `apply` is never called, each evaluated version is tagged `gate.outcome=rejected` with `gate.reason` `publish failed: <ExceptionType>`, every `champion` and `previous` alias is as before, and the job exits 1"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_publish_failure_marks_rejected_aliases_untouched. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-45-a-crash-between-evaluate-and-publish-leaves-aliases-unchange
+    title: "RAT-45 A crash between evaluate and publish leaves aliases unchanged"
+    persona: guest
+    priority: P1
+    summary: "A crash between evaluate and publish leaves aliases unchanged"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the process is killed after `evaluate` returned `promotable` and before the publish step"
+      - "Then every `champion` and `previous` alias is unchanged, the version stays `promotable`, serving is unchanged, and the next run's gate compares its candidate against the old champion and ignores the stale `promotable` version"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_crash_after_evaluate_leaves_aliases. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-46-the-registry-going-down-at-apply-time-is-a-non-zero-exit-wit
+    title: "RAT-46 The registry going down at apply time is a non-zero exit with a named gap"
+    persona: guest
+    priority: P1
+    summary: "The registry going down at apply time is a non-zero exit with a named gap"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the pointer swap succeeded and `apply` fails with the registry unavailable"
+      - "Then the job exits 1 and logs the models whose `champion` was not moved; models already applied stay applied, the rest stay `promotable`, and the next run compares against each model's current champion"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_apply_failure_exits_1_and_logs_gap. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-18-a-rejected-or-skipped-run-still-refreshes-the-serving-ttl
+    title: "RAT-18 A rejected or skipped run still refreshes the serving TTL"
+    persona: guest
+    priority: P1
+    summary: "A rejected or skipped run still refreshes the serving TTL"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the gate rejects the candidate"
+      - "Then the keys of the serving and previous generations have a TTL of 172800 s again"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_rejected_run_refreshes_ttl. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-19-registry-down-at-start
+    title: "RAT-19 Registry down at start"
+    persona: guest
+    priority: P1
+    summary: "Registry down at start"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `MLFLOW_TRACKING_URI` points at a port with no listener"
+      - "Then the job exits 1 within 20 s of start, Spark is not started, `recs:v1:serving` and `recs:v1:previous` are unchanged, and no new Qdrant collection or Redis generation key exists"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-19 Registry down at start"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::RAT-19 Registry down at start. Scenario id RAT-19; green against the implementation."
+
+  - id: recsys.rat-20-registry-goes-down-after-the-als-evaluation
+    title: "RAT-20 Registry goes down after the ALS evaluation"
+    persona: guest
+    priority: P1
+    summary: "Registry goes down after the ALS evaluation"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the registry stops answering after `evaluate` of the ALS candidate returned `promotable`, during the GBDT evaluation"
+      - "Then the job exits 1 within 12 s of that call, publishes nothing, no alias moves, and versions may remain `promotable` (`mark_rejected` cannot run while the registry is down), and a later run with the registry back compares against the unchanged champion"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_registry_fail_closed.py::test_outage_after_als_evaluate_publishes_nothing. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-21-a-missing-tracking-uri-is-a-configuration-error
+    title: "RAT-21 A missing tracking URI is a configuration error"
+    persona: guest
+    priority: P1
+    summary: "A missing tracking URI is a configuration error"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `MLFLOW_TRACKING_URI` is unset or empty"
+      - "Then the job exits 2 before starting Spark and registers nothing"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_config.py::test_mlflow_uri_required. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-47-an-unexpected-stage-exception-exits-1
+    title: "RAT-47 An unexpected stage exception exits 1"
+    persona: guest
+    priority: P1
+    summary: "An unexpected stage exception exits 1"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the ALS trainer raises an unexpected exception"
+      - "Then the job exits 1, registers no version and publishes nothing"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_gates.py::test_unexpected_exception_exit_code. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-22-a-26-hour-old-dataset-is-refused
+    title: "RAT-22 A 26-hour-old dataset is refused"
+    persona: guest
+    priority: P1
+    summary: "A 26-hour-old dataset is refused"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the newest snapshot is 26 hours old and `MAX_DATASET_AGE_MINUTES=1500`"
+      - "Then the job exits 2, MLflow has no new version of any `recsys-*` model, and serving is unchanged"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-22 A 26-hour-old dataset is refused"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::RAT-22 A 26-hour-old dataset is refused. Scenario id RAT-22; green against the implementation."
+
+  - id: recsys.rat-23-boundary-a-dataset-just-inside-the-window-trains
+    title: "RAT-23 Boundary, a dataset just inside the window trains"
+    persona: guest
+    priority: P1
+    summary: "Boundary, a dataset just inside the window trains"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the newest snapshot is 1499 minutes old and `MAX_DATASET_AGE_MINUTES=1500`"
+      - "Then the job proceeds to training"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_dataset.py::test_age_guard_boundary. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-24-the-guard-is-off-when-the-setting-is-0
+    title: "RAT-24 The guard is off when the setting is 0"
+    persona: guest
+    priority: P1
+    summary: "The guard is off when the setting is 0"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `MAX_DATASET_AGE_MINUTES=0` and the snapshot is 30 days old"
+      - "Then the job proceeds to training"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_dataset.py::test_age_guard_disabled. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-48-a-negative-age-setting-is-a-configuration-error
+    title: "RAT-48 A negative age setting is a configuration error"
+    persona: guest
+    priority: P1
+    summary: "A negative age setting is a configuration error"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `MAX_DATASET_AGE_MINUTES=-5`"
+      - "Then the job exits 2 before starting Spark"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_config.py::test_max_dataset_age_bounds. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-25-a-full-run-leaks-no-user-id
+    title: "RAT-25 A full run leaks no user id"
+    persona: guest
+    priority: P1
+    summary: "A full run leaks no user id"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a full run completes on a dataset whose user keys are `u-0001` ... `u-0050`"
+      - "Then a scan of every param, metric, tag (system tags and run name included) and the contents of every artifact file of the run's MLflow runs finds none of those keys, and no artifact named like user factors exists"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-25 A full run leaks no user id"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::RAT-25 A full run leaks no user id. Scenario id RAT-25; green against the implementation."
+
+  - id: recsys.rat-49-the-pii-scan-detects-a-planted-key
+    title: "RAT-49 The PII scan detects a planted key"
+    persona: guest
+    priority: P1
+    summary: "The PII scan detects a planted key"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the scan runs against a run in which the key `u-0001` was deliberately logged as a param and as artifact text"
+      - "Then the scan reports both hits (negative control: the scan can fail)"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-49 The PII scan detects a planted key"
+    notes: "recsys-auto-train: e2e recommendations/recsys_auto_train.feature::RAT-49 The PII scan detects a planted key. Scenario id RAT-49; green against the implementation."
+
+  - id: recsys.rat-26-the-adapter-rejects-a-payload-keyed-by-user-id
+    title: "RAT-26 The adapter rejects a payload keyed by user id"
+    persona: guest
+    priority: P1
+    summary: "The adapter rejects a payload keyed by user id"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When code passes a param dict or artifact path holding a user key to the recsys registry adapter"
+      - "Then the adapter raises before any MLflow call is made"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_registry_client.py::test_user_keyed_payload_refused. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-50-the-als-artifact-holds-item-factors-only
+    title: "RAT-50 The ALS artifact holds item factors only"
+    persona: guest
+    priority: P1
+    summary: "The ALS artifact holds item factors only"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the ALS candidate's artifact is built from a trained model with 50 users and 20 items"
+      - "Then the artifact directory contains only the item factors file with 20 rows, and no file or column holds a user key or a user factor"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_registry_client.py::test_als_artifact_is_item_factors_only. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-35-the-nightly-job-is-denied-a-force-promotion
+    title: "RAT-35 The nightly job is denied a force promotion"
+    persona: guest
+    priority: P1
+    summary: "The nightly job is denied a force promotion"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the gate rejects the candidate and the job environment sets the removed `PROMOTION_FORCE=true`"
+      - "Then the override is denied: the version stays `gate.outcome=rejected`, no `gate.forced` tag is set and the `champion` alias is unchanged (only `python -m modelregistry promote --force --reason` by an engineer can force)"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gate_als.py::test_nightly_job_cannot_force. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-27-migration-seeds-the-current-champion-as-v1
+    title: "RAT-27 Migration seeds the current champion as v1"
+    persona: guest
+    priority: P1
+    summary: "Migration seeds the current champion as v1"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When Redis holds a champion `als-2026-10-12` with `ndcg@10=0.100`, `coverage@10=0.5` and `eval_protocol=leave-last-new-item-v1`, the registry has no `recsys-als` version, and `migrate-registry` runs"
+      - "Then `recsys-als` has version 1 with those metrics, `lineage.eval_protocol=leave-last-new-item-v1`, `gate.outcome=promoted`, `gate.reason` starting `seed:` and `@champion`; the next nightly candidate is compared against version 1 instead of auto-promoting"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_migrate_registry.py::test_seeds_v1_champion. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-28-migration-is-idempotent
+    title: "RAT-28 Migration is idempotent"
+    persona: guest
+    priority: P1
+    summary: "Migration is idempotent"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `migrate-registry` runs a second time"
+      - "Then `recsys-als` still has exactly one version, the `champion` alias is unchanged, and the command exits 0"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_migrate_registry.py::test_second_run_is_noop. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-29-migration-with-the-registry-down-fails-and-changes-nothing
+    title: "RAT-29 Migration with the registry down fails and changes nothing"
+    persona: guest
+    priority: P1
+    summary: "Migration with the registry down fails and changes nothing"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `migrate-registry` runs while MLflow is unreachable"
+      - "Then it exits 1 and the Redis keys are not deleted"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_migrate_registry.py::test_registry_down_exit_nonzero. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-30-no-code-path-touches-the-old-registry
+    title: "RAT-30 No code path touches the old registry"
+    persona: guest
+    priority: P1
+    summary: "No code path touches the old registry"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the recsys package is imported and a full in-memory run executes"
+      - "Then `recsys.registry` does not exist and no Redis key beginning `recs:model:` is written"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_no_redis_registry.py::test_no_model_keys_written. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-51-a-redis-champion-lacking-a-guard-metric-still-seeds-and-the
+    title: "RAT-51 A Redis champion lacking a guard metric still seeds and the guard is skipped"
+    persona: guest
+    priority: P1
+    summary: "A Redis champion lacking a guard metric still seeds and the guard is skipped"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the Redis champion's metrics have `ndcg@10` but no `coverage@10`, migration runs, and the next ALS candidate is evaluated"
+      - "Then version 1 is seeded with the metrics it has, and the candidate's `gate.reason` notes the skipped `coverage@10` guard"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_migrate_registry.py::test_seed_without_guard_metric. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-52-a-redis-champion-with-no-eval-protocol-is-judged-on-floors-o
+    title: "RAT-52 A Redis champion with no eval_protocol is judged on floors on the first run"
+    persona: guest
+    priority: P1
+    summary: "A Redis champion with no eval_protocol is judged on floors on the first run"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the Redis meta has no `eval_protocol` and the next ALS candidate is evaluated"
+      - "Then the champion has no `lineage.eval_protocol`, the candidate is judged on the floors only, and the `gate.reason` starts `eval_protocol changed:`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_migrate_registry.py::test_seed_without_protocol_floors_first_run. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/trained_recs_local.feature::Metrics from another evaluation protocol are not compared."
+
+  - id: recsys.rat-53-seeding-a-model-that-already-has-versions-is-refused-and-ski
+    title: "RAT-53 Seeding a model that already has versions is refused and skipped"
+    persona: guest
+    priority: P1
+    summary: "Seeding a model that already has versions is refused and skipped"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `recsys-gbdt` already has a version and `migrate-registry` runs"
+      - "Then `seed` is refused for that model, the model is left unchanged, the other models are still seeded, and the command exits 0"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_migrate_registry.py::test_existing_versions_left_alone. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-31-rollback-restores-serving-and-the-champion-alias
+    title: "RAT-31 Rollback restores serving and the champion alias"
+    persona: guest
+    priority: P1
+    summary: "Rollback restores serving and the champion alias"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `recs:v1:serving` names `g2`, `previous` names `g1`, and `rollback` runs"
+      - "Then `recs:v1:serving` names `g1`, `recs:v1:previous` names `g2`, and `recsys-als` `@champion` names the version that built `g1`"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_generations.py::test_rollback_moves_registry_champion. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/generation_publish.feature::Rolling back restores the earlier model."
+
+  - id: recsys.rat-32-rollback-with-no-previous-generation-is-refused
+    title: "RAT-32 Rollback with no previous generation is refused"
+    persona: guest
+    priority: P1
+    summary: "Rollback with no previous generation is refused"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When `recs:v1:previous` is unset and `rollback` runs"
+      - "Then it exits 2 and no alias or pointer changes"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_generations.py::test_rollback_without_previous_refused. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach. Also exercised by recommendations/generation_publish.feature::Rollback without a previous generation is refused."
+
+  - id: recsys.rat-54-rollback-to-an-artifact-less-version-is-refused
+    title: "RAT-54 Rollback to an artifact-less version is refused"
+    persona: guest
+    priority: P1
+    summary: "Rollback to an artifact-less version is refused"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the `previous` version of `recsys-als` is the metrics-only v1 created by `seed`"
+      - "Then `rollback` exits 2 and `champion`, `previous` and the pointer are unchanged"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_generations.py::test_rollback_to_artifactless_refused. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-55-a-model-that-cannot-roll-back-stops-the-whole-rollback
+    title: "RAT-55 A model that cannot roll back stops the whole rollback"
+    persona: guest
+    priority: P1
+    summary: "A model that cannot roll back stops the whole rollback"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the serving generation carries a GBDT ranker and `recsys-gbdt` has no `previous`"
+      - "Then `rollback` exits 2 before any alias moves, and `recsys-als` is not swapped"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_generations.py::test_partial_rollback_refused_before_any_change. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-60-rollback-is-refused-when-serving-and-the-registry-are-out-of
+    title: "RAT-60 Rollback is refused when serving and the registry are out of step"
+    persona: guest
+    priority: P1
+    summary: "Rollback is refused when serving and the registry are out of step"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When serving names `g2` but `recsys-als@champion` still names the version that built `g1` (for example after RAT-46)"
+      - "Then `rollback` exits 2 and `champion`, `previous` and the pointer are unchanged"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_generations.py::test_rollback_refused_when_serving_ahead_of_registry. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-61-models-present-in-only-one-generation-are-not-swapped
+    title: "RAT-61 Models present in only one generation are not swapped"
+    persona: guest
+    priority: P1
+    summary: "Models present in only one generation are not swapped"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When serving `g2` has a GBDT ranker, the previous `g1` has none, and `rollback` runs"
+      - "Then `recsys-als` is swapped, `recsys-gbdt` `champion` and `previous` are unchanged, the log notes the omission, the pointer is swapped and the command exits 0"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_generations.py::test_rollback_swaps_only_models_in_both_generations. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-56-registry-down-during-rollback-changes-nothing
+    title: "RAT-56 Registry down during rollback changes nothing"
+    persona: guest
+    priority: P1
+    summary: "Registry down during rollback changes nothing"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When MLflow becomes unreachable after `recsys-als` was swapped and before `recsys-gbdt` is"
+      - "Then `recsys-als` is swapped back, `recs:v1:serving` is unchanged, and the command exits 1"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_generations.py::test_registry_down_mid_rollback_restores. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-57-registry-down-at-the-start-of-rollback
+    title: "RAT-57 Registry down at the start of rollback"
+    persona: guest
+    priority: P1
+    summary: "Registry down at the start of rollback"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When MLflow is unreachable when `rollback` starts"
+      - "Then the command exits 1 within 20 s and nothing changes"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_generations.py::test_rollback_registry_down_exit_1. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-58-the-second-run-reads-the-first-run-s-sketches
+    title: "RAT-58 The second run reads the first run's sketches"
+    persona: guest
+    priority: P1
+    summary: "The second run reads the first run's sketches"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the job runs twice on the same dataset and the first run's version is `champion`"
+      - "Then the second run's drift names the first run's version as baseline and reports a PSI for each of the four features"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_drift.py::test_baseline_from_champion_artifact. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-59-a-seeded-champion-has-no-sketches-and-gives-no-baseline
+    title: "RAT-59 A seeded champion has no sketches and gives no_baseline"
+    persona: guest
+    priority: P1
+    summary: "A seeded champion has no sketches and gives no_baseline"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the champion is the seeded v1 without an artifact"
+      - "Then drift is `no_baseline` and the gate decision is unchanged"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_pipeline_drift.py::test_seeded_champion_no_baseline. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-33-the-manifest-enables-all-three-models-and-reaches-mlflow
+    title: "RAT-33 The manifest enables all three models and reaches MLflow"
+    persona: guest
+    priority: P1
+    summary: "The manifest enables all three models and reaches MLflow"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the manifests under `platform-gitops/platform/recsys/` are rendered"
+      - "Then the `recsys-config` ConfigMap has `ENABLE_GBDT=true`, `ENABLE_TWO_TOWER=true` and `MLFLOW_TRACKING_URI=http://mlflow:5050`, the NetworkPolicy has an egress rule to pods labelled `app: mlflow` on TCP 5050, the schedule is `0 3 * * *` and `activeDeadlineSeconds` is 3600"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gitops_manifest.py::test_cronjob_enables_chain. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."
+
+  - id: recsys.rat-34-the-nightly-chain-end-to-end-on-the-stack
+    title: "RAT-34 The nightly chain end to end on the stack"
+    persona: guest
+    priority: P1
+    summary: "The nightly chain end to end on the stack"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the featurestore dataset job finishes and then the recsys job runs on the compose stack with the `jobs` profile against seeded weak champions"
+      - "Then MLflow on :5050 shows a new version of each of `recsys-als`, `recsys-gbdt` and `recsys-two-tower` tagged `gate.outcome=promoted`, and the job exits 0"
+    tags: [recsys, recommendations, destructive]
+    status: automated
+    covered_by: "recommendations/recsys_auto_train.feature::RAT-34 The nightly chain end to end on the stack"
+    notes: "recsys-auto-train: the fixture seeds price-dependent impression/click events (impression ids prefixed rat34-) through the gateway so the GBDT genuinely beats the fixed-weight baseline."
+
+  - id: recsys.rat-36-a-manifest-without-the-mlflow-uri-is-rejected-by-the-manifes
+    title: "RAT-36 A manifest without the MLflow URI is rejected by the manifest check"
+    persona: guest
+    priority: P1
+    summary: "A manifest without the MLflow URI is rejected by the manifest check"
+    entry_route: /
+    services: [platform-recsys]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When the CronJob `recsys-config` lacks `MLFLOW_TRACKING_URI` or sets `ENABLE_GBDT=false`"
+      - "Then the manifest test fails naming the missing or wrong key"
+    tags: [recsys, unit]
+    status: not-testable
+    notes: "recsys-auto-train: VERIFIED BY platform-recsys/tests/test_gitops_manifest.py::test_manifest_missing_key_fails. Not verifiable end to end: it exercises job or library internals (gate arithmetic, registry call order, configuration validation) that no public-edge call can reach."

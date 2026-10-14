@@ -1,0 +1,15 @@
+# plans/training-platform/slices.yaml — one slice = one OpenSpec change (00-spec "Capabilities → slices").
+# Validate: platform-e2e/.venv/bin/python scripts/asdlc/cross_change_check.py --slices plans/training-platform/slices.yaml
+# Hot files (initiative-build serialises): docker-compose.services.yaml + policies.yaml (recsys-auto-train, add-platform-finetune).
+# No proto change → no contract slice. recsys-auto-train goes first (priority).
+initiative: training-platform
+slices:
+  - id: add-model-registry
+    owner: platform-core
+    depends_on: []
+  - id: recsys-auto-train
+    owner: platform-recsys
+    depends_on: [add-model-registry]
+  - id: add-platform-finetune
+    owner: platform-finetune
+    depends_on: [add-model-registry, recsys-auto-train]   # serialised on hot files; recsys first

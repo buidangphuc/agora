@@ -25,7 +25,14 @@ from config.settings import get_settings
 from src.api.services.recommendation_service import CONTEXT_HOMEPAGE, CONTEXT_SIMILAR_ITEMS
 from src.constants import PageName, timeouts
 from tests.e2e.flows.recsys_job_flow import JobRun, run_recsys_job
-from tests.e2e.step_definitions.pipeline_eval_registry_steps import _events
+from tests.e2e.step_definitions.pipeline_eval_registry_steps import (
+    _MLFLOW_ENV,
+    ALS,
+    _events,
+    newest_als,
+    newest_tags,
+    registry,
+)
 from tests.e2e.step_definitions.ssa_steps import ssa_point_id, ssa_qdrant
 from tests.e2e.support.world import World
 
@@ -297,14 +304,22 @@ def _runs(world: World) -> list[JobRun]:
 
 @given("every user's most recently discovered listing is one nobody else interacted with")
 def unique_targets(world: World) -> None:
-    world.state.extra["tpr_plan"] = (_unique_target_events(), [{}])
+    registry(world).reset_registry()  # MLflow is shared by every worker (D13 reset)
+    world.state.extra["tpr_plan"] = (_unique_target_events(), [dict(_MLFLOW_ENV)])
 
 
 @given(
     "an incumbent champion whose metrics carry no evaluation protocol and a score the candidate cannot match"
 )
 def legacy_champion(world: World) -> None:
-    world.state.extra["tpr_plan"] = (_unique_target_events(), [{"@legacy_champion": "1"}])
+    # A seeded v1 with no `lineage.eval_protocol` tag and a score no candidate can match: the
+    # gate must not compare it, so the candidate is judged on the policy floors only.
+    # The driver resets the registry when a namespace plan starts, so the seed is a run key.
+    registry(world).reset_registry()
+    world.state.extra["tpr_plan"] = (
+        _unique_target_events(),
+        [{**_MLFLOW_ENV, "@seed": "strong", "@seed_protocol": "none"}],
+    )
 
 
 @when("the pipeline evaluates and trains over those interactions")
@@ -329,10 +344,8 @@ def eval_training_excludes_targets(world: World) -> None:
 
 @then("the run's metrics carry the evaluation protocol identifier")
 def metrics_carry_protocol(world: World) -> None:
-    (run,) = _runs(world)
-    version = run.summary["model_version"]
-    assert run.summary["metrics"]["eval_protocol"] == _PROTOCOL, run.summary["metrics"]
-    assert run.state["models"][version]["metrics"]["eval_protocol"] == _PROTOCOL
+    # The protocol is the registered version's tag `lineage.eval_protocol`.
+    assert newest_tags(world).get("lineage.eval_protocol") == _PROTOCOL, newest_tags(world)
 
 
 @then(
@@ -352,15 +365,20 @@ def targets_unlearnable_by_eval_model(world: World) -> None:
 def candidate_is_champion(world: World) -> None:
     (run,) = _runs(world)
     assert run.summary["decision"] == "promoted", run.summary
-    assert run.summary["incumbent_version"] == "als-legacy-e2e", run.summary
     # The candidate's own score is far below the incumbent's 0.99: a comparison would reject it.
-    assert run.summary["candidate_value"] < 0.99, run.summary
-    assert run.state["champion"] == run.summary["model_version"], run.state["champion"]
-    assert run.state["models"]["als-legacy-e2e"]["status"] == "archived", run.state["models"]
+    assert run.summary["metrics"]["ndcg@10"] < 0.99, run.summary
+    seeded = registry(world).versions(ALS)[0]
+    assert "lineage.eval_protocol" not in registry(world).tags(seeded), registry(world).tags(seeded)
+    newest = int(newest_als(world)["version"])
+    assert newest == 2, registry(world).version_counts()  # v1 is the seeded incumbent
+    assert newest_tags(world).get("gate.outcome") == "promoted", newest_tags(world)
+    assert registry(world).alias(ALS, "champion") == newest
+    assert registry(world).alias(ALS, "previous") == 1  # the seeded incumbent was displaced
 
 
 @then("the promotion reason names both protocols")
 def reason_names_both(world: World) -> None:
-    (run,) = _runs(world)
-    reason = run.summary["reason"]
-    assert "unversioned" in reason and _PROTOCOL in reason, reason
+    # Judged on the floors only; the version's `gate.reason` says why the metrics were not compared.
+    reason = newest_tags(world).get("gate.reason", "")
+    assert reason.startswith("eval_protocol changed:"), reason
+    assert _PROTOCOL in reason, reason

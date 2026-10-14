@@ -12,11 +12,14 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY requirements.txt ./
+# Build context is the monorepo root (docker build -f platform-recsys/Dockerfile .): requirements.txt
+# installs py-modelregistry from ../platform-core/packages/py-modelregistry, i.e. this path from /app.
+COPY platform-core/packages/py-modelregistry/ /platform-core/packages/py-modelregistry/
+COPY platform-recsys/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY recsys/ ./recsys/
-COPY sample_data/ ./sample_data/
+COPY platform-recsys/recsys/ ./recsys/
+COPY platform-recsys/sample_data/ ./sample_data/
 
 # Non-root for runtime; Spark needs a writable HOME for its scratch/ivy dirs.
 RUN useradd --uid 1001 --create-home recsys

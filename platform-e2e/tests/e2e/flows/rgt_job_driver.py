@@ -24,6 +24,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
+import registry_support as registry
 from qdrant_client import QdrantClient
 from qdrant_client.models import DeleteAlias, DeleteAliasOperation
 from redis import Redis
@@ -131,13 +132,6 @@ def _clean(redis: Redis, qdrant: QdrantClient) -> None:
             qdrant.delete_collection(c.name)
 
 
-def _models(redis: Redis) -> dict:
-    return {
-        json.loads(redis.get(k))["model_version"]: json.loads(redis.get(k))
-        for k in redis.scan_iter("recs:model:meta:*")
-    }
-
-
 def _rankers(redis: Redis) -> dict:
     out = {}
     for key in sorted(redis.scan_iter("recs:v1:gen:*:ranker")):
@@ -163,6 +157,7 @@ def main() -> int:
         "ALS_MAX_ITER": "3",
         "TOP_N": "2",
         "ENABLE_GBDT": "true",
+        "MLFLOW_TRACKING_URI": registry.base(),
         "GBDT_TREES": "25",
         # No item has this many impressions, so ctr stays the snapshot's constant and only the price carries signal.
         "GBDT_CTR_MIN_IMPRESSIONS": "1000000",
@@ -183,6 +178,14 @@ def main() -> int:
             if step.get("rows"):
                 env["GBDT_ROWS_PATH"] = rows_path
             env.setdefault("MODEL_VERSION", f"als-rgt-{nonce}-{index}")
+            # No forcing lever: the registry is reset (no champion, the run promotes) and, when the
+            # step asks, a `weak` or `strong` champion is seeded for the models it names.
+            registry.reset()
+            if step.get("seed"):
+                registry.seed_champion(
+                    step["seed"], tuple(step.get("seed_models", ["recsys-gbdt"]))
+                )
+            before = registry.counts()
             proc = subprocess.run(
                 [sys.executable, "-m", "recsys"],
                 env=env,
@@ -196,8 +199,7 @@ def main() -> int:
                 if SUMMARY_MARK in line:
                     summary = ast.literal_eval(line.split(SUMMARY_MARK, 1)[1])
             result = {"exit_code": proc.returncode, "summary": summary, "log_tail": out[-3000:],
-                      "models": _models(redis), "rankers": _rankers(redis),
-                      "gbdt_champion": redis.get("recs:model:champion:gbdt"),
+                      **registry.snapshot(env["MODEL_VERSION"], before), "rankers": _rankers(redis),
                       "serving": redis.get("recs:v1:serving"), "previous": redis.get("recs:v1:previous"),
                       "model_version": env["MODEL_VERSION"]}  # fmt: skip
             if step.get("rows") and os.path.exists(rows_path):

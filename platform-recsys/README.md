@@ -2,16 +2,16 @@
 
 Offline recommendation training job (bounded context: recommendation model artifacts). It reads
 the governed `als_interactions` dataset, trains an implicit-feedback ALS model with PySpark, evaluates it on a
-leakage-free holdout, runs a champion/challenger promotion gate, and only when the run is promoted
-publishes item/user vectors to **Qdrant** and precomputed Top-N lists to **Redis**.
+leakage-free holdout, registers it in the MLflow model registry (via `py-modelregistry`) where the
+promotion gate decides, and only when the run is promotable publishes item/user vectors to **Qdrant** and precomputed Top-N lists to **Redis**.
 
 **Status:** a batch job, not a service. No gRPC/HTTP surface, no Kafka, no database of its own.
 The container entrypoint is the job (`python -m recsys`). Qdrant (`:6333`) and Redis (`:6379`) are
 shared external dependencies it writes to, not ports it owns. It is in the root compose behind the
 `jobs` profile; nothing schedules it locally.
 
-It owns: the ALS training recipe, the evaluation protocol, the model registry/gate metadata in
-Redis, the `item_als_vectors` / `user_als_vectors` Qdrant collections and the `recs:v1:*` Redis keys.
+It owns: the ALS training recipe, the evaluation protocol, its registered models in MLflow
+(`recsys-als`, `recsys-gbdt`, `recsys-two-tower`; the registry service itself is `platform/mlflow`), the `item_als_vectors` / `user_als_vectors` Qdrant collections and the `recs:v1:*` Redis keys.
 `team-ai` (`serve-recommendations-teamai`) reads those artifacts.
 
 ## 1. Contract
@@ -54,7 +54,6 @@ copied from the manifest (`sha256` is the manifest's `file_sha256`), and the run
 | Redis | `recs:v1:previous` | The generation `serving` replaced (rollback target). No TTL. Same script |
 | Redis | `recs:v1:model_version` | Mirrors `serving` (same script) for readers that predate generations |
 | Redis | `recs:v1:user:{user_key}`, `:item:{listing_id}`, `:popular` | Unscoped compatibility copies of the latest generation. Written while `RECS_WRITE_LEGACY_KEYS=true` (default); to be removed in a follow-up release |
-| Redis | `recs:model:champion`, `recs:model:meta:{model_version}` | Registry state (champion pointer, metadata JSON incl. metrics and status) |
 
 All generation and unscoped cache keys carry TTL `RECS_CACHE_TTL_SECONDS` (172800 s); the three
 pointers do not. Every run (promoted or not) refreshes the TTL of the serving and previous generations
@@ -79,14 +78,19 @@ Redis failure exits 1 and the restart replays (idempotent by event id). Settings
 
 ## 3. Data
 
-No relational DB and no migrations. State lives in Qdrant and Redis (section 1). The model registry
-uses Redis when it is reachable; otherwise it falls back to an in-memory registry for that process
-(see Known gaps).
+No relational DB and no migrations. Serving state lives in Qdrant and Redis (section 1). The model
+registry is **MLflow** (`MLFLOW_TRACKING_URI`, e.g. `http://mlflow:5050`) through `recsys/registry_client.py`,
+the only module that talks to `py-modelregistry`. Each model (`recsys-als`, `recsys-gbdt`, `recsys-two-tower`)
+has versions with metrics and lineage plus the `champion` / `previous` aliases. Training needs the registry:
+with `MLFLOW_TRACKING_URI` empty the job exits 2, and with MLflow unreachable it exits 1 before training. There
+is no in-memory fallback and no champion state in Redis any more (`recs:model:*` keys are no longer written).
 
 ## 4. Pipeline, evaluation and promotion gate
 
 Flow (`recsys/pipeline.py`): read events, build triples, index, fit ALS (`implicitPrefs=true`,
-Spark MLlib), collect factors and L2-normalise, precompute Top-N, **evaluate**, **gate**, then publish.
+Spark MLlib), collect factors and L2-normalise, precompute Top-N, **evaluate and gate in the registry**, run the
+optional GBDT and two-tower stages, publish the generation, then **apply** (move each model's `champion` alias to
+the published version).
 
 **Evaluation protocol `leave-last-new-item-v1`** (`recsys/evals/holdout.py`):
 
@@ -97,7 +101,7 @@ Spark MLlib), collect factors and L2-normalise, precompute Top-N, **evaluate**, 
 - Each test user's already-seen items are excluded from the ranking. Metrics: Recall, NDCG, MRR,
   coverage at K = 5, 10, 20 (e.g. `ndcg@10`, `coverage@10`), stamped with `eval_protocol`.
 - The registry never compares metrics across protocols: if the champion's `eval_protocol` differs from
-  the candidate's, the candidate is promoted as incomparable.
+  the candidate's (`lineage.eval_protocol`), the candidate is promotable as incomparable.
 - `recsys/evals/split.py` (`temporal_train_test_split`, global time ratio) is not what the pipeline uses.
 
 **Run outcomes** (`decision` in the returned and logged summary):
@@ -105,10 +109,10 @@ Spark MLlib), collect factors and L2-normalise, precompute Top-N, **evaluate**, 
 | decision | When | Effect |
 |---|---|---|
 | `skipped` | The split yields no test events (no usable holdout) | Nothing registered, gate not consulted, nothing published |
-| `promoted` | Structural gate passed and: no champion yet (first run bootstraps), or champion metadata missing, or protocol mismatch, or the gate passes, or `PROMOTION_FORCE=true` | Registered as `champion`, published as a generation (summary adds `serving`, `previous`), optional Two-Tower stage |
-| `rejected` | Structural gate fails (`gate: structural`), or the metric gate fails against the same-protocol champion | Candidate marked `rejected`; the serving generation is untouched, nothing published |
+| `promoted` | Structural gate passed and: no champion yet (first run bootstraps), or protocol mismatch, or the registry gate passes, or `PROMOTION_FORCE=true` | Published as a generation (summary adds `serving`, `previous`), then applied as the registry `champion` (the old one becomes `previous`); optional GBDT and two-tower stages |
+| `rejected` | Structural gate fails (`gate: structural`), or the metric gate fails against the same-protocol champion | Candidate recorded as rejected with the reason; the serving generation is untouched, nothing published |
 
-Gate (`ModelEvaluator.compare_models`): primary metric `PROMOTION_PRIMARY_METRIC` (`ndcg@10`) must
+Gate (`modelregistry` evaluate, called from `registry_client.evaluate`): primary metric `PROMOTION_PRIMARY_METRIC` (`ndcg@10`) must
 improve by at least `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01) and, when both runs report it,
 `coverage@10` must stay at least `PROMOTION_MIN_COVERAGE_RATIO` (0.8) of the champion's. Summary keys:
 `model_version`, `decision`, `reason`, `primary_metric`, `candidate_value`, `incumbent_version`,
@@ -144,11 +148,22 @@ A crash before step 2 leaves serving as it was. The first publish on a deploymen
 `item_als_vectors` / `user_als_vectors` collections copies them to `<name>__legacy`, deletes them and
 lets the aliases take the names; retention drops `__legacy` after the first switch.
 
-**Rollback**: `python -m recsys rollback` swaps `serving` and `previous`, moves the aliases to the
-restored generation's collections and makes its model the registry champion (the demoted model becomes
-`archived`). Exit 0 on success; exit 2, changing nothing, when there is no previous generation or its
-keys/collections are gone; exit 1 when Redis is unreachable. Running it twice goes forward again. The
-next training run compares against the restored champion.
+**Rollback** (registry first): `python -m recsys rollback` checks its preconditions before moving anything
+(a previous generation with Redis keys and Qdrant collections, a `previous` registry version with an artifact for every
+model both generations carry, and `serving` and the registry in step). It then swaps `champion` and `previous` in the
+registry for each carried model (ALS, then GBDT, then two-tower), moves the Qdrant aliases and finally swaps the
+`serving` / `previous` pointers. A failure part-way swaps the registry back and re-aligns the aliases. A crash before the
+pointer swap leaves serving unchanged and a retry finishes the job. Exit 0 on success; exit 2, changing nothing, on a
+refused precondition (no previous generation, keys or collections gone, registry and serving out of step, serving
+changed meanwhile); exit 1 when Redis or the registry is unavailable. Running it twice goes forward again. The next
+training run compares against the restored champion.
+
+**Migrating the registry**: `python -m recsys migrate-registry` seeds each registered model once from the old Redis
+champions (`recs:model:champion`, `recs:model:champion:gbdt`, read with their `recs:model:meta:<version>` JSON) as
+version 1 with the stored numeric metrics and `lineage.eval_protocol`, no artifact. A model that already has a version
+is left alone (`skipped`), a champion with no or invalid meta is skipped with a warning, two-tower never had a Redis
+champion, and the Redis keys and the serving pointer are never touched. Run it once per deployment before the first
+training run of this version. Exit 0 with the per-model outcome logged; exit 1 when Redis or the registry is unavailable.
 
 `MODEL_VERSION` overrides the stamp; otherwise `als-<UTC yyyymmddThhmmssZ>`.
 
@@ -171,6 +186,7 @@ mirrors it. `make check-env` (`tests/test_env_drift.py`) fails if the two drift,
 |---|---|
 | Runtime | `ENV` (local), `LOG_LEVEL` (info) |
 | Spark | `SPARK_MASTER` (local[*]), `SPARK_APP_NAME` (platform-recsys-als) |
+| Registry | `MLFLOW_TRACKING_URI` (empty; required for training, exit 2 without it) |
 | Dataset | `DATASET_DIR` (/features/datasets/als_interactions/v1), `DATASET_PATH` (empty; an explicit file, overrides `DATASET_DIR`) |
 | Interactions | `MIN_INTERACTIONS_PER_USER` (1), `MIN_INTERACTIONS_PER_ITEM` (1) |
 | ALS | `ALS_RANK` (64), `ALS_REG_PARAM` (0.05), `ALS_ALPHA` (40.0), `ALS_MAX_ITER` (15) |
@@ -198,9 +214,13 @@ docker compose up -d --build        # stack incl. qdrant, redis, team-analytics
 docker compose --profile jobs run --rm platform-recsys
 ```
 
-The job service (`docker-compose.services.yaml`) builds `./platform-recsys`, mounts `featurestore_data`
-at `/features:ro`, and sets `DATASET_DIR`, `QDRANT_URL=http://qdrant:6333`, `REDIS_HOST=redis`,
-`REDIS_PORT`, and depends on `qdrant` and `redis` (compose wiring is owned by the root change). Run
+The job service (`docker-compose.services.yaml`) builds from the monorepo root (`context: .`,
+`dockerfile: platform-recsys/Dockerfile`; a root `.dockerignore` keeps the context to `platform-recsys` and
+`platform-core/packages/py-modelregistry`), mounts `featurestore_data` at `/features:ro`, and sets `DATASET_DIR`,
+`QDRANT_URL=http://qdrant:6333`, `REDIS_HOST=redis`, `REDIS_PORT`, `MLFLOW_TRACKING_URI=http://mlflow:5050`,
+`ENABLE_GBDT=true`, `ENABLE_TWO_TOWER=true` and the five snapshot dirs under `/features/`; it depends on `qdrant`,
+`redis` and `mlflow`. The nearline service uses the same build. The CronJob in `platform-gitops/platform/recsys` sets
+the same variables, has `activeDeadlineSeconds: 3600` and egress to `mlflow:5050`. Run
 order: the featurestore builds the dataset, then the job. Until the job has run and been promoted,
 `team-ai` Recommend answers empty.
 
@@ -210,7 +230,8 @@ order: the featurestore builds the dataset, then the job. Until the job has run 
 make sample SAMPLE=./data/datasets/als_interactions/v1      # tiny governed dataset (parquet + manifest)
 make run-local SAMPLE=./data/datasets/als_interactions/v1   # needs PySpark, Java, local Qdrant + Redis
 # or: docker compose -f docker-compose.local.yaml run --rm recsys-train   (external network platform-core_default)
-make docker-build && make docker-run
+make docker-build && make docker-run   # both build from the monorepo root
+# by hand, from the monorepo root: docker build -f platform-recsys/Dockerfile -t platform-recsys .
 ```
 
 ## 7. Build, test and lint
@@ -248,26 +269,31 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 - Java must be on `PATH` for PySpark (the image has it).
 - `data/` and `*.parquet` are gitignored; generate a sample with `make sample`.
 - Collection and key names are a contract with `team-ai`; change them on both sides.
-- The registry champion is set before the publish step: a crash mid-publish leaves serving untouched
-  but the registry naming the unpublished model champion. Re-run with `PROMOTION_FORCE=true` or
-  `python -m recsys rollback` once the stores are healthy.
+- The registry champion is applied after the publish step: a crash mid-publish leaves serving and the registry
+  untouched (the versions stay promotable). See the apply-failure gap in Known gaps for the opposite case.
 - Nothing is published unless the run is `promoted`. After resetting Qdrant/Redis while the registry
   still names a champion, the next run may be rejected or skipped: use `PROMOTION_FORCE=true` once.
-- The registry falls back to in-memory when Redis is unreachable at start (logged at info level).
 - The `push` path filter in `.github/workflows/ci.yaml` names `.github/workflows/ci-recsys.yaml`,
   which is not this file's name.
 
 ## 10. Known gaps
 
-- `recsys/ranker/` (CVR / eGMV) is a library module with unit tests; `pipeline.py` does not call it. `recsys/nearline/` runs as its own process
-  (section 2); its compose service is proposed in the change's `design.md`, not yet in the root compose. There is no online reranker here and
-  `lightgbm` is not a dependency.
-- Two-Tower (change `wire-two-tower-batch-pipeline`) trains on featurestore snapshots and the dataset's pairs and is
-  published with the generation, but it is not evaluated or gated, and the snapshots carry no item category/price or user
-  categories, so those tower inputs are 0 until the featurestore adds an attribute view. A zero vector is refused; if none
-  is usable the candidate is rejected (nothing published).
-- With Redis unreachable the in-memory registry has no champion, so every run is a bootstrap and the
-  gate is bypassed; the run then still attempts to publish to Redis.
+- `pipeline.py` calls the GBDT ranker stage (`recsys/ranker/stage.py`) only when `ENABLE_GBDT=true` (see "GBDT ranker" below).
+  `recsys/ranker/cvr.py` (CVR / eGMV) is still a library module with unit tests that the pipeline does not call. `recsys/nearline/`
+  runs as its own process (section 2), as the `platform-recsys-nearline` service in the root `docker-compose.services.yaml`. There is
+  no online reranker here and `lightgbm` is not a dependency.
+- Two-Tower trains on featurestore snapshots and the dataset's pairs and is published with the generation; a zero
+  vector is refused and if none is usable the candidate is rejected (nothing published).
+- **Apply-failure gap**: the champion alias moves only after the generation is published. If `apply` fails (MLflow
+  goes away right after the switch) the new generation is serving but the registry champion still names the old
+  version; the job logs the models left unmoved, raises and exits 1. The versions stay promotable and the next run
+  re-evaluates against the old champion; `rollback` refuses while serving and the registry are out of step.
+- **GBDT baseline check**: before the registry policy runs, a candidate whose holdout NDCG@10 is below the
+  fixed-weight baseline (`0.15 * popularity + 0.10 * ctr`) x 1.01 is registered as rejected (`gate.reason`
+  starts `below fixed-weight baseline`, with both values) and no artifact is produced; otherwise the policy
+  judges it against the GBDT champion.
+- **Two-Tower has no coverage floor**: `recsys-two-tower` keeps the `coverage@10` guard (0.8) and a trivial
+  `recall@10` floor (0.000001); coverage is not floored.
 - A user with fewer than two distinct listings is never a test user; with no test users the run is
   `skipped` and nothing is published, so very small datasets never publish.
 
@@ -287,7 +313,7 @@ vector is `contract.RANKING_FEATURES`: the seven `item_popularity@v1` features i
 `item_attributes@v1.price`, from the featurestore snapshot in force at each impression (rows older than every snapshot are
 dropped). The `ctr_7d` slot is replaced by a position-debiased CTR over the TRAIN rows (the row's own outcome removed), recorded per row as
 `ctr_source` `debiased` or `fallback`; `GBDT_ROWS_PATH` writes every row for audit. The latest `GBDT_HOLDOUT_FRACTION` of
-impressions is the holdout: the candidate must beat the fixed-weight ranker (`0.15 * popularity + 0.10 * ctr`) on graded
-NDCG@10 by `PROMOTION_MIN_RELATIVE_IMPROVEMENT`, then the GBDT champion (`recs:model:champion:gbdt`, separate from ALS), and
-`PROMOTION_FORCE` skips both. The stage runs after the ALS promotion decision and before the publish; a rejected candidate does
+impressions is the holdout: the candidate is evaluated on graded NDCG@10 and gated by the registry against the
+`recsys-gbdt` champion (separate from ALS) by `PROMOTION_MIN_RELATIVE_IMPROVEMENT`; it is no longer compared with the
+fixed-weight ranker. `PROMOTION_FORCE` skips the gate. The stage runs after the ALS promotion decision and before the publish; a rejected candidate does
 not block the generation. With no dataset or no `item_popularity` snapshot the run exits 2 before Spark starts.

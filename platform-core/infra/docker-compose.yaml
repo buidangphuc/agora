@@ -1,6 +1,8 @@
 # platform-core local infra — LOCAL ONLY (Phase 0). No cloud.
 # Fixed stack: Postgres per-service (owned) + Redis + Qdrant (shared).
 # On production these map to managed services; only .env values change.
+# Exception to the shared postgres: postgres-mlflow is a dedicated Postgres for
+# the MLflow model registry (MLflow owns its own schema/migrations).
 name: platform-core
 
 services:
@@ -71,6 +73,55 @@ services:
       timeout: 3s
       retries: 10
 
+  # Dedicated Postgres for MLflow's backend store (the one exception to the
+  # shared postgres above; MLflow manages its own schema).
+  postgres-mlflow:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+      POSTGRES_DB: mlflow
+    volumes:
+      - pg_mlflow_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow -d mlflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # MLflow model registry (pinned v3.2.0). Artifacts proxied to MinIO bucket
+  # mlflow-artifacts (private; created by minio-init).
+  mlflow:
+    image: platform-core/mlflow:3.2.0
+    build:
+      context: ./mlflow
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5050"
+      - --backend-store-uri
+      - postgresql://mlflow:mlflow@postgres-mlflow:5432/mlflow
+      - --artifacts-destination
+      - s3://mlflow-artifacts
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+    ports:
+      - "5050:5050"
+    depends_on:
+      postgres-mlflow:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5050/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   # ── ASYNC BROKERS — two, by role (see docs/ADR/0002) ──────────────────
   # Kafka (Redpanda locally) = event streaming between services; RabbitMQ =
@@ -238,11 +289,13 @@ services:
       mc alias set local http://minio:9000 minioadmin minioadmin;
       mc mb --ignore-existing local/listing-images;
       mc anonymous set download local/listing-images;
-      exit 0;
+      mc mb --ignore-existing local/mlflow-artifacts;
+      exit 0
       "
 
 volumes:
   pg_data:
+  pg_mlflow_data:
   qdrant_data:
   flipt_data:
   redpanda_data:
