@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { parsePage } from "@/features/account/pagination";
@@ -29,7 +29,7 @@ export default async function NotificationsPage(props: {
   searchParams?: Promise<{ tab?: string; page?: string }>;
 }) {
   const searchParams = await props.searchParams;
-  if (!getPrincipal()) redirect("/login");
+  if (!getPrincipal()) redirectGuestToLogin("/notifications", searchParams);
 
   const [{ notifications }, subs, prefs] = await Promise.all([
     listNotifications(WINDOW),

@@ -1,5 +1,5 @@
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { ShopProfileForm } from "@/features/seller/ShopProfileForm";
@@ -13,7 +13,7 @@ export const metadata = { title: "Hồ sơ gian hàng | Kênh người bán" };
 /** Form > Basic Form: the shop display name (UpsertStorefront.display_name). */
 export default async function SellerShopPage() {
   const me = getPrincipal();
-  if (!me || !hasScope("listing.write")) redirect("/login");
+  if (!me || !hasScope("listing.write")) redirectGuestToLogin("/seller/shop");
 
   const storefront = await getStorefront(me.id);
 
