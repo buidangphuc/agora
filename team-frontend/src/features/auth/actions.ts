@@ -6,7 +6,16 @@ import { redirect } from "next/navigation";
 
 import { makeClients } from "@/lib/gateway/client";
 import { clientContextFrom } from "@/lib/gateway/client-context";
+import { refreshSession } from "@/lib/gateway/refresh";
+import { revokeOwnSession, sessionIdOf } from "@/lib/gateway/revoke";
 import { SESSION_COOKIE } from "@/lib/gateway/session";
+import {
+  REFRESH_COOKIE,
+  accessCookieOptions,
+  isSecureRequest,
+  refreshCookieOptions,
+} from "@/lib/gateway/session-cookie";
+import { isUsableToken } from "@/lib/gateway/token-expiry";
 
 import {
   type CredentialErrors,
@@ -40,13 +49,13 @@ function failure(
     : { ok: false, error, username };
 }
 
-async function setSession(token: string) {
-  (await cookies()).set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 3600,
-  });
+async function setSession(token: string, refreshToken: string) {
+  const jar = await cookies();
+  const secure = isSecureRequest(await headers());
+  jar.set(SESSION_COOKIE, token, accessCookieOptions(secure));
+  if (refreshToken) {
+    jar.set(REFRESH_COOKIE, refreshToken, refreshCookieOptions(secure));
+  }
 }
 
 export async function loginAction(
@@ -66,11 +75,13 @@ export async function loginAction(
   }
 
   let token = "";
+  let refreshToken = "";
   try {
     const res = await makeClients(undefined, {
       client: clientContextFrom(await headers()),
     }).auth.login({ username, password });
     token = res.result?.token ?? "";
+    refreshToken = res.result?.refreshToken ?? "";
   } catch (err) {
     if (err instanceof ConnectError) {
       if (
@@ -90,7 +101,7 @@ export async function loginAction(
     return failure(username, "Không thể kết nối đến máy chủ xác thực.");
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
-  await setSession(token);
+  await setSession(token, refreshToken);
   redirect("/");
 }
 
@@ -112,11 +123,13 @@ export async function registerAction(
   }
 
   let token = "";
+  let refreshToken = "";
   try {
     const res = await makeClients(undefined, {
       client: clientContextFrom(await headers()),
     }).auth.register({ username, password, role });
     token = res.result?.token ?? "";
+    refreshToken = res.result?.refreshToken ?? "";
   } catch (err) {
     if (err instanceof ConnectError && err.code === Code.AlreadyExists) {
       return failure(username, "Tên đăng nhập đã tồn tại.", {
@@ -126,11 +139,27 @@ export async function registerAction(
     return failure(username, `Đăng ký lỗi: ${String(err)}`);
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
-  await setSession(token);
+  await setSession(token, refreshToken);
   redirect("/");
 }
 
 export async function logoutAction() {
-  (await cookies()).delete(SESSION_COOKIE);
+  const jar = await cookies();
+  try {
+    let bearer: string | undefined;
+    const access = jar.get(SESSION_COOKIE)?.value;
+    const refresh = jar.get(REFRESH_COOKIE)?.value;
+    if (access && isUsableToken(access)) {
+      bearer = access;
+    } else if (refresh) {
+      bearer = (await refreshSession(refresh)).token || undefined;
+    }
+    const sid = bearer ? sessionIdOf(bearer) : undefined;
+    if (bearer && sid) await revokeOwnSession(sid, bearer);
+  } catch {
+    // Best effort: logout must always clear the cookies.
+  }
+  jar.delete(SESSION_COOKIE);
+  jar.delete(REFRESH_COOKIE);
   redirect("/");
 }

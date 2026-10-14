@@ -17,6 +17,7 @@ exactly when the `session` cookie is secure.
 #### Scenario: S3 Sessions disabled (boundary)
 - **WHEN** login succeeds with an empty `refreshToken`
 - **THEN** the system SHALL set only `session`, set no `agora_refresh`, and still redirect
+- **VERIFIED BY**: `team-frontend/src/features/auth/actions.test.ts` (unit; not producible end to end — Clarifications round 2)
 
 #### Scenario: S4 Failed login sets nothing (error)
 - **WHEN** `AuthService.Login` fails with Unauthenticated
@@ -62,10 +63,12 @@ is present, the middleware (Node runtime, connect-node client) SHALL call `AuthS
 #### Scenario: S11 Empty refresh response (error)
 - **WHEN** `RefreshSession` succeeds but returns an empty access token
 - **THEN** the system SHALL treat it as S9
+- **VERIFIED BY**: `team-frontend/src/middleware.test.ts` (unit; not producible end to end — Clarifications round 2)
 
 #### Scenario: S12 Refresh call carries no bearer (permission)
 - **WHEN** the middleware calls `RefreshSession`
 - **THEN** the request SHALL carry no `Authorization` header, so the gateway never sees the stale access token
+- **VERIFIED BY**: `team-frontend/src/middleware.test.ts` (unit; not producible end to end — Clarifications round 2)
 
 #### Scenario: S19 Grace replay keeps the refresh cookie
 - **WHEN** `RefreshSession` succeeds with a non-empty access token and an empty `refresh_token` (grace replay)
@@ -96,10 +99,12 @@ The middleware SHALL set a request header `x-pathname` on every request, for use
 #### Scenario: S23 x-pathname carries path and query
 - **WHEN** a request for `/cart?coupon=A1` passes through the middleware, signed in, anonymous or refreshed
 - **THEN** the request seen by the render SHALL carry `x-pathname: /cart?coupon=A1`
+- **VERIFIED BY**: `team-frontend/src/middleware.test.ts` (unit; not producible end to end — Clarifications round 2)
 
 #### Scenario: S26 Client-supplied x-pathname is not trusted (error)
 - **WHEN** an incoming request already carries an `x-pathname` header with a value that differs from its URL
 - **THEN** the middleware SHALL overwrite it with the real path and query of the request
+- **VERIFIED BY**: `team-frontend/src/middleware.test.ts` (unit; not producible end to end — Clarifications round 2)
 
 ### Requirement: Logout revokes the server-side session
 
@@ -127,6 +132,7 @@ The middleware SHALL set a request header `x-pathname` on every request, for use
 #### Scenario: S25 Logout with no cookies (boundary)
 - **WHEN** neither a usable access token nor `agora_refresh` exists
 - **THEN** the system SHALL make no gateway call, delete both cookies and redirect to `/`
+- **VERIFIED BY**: `team-frontend/src/features/auth/actions.test.ts` (unit; not producible end to end — Clarifications round 2)
 
 #### Scenario: S16 Revoked session cannot refresh
 - **WHEN** a shopper logs out
@@ -137,3 +143,4 @@ The middleware SHALL set a request header `x-pathname` on every request, for use
 #### Scenario: S17 Logout only affects own session (permission)
 - **WHEN** logout runs
 - **THEN** the system SHALL pass only the `sid` from the caller's own access token (or from the refresh the caller's own cookie produced) and no user-supplied session id
+- **VERIFIED BY**: `team-frontend/src/features/auth/actions.test.ts` (unit; not producible end to end — Clarifications round 2)
