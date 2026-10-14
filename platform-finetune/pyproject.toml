@@ -43,7 +43,7 @@ dev = [
   "peft",                  # LoRA / QLoRA adapters
   "tensorboard",           # opt-in TB scalar logs + histograms
   # tracking + data versioning
-  "mlflow",
+  "mlflow>=3.2,<3.3",
   "modelregistry",         # shared model registry + publish gate (platform-core path dependency, see uv.sources)
   "dvc",
   # optimize / package (ONNX export)

@@ -36,8 +36,6 @@ EVAL_DIR = ARTIFACTS / "model_evaluation"
 METRICS_FILE = EVAL_DIR / "metrics.json"
 SWEEP_FILE = EVAL_DIR / "threshold_sweep.json"   # per-threshold P/R/F1 on VAL (the sweep curve)
 THRESHOLD_FILE = MODEL_DIR / "threshold.json"    # threshold picked on VAL; infer/eval reuse it
-REGISTRY_DIR = ARTIFACTS / "registry"
-REGISTRY_CACHE = ARTIFACTS / "registry_cache"  # serving pulls weights from the S3 registry here
 RUN_STATUS = ARTIFACTS / "run_status.json"
 LOG_DIR = PROJECT_ROOT / "logs"
 
@@ -61,5 +59,5 @@ MLFLOW_URI = os.environ.get("MLFLOW_TRACKING_URI") or f"sqlite:///{PROJECT_ROOT 
 
 
 def ensure_dirs() -> None:
-    for d in (DATA_DIR, VALID_DIR, SPLIT_DIR, TRAINER_DIR, CKPT_DIR, EVAL_DIR, REGISTRY_DIR, LOG_DIR, TUNE_DIR, OPTIMIZED_DIR, BUNDLE_DIR):
+    for d in (DATA_DIR, VALID_DIR, SPLIT_DIR, TRAINER_DIR, CKPT_DIR, EVAL_DIR, LOG_DIR, TUNE_DIR, OPTIMIZED_DIR, BUNDLE_DIR):
         d.mkdir(parents=True, exist_ok=True)
