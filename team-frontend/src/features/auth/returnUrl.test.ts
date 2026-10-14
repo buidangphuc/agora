@@ -123,7 +123,9 @@ describe("loginPath", () => {
 });
 
 describe("redirectToLogin", () => {
-  beforeEach(() => redirectMock.mockClear());
+  beforeEach(() => {
+    redirectMock.mockClear();
+  });
 
   it("[Guest opening a protected page is sent to login with its path] redirects to login with the encoded path", () => {
     expect(() => redirectToLogin("/account/orders/o-9")).toThrow(
