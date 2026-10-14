@@ -169,9 +169,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITLEAKS_CONFIG: .gitleaks.toml
-          # the action reads BASE_REF as a ref override (`git log main^..`); there is no local `main`
-          # in this checkout, so clear the workflow-level value and let it use the PR's commit range
-          BASE_REF: ""
+          # the action reads BASE_REF as a ref override (`git log <ref>^..`). There is no local `main`
+          # in this checkout, and the PR's own first commit can be a parentless root (subtree imports
+          # such as platform-finetune), so pin the range to the fetched base branch.
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
       - name: trivy fs
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
