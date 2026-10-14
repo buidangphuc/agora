@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -50,7 +51,18 @@ const (
 	RotateStale
 	// RotateReuse: the previous token was replayed after the grace window; the session is revoked.
 	RotateReuse
+	// RotateExpired: the refresh token is past refresh_expires_at; no change.
+	RotateExpired
+	// RotateLifetimeExceeded: the session is older than the absolute max age; it is revoked.
+	RotateLifetimeExceeded
 )
+
+// errRefreshHashConflict is returned when the new refresh hash collides with another
+// session's hash. It deliberately carries no hash value.
+var errRefreshHashConflict = errors.New("refresh hash conflict")
+
+// errEnqueueRequired is returned when RotateRefresh is called without an outbox builder.
+var errEnqueueRequired = errors.New("rotate refresh: enqueue function is required")
 
 // RotateResult carries the outcome and the (post-operation) session, if one matched.
 type RotateResult struct {
@@ -81,9 +93,11 @@ type SessionRepository interface {
 	// if building or writing it fails, the revoke is rolled back.
 	RevokeSession(ctx context.Context, sessionID, userID string, ev EnqueueFn) error
 	// RotateRefresh atomically validates and rotates a refresh token (see RotateOutcome).
-	// Reuse revokes the session, clears both hashes and, when ev is non-nil, inserts the
-	// outbox row in the same transaction (any error leaves the session unchanged).
-	RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace time.Duration, ev EnqueueFn) (RotateResult, error)
+	// Reuse and absolute-lifetime expiry (now-created_at > maxAge) revoke the session, clear
+	// both hashes and insert the outbox row built by ev in the same transaction (any error
+	// leaves the session unchanged). ev must be non-nil. A token past refresh_expires_at
+	// yields RotateExpired with no write.
+	RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ev EnqueueFn) (RotateResult, error)
 	// RecordLogin appends a login attempt to the user's history.
 	RecordLogin(ctx context.Context, e LoginEvent) (LoginEvent, error)
 	// ListLoginHistory returns a page of the user's login history (newest first)
@@ -197,7 +211,10 @@ func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID
 	return nil
 }
 
-func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace time.Duration, ev EnqueueFn) (RotateResult, error) {
+func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ev EnqueueFn) (RotateResult, error) {
+	if ev == nil {
+		return RotateResult{}, errEnqueueRequired
+	}
 	if presentedHash == "" {
 		return RotateResult{Outcome: RotateStale}, nil
 	}
@@ -217,12 +234,43 @@ func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presented
 		return RotateResult{}, fmt.Errorf("select session for refresh: %w", err)
 	}
 
+	revoke := func(outcome RotateOutcome, msg string) (RotateResult, error) {
+		const rev = `UPDATE sessions SET revoked = true, refresh_hash = NULL, prev_refresh_hash = NULL
+			WHERE id = $1 RETURNING ` + sessionColumns
+		var out Session
+		if err := scanSession(tx.QueryRow(ctx, rev, s.ID), &out); err != nil {
+			return RotateResult{}, fmt.Errorf("%s: %w", msg, err)
+		}
+		row, err := ev(out)
+		if err != nil {
+			return RotateResult{}, err
+		}
+		if err := enqueueTx(ctx, tx, row); err != nil {
+			return RotateResult{}, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return RotateResult{}, fmt.Errorf("commit tx: %w", err)
+		}
+		return RotateResult{Outcome: outcome, Session: out}, nil
+	}
+
+	if now.Sub(s.CreatedAt) > maxAge {
+		return revoke(RotateLifetimeExceeded, "revoke on lifetime exceeded")
+	}
+	if !s.RefreshExpiresAt.IsZero() && !now.Before(s.RefreshExpiresAt) {
+		return RotateResult{Outcome: RotateExpired, Session: s}, nil
+	}
+
 	switch {
 	case s.RefreshHash == presentedHash:
 		const upd = `UPDATE sessions SET prev_refresh_hash = refresh_hash, refresh_hash = $2,
 			rotated_at = $3, last_seen = $3, refresh_expires_at = $4 WHERE id = $1 RETURNING ` + sessionColumns
 		var out Session
 		if err := scanSession(tx.QueryRow(ctx, upd, s.ID, newHash, now, now.Add(RefreshTTL)), &out); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				return RotateResult{}, errRefreshHashConflict
+			}
 			return RotateResult{}, fmt.Errorf("rotate refresh: %w", err)
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -232,25 +280,7 @@ func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presented
 	case !s.RotatedAt.IsZero() && now.Sub(s.RotatedAt) <= grace:
 		return RotateResult{Outcome: RotateReplayedInGrace, Session: s}, nil
 	default:
-		const rev = `UPDATE sessions SET revoked = true, refresh_hash = NULL, prev_refresh_hash = NULL
-			WHERE id = $1 RETURNING ` + sessionColumns
-		var out Session
-		if err := scanSession(tx.QueryRow(ctx, rev, s.ID), &out); err != nil {
-			return RotateResult{}, fmt.Errorf("revoke on reuse: %w", err)
-		}
-		if ev != nil {
-			row, err := ev(out)
-			if err != nil {
-				return RotateResult{}, err
-			}
-			if err := enqueueTx(ctx, tx, row); err != nil {
-				return RotateResult{}, err
-			}
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return RotateResult{}, fmt.Errorf("commit tx: %w", err)
-		}
-		return RotateResult{Outcome: RotateReuse, Session: out}, nil
+		return revoke(RotateReuse, "revoke on reuse")
 	}
 }
 
@@ -382,7 +412,10 @@ func (r *InMemorySessionRepository) RevokeSession(_ context.Context, sessionID, 
 	return nil
 }
 
-func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHash, newHash string, now time.Time, grace time.Duration, ev EnqueueFn) (RotateResult, error) {
+func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ev EnqueueFn) (RotateResult, error) {
+	if ev == nil {
+		return RotateResult{}, errEnqueueRequired
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if presentedHash == "" {
@@ -399,8 +432,33 @@ func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHa
 	if !found {
 		return RotateResult{Outcome: RotateStale}, nil
 	}
+	revoke := func(outcome RotateOutcome) (RotateResult, error) {
+		s.Revoked = true
+		s.RefreshHash, s.PrevRefreshHash = "", ""
+		row, err := ev(s)
+		if err != nil {
+			return RotateResult{}, err
+		}
+		if r.FailOutbox {
+			return RotateResult{}, errors.New("simulated outbox write failure")
+		}
+		r.outbox = append(r.outbox, row)
+		r.sessions[s.ID] = s
+		return RotateResult{Outcome: outcome, Session: s}, nil
+	}
+	if now.Sub(s.CreatedAt) > maxAge {
+		return revoke(RotateLifetimeExceeded)
+	}
+	if !s.RefreshExpiresAt.IsZero() && !now.Before(s.RefreshExpiresAt) {
+		return RotateResult{Outcome: RotateExpired, Session: s}, nil
+	}
 	switch {
 	case s.RefreshHash == presentedHash:
+		for _, c := range r.sessions {
+			if c.ID != s.ID && (c.RefreshHash == newHash) && newHash != "" {
+				return RotateResult{}, errRefreshHashConflict
+			}
+		}
 		s.PrevRefreshHash = s.RefreshHash
 		s.RefreshHash = newHash
 		s.RotatedAt = now
@@ -411,20 +469,7 @@ func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHa
 	case !s.RotatedAt.IsZero() && now.Sub(s.RotatedAt) <= grace:
 		return RotateResult{Outcome: RotateReplayedInGrace, Session: s}, nil
 	default:
-		s.Revoked = true
-		s.RefreshHash, s.PrevRefreshHash = "", ""
-		if ev != nil {
-			row, err := ev(s)
-			if err != nil {
-				return RotateResult{}, err
-			}
-			if r.FailOutbox {
-				return RotateResult{}, errors.New("simulated outbox write failure")
-			}
-			r.outbox = append(r.outbox, row)
-		}
-		r.sessions[s.ID] = s
-		return RotateResult{Outcome: RotateReuse, Session: s}, nil
+		return revoke(RotateReuse)
 	}
 }
 
