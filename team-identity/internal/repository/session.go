@@ -61,6 +61,10 @@ const (
 // session's hash. It deliberately carries no hash value.
 var errRefreshHashConflict = errors.New("refresh hash conflict")
 
+// ErrRotateFault marks a RotateRefresh/RevokeSession failure caused by event
+// building, outbox enqueue or a refresh_hash conflict (not a connectivity error).
+var ErrRotateFault = errors.New("rotate fault")
+
 // errEnqueueRequired is returned when RotateRefresh is called without an outbox builder.
 var errEnqueueRequired = errors.New("rotate refresh: enqueue function is required")
 
@@ -199,10 +203,10 @@ func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID
 	if ev != nil {
 		row, err := ev(s)
 		if err != nil {
-			return err
+			return fmt.Errorf("build revoke event: %w: %w", ErrRotateFault, err)
 		}
 		if err := enqueueTx(ctx, tx, row); err != nil {
-			return err
+			return fmt.Errorf("enqueue revoke event: %w: %w", ErrRotateFault, err)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -243,10 +247,10 @@ func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presented
 		}
 		row, err := ev(out)
 		if err != nil {
-			return RotateResult{}, err
+			return RotateResult{}, fmt.Errorf("build revoke event: %w: %w", ErrRotateFault, err)
 		}
 		if err := enqueueTx(ctx, tx, row); err != nil {
-			return RotateResult{}, err
+			return RotateResult{}, fmt.Errorf("enqueue revoke event: %w: %w", ErrRotateFault, err)
 		}
 		if err := tx.Commit(ctx); err != nil {
 			return RotateResult{}, fmt.Errorf("commit tx: %w", err)
@@ -269,7 +273,7 @@ func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presented
 		if err := scanSession(tx.QueryRow(ctx, upd, s.ID, newHash, now, now.Add(RefreshTTL)), &out); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-				return RotateResult{}, errRefreshHashConflict
+				return RotateResult{}, fmt.Errorf("%w: %w", errRefreshHashConflict, ErrRotateFault)
 			}
 			return RotateResult{}, fmt.Errorf("rotate refresh: %w", err)
 		}
@@ -401,10 +405,10 @@ func (r *InMemorySessionRepository) RevokeSession(_ context.Context, sessionID, 
 	if ev != nil {
 		row, err := ev(s)
 		if err != nil {
-			return err
+			return fmt.Errorf("build revoke event: %w: %w", ErrRotateFault, err)
 		}
 		if r.FailOutbox {
-			return errors.New("simulated outbox write failure")
+			return fmt.Errorf("enqueue revoke event: %w", ErrRotateFault)
 		}
 		r.outbox = append(r.outbox, row)
 	}
@@ -437,10 +441,10 @@ func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHa
 		s.RefreshHash, s.PrevRefreshHash = "", ""
 		row, err := ev(s)
 		if err != nil {
-			return RotateResult{}, err
+			return RotateResult{}, fmt.Errorf("build revoke event: %w: %w", ErrRotateFault, err)
 		}
 		if r.FailOutbox {
-			return RotateResult{}, errors.New("simulated outbox write failure")
+			return RotateResult{}, fmt.Errorf("enqueue revoke event: %w", ErrRotateFault)
 		}
 		r.outbox = append(r.outbox, row)
 		r.sessions[s.ID] = s
@@ -456,7 +460,7 @@ func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHa
 	case s.RefreshHash == presentedHash:
 		for _, c := range r.sessions {
 			if c.ID != s.ID && (c.RefreshHash == newHash) && newHash != "" {
-				return RotateResult{}, errRefreshHashConflict
+				return RotateResult{}, fmt.Errorf("%w: %w", errRefreshHashConflict, ErrRotateFault)
 			}
 		}
 		s.PrevRefreshHash = s.RefreshHash

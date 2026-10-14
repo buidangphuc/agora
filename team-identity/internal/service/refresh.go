@@ -23,7 +23,8 @@ var (
 	// ErrRefreshUnavailable is a transient database failure; the session is not revoked.
 	ErrRefreshUnavailable = errors.New("refresh unavailable")
 
-	errRefreshInternal = errors.New("refresh failed")
+	// ErrRefreshInternal is a non-transient refresh fault (event build/outbox/conflict, signing).
+	ErrRefreshInternal = errors.New("refresh failed")
 )
 
 const (
@@ -70,7 +71,7 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	}
 	newRaw, err := newRefreshToken()
 	if err != nil {
-		return AuthResult{}, errRefreshInternal
+		return AuthResult{}, ErrRefreshInternal
 	}
 	now := s.clock()
 	ev := s.revokedEvent(ctx, now)
@@ -89,7 +90,10 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 		if errors.Is(err, repository.ErrNotFound) {
 			if rerr := s.sessions.RevokeSession(ctx, res.Session.ID, res.Session.UserID, ev); rerr != nil &&
 				!errors.Is(rerr, repository.ErrSessionNotFound) {
-				return AuthResult{}, errRefreshInternal
+				if errors.Is(rerr, repository.ErrRotateFault) {
+					return AuthResult{}, ErrRefreshInternal
+				}
+				return AuthResult{}, ErrRefreshUnavailable
 			}
 			return AuthResult{}, ErrInvalidRefreshToken
 		}
@@ -98,7 +102,7 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	scopes := authz.ScopesForRoles(u.Roles)
 	signed, err := s.signer.SignWithSession(u.ID, u.Username, "user", scopes, res.Session.ID, s.ttl)
 	if err != nil {
-		return AuthResult{}, errRefreshInternal
+		return AuthResult{}, ErrRefreshInternal
 	}
 	out := AuthResult{Token: signed, UserID: u.ID, Username: u.Username, Type: "user", Scopes: scopes}
 	if res.Outcome == repository.RotateRotated {
@@ -108,10 +112,12 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 }
 
 // mapRotateErr turns repository errors into non-leaking service errors. Database
-// connectivity-style errors cannot be told apart from other faults here, so every
-// RotateRefresh error is a fault (never ErrInvalidRefreshToken, never a revoke).
+// ErrRotateFault maps to ErrRefreshInternal; any other error is transient
+// (ErrRefreshUnavailable). The cause is not wrapped, as it may embed hash text.
 func mapRotateErr(err error) error {
-	_ = err // deliberately dropped: may embed hash text
+	if errors.Is(err, repository.ErrRotateFault) {
+		return ErrRefreshInternal
+	}
 	return ErrRefreshUnavailable
 }
 
