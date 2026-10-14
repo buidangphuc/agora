@@ -242,6 +242,23 @@ def load_home(world: World) -> None:
     world.page.wait_for_load_state("domcontentloaded")
 
 
+@when("the visitor loads the home page counting navigations")
+def load_home_counting(world: World) -> None:
+    navs: list[str] = []
+    world.page.on(
+        "request",
+        lambda req: navs.append(req.url) if req.resource_type == "document" else None,
+    )
+    _ex(world)["navs"] = navs
+    load_home(world)
+
+
+@then("the document was requested exactly once")
+def navigated_once(world: World) -> None:
+    world.page.wait_for_load_state("networkidle")
+    assert len(_ex(world)["navs"]) == 1, _ex(world)["navs"]
+
+
 @given("the shopper clicks logout")
 @when("the shopper clicks logout")
 def click_logout(world: World) -> None:
@@ -257,10 +274,12 @@ def click_logout(world: World) -> None:
     )
 
 
-@when("the old cookies are put back in the browser")
+@when("the old refresh cookie is put back in the browser without a session cookie")
 def put_back(world: World) -> None:
     for c in _ex(world)["cookies_before_logout"]:
-        _put(world, c["name"], c["value"])
+        if c["name"] == REFRESH_COOKIE:
+            _put(world, c["name"], c["value"])
+    world.context.clear_cookies(name=SESSION_COOKIE)
 
 
 @when(

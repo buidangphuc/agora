@@ -8167,8 +8167,8 @@ features:
       - "Then the browser holds session (3600 s) and agora_refresh (httpOnly, lax, path /, 2592000 s) cookies"
       - "And agora_refresh is secure exactly when session is secure"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S1 Login sets both cookies"
     notes: "frontend-session-continuity S1: planned scenario auth/session_continuity.feature::Login sets the session and refresh cookies"
 
   - id: auth.session-continuity-s2
@@ -8184,15 +8184,15 @@ features:
       - "When a new buyer signs up through the register form"
       - "Then the browser holds session (3600 s) and agora_refresh (httpOnly, lax, path /, 2592000 s) cookies"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S2 Register sets both cookies"
     notes: "frontend-session-continuity S2: planned scenario auth/session_continuity.feature::Register sets the session and refresh cookies"
 
   - id: auth.session-continuity-s4
-    title: "S4 Failed login sets nothing"
+    title: "S4 Failed login sets nothing (error)"
     persona: buyer
     priority: P1
-    summary: "S4 Failed login sets nothing"
+    summary: "S4 Failed login sets nothing (error)"
     entry_route: "/login"
     services: [team-frontend, team-gateway, team-identity]
     preconditions:
@@ -8201,8 +8201,8 @@ features:
       - "When the buyer signs in with a wrong password"
       - "Then a login error is displayed and neither cookie is set"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S4 Failed login sets nothing (error)"
     notes: "frontend-session-continuity S4: planned scenario auth/session_continuity.feature::Failed login sets no cookie"
 
   - id: auth.session-continuity-s5
@@ -8219,8 +8219,8 @@ features:
       - "When the visitor loads the home page"
       - "Then it renders signed in with new session and rotated agora_refresh cookies"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S5 Expired access, valid refresh"
     notes: "frontend-session-continuity S5: planned scenario auth/session_continuity.feature::Expired access token with a valid refresh cookie is renewed on the same request"
 
   - id: auth.session-continuity-s6
@@ -8237,15 +8237,15 @@ features:
       - "When the visitor loads the home page"
       - "Then it behaves as S5"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S6 Missing access, valid refresh"
     notes: "frontend-session-continuity S6: planned scenario auth/session_continuity.feature::Missing access token with a valid refresh cookie is renewed"
 
   - id: auth.session-continuity-s7
-    title: "S7 Usable access token makes no refresh call"
+    title: "S7 Usable access token (boundary)"
     persona: buyer
     priority: P1
-    summary: "S7 Usable access token makes no refresh call"
+    summary: "S7 Usable access token (boundary)"
     entry_route: "/"
     services: [team-frontend, team-gateway, team-identity]
     preconditions:
@@ -8255,8 +8255,8 @@ features:
       - "When the visitor loads the home page"
       - "Then both cookies are unchanged (no rotation happened)"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S7 Usable access token (boundary)"
     notes: "frontend-session-continuity S7: planned scenario auth/session_continuity.feature::Usable access token causes no refresh"
 
   - id: auth.session-continuity-s8
@@ -8272,15 +8272,15 @@ features:
       - "Given an expired session cookie and no agora_refresh"
       - "Then the page is anonymous and the stale session cookie is cleared"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S8 No refresh cookie"
     notes: "frontend-session-continuity S8: planned scenario auth/session_continuity.feature::Expired access token without a refresh cookie stays anonymous"
 
   - id: auth.session-continuity-s9
-    title: "S9 Refresh rejected clears both cookies"
+    title: "S9 Refresh rejected (error)"
     persona: buyer
     priority: P1
-    summary: "S9 Refresh rejected clears both cookies"
+    summary: "S9 Refresh rejected (error)"
     entry_route: "/"
     services: [team-frontend, team-gateway, team-identity]
     preconditions:
@@ -8290,15 +8290,15 @@ features:
       - "When the visitor loads the home page"
       - "Then both cookies are deleted and the page is anonymous"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S9 Refresh rejected (error) revoked cookie"
     notes: "frontend-session-continuity S9: planned scenario auth/session_continuity.feature::Revoked refresh cookie clears both cookies / Garbage refresh cookie clears both cookies"
 
   - id: auth.session-continuity-s10
-    title: "S10 Gateway unavailable keeps cookies"
+    title: "S10 Gateway unavailable (error)"
     persona: buyer
     priority: P1
-    summary: "S10 Gateway unavailable keeps cookies"
+    summary: "S10 Gateway unavailable (error)"
     entry_route: "/"
     services: [team-frontend, team-gateway, team-identity]
     preconditions:
@@ -8308,8 +8308,8 @@ features:
       - "Then the page is anonymous and both cookies are exactly as received"
       - "And after identity returns the refresh token still works"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S10 Gateway unavailable (error)"
     notes: "frontend-session-continuity S10: planned scenario auth/session_continuity.feature::Identity outage leaves the cookies untouched"
 
   - id: auth.session-continuity-s13
@@ -8326,15 +8326,15 @@ features:
       - "Then both cookies are cleared, / is anonymous"
       - "And the gateway rejects the old access token and the refresh token"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S13 Logout revokes and clears"
     notes: "frontend-session-continuity S13: planned scenario auth/session_continuity.feature::Logout revokes the server-side session and clears both cookies"
 
   - id: auth.session-continuity-s14
-    title: "S14 Revoke fails"
+    title: "S14 Revoke fails (error)"
     persona: buyer
     priority: P1
-    summary: "S14 Revoke fails"
+    summary: "S14 Revoke fails (error)"
     entry_route: "/"
     services: [team-frontend, team-gateway, team-identity]
     preconditions:
@@ -8344,8 +8344,8 @@ features:
       - "When the shopper clicks logout"
       - "Then both cookies are cleared and / is anonymous"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S14 Revoke fails (error)"
     notes: "frontend-session-continuity S14: planned scenario auth/session_continuity.feature::Revoke outage still logs the shopper out locally"
 
   - id: auth.session-continuity-s15
@@ -8362,8 +8362,8 @@ features:
       - "When the shopper clicks logout"
       - "Then the session is revoked at the gateway and both cookies cleared"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S15 Logout with only a refresh cookie"
     notes: "frontend-session-continuity S15: planned scenario auth/session_continuity.feature::Logout with only the refresh cookie still revokes the session"
 
   - id: auth.session-continuity-s16
@@ -8380,8 +8380,8 @@ features:
       - "When the old cookies are put back and the page is loaded"
       - "Then the page is anonymous and agora_refresh is cleared"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S16 Revoked session cannot refresh"
     notes: "frontend-session-continuity S16: planned scenario auth/session_continuity.feature::A revoked session cannot refresh through the browser"
 
   - id: auth.session-continuity-s18
@@ -8397,8 +8397,8 @@ features:
       - "When 2 requests carry the same agora_refresh and no session at once"
       - "Then both render signed in and the session is not revoked"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S18 Parallel requests share one refresh cookie"
     notes: "frontend-session-continuity S18: planned scenario auth/session_continuity.feature::Parallel requests sharing one refresh cookie both render signed in"
 
   - id: auth.session-continuity-s19
@@ -8414,15 +8414,15 @@ features:
       - "Given agora_refresh is the previous (graced) token and no session cookie"
       - "Then the page is signed in, session is set and agora_refresh is unchanged"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S19 Grace replay keeps the refresh cookie"
     notes: "frontend-session-continuity S19: planned scenario auth/session_continuity.feature::Grace replay of the refresh cookie signs in and keeps the cookie"
 
   - id: auth.session-continuity-s20
-    title: "S20 Access token expiring exactly now"
+    title: "S20 Access token expiring exactly now (boundary)"
     persona: buyer
     priority: P1
-    summary: "S20 Access token expiring exactly now"
+    summary: "S20 Access token expiring exactly now (boundary)"
     entry_route: "/"
     services: [team-frontend, team-gateway, team-identity]
     preconditions:
@@ -8431,15 +8431,15 @@ features:
       - "Given a session cookie with exp equal to now and a valid agora_refresh"
       - "Then the page is signed in and agora_refresh rotated"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S20 Access token expiring exactly now (boundary)"
     notes: "frontend-session-continuity S20: planned scenario auth/session_continuity.feature::Access token expiring exactly now is treated as unusable"
 
   - id: auth.session-continuity-s21
-    title: "S21 Render signed in on the refreshing request"
+    title: "S21 Render is signed in on the refreshing request"
     persona: buyer
     priority: P1
-    summary: "S21 Render signed in on the refreshing request"
+    summary: "S21 Render is signed in on the refreshing request"
     entry_route: "/"
     services: [team-frontend, team-gateway, team-identity]
     preconditions:
@@ -8448,15 +8448,15 @@ features:
       - "When a refresh succeeds"
       - "Then the same response (no second navigation) renders signed in"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S21 Render is signed in on the refreshing request"
     notes: "frontend-session-continuity S21: planned scenario auth/session_continuity.feature::Expired access token with a valid refresh cookie is renewed on the same request"
 
   - id: auth.session-continuity-s24
-    title: "S24 Logout refresh-only path fails"
+    title: "S24 Logout refresh-only path fails (error)"
     persona: buyer
     priority: P1
-    summary: "S24 Logout refresh-only path fails"
+    summary: "S24 Logout refresh-only path fails (error)"
     entry_route: "/"
     services: [team-frontend, team-gateway, team-identity]
     preconditions:
@@ -8466,15 +8466,15 @@ features:
       - "When the shopper clicks logout"
       - "Then both cookies are cleared and / is anonymous"
     tags: [auth, session]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "auth/session_continuity.feature::S24 Logout refresh-only path fails (error)"
     notes: "frontend-session-continuity S24: planned scenario auth/session_continuity.feature::Logout refresh-only path failing still clears both cookies"
 
   - id: auth.session-continuity-s3
-    title: "S3 Sessions disabled"
+    title: "S3 Sessions disabled (boundary)"
     persona: buyer
     priority: P2
-    summary: "S3 Sessions disabled"
+    summary: "S3 Sessions disabled (boundary)"
     entry_route: /
     services: [team-frontend]
     preconditions:
@@ -8486,10 +8486,10 @@ features:
     notes: "frontend-session-continuity S3: VERIFIED BY team-frontend/src/features/auth/actions.test.ts actions.test.ts (loginAction with empty refreshToken). Identity in the e2e stack always issues refresh tokens; empty refreshToken cannot be produced end to end."
 
   - id: auth.session-continuity-s11
-    title: "S11 Empty refresh response"
+    title: "S11 Empty refresh response (error)"
     persona: buyer
     priority: P2
-    summary: "S11 Empty refresh response"
+    summary: "S11 Empty refresh response (error)"
     entry_route: /
     services: [team-frontend]
     preconditions:
@@ -8501,10 +8501,10 @@ features:
     notes: "frontend-session-continuity S11: VERIFIED BY team-frontend/src/middleware.test.ts middleware.test.ts (RefreshSession returns empty token). The gateway never answers 200 with an empty access token; not producible end to end."
 
   - id: auth.session-continuity-s12
-    title: "S12 Refresh call carries no bearer"
+    title: "S12 Refresh call carries no bearer (permission)"
     persona: buyer
     priority: P2
-    summary: "S12 Refresh call carries no bearer"
+    summary: "S12 Refresh call carries no bearer (permission)"
     entry_route: /
     services: [team-frontend]
     preconditions:
@@ -8516,10 +8516,10 @@ features:
     notes: "frontend-session-continuity S12: VERIFIED BY team-frontend/src/middleware.test.ts middleware.test.ts (refresh request has no Authorization header). The server-side request is not observable from the browser; the gateway offers no capture hook. Public-route behaviour is already e2e-covered by auth/session_refresh.feature."
 
   - id: auth.session-continuity-s17
-    title: "S17 Logout only affects own session"
+    title: "S17 Logout only affects own session (permission)"
     persona: buyer
     priority: P2
-    summary: "S17 Logout only affects own session"
+    summary: "S17 Logout only affects own session (permission)"
     entry_route: /
     services: [team-frontend]
     preconditions:
@@ -8546,10 +8546,10 @@ features:
     notes: "frontend-session-continuity S23: VERIFIED BY team-frontend/src/middleware.test.ts middleware.test.ts (x-pathname set with path and query for signed-in, anonymous and refreshed requests). A request header seen by the render has no UI or response signal in this slice; its only consumer is slice frontend-login-return, whose e2e observes it through the login return path."
 
   - id: auth.session-continuity-s25
-    title: "S25 Logout with no cookies"
+    title: "S25 Logout with no cookies (boundary)"
     persona: buyer
     priority: P2
-    summary: "S25 Logout with no cookies"
+    summary: "S25 Logout with no cookies (boundary)"
     entry_route: /
     services: [team-frontend]
     preconditions:
@@ -8561,10 +8561,10 @@ features:
     notes: "frontend-session-continuity S25: VERIFIED BY team-frontend/src/features/auth/actions.test.ts actions.test.ts (no gateway call, cookies deleted, redirect /). The logout control is only rendered for a signed-in shopper, so logout with no cookies cannot be triggered from the UI."
 
   - id: auth.session-continuity-s26
-    title: "S26 Client-supplied x-pathname is not trusted"
+    title: "S26 Client-supplied x-pathname is not trusted (error)"
     persona: buyer
     priority: P2
-    summary: "S26 Client-supplied x-pathname is not trusted"
+    summary: "S26 Client-supplied x-pathname is not trusted (error)"
     entry_route: /
     services: [team-frontend]
     preconditions:
