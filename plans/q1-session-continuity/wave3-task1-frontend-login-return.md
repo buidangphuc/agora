@@ -9,6 +9,8 @@ Implement OpenSpec change `frontend-login-return` test-first per its tasks.md (s
 
 ## Write-set (EXCLUSIVE)
 - team-frontend/src/features/auth/returnUrl.ts
+- team-frontend/src/features/auth/returnUrlShared.ts
+- team-frontend/src/features/tracking/AnalyticsProvider.tsx (navigation hook for trackPageLocation)
 - team-frontend/src/features/auth/returnUrl.test.ts
 - team-frontend/src/features/auth/actions.ts
 - team-frontend/src/features/auth/actions.test.ts
