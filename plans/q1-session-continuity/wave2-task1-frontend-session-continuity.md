@@ -13,6 +13,7 @@ Implement OpenSpec change `frontend-session-continuity` test-first per its tasks
 - team-frontend/src/lib/gateway/session-cookie.ts
 - team-frontend/src/lib/gateway/session.ts
 - team-frontend/src/lib/gateway/refresh.ts
+- team-frontend/src/lib/gateway/revoke.ts
 - team-frontend/src/lib/gateway/refresh.test.ts
 - team-frontend/src/lib/gateway/*.test.ts (new test files for this slice)
 - team-frontend/src/features/auth/actions.ts
