@@ -24,6 +24,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
+import registry_support as registry
 from qdrant_client import QdrantClient
 from qdrant_client.models import DeleteAlias, DeleteAliasOperation
 from redis import Redis
@@ -134,13 +135,6 @@ def _collections(qdrant: QdrantClient) -> dict[str, list[dict]]:
     return out
 
 
-def _models(redis: Redis) -> dict:
-    return {
-        json.loads(redis.get(k))["model_version"]: json.loads(redis.get(k))
-        for k in redis.scan_iter("recs:model:meta:*")
-    }
-
-
 def main() -> int:
     redis = Redis(
         host=os.environ.get("REDIS_HOST", "redis"), port=6379, db=DB, decode_responses=True
@@ -160,7 +154,7 @@ def main() -> int:
         "TWO_TOWER_DIM": "8",
         "ENABLE_TWO_TOWER": "true",
         "DATASET_PATH": _dataset(f"{WORK}/dataset"),
-        "PROMOTION_FORCE": "true",
+        "MLFLOW_TRACKING_URI": registry.base(),
         "GATE_MAX_LIST_OVERLAP": "1.0",
         "GATE_MIN_ITEM_COVERAGE": "0",
         "GATE_MIN_USER_COVERAGE": "0",
@@ -174,6 +168,8 @@ def main() -> int:
                 env.pop(k, None) if v is None else env.__setitem__(k, v)
             env.update(_features(step.get("features", "attrs"), f"{WORK}/feat-{index}"))
             env.setdefault("MODEL_VERSION", f"als-fir-{nonce}-{index}")
+            registry.reset()  # no champion: the run promotes without any forcing lever
+            before = registry.counts()
             proc = subprocess.run(
                 [sys.executable, "-m", "recsys"],
                 env=env,
@@ -187,7 +183,7 @@ def main() -> int:
                 if SUMMARY_MARK in line:
                     summary = ast.literal_eval(line.split(SUMMARY_MARK, 1)[1])
             results.append({"exit_code": proc.returncode, "summary": summary, "log_tail": out[-3000:],
-                            "models": _models(redis), "collections": _collections(qdrant),
+                            "models": registry.snapshot(env["MODEL_VERSION"], before)["models"], "collections": _collections(qdrant),
                             "model_version": env["MODEL_VERSION"]})  # fmt: skip
     finally:
         json.dump({"steps": results}, open(f"{WORK}/result.json", "w"))  # noqa: SIM115

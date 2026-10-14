@@ -86,11 +86,7 @@ def scratch_database(world: World) -> None:
 @when("the team-identity image is started against it with no SEED_ADMIN variables")
 def start_without_seed(world: World) -> None:
     env = _identity_env()
-    env.update(
-        DATABASE_URL=world.state.extra["scratch_url"],
-        KAFKA_ENABLED="false",
-        OUTBOX_ENABLED="false",
-    )
+    env.update(DATABASE_URL=world.state.extra["scratch_url"])
     name = f"e2e-noadmin-identity-{uuid.uuid4().hex[:8]}"
     world.add_cleanup(lambda: pe.docker("rm", "-f", name, check=False))
     pe.docker(

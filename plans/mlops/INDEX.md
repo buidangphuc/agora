@@ -2,6 +2,10 @@
 
 Nguồn sự thật cho track recsys-ML. Cập nhật cột Status sau mỗi task. Status: `todo | running | review | done | failed`.
 
+> **Current initiative:** [`plans/training-platform/`](../training-platform/00-spec.md) (ASDLC v2) — one MLflow
+> Model Registry + shared `py-modelregistry` gate (ADR-0017, supersedes ADR-0014), recsys auto-train, and the MLOps
+> import as `platform-finetune`. This file is the older free-form plan; its P1-T4 Redis registry is replaced.
+
 ## Nền tảng đã có (audit 2026-09-20, verified trong code)
 
 | Có | Ở đâu |

@@ -17,11 +17,18 @@ import time
 
 from pytest_bdd import given, parsers, then, when
 
+from src.api.mlflow_registry import WEAK, MlflowRegistry
+from src.api.recsys_job import MLFLOW_IN_STACK
 from src.api.services.recommendation_service import CONTEXT_HOMEPAGE
 from tests.e2e.flows.recsys_job_flow import JobRun, run_recsys_job
 from tests.e2e.support.world import World
 
 ITEM_ALIAS = "item_als_vectors"
+ALS = "recsys-als"
+# The registry is MLflow (recsys-auto-train). The gate is the `recsys-als` policy (+1 % ndcg@10 over
+# the champion): `better_b` genuinely scores far above `good_a` and `regressing` is `good_a`'s own
+# data again (an equal score cannot clear +1 %), so no forcing lever is needed.
+_MLFLOW_ENV = {"MLFLOW_TRACKING_URI": MLFLOW_IN_STACK}
 _ORDINAL = {"first": 0, "second": 1, "third": 2}
 _FOLLOW_S = 10.0
 _SETTLE_S = 20.0  # the 5 s pointer memo plus slack, for scenarios that are not about latency
@@ -30,6 +37,10 @@ _POLL_S = 0.5
 
 def _ctx(world: World) -> dict:
     return world.state.extra.setdefault("rgp", {"versions": [], "state": None, "before": None})
+
+
+def _registry(world: World) -> MlflowRegistry:
+    return _ctx(world).setdefault("registry", MlflowRegistry())
 
 
 def _buyer_id(world: World) -> str:
@@ -41,8 +52,16 @@ def _buyer_id(world: World) -> str:
 def _publish(world: World, runs: list[dict], *, reset: bool) -> list[JobRun]:
     """Run the job live over fixture variants and record what each run left behind."""
     ctx = _ctx(world)
+    registry = _registry(world)
+    if reset:
+        registry.reset_registry()  # forget every generation AND every registered recsys model
     result = run_recsys_job(
-        [], runs, live=True, reset=reset, buyer_id=_buyer_id(world), expect_summary=True
+        [],
+        [{**_MLFLOW_ENV, **run} for run in runs],
+        live=True,
+        reset=reset,
+        buyer_id=_buyer_id(world),
+        expect_summary=True,
     )
     for run in result:
         assert run.exit_code == 0, f"the job signalled failure: {run.summary}\n{run.log}"
@@ -123,6 +142,11 @@ def rgp_promote_two(world: World) -> None:
 
 @when("a third model is promoted after the two above")
 def rgp_promote_third(world: World) -> None:
+    # `third_c` scores below `better_b`, so against the real champion it would be rejected. This
+    # scenario is about generation retention, not the gate: seed a weak champion it can beat.
+    registry = _registry(world)
+    registry.reset_registry()
+    registry.seed(ALS, WEAK[ALS])
     _publish(world, [{"@fixture": "third_c"}], reset=False)
 
 
@@ -152,7 +176,7 @@ def rgp_run_rollback(world: World) -> None:
     ctx = _ctx(world)
     (run,) = run_recsys_job(
         [],
-        [{"@command": "rollback"}],
+        [{**_MLFLOW_ENV, "@command": "rollback"}],
         live=True,
         reset=False,
         buyer_id=_buyer_id(world),
@@ -226,29 +250,31 @@ def rgp_pointers_unchanged(world: World) -> None:
 )
 def rgp_one_size_rejected(world: World) -> None:
     run: JobRun = _ctx(world)["candidate"]
-    version = run.summary["model_version"]
     assert run.summary["decision"] == "rejected", run.summary
-    recorded = run.state["models"].get(version)
-    assert recorded is not None, f"{version} not in registry: {run.state['models']}"
-    assert recorded["status"] == "rejected", recorded
-    reasons = [
-        run.summary.get("reason") or "",
-        (recorded["metrics"] or {}).get("gate_reason") or "",
-    ]
+    # Registered through `register_rejected`: a recsys-als version tagged rejected, with a reason.
+    newest = _registry(world).newest_version(ALS)
+    assert newest is not None, "recsys-als has no version in MLflow"
+    tags = _registry(world).tags(newest)
+    assert tags.get("gate.outcome") == "rejected", tags
+    reasons = [run.summary.get("reason") or "", tags.get("gate.reason") or ""]
     assert all(re.search(r"overlap|coverage", r, re.I) for r in reasons), reasons
     assert "qdrant" not in run.summary and "cache" not in run.summary, run.summary
 
 
 @then("the registry champion is the first")
 def rgp_champion_is_first(world: World) -> None:
-    state = _ctx(world)["state"]
-    first, second = _version(world, "first"), _version(world, "second")
-    assert state["champion"] == first, state["champion"]
-    assert state["models"][first]["status"] == "champion", state["models"][first]
-    assert state["models"][second]["status"] == "archived", state["models"][second]
+    # No generation -> version mapping is assumed: the second model's version is the newest one,
+    # and after the rollback it is the `previous` the first model's version displaced.
+    registry = _registry(world)
+    newest_version = registry.newest_version(ALS)
+    assert newest_version is not None, "recsys-als has no version in MLflow"
+    newest = int(newest_version["version"])
+    champion = registry.alias(ALS, "champion")
+    assert champion is not None and champion != newest, (champion, newest)
+    assert registry.alias(ALS, "previous") == newest, (registry.alias(ALS, "previous"), newest)
 
 
-@then("it exits non-zero")
-def rgp_exits_nonzero(world: World) -> None:
+@then("it exits 2")
+def rgp_exits_two(world: World) -> None:
     run: JobRun = _ctx(world)["rollback"]
-    assert run.exit_code != 0, f"rollback exited 0:\n{run.log}"
+    assert run.exit_code == 2, f"rollback exited {run.exit_code}, expected 2:\n{run.log}"

@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-finetune
+  namespace: argocd
+  annotations:
+    # Scheduled workload: runs only on its cron, so a late wave is harmless (cf. platform-recsys).
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/ci/platform-gitops.git
+    targetRevision: main
+    path: platform/finetune
+    kustomize: {}   # path holds a kustomization.yaml: images[].newTag carries the tag
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: marketplace
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

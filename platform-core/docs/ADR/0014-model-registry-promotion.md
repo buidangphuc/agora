@@ -1,6 +1,6 @@
 # ADR-0014 — Model Registry and Champion/Challenger Promotion Gate
 
-**Status:** Accepted · **Date:** 2026-09-20 · **Relates to:** ADR-0011, ADR-0005
+**Status:** Superseded by ADR-0017 (was Accepted) · **Date:** 2026-09-20 · **Relates to:** ADR-0011, ADR-0005
 
 ## Context
 

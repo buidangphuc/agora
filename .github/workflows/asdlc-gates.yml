@@ -143,11 +143,22 @@ jobs:
             # uv-managed (uv.lock): the locked set with all extras + dev, as the service's own CI uses
             if [ -f "$d/uv.lock" ]; then
               (cd "$d" && uv export --frozen --all-extras --dev --no-emit-project --no-hashes -q) > "/tmp/req-$d.txt" &&
-                pip install -r "/tmp/req-$d.txt"
+                # install from inside "$d": uv.lock may hold relative path deps (e.g. ../platform-core/packages/...)
+                (cd "$d" && pip install -r "/tmp/req-$d.txt")
               continue
             fi
             [ -f "$d/requirements.txt" ] && pip install -r "$d/requirements.txt"
-            if [ -f "$d/pyproject.toml" ]; then pip install -e "./$d[dev]" || pip install -e "./$d"; fi
+            # uv (not pip) so [tool.uv.sources] path deps such as ../platform-core/packages/* resolve
+            if [ -f "$d/pyproject.toml" ]; then
+              uv pip install --system -e "./$d[dev]" || uv pip install --system -e "./$d"
+            fi
+          done
+          # Keep only third-party deps installed: in-repo projects in site-packages point at the head
+          # checkout, so red_first's base run would import head code ("green at base"). red_first puts
+          # each worktree's own module and platform-core/packages/*/src on PYTHONPATH instead.
+          for p in */pyproject.toml platform-core/packages/*/pyproject.toml; do
+            n=$(sed -n 's/^name *= *"\([^"]*\)".*/\1/p' "$p" | head -1)
+            [ -n "$n" ] && pip uninstall -y -q "$n" 2>/dev/null
           done
           true
       - name: red-first (go, python)
@@ -168,9 +179,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITLEAKS_CONFIG: .gitleaks.toml
-          # the action reads BASE_REF as a ref override (`git log main^..`); there is no local `main`
-          # in this checkout, so clear the workflow-level value and let it use the PR's commit range
-          BASE_REF: ""
+          # the action reads BASE_REF as a ref override (`git log <ref>^..`). There is no local `main`
+          # in this checkout, and the PR's own first commit can be a parentless root (subtree imports
+          # such as platform-finetune), so pin the range to the fetched base branch.
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
       - name: trivy fs
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:

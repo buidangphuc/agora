@@ -1,0 +1,9 @@
+# Non-secret job config. MinIO credentials come from the Vault-backed Secret (externalsecret.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finetune-config
+  namespace: marketplace
+data:
+  MLFLOW_TRACKING_URI: "http://mlflow:5050"
+  MLFLOW_S3_ENDPOINT_URL: "http://minio:9000"

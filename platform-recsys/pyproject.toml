@@ -18,6 +18,8 @@ dependencies = [
     "pyarrow>=14.0",
     # nearline consumer (python -m recsys.nearline): analytics.events -> Redis
     "confluent-kafka>=2.3",
+    # model registry + publish gate (MLflow); installed from the monorepo path
+    "modelregistry",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +27,9 @@ dev = ["pytest>=7", "ruff>=0.4", "black>=24.0"]
 
 [project.scripts]
 recsys-train = "recsys.__main__:main"
+
+[tool.uv.sources]
+modelregistry = { path = "../platform-core/packages/py-modelregistry" }
 
 [tool.setuptools.packages.find]
 include = ["recsys*"]

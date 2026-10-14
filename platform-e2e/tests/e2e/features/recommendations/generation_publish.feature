@@ -45,13 +45,14 @@ Feature: A promoted model goes live as one generation (recsys-generation-publish
     Then `recs:v1:serving` is the first model
     And `recs:v1:previous` is the second
     And the registry champion is the first
+    # i.e. the `recsys-als@champion` alias names the first model's version and `previous` the second's
     And a buyer's recommendations through the gateway report the first model's version
 
   Scenario: Rollback without a previous generation is refused
     Given a buyer is logged in
     And a model has been promoted on the good dataset
     When `python -m recsys rollback` runs
-    Then it exits non-zero
+    Then it exits 2
     And `recs:v1:serving`, `recs:v1:previous` and the alias are the same as before the run
 
   Scenario: Serving follows a promotion within seconds

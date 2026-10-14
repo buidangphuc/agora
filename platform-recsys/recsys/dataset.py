@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import ConfigError, Settings
@@ -77,9 +78,31 @@ def resolve_named(directory: str, explicit: str, dir_setting: str, path_setting:
     return _load(candidates[-1], dir_setting)
 
 
-def resolve_dataset(settings: Settings) -> Dataset:
-    """DATASET_PATH, else the latest complete as_of=*.parquet under DATASET_DIR."""
-    return resolve_named(settings.dataset_dir, settings.dataset_path, "DATASET_DIR", "DATASET_PATH")
+def _check_fresh(dataset: Dataset, max_age_minutes: int, now: datetime | None) -> None:
+    """Refuse a snapshot whose manifest ``as_of`` is older than ``max_age_minutes`` (inclusive; 0 = off)."""
+    if max_age_minutes <= 0:
+        return
+    as_of = dataset.manifest["as_of"]
+    try:
+        stamp = datetime.strptime(str(as_of), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise ConfigError(
+            f"dataset {dataset.path}: manifest as_of {as_of!r} is not a UTC timestamp"
+        ) from None
+    age = ((now or datetime.now(timezone.utc)) - stamp).total_seconds() / 60.0
+    if age > max_age_minutes:
+        raise ConfigError(
+            f"dataset {dataset.path} (as_of {as_of}) is {age:.0f} minutes old, "
+            f"older than MAX_DATASET_AGE_MINUTES={max_age_minutes}"
+        )
+
+
+def resolve_dataset(settings: Settings, now: datetime | None = None) -> Dataset:
+    """DATASET_PATH, else the latest complete as_of=*.parquet under DATASET_DIR, if fresh enough
+    (MAX_DATASET_AGE_MINUTES; ``now`` is injectable for tests)."""
+    dataset = resolve_named(settings.dataset_dir, settings.dataset_path, "DATASET_DIR", "DATASET_PATH")
+    _check_fresh(dataset, settings.max_dataset_age_minutes, now)
+    return dataset
 
 
 def resolve_rank_dataset(settings: Settings) -> Dataset:
