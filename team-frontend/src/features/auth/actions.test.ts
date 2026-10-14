@@ -558,3 +558,110 @@ describe("logoutAction revokes the server session (frontend-session-continuity)"
     );
   });
 });
+
+describe("returnUrl redirect (frontend-login-return)", () => {
+  it("login redirects to returnUrl", async () => {
+    stubAuth({
+      login: vi.fn().mockResolvedValue({ result: { token: "jwt" } }),
+    });
+    await loginAction(
+      initial,
+      form({
+        username: "alice",
+        password: "pw",
+        returnUrl: "/listing/abc?variant=v2",
+      }),
+    );
+    expect(redirect).toHaveBeenCalledTimes(1);
+    expect(redirect).toHaveBeenCalledWith("/listing/abc?variant=v2");
+  });
+
+  it("login without returnUrl redirects home", async () => {
+    stubAuth({
+      login: vi.fn().mockResolvedValue({ result: { token: "jwt" } }),
+    });
+    await loginAction(initial, form({ username: "alice", password: "pw" }));
+    expect(redirect).toHaveBeenCalledTimes(1);
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it.each([
+    "https://evil.example",
+    "//evil",
+    "/\\evil",
+    "/login",
+    "javascript:alert(1)",
+  ])("login ignores unsafe returnUrl %s", async (bad) => {
+    stubAuth({
+      login: vi.fn().mockResolvedValue({ result: { token: "jwt" } }),
+    });
+    await loginAction(
+      initial,
+      form({ username: "alice", password: "pw", returnUrl: bad }),
+    );
+    expect(redirect).toHaveBeenCalledTimes(1);
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("failed login keeps the form", async () => {
+    stubAuth({
+      login: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("no", Code.Unauthenticated)),
+    });
+    const res = await loginAction(
+      initial,
+      form({ username: "x", password: "y", returnUrl: "/listing/abc" }),
+    );
+    expect(res.ok).toBe(false);
+    expect(res.error).toBe("Tên đăng nhập hoặc mật khẩu không chính xác.");
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("register redirects to returnUrl", async () => {
+    stubAuth({
+      register: vi.fn().mockResolvedValue({ result: { token: "jwt" } }),
+    });
+    await registerAction(
+      initial,
+      form({
+        username: "alice",
+        password: "pass",
+        role: "buyer",
+        returnUrl: "/listing/abc",
+      }),
+    );
+    expect(redirect).toHaveBeenCalledTimes(1);
+    expect(redirect).toHaveBeenCalledWith("/listing/abc");
+  });
+
+  it("register ignores unsafe returnUrl", async () => {
+    stubAuth({
+      register: vi.fn().mockResolvedValue({ result: { token: "jwt" } }),
+    });
+    await registerAction(
+      initial,
+      form({
+        username: "alice",
+        password: "pass",
+        returnUrl: "https://evil.example",
+      }),
+    );
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("register already exists keeps the form", async () => {
+    stubAuth({
+      register: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("dup", Code.AlreadyExists)),
+    });
+    const res = await registerAction(
+      initial,
+      form({ username: "alice", password: "pass", returnUrl: "/listing/abc" }),
+    );
+    expect(res.ok).toBe(false);
+    expect(res.error).toBe("Tên đăng nhập đã tồn tại.");
+    expect(redirect).not.toHaveBeenCalled();
+  });
+});
