@@ -21,3 +21,7 @@ export function accessCookieOptions(secure: boolean) {
 export function refreshCookieOptions(secure: boolean) {
   return cookieOptions(REFRESH_MAX_AGE_S, secure);
 }
+
+export function isSecureRequest(headers: Headers): boolean {
+  return headers.get("x-forwarded-proto") === "https";
+}

@@ -10,6 +10,7 @@ import { SESSION_COOKIE } from "@/lib/gateway/session";
 import {
   REFRESH_COOKIE,
   accessCookieOptions,
+  isSecureRequest,
   refreshCookieOptions,
 } from "@/lib/gateway/session-cookie";
 
@@ -47,7 +48,7 @@ function failure(
 
 async function setSession(token: string, refreshToken: string) {
   const jar = await cookies();
-  const secure = (await headers()).get("x-forwarded-proto") === "https";
+  const secure = isSecureRequest(await headers());
   jar.set(SESSION_COOKIE, token, accessCookieOptions(secure));
   if (refreshToken) {
     jar.set(REFRESH_COOKIE, refreshToken, refreshCookieOptions(secure));
