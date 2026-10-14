@@ -1,0 +1,11 @@
+# Raw manifests + kustomize: the manifest carries a tagless image; newTag below is the tag ArgoCD deploys.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - externalsecret.yaml
+  - configmap.yaml
+  - cronjob.yaml
+  - networkpolicy.yaml
+images:
+  - name: localhost:5001/platform-finetune
+    newTag: latest  # TODO: push-images.sh writes the real sha tag once the image is built

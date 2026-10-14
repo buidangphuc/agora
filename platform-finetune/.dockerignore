@@ -1,0 +1,9 @@
+# Build context is platform-finetune/: ship only what the Dockerfile COPYs.
+*
+!pyproject.toml
+!README.md
+!main.py
+!src
+!config
+**/__pycache__
+**/*.pyc

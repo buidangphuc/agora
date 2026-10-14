@@ -1,0 +1,35 @@
+# Batch pod: nothing connects to it (no ingress). Egress: DNS, mlflow (tracking + registry), minio (artifacts),
+# and TCP 443 to the internet for the Hugging Face dataset and base model, with the private ranges excluded
+# so 443 cannot be used to reach other in-cluster services (ADR-0010).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: platform-finetune, namespace: marketplace }
+spec:
+  podSelector:
+    matchLabels: { app: platform-finetune }
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - podSelector:
+            matchLabels: { app: mlflow }
+      ports:
+        - { protocol: TCP, port: 5050 }
+    - to:
+        - podSelector:
+            matchLabels: { app: minio }
+      ports:
+        - { protocol: TCP, port: 9000 }
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16]
+      ports:
+        - { protocol: TCP, port: 443 }
