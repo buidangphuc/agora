@@ -51,7 +51,7 @@ function isDeleted(res: { cookies: { get(n: string): any } }, name: string) {
 
 const NEW_ACCESS = jwt(nowSec() + 3600, "u2");
 const ok = (accessToken = NEW_ACCESS, refreshToken = "R2") => ({
-  accessToken,
+  token: accessToken,
   refreshToken,
 });
 
