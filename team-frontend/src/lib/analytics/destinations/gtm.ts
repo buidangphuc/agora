@@ -77,6 +77,24 @@ export function applyConsent(groups: ConsentGroups): void {
       layer.push({ debug_mode: true });
     }
 
+    const loc = new URL(window.location.href);
+    let pageLocation = loc.href;
+    if (loc.searchParams.has("returnUrl")) {
+      loc.searchParams.delete("returnUrl");
+      pageLocation = loc.toString();
+    }
+    const lastPage = [...layer]
+      .reverse()
+      .find(
+        (e) =>
+          !!e &&
+          typeof e === "object" &&
+          typeof (e as { page_location?: unknown }).page_location === "string",
+      ) as { page_location: string } | undefined;
+    if (lastPage?.page_location !== pageLocation) {
+      layer.push({ page_location: pageLocation });
+    }
+
     const gtmId = process.env.NEXT_PUBLIC_GTM_ID?.trim();
     if (gtmId && !document.querySelector(SCRIPT_SELECTOR)) {
       layer.push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
