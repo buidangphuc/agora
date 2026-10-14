@@ -136,7 +136,7 @@ func TestLegacySessionUnaffectedByRefreshColumns_Postgres(t *testing.T) {
 		t.Fatalf("list: n=%d err=%v", len(items), err)
 	}
 	for _, p := range []string{"", "anything"} {
-		res, err := repo.RotateRefresh(ctx, p, "n", refreshT0, refreshGrace, okEv("e"))
+		res, err := repo.RotateRefresh(ctx, p, "n", refreshT0, refreshGrace, refreshMaxAge, okEv("e"))
 		if err != nil || res.Outcome != RotateStale {
 			t.Fatalf("presented %q: %v %v", p, res.Outcome, err)
 		}
@@ -175,7 +175,7 @@ func TestRotateRefresh_Lifecycle_Postgres(t *testing.T) {
 	s := newPGSession(t, repo, "u-rf1", "h1")
 	other := newPGSession(t, repo, "u-rf2", "o1")
 
-	res, err := repo.RotateRefresh(ctx, "h1", "h2", refreshT0, refreshGrace, okEv("unused"))
+	res, err := repo.RotateRefresh(ctx, "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, okEv("unused"))
 	if err != nil || res.Outcome != RotateRotated || res.Session.ID != s.ID {
 		t.Fatalf("rotate: %+v %v", res, err)
 	}
@@ -196,7 +196,7 @@ func TestRotateRefresh_Lifecycle_Postgres(t *testing.T) {
 	}
 
 	// Grace boundary, inclusive.
-	if res, err = repo.RotateRefresh(ctx, "h1", "hx", refreshT0.Add(10*time.Second), refreshGrace, okEv("unused")); err != nil || res.Outcome != RotateReplayedInGrace {
+	if res, err = repo.RotateRefresh(ctx, "h1", "hx", refreshT0.Add(10*time.Second), refreshGrace, refreshMaxAge, okEv("unused")); err != nil || res.Outcome != RotateReplayedInGrace {
 		t.Fatalf("grace: %+v %v", res, err)
 	}
 	q()
@@ -205,10 +205,10 @@ func TestRotateRefresh_Lifecycle_Postgres(t *testing.T) {
 	}
 
 	// Stale after a second rotation.
-	if res, err = repo.RotateRefresh(ctx, "h2", "h3", refreshT0.Add(time.Minute), refreshGrace, nil); err != nil || res.Outcome != RotateRotated {
+	if res, err = repo.RotateRefresh(ctx, "h2", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, okEv("n")); err != nil || res.Outcome != RotateRotated {
 		t.Fatalf("rotate2: %+v %v", res, err)
 	}
-	if res, err = repo.RotateRefresh(ctx, "h1", "hy", refreshT0.Add(time.Minute+time.Second), refreshGrace, okEv("unused")); err != nil || res.Outcome != RotateStale {
+	if res, err = repo.RotateRefresh(ctx, "h1", "hy", refreshT0.Add(time.Minute+time.Second), refreshGrace, refreshMaxAge, okEv("unused")); err != nil || res.Outcome != RotateStale {
 		t.Fatalf("stale: %+v %v", res, err)
 	}
 	var revoked bool
@@ -225,10 +225,10 @@ func TestReuseWritesSessionRevokedOutbox_Postgres(t *testing.T) {
 	pool, repo := refreshPG(t)
 	ctx := context.Background()
 	s := newPGSession(t, repo, "u-rf1", "h1")
-	if _, err := repo.RotateRefresh(ctx, "h1", "h2", refreshT0, refreshGrace, nil); err != nil {
+	if _, err := repo.RotateRefresh(ctx, "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, okEv("n")); err != nil {
 		t.Fatal(err)
 	}
-	res, err := repo.RotateRefresh(ctx, "h1", "h3", refreshT0.Add(11*time.Second), refreshGrace, okEv("evt-reuse-1"))
+	res, err := repo.RotateRefresh(ctx, "h1", "h3", refreshT0.Add(11*time.Second), refreshGrace, refreshMaxAge, okEv("evt-reuse-1"))
 	if err != nil || res.Outcome != RotateReuse {
 		t.Fatalf("reuse: %+v %v", res, err)
 	}
@@ -246,7 +246,7 @@ func TestReuseWritesSessionRevokedOutbox_Postgres(t *testing.T) {
 	}
 	// R2 and replayed R1 are now unknown.
 	for _, p := range []string{"h2", "h1"} {
-		if r, err := repo.RotateRefresh(ctx, p, "z", refreshT0.Add(12*time.Second), refreshGrace, okEv("evt-x")); err != nil || r.Outcome != RotateStale {
+		if r, err := repo.RotateRefresh(ctx, p, "z", refreshT0.Add(12*time.Second), refreshGrace, refreshMaxAge, okEv("evt-x")); err != nil || r.Outcome != RotateStale {
 			t.Fatalf("%s after reuse: %+v %v", p, r, err)
 		}
 	}
@@ -259,7 +259,7 @@ func TestReuseOutboxFailureRollsBack_Postgres(t *testing.T) {
 	pool, repo := refreshPG(t)
 	ctx := context.Background()
 	s := newPGSession(t, repo, "u-rf1", "h1")
-	if _, err := repo.RotateRefresh(ctx, "h1", "h2", refreshT0, refreshGrace, nil); err != nil {
+	if _, err := repo.RotateRefresh(ctx, "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, okEv("n")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `INSERT INTO identity_outbox_events (event_id, aggregate_type, aggregate_id, event_type, payload) VALUES ('dup','Session','u-rf1','T','\x00')`); err != nil {
@@ -270,7 +270,7 @@ func TestReuseOutboxFailureRollsBack_Postgres(t *testing.T) {
 	}
 	boom := errors.New("boom")
 	for _, ev := range []EnqueueFn{dup, func(Session) (OutboxRow, error) { return OutboxRow{}, boom }} {
-		res, err := repo.RotateRefresh(ctx, "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, ev)
+		res, err := repo.RotateRefresh(ctx, "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, ev)
 		if err == nil || res.Outcome == RotateReuse && err == nil {
 			t.Fatalf("want an error, got %+v %v", res, err)
 		}
@@ -299,7 +299,7 @@ func TestRefreshConcurrentSameToken_Postgres(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			results[i], errs[i] = repo.RotateRefresh(ctx, "h1", "new-"+string(rune('a'+i)), refreshT0, refreshGrace, okEv("evt-"+string(rune('a'+i))))
+			results[i], errs[i] = repo.RotateRefresh(ctx, "h1", "new-"+string(rune('a'+i)), refreshT0, refreshGrace, refreshMaxAge, okEv("evt-"+string(rune('a'+i))))
 		}(i)
 	}
 	close(start)
@@ -332,7 +332,7 @@ func TestRevokeSessionClearsHashes_EveryPath_Postgres(t *testing.T) {
 	ctx := context.Background()
 	for i, ev := range []EnqueueFn{nil, okEv("evt-rv")} {
 		s := newPGSession(t, repo, "u-rf1", "rv-"+string(rune('a'+i)))
-		if _, err := repo.RotateRefresh(ctx, "rv-"+string(rune('a'+i)), "rv2-"+string(rune('a'+i)), refreshT0, refreshGrace, nil); err != nil {
+		if _, err := repo.RotateRefresh(ctx, "rv-"+string(rune('a'+i)), "rv2-"+string(rune('a'+i)), refreshT0, refreshGrace, refreshMaxAge, okEv("n")); err != nil {
 			t.Fatal(err)
 		}
 		if err := repo.RevokeSession(ctx, s.ID, "u-rf1", ev); err != nil {
@@ -342,5 +342,179 @@ func TestRevokeSessionClearsHashes_EveryPath_Postgres(t *testing.T) {
 		if err := pool.QueryRow(ctx, `SELECT refresh_hash, prev_refresh_hash FROM sessions WHERE id=$1`, s.ID).Scan(&rh, &ph); err != nil || rh != nil || ph != nil {
 			t.Fatalf("path %d: hashes %v %v err=%v", i, rh, ph, err)
 		}
+	}
+}
+
+// --- round 2: expiry, absolute lifetime, mandatory ev, error hygiene ---
+
+func pgSetTimes(t *testing.T, pool *pgxpool.Pool, id string, createdAt, expiresAt time.Time) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `UPDATE sessions SET created_at=$2, refresh_expires_at=$3 WHERE id=$1`, id, createdAt, expiresAt); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type pgRow struct {
+	Revoked          bool
+	RH, PH           string
+	Exp, Rot, LastSn time.Time
+}
+
+func pgRowOf(t *testing.T, pool *pgxpool.Pool, id string) pgRow {
+	t.Helper()
+	var r pgRow
+	var rot *time.Time
+	if err := pool.QueryRow(context.Background(), `SELECT revoked, COALESCE(refresh_hash,''), COALESCE(prev_refresh_hash,''), refresh_expires_at, rotated_at, last_seen FROM sessions WHERE id=$1`, id).
+		Scan(&r.Revoked, &r.RH, &r.PH, &r.Exp, &rot, &r.LastSn); err != nil {
+		t.Fatal(err)
+	}
+	if rot != nil {
+		r.Rot = *rot
+	}
+	return r
+}
+
+func outboxCount(t *testing.T, pool *pgxpool.Pool) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM identity_outbox_events`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestRotateRefresh_ExpiredLiveToken_NoChange_RefreshTokenExpired_Postgres(t *testing.T) {
+	pool, repo := refreshPG(t)
+	ctx := context.Background()
+	for i, exp := range []time.Time{refreshT0, refreshT0.Add(-time.Second)} {
+		h := "ex-" + string(rune('a'+i))
+		s := newPGSession(t, repo, "u-rf1", h)
+		pgSetTimes(t, pool, s.ID, refreshT0.Add(-time.Hour), exp)
+		before := pgRowOf(t, pool, s.ID)
+		p := &evProbe{}
+		res, err := repo.RotateRefresh(ctx, h, "new-"+h, refreshT0, refreshGrace, refreshMaxAge, p.fn("e"))
+		if err != nil || res.Outcome != RotateExpired {
+			t.Fatalf("%s: %+v %v", h, res, err)
+		}
+		if after := pgRowOf(t, pool, s.ID); after != before {
+			t.Fatalf("%s row changed: %+v -> %+v", h, before, after)
+		}
+		if p.calls != 0 || outboxCount(t, pool) != 0 {
+			t.Fatalf("%s: ev calls=%d", h, p.calls)
+		}
+	}
+}
+
+func TestRotateRefresh_ExpiredSessionGraceReplay_NoChange_RefreshTokenExpired_Postgres(t *testing.T) {
+	pool, repo := refreshPG(t)
+	ctx := context.Background()
+	s := newPGSession(t, repo, "u-rf1", "g1")
+	if res, err := repo.RotateRefresh(ctx, "g1", "g2", refreshT0, refreshGrace, refreshMaxAge, okEv("x")); err != nil || res.Outcome != RotateRotated {
+		t.Fatalf("rotate: %+v %v", res, err)
+	}
+	pgSetTimes(t, pool, s.ID, refreshT0.Add(-time.Hour), refreshT0.Add(5*time.Second))
+	before := pgRowOf(t, pool, s.ID)
+	p := &evProbe{}
+	res, err := repo.RotateRefresh(ctx, "g1", "g3", refreshT0.Add(6*time.Second), refreshGrace, refreshMaxAge, p.fn("e"))
+	if err != nil || res.Outcome != RotateExpired {
+		t.Fatalf("grace replay on expired: %+v %v", res, err)
+	}
+	if after := pgRowOf(t, pool, s.ID); after != before || p.calls != 0 || outboxCount(t, pool) != 0 {
+		t.Fatalf("must be unchanged: %+v calls=%d", after, p.calls)
+	}
+}
+
+func TestRotateRefresh_AbsoluteLifetimeExceeded_RevokesWithOneOutboxRow_Postgres(t *testing.T) {
+	pool, repo := refreshPG(t)
+	ctx := context.Background()
+	s := newPGSession(t, repo, "u-rf1", "l1")
+	pgSetTimes(t, pool, s.ID, refreshT0.Add(-refreshMaxAge-time.Millisecond), refreshT0.Add(time.Hour))
+	p := &evProbe{}
+	res, err := repo.RotateRefresh(ctx, "l1", "l2", refreshT0, refreshGrace, refreshMaxAge, p.fn("evt-life-pg"))
+	if err != nil || res.Outcome != RotateLifetimeExceeded {
+		t.Fatalf("outcome: %+v %v", res, err)
+	}
+	if got := pgRowOf(t, pool, s.ID); !got.Revoked || got.RH != "" || got.PH != "" {
+		t.Fatalf("want revoked + NULL hashes: %+v", got)
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM identity_outbox_events WHERE event_id='evt-life-pg' AND event_type='platform.identity.v1.SessionRevoked' AND aggregate_id='u-rf1'`).Scan(&n); err != nil || n != 1 || p.calls != 1 {
+		t.Fatalf("outbox=%d calls=%d err=%v", n, p.calls, err)
+	}
+	if r, err := repo.RotateRefresh(ctx, "l1", "l3", refreshT0.Add(time.Second), refreshGrace, refreshMaxAge, okEv("again")); err != nil || r.Outcome != RotateStale {
+		t.Fatalf("after revoke: %+v %v", r, err)
+	}
+	if outboxCount(t, pool) != 1 {
+		t.Fatal("exactly one outbox row expected")
+	}
+}
+
+func TestRotateRefresh_ExactlyMaxAge_StillRotates_AbsoluteLifetimeBoundary_Postgres(t *testing.T) {
+	pool, repo := refreshPG(t)
+	s := newPGSession(t, repo, "u-rf1", "b1")
+	pgSetTimes(t, pool, s.ID, refreshT0.Add(-refreshMaxAge), refreshT0.Add(time.Hour))
+	p := &evProbe{}
+	res, err := repo.RotateRefresh(context.Background(), "b1", "b2", refreshT0, refreshGrace, refreshMaxAge, p.fn("e"))
+	if err != nil || res.Outcome != RotateRotated || p.calls != 0 {
+		t.Fatalf("%+v %v calls=%d", res, err, p.calls)
+	}
+	if got := pgRowOf(t, pool, s.ID); got.Revoked || got.RH != "b2" {
+		t.Fatalf("row: %+v", got)
+	}
+}
+
+func TestRotateRefresh_LifetimeExceededOutboxFailureRollsBack_Postgres(t *testing.T) {
+	pool, repo := refreshPG(t)
+	ctx := context.Background()
+	s := newPGSession(t, repo, "u-rf1", "r1")
+	pgSetTimes(t, pool, s.ID, refreshT0.Add(-refreshMaxAge-time.Second), refreshT0.Add(time.Hour))
+	if _, err := pool.Exec(ctx, `INSERT INTO identity_outbox_events (event_id, aggregate_type, aggregate_id, event_type, payload) VALUES ('dup','Session','u-rf1','T','\x00')`); err != nil {
+		t.Fatal(err)
+	}
+	before := pgRowOf(t, pool, s.ID)
+	dup := func(Session) (OutboxRow, error) {
+		return OutboxRow{EventID: "dup", AggregateType: "Session", AggregateID: "u-rf1", EventType: "T", Payload: []byte{0}}, nil
+	}
+	boom := errors.New("boom")
+	for _, ev := range []EnqueueFn{dup, func(Session) (OutboxRow, error) { return OutboxRow{}, boom }} {
+		if _, err := repo.RotateRefresh(ctx, "r1", "r2", refreshT0, refreshGrace, refreshMaxAge, ev); err == nil {
+			t.Fatal("want error")
+		}
+		if after := pgRowOf(t, pool, s.ID); after != before {
+			t.Fatalf("must roll back: %+v", after)
+		}
+	}
+	if outboxCount(t, pool) != 1 {
+		t.Fatal("only the pre-existing row expected")
+	}
+}
+
+func TestRotateRefresh_NilEvIsRejected_NoChange_Postgres(t *testing.T) {
+	pool, repo := refreshPG(t)
+	s := newPGSession(t, repo, "u-rf1", "n1")
+	before := pgRowOf(t, pool, s.ID)
+	if _, err := repo.RotateRefresh(context.Background(), "n1", "n2", refreshT0, refreshGrace, refreshMaxAge, nil); err == nil {
+		t.Fatal("want error for nil ev")
+	}
+	if after := pgRowOf(t, pool, s.ID); after != before {
+		t.Fatalf("row changed: %+v", after)
+	}
+}
+
+func TestRotateRefresh_UniqueViolationErrorDoesNotLeakHash_Postgres(t *testing.T) {
+	pool, repo := refreshPG(t)
+	const secretHash = "LEAKCHECK-deadbeefcafef00d-0123456789abcdef"
+	s1 := newPGSession(t, repo, "u-rf1", "k1")
+	newPGSession(t, repo, "u-rf2", secretHash)
+	before := pgRowOf(t, pool, s1.ID)
+	_, err := repo.RotateRefresh(context.Background(), "k1", secretHash, refreshT0, refreshGrace, refreshMaxAge, okEv("e"))
+	if err == nil {
+		t.Fatal("want unique-violation error")
+	}
+	if strings.Contains(err.Error(), secretHash) {
+		t.Fatalf("error leaks the hash: %v", err)
+	}
+	if after := pgRowOf(t, pool, s1.ID); after != before {
+		t.Fatalf("row changed: %+v", after)
 	}
 }

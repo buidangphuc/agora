@@ -24,7 +24,10 @@ import (
 
 var refreshT0 = time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
 
-const refreshGrace = 10 * time.Second
+const (
+	refreshGrace  = 10 * time.Second
+	refreshMaxAge = 90 * 24 * time.Hour
+)
 
 func seedRefreshSession(t *testing.T, r *InMemorySessionRepository, user, hash string) Session {
 	t.Helper()
@@ -62,7 +65,7 @@ func getSession(t *testing.T, r SessionRepository, user, id string) Session {
 
 func mustRotate(t *testing.T, r SessionRepository, presented, next string, now time.Time, ev EnqueueFn) RotateResult {
 	t.Helper()
-	res, err := r.RotateRefresh(context.Background(), presented, next, now, refreshGrace, ev)
+	res, err := r.RotateRefresh(context.Background(), presented, next, now, refreshGrace, refreshMaxAge, ev)
 	if err != nil {
 		t.Fatalf("RotateRefresh: %v", err)
 	}
@@ -99,8 +102,8 @@ func TestRotateRefresh_Rotated_SlidesAndMovesHash_SuccessfulRotation(t *testing.
 func TestRotateRefresh_Chain_TheRotatedTokenIsTheOnlyLiveOne(t *testing.T) {
 	r := NewInMemorySessionRepository()
 	s := seedRefreshSession(t, r, "u1", "h1")
-	mustRotate(t, r, "h1", "h2", refreshT0, nil)
-	res := mustRotate(t, r, "h2", "h3", refreshT0.Add(time.Minute), nil)
+	mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
+	res := mustRotate(t, r, "h2", "h3", refreshT0.Add(time.Minute), okEv("n"))
 	if res.Outcome != RotateRotated {
 		t.Fatalf("outcome = %v", res.Outcome)
 	}
@@ -113,7 +116,7 @@ func TestRotateRefresh_Chain_TheRotatedTokenIsTheOnlyLiveOne(t *testing.T) {
 func TestRotateRefresh_GraceBoundary_InclusiveAtTenSeconds(t *testing.T) {
 	r := NewInMemorySessionRepository()
 	s := seedRefreshSession(t, r, "u1", "h1")
-	mustRotate(t, r, "h1", "h2", refreshT0, nil)
+	mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
 	before := getSession(t, r, "u1", s.ID)
 
 	res := mustRotate(t, r, "h1", "h3", refreshT0.Add(10*time.Second), okEv("e1"))
@@ -140,7 +143,7 @@ func TestRotateRefresh_GraceBoundary_InclusiveAtTenSeconds(t *testing.T) {
 func TestRotateRefresh_ReuseAfterGraceRevokes_ClearsHashesAndWritesOutbox(t *testing.T) {
 	r := NewInMemorySessionRepository()
 	s := seedRefreshSession(t, r, "u1", "h1")
-	mustRotate(t, r, "h1", "h2", refreshT0, nil)
+	mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
 
 	res := mustRotate(t, r, "h1", "h3", refreshT0.Add(11*time.Second), okEv("evt-reuse"))
 	if res.Outcome != RotateReuse {
@@ -166,16 +169,16 @@ func TestRotateRefresh_ReuseAfterGraceRevokes_ClearsHashesAndWritesOutbox(t *tes
 func TestRotateRefresh_OutboxFailureRollsBack_RevokeAndEventAreAtomic(t *testing.T) {
 	r := NewInMemorySessionRepository()
 	s := seedRefreshSession(t, r, "u1", "h1")
-	mustRotate(t, r, "h1", "h2", refreshT0, nil)
+	mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
 
 	boom := errors.New("boom")
-	_, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace,
+	_, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge,
 		func(Session) (OutboxRow, error) { return OutboxRow{}, boom })
 	if !errors.Is(err, boom) {
 		t.Fatalf("want builder error, got %v", err)
 	}
 	r.FailOutbox = true
-	if _, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, okEv("e")); err == nil {
+	if _, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, okEv("e")); err == nil {
 		t.Fatal("want error from failing outbox write")
 	}
 	got := getSession(t, r, "u1", s.ID)
@@ -190,8 +193,8 @@ func TestRotateRefresh_OutboxFailureRollsBack_RevokeAndEventAreAtomic(t *testing
 func TestRotateRefresh_StaleTokenNoRevoke_OlderThanOneRotation(t *testing.T) {
 	r := NewInMemorySessionRepository()
 	s := seedRefreshSession(t, r, "u1", "h1")
-	mustRotate(t, r, "h1", "h2", refreshT0, nil)
-	mustRotate(t, r, "h2", "h3", refreshT0.Add(time.Minute), nil)
+	mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
+	mustRotate(t, r, "h2", "h3", refreshT0.Add(time.Minute), okEv("n"))
 	before := getSession(t, r, "u1", s.ID)
 
 	res := mustRotate(t, r, "h1", "h9", refreshT0.Add(2*time.Minute), okEv("e"))
@@ -204,7 +207,7 @@ func TestRotateRefresh_StaleTokenNoRevoke_OlderThanOneRotation(t *testing.T) {
 	if len(r.OutboxRows()) != 0 {
 		t.Fatal("no outbox row for stale")
 	}
-	if res := mustRotate(t, r, "h3", "h4", refreshT0.Add(3*time.Minute), nil); res.Outcome != RotateRotated {
+	if res := mustRotate(t, r, "h3", "h4", refreshT0.Add(3*time.Minute), okEv("n")); res.Outcome != RotateRotated {
 		t.Fatalf("R3 must still be accepted, got %v", res.Outcome)
 	}
 }
@@ -229,7 +232,7 @@ func TestRotateRefresh_BindsToOwningSession_TokenResolvesOnlyToItsSession(t *tes
 	s1 := seedRefreshSession(t, r, "userA", "a1")
 	s2 := seedRefreshSession(t, r, "userB", "b1")
 	before := getSession(t, r, "userA", s1.ID)
-	res := mustRotate(t, r, "b1", "b2", refreshT0, nil)
+	res := mustRotate(t, r, "b1", "b2", refreshT0, okEv("n"))
 	if res.Outcome != RotateRotated || res.Session.ID != s2.ID || res.Session.UserID != "userB" {
 		t.Fatalf("result: %+v", res)
 	}
@@ -242,7 +245,7 @@ func TestRevokeSessionClearsHashes_EveryPath(t *testing.T) {
 	for _, withEv := range []bool{false, true} {
 		r := NewInMemorySessionRepository()
 		s := seedRefreshSession(t, r, "u1", "h1")
-		mustRotate(t, r, "h1", "h2", refreshT0, nil)
+		mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
 		var ev EnqueueFn
 		if withEv {
 			ev = okEv("e")
@@ -259,5 +262,149 @@ func TestRevokeSessionClearsHashes_EveryPath(t *testing.T) {
 		if res.Outcome != RotateStale {
 			t.Fatalf("withEv=%v: prev replay after logout outcome = %v", withEv, res.Outcome)
 		}
+	}
+}
+
+// --- round 2: expiry, absolute lifetime, mandatory ev ---
+// Added contract: RotateRefresh(ctx, presented, new, now, grace, maxAge, ev);
+// new outcomes RotateExpired (refresh_expires_at <= now: no change, ev not
+// called) and RotateLifetimeExceeded (now - created_at > maxAge: revoke, clear
+// hashes, ev called once in the same tx). ev == nil is an error, no change.
+
+type evProbe struct{ calls int }
+
+func (p *evProbe) fn(id string) EnqueueFn {
+	return func(s Session) (OutboxRow, error) {
+		p.calls++
+		return okEv(id)(s)
+	}
+}
+
+func seedRaw(t *testing.T, r *InMemorySessionRepository, s Session) Session {
+	t.Helper()
+	out, err := r.CreateSession(context.Background(), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func TestRotateRefresh_ExpiredLiveToken_ReturnsExpiredNoChange_RefreshTokenExpired(t *testing.T) {
+	for name, exp := range map[string]time.Time{"boundary-equal-now": refreshT0, "past": refreshT0.Add(-time.Second)} {
+		t.Run(name, func(t *testing.T) {
+			r := NewInMemorySessionRepository()
+			s := seedRaw(t, r, Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: exp, CreatedAt: refreshT0.Add(-time.Hour)})
+			before := getSession(t, r, "u1", s.ID)
+			p := &evProbe{}
+			res := mustRotate(t, r, "h1", "h2", refreshT0, p.fn("e"))
+			if res.Outcome != RotateExpired {
+				t.Fatalf("outcome = %v", res.Outcome)
+			}
+			if after := getSession(t, r, "u1", s.ID); after != before || after.Revoked {
+				t.Fatalf("expired must not change row:\n%+v\n%+v", before, after)
+			}
+			if p.calls != 0 || len(r.OutboxRows()) != 0 {
+				t.Fatalf("ev calls=%d outbox=%d", p.calls, len(r.OutboxRows()))
+			}
+		})
+	}
+}
+
+func TestRotateRefresh_JustBeforeExpiry_StillRotates_RefreshTokenExpired(t *testing.T) {
+	r := NewInMemorySessionRepository()
+	seedRaw(t, r, Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Millisecond), CreatedAt: refreshT0.Add(-time.Hour)})
+	if res := mustRotate(t, r, "h1", "h2", refreshT0, okEv("e")); res.Outcome != RotateRotated {
+		t.Fatalf("outcome = %v", res.Outcome)
+	}
+}
+
+func TestRotateRefresh_ExpiredSessionGraceReplay_ReturnsExpiredNoChange_RefreshTokenExpired(t *testing.T) {
+	r := NewInMemorySessionRepository()
+	s := seedRaw(t, r, Session{UserID: "u1", RefreshHash: "h2", PrevRefreshHash: "h1", RotatedAt: refreshT0,
+		RefreshExpiresAt: refreshT0.Add(5 * time.Second), CreatedAt: refreshT0.Add(-time.Hour)})
+	before := getSession(t, r, "u1", s.ID)
+	p := &evProbe{}
+	res := mustRotate(t, r, "h1", "h3", refreshT0.Add(6*time.Second), p.fn("e"))
+	if res.Outcome != RotateExpired {
+		t.Fatalf("outcome = %v", res.Outcome)
+	}
+	if after := getSession(t, r, "u1", s.ID); after != before {
+		t.Fatalf("row changed: %+v", after)
+	}
+	if p.calls != 0 || len(r.OutboxRows()) != 0 {
+		t.Fatal("no ev / outbox expected")
+	}
+}
+
+func TestRotateRefresh_AbsoluteLifetimeExceeded_RevokesWithOneEvent_AbsoluteLifetimeExceeded(t *testing.T) {
+	r := NewInMemorySessionRepository()
+	s := seedRaw(t, r, Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
+		CreatedAt: refreshT0.Add(-refreshMaxAge - time.Millisecond)})
+	p := &evProbe{}
+	res := mustRotate(t, r, "h1", "h2", refreshT0, p.fn("evt-life"))
+	if res.Outcome != RotateLifetimeExceeded {
+		t.Fatalf("outcome = %v", res.Outcome)
+	}
+	got := getSession(t, r, "u1", s.ID)
+	if !got.Revoked || got.RefreshHash != "" || got.PrevRefreshHash != "" {
+		t.Fatalf("want revoked + cleared: %+v", got)
+	}
+	rows := r.OutboxRows()
+	if p.calls != 1 || len(rows) != 1 || rows[0].EventID != "evt-life" {
+		t.Fatalf("calls=%d rows=%+v", p.calls, rows)
+	}
+	if res := mustRotate(t, r, "h1", "h3", refreshT0.Add(time.Second), p.fn("again")); res.Outcome != RotateStale {
+		t.Fatalf("after revoke outcome = %v", res.Outcome)
+	}
+	if len(r.OutboxRows()) != 1 {
+		t.Fatal("exactly one outbox row expected")
+	}
+}
+
+func TestRotateRefresh_ExactlyMaxAge_StillRotates_AbsoluteLifetimeBoundary(t *testing.T) {
+	r := NewInMemorySessionRepository()
+	s := seedRaw(t, r, Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
+		CreatedAt: refreshT0.Add(-refreshMaxAge)})
+	p := &evProbe{}
+	res := mustRotate(t, r, "h1", "h2", refreshT0, p.fn("e"))
+	if res.Outcome != RotateRotated || p.calls != 0 {
+		t.Fatalf("outcome=%v calls=%d", res.Outcome, p.calls)
+	}
+	if got := getSession(t, r, "u1", s.ID); got.Revoked || got.RefreshHash != "h2" {
+		t.Fatalf("row: %+v", got)
+	}
+}
+
+func TestRotateRefresh_LifetimeExceededOutboxFailure_Atomic_AbsoluteLifetimeExceeded(t *testing.T) {
+	r := NewInMemorySessionRepository()
+	s := seedRaw(t, r, Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
+		CreatedAt: refreshT0.Add(-refreshMaxAge - time.Second)})
+	before := getSession(t, r, "u1", s.ID)
+	boom := errors.New("boom")
+	if _, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge,
+		func(Session) (OutboxRow, error) { return OutboxRow{}, boom }); !errors.Is(err, boom) {
+		t.Fatalf("want builder error, got %v", err)
+	}
+	r.FailOutbox = true
+	if _, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, okEv("e")); err == nil {
+		t.Fatal("want error from failing outbox write")
+	}
+	if after := getSession(t, r, "u1", s.ID); after != before || after.Revoked {
+		t.Fatalf("must be unchanged: %+v", after)
+	}
+	if len(r.OutboxRows()) != 0 {
+		t.Fatal("no outbox rows expected")
+	}
+}
+
+func TestRotateRefresh_NilEvIsRejected_NoChange(t *testing.T) {
+	r := NewInMemorySessionRepository()
+	s := seedRefreshSession(t, r, "u1", "h1")
+	before := getSession(t, r, "u1", s.ID)
+	if _, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, nil); err == nil {
+		t.Fatal("want error for nil ev")
+	}
+	if after := getSession(t, r, "u1", s.ID); after != before {
+		t.Fatalf("row changed: %+v", after)
 	}
 }
