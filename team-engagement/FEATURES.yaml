@@ -475,7 +475,7 @@ features:
     covered_by: "engagement/rvp_reviews_pagination.feature::A malformed cursor is rejected"
     notes: "needs rebuild"
 
-  # ---- engagement-review-integrity (e2e-author; planned until the feature scenarios run green)
+  # ---- engagement-review-integrity (e2e-author; automated, green against the local stack)
   - id: engagement-review-integrity.completed-order-is-reviewed
     title: "Completed order is reviewed"
     persona: guest
@@ -765,9 +765,9 @@ features:
     acceptance:
       - "Review from a completed order, end to end"
     tags: [buyer, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Review from a completed order, end to end"
-    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway; red until the change is implemented."
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
 
   - id: engagement-review-integrity.second-review-for-the-same-order-is-refused-end-to-end
     title: "Second review for the same order is refused, end to end"
@@ -782,9 +782,9 @@ features:
     acceptance:
       - "Second review for the same order is refused, end to end"
     tags: [buyer, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Second review for the same order is refused, end to end"
-    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway; red until the change is implemented."
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
 
   - id: engagement-review-integrity.review-without-an-order-is-refused-end-to-end
     title: "Review without an order is refused, end to end"
@@ -799,9 +799,9 @@ features:
     acceptance:
       - "Review without an order is refused, end to end"
     tags: [buyer, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Review without an order is refused, end to end"
-    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway; red until the change is implemented."
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
 
   - id: engagement-review-integrity.review-of-an-order-that-is-not-completed-is-refused-end-to-end
     title: "Review of an order that is not completed is refused, end to end"
@@ -816,9 +816,9 @@ features:
     acceptance:
       - "Review of an order that is not completed is refused, end to end"
     tags: [buyer, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Review of an order that is not completed is refused, end to end"
-    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway; red until the change is implemented."
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
 
   - id: engagement-review-integrity.summary-reflects-verified-reviews-end-to-end
     title: "Summary reflects verified reviews, end to end"
@@ -833,9 +833,9 @@ features:
     acceptance:
       - "Summary reflects verified reviews, end to end"
     tags: [buyer, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Summary reflects verified reviews, end to end"
-    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway; red until the change is implemented."
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
 
   - id: engagement-review-integrity.legacy-unverified-review-is-listed-but-excluded-from-stars-end-to-end
     title: "Legacy unverified review is listed but excluded from stars, end to end"
@@ -850,9 +850,9 @@ features:
     acceptance:
       - "Legacy unverified review is listed but excluded from stars, end to end"
     tags: [buyer, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Legacy unverified review is listed but excluded from stars, end to end"
-    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway; red until the change is implemented."
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
 
   - id: engagement-review-integrity.admin-hides-a-review
     title: "Admin hides a review"
@@ -1095,9 +1095,9 @@ features:
     acceptance:
       - "Hide a review end to end"
     tags: [admin, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Hide a review end to end"
-    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway; red until the change is implemented."
+    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway."
 
   - id: engagement-review-integrity.re-hide-writes-no-second-audit-event-end-to-end
     title: "Re-hide writes no second audit event, end to end"
@@ -1112,9 +1112,9 @@ features:
     acceptance:
       - "Re-hide writes no second audit event, end to end"
     tags: [admin, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Re-hide writes no second audit event, end to end"
-    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway; red until the change is implemented."
+    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway."
 
   - id: engagement-review-integrity.buyer-cannot-hide-a-review-end-to-end
     title: "Buyer cannot hide a review, end to end"
@@ -1129,9 +1129,9 @@ features:
     acceptance:
       - "Buyer cannot hide a review, end to end"
     tags: [buyer, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Buyer cannot hide a review, end to end"
-    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway; red until the change is implemented."
+    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway."
 
   - id: engagement-review-integrity.anonymous-caller-cannot-hide-a-review-end-to-end
     title: "Anonymous caller cannot hide a review, end to end"
@@ -1146,9 +1146,9 @@ features:
     acceptance:
       - "Anonymous caller cannot hide a review, end to end"
     tags: [guest, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Anonymous caller cannot hide a review, end to end"
-    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway; red until the change is implemented."
+    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway."
 
   - id: engagement-review-integrity.another-buyer-s-completed-order-is-refused-as-ineligible-end-to-end
     title: "Another buyer's completed order is refused as ineligible, end to end"
@@ -1163,6 +1163,6 @@ features:
     acceptance:
       - "Another buyer's completed order is refused as ineligible, end to end"
     tags: [buyer, review-integrity]
-    status: planned
+    status: automated
     covered_by: "engagement/review_integrity.feature::Another buyer's completed order is refused as ineligible, end to end"
-    notes: "engagement-review-integrity: review-integrity (extra e2e for 'Ineligible order returns one message', which is unit-verified). Red until implemented."
+    notes: "engagement-review-integrity: review-integrity (extra e2e for 'Ineligible order returns one message', which is unit-verified)."
