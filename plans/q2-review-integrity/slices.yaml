@@ -1,0 +1,15 @@
+# plans/q2-review-integrity/slices.yaml — one slice = one OpenSpec change.
+initiative: q2-review-integrity
+slices:
+  - id: q2-review-integrity-contract
+    owner: platform-core
+    depends_on: []
+    provides: [EngagementService.HideReview]
+  - id: engagement-review-integrity
+    owner: team-engagement
+    depends_on: [q2-review-integrity-contract]
+    uses: [EngagementService.HideReview, EngagementService.CreateReview, OrderService.GetOrder, AuditService.WriteAuditEvent, engagement.events/ReviewCreated]
+  - id: frontend-review-integrity
+    owner: team-frontend
+    depends_on: [engagement-review-integrity]
+    uses: [EngagementService.HideReview, EngagementService.CreateReview, EngagementService.ListReviews, EngagementService.GetListingRatingSummary]
