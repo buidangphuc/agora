@@ -2,12 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/buidangphuc/team-promotion/internal/producer"
 	"github.com/buidangphuc/team-promotion/internal/repository"
+	"github.com/buidangphuc/team-promotion/internal/upstream"
 )
 
 // capturePublisher records every published record so tests can assert emission.
@@ -41,6 +47,7 @@ func newVoucherSvc(t *testing.T) (*VoucherService, *repository.InMemoryVoucherRe
 	vrepo := repository.NewInMemoryVoucherRepository()
 	rrepo := repository.NewInMemoryReservationRepository()
 	svc := NewVoucherService(vrepo, rrepo, nil, nil, nil)
+	svc.WithAudit(permissiveAudit{}) // existing tests create unspecified-scope (platform) vouchers
 	pub := &capturePublisher{}
 	svc.emitter = producer.NewEmitter(pub, nil)
 	return svc, vrepo, pub
@@ -275,5 +282,254 @@ func TestComputeDiscount(t *testing.T) {
 				t.Fatalf("computeDiscount = %d, want %d", got, tc.want)
 			}
 		})
+	}
+}
+
+// ---- promotion-admin-audit: shared recording fakes -------------------------
+
+// callLog records the order of audit writes and repository inserts.
+type callLog struct {
+	mu    sync.Mutex
+	calls []string
+}
+
+func (l *callLog) add(c string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.calls = append(l.calls, c)
+}
+
+func (l *callLog) get() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]string(nil), l.calls...)
+}
+
+// recordingAuditWriter is the AuditWriter fake: records every event and the call
+// order; err makes it fail.
+type recordingAuditWriter struct {
+	log    *callLog
+	err    error
+	mu     sync.Mutex
+	events []upstream.AuditEvent
+}
+
+func (w *recordingAuditWriter) WriteEvent(_ context.Context, ev upstream.AuditEvent) error {
+	if w.log != nil {
+		w.log.add("audit")
+	}
+	w.mu.Lock()
+	w.events = append(w.events, ev)
+	w.mu.Unlock()
+	return w.err
+}
+
+func (w *recordingAuditWriter) got() []upstream.AuditEvent {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return append([]upstream.AuditEvent(nil), w.events...)
+}
+
+// permissiveAudit accepts everything; for tests that are not about audit.
+type permissiveAudit struct{}
+
+func (permissiveAudit) WriteEvent(context.Context, upstream.AuditEvent) error { return nil }
+
+// auditFailures are the ways an admin audit write can fail; each must fail closed.
+var auditFailures = map[string]error{
+	"upstream error": status.Error(codes.Internal, "audit db down"),
+	"timeout":        context.DeadlineExceeded,
+	"unavailable":    status.Error(codes.Unavailable, "team-audit down"),
+	"plain error":    errors.New("dial tcp: refused"),
+}
+
+type orderedVoucherRepo struct {
+	repository.VoucherRepository
+	log *callLog
+}
+
+func (r orderedVoucherRepo) Create(ctx context.Context, v repository.Voucher) (repository.Voucher, error) {
+	r.log.add("insert")
+	return r.VoucherRepository.Create(ctx, v)
+}
+
+func newAuditedVoucherSvc(t *testing.T, w AuditWriter, log *callLog) (*VoucherService, *repository.InMemoryVoucherRepository, *capturePublisher) {
+	t.Helper()
+	mem := repository.NewInMemoryVoucherRepository()
+	svc := NewVoucherService(orderedVoucherRepo{mem, log}, repository.NewInMemoryReservationRepository(), nil, nil, nil)
+	if w != nil {
+		svc.WithAudit(w)
+	}
+	pub := &capturePublisher{}
+	svc.emitter = producer.NewEmitter(pub, nil)
+	return svc, mem, pub
+}
+
+func platformParams(code string) CreateVoucherParams {
+	return CreateVoucherParams{
+		Code: code, Scope: 2, DiscountType: discountTypePercent, DiscountValue: 10, Quota: 5,
+		AuditActorID: "admin-1",
+	}
+}
+
+func assertVoucherAbsent(t *testing.T, mem *repository.InMemoryVoucherRepository, code string) {
+	t.Helper()
+	if _, err := mem.GetByCode(context.Background(), code); !errors.Is(err, repository.ErrVoucherNotFound) {
+		t.Fatalf("voucher %q must not exist, GetByCode err = %v", code, err)
+	}
+}
+
+// Scenario: Promotion audit precedes the voucher insert.
+func TestCreateVoucherAuditBeforeInsert(t *testing.T) {
+	for name, scope := range map[string]int32{"platform": 2, "unspecified": 0} {
+		t.Run(name, func(t *testing.T) {
+			log := &callLog{}
+			w := &recordingAuditWriter{log: log}
+			svc, mem, pub := newAuditedVoucherSvc(t, w, log)
+			p := platformParams("PLAT10")
+			p.Scope = scope
+			if _, err := svc.CreateVoucher(context.Background(), p); err != nil {
+				t.Fatalf("CreateVoucher: %v", err)
+			}
+			if got := log.get(); len(got) != 2 || got[0] != "audit" || got[1] != "insert" {
+				t.Fatalf("call order = %v, want [audit insert]", got)
+			}
+			evs := w.got()
+			if len(evs) != 1 {
+				t.Fatalf("want exactly 1 audit event, got %d", len(evs))
+			}
+			ev := evs[0]
+			if ev.Action != "voucher.platform_create" || ev.TargetType != "voucher" || ev.TargetID != "PLAT10" || ev.ActorID != "admin-1" {
+				t.Errorf("event = %+v", ev)
+			}
+			if len(ev.Metadata) != 2 || ev.Metadata["discount_type"] != "DISCOUNT_TYPE_PERCENT" || ev.Metadata["value"] != "10" {
+				t.Errorf("metadata = %v, want discount_type+value only", ev.Metadata)
+			}
+			if _, err := mem.GetByCode(context.Background(), "PLAT10"); err != nil {
+				t.Errorf("voucher not stored: %v", err)
+			}
+			if pub.count() != 1 {
+				t.Errorf("VoucherChanged emitted %d times, want 1", pub.count())
+			}
+		})
+	}
+}
+
+// Scenario: Promotion audit precedes the voucher insert (target is the trimmed
+// code; fixed discount maps to its enum name).
+func TestCreateVoucherAuditTargetIsTrimmedCodeAndFixedType(t *testing.T) {
+	w := &recordingAuditWriter{}
+	svc, _, _ := newAuditedVoucherSvc(t, w, &callLog{})
+	p := platformParams("  FIX5  ")
+	p.DiscountType, p.DiscountValue = discountTypeFixed, 500
+	if _, err := svc.CreateVoucher(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	evs := w.got()
+	if len(evs) != 1 || evs[0].TargetID != "FIX5" || evs[0].Metadata["discount_type"] != "DISCOUNT_TYPE_FIXED" || evs[0].Metadata["value"] != "500" {
+		t.Fatalf("events = %+v", evs)
+	}
+}
+
+// Scenario: Promotion audit upstream not configured.
+func TestCreateVoucherNilAuditUnavailable(t *testing.T) {
+	for _, scope := range []int32{2, 0} {
+		svc, mem, pub := newAuditedVoucherSvc(t, nil, &callLog{})
+		p := platformParams("NOAUDIT")
+		p.Scope = scope
+		_, err := svc.CreateVoucher(context.Background(), p)
+		if status.Code(err) != codes.Unavailable {
+			t.Fatalf("scope %d: code = %v, want Unavailable (err=%v)", scope, status.Code(err), err)
+		}
+		assertVoucherAbsent(t, mem, "NOAUDIT")
+		if pub.count() != 0 {
+			t.Errorf("nothing may be emitted, got %d", pub.count())
+		}
+	}
+}
+
+// Scenario: Promotion audit timeout blocks the voucher (service half: any audit
+// failure, including a deadline, fails closed).
+func TestCreateVoucherAuditErrorFailsClosed(t *testing.T) {
+	for name, cause := range auditFailures {
+		t.Run(name, func(t *testing.T) {
+			log := &callLog{}
+			svc, mem, pub := newAuditedVoucherSvc(t, &recordingAuditWriter{log: log, err: cause}, log)
+			_, err := svc.CreateVoucher(context.Background(), platformParams("PLAT-DOWN"))
+			if status.Code(err) != codes.Unavailable {
+				t.Fatalf("code = %v, want Unavailable (err=%v)", status.Code(err), err)
+			}
+			if got := log.get(); len(got) != 1 || got[0] != "audit" {
+				t.Fatalf("call order = %v, want [audit] (no insert)", got)
+			}
+			assertVoucherAbsent(t, mem, "PLAT-DOWN")
+			if pub.count() != 0 {
+				t.Errorf("nothing may be emitted, got %d", pub.count())
+			}
+		})
+	}
+}
+
+// Scenario: Shop voucher by a seller writes no event (and needs no audit upstream).
+func TestCreateVoucherShopScopeNotAudited(t *testing.T) {
+	for name, w := range map[string]*recordingAuditWriter{"writer wired": {}, "writer failing": {err: errors.New("down")}} {
+		t.Run(name, func(t *testing.T) {
+			svc, mem, _ := newAuditedVoucherSvc(t, w, &callLog{})
+			p := platformParams("SHOP1")
+			p.Scope, p.SellerID = voucherScopeShop, "seller-1"
+			if _, err := svc.CreateVoucher(context.Background(), p); err != nil {
+				t.Fatalf("shop voucher: %v", err)
+			}
+			if n := len(w.got()); n != 0 {
+				t.Fatalf("shop voucher wrote %d audit events, want 0", n)
+			}
+			if _, err := mem.GetByCode(context.Background(), "SHOP1"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	// Nil writer: still fine for the shop path.
+	svc, _, _ := newAuditedVoucherSvc(t, nil, &callLog{})
+	p := platformParams("SHOP2")
+	p.Scope, p.SellerID = voucherScopeShop, "seller-1"
+	if _, err := svc.CreateVoucher(context.Background(), p); err != nil {
+		t.Fatalf("shop voucher with nil audit: %v", err)
+	}
+}
+
+// Scenario: Invalid platform voucher writes no event (service half).
+func TestCreateVoucherInvalidCodeNotAudited(t *testing.T) {
+	for _, code := range []string{"", "   "} {
+		w := &recordingAuditWriter{}
+		svc, _, _ := newAuditedVoucherSvc(t, w, &callLog{})
+		if _, err := svc.CreateVoucher(context.Background(), platformParams(code)); !errors.Is(err, ErrInvalidVoucher) {
+			t.Fatalf("code %q: err = %v, want ErrInvalidVoucher", code, err)
+		}
+		if n := len(w.got()); n != 0 {
+			t.Fatalf("code %q: invalid voucher wrote %d events", code, n)
+		}
+	}
+	// Nil writer + invalid input stays InvalidArgument-class, not Unavailable.
+	svc, _, _ := newAuditedVoucherSvc(t, nil, &callLog{})
+	if _, err := svc.CreateVoucher(context.Background(), platformParams("")); !errors.Is(err, ErrInvalidVoucher) {
+		t.Fatalf("nil audit + empty code: err = %v, want ErrInvalidVoucher", err)
+	}
+}
+
+// Scenario: Promotion audit precedes the voucher insert (insert failure after a
+// successful audit is not Unavailable; the trail keeps the entry, design D7).
+func TestCreateVoucherInsertFailureAfterAuditIsNotUnavailable(t *testing.T) {
+	log := &callLog{}
+	w := &recordingAuditWriter{log: log}
+	svc, _, _ := newAuditedVoucherSvc(t, w, log)
+	if _, err := svc.CreateVoucher(context.Background(), platformParams("DUP")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := svc.CreateVoucher(context.Background(), platformParams("DUP"))
+	if err == nil || status.Code(err) == codes.Unavailable || strings.TrimSpace(err.Error()) == "" {
+		t.Fatalf("duplicate insert: err = %v, want a non-Unavailable error", err)
+	}
+	if n := len(w.got()); n != 2 {
+		t.Fatalf("audit events = %d, want 2 (audit precedes every insert attempt)", n)
 	}
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -12,7 +13,7 @@ import (
 
 func newSponsoredSvc() (*SponsoredService, *repository.InMemoryAdCampaignRepository) {
 	repo := repository.NewInMemoryAdCampaignRepository()
-	return NewSponsoredService(repo, nil, nil), repo
+	return NewSponsoredService(repo, nil, nil).WithAudit(permissiveAudit{}), repo
 }
 
 // TestCreateAdCampaignHappyPath covers the mock create: a seller's campaign is
@@ -173,5 +174,158 @@ func TestCreateAdCampaignRequiresOwnership(t *testing.T) {
 	}
 	if active, _ := repo.ListActive(ctx, 10); len(active) != 0 {
 		t.Fatalf("stored %d campaigns despite failed ownership check", len(active))
+	}
+}
+
+// ---- promotion-admin-audit -------------------------------------------------
+
+type orderedAdRepo struct {
+	repository.AdCampaignRepository
+	log *callLog
+}
+
+func (r orderedAdRepo) Create(ctx context.Context, c repository.AdCampaign) (repository.AdCampaign, error) {
+	r.log.add("insert")
+	return r.AdCampaignRepository.Create(ctx, c)
+}
+
+func newAuditedAdSvc(t *testing.T, w AuditWriter, listings *fakeListings, log *callLog) (*SponsoredService, *repository.InMemoryAdCampaignRepository) {
+	t.Helper()
+	mem := repository.NewInMemoryAdCampaignRepository()
+	var lg upstreamListings
+	if listings != nil {
+		lg = listings
+	}
+	svc := NewSponsoredService(orderedAdRepo{mem, log}, lg, nil).WithLimits(1000, 5000)
+	if w != nil {
+		svc.WithAudit(w)
+	}
+	return svc, mem
+}
+
+func adminAd(listing string, budget, bid int64) CreateAdCampaignParams {
+	return CreateAdCampaignParams{SellerID: "admin-1", ListingID: listing, Budget: budget, Bid: bid, IsAdmin: true}
+}
+
+// Scenario: Promotion audit precedes the ad campaign insert and carries the final id.
+func TestCreateAdCampaignAuditBeforeInsertSameID(t *testing.T) {
+	log := &callLog{}
+	w := &recordingAuditWriter{log: log}
+	svc, mem := newAuditedAdSvc(t, w, nil, log)
+	c, err := svc.CreateAdCampaign(context.Background(), adminAd("list-1", 5000, 100))
+	if err != nil {
+		t.Fatalf("CreateAdCampaign: %v", err)
+	}
+	if got := log.get(); len(got) != 2 || got[0] != "audit" || got[1] != "insert" {
+		t.Fatalf("call order = %v, want [audit insert]", got)
+	}
+	evs := w.got()
+	if len(evs) != 1 {
+		t.Fatalf("want exactly 1 audit event, got %d", len(evs))
+	}
+	ev := evs[0]
+	if ev.Action != "ad_campaign.admin_create" || ev.TargetType != "ad_campaign" || ev.ActorID != "admin-1" {
+		t.Errorf("event = %+v", ev)
+	}
+	if len(c.ID) != 32 || ev.TargetID != c.ID {
+		t.Errorf("audit target_id = %q, returned id = %q; want identical 32-char id", ev.TargetID, c.ID)
+	}
+	m := ev.Metadata
+	if len(m) != 3 || m["seller_id"] != c.SellerID || m["seller_id"] != "admin-1" || m["listing_id"] != "list-1" || m["budget"] != "5000" {
+		t.Errorf("metadata = %v, want seller_id(=stored), listing_id, budget=5000", m)
+	}
+	if stored, err := mem.GetByID(context.Background(), ev.TargetID); err != nil || stored.ListingID != "list-1" {
+		t.Errorf("stored campaign under audited id: %+v, %v", stored, err)
+	}
+}
+
+// Scenario: Promotion audit precedes the ad campaign insert and carries the final
+// id (admin path needs no team-domain lookup).
+func TestCreateAdCampaignAdminNoOwnerLookup(t *testing.T) {
+	lg := &fakeListings{err: errors.New("team-domain down")}
+	w := &recordingAuditWriter{}
+	svc, _ := newAuditedAdSvc(t, w, lg, &callLog{})
+	if _, err := svc.CreateAdCampaign(context.Background(), adminAd("list-1", 10, 1)); err != nil {
+		t.Fatalf("CreateAdCampaign: %v", err)
+	}
+	if lg.calls != 0 || len(w.got()) != 1 {
+		t.Fatalf("listing calls = %d, audit events = %d; want 0 and 1", lg.calls, len(w.got()))
+	}
+}
+
+// Scenario: Promotion audit failure leaves no ad campaign.
+func TestCreateAdCampaignAuditFailureFailsClosed(t *testing.T) {
+	cases := map[string]AuditWriter{"nil writer": nil}
+	for name, cause := range auditFailures {
+		cases[name] = &recordingAuditWriter{err: cause}
+	}
+	for name, w := range cases {
+		t.Run(name, func(t *testing.T) {
+			log := &callLog{}
+			if rw, ok := w.(*recordingAuditWriter); ok {
+				rw.log = log
+			}
+			svc, mem := newAuditedAdSvc(t, w, nil, log)
+			_, err := svc.CreateAdCampaign(context.Background(), adminAd("list-1", 10, 1))
+			if status.Code(err) != codes.Unavailable {
+				t.Fatalf("code = %v, want Unavailable (err=%v)", status.Code(err), err)
+			}
+			for _, c := range log.get() {
+				if c == "insert" {
+					t.Fatal("campaign inserted despite audit failure")
+				}
+			}
+			if active, _ := mem.ListActive(context.Background(), 10); len(active) != 0 {
+				t.Fatalf("repo holds %d campaigns, want 0", len(active))
+			}
+		})
+	}
+}
+
+// Scenario: Budget boundary is validated before the audit.
+func TestCreateAdCampaignBudgetBoundaryAudit(t *testing.T) {
+	w := &recordingAuditWriter{}
+	svc, mem := newAuditedAdSvc(t, w, nil, &callLog{})
+	if _, err := svc.CreateAdCampaign(context.Background(), adminAd("l-max", 5000, 10)); err != nil {
+		t.Fatalf("budget at max: %v", err)
+	}
+	if n := len(w.got()); n != 1 {
+		t.Fatalf("at max: audit events = %d, want 1", n)
+	}
+	if _, err := svc.CreateAdCampaign(context.Background(), adminAd("l-over", 5001, 10)); !errors.Is(err, ErrInvalidAdCampaign) {
+		t.Fatalf("budget over max: err = %v, want ErrInvalidAdCampaign", err)
+	}
+	if n := len(w.got()); n != 1 {
+		t.Fatalf("over max must not be audited: events = %d, want still 1", n)
+	}
+	if active, _ := mem.ListActive(context.Background(), 10); len(active) != 1 {
+		t.Fatalf("repo holds %d campaigns, want 1", len(active))
+	}
+	// Invalid input with a nil writer is still InvalidArgument-class, not Unavailable.
+	nilSvc, _ := newAuditedAdSvc(t, nil, nil, &callLog{})
+	if _, err := nilSvc.CreateAdCampaign(context.Background(), adminAd("l-over", 5001, 10)); !errors.Is(err, ErrInvalidAdCampaign) {
+		t.Fatalf("nil audit + invalid budget: err = %v, want ErrInvalidAdCampaign", err)
+	}
+}
+
+// Scenario: Seller creates an ad campaign on their own listing (never audited,
+// independent of audit availability).
+func TestCreateAdCampaignSellerNotAudited(t *testing.T) {
+	owners := map[string]string{"mine": "seller-1"}
+	p := CreateAdCampaignParams{SellerID: "seller-1", ListingID: "mine", Budget: 100, Bid: 10}
+	for name, w := range map[string]*recordingAuditWriter{"writer wired": {}, "writer failing": {err: errors.New("down")}} {
+		t.Run(name, func(t *testing.T) {
+			svc, _ := newAuditedAdSvc(t, w, &fakeListings{owners: owners}, &callLog{})
+			if _, err := svc.CreateAdCampaign(context.Background(), p); err != nil {
+				t.Fatalf("seller ad campaign: %v", err)
+			}
+			if n := len(w.got()); n != 0 {
+				t.Fatalf("seller path wrote %d audit events, want 0", n)
+			}
+		})
+	}
+	svc, _ := newAuditedAdSvc(t, nil, &fakeListings{owners: owners}, &callLog{})
+	if _, err := svc.CreateAdCampaign(context.Background(), p); err != nil {
+		t.Fatalf("seller ad campaign with nil audit: %v", err)
 	}
 }

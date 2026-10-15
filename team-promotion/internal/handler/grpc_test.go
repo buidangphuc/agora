@@ -32,6 +32,14 @@ func startServer(t *testing.T) (promotionv1.VoucherServiceClient, promotionv1.Fl
 
 func startAll(t *testing.T, listings upstreamListings) (promotionv1.VoucherServiceClient, promotionv1.FlashSaleServiceClient, promotionv1.SubscriptionServiceClient, promotionv1.SponsoredServiceClient) {
 	t.Helper()
+	// Existing tests exercise admin paths; give them a permissive audit writer.
+	return startAllAudited(t, listings, &recordingAudit{})
+}
+
+// startAllAudited is startAll with an explicit audit writer. A nil writer leaves
+// the services un-audited (UPSTREAM_AUDIT_ADDR unset, as main.go does).
+func startAllAudited(t *testing.T, listings upstreamListings, audit service.AuditWriter) (promotionv1.VoucherServiceClient, promotionv1.FlashSaleServiceClient, promotionv1.SubscriptionServiceClient, promotionv1.SponsoredServiceClient) {
+	t.Helper()
 	lis := bufconn.Listen(1024 * 1024)
 
 	voucherSvc := service.NewVoucherService(
@@ -40,6 +48,12 @@ func startAll(t *testing.T, listings upstreamListings) (promotionv1.VoucherServi
 		nil, nil, nil,
 	)
 	flashSvc := service.NewFlashSaleService(repository.NewInMemoryFlashSaleRepository(), nil, nil, listings, nil)
+	adSvc := service.NewSponsoredService(repository.NewInMemoryAdCampaignRepository(), listings, nil).WithLimits(1000, 5000)
+	if audit != nil {
+		voucherSvc.WithAudit(audit)
+		flashSvc.WithAudit(audit)
+		adSvc.WithAudit(audit)
+	}
 
 	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptor.AuthUnaryInterceptor()))
 	promotionv1.RegisterVoucherServiceServer(srv, handler.NewVoucherHandler(voucherSvc, nil))
@@ -47,7 +61,7 @@ func startAll(t *testing.T, listings upstreamListings) (promotionv1.VoucherServi
 	promotionv1.RegisterSubscriptionServiceServer(srv, handler.NewSubscriptionHandler(
 		service.NewSubscriptionService(repository.NewInMemorySubscriptionRepository(), nil), nil))
 	promotionv1.RegisterSponsoredServiceServer(srv, handler.NewSponsoredHandler(
-		service.NewSponsoredService(repository.NewInMemoryAdCampaignRepository(), listings, nil).WithLimits(1000, 5000), nil))
+		adSvc, nil))
 
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)

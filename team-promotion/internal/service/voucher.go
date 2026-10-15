@@ -78,6 +78,8 @@ type CreateVoucherParams struct {
 	Quota         int64
 	StartsAt      time.Time
 	EndsAt        time.Time
+
+	AuditActorID string // TEST-STUB field: verified admin id written as audit actor_id
 }
 
 // ErrInvalidVoucher is returned for malformed CreateVoucher input.
