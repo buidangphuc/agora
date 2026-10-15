@@ -26,6 +26,16 @@ service EngagementService {
   rpc GetListingRatingSummary(GetListingRatingSummaryRequest) returns (GetListingRatingSummaryResponse);
   rpc MarkReviewHelpful(MarkReviewHelpfulRequest) returns (MarkReviewHelpfulResponse);
   rpc GetShopRatingSummary(GetShopRatingSummaryRequest) returns (GetShopRatingSummaryResponse);
+  // HideReview hides a review so it no longer appears in listings or ratings.
+  // admin-only: Unauthenticated for anonymous callers, PermissionDenied for
+  // authenticated non-admin callers. The actor is taken from the auth context,
+  // never from the request. NotFound for an unknown review. InvalidArgument for
+  // an empty review_id, or a reason that is empty or longer than 500 chars after
+  // trim (the 1-500 char limit is enforced by the server, not by the wire).
+  // Idempotent: hiding an already hidden review returns OK. Unavailable when the
+  // audit sink is unavailable; the review is left visible. Internal when the
+  // hide fails after the audit write.
+  rpc HideReview(HideReviewRequest) returns (HideReviewResponse);
 
   // ── Wishlist Collections (named lists on top of favorites) ──
   rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse);
@@ -130,7 +140,7 @@ message Review {
   google.protobuf.Timestamp created_at = 8;
   repeated string media_urls = 9;   // review photos
   int64 helpful_count = 10;         // number of users who marked this helpful
-  bool verified_purchase = 11;      // buyer has a delivered order for the listing
+  bool verified_purchase = 11;      // true for every review created after q2; false = legacy, excluded from ratings
 }
 
 message RatingBreakdown {
@@ -145,6 +155,9 @@ message CreateReviewRequest {
   string listing_id = 1;
   int32 rating = 2; // 1-5
   string comment = 3;
+  // required: a COMPLETED order of the caller containing listing_id
+  // (empty: InvalidArgument; ineligible: FailedPrecondition; duplicate for the
+  // same order and listing: AlreadyExists; order service unavailable: Unavailable)
   string order_id = 4;
   repeated string media_urls = 5;
 }
@@ -171,7 +184,7 @@ message GetListingRatingSummaryRequest {
 message GetListingRatingSummaryResponse {
   string listing_id = 1;
   double average_rating = 2; // e.g. 4.8
-  int64 review_count = 3;
+  int64 review_count = 3; // verified, non-hidden reviews
   RatingBreakdown breakdown = 4;
 }
 
@@ -190,9 +203,16 @@ message GetShopRatingSummaryRequest {
 message GetShopRatingSummaryResponse {
   string seller_id = 1;
   double average_rating = 2;
-  int64 review_count = 3;
+  int64 review_count = 3; // verified, non-hidden reviews
   RatingBreakdown breakdown = 4;
 }
+
+message HideReviewRequest {
+  string review_id = 1;
+  string reason = 2;
+}
+
+message HideReviewResponse {}
 
 // ── Wishlist Collection Messages ──
 
