@@ -2087,8 +2087,8 @@ features:
     acceptance:
       - "Loop storage: a produced event of each new type reaches the warehouse"
     tags: [tracking, analytics, loop-event-storage]
-    status: planned
-    notes: "analytics-loop-event-storage: e2e scenario tracking/loop_event_storage.feature::Loop storage: a produced event of each new type reaches the warehouse (flip to automated + covered_by after green)."
+    status: automated
+    covered_by: "tracking/loop_event_storage.feature::Loop storage: a produced event of each new type reaches the warehouse"
 
   - id: loop-event-storage.existing-types-keep-their-names
     title: "Loop storage: existing types keep their names"
@@ -2132,8 +2132,9 @@ features:
     acceptance:
       - "Loop storage: properties and listing id are preserved"
     tags: [tracking, analytics, loop-event-storage, unit]
-    status: planned
-    notes: "analytics-loop-event-storage: e2e scenario tracking/loop_event_storage.feature::Loop storage: properties and principal survive the warehouse (flip to automated + covered_by after green) Also unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventsPreservePropertiesAndPrincipal."
+    status: automated
+    covered_by: "tracking/loop_event_storage.feature::Loop storage: properties and listing id are preserved"
+    notes: "analytics-loop-event-storage:  also unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventsPreservePropertiesAndPrincipal."
 
   - id: loop-event-storage.an-event-with-no-properties-is-stored-with-empty-properties
     title: "Loop storage: an event with no properties is stored with empty properties"
@@ -2162,8 +2163,9 @@ features:
     acceptance:
       - "Loop storage: the client id is blanked without analytics consent"
     tags: [tracking, analytics, loop-event-storage, unit]
-    status: planned
-    notes: "analytics-loop-event-storage: e2e scenario tracking/loop_event_storage.feature::Loop storage: no analytics consent blanks the client id (flip to automated + covered_by after green) Also unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventClientIdBlankedWithoutConsent."
+    status: automated
+    covered_by: "tracking/loop_event_storage.feature::Loop storage: the client id is blanked without analytics consent"
+    notes: "analytics-loop-event-storage:  also unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventClientIdBlankedWithoutConsent."
 
   - id: loop-event-storage.a-replayed-event-is-stored-once
     title: "Loop storage: a replayed event is stored once"
@@ -2177,8 +2179,8 @@ features:
     acceptance:
       - "Loop storage: a replayed event is stored once"
     tags: [tracking, analytics, loop-event-storage]
-    status: planned
-    notes: "analytics-loop-event-storage: e2e scenario tracking/loop_event_storage.feature::Loop storage: a replayed event is stored once (flip to automated + covered_by after green)."
+    status: automated
+    covered_by: "tracking/loop_event_storage.feature::Loop storage: a replayed event is stored once"
 
   - id: loop-event-storage.a-non-tracking-envelope-is-still-skipped
     title: "Loop storage: a non-tracking envelope is still skipped"

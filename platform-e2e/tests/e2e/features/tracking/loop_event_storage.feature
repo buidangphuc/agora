@@ -8,11 +8,11 @@ Feature: The warehouse stores the loop event types
     When one tracking event of each new loop type, each with a unique session id, is produced to analytics.events
     Then the warehouse holds exactly one row per produced event whose event_type is the matching lowercase name
 
-  Scenario: Loop storage: properties and principal survive the warehouse
+  Scenario: Loop storage: properties and listing id are preserved
     When an ai_interaction event with properties surface=assistant and action=accepted and listing id "l-1" is produced by a principal
     Then the warehouse row carries exactly those properties, that listing id and the principal id
 
-  Scenario: Loop storage: no analytics consent blanks the client id
+  Scenario: Loop storage: the client id is blanked without analytics consent
     When a sign_up event carrying a ga_client_id and analytics consent false is produced to analytics.events
     Then the warehouse row for it has an empty ga_client_id
 
