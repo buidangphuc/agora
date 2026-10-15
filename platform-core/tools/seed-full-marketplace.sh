@@ -481,16 +481,53 @@ ID20=$(create_product "$SELLER_TECH_TOKEN" "Xe Đạp Giant ATX 830" '{
 echo ""
 echo "⭐ 3. Adding Verified Reviews & Engagement Stats..."
 
+# CreateReview requires the buyer's COMPLETED order containing the listing: place a COD order
+# for the listing, then the listing's seller ships and completes it. Echoes the order id.
+complete_order() {
+  local buyer_token="$1"
+  local seller_token="$2"
+  local listing_id="$3"
+
+  curl -s -X POST "$GW/platform.identity.v1.AddressService/CreateAddress" \
+    -H 'Content-Type: application/json' -H "Authorization: bearer $buyer_token" \
+    -d '{"recipientName":"Nguyen Van A","phone":"0912345678","street":"29 Lieu Giai","city":"Ha Noi","ward":"Phuong Lieu Giai","district":"Quan Ba Dinh","isDefault":true}' >/dev/null || true
+  curl -s -X POST "$GW/platform.order.v1.CartService/ClearCart" \
+    -H 'Content-Type: application/json' -H "Authorization: bearer $buyer_token" -d '{}' >/dev/null || true
+  curl -s -X POST "$GW/platform.order.v1.CartService/AddToCart" \
+    -H 'Content-Type: application/json' -H "Authorization: bearer $buyer_token" \
+    -d "{\"listingId\":\"$listing_id\",\"quantity\":1}" >/dev/null || true
+
+  local order_id
+  order_id=$(curl -s -X POST "$GW/platform.order.v1.OrderService/CreateOrder" \
+    -H 'Content-Type: application/json' -H "Authorization: bearer $buyer_token" \
+    -d '{"paymentMethod":"PAYMENT_METHOD_COD"}' | grep -o '"id":"[^"]*"' | head -n 1 | cut -d'"' -f4 || true)
+  [ -n "$order_id" ] || return 1
+
+  local status
+  for status in ORDER_STATUS_SHIPPED ORDER_STATUS_COMPLETED; do
+    curl -s -X POST "$GW/platform.order.v1.OrderService/UpdateOrderStatus" \
+      -H 'Content-Type: application/json' -H "Authorization: bearer $seller_token" \
+      -d "{\"id\":\"$order_id\",\"status\":\"$status\"}" >/dev/null || true
+  done
+  echo "$order_id"
+}
+
 add_review() {
   local token="$1"
-  local listing_id="$2"
-  local rating="$3"
-  local comment="$4"
+  local seller_token="$2"
+  local listing_id="$3"
+  local rating="$4"
+  local comment="$5"
 
-  curl -s -X POST "$GW/platform.engagement.v1.EngagementService/CreateReview" \
-    -H 'Content-Type: application/json' \
-    -H "Authorization: bearer $token" \
-    -d "{\"listing_id\":\"$listing_id\",\"rating\":$rating,\"comment\":\"$comment\"}" >/dev/null || true
+  local order_id
+  if order_id=$(complete_order "$token" "$seller_token" "$listing_id"); then
+    curl -s -X POST "$GW/platform.engagement.v1.EngagementService/CreateReview" \
+      -H 'Content-Type: application/json' \
+      -H "Authorization: bearer $token" \
+      -d "{\"listing_id\":\"$listing_id\",\"rating\":$rating,\"comment\":\"$comment\",\"order_id\":\"$order_id\"}" >/dev/null || true
+  else
+    echo "  ⚠ No completed order for $listing_id; review skipped" >&2
+  fi
 
   curl -s -X POST "$GW/platform.engagement.v1.EngagementService/RecordView" \
     -H 'Content-Type: application/json' \
@@ -502,13 +539,13 @@ add_review() {
     -d "{\"listing_id\":\"$listing_id\"}" >/dev/null || true
 }
 
-add_review "$BUYER_TOKEN" "$ID1" 5 "Máy nguyên seal mới 100%, màu Titan tự nhiên nhìn thực tế cực kỳ sang trọng. Giao hàng hỏa tốc trong 2h tại Hà Nội. Shop đóng gói rất cẩn thận, 10 sao cho shop!"
-add_review "$BUYER_TOKEN" "$ID2" 5 "MacBook Pro M3 Pro render video 4K siêu nhanh, bàn phím gõ êm, màn hình Liquid Retina XDR màu chuẩn đét. Đáng đồng tiền bát gạo!"
-add_review "$BUYER_TOKEN" "$ID3" 5 "Chống ồn đỉnh chóp, đeo êm tai không bị cấn, bass đầm chắc và pin trâu kinh khủng. Rất ưng ý!"
-add_review "$BUYER_TOKEN" "$ID8" 5 "Áo khoác gió Yody form dáng đẹp, cản gió đi xe máy cực ấm, đường may tỉ mỉ."
-add_review "$BUYER_TOKEN" "$ID12" 5 "Air Force 1 All-White chuẩn auth, phối đồ gì cũng đẹp, đế êm đi bộ cả ngày không đau chân."
-add_review "$BUYER_TOKEN" "$ID14" 5 "Son Black Rouge màu A12 siêu tôn da, chất son mịn lì như nhung, thơm mùi nho dễ chịu."
-add_review "$BUYER_TOKEN" "$ID16" 5 "Roborock S8 Pro tự giặt sấy giẻ siêu sạch, nhà lúc nào cũng bóng loáng, giải phóng sức lao động hoàn toàn!"
+add_review "$BUYER_TOKEN" "$SELLER_TECH_TOKEN" "$ID1" 5 "Máy nguyên seal mới 100%, màu Titan tự nhiên nhìn thực tế cực kỳ sang trọng. Giao hàng hỏa tốc trong 2h tại Hà Nội. Shop đóng gói rất cẩn thận, 10 sao cho shop!"
+add_review "$BUYER_TOKEN" "$SELLER_TECH_TOKEN" "$ID2" 5 "MacBook Pro M3 Pro render video 4K siêu nhanh, bàn phím gõ êm, màn hình Liquid Retina XDR màu chuẩn đét. Đáng đồng tiền bát gạo!"
+add_review "$BUYER_TOKEN" "$SELLER_TECH_TOKEN" "$ID3" 5 "Chống ồn đỉnh chóp, đeo êm tai không bị cấn, bass đầm chắc và pin trâu kinh khủng. Rất ưng ý!"
+add_review "$BUYER_TOKEN" "$SELLER_FASHION_TOKEN" "$ID8" 5 "Áo khoác gió Yody form dáng đẹp, cản gió đi xe máy cực ấm, đường may tỉ mỉ."
+add_review "$BUYER_TOKEN" "$SELLER_FASHION_TOKEN" "$ID12" 5 "Air Force 1 All-White chuẩn auth, phối đồ gì cũng đẹp, đế êm đi bộ cả ngày không đau chân."
+add_review "$BUYER_TOKEN" "$SELLER_FASHION_TOKEN" "$ID14" 5 "Son Black Rouge màu A12 siêu tôn da, chất son mịn lì như nhung, thơm mùi nho dễ chịu."
+add_review "$BUYER_TOKEN" "$SELLER_TECH_TOKEN" "$ID16" 5 "Roborock S8 Pro tự giặt sấy giẻ siêu sạch, nhà lúc nào cũng bóng loáng, giải phóng sức lao động hoàn toàn!"
 
 echo "✓ Reviews and ratings added successfully!"
 

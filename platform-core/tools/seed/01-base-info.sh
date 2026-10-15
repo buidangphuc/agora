@@ -87,14 +87,51 @@ create_product() {
   fi
 }
 
+# CreateReview requires the buyer's COMPLETED order containing the listing: place a COD order
+# for the listing, then the listing's seller ships and completes it. Echoes the order id.
+complete_order() {
+  local buyer_token="$1"
+  local seller_token="$2"
+  local listing_id="$3"
+
+  curl -s -X POST "$GW/platform.identity.v1.AddressService/CreateAddress" \
+    -H 'Content-Type: application/json' -H "Authorization: bearer $buyer_token" \
+    -d '{"recipientName":"Nguyen Van A","phone":"0912345678","street":"29 Lieu Giai","city":"Ha Noi","ward":"Phuong Lieu Giai","district":"Quan Ba Dinh","isDefault":true}' >/dev/null || true
+  curl -s -X POST "$GW/platform.order.v1.CartService/ClearCart" \
+    -H 'Content-Type: application/json' -H "Authorization: bearer $buyer_token" -d '{}' >/dev/null || true
+  curl -s -X POST "$GW/platform.order.v1.CartService/AddToCart" \
+    -H 'Content-Type: application/json' -H "Authorization: bearer $buyer_token" \
+    -d "{\"listingId\":\"$listing_id\",\"quantity\":1}" >/dev/null || true
+
+  local order_id
+  order_id=$(curl -s -X POST "$GW/platform.order.v1.OrderService/CreateOrder" \
+    -H 'Content-Type: application/json' -H "Authorization: bearer $buyer_token" \
+    -d '{"paymentMethod":"PAYMENT_METHOD_COD"}' | grep -o '"id":"[^"]*"' | head -n 1 | cut -d'"' -f4 || true)
+  [ -n "$order_id" ] || return 1
+
+  local status
+  for status in ORDER_STATUS_SHIPPED ORDER_STATUS_COMPLETED; do
+    curl -s -X POST "$GW/platform.order.v1.OrderService/UpdateOrderStatus" \
+      -H 'Content-Type: application/json' -H "Authorization: bearer $seller_token" \
+      -d "{\"id\":\"$order_id\",\"status\":\"$status\"}" >/dev/null || true
+  done
+  echo "$order_id"
+}
+
 add_review() {
-  local listing_id="$1"
-  local rating="$2"
-  local comment="$3"
+  local seller_token="$1"
+  local listing_id="$2"
+  local rating="$3"
+  local comment="$4"
+  local order_id
+  order_id=$(complete_order "$BUYER_TOKEN" "$seller_token" "$listing_id") || {
+    echo "  ⚠ No completed order for $listing_id; review skipped" >&2
+    return 0
+  }
   curl -s -X POST "$GW/platform.engagement.v1.EngagementService/CreateReview" \
     -H 'Content-Type: application/json' \
     -H "Authorization: bearer $BUYER_TOKEN" \
-    -d "{\"listingId\":\"$listing_id\",\"rating\":$rating,\"comment\":\"$comment\"}" >/dev/null || true
+    -d "{\"listingId\":\"$listing_id\",\"rating\":$rating,\"comment\":\"$comment\",\"orderId\":\"$order_id\"}" >/dev/null || true
 }
 
 # 1. iPhone 15 Pro Max
@@ -118,7 +155,7 @@ P1=$(create_product "$SELLER_TECH_TOKEN" "iPhone 15 Pro Max" '{
     ]
   }
 }')
-add_review "$P1" 5 "Máy nguyên seal, bảo hành Apple VN/A chuẩn đét. Giao hàng cực nhanh chỉ trong 2 tiếng!"
+add_review "$SELLER_TECH_TOKEN" "$P1" 5 "Máy nguyên seal, bảo hành Apple VN/A chuẩn đét. Giao hàng cực nhanh chỉ trong 2 tiếng!"
 
 # 2. MacBook Pro M3
 P2=$(create_product "$SELLER_TECH_TOKEN" "MacBook Pro 14 inch M3" '{
@@ -135,7 +172,7 @@ P2=$(create_product "$SELLER_TECH_TOKEN" "MacBook Pro 14 inch M3" '{
     ]
   }
 }')
-add_review "$P2" 5 "Màu Space Black cực đẹp, màn hình XDR siêu nét, render video 4K mượt mà không nóng máy."
+add_review "$SELLER_TECH_TOKEN" "$P2" 5 "Màu Space Black cực đẹp, màn hình XDR siêu nét, render video 4K mượt mà không nóng máy."
 
 # 3. Tai Nghe Sony WH-1000XM5
 P3=$(create_product "$SELLER_TECH_TOKEN" "Tai Nghe Chống Ồn Sony WH-1000XM5" '{
@@ -152,7 +189,7 @@ P3=$(create_product "$SELLER_TECH_TOKEN" "Tai Nghe Chống Ồn Sony WH-1000XM5"
     ]
   }
 }')
-add_review "$P3" 5 "Chống ồn đỉnh chóp, đi máy bay hay ngồi quán cafe ồn ào bật lên là tĩnh lặng hoàn toàn."
+add_review "$SELLER_TECH_TOKEN" "$P3" 5 "Chống ồn đỉnh chóp, đi máy bay hay ngồi quán cafe ồn ào bật lên là tĩnh lặng hoàn toàn."
 
 # 4. Robot Hút Bụi Roborock S8 Pro Ultra
 P4=$(create_product "$SELLER_TECH_TOKEN" "Robot Hút Bụi Roborock S8 Pro Ultra" '{
@@ -169,7 +206,7 @@ P4=$(create_product "$SELLER_TECH_TOKEN" "Robot Hút Bụi Roborock S8 Pro Ultra
     ]
   }
 }')
-add_review "$P4" 5 "Nhà sạch bóng kin kít, tự giặt sấy giẻ thơm tho không hề bị hôi ẩm."
+add_review "$SELLER_TECH_TOKEN" "$P4" 5 "Nhà sạch bóng kin kít, tự giặt sấy giẻ thơm tho không hề bị hôi ẩm."
 
 # 5. Máy Lọc Không Khí Xiaomi Smart Air Purifier 4 Pro
 P5=$(create_product "$SELLER_TECH_TOKEN" "Máy Lọc Không Khí Xiaomi 4 Pro" '{
@@ -186,7 +223,7 @@ P5=$(create_product "$SELLER_TECH_TOKEN" "Máy Lọc Không Khí Xiaomi 4 Pro" '
     ]
   }
 }')
-add_review "$P5" 5 "Hút bụi mịn rất tốt, phòng ngủ hết hẳn mùi ẩm mốc, app điều khiển tiện lợi."
+add_review "$SELLER_TECH_TOKEN" "$P5" 5 "Hút bụi mịn rất tốt, phòng ngủ hết hẳn mùi ẩm mốc, app điều khiển tiện lợi."
 
 # 6. Áo Thun Coolmate Cotton Compact
 P6=$(create_product "$SELLER_FASHION_TOKEN" "Áo Thun Nam Cổ Tròn Coolmate" '{
@@ -203,7 +240,7 @@ P6=$(create_product "$SELLER_FASHION_TOKEN" "Áo Thun Nam Cổ Tròn Coolmate" '
     ]
   }
 }')
-add_review "$P6" 5 "Chất vải mềm mịn, giặt máy không bị xù lông hay bai dão, 10 điểm cho thương hiệu Việt!"
+add_review "$SELLER_FASHION_TOKEN" "$P6" 5 "Chất vải mềm mịn, giặt máy không bị xù lông hay bai dão, 10 điểm cho thương hiệu Việt!"
 
 # 7. Váy Hoa Nhí Nữ Vintage
 P7=$(create_product "$SELLER_FASHION_TOKEN" "Váy Hoa Nhí Nữ Dáng Dài Vintage" '{
@@ -220,7 +257,7 @@ P7=$(create_product "$SELLER_FASHION_TOKEN" "Váy Hoa Nhí Nữ Dáng Dài Vinta
     ]
   }
 }')
-add_review "$P7" 5 "Váy xinh lắm, mặc lên dáng như nàng thơ, đường may cẩn thận."
+add_review "$SELLER_FASHION_TOKEN" "$P7" 5 "Váy xinh lắm, mặc lên dáng như nàng thơ, đường may cẩn thận."
 
 # 8. Kem Chống Nắng La Roche-Posay Anthelios
 P8=$(create_product "$SELLER_FASHION_TOKEN" "Kem Chống Nắng La Roche-Posay Anthelios" '{
@@ -237,7 +274,7 @@ P8=$(create_product "$SELLER_FASHION_TOKEN" "Kem Chống Nắng La Roche-Posay A
     ]
   }
 }')
-add_review "$P8" 5 "Kem kiềm dầu siêu đỉnh, không hề bị bí da hay lên mụn, dùng chai thứ 4 rồi!"
+add_review "$SELLER_FASHION_TOKEN" "$P8" 5 "Kem kiềm dầu siêu đỉnh, không hề bị bí da hay lên mụn, dùng chai thứ 4 rồi!"
 
 # 9. Giày Sneaker Nike Air Force 1
 P9=$(create_product "$SELLER_FASHION_TOKEN" "Giày Thể Thao Nike Air Force 1 07" '{
@@ -254,7 +291,7 @@ P9=$(create_product "$SELLER_FASHION_TOKEN" "Giày Thể Thao Nike Air Force 1 0
     ]
   }
 }')
-add_review "$P9" 5 "Giày chính hãng form cứng cáp, mang cực kỳ êm chân và dễ phối đồ."
+add_review "$SELLER_FASHION_TOKEN" "$P9" 5 "Giày chính hãng form cứng cáp, mang cực kỳ êm chân và dễ phối đồ."
 
 # 10. Xe Đạp Giant ATX 830
 P10=$(create_product "$SELLER_TECH_TOKEN" "Xe Đạp Thể Thao Địa Hình Giant ATX 830" '{
@@ -271,6 +308,6 @@ P10=$(create_product "$SELLER_TECH_TOKEN" "Xe Đạp Thể Thao Địa Hình Gia
     ]
   }
 }')
-add_review "$P10" 5 "Xe đạp rất chắc chắn, giảm xóc êm, sang số nhẹ nhàng leo dốc cực khỏe."
+add_review "$SELLER_TECH_TOKEN" "$P10" 5 "Xe đạp rất chắc chắn, giảm xóc êm, sang số nhẹ nhàng leo dốc cực khỏe."
 
 echo "✅ BASE-INFO Seeding Completed Successfully!"
