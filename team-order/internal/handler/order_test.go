@@ -104,7 +104,7 @@ func serviceCtx(scopes ...string) context.Context {
 
 func TestOrderHandler_CalculateShippingFee(t *testing.T) {
 	svc := service.NewOrderService(nil, nil, nil, nil, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil)
+	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 	ctx := context.Background()
 
 	t.Run("Free Shipping Over 500k", func(t *testing.T) {
@@ -182,7 +182,7 @@ func TestOrderHandler_CreateOrder_NoFlagsFailsOpen(t *testing.T) {
 	svc := service.NewOrderService(
 		repository.NewInMemoryOrderRepository(), cartRepo, nil, nil, nil, nil, nil,
 	)
-	h := handler.NewOrderHandler(svc, nil, nil)
+	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 	ctx := incomingPrincipalCtx("buyer_1", "buyer")
 
 	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
@@ -203,7 +203,7 @@ func TestOrderHandler_GetSagaState(t *testing.T) {
 		},
 	}
 	svc := service.NewOrderService(repo, nil, nil, nil, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil)
+	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 	ctx := incomingPrincipalCtx("buyer_1", "buyer")
 
 	res, err := h.GetSagaState(ctx, &orderv1.GetSagaStateRequest{OrderId: "ord_123"})
@@ -227,7 +227,7 @@ func TestOrderHandler_ForceFailSaga(t *testing.T) {
 		},
 	}
 	svc := service.NewOrderService(repo, nil, nil, nil, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil)
+	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 	ctx := adminCtx()
 
 	res, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_123"})
@@ -253,7 +253,7 @@ func TestOrderHandler_RMA(t *testing.T) {
 	}
 	returnRepo := repository.NewInMemoryReturnRepository()
 	svc := service.NewOrderService(orderRepo, nil, returnRepo, nil, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil)
+	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 
 	buyerCtx := incomingPrincipalCtx("buyer_1", "buyer")
 	sellerCtx := incomingPrincipalCtx("seller_1", "seller")
@@ -312,7 +312,7 @@ func TestOrderHandler_Shipment(t *testing.T) {
 	}
 	shipmentRepo := repository.NewInMemoryShipmentRepository()
 	svc := service.NewOrderService(orderRepo, nil, nil, shipmentRepo, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil)
+	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 
 	sellerCtx := incomingPrincipalCtx("seller_1", "seller")
 
@@ -349,7 +349,7 @@ func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
 		repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
 			"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1", Status: st},
 		}}
-		return handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+		return handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 	}
 	req := func(to orderv1.OrderStatus) *orderv1.UpdateOrderStatusRequest {
 		return &orderv1.UpdateOrderStatusRequest{Id: "ord_1", Status: to}
@@ -446,7 +446,7 @@ func TestOrderHandler_GetOrder_Authz(t *testing.T) {
 	repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
 		"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1"},
 	}}
-	h := handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+	h := handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 	principal := func(id string, typ commonv1.PrincipalType, scopes ...string) context.Context {
 		return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: id, Type: typ, Scopes: scopes})
 	}
@@ -491,7 +491,7 @@ func TestOrderHandler_ForceFailSaga_AdminOnly(t *testing.T) {
 			repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
 				"ord_123": {ID: "ord_123", BuyerID: "buyer_1", Status: repository.OrderStatusPending},
 			}}
-			h := handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil)
+			h := handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 			_, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_123"})
 			want := codes.PermissionDenied
 			if name == "anonymous" {

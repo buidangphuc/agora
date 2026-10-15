@@ -29,7 +29,7 @@ func newRMAEnv() rmaEnv {
 	returns := repository.NewInMemoryReturnRepository(repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow),
 		repository.WithInMemoryReturnOutbox(outbox, orders))
 	svc := service.NewOrderService(orders, nil, returns, nil, nil, nil, nil)
-	return rmaEnv{h: handler.NewOrderHandler(svc, nil, nil), orders: orders, outbox: outbox}
+	return rmaEnv{h: handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{})), orders: orders, outbox: outbox}
 }
 
 func (e rmaEnv) order(t *testing.T, paidOnline bool) repository.Order {

@@ -40,7 +40,7 @@ func newSagaRig(t *testing.T) *sagaRig {
 	}
 	r.svc = service.NewOrderService(r.orders, carts, nil, nil, r.domain, nil, nil,
 		service.WithReleaseRetry(time.Second, 1, time.Millisecond))
-	r.h = handler.NewOrderHandler(r.svc, nil, nil)
+	r.h = handler.NewOrderHandler(r.svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 	placed, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", repository.Address{}, nil, 2, "")
 	if err != nil {
 		t.Fatal(err)
@@ -218,7 +218,7 @@ func TestForceFailSaga_EmitsCancelledFactThroughTheClaim(t *testing.T) {
 	}
 	svc := service.NewOrderService(orders, carts, nil, nil, upstreamtest.NewDomain(map[string]int32{"lst_1": 10}), nil, nil,
 		service.WithReleaseRetry(time.Second, 1, time.Millisecond))
-	h := handler.NewOrderHandler(svc, nil, nil)
+	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 	placed, err := svc.CreateOrdersFromCart(context.Background(), "buyer_1", repository.Address{}, nil, 2, "")
 	if err != nil {
 		t.Fatal(err)

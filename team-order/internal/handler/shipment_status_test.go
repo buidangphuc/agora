@@ -19,7 +19,7 @@ func TestCreateShipment_CancelledOrderIsFailedPrecondition(t *testing.T) {
 		t.Fatal(err)
 	}
 	ships := repository.NewInMemoryShipmentRepository()
-	h := handler.NewOrderHandler(service.NewOrderService(orders, nil, nil, ships, nil, nil, nil), nil, nil)
+	h := handler.NewOrderHandler(service.NewOrderService(orders, nil, nil, ships, nil, nil, nil), nil, nil, handler.WithAuditWriter(&fakeAudit{}))
 	_, err := h.CreateShipment(incomingPrincipalCtx("seller_1", "seller"), &orderv1.CreateShipmentRequest{OrderId: "ord_c", Carrier: "GHN"})
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("want FailedPrecondition, got %v", err)
