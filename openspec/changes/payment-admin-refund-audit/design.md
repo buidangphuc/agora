@@ -23,3 +23,7 @@ The current handler checks `slices.Contains(principal.GetScopes(), "admin")` and
 - Q1 (permission): uniform rule confirmed; an admin who is the order's seller is audited, no seller lookup.
 - Audit events for admin refund attempts refused after the audit write (`FailedPrecondition`, `AlreadyExists`) and for replays are accepted (the locked spec allows post-audit failure rows).
 - Gateway check: `PaymentForwarder.RefundPayment` uses `callWrite` (single attempt, no retry); `toConnectErr` maps Unavailable to `unavailable` and PermissionDenied to `permission_denied`, the codes the e2e scenarios assert.
+
+### Round 2 — 2026-10-15
+
+- Q1 [naming] scenario "Audit is called as the service principal" duplicates a title owned by engagement-review-integrity; rename to "Payment audit: Audit is called as the service principal"? → **approved** (human, converge)

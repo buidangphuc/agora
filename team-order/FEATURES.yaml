@@ -1920,15 +1920,15 @@ features:
     tags: [security, audit, unit]
     status: not-testable
     notes: "VERIFIED BY team-order internal/handler TestCreateShipmentRefusedWritesNoAudit. Not producible end to end through the gateway (unit level)."
-  - id: order.oaa-shipment-on-a-pending-order-keeps-the-audit-row
-    title: "Order audit: Shipment on a Pending order keeps the audit row"
+  - id: order.oaa-shipment-on-a-cancelled-order-keeps-the-audit-row
+    title: "Order audit: Shipment on a Cancelled order keeps the audit row"
     persona: admin
     priority: P2
     summary: "Unit-verified scenario of change order-admin-audit."
     entry_route: /
     services: [team-order]
     acceptance:
-      - "Order audit: Shipment on a Pending order keeps the audit row"
+      - "Order audit: Shipment on a Cancelled order keeps the audit row"
     tags: [security, audit, unit]
     status: not-testable
     notes: "VERIFIED BY team-order internal/handler TestCreateShipmentAdminInvalidStatusAfterAudit. Not producible end to end through the gateway (unit level)."

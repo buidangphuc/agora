@@ -102,7 +102,7 @@ func TestRepositoryFilterInMemory(t *testing.T) {
 	runFilterCases(t, repository.NewInMemoryAuditRepo())
 }
 
-// Scenario: In-memory repository matches Postgres. The Postgres half runs only
+// Scenario: Audit query: In-memory repository matches Postgres. The Postgres half runs only
 // when TEST_DATABASE_URL is set and must produce the same ids and totals as
 // the same table does in memory. Rows are inserted with explicit created_at
 // because Append owns created_at via NOW().

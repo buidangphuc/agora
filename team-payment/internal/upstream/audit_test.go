@@ -68,7 +68,7 @@ func TestNewAuditClientEmptyAddrIsNil(t *testing.T) {
 	}
 }
 
-// Scenario: Audit is called as the service principal (and the event carries the
+// Scenario: Payment audit: Audit is called as the service principal (and the event carries the
 // action, target, actor and exactly order_id + amount).
 func TestAuditClientUsesServicePrincipal(t *testing.T) {
 	rec := &recordingAudit{}

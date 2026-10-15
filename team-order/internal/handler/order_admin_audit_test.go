@@ -594,8 +594,8 @@ func TestCreateShipmentRefusedWritesNoAudit(t *testing.T) {
 	}
 }
 
-// Scenario: Order audit: Shipment on a Pending order keeps the audit row
-// (a Pending order is shippable by COD hand-over, so a Cancelled order stands in as the non-shippable one)
+// Scenario: Order audit: Shipment on a Cancelled order keeps the audit row
+// (a Pending order is shippable by COD hand-over, so the non-shippable order is a Cancelled one)
 func TestCreateShipmentAdminInvalidStatusAfterAudit(t *testing.T) {
 	w := &fakeAudit{}
 	r := newOrderRig(t, w)

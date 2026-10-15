@@ -146,8 +146,8 @@
 - **THEN** the calls return `PermissionDenied`, `Unauthenticated`, `InvalidArgument` and `NotFound` and zero audit calls are made
 - **VERIFIED BY**: team-order `internal/handler` `TestCreateShipmentRefusedWritesNoAudit`
 
-#### Scenario: Order audit: Shipment on a Pending order keeps the audit row
-- **WHEN** an admin creates a shipment for a Pending order (not shippable) and the audit write succeeds
+#### Scenario: Order audit: Shipment on a Cancelled order keeps the audit row
+- **WHEN** an admin creates a shipment for a Cancelled order (not shippable; a Pending order is shippable by COD hand-over) and the audit write succeeds
 - **THEN** the call returns `FailedPrecondition`, no shipment exists and the audit call count is 1
 - **VERIFIED BY**: team-order `internal/handler` `TestCreateShipmentAdminInvalidStatusAfterAudit`
 

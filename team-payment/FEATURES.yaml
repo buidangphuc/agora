@@ -1385,16 +1385,16 @@ features:
     notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminWhoIsSellerRefundIsAudited`. Not producible end to end."
 
   - id: payment.praa-audit-is-called-as-the-service-principal
-    title: "Audit is called as the service principal"
+    title: "Payment audit: Audit is called as the service principal"
     persona: admin
     priority: P2
-    summary: "Audit is called as the service principal"
+    summary: "Payment audit: Audit is called as the service principal"
     entry_route: /
     services: [team-payment]
     preconditions:
       login: admin
     acceptance:
-      - "Audit is called as the service principal (unit-verified)"
+      - "Payment audit: Audit is called as the service principal (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
     notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestAuditClientUsesServicePrincipal`. Not producible end to end."

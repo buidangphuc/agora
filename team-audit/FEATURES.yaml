@@ -212,7 +212,7 @@ features:
     status: automated
     covered_by: security/audit_query_filters.feature::A quote in a filter value is matched literally (Filter values are bound parameters)
   - id: audit.qf-in-memory-repository-matches-postgres
-    title: In-memory repository matches Postgres
+    title: "Audit query: In-memory repository matches Postgres"
     persona: admin
     priority: P2
     summary: Unit-verified scenario of change audit-query-filters.
@@ -220,7 +220,7 @@ features:
     services:
     - team-audit
     acceptance:
-    - In-memory repository matches Postgres
+    - "Audit query: In-memory repository matches Postgres"
     tags:
     - security
     - audit
