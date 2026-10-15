@@ -55,6 +55,26 @@ func TestVerifyPurchase_BoundedWhenOrderHangs(t *testing.T) {
 	}
 }
 
+// Scenario: Verifier times out (spec-named; error, never (false, nil)).
+func TestVerifyPurchaseTimeoutIsError(t *testing.T) {
+	c, err := NewOrderClient(startHangingOrders(t), 150*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	start := time.Now()
+	ok, _, err := c.VerifyPurchase(context.Background(), "buyer-1", "listing-1", "order-1")
+	if err == nil || ok {
+		t.Fatalf("a timeout must be an error, got ok=%v err=%v", ok, err)
+	}
+	if errors.Is(err, ErrOrderNotFound) {
+		t.Fatal("a timeout must not be classified as not-found")
+	}
+	if el := time.Since(start); el > 150*time.Millisecond+500*time.Millisecond {
+		t.Fatalf("not bounded by the call timeout plus 500ms: took %v", el)
+	}
+}
+
 // partiesOrders answers GetOrder from a fixed map; unknown ids are NOT_FOUND.
 type partiesOrders struct {
 	orderv1.UnimplementedOrderServiceServer
