@@ -17,10 +17,13 @@ vi.mock("@/components/ui/ToastProvider", () => ({ useToast: () => toast }));
 
 import { AlertToggle } from "./AlertToggle";
 
-const toggle = (kind: string) =>
-  screen
+const toggle = (kind: string): HTMLElement => {
+  const el = screen
     .getAllByTestId("alert-toggle")
-    .find((el) => el.getAttribute("data-type") === kind)!;
+    .find((x) => x.getAttribute("data-type") === kind);
+  if (!el) throw new Error(`no alert toggle of kind ${kind}`);
+  return el;
+};
 
 beforeEach(() => vi.clearAllMocks());
 

@@ -151,7 +151,7 @@ describe("dataLayer consent gating", () => {
 describe("dataLayer loop properties", () => {
   beforeEach(() => {
     vi.resetModules();
-    delete (window as { dataLayer?: unknown }).dataLayer;
+    Reflect.deleteProperty(window, "dataLayer");
     document.cookie = `agora_consent=v=1&a=1&m=0&p=0&ts=${Math.floor(Date.now() / 1000)}; Path=/`;
   });
   afterEach(() => {
@@ -183,8 +183,8 @@ describe("dataLayer loop properties", () => {
         alert_type: "price_drop",
       },
     });
-    const e = (window.dataLayer ?? []).find((x) => x.event === "share")!;
-    expect(e.properties).toEqual({
+    const e = (window.dataLayer ?? []).find((x) => x.event === "share");
+    expect(e?.properties).toEqual({
       method: "copy_link",
       content_type: "listing",
       seller_id: "S1",

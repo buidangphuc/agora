@@ -260,7 +260,10 @@ describe("auth event cookie (loop events)", () => {
   });
 
   it("failures never set the event cookie", async () => {
-    const login = (rpc: ReturnType<typeof vi.fn>, fields: Record<string, string>) => {
+    const login = (
+      rpc: ReturnType<typeof vi.fn>,
+      fields: Record<string, string>,
+    ) => {
       stubAuth({ login: rpc });
       return loginAction(initial, form(fields));
     };

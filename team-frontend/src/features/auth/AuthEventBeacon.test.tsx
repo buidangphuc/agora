@@ -27,7 +27,7 @@ beforeEach(() => {
 afterEach(() => {
   clear();
   // remove any instance-level cookie stub
-  delete (document as { cookie?: unknown }).cookie;
+  Reflect.deleteProperty(document, "cookie");
 });
 
 describe("AuthEventBeacon", () => {

@@ -40,7 +40,9 @@ describe("FavoriteButton loop events", () => {
     removeFavoriteAction.mockResolvedValue(undefined);
     render(<FavoriteButton id="L1" initial={true} />);
     fireEvent.click(screen.getByRole("button", { name: "Bỏ thích" }));
-    await waitFor(() => expect(removeFavoriteAction).toHaveBeenCalledWith("L1"));
+    await waitFor(() =>
+      expect(removeFavoriteAction).toHaveBeenCalledWith("L1"),
+    );
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Yêu thích" })).toBeTruthy(),
     );

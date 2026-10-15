@@ -80,7 +80,7 @@ describe("dataLayer loop events consent", () => {
   beforeEach(() => {
     vi.resetModules();
     document.cookie = "agora_consent=; Max-Age=0; Path=/";
-    delete (window as { dataLayer?: unknown }).dataLayer;
+    Reflect.deleteProperty(window, "dataLayer");
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -88,7 +88,9 @@ describe("dataLayer loop events consent", () => {
 
   it("loop events respect consent", async () => {
     const { beaconQueue } = await import("./queue");
-    const single = vi.spyOn(beaconQueue, "enqueue").mockImplementation(() => {});
+    const single = vi
+      .spyOn(beaconQueue, "enqueue")
+      .mockImplementation(() => {});
     const batch = vi
       .spyOn(beaconQueue, "enqueueBatch")
       .mockImplementation(() => {});

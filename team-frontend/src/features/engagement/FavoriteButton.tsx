@@ -10,10 +10,7 @@ import { addFavoriteAction, removeFavoriteAction } from "./actions";
 export function FavoriteButton({
   id,
   initial,
-}: {
-  id: string;
-  initial: boolean;
-}) {
+}: { id: string; initial: boolean }) {
   const [fav, setFav] = useState(initial);
   const [pending, start] = useTransition();
   const toast = useToast();
