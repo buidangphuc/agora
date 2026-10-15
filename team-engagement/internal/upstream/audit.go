@@ -78,7 +78,6 @@ func (c *AuditClient) WriteHideEvent(ctx context.Context, actorID, reviewID, lis
 }
 
 // AuditEvent is one generic team-audit event.
-// TEST-STUB (implementer replaces): struct shape fixed by tests, WriteEvent unimplemented.
 type AuditEvent struct {
 	ActorID    string
 	Action     string
@@ -87,7 +86,22 @@ type AuditEvent struct {
 	Metadata   map[string]string
 }
 
-// WriteEvent writes ev to team-audit. TEST-STUB: not implemented yet.
+// WriteEvent writes ev to team-audit (single attempt, bounded by the call timeout).
 func (c *AuditClient) WriteEvent(ctx context.Context, ev AuditEvent) error {
-	return errors.New("not implemented")
+	if c == nil || c.svc == nil {
+		return errors.New("audit client not configured")
+	}
+	callCtx, cancel := boundedCtx(ctx, c.timeout)
+	defer cancel()
+	_, err := c.svc.WriteAuditEvent(callCtx, &auditv1.WriteAuditEventRequest{
+		ActorId:    ev.ActorID,
+		Action:     ev.Action,
+		TargetType: ev.TargetType,
+		TargetId:   ev.TargetID,
+		Metadata:   ev.Metadata,
+	})
+	if err != nil {
+		return fmt.Errorf("write audit event: %w", err)
+	}
+	return nil
 }

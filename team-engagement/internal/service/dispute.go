@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/buidangphuc/team-engagement/internal/repository"
+	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 var (
@@ -27,7 +28,7 @@ type DisputeService struct {
 	logger *slog.Logger
 }
 
-// WithAudit wires the audit writer. TEST-STUB: not used by ResolveDispute yet.
+// WithAudit wires the audit writer. Without one, ResolveDispute fails closed.
 func (s *DisputeService) WithAudit(w AuditWriter) *DisputeService {
 	s.audit = w
 	return s
@@ -126,6 +127,23 @@ func (s *DisputeService) ResolveDispute(
 
 	existing.Status = status
 	existing.Resolution = strings.TrimSpace(resolution)
+
+	if s.audit == nil {
+		return repository.Dispute{}, ErrAuditUnavailable
+	}
+	if err := s.audit.WriteEvent(ctx, upstream.AuditEvent{
+		ActorID:    actorID,
+		Action:     "dispute.resolve",
+		TargetType: "dispute",
+		TargetID:   id,
+		Metadata: map[string]string{
+			"resolution": existing.Resolution,
+			"order_id":   existing.OrderID,
+			"status":     strings.ToLower(string(status)),
+		},
+	}); err != nil {
+		return repository.Dispute{}, fmt.Errorf("%w: %v", ErrAuditUnavailable, err)
+	}
 
 	updated, err := s.repo.UpdateDispute(ctx, existing)
 	if err != nil {

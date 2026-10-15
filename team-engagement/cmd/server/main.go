@@ -105,6 +105,9 @@ func run() error {
 	qaSvc := service.NewQAService(qaRepo, logger)
 	disputeRepo := repository.NewPostgresDisputeRepository(res.Pool)
 	disputeSvc := service.NewDisputeService(disputeRepo, logger)
+	if auditClient != nil {
+		disputeSvc.WithAudit(auditClient)
+	}
 	collectionRepo := repository.NewPostgresCollectionRepository(res.Pool)
 	collectionSvc := service.NewCollectionService(collectionRepo, logger)
 	engagementRepo := repository.NewPostgresRepository(res.Pool)

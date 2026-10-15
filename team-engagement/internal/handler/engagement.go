@@ -659,6 +659,9 @@ func (h *EngagementHandler) ResolveDispute(
 		if errors.Is(err, service.ErrInvalidDisputeStatus) {
 			return nil, status.Error(codes.InvalidArgument, "invalid dispute status")
 		}
+		if errors.Is(err, service.ErrAuditUnavailable) {
+			return nil, status.Error(codes.Unavailable, "audit unavailable")
+		}
 		return nil, internalError(ctx, "resolve dispute", err)
 	}
 
