@@ -5,6 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const { trackEcommerce } = vi.hoisted(() => ({ trackEcommerce: vi.fn() }));
 vi.mock("@/lib/analytics", () => ({ trackEcommerce }));
 
+const nav = vi.hoisted(() => ({ pathname: "/login" }));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
+  notFound: vi.fn(),
+  usePathname: () => nav.pathname,
+}));
+
 import { AuthEventBeacon } from "./AuthEventBeacon";
 
 const NAME = "agora_auth_evt";
@@ -14,6 +21,7 @@ const clear = () => {
 
 beforeEach(() => {
   trackEcommerce.mockReset();
+  nav.pathname = "/login";
   clear();
 });
 afterEach(() => {
@@ -83,5 +91,20 @@ describe("AuthEventBeacon", () => {
     expect(
       writes.some((w) => w.startsWith(`${NAME}=`) && /Max-Age=0/i.test(w)),
     ).toBe(true);
+  });
+
+  it("fires after a soft navigation", () => {
+    const { rerender } = render(<AuthEventBeacon />);
+    expect(trackEcommerce).not.toHaveBeenCalled();
+
+    document.cookie = `${NAME}=login; Path=/`;
+    nav.pathname = "/";
+    rerender(<AuthEventBeacon />);
+
+    expect(trackEcommerce).toHaveBeenCalledTimes(1);
+    expect(trackEcommerce).toHaveBeenCalledWith("login", {
+      properties: { method: "password" },
+    });
+    expect(document.cookie).not.toContain(NAME);
   });
 });
