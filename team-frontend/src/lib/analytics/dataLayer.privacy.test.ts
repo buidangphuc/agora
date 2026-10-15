@@ -75,3 +75,37 @@ describe("dataLayer privacy", () => {
     expect(e.page_referrer ?? "").toBe("");
   });
 });
+
+describe("dataLayer loop events consent", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    document.cookie = "agora_consent=; Max-Age=0; Path=/";
+    delete (window as { dataLayer?: unknown }).dataLayer;
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("loop events respect consent", async () => {
+    const { beaconQueue } = await import("./queue");
+    const single = vi.spyOn(beaconQueue, "enqueue").mockImplementation(() => {});
+    const batch = vi
+      .spyOn(beaconQueue, "enqueueBatch")
+      .mockImplementation(() => {});
+    const { trackEcommerce } = await import("./dispatcher");
+
+    trackEcommerce("add_to_wishlist", { items: [{ itemId: "L1" }] });
+
+    const pushed = (window.dataLayer ?? []).filter(
+      (e) => e && (e as Entry).event === "add_to_wishlist",
+    );
+    expect(pushed).toHaveLength(0);
+    const beacons = [
+      ...single.mock.calls.map((c) => c[0]),
+      ...batch.mock.calls.flatMap((c) => c[0]),
+    ] as Array<{ type: string; listingId: string }>;
+    expect(beacons).toHaveLength(1);
+    expect(beacons[0].type).toBe("favorite");
+    expect(beacons[0].listingId).toBe("L1");
+  });
+});
