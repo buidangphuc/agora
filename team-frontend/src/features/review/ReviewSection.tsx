@@ -86,7 +86,7 @@ export function ReviewSection({
             </p>
           </div>
         </div>
-        <ReviewOrdersHint />
+        {rated && <ReviewOrdersHint />}
 
         <Suspense fallback={<AiSummarySkeleton />}>
           <AiReviewSummary
