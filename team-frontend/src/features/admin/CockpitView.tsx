@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
 import {
@@ -176,6 +177,12 @@ export function CockpitView({ initial }: { initial: CockpitData | null }) {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/admin/audit"
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5"
+          >
+            Nhật ký kiểm toán
+          </Link>
           <a
             href={JAEGER_URL}
             target="_blank"
