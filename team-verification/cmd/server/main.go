@@ -14,6 +14,7 @@ import (
 	"github.com/buidangphuc/team-verification/internal/handler"
 	"github.com/buidangphuc/team-verification/internal/repository"
 	"github.com/buidangphuc/team-verification/internal/service"
+	"github.com/buidangphuc/team-verification/internal/upstream"
 )
 
 func main() {
@@ -21,6 +22,10 @@ func main() {
 	slog.SetDefault(logger)
 
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		logger.Error("invalid config", "err", err)
+		os.Exit(1)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -38,7 +43,18 @@ func main() {
 	}
 
 	svc := service.NewVerificationService(repo)
-	verificationHandler := handler.NewVerificationHandler(svc)
+	auditClient, err := upstream.NewAuditClient(cfg.AuditAddr, cfg.CallTimeout)
+	if err != nil {
+		logger.Error("cannot build audit client", "err", err)
+		os.Exit(1)
+	}
+	var audit handler.AuditWriter // stays a nil interface when unset (no typed nil)
+	if auditClient != nil {
+		audit = auditClient
+	} else {
+		logger.Warn("UPSTREAM_AUDIT_ADDR not set: KYC reviews will be refused (fail closed)")
+	}
+	verificationHandler := handler.NewVerificationHandler(svc, audit)
 
 	srv := grpcserver.New(cfg.GRPCPort, verificationHandler)
 
@@ -55,4 +71,5 @@ func main() {
 
 	logger.Info("shutting down team-verification...")
 	srv.Stop()
+	_ = auditClient.Close()
 }

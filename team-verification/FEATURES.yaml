@@ -41,3 +41,409 @@ features:
     tags: [admin, security]
     status: automated
     covered_by: "services/verification_access.feature::An admin approves a seller's KYC"
+
+  - id: verification.admin-approval-audited
+    title: "An admin's KYC approval is audited"
+    persona: admin
+    priority: P1
+    summary: "admin approves a pending KYC; gateway 200, seller verified, exactly one kyc.review event with decision approve and the seller's user_id."
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.SubmitKyc, verification.v1.ReviewKyc, verification.v1.GetVerificationStatus, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given a seller with a pending KYC submission and an admin logged in"
+      - "When the admin approves the seller's KYC submission"
+      - "Then the gateway returns 200, the seller is verified and QueryAuditLog returns exactly one kyc.review event for the submission"
+    tags: [admin, security, audit]
+    status: automated
+    covered_by: "services/verification_kyc_audit.feature::An audited KYC approval leaves one audit event (Audited approve is visible end to end)"
+
+  - id: verification.admin-rejection-audited
+    title: "An admin's KYC rejection is audited"
+    persona: admin
+    priority: P1
+    summary: "admin rejects a pending KYC; gateway 200, seller rejected not verified, exactly one kyc.review event with decision reject."
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.SubmitKyc, verification.v1.ReviewKyc, verification.v1.GetVerificationStatus, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given a seller with a pending KYC submission and an admin logged in"
+      - "When the admin rejects the seller's KYC submission"
+      - "Then the gateway returns 200, the seller is rejected and QueryAuditLog returns exactly one kyc.review event with decision reject"
+    tags: [admin, security, audit]
+    status: automated
+    covered_by: "services/verification_kyc_audit.feature::An audited KYC rejection leaves one audit event (Audited reject is visible end to end)"
+
+  - id: verification.audit-down-blocks-approval
+    title: "KYC approval fails closed while team-audit is down"
+    persona: admin
+    priority: P1
+    summary: "with team-audit stopped the approval returns 503 unavailable and the seller stays unverified; after restart the approval returns 200 with exactly one event."
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [verification.v1.SubmitKyc, verification.v1.ReviewKyc, verification.v1.GetVerificationStatus, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given a seller with a pending KYC submission and an admin logged in"
+      - "When team-audit is stopped and the admin approves the seller's KYC submission"
+      - "Then the gateway returns 503 unavailable and the seller is not verified; after team-audit restarts the approval returns 200 with exactly one kyc.review event"
+    tags: [admin, security, audit, destructive]
+    status: automated
+    covered_by: "services/verification_kyc_audit.feature::KYC approval is refused while the audit service is down (Audit down blocks approval end to end)"
+
+  - id: verification.refused-review-writes-no-event
+    title: "A refused KYC review writes no audit event"
+    persona: buyer
+    priority: P1
+    summary: "a buyer approving their own KYC gets 403 and QueryAuditLog returns no event for the submission."
+    entry_route: /account/verification
+    services: [team-verification, team-gateway, team-identity, team-audit]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [verification.v1.SubmitKyc, verification.v1.ReviewKyc, verification.v1.GetVerificationStatus, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given a signed-in buyer with a pending KYC submission"
+      - "When the buyer approves their own KYC submission"
+      - "Then the gateway returns 403 and QueryAuditLog returns 0 events for the submission"
+    tags: [buyer, security, audit]
+    status: automated
+    covered_by: "services/verification_kyc_audit.feature::A refused KYC review writes no audit event (Non-admin approval writes no event end to end)"
+
+  - id: verification.unit-admin-approval-writes-one-audit-event
+    title: "Admin approval writes one audit event"
+    persona: admin
+    priority: P2
+    summary: "Admin approval writes one audit event (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Admin approval writes one audit event (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycWritesAuditEvent`. Not producible end to end."
+
+  - id: verification.unit-decision-alias-is-normalized-in-the-event
+    title: "Decision alias is normalized in the event"
+    persona: admin
+    priority: P2
+    summary: "Decision alias is normalized in the event (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Decision alias is normalized in the event (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAuditDecisionNormalized`. Not producible end to end."
+
+  - id: verification.unit-audit-is-written-before-the-review-is-applied
+    title: "Audit is written before the review is applied"
+    persona: admin
+    priority: P2
+    summary: "Audit is written before the review is applied (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit is written before the review is applied (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAuditBeforeUpdate`. Not producible end to end."
+
+  - id: verification.unit-actor-comes-from-the-principal-not-the-request
+    title: "Actor comes from the principal, not the request"
+    persona: admin
+    priority: P2
+    summary: "Actor comes from the principal, not the request (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Actor comes from the principal, not the request (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAuditActorAndNoDocumentData`. Not producible end to end."
+
+  - id: verification.unit-non-admin-caller-is-denied-without-an-audit-write
+    title: "Non-admin caller is denied without an audit write"
+    persona: admin
+    priority: P2
+    summary: "Non-admin caller is denied without an audit write (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Non-admin caller is denied without an audit write (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycNonAdminNoAudit`. Not producible end to end."
+
+  - id: verification.unit-audit-call-uses-the-service-principal
+    title: "Audit call uses the service principal"
+    persona: admin
+    priority: P2
+    summary: "Audit call uses the service principal (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit call uses the service principal (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/upstream` `TestAuditClientUsesServicePrincipal`. Not producible end to end."
+
+  - id: verification.unit-audit-error-leaves-the-submission-pending
+    title: "Audit error leaves the submission pending"
+    persona: admin
+    priority: P2
+    summary: "Audit error leaves the submission pending (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit error leaves the submission pending (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAuditErrorUnavailableNoChange`. Not producible end to end."
+
+  - id: verification.unit-audit-client-call-is-bounded-by-the-timeout
+    title: "Audit client call is bounded by the timeout"
+    persona: admin
+    priority: P2
+    summary: "Audit client call is bounded by the timeout (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit client call is bounded by the timeout (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/upstream` `TestAuditClientTimeoutBounded`. Not producible end to end."
+
+  - id: verification.unit-audit-timeout-error-is-unavailable
+    title: "Audit timeout error is Unavailable"
+    persona: admin
+    priority: P2
+    summary: "Audit timeout error is Unavailable (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit timeout error is Unavailable (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAuditTimeoutUnavailableNoChange`. Not producible end to end."
+
+  - id: verification.unit-kyc-audit-no-audit-upstream-configured
+    title: "KYC audit: no audit upstream configured"
+    persona: admin
+    priority: P2
+    summary: "KYC audit: no audit upstream configured (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "KYC audit: no audit upstream configured (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycNilAuditUnavailable`. Not producible end to end."
+
+  - id: verification.unit-empty-audit-address-yields-no-client
+    title: "Empty audit address yields no client"
+    persona: admin
+    priority: P2
+    summary: "Empty audit address yields no client (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Empty audit address yields no client (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/upstream` `TestNewAuditClientEmptyAddrNil`. Not producible end to end."
+
+  - id: verification.unit-non-positive-call-timeout-is-rejected
+    title: "Non-positive call timeout is rejected"
+    persona: admin
+    priority: P2
+    summary: "Non-positive call timeout is rejected (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Non-positive call timeout is rejected (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/config` `TestCallTimeoutMustBePositive`. Not producible end to end."
+
+  - id: verification.unit-non-admin-is-denied-and-nothing-is-written
+    title: "Non-admin is denied and nothing is written"
+    persona: admin
+    priority: P2
+    summary: "Non-admin is denied and nothing is written (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Non-admin is denied and nothing is written (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycNonAdminNoAudit`. Not producible end to end."
+
+  - id: verification.unit-anonymous-and-identity-less-callers-are-refused
+    title: "Anonymous and identity-less callers are refused"
+    persona: admin
+    priority: P2
+    summary: "Anonymous and identity-less callers are refused (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Anonymous and identity-less callers are refused (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAnonymousNoAudit`. Not producible end to end."
+
+  - id: verification.unit-admin-cannot-review-their-own-submission
+    title: "Admin cannot review their own submission"
+    persona: admin
+    priority: P2
+    summary: "Admin cannot review their own submission (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Admin cannot review their own submission (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycSelfReviewNoAudit`. Not producible end to end."
+
+  - id: verification.unit-unknown-submission
+    title: "Unknown submission"
+    persona: admin
+    priority: P2
+    summary: "Unknown submission (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Unknown submission (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycNotFoundNoAudit`. Not producible end to end."
+
+  - id: verification.unit-empty-submission-id-is-rejected
+    title: "Empty submission id is rejected"
+    persona: admin
+    priority: P2
+    summary: "Empty submission id is rejected (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Empty submission id is rejected (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycEmptyIDNoAudit`. Not producible end to end."
+
+  - id: verification.unit-invalid-decision-is-rejected-before-audit
+    title: "Invalid decision is rejected before audit"
+    persona: admin
+    priority: P2
+    summary: "Invalid decision is rejected before audit (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Invalid decision is rejected before audit (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycInvalidDecisionNoAudit`. Not producible end to end."
+
+  - id: verification.unit-already-reviewed-submission-is-refused-before-audit
+    title: "Already reviewed submission is refused before audit"
+    persona: admin
+    priority: P2
+    summary: "Already reviewed submission is refused before audit (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Already reviewed submission is refused before audit (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAlreadyReviewedNoAudit`. Not producible end to end."
+
+  - id: verification.unit-update-failure-after-audit-then-retry
+    title: "Update failure after audit then retry"
+    persona: admin
+    priority: P2
+    summary: "Update failure after audit then retry (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Update failure after audit then retry (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycUpdateFailureInternalThenRetry`. Not producible end to end."
+
+  - id: verification.unit-submit-and-status-work-with-audit-down
+    title: "Submit and status work with audit down"
+    persona: admin
+    priority: P2
+    summary: "Submit and status work with audit down (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Submit and status work with audit down (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestSubmitAndStatusIndependentOfAudit`. Not producible end to end."
+
+  - id: verification.unit-config-defaults-and-overrides
+    title: "Config defaults and overrides"
+    persona: admin
+    priority: P2
+    summary: "Config defaults and overrides (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Config defaults and overrides (unit-verified)"
+    tags: [verification, audit, unit]
+    status: not-testable
+    notes: "verification-kyc-audit: unit-verified: team-verification `internal/config` `TestAuditConfigDefaultsAndOverrides`. Not producible end to end."

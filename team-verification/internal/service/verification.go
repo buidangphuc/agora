@@ -82,6 +82,18 @@ func (s *VerificationService) Get(ctx context.Context, id string) (*repository.S
 	return s.repo.GetByID(ctx, id)
 }
 
+// NormalizeDecision maps a decision alias to "approve" or "reject"; anything else is ErrInvalidReview.
+func NormalizeDecision(decision string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(decision)) {
+	case "approve", "approved", "verify", "verified":
+		return "approve", nil
+	case "reject", "rejected", "deny", "denied":
+		return "reject", nil
+	default:
+		return "", ErrInvalidReview
+	}
+}
+
 // Review applies a reviewer's decision to a submission. Mock admin action:
 // "approve" -> VERIFIED, "reject" -> REJECTED, stamping reviewed_at. Returns the
 // resulting status. NotFound propagates from the repository.
@@ -89,14 +101,13 @@ func (s *VerificationService) Review(ctx context.Context, id, decision string) (
 	if id == "" {
 		return "", ErrEmptyID
 	}
-	var next repository.Status
-	switch strings.ToLower(strings.TrimSpace(decision)) {
-	case "approve", "approved", "verify", "verified":
+	norm, err := NormalizeDecision(decision)
+	if err != nil {
+		return "", err
+	}
+	next := repository.StatusRejected
+	if norm == "approve" {
 		next = repository.StatusVerified
-	case "reject", "rejected", "deny", "denied":
-		next = repository.StatusRejected
-	default:
-		return "", ErrInvalidReview
 	}
 	sub, err := s.repo.UpdateStatus(ctx, id, next, time.Now().UTC())
 	if err != nil {

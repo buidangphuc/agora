@@ -18,7 +18,7 @@ import (
 
 func newHandler() *handler.VerificationHandler {
 	svc := service.NewVerificationService(repository.NewInMemoryKycRepo())
-	return handler.NewVerificationHandler(svc)
+	return handler.NewVerificationHandler(svc, &fakeAudit{})
 }
 
 // ctxAs resolves a principal exactly as the gRPC server does: forwarded
