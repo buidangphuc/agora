@@ -116,7 +116,17 @@ func run() error {
 	}
 	defer stopConsumer()
 
-	paymentHandler := handler.NewPaymentHandler(paymentSvc, logger, handler.WithMockPayments(settings.Mock.MockPayments))
+	handlerOpts2 := []handler.Option{handler.WithMockPayments(settings.Mock.MockPayments)}
+	auditClient, err := upstream.NewAuditClient(settings.Upstream.AuditAddr,
+		time.Duration(settings.Upstream.CallTimeoutSeconds*float64(time.Second)))
+	if err != nil {
+		return fmt.Errorf("audit client: %w", err)
+	}
+	if auditClient != nil {
+		defer func() { _ = auditClient.Close() }()
+		handlerOpts2 = append(handlerOpts2, handler.WithAuditWriter(auditClient))
+	}
+	paymentHandler := handler.NewPaymentHandler(paymentSvc, logger, handlerOpts2...)
 
 	srv := grpcserver.Build(settings, paymentHandler, res.Health, logger)
 
