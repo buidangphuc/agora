@@ -16,8 +16,8 @@ vi.mock("@/lib/gateway/session", () => ({
 }));
 vi.mock("@/lib/gateway/audit", () => ({ queryAuditLog: vi.fn() }));
 
-// Contract: default export `AuditPage({ searchParams })` (async server
-// component, Next 14: searchParams is a plain object), calling
+// Contract: default export `AuditPage({ searchParams: Promise<...> })` (async server
+// component, Next 15: searchParams is a Promise), calling
 // queryAuditLog(filters, cursor) once for an admin.
 
 const admin = { id: "u-admin", name: "Admin", scopes: ["admin"] };
@@ -51,14 +51,14 @@ describe("AuditPage", () => {
   it("redirects an anonymous visitor to login (Anonymous visitor is redirected to login)", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
     vi.mocked(getToken).mockReturnValue(undefined);
-    expect(await AuditPage({ searchParams: {} })).toBeNull();
+    expect(await AuditPage({ searchParams: Promise.resolve({}) })).toBeNull();
     expect(redirect).toHaveBeenCalledWith("/login");
     expect(queryAuditLog).not.toHaveBeenCalled();
   });
 
   it("renders 403 for a non-admin (Non-admin sees the 403 result)", async () => {
     vi.mocked(getPrincipal).mockReturnValue(buyer);
-    render(await AuditPage({ searchParams: {} }));
+    render(await AuditPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -73,7 +73,9 @@ describe("AuditPage", () => {
 
   it("does not query for a non-admin with filters (Filters never reach the gateway for a non-admin)", async () => {
     vi.mocked(getPrincipal).mockReturnValue(buyer);
-    render(await AuditPage({ searchParams: { actor_id: "a-1" } }));
+    render(
+      await AuditPage({ searchParams: Promise.resolve({ actor_id: "a-1" }) }),
+    );
     expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
     expect(queryAuditLog).not.toHaveBeenCalled();
   });
@@ -82,7 +84,7 @@ describe("AuditPage", () => {
     vi.mocked(queryAuditLog).mockResolvedValue({
       status: "forbidden",
     } as never);
-    render(await AuditPage({ searchParams: {} }));
+    render(await AuditPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
     expect(
       screen.getByText("Gateway từ chối quyền admin cho phiên đăng nhập này."),
@@ -94,14 +96,18 @@ describe("AuditPage", () => {
     vi.mocked(queryAuditLog).mockResolvedValue({
       status: "unauthenticated",
     } as never);
-    expect(await AuditPage({ searchParams: {} })).toBeNull();
+    expect(await AuditPage({ searchParams: Promise.resolve({}) })).toBeNull();
     expect(redirect).toHaveBeenCalledWith("/login");
   });
 
   it("queries once with parsed filters and cursor and renders rows (Page size is 20; All filters are forwarded)", async () => {
     render(
       await AuditPage({
-        searchParams: { target_id: "o-1", from: "2026-10-01", cursor: "20" },
+        searchParams: Promise.resolve({
+          target_id: "o-1",
+          from: "2026-10-01",
+          cursor: "20",
+        }),
       }),
     );
     expect(queryAuditLog).toHaveBeenCalledTimes(1);
@@ -118,7 +124,11 @@ describe("AuditPage", () => {
   });
 
   it("shows a local error for a bad date (Unparseable date is refused locally)", async () => {
-    render(await AuditPage({ searchParams: { from: "2026-13-45" } }));
+    render(
+      await AuditPage({
+        searchParams: Promise.resolve({ from: "2026-13-45" }),
+      }),
+    );
     expect(
       screen.getByText("Ngày không hợp lệ. Vui lòng chọn lại."),
     ).toBeInTheDocument();
@@ -132,7 +142,7 @@ describe("AuditPage", () => {
     } as never);
     render(
       await AuditPage({
-        searchParams: { from: "2026-10-05", to: "2026-10-01" },
+        searchParams: Promise.resolve({ from: "2026-10-05", to: "2026-10-01" }),
       }),
     );
     expect(screen.getByText(INVALID_RANGE)).toBeInTheDocument();
@@ -146,7 +156,9 @@ describe("AuditPage", () => {
     vi.mocked(queryAuditLog).mockResolvedValue({
       status: "invalid_range",
     } as never);
-    render(await AuditPage({ searchParams: { cursor: "garbage" } }));
+    render(
+      await AuditPage({ searchParams: Promise.resolve({ cursor: "garbage" }) }),
+    );
     expect(screen.getByText(UNAVAILABLE)).toBeInTheDocument();
     expect(screen.queryByText(INVALID_RANGE)).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
@@ -156,7 +168,9 @@ describe("AuditPage", () => {
     vi.mocked(queryAuditLog).mockResolvedValue({
       status: "unavailable",
     } as never);
-    const { container } = render(await AuditPage({ searchParams: {} }));
+    const { container } = render(
+      await AuditPage({ searchParams: Promise.resolve({}) }),
+    );
     expect(screen.getByText(UNAVAILABLE)).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
     expect(container.innerHTML).not.toMatch(/ConnectError|dial tcp/);
@@ -168,7 +182,7 @@ describe("AuditPage", () => {
       events: [],
       nextCursor: "",
     } as never);
-    render(await AuditPage({ searchParams: {} }));
+    render(await AuditPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("Không có sự kiện nào")).toBeInTheDocument();
   });
 });
