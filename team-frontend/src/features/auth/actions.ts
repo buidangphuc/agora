@@ -40,6 +40,14 @@ function failure(
     : { ok: false, error, username };
 }
 
+const AUTH_EVT_COOKIE = "agora_auth_evt";
+const AUTH_EVT_OPTS = {
+  maxAge: 60,
+  sameSite: "lax",
+  path: "/",
+  httpOnly: false,
+} as const;
+
 async function setSession(token: string) {
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -91,6 +99,7 @@ export async function loginAction(
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
   await setSession(token);
+  (await cookies()).set(AUTH_EVT_COOKIE, "login", AUTH_EVT_OPTS);
   redirect("/");
 }
 
@@ -127,6 +136,7 @@ export async function registerAction(
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
   await setSession(token);
+  (await cookies()).set(AUTH_EVT_COOKIE, "sign_up", AUTH_EVT_OPTS);
   redirect("/");
 }
 

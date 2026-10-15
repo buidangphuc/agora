@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 
 import { useToast } from "@/components/ui/ToastProvider";
 import type { ViewLoyalty } from "@/lib/gateway/engagement";
+import { trackEcommerce } from "@/lib/analytics";
 import { checkInAction } from "./actions";
 
 /**
@@ -25,6 +26,13 @@ export function LoyaltyWidget({ initial }: { initial: ViewLoyalty }) {
         setStreak(res.result.streak);
         setCoins(res.result.coinBalance);
         setEarned(res.result.coinsEarned);
+        const s = res.result.streak;
+        trackEcommerce(
+          "daily_check_in",
+          Number.isInteger(s) && s > 0
+            ? { properties: { streak: String(s) } }
+            : {},
+        );
         toast.success(`✓ Điểm danh thành công! +${res.result.coinsEarned} xu`);
       } else {
         toast.error(res.message || "Có lỗi xảy ra.");

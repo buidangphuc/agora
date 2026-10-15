@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { useToast } from "@/components/ui/ToastProvider";
+import { trackEcommerce } from "@/lib/analytics";
 import { createShareLinkAction } from "./actions";
 
 /**
@@ -19,10 +20,18 @@ export function ShareButton({ id }: { id: string }) {
     return `${origin}/s/${shortCode}`;
   }
 
+  function trackShare() {
+    trackEcommerce("share", {
+      items: [{ itemId: id }],
+      properties: { method: "copy_link", content_type: "listing" },
+    });
+  }
+
   function share() {
     if (shortCode) {
       void navigator.clipboard?.writeText(shareLink());
       toast.success("✓ Đã sao chép liên kết.");
+      trackShare();
       return;
     }
     start(async () => {
@@ -33,6 +42,7 @@ export function ShareButton({ id }: { id: string }) {
           `${window.location.origin}/s/${res.shortCode}`,
         );
         toast.success("✓ Đã tạo & sao chép liên kết chia sẻ.");
+        trackShare();
       } else {
         toast.error(res.message || "Có lỗi xảy ra.");
       }
