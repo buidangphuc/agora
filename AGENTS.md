@@ -77,6 +77,14 @@ Shared library (not a service): **`platform-core/packages/py-modelregistry`** (p
    `<domain>.events` (key = aggregate id), wrapped in
    `platform.events.v1.EventEnvelope`. Background **jobs/tasks** → RabbitMQ (→ SQS
    in prod). Don't push events through RabbitMQ or jobs through Kafka.
+6. **Admin mutations audit first, fail closed.** Every call by a caller holding
+   the `admin` scope (team-order: `order.admin`) to a catalogued admin mutation
+   RPC writes a team-audit event first (`AuditService.WriteAuditEvent`, action
+   `<entity>.<verb>`, catalogue in `audit.proto`), including an admin who owns
+   the resource. The write goes via the service's own service principal holding
+   `audit.write` (never the caller's principal). If the audit write fails, the
+   RPC returns `Unavailable` and makes no change. A caller without the admin
+   scope (e.g. a seller acting on their own order) is never audited.
 
 ## 4. How the pieces wire
 

@@ -232,6 +232,7 @@ services:
       team-domain-migrate:
         condition: service_completed_successfully
     environment:
+      - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
       - KAFKA_ENABLED=true
@@ -331,6 +332,7 @@ services:
       redpanda-init:
         condition: service_completed_successfully
     environment:
+      - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://order_svc:order_pass@postgres:5432/order_db?sslmode=disable
       - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
@@ -371,6 +373,7 @@ services:
       redpanda-init:
         condition: service_completed_successfully
     environment:
+      - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://promotion_svc:promotion_pass@postgres:5432/promotion_db?sslmode=disable
       - FEATURE_FLAGS_ENABLED=true
@@ -396,6 +399,7 @@ services:
       redpanda-init:
         condition: service_completed_successfully
     environment:
+      - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://payment_svc:payment_pass@postgres:5432/payment_db?sslmode=disable
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
@@ -509,6 +513,7 @@ services:
       team-verification-migrate:
         condition: service_completed_successfully
     environment:
+      - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://verification_svc:verification_pass@postgres:5432/verification_db?sslmode=disable
       - GRPC_PORT=50064
