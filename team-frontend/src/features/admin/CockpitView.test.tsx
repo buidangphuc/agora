@@ -233,3 +233,12 @@ describe("CockpitView with real data", () => {
     );
   });
 });
+
+describe("CockpitView audit link", () => {
+  it("links to the audit log (Cockpit shows the audit link)", () => {
+    mockFetch(() => new Promise(() => {}));
+    render(<CockpitView initial={EMPTY} />);
+    const link = screen.getByRole("link", { name: "Nhật ký kiểm toán" });
+    expect(link.getAttribute("href")).toBe("/admin/audit");
+  });
+});
