@@ -363,7 +363,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-gateway internal/edge TestAdminProcedureSetIsPinned. Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-gateway internal/edge TestAdminProceduresPinnedSet (spec text cites TestAdminProcedureSetIsPinned). Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-migration-creates-and-drops-the-index
     title: Migration creates and drops the index
     persona: admin

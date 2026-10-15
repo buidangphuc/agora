@@ -8537,6 +8537,18 @@ features:
     status: not-testable
     notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `redirects an anonymous visitor to login`"
 
+  - id: frontend-audit-viewer.end-date-before-start-date
+    title: "End date before start date"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "End date before start date"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified. Verified by: `team-frontend/src/lib/gateway/audit.test.ts` `maps InvalidArgument to invalid_range` and `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `shows the invalid-range message and no table`"
+
   - id: frontend-audit-viewer.anonymous-browser-visit
     title: "Anonymous browser visit"
     persona: guest
