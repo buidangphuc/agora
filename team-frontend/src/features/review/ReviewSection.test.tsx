@@ -42,15 +42,10 @@ const unrated: ViewRatingSummary = {
   breakdown: { star1: 0, star2: 0, star3: 0, star4: 0, star5: 0 },
 };
 
-function renderSection(
-  summary: ViewRatingSummary,
-  rating = 0,
-  loggedIn = true,
-) {
+function renderSection(summary: ViewRatingSummary, rating = 0) {
   return render(
     <ReviewSection
       listingId="L"
-      productTitle="Áo"
       summary={summary}
       reviewsPromise={Promise.resolve([])}
       pagePromise={Promise.resolve({
@@ -60,7 +55,6 @@ function renderSection(
         pages: 1,
       })}
       rating={rating}
-      loggedIn={loggedIn}
     />,
   );
 }
@@ -93,13 +87,6 @@ describe("ReviewSection", () => {
     const link = section.querySelector('a[href="/account/orders"]');
     expect(link).not.toBeNull();
     expect(section).toHaveTextContent("Để đánh giá, hãy vào");
-  });
-
-  it("renders the orders hint and no write button for a guest too", () => {
-    renderSection(rated, 0, false);
-    const section = document.getElementById("reviews") as HTMLElement;
-    expect(within(section).queryByTestId("write-review")).toBeNull();
-    expect(section.querySelector('a[href="/account/orders"]')).not.toBeNull();
   });
 
   it("shows the average with a read-only Rate, the count and the star breakdown as Progress", () => {
@@ -139,7 +126,6 @@ describe("ReviewSection", () => {
         await vi.importActual<typeof import("./ReviewList")>("./ReviewList");
       listOutput = await actual.ReviewList({
         listingId: "L",
-        productTitle: "Áo",
         pagePromise: Promise.resolve({
           reviews: makeReviews(n),
           total: n,
@@ -147,7 +133,6 @@ describe("ReviewSection", () => {
           pages: 1,
         }),
         rating: 0,
-        loggedIn: true,
       });
       try {
         renderSection(summary);
