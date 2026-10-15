@@ -83,12 +83,9 @@ export async function ReviewList({
   isAdmin = false,
 }: {
   listingId: string;
-  productTitle?: string;
   pagePromise: Promise<ViewReviewsPage>;
   rating: number;
   variant?: string;
-  /** Kept so callers can still pass it; the list no longer branches on it. */
-  loggedIn?: boolean;
   isAdmin?: boolean;
 }) {
   const result = await pagePromise;

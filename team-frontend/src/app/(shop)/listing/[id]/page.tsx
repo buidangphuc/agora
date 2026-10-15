@@ -287,7 +287,6 @@ export default async function ProductDetailPage(props: {
           />
           <ReviewSection
             listingId={listing.id}
-            productTitle={listing.title}
             summary={ratingSummary}
             reviewsPromise={reviewsPromise}
             pagePromise={reviewsPagePromise}
