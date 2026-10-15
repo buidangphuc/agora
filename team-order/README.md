@@ -75,6 +75,7 @@ An admin acts as the seller on `UpdateOrderStatus`. A target the caller may neve
 |---|---|---|
 | team-domain (`UPSTREAM_DOMAIN_ADDR`) | `GetListing`, `ReserveStock`, `CommitReservation`, `ReleaseStock` | cart add, checkout, cancel, compensation, sweep, `cmd/resync-commits` |
 | team-identity (`UPSTREAM_IDENTITY_ADDR`) | `ListAddresses` | `CreateOrder` shipping address (matched by `address_id`, else default, else first; lookup errors are ignored and the address stays empty) |
+| team-audit (`UPSTREAM_AUDIT_ADDR`) | `WriteAuditEvent` as `service-team-order` with only `audit.write` | admin audit, written before the change; failure or unset address -> `Unavailable`, no change |
 | team-promotion (`UPSTREAM_PROMOTION_ADDR`, optional) | `ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | voucher hold, commit on settle, release on saga failure |
 
 `ReserveStock`, `CommitReservation` and `ReleaseStock` always go to team-domain as the service principal `service-team-order` (type `service`) with exactly the scope `listing.write`, never the end user's principal; voucher saga RPCs carry only `promotion.reserve`. Other upstream calls forward the incoming principal metadata unchanged; with none they use the same service principal with only `listing.read` (`internal/upstream/domain.go`).
@@ -132,6 +133,8 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `UPSTREAM_DOMAIN_ADDR` | `localhost:50051` | |
 | `UPSTREAM_IDENTITY_ADDR` | `localhost:50053` | |
 | `UPSTREAM_PROMOTION_ADDR` | empty | Empty disables vouchers; `voucher_code` is then ignored |
+| `UPSTREAM_AUDIT_ADDR` | empty | team-audit address; empty means the audited admin actions (`ForceFailSaga`, admin `UpdateOrderStatus`, `UpdateReturnStatus`, `CreateShipment`) fail closed with `Unavailable` |
+| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Bound for one audit write (single attempt, no retry) |
 | `OTEL_ENABLED` | `false` | Declared but not read (see Known gaps) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | Declared but not read |
 | `OTEL_SERVICE_NAME` | `team-order` | Declared but not read |

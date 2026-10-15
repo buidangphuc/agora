@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -128,5 +129,41 @@ func TestReservationDefaultsFromEnv(t *testing.T) {
 	}
 	if d, w := cfg.ReservationSweepInterval(); d != time.Minute || w != "" {
 		t.Fatalf("unset interval: %s warn=%q", d, w)
+	}
+}
+
+// Scenario: Order audit: Config exposes the audit address
+func TestUpstreamAuditConfig(t *testing.T) {
+	t.Setenv("DATABASE_ENABLED", "false")
+	load := func() reflect.Value {
+		t.Helper()
+		cfg, err := config.LoadSettings()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return reflect.ValueOf(cfg.Upstream)
+	}
+	field := func(up reflect.Value, name string) reflect.Value {
+		t.Helper()
+		f := up.FieldByName(name)
+		if !f.IsValid() {
+			t.Fatalf("Upstream.%s is not declared", name)
+		}
+		return f
+	}
+
+	os.Unsetenv("UPSTREAM_AUDIT_ADDR")
+	os.Unsetenv("UPSTREAM_CALL_TIMEOUT_SECONDS")
+	up := load()
+	if got := field(up, "AuditAddr").String(); got != "" {
+		t.Fatalf("AuditAddr default = %q, want empty", got)
+	}
+	if got := field(up, "CallTimeoutSeconds").Int(); got != 2 {
+		t.Fatalf("CallTimeoutSeconds default = %d, want 2", got)
+	}
+
+	t.Setenv("UPSTREAM_AUDIT_ADDR", "team-audit-svc:50066")
+	if got := field(load(), "AuditAddr").String(); got != "team-audit-svc:50066" {
+		t.Fatalf("AuditAddr = %q", got)
 	}
 }
