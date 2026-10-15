@@ -20,3 +20,6 @@
 
 ### Round 2 — 2026-10-15
 - Q1 [data] tasks.md prerequisite: frontend-loop-events was told not to add `ai_interaction`, and this slice assumed it existed, so nobody added it (beacons would map to type `view`) → **this slice adds `ai_interaction` to `GA4EventName`, `InternalEventType` and `map.ts` (both directions) with a `map.test.ts` case; nothing else in those files changes** (human).
+
+### Round 3 — 2026-10-16 (converge)
+- Q1 [traceability] VERIFIED BY lines and tasks.md 2.2 now name the 16 e2e scenarios by their spec titles (the feature uses the titles because spec_sync matches on them); e2e negatives carry a positive control step after the spec's THEN (accepted). → **approved, text-only, no requirement change** (human).

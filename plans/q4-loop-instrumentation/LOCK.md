@@ -6,11 +6,11 @@ spec: plans/q4-loop-instrumentation/00-spec.md (Locked 2026-10-15)
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
-| q4-loop-events-contract | platform-core | [] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 0e01ce929270 | [x] |
-| analytics-loop-event-storage | team-analytics | [q4-loop-events-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 9fbd3104f295 | [x] |
-| gateway-loop-event-intake | team-gateway | [q4-loop-events-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6f2058a25087 | [x] |
-| frontend-loop-events | team-frontend | [gateway-loop-event-intake] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | f0e3660a66c6 | [x] |
-| frontend-ai-interaction-events | team-frontend | [gateway-loop-event-intake, frontend-loop-events] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a76237442d7b | [x] |
+| q4-loop-events-contract | platform-core | [] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 3ec4a3ad52ef | [x] |
+| analytics-loop-event-storage | team-analytics | [q4-loop-events-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 5000ed10db48 | [x] |
+| gateway-loop-event-intake | team-gateway | [q4-loop-events-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | f5d3bdb67a5e | [x] |
+| frontend-loop-events | team-frontend | [gateway-loop-event-intake] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 63d989578580 | [x] |
+| frontend-ai-interaction-events | team-frontend | [gateway-loop-event-intake, frontend-loop-events] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 033e124bd497 | [x] |
 ## Build order (cross_change_check)
 1. q4-loop-events-contract (sequential, alone)  2. analytics-loop-event-storage + gateway-loop-event-intake (disjoint repos)  3. frontend-loop-events  4. frontend-ai-interaction-events
 — hot-file pair that must not run in parallel: frontend-loop-events / frontend-ai-interaction-events (team-frontend/src/lib/analytics/schema.ts, map.ts, dataLayer.ts).
@@ -26,3 +26,9 @@ pass. Scenario titles (99) unique across all FEATURES.yaml, open changes, and th
 
 ## Re-lock 2026-10-15 (build)
 - frontend-ai-interaction-events: Clarifications Round 2 (human, chat) — this slice adds `ai_interaction` to GA4EventName/InternalEventType/map.ts; tasks.md 1.1 write-set widened. Digest c5c4f85a1fb4 → a76237442d7b.
+
+## Re-lock 2026-10-16 (converge)
+- All 5 changes: tasks.md boxes ticked.
+- analytics-loop-event-storage, frontend-ai-interaction-events: Clarifications Round 3 (human) — VERIFIED BY / tasks e2e names aligned to spec scenario titles; text only.
+- frontend e2e negatives keep a positive control step (human accepted).
+- Digests: q4-loop-events-contract 3ec4a3ad52ef, gateway-loop-event-intake f5d3bdb67a5e, analytics-loop-event-storage 5000ed10db48, frontend-loop-events 63d989578580, frontend-ai-interaction-events 033e124bd497.
