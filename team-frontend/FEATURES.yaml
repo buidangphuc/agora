@@ -9461,8 +9461,9 @@ features:
     acceptance:
       - "AI events are accepted by the collector and carry no free text"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
 
   - id: frontend-ai-interaction-events.a-reply-with-product-cards-reports-shown-once
     title: "A reply with product cards reports shown once"
@@ -9475,8 +9476,9 @@ features:
     acceptance:
       - "A reply with product cards reports shown once"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A reply with product cards reports shown once (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A reply with product cards reports shown once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A reply with product cards reports shown once"
 
   - id: frontend-ai-interaction-events.a-reply-without-cards-reports-nothing
     title: "A reply without cards reports nothing"
@@ -9501,8 +9503,9 @@ features:
     acceptance:
       - "Clicking a product card reports accepted with the listing"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Clicking a product card reports accepted with the listing (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Clicking a product card reports accepted with the listing"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Clicking a product card reports accepted with the listing"
 
   - id: frontend-ai-interaction-events.two-replies-report-two-shown-events
     title: "Two replies report two shown events"
@@ -9515,8 +9518,9 @@ features:
     acceptance:
       - "Two replies report two shown events"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Two replies report two shown events (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Two replies report two shown events"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Two replies report two shown events"
 
   - id: frontend-ai-interaction-events.streamed-text-whose-final-message-has-no-cards-reports-nothing
     title: "Streamed text whose final message has no cards reports nothing"
@@ -9541,8 +9545,9 @@ features:
     acceptance:
       - "Suggestions render and are reported once"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Suggestions render and are reported once (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Suggestions render and are reported once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Suggestions render and are reported once"
 
   - id: frontend-ai-interaction-events.inserting-a-suggestion-reports-accepted
     title: "Inserting a suggestion reports accepted"
@@ -9555,8 +9560,9 @@ features:
     acceptance:
       - "Inserting a suggestion reports accepted"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Inserting a suggestion reports accepted (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Inserting a suggestion reports accepted"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Inserting a suggestion reports accepted"
 
   - id: frontend-ai-interaction-events.inserting-a-second-suggestion-reports-a-second-accepted-and-re-arms-edited
     title: "Inserting a second suggestion reports a second accepted and re-arms edited"
@@ -9569,8 +9575,9 @@ features:
     acceptance:
       - "Inserting a second suggestion reports a second accepted and re-arms edited"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Inserting a second suggestion reports a second accepted and re-arms edited (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Inserting a second suggestion reports a second accepted and re-arms edited"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Inserting a second suggestion reports a second accepted and re-arms edited"
 
   - id: frontend-ai-interaction-events.changing-the-inserted-suggestion-reports-edited-once
     title: "Changing the inserted suggestion reports edited once"
@@ -9583,8 +9590,9 @@ features:
     acceptance:
       - "Changing the inserted suggestion reports edited once"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Changing the inserted suggestion reports edited once (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Changing the inserted suggestion reports edited once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Changing the inserted suggestion reports edited once"
 
   - id: frontend-ai-interaction-events.no-suggestions-or-a-failed-load-reports-nothing
     title: "No suggestions or a failed load reports nothing"
@@ -9609,8 +9617,9 @@ features:
     acceptance:
       - "Not the owner of the thread, no copilot and no copilot events"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
 
   - id: frontend-ai-interaction-events.a-generated-draft-reports-shown-once
     title: "A generated draft reports shown once"
@@ -9623,8 +9632,9 @@ features:
     acceptance:
       - "A generated draft reports shown once"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A generated draft reports shown once (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A generated draft reports shown once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A generated draft reports shown once"
 
   - id: frontend-ai-interaction-events.applying-reports-accepted
     title: "Applying reports accepted"
@@ -9637,8 +9647,9 @@ features:
     acceptance:
       - "Applying reports accepted"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Applying reports accepted (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Applying reports accepted"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Applying reports accepted"
 
   - id: frontend-ai-interaction-events.changing-an-applied-field-reports-edited-once
     title: "Changing an applied field reports edited once"
@@ -9651,8 +9662,9 @@ features:
     acceptance:
       - "Changing an applied field reports edited once"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Changing an applied field reports edited once (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Changing an applied field reports edited once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Changing an applied field reports edited once"
 
   - id: frontend-ai-interaction-events.a-failed-or-empty-generation-reports-nothing
     title: "A failed or empty generation reports nothing"
@@ -9677,8 +9689,9 @@ features:
     acceptance:
       - "A guest cannot reach Magic Listing and emits nothing"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A guest cannot reach Magic Listing and emits nothing (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A guest cannot reach Magic Listing and emits nothing"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A guest cannot reach Magic Listing and emits nothing"
 
   - id: frontend-ai-interaction-events.a-new-draft-starts-a-new-cycle
     title: "A new draft starts a new cycle"
@@ -9691,8 +9704,9 @@ features:
     acceptance:
       - "A new draft starts a new cycle"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A new draft starts a new cycle (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A new draft starts a new cycle"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A new draft starts a new cycle"
 
   - id: frontend-ai-interaction-events.the-summary-card-reports-shown-once
     title: "The summary card reports shown once"
@@ -9705,8 +9719,9 @@ features:
     acceptance:
       - "The summary card reports shown once"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::The summary card reports shown once (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::The summary card reports shown once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::The summary card reports shown once"
 
   - id: frontend-ai-interaction-events.no-summary-no-event
     title: "No summary, no event"
@@ -9719,5 +9734,6 @@ features:
     acceptance:
       - "No summary, no event"
     tags: [tracking, ai-interaction]
-    status: planned
-    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::No summary, no event (planned until green against the stack with AI events)"
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::No summary, no event"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::No summary, no event"

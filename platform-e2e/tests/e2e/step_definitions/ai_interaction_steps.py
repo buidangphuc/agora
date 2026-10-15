@@ -281,7 +281,7 @@ def type_more(world: World, n: int) -> None:
 
 @when("the seller sends the composer text")
 def send_composer(world: World) -> None:
-    world.page.get_by_role("button", name="Gửi").first.click()
+    world.page.get_by_role("button", name=re.compile(r"^Gửi")).last.click()
     expect(_composer(world)).to_have_value("", timeout=timeouts.DEFAULT)
 
 
