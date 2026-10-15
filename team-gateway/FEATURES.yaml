@@ -1160,3 +1160,64 @@ features:
     tags: [tracking, consent, unit]
     status: not-testable
     notes: "add-consent-mode: unit-verified: team-gateway/internal/edge/consent_cookie_test.go. Not producible end to end."
+
+  # ---- engagement-review-integrity (e2e-author; planned until the feature scenarios run green)
+  - id: engagement-review-integrity.anonymous-caller-is-refused-at-the-edge
+    title: "Anonymous caller is refused at the edge"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Anonymous caller is refused at the edge"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestHideReviewAnonymousUnauthenticated`"
+
+  - id: engagement-review-integrity.non-admin-is-refused-at-the-edge
+    title: "Non-admin is refused at the edge"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Non-admin is refused at the edge"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestHideReviewNonAdminPermissionDenied`"
+
+  - id: engagement-review-integrity.admin-call-is-forwarded-once
+    title: "Admin call is forwarded once"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Admin call is forwarded once"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestHideReviewForwardedOnceNoRetry`"
+
+  - id: engagement-review-integrity.the-admin-procedure-set-is-pinned
+    title: "The admin procedure set is pinned"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The admin procedure set is pinned"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestAdminProceduresPinnedSet`"
+
+  - id: engagement-review-integrity.hidereview-is-not-left-unrouted
+    title: "HideReview is not left unrouted"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "HideReview is not left unrouted"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestUnroutedGuardCoversHideReview`"

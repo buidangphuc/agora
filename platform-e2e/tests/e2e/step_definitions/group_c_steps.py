@@ -7,7 +7,13 @@ from pytest_bdd import given, then, when
 
 from src.constants import PageName, timeouts
 from src.utils import get_test_data_manager
-from tests.e2e.flows import create_order_via_api, login_via_api, settle_seeded_order_to_seller
+from tests.e2e.flows import (
+    complete_order_as_seller,
+    create_order_via_api,
+    login_via_api,
+    settle_seeded_order_to_seller,
+)
+from tests.e2e.support import review_order_support as ros
 from tests.e2e.support.plp_support import wait_past_window
 from tests.e2e.support.world import World
 
@@ -110,7 +116,10 @@ def buyer_has_purchased_product(world: World) -> None:
     login_via_api(world, buyer)
     listing_id = world.state.listing.listing_id if world.state.listing else "listing_001"
     create_order_via_api(world, buyer, listing_id)
-    world.service_factory.payment.mock_pay(world.state.order_id, 5_000_000, success=True)
+    # A review needs the buyer's COMPLETED order (engagement-review-integrity): the listing's
+    # seller ships and completes it.
+    seller = world.state.seeded_seller or get_test_data_manager().get_user_by_role("seller")
+    complete_order_as_seller(world, seller, world.state.order_id, restore_token=buyer.token)
 
 
 @when("the buyer submits a star review")
@@ -132,8 +141,15 @@ def buyer_submits_star_review(world: World) -> None:
 @then("the review and updated rating appear on the listing")
 def review_and_rating_appear(world: World) -> None:
     listing_id = world.state.listing.listing_id if world.state.listing else "listing_001"
+    review = world.state.extra["review_res"].get("review", {})
+    assert review.get("id"), f"CreateReview returned no review: {world.state.extra['review_res']}"
+    assert review.get("verifiedPurchase") is True, review
+    listed = ros.list_reviews(listing_id)["reviews"]
+    mine = [r for r in listed if r["id"] == review["id"]]
+    assert mine and mine[0].get("verifiedPurchase") is True, listed
     summary = world.service_factory.engagement.get_rating_summary(listing_id)
-    assert summary is not None
+    assert int(summary.get("reviewCount", 0)) >= 1, summary
+    assert float(summary.get("averageRating", 0)) > 0, summary
 
 
 @given("a seller has a positive wallet balance")
