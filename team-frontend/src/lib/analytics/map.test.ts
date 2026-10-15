@@ -66,3 +66,10 @@ describe("loop events vocabulary", () => {
     ga4ToInternal("favorite");
   });
 });
+
+describe("ai_interaction vocabulary", () => {
+  it("maps ai_interaction both ways", () => {
+    expect(ga4ToInternal("ai_interaction")).toBe("ai_interaction");
+    expect(internalToGa4("ai_interaction")).toBe("ai_interaction");
+  });
+});

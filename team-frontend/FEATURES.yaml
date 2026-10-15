@@ -9424,3 +9424,316 @@ features:
     status: automated
     covered_by: "tracking/loop_events.feature::Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
     notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
+
+  # ---- frontend-ai-interaction-events (ai_interaction beacons from the AI surfaces)
+  - id: frontend-ai-interaction-events.the-helper-sends-only-allowlisted-keys
+    title: "The helper sends only allowlisted keys"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "The helper sends only allowlisted keys"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/lib/analytics/ai.test.ts` `sends only surface and action`"
+
+  - id: frontend-ai-interaction-events.a-failing-tracker-never-breaks-the-ai-action
+    title: "A failing tracker never breaks the AI action"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "A failing tracker never breaks the AI action"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/lib/analytics/ai.test.ts` `swallows tracker failure`"
+
+  - id: frontend-ai-interaction-events.ai-events-are-accepted-by-the-collector-and-carry-no-free-text
+    title: "AI events are accepted by the collector and carry no free text"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "AI events are accepted by the collector and carry no free text"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
+
+  - id: frontend-ai-interaction-events.a-reply-with-product-cards-reports-shown-once
+    title: "A reply with product cards reports shown once"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "A reply with product cards reports shown once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A reply with product cards reports shown once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A reply with product cards reports shown once"
+
+  - id: frontend-ai-interaction-events.a-reply-without-cards-reports-nothing
+    title: "A reply without cards reports nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "A reply without cards reports nothing"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `reports nothing without cards`"
+
+  - id: frontend-ai-interaction-events.clicking-a-product-card-reports-accepted-with-the-listing
+    title: "Clicking a product card reports accepted with the listing"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Clicking a product card reports accepted with the listing"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Clicking a product card reports accepted with the listing"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Clicking a product card reports accepted with the listing"
+
+  - id: frontend-ai-interaction-events.two-replies-report-two-shown-events
+    title: "Two replies report two shown events"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Two replies report two shown events"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Two replies report two shown events"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Two replies report two shown events"
+
+  - id: frontend-ai-interaction-events.streamed-text-whose-final-message-has-no-cards-reports-nothing
+    title: "Streamed text whose final message has no cards reports nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Streamed text whose final message has no cards reports nothing"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `streamed text without cards reports nothing`"
+
+  - id: frontend-ai-interaction-events.suggestions-render-and-are-reported-once
+    title: "Suggestions render and are reported once"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Suggestions render and are reported once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Suggestions render and are reported once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Suggestions render and are reported once"
+
+  - id: frontend-ai-interaction-events.inserting-a-suggestion-reports-accepted
+    title: "Inserting a suggestion reports accepted"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Inserting a suggestion reports accepted"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Inserting a suggestion reports accepted"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Inserting a suggestion reports accepted"
+
+  - id: frontend-ai-interaction-events.inserting-a-second-suggestion-reports-a-second-accepted-and-re-arms-edited
+    title: "Inserting a second suggestion reports a second accepted and re-arms edited"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Inserting a second suggestion reports a second accepted and re-arms edited"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Inserting a second suggestion reports a second accepted and re-arms edited"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Inserting a second suggestion reports a second accepted and re-arms edited"
+
+  - id: frontend-ai-interaction-events.changing-the-inserted-suggestion-reports-edited-once
+    title: "Changing the inserted suggestion reports edited once"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Changing the inserted suggestion reports edited once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Changing the inserted suggestion reports edited once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Changing the inserted suggestion reports edited once"
+
+  - id: frontend-ai-interaction-events.no-suggestions-or-a-failed-load-reports-nothing
+    title: "No suggestions or a failed load reports nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "No suggestions or a failed load reports nothing"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/features/chat/ChatView.test.tsx` `reports nothing for empty or failed copilot`"
+
+  - id: frontend-ai-interaction-events.not-the-owner-of-the-thread-no-copilot-and-no-copilot-events
+    title: "Not the owner of the thread, no copilot and no copilot events"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Not the owner of the thread, no copilot and no copilot events"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
+
+  - id: frontend-ai-interaction-events.a-generated-draft-reports-shown-once
+    title: "A generated draft reports shown once"
+    persona: seller
+    priority: P2
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "A generated draft reports shown once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A generated draft reports shown once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A generated draft reports shown once"
+
+  - id: frontend-ai-interaction-events.applying-reports-accepted
+    title: "Applying reports accepted"
+    persona: seller
+    priority: P2
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Applying reports accepted"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Applying reports accepted"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Applying reports accepted"
+
+  - id: frontend-ai-interaction-events.changing-an-applied-field-reports-edited-once
+    title: "Changing an applied field reports edited once"
+    persona: seller
+    priority: P2
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Changing an applied field reports edited once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Changing an applied field reports edited once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Changing an applied field reports edited once"
+
+  - id: frontend-ai-interaction-events.a-failed-or-empty-generation-reports-nothing
+    title: "A failed or empty generation reports nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "A failed or empty generation reports nothing"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/features/listing/MagicListingAssist.test.tsx` `reports nothing on failed generation`"
+
+  - id: frontend-ai-interaction-events.a-guest-cannot-reach-magic-listing-and-emits-nothing
+    title: "A guest cannot reach Magic Listing and emits nothing"
+    persona: guest
+    priority: P2
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A guest cannot reach Magic Listing and emits nothing"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A guest cannot reach Magic Listing and emits nothing"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A guest cannot reach Magic Listing and emits nothing"
+
+  - id: frontend-ai-interaction-events.a-new-draft-starts-a-new-cycle
+    title: "A new draft starts a new cycle"
+    persona: seller
+    priority: P2
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "A new draft starts a new cycle"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A new draft starts a new cycle"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A new draft starts a new cycle"
+
+  - id: frontend-ai-interaction-events.the-summary-card-reports-shown-once
+    title: "The summary card reports shown once"
+    persona: buyer
+    priority: P2
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "The summary card reports shown once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::The summary card reports shown once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::The summary card reports shown once"
+
+  - id: frontend-ai-interaction-events.no-summary-no-event
+    title: "No summary, no event"
+    persona: buyer
+    priority: P2
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "No summary, no event"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::No summary, no event"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::No summary, no event"

@@ -10,6 +10,9 @@ Implement OpenSpec change `frontend-ai-interaction-events` test-first per its ta
 ## Write-set (EXCLUSIVE)
 - team-frontend/src/lib/analytics/ai.ts
 - team-frontend/src/lib/analytics/ai.test.ts
+- team-frontend/src/lib/analytics/schema.ts
+- team-frontend/src/lib/analytics/map.ts
+- team-frontend/src/lib/analytics/map.test.ts
 - team-frontend/src/features/assistant/AssistantChatView.tsx
 - team-frontend/src/features/assistant/AssistantChatView.test.tsx
 - team-frontend/src/features/chat/ChatView.tsx
@@ -29,7 +32,7 @@ Implement OpenSpec change `frontend-ai-interaction-events` test-first per its ta
 
 ## Read-only dependencies
 - openspec/changes/frontend-ai-interaction-events/** (frozen by LOCK.md digest)
-- team-frontend/src/lib/analytics/schema.ts, map.ts (landed by frontend-loop-events; read-only here)
+- team-frontend/src/lib/analytics/schema.ts, map.ts: only the ai_interaction addition (Clarifications Round 2)
 - platform-e2e/tests/e2e/support/loop_events_support.py, review_order_support.py (import, never edit)
 - plans/q4-loop-instrumentation/00-spec.md, slices.yaml, LOCK.md
 

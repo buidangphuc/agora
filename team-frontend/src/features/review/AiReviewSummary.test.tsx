@@ -1,11 +1,14 @@
 import { render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { trackAiInteraction } from "@/lib/analytics/ai";
 import { summarizeReviews } from "@/lib/gateway/ai";
 import { AiReviewSummary } from "./AiReviewSummary";
 import { makeReviews } from "./reviewFixtures";
 
 vi.mock("@/lib/gateway/ai", () => ({ summarizeReviews: vi.fn() }));
+vi.mock("@/lib/analytics/ai", () => ({ trackAiInteraction: vi.fn() }));
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -57,5 +60,51 @@ describe("AiReviewSummary", () => {
     expect(screen.getByText("Khách hài lòng.")).toBeInTheDocument();
     expect(screen.getByText("• Giá tốt")).toBeInTheDocument();
     expect(screen.getByText("• Giao chậm")).toBeInTheDocument();
+  });
+});
+
+describe("AiReviewSummary ai_interaction", () => {
+  const summary = {
+    summary: "Khách hài lòng.",
+    pros: ["Giá tốt"],
+    cons: [],
+    sentiment: "tích cực",
+  };
+
+  // Scenario: The summary card reports shown once
+  it("reports shown once on mount", async () => {
+    vi.mocked(summarizeReviews).mockResolvedValue(summary);
+    const card = await AiReviewSummary({
+      listingId: "lst_4",
+      reviewsPromise: Promise.resolve(makeReviews(2)),
+    });
+    const { rerender } = render(<StrictMode>{card}</StrictMode>);
+    expect(screen.getByTestId("ai-review-summary")).toBeInTheDocument();
+    rerender(<StrictMode>{card}</StrictMode>);
+    rerender(<StrictMode>{card}</StrictMode>);
+
+    expect(vi.mocked(trackAiInteraction).mock.calls).toEqual([
+      ["review_summary", "shown", "lst_4"],
+    ]);
+  });
+
+  // Scenario: No summary, no event
+  it("reports nothing without a summary", async () => {
+    vi.mocked(summarizeReviews).mockResolvedValue(null);
+    const none = await AiReviewSummary({
+      listingId: "lst_4",
+      reviewsPromise: Promise.resolve([]),
+    });
+    expect(none).toBeNull();
+    render(<div>{none}</div>);
+
+    vi.mocked(summarizeReviews).mockRejectedValue(new Error("unavailable"));
+    const failed = await AiReviewSummary({
+      listingId: "lst_4",
+      reviewsPromise: Promise.resolve(makeReviews(1)),
+    });
+    render(<div>{failed}</div>);
+    expect(screen.queryByTestId("ai-review-summary")).not.toBeInTheDocument();
+    expect(trackAiInteraction).not.toHaveBeenCalled();
   });
 });

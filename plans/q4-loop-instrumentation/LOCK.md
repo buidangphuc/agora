@@ -10,7 +10,7 @@ spec: plans/q4-loop-instrumentation/00-spec.md (Locked 2026-10-15)
 | analytics-loop-event-storage | team-analytics | [q4-loop-events-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 9fbd3104f295 | [x] |
 | gateway-loop-event-intake | team-gateway | [q4-loop-events-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6f2058a25087 | [x] |
 | frontend-loop-events | team-frontend | [gateway-loop-event-intake] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | f0e3660a66c6 | [x] |
-| frontend-ai-interaction-events | team-frontend | [gateway-loop-event-intake, frontend-loop-events] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c5c4f85a1fb4 | [x] |
+| frontend-ai-interaction-events | team-frontend | [gateway-loop-event-intake, frontend-loop-events] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | a76237442d7b | [x] |
 ## Build order (cross_change_check)
 1. q4-loop-events-contract (sequential, alone)  2. analytics-loop-event-storage + gateway-loop-event-intake (disjoint repos)  3. frontend-loop-events  4. frontend-ai-interaction-events
 — hot-file pair that must not run in parallel: frontend-loop-events / frontend-ai-interaction-events (team-frontend/src/lib/analytics/schema.ts, map.ts, dataLayer.ts).
@@ -23,3 +23,6 @@ pass. Scenario titles (99) unique across all FEATURES.yaml, open changes, and th
 - Accepted risk: forged sign_up/login beacons or a hand-set auth cookie can inflate counts (server-side delivery is a non-goal).
 - Q1 conflict on team-frontend/src/features/auth/actions.ts, resolved after Q1 merges.
 - Routing expected: proto (contract), pii (frontend slices → privacy-reviewer).
+
+## Re-lock 2026-10-15 (build)
+- frontend-ai-interaction-events: Clarifications Round 2 (human, chat) — this slice adds `ai_interaction` to GA4EventName/InternalEventType/map.ts; tasks.md 1.1 write-set widened. Digest c5c4f85a1fb4 → a76237442d7b.

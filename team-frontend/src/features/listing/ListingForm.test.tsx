@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { trackAiInteraction } from "@/lib/analytics/ai";
 import { ListingForm } from "./ListingForm";
 import {
   getUploadUrlAction,
@@ -19,6 +20,7 @@ vi.mock("./actions", () => ({
   magicListingAction: vi.fn(),
   getUploadUrlAction: vi.fn(),
 }));
+vi.mock("@/lib/analytics/ai", () => ({ trackAiInteraction: vi.fn() }));
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 vi.mock("@/components/ui/ToastProvider", () => ({
@@ -307,5 +309,114 @@ describe("variants and uploads", () => {
     });
     await screen.findByText("Chỉ chấp nhận file hình ảnh.");
     expect(getUploadUrlAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("Magic Listing edited ai_interaction", () => {
+  const draft = {
+    generatedTitle: "Phone Pro - Chính hãng",
+    generatedDescription: "Mô tả AI",
+    suggestedCategoryId: "cat1",
+    suggestedPriceMin: 4000000,
+    suggestedPriceMax: 5000000,
+    highlightTags: ["Chính Hãng"],
+  };
+
+  function events(action?: string) {
+    return vi
+      .mocked(trackAiInteraction)
+      .mock.calls.map(([surface, a, listingId]) => ({
+        surface,
+        action: a,
+        listingId,
+      }))
+      .filter((e) => action === undefined || e.action === action);
+  }
+
+  async function generate(count: number) {
+    fireEvent.click(screen.getByRole("button", { name: "Tạo gợi ý" }));
+    await waitFor(() =>
+      expect(magicListingAction).toHaveBeenCalledTimes(count),
+    );
+    await screen.findByTestId("magic-suggestion");
+    await waitFor(() => expect(events("shown")).toHaveLength(count));
+  }
+
+  beforeEach(() => {
+    vi.mocked(magicListingAction).mockResolvedValue({
+      ok: true,
+      data: draft,
+    });
+  });
+
+  // Scenario: Changing an applied field reports edited once
+  it("reports edited once after apply", async () => {
+    render(<ListingForm categories={categories} listingId="lst_5" />);
+    fill("Tên sản phẩm", "Phone");
+    await generate(1);
+    expect(events("shown")[0]).toEqual({
+      surface: "magic_listing",
+      action: "shown",
+      listingId: "lst_5",
+    });
+
+    // Editing before any apply queues nothing.
+    fill("Tên sản phẩm", "Phone 2");
+    fill("Mô tả chi tiết", "tự viết");
+    expect(events("edited")).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Áp dụng tất cả" }));
+    expect(events("accepted")).toEqual([
+      { surface: "magic_listing", action: "accepted", listingId: "lst_5" },
+    ]);
+    // The apply itself is not an edit.
+    expect(events("edited")).toEqual([]);
+
+    fill("Tên sản phẩm", "Phone Pro - Chính hãng!");
+    fill("Mô tả chi tiết", "Mô tả AI đã sửa");
+    expect(events("edited")).toEqual([
+      { surface: "magic_listing", action: "edited", listingId: "lst_5" },
+    ]);
+  });
+
+  it("reports edited once after apply: a field that was never applied queues none", async () => {
+    render(<ListingForm categories={categories} />);
+    fill("Tên sản phẩm", "Phone");
+    await generate(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Áp dụng: Tiêu đề" }));
+    fill("Mô tả chi tiết", "không áp dụng");
+    fill("Kho hàng", "9");
+    expect(events("edited")).toEqual([]);
+
+    fill("Tên sản phẩm", "Tiêu đề đã sửa");
+    expect(events("edited")).toHaveLength(1);
+  });
+
+  it("reports edited once after apply: editing the applied price counts", async () => {
+    render(<ListingForm categories={categories} />);
+    fill("Tên sản phẩm", "Phone");
+    await generate(1);
+    fireEvent.click(screen.getByRole("button", { name: "Áp dụng tất cả" }));
+    fill("Giá bán", "4500000");
+    expect(events("edited")).toHaveLength(1);
+  });
+
+  // Scenario: A new draft starts a new cycle
+  it("reports edited once after apply: a new draft starts a new cycle", async () => {
+    render(<ListingForm categories={categories} />);
+    fill("Tên sản phẩm", "Phone");
+    await generate(1);
+    fireEvent.click(screen.getByRole("button", { name: "Áp dụng tất cả" }));
+    fill("Tên sản phẩm", "Sửa lần 1");
+    expect(events("edited")).toHaveLength(1);
+
+    await generate(2);
+    expect(events("shown")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Áp dụng tất cả" }));
+    expect(events("accepted")).toHaveLength(2);
+    fill("Tên sản phẩm", "Sửa lần 2");
+    fill("Mô tả chi tiết", "Sửa mô tả lần 2");
+    expect(events("edited")).toHaveLength(2);
   });
 });
