@@ -181,6 +181,36 @@ describe("ChatView chat_copilot ai_interaction", () => {
     expect(events("edited")).toHaveLength(2);
   });
 
+  // tasks.md 1.3: the armed edited resets on thread switch
+  it("thread switch disarms edited", async () => {
+    const threadB: ViewChatThread = {
+      ...thread,
+      id: "t2",
+      listingId: "lst_8",
+      listingTitle: "Laptop B",
+    };
+    render(
+      <ChatView
+        threads={[thread, threadB]}
+        activeThread={thread}
+        initialMessages={messages}
+        currentUserId={SELLER}
+      />,
+    );
+    await loadSuggestions();
+    fireEvent.click(screen.getByRole("button", { name: "Gợi ý A" }));
+    expect(events("accepted")).toHaveLength(1);
+
+    fireEvent.click(screen.getByText(/Laptop B/));
+    await waitFor(() =>
+      expect(fetchThreadMessagesAction).toHaveBeenCalledWith("t2"),
+    );
+    await screen.findByRole("button", { name: /Gợi ý AI/ });
+    type("Gợi ý A và sửa");
+    type("Gợi ý A và sửa nữa");
+    expect(events("edited")).toEqual([]);
+  });
+
   // Scenario: No suggestions or a failed load reports nothing
   it("reports nothing for empty or failed copilot", async () => {
     renderAs(SELLER);
