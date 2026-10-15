@@ -30,6 +30,7 @@ import (
 	"github.com/buidangphuc/team-domain/internal/repository"
 	"github.com/buidangphuc/team-domain/internal/service"
 	"github.com/buidangphuc/team-domain/internal/storage"
+	"github.com/buidangphuc/team-domain/internal/upstream"
 )
 
 func main() {
@@ -93,6 +94,19 @@ func run() error {
 		svc = service.NewListingServiceWithOutbox(repo, txw)
 	} else {
 		svc = service.NewListingService(repo)
+	}
+	// Admin listing writes are audited in team-audit (fail closed); without an
+	// address no writer is attached and admin update/delete return Unavailable.
+	auditClient, err := upstream.NewAuditClient(settings.Upstream.AuditAddr, time.Duration(settings.Upstream.CallTimeoutSeconds*float64(time.Second)))
+	if err != nil {
+		return fmt.Errorf("dial team-audit: %w", err)
+	}
+	if auditClient != nil {
+		defer func() { _ = auditClient.Close() }()
+		svc.WithAudit(auditClient)
+		logger.Info("audit upstream enabled", slog.String("audit_addr", settings.Upstream.AuditAddr))
+	} else {
+		logger.Warn("UPSTREAM_AUDIT_ADDR unset; admin listing writes will be refused")
 	}
 	// Reservation timing (RESERVATION_TTL / RESERVATION_SWEEP_INTERVAL): parsed
 	// once here so an invalid value is warned about (and defaulted) at boot.

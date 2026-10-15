@@ -180,3 +180,36 @@ func TestReservationInvalidFallsBackWithWarning(t *testing.T) {
 		}
 	}
 }
+
+// Scenario: Listing audit: Config exposes the audit address.
+func TestUpstreamAuditConfig(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if s.Upstream.AuditAddr != "" {
+		t.Errorf("default UPSTREAM_AUDIT_ADDR = %q, want empty", s.Upstream.AuditAddr)
+	}
+	if s.Upstream.CallTimeoutSeconds != 2 {
+		t.Errorf("default UPSTREAM_CALL_TIMEOUT_SECONDS = %v, want 2", s.Upstream.CallTimeoutSeconds)
+	}
+	t.Setenv("UPSTREAM_AUDIT_ADDR", "team-audit-svc:50066")
+	s, err = LoadSettings()
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if s.Upstream.AuditAddr != "team-audit-svc:50066" {
+		t.Errorf("UPSTREAM_AUDIT_ADDR = %q, want team-audit-svc:50066", s.Upstream.AuditAddr)
+	}
+	// The env drift gate must pass with both new keys documented.
+	if err := CheckEnvExample("../../.env.example"); err != nil {
+		t.Errorf("env drift gate: %v", err)
+	}
+	keys := strings.Join(DeclaredEnvKeys(), ",")
+	for _, k := range []string{"UPSTREAM_AUDIT_ADDR", "UPSTREAM_CALL_TIMEOUT_SECONDS"} {
+		if !strings.Contains(keys, k) {
+			t.Errorf("Settings does not declare %s", k)
+		}
+	}
+}

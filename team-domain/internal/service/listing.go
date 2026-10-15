@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,8 +28,21 @@ const DefaultReservationTTL = 15 * time.Minute
 // non-positive) interval is configured.
 const DefaultSweepInterval = time.Minute
 
+// ErrAuditUnavailable is returned when an admin write could not be audited
+// (no audit writer wired, or the writer failed). The change is not applied; the
+// handler maps it to codes.Unavailable.
+var ErrAuditUnavailable = errors.New("audit unavailable")
+
+// AuditWriter records admin listing mutations in team-audit.
+type AuditWriter interface {
+	WriteListingAdminUpdate(ctx context.Context, actorID, listingID, sellerID, status string) error
+	WriteListingAdminDelete(ctx context.Context, actorID, listingID, sellerID string) error
+}
+
 type ListingService struct {
-	repo repository.ListingRepository
+	// audit, when set, receives every admin update/delete before it is applied.
+	audit AuditWriter
+	repo  repository.ListingRepository
 	// tx is the transactional writer used by the *WithEvent paths: it persists
 	// the listing write and its outbox event in one transaction. When nil (e.g.
 	// unit tests with only an in-memory repo), the *WithEvent methods fall back
@@ -46,6 +60,12 @@ func (s *ListingService) WithReservationTTL(ttl time.Duration) *ListingService {
 	if ttl > 0 {
 		s.reservationTTL = ttl
 	}
+	return s
+}
+
+// WithAudit attaches the audit writer used for admin updates and deletes.
+func (s *ListingService) WithAudit(a AuditWriter) *ListingService {
+	s.audit = a
 	return s
 }
 
@@ -145,6 +165,15 @@ func (s *ListingService) UpdateWithEvent(ctx context.Context, l repository.Listi
 	if existing.SellerID != ownerID && !isAdmin {
 		return repository.Listing{}, ErrForbidden
 	}
+	if isAdmin {
+		if s.audit == nil {
+			return repository.Listing{}, ErrAuditUnavailable
+		}
+		if err := s.audit.WriteListingAdminUpdate(ctx, ownerID, existing.ID, existing.SellerID, strings.ToLower(l.Status)); err != nil {
+			slog.WarnContext(ctx, "admin listing update audit failed", slog.String("listing_id", existing.ID), slog.Any("err", err))
+			return repository.Listing{}, ErrAuditUnavailable
+		}
+	}
 	l.SellerID = existing.SellerID // owner is immutable
 	if s.tx == nil {
 		return s.repo.Update(ctx, l)
@@ -161,6 +190,15 @@ func (s *ListingService) DeleteWithEvent(ctx context.Context, id, ownerID string
 	}
 	if existing.SellerID != ownerID && !isAdmin {
 		return repository.Listing{}, ErrForbidden
+	}
+	if isAdmin {
+		if s.audit == nil {
+			return repository.Listing{}, ErrAuditUnavailable
+		}
+		if err := s.audit.WriteListingAdminDelete(ctx, ownerID, existing.ID, existing.SellerID); err != nil {
+			slog.WarnContext(ctx, "admin listing delete audit failed", slog.String("listing_id", existing.ID), slog.Any("err", err))
+			return repository.Listing{}, ErrAuditUnavailable
+		}
 	}
 	if s.tx == nil {
 		return s.repo.Delete(ctx, id)

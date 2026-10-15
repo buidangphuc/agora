@@ -29,6 +29,7 @@ type Settings struct {
 	Outbox        Outbox
 	Reservation   Reservation
 	Observability Observability
+	Upstream      Upstream
 }
 
 // Storage configures the S3/MinIO object store for product media.
@@ -100,6 +101,12 @@ const (
 	DefaultReservationTTL           = 15 * time.Minute
 	DefaultReservationSweepInterval = time.Minute
 )
+
+// Upstream configures outbound service calls (team-audit).
+type Upstream struct {
+	AuditAddr          string  `env:"UPSTREAM_AUDIT_ADDR" default:""`
+	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
+}
 
 // Observability configures OpenTelemetry (ADR-0004). Exporter is swappable.
 type Observability struct {
