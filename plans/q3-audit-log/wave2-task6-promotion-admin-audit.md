@@ -8,6 +8,7 @@ Implement OpenSpec change `promotion-admin-audit` test-first per its tasks.md (s
 - Audits platform vouchers and admin flash-sale / ad campaigns before insert; seller paths unchanged.
 
 ## Write-set (EXCLUSIVE)
+- team-promotion/internal/handler/grpc_test.go
 - team-promotion/internal/config/config.go
 - team-promotion/internal/config/config_test.go
 - team-promotion/.env.example
