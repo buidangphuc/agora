@@ -9,9 +9,16 @@ import { Tag } from "@/components/ui/Tag";
 import { REVIEWS_PAGE_SIZE, pdpHref } from "@/features/listing/pdp";
 import type { ViewReview, ViewReviewsPage } from "@/lib/gateway/reviews";
 import { ReviewHelpfulButton } from "./ReviewHelpfulButton";
-import { WriteReviewButton } from "./WriteReviewButton";
+import { ReviewHideButton } from "./ReviewHideButton";
+import { ReviewOrdersHint } from "./ReviewOrdersHint";
 
-function ReviewItem({ review }: { review: ViewReview }) {
+function ReviewItem({
+  review,
+  isAdmin,
+}: {
+  review: ViewReview;
+  isAdmin: boolean;
+}) {
   return (
     <li data-testid="review-item" className="space-y-2 py-4">
       <div className="flex items-center gap-3">
@@ -20,10 +27,12 @@ function ReviewItem({ review }: { review: ViewReview }) {
           <span className="text-sm font-semibold text-text-primary">
             {review.userName}
           </span>
-          {review.verifiedPurchase && (
+          {review.verifiedPurchase ? (
             <Tag color="success" data-testid="verified-purchase">
               ✓ Đã mua hàng
             </Tag>
+          ) : (
+            <Tag data-testid="unverified-purchase">Chưa xác minh mua hàng</Tag>
           )}
           <span className="text-xs text-text-secondary">
             {review.createdAt}
@@ -47,12 +56,15 @@ function ReviewItem({ review }: { review: ViewReview }) {
         </div>
       )}
 
-      <div className="pt-1">
+      <div className="flex items-center gap-2 pt-1">
         <ReviewHelpfulButton
           reviewId={review.id}
           listingId={review.listingId}
           initialCount={review.helpfulCount}
         />
+        {isAdmin && (
+          <ReviewHideButton reviewId={review.id} listingId={review.listingId} />
+        )}
       </div>
     </li>
   );
@@ -65,34 +77,25 @@ function ReviewItem({ review }: { review: ViewReview }) {
  */
 export async function ReviewList({
   listingId,
-  productTitle,
   pagePromise,
   rating,
   variant,
-  loggedIn,
+  isAdmin = false,
 }: {
   listingId: string;
   productTitle?: string;
   pagePromise: Promise<ViewReviewsPage>;
   rating: number;
   variant?: string;
-  loggedIn: boolean;
+  /** Kept so callers can still pass it; the list no longer branches on it. */
+  loggedIn?: boolean;
+  isAdmin?: boolean;
 }) {
   const result = await pagePromise;
 
   if (result.total === 0 && rating === 0) {
     return (
-      <Empty
-        description="Chưa có đánh giá nào"
-        action={
-          loggedIn ? (
-            <WriteReviewButton
-              listingId={listingId}
-              productTitle={productTitle}
-            />
-          ) : undefined
-        }
-      />
+      <Empty description="Chưa có đánh giá nào" action={<ReviewOrdersHint />} />
     );
   }
 
@@ -118,7 +121,7 @@ export async function ReviewList({
     <div className="space-y-4">
       <ul className="divide-y divide-border-subtle">
         {result.reviews.map((r) => (
-          <ReviewItem key={r.id} review={r} />
+          <ReviewItem key={r.id} review={r} isAdmin={isAdmin} />
         ))}
       </ul>
       <Pagination

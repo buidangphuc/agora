@@ -62,6 +62,7 @@ export default async function ProductDetailPage(props: {
 
   const me = getPrincipal();
   const loggedIn = me !== null;
+  const isAdmin = me?.scopes.includes("admin") ?? false;
 
   // The AI summary samples the newest reviews; the review list asks the server
   // for just the `?rpage=` page (and `?rating=` filter). Both are awaited inside
@@ -292,7 +293,7 @@ export default async function ProductDetailPage(props: {
             pagePromise={reviewsPagePromise}
             rating={query.rating}
             variant={query.variant}
-            loggedIn={loggedIn}
+            isAdmin={isAdmin}
           />
           <QASection listingId={listing.id} loggedIn={loggedIn} />
         </div>
