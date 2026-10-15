@@ -304,6 +304,9 @@ func (h *EngagementHandler) GetListingStats(
 func (h *EngagementHandler) CreateReview(
 	ctx context.Context, req *engagementv1.CreateReviewRequest,
 ) (*engagementv1.CreateReviewResponse, error) {
+	if _, err := interceptor.RequireAuthenticated(ctx); err != nil {
+		return nil, err
+	}
 	if err := interceptor.RequireScopes(ctx, "engagement:write"); err != nil {
 		return nil, err
 	}
@@ -326,10 +329,17 @@ func (h *EngagementHandler) CreateReview(
 
 	rev, err := h.reviewSvc.CreateReview(ctx, req.GetListingId(), uid, userName, req.GetOrderId(), req.GetRating(), req.GetComment(), req.GetMediaUrls())
 	if err != nil {
-		if errors.Is(err, service.ErrInvalidRating) {
+		switch {
+		case errors.Is(err, service.ErrEmptyOrderID), errors.Is(err, service.ErrInvalidRating):
 			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case errors.Is(err, service.ErrOrderNotEligible):
+			return nil, status.Error(codes.FailedPrecondition, "order is not eligible for review")
+		case errors.Is(err, service.ErrOrderUnavailable):
+			return nil, status.Error(codes.Unavailable, "order verification unavailable")
+		case errors.Is(err, repository.ErrDuplicateReview):
+			return nil, status.Error(codes.AlreadyExists, "review already exists for this order and listing")
 		}
-		return nil, status.Errorf(codes.Internal, "create review: %v", err)
+		return nil, status.Error(codes.Internal, "create review failed")
 	}
 
 	return &engagementv1.CreateReviewResponse{

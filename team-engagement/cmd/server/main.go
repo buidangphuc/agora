@@ -91,7 +91,6 @@ func run() error {
 	} else {
 		logger.Warn("UPSTREAM_AUDIT_ADDR unset; audit writes disabled")
 	}
-	_ = auditClient // consumed by the review service in G3
 
 	reviewRepo := repository.NewPostgresReviewRepository(res.Pool)
 	var reviewVerifier service.OrderVerifier
@@ -99,6 +98,9 @@ func run() error {
 		reviewVerifier = orderClient
 	}
 	reviewSvc := service.NewReviewService(reviewRepo, reviewVerifier, logger)
+	if auditClient != nil {
+		reviewSvc.WithAudit(auditClient)
+	}
 	qaRepo := repository.NewPostgresQARepository(res.Pool)
 	qaSvc := service.NewQAService(qaRepo, logger)
 	disputeRepo := repository.NewPostgresDisputeRepository(res.Pool)
