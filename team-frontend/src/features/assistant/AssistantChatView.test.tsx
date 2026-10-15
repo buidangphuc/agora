@@ -57,6 +57,7 @@ function card(id: string, title: string) {
 function reply(cards: ReturnType<typeof card>[], text = "Đây là gợi ý") {
   return {
     ok: true as const,
+    message: "",
     reply: { replyText: text, productCards: cards, suggestedFollowups: [] },
   };
 }
