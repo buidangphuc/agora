@@ -9100,8 +9100,9 @@ features:
     acceptance:
       - "Loop events: registering emits one sign_up event with the new principal"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: registering emits one sign_up event with the new principal; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: registering emits one sign_up event with the new principal"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: registering emits one sign_up event with the new principal"
 
   - id: frontend-loop-events.logging-in-emits-one-login-event-and-a-reload-does-not-repeat-it
     title: "Loop events: logging in emits one login event and a reload does not repeat it"
@@ -9114,8 +9115,9 @@ features:
     acceptance:
       - "Loop events: logging in emits one login event and a reload does not repeat it"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: logging in emits one login event and a reload does not repeat it; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: logging in emits one login event and a reload does not repeat it"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: logging in emits one login event and a reload does not repeat it"
 
   - id: frontend-loop-events.failed-login-and-duplicate-registration-emit-nothing
     title: "Loop events: failed login and duplicate registration emit nothing"
@@ -9128,8 +9130,9 @@ features:
     acceptance:
       - "Loop events: failed login and duplicate registration emit nothing"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: failed login and duplicate registration emit nothing; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: failed login and duplicate registration emit nothing"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: failed login and duplicate registration emit nothing"
 
   - id: frontend-loop-events.favorite-tracked-after-add-succeeds
     title: "Loop events: favorite tracked after add succeeds"
@@ -9214,8 +9217,9 @@ features:
     acceptance:
       - "Loop events: favoriting emits one favorite event and the add_to_wishlist dataLayer entry"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: favoriting emits one favorite event and the add_to_wishlist dataLayer entry; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: favoriting emits one favorite event and the add_to_wishlist dataLayer entry"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: favoriting emits one favorite event and the add_to_wishlist dataLayer entry"
 
   - id: frontend-loop-events.un-favoriting-emits-nothing
     title: "Loop events: un-favoriting emits nothing"
@@ -9228,8 +9232,9 @@ features:
     acceptance:
       - "Loop events: un-favoriting emits nothing"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: un-favoriting emits nothing; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: un-favoriting emits nothing"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: un-favoriting emits nothing"
 
   - id: frontend-loop-events.sharing-emits-one-share-event-per-copy
     title: "Loop events: sharing emits one share event per copy"
@@ -9242,8 +9247,9 @@ features:
     acceptance:
       - "Loop events: sharing emits one share event per copy"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: sharing emits one share event per copy; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: sharing emits one share event per copy"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: sharing emits one share event per copy"
 
   - id: frontend-loop-events.following-a-shop-emits-follow-seller-and-unfollowing-emits-nothing
     title: "Loop events: following a shop emits follow_seller and unfollowing emits nothing"
@@ -9256,8 +9262,9 @@ features:
     acceptance:
       - "Loop events: following a shop emits follow_seller and unfollowing emits nothing"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: following a shop emits follow_seller and unfollowing emits nothing; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: following a shop emits follow_seller and unfollowing emits nothing"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: following a shop emits follow_seller and unfollowing emits nothing"
 
   - id: frontend-loop-events.a-guest-cannot-produce-loop-events
     title: "Loop events: a guest cannot produce loop events"
@@ -9270,8 +9277,9 @@ features:
     acceptance:
       - "Loop events: a guest cannot produce loop events"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: a guest cannot produce loop events; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: a guest cannot produce loop events"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: a guest cannot produce loop events"
 
   - id: frontend-loop-events.referral-redeem-tracked-without-the-code
     title: "Loop events: referral redeem tracked without the code"
@@ -9368,8 +9376,9 @@ features:
     acceptance:
       - "Loop events: redeeming a referral code emits referral_redeem without the code"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: redeeming a referral code emits referral_redeem without the code; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: redeeming a referral code emits referral_redeem without the code"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: redeeming a referral code emits referral_redeem without the code"
 
   - id: frontend-loop-events.an-invalid-referral-code-emits-nothing
     title: "Loop events: an invalid referral code emits nothing"
@@ -9382,8 +9391,9 @@ features:
     acceptance:
       - "Loop events: an invalid referral code emits nothing"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: an invalid referral code emits nothing; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: an invalid referral code emits nothing"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: an invalid referral code emits nothing"
 
   - id: frontend-loop-events.daily-check-in-emits-daily-check-in-with-the-streak
     title: "Loop events: daily check-in emits daily_check_in with the streak"
@@ -9396,8 +9406,9 @@ features:
     acceptance:
       - "Loop events: daily check-in emits daily_check_in with the streak"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: daily check-in emits daily_check_in with the streak; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: daily check-in emits daily_check_in with the streak"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: daily check-in emits daily_check_in with the streak"
 
   - id: frontend-loop-events.subscribing-to-an-alert-emits-alert-subscribe-and-unsubscribing-emits
     title: "Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
@@ -9410,5 +9421,6 @@ features:
     acceptance:
       - "Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
     tags: [tracking, loop-events]
-    status: planned
-    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing; planned until green"
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
