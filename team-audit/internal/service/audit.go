@@ -7,6 +7,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	auditv1 "github.com/buidangphuc/team-audit/generated/platform/audit/v1"
 	"github.com/buidangphuc/team-audit/internal/repository"
@@ -17,6 +18,9 @@ var (
 	// ErrEmptyAction rejects a write with no action verb — an audit event that
 	// does not name what happened records nothing useful.
 	ErrEmptyAction = errors.New("action is required")
+	// ErrInvalidTimeRange rejects a query whose created_after is later than
+	// created_before. Equal bounds are valid and match nothing.
+	ErrInvalidTimeRange = errors.New("created_after must not be after created_before")
 )
 
 // MaxPageSize caps a single QueryAuditLog page so a caller cannot ask for an
@@ -52,9 +56,21 @@ func (s *AuditService) Write(ctx context.Context, actorID, action, targetType, t
 	})
 }
 
-// Query returns audit events matching the filter, newest first, and the total
-// count of matches (before paging). pageSize is clamped to [1, MaxPageSize].
-func (s *AuditService) Query(ctx context.Context, actorID, targetType string, pageSize, offset int) ([]*auditv1.AuditEvent, int64, error) {
+// QueryParams are the QueryAuditLog filters and paging. Empty strings and zero
+// times mean "no filter".
+type QueryParams struct {
+	ActorID, TargetType, TargetID, Action string
+	CreatedAfter, CreatedBefore           time.Time
+	PageSize, Offset                      int
+}
+
+// Query returns audit events matching the filters, newest first, and the total
+// count of matches (before paging). PageSize is clamped to [1, MaxPageSize].
+func (s *AuditService) Query(ctx context.Context, p QueryParams) ([]*auditv1.AuditEvent, int64, error) {
+	if !p.CreatedAfter.IsZero() && !p.CreatedBefore.IsZero() && p.CreatedAfter.After(p.CreatedBefore) {
+		return nil, 0, ErrInvalidTimeRange
+	}
+	pageSize, offset := p.PageSize, p.Offset
 	if pageSize <= 0 {
 		pageSize = DefaultPageSize
 	}
@@ -65,9 +81,13 @@ func (s *AuditService) Query(ctx context.Context, actorID, targetType string, pa
 		offset = 0
 	}
 	return s.repo.Query(ctx, repository.QueryFilter{
-		ActorID:    actorID,
-		TargetType: targetType,
-		Limit:      pageSize,
-		Offset:     offset,
+		ActorID:       p.ActorID,
+		TargetType:    p.TargetType,
+		TargetID:      p.TargetID,
+		Action:        p.Action,
+		CreatedAfter:  p.CreatedAfter,
+		CreatedBefore: p.CreatedBefore,
+		Limit:         pageSize,
+		Offset:        offset,
 	})
 }

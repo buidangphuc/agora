@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	auditv1 "github.com/buidangphuc/team-audit/generated/platform/audit/v1"
@@ -64,9 +65,9 @@ func runFilterCases(t *testing.T, repo repository.AuditRepository) {
 	t.Helper()
 	ctx := context.Background()
 	for _, ev := range filterSeed {
-		cp := *ev
+		cp := proto.Clone(ev).(*auditv1.AuditEvent)
 		cp.Metadata = map[string]string{}
-		if _, err := repo.Append(ctx, &cp); err != nil {
+		if _, err := repo.Append(ctx, cp); err != nil {
 			t.Fatalf("seed %s: %v", ev.Id, err)
 		}
 	}
