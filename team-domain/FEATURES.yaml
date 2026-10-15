@@ -484,3 +484,409 @@ features:
     notes: >-
       Scenario in inventory/oic_inv_inventory_reservations.feature. Reads listing.events from Kafka
       (KAFKA_BROKERS). RED on the pre-change stack: nothing emits ListingStockChanged.
+
+  - id: listing.admin-audit-admin-update-writes-one-audit-event
+    title: "Listing audit: Admin update writes one audit event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Admin update writes one audit event"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingAdminWritesAuditBeforeChange. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-update-without-a-status-records-the-stored-status
+    title: "Listing audit: Update without a status records the stored status"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Update without a status records the stored status"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingAdminAuditStatusFallsBackToStored. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-audit-is-written-before-the-change
+    title: "Listing audit: Audit is written before the change"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Audit is written before the change"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/service TestUpdateWithEventAuditPrecedesUpdate. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-audit-down-refuses-the-admin-update
+    title: "Listing audit: Audit down refuses the admin update"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Audit down refuses the admin update"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingAdminAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-update-failure-after-audit-keeps-the-audit-row
+    title: "Listing audit: Update failure after audit keeps the audit row"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Update failure after audit keeps the audit row"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/service TestUpdateWithEventRepoFailureAfterAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-no-audit-upstream-configured
+    title: "Listing audit: No audit upstream configured"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: No audit upstream configured"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/upstream TestNewAuditClientEmptyAddrIsNil and team-domain internal/service TestUpdateWithEventAdminNilAuditUnavailable. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-unknown-listing-writes-no-audit-event
+    title: "Listing audit: Unknown listing writes no audit event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Unknown listing writes no audit event"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/service TestUpdateWithEventNotFoundNoAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-empty-listing-id-writes-no-audit-event
+    title: "Listing audit: Empty listing id writes no audit event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Empty listing id writes no audit event"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingEmptyIDNoAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-seller-without-admin-scope-cannot-update-another-seller-s-listing
+    title: "Listing audit: Seller without admin scope cannot update another seller's listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Seller without admin scope cannot update another seller's listing"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingNonOwnerNonAdminDeniedNoAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-caller-without-listing-write-is-denied-before-audit
+    title: "Listing audit: Caller without listing.write is denied before audit"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Caller without listing.write is denied before audit"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingMissingScopeNoAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-admin-delete-writes-one-audit-event
+    title: "Listing audit: Admin delete writes one audit event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Admin delete writes one audit event"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestDeleteListingAdminWritesAuditBeforeChange. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-audit-down-refuses-the-admin-delete
+    title: "Listing audit: Audit down refuses the admin delete"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Audit down refuses the admin delete"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestDeleteListingAdminAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-delete-failure-after-audit-keeps-the-audit-row
+    title: "Listing audit: Delete failure after audit keeps the audit row"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Delete failure after audit keeps the audit row"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/service TestDeleteWithEventRepoFailureAfterAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-unknown-listing-on-delete-writes-no-audit-event
+    title: "Listing audit: Unknown listing on delete writes no audit event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Unknown listing on delete writes no audit event"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/service TestDeleteWithEventNotFoundNoAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-empty-id-on-delete-writes-no-audit-event
+    title: "Listing audit: Empty id on delete writes no audit event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Empty id on delete writes no audit event"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestDeleteListingEmptyIDNoAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-seller-without-admin-scope-cannot-delete-another-seller-s-listing
+    title: "Listing audit: Seller without admin scope cannot delete another seller's listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Seller without admin scope cannot delete another seller's listing"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestDeleteListingNonOwnerNonAdminDeniedNoAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-owner-update-writes-no-audit-event
+    title: "Listing audit: Owner update writes no audit event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Owner update writes no audit event"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingOwnerNoAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-owner-update-succeeds-while-audit-is-down
+    title: "Listing audit: Owner update succeeds while audit is down"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Owner update succeeds while audit is down"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestOwnerUpdateDeleteIndependentOfAudit. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-admin-who-owns-the-listing-is-audited
+    title: "Listing audit: Admin who owns the listing is audited"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Admin who owns the listing is audited"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/service TestUpdateWithEventAdminOwnerIsAudited. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-admin-who-owns-the-listing-is-refused-while-audit-is-down
+    title: "Listing audit: Admin who owns the listing is refused while audit is down"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Admin who owns the listing is refused while audit is down"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/service TestDeleteWithEventAdminOwnerAuditDownUnavailable. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-non-owner-without-admin-is-refused-and-unaudited-while-audit-is-down
+    title: "Listing audit: Non-owner without admin is refused and unaudited while audit is down"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Non-owner without admin is refused and unaudited while audit is down"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/handler TestNonOwnerNonAdminDeniedNotUnavailable. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-audit-is-called-as-the-service-principal
+    title: "Listing audit: Audit is called as the service principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Audit is called as the service principal"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/upstream TestAuditClientUsesServicePrincipal. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-slow-audit-is-cut-off-at-the-timeout
+    title: "Listing audit: Slow audit is cut off at the timeout"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Slow audit is cut off at the timeout"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/upstream TestAuditClientTimeoutSingleAttempt. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-caller-principal-is-never-forwarded
+    title: "Listing audit: Caller principal is never forwarded"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Caller principal is never forwarded"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/upstream TestAuditClientNeverForwardsCallerPrincipal. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-writeauditevent-is-not-reachable-from-the-edge
+    title: "Listing audit: WriteAuditEvent is not reachable from the edge"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: WriteAuditEvent is not reachable from the edge"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge TestInternalRPCsAreNotRoutedAtTheEdge (existing, unchanged). Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-config-exposes-the-audit-address
+    title: "Listing audit: Config exposes the audit address"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-admin-listing-audit.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: Config exposes the audit address"
+    tags: [admin, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain internal/config TestUpstreamAuditConfig. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.admin-audit-admin-update-and-delete-are-audited-end-to-end
+    title: "Listing audit: Admin update and delete are audited end to end"
+    persona: admin
+    priority: P1
+    summary: Admin listing audit through the gateway (change domain-admin-listing-audit).
+    entry_route: /
+    services: [team-domain, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [listing.v1.UpdateListing, listing.v1.DeleteListing, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Listing audit: Admin update and delete are audited end to end"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "seller/listing_admin_audit.feature::Listing audit: Admin update and delete are audited end to end"
+
+  - id: listing.admin-audit-owner-update-is-not-audited-end-to-end
+    title: "Listing audit: Owner update is not audited end to end"
+    persona: admin
+    priority: P1
+    summary: Admin listing audit through the gateway (change domain-admin-listing-audit).
+    entry_route: /
+    services: [team-domain, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [listing.v1.UpdateListing, listing.v1.DeleteListing, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Listing audit: Owner update is not audited end to end"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "seller/listing_admin_audit.feature::Listing audit: Owner update is not audited end to end"
+
+  - id: listing.admin-audit-admin-edit-is-refused-while-audit-is-down-end-to-end
+    title: "Listing audit: Admin edit is refused while audit is down end to end"
+    persona: admin
+    priority: P1
+    summary: Admin listing audit through the gateway (change domain-admin-listing-audit).
+    entry_route: /
+    services: [team-domain, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [listing.v1.UpdateListing, listing.v1.DeleteListing, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Listing audit: Admin edit is refused while audit is down end to end"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "seller/listing_admin_audit.feature::Listing audit: Admin edit is refused while audit is down end to end"
+
+  - id: listing.admin-audit-seller-cannot-edit-another-seller-s-listing-end-to-end
+    title: "Listing audit: Seller cannot edit another seller's listing end to end"
+    persona: admin
+    priority: P1
+    summary: Admin listing audit through the gateway (change domain-admin-listing-audit).
+    entry_route: /
+    services: [team-domain, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [listing.v1.UpdateListing, listing.v1.DeleteListing, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Listing audit: Seller cannot edit another seller's listing end to end"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "seller/listing_admin_audit.feature::Listing audit: Seller cannot edit another seller's listing end to end"
