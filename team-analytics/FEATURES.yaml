@@ -2059,3 +2059,153 @@ features:
     tags: [tracking, analytics, ga4-purchase-relay, unit]
     status: not-testable
     notes: "add-ga4-purchase-relay: unit-verified: team-frontend/src/lib/analytics/map.test.ts 'does not map purchase with empty transaction_id to GA4'. Not producible end to end (the UI always creates an order id)."
+
+  - id: loop-event-storage.each-new-type-is-stored-under-its-name
+    title: "Loop storage: each new type is stored under its name"
+    persona: guest
+    priority: P2
+    summary: "Loop storage: each new type is stored under its name"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop storage: each new type is stored under its name"
+    tags: [tracking, analytics, loop-event-storage, unit]
+    status: not-testable
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventTypesMapToNames. Not producible end to end (consumer-internal mapping)."
+
+  - id: loop-event-storage.a-produced-event-of-each-new-type-reaches-the-warehouse
+    title: "Loop storage: a produced event of each new type reaches the warehouse"
+    persona: guest
+    priority: P2
+    summary: "Loop storage: a produced event of each new type reaches the warehouse"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop storage: a produced event of each new type reaches the warehouse"
+    tags: [tracking, analytics, loop-event-storage]
+    status: planned
+    notes: "analytics-loop-event-storage: e2e scenario tracking/loop_event_storage.feature::Loop storage: a produced event of each new type reaches the warehouse (flip to automated + covered_by after green)."
+
+  - id: loop-event-storage.existing-types-keep-their-names
+    title: "Loop storage: existing types keep their names"
+    persona: guest
+    priority: P2
+    summary: "Loop storage: existing types keep their names"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop storage: existing types keep their names"
+    tags: [tracking, analytics, loop-event-storage, unit]
+    status: not-testable
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestExistingEventTypeNamesUnchanged. Not producible end to end (consumer-internal mapping)."
+
+  - id: loop-event-storage.an-unrecognised-enum-value-is-stored-as-unspecified-without-failing
+    title: "Loop storage: an unrecognised enum value is stored as unspecified without failing"
+    persona: guest
+    priority: P2
+    summary: "Loop storage: an unrecognised enum value is stored as unspecified without failing"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop storage: an unrecognised enum value is stored as unspecified without failing"
+    tags: [tracking, analytics, loop-event-storage, unit]
+    status: not-testable
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestUnrecognisedEventTypeIsUnspecified. Not producible end to end (consumer-internal mapping)."
+
+  - id: loop-event-storage.properties-and-listing-id-are-preserved
+    title: "Loop storage: properties and listing id are preserved"
+    persona: guest
+    priority: P2
+    summary: "Loop storage: properties and listing id are preserved"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop storage: properties and listing id are preserved"
+    tags: [tracking, analytics, loop-event-storage, unit]
+    status: planned
+    notes: "analytics-loop-event-storage: e2e scenario tracking/loop_event_storage.feature::Loop storage: properties and principal survive the warehouse (flip to automated + covered_by after green) Also unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventsPreservePropertiesAndPrincipal."
+
+  - id: loop-event-storage.an-event-with-no-properties-is-stored-with-empty-properties
+    title: "Loop storage: an event with no properties is stored with empty properties"
+    persona: guest
+    priority: P2
+    summary: "Loop storage: an event with no properties is stored with empty properties"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop storage: an event with no properties is stored with empty properties"
+    tags: [tracking, analytics, loop-event-storage, unit]
+    status: not-testable
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestReferralRedeemWithoutPropertiesIsStored. Not producible end to end (consumer-internal mapping)."
+
+  - id: loop-event-storage.the-client-id-is-blanked-without-analytics-consent
+    title: "Loop storage: the client id is blanked without analytics consent"
+    persona: guest
+    priority: P2
+    summary: "Loop storage: the client id is blanked without analytics consent"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop storage: the client id is blanked without analytics consent"
+    tags: [tracking, analytics, loop-event-storage, unit]
+    status: planned
+    notes: "analytics-loop-event-storage: e2e scenario tracking/loop_event_storage.feature::Loop storage: no analytics consent blanks the client id (flip to automated + covered_by after green) Also unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventClientIdBlankedWithoutConsent."
+
+  - id: loop-event-storage.a-replayed-event-is-stored-once
+    title: "Loop storage: a replayed event is stored once"
+    persona: guest
+    priority: P2
+    summary: "Loop storage: a replayed event is stored once"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop storage: a replayed event is stored once"
+    tags: [tracking, analytics, loop-event-storage]
+    status: planned
+    notes: "analytics-loop-event-storage: e2e scenario tracking/loop_event_storage.feature::Loop storage: a replayed event is stored once (flip to automated + covered_by after green)."
+
+  - id: loop-event-storage.a-non-tracking-envelope-is-still-skipped
+    title: "Loop storage: a non-tracking envelope is still skipped"
+    persona: guest
+    priority: P2
+    summary: "Loop storage: a non-tracking envelope is still skipped"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop storage: a non-tracking envelope is still skipped"
+    tags: [tracking, analytics, loop-event-storage, unit]
+    status: not-testable
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestNonTrackingEnvelopeIsSkipped. Not producible end to end (consumer-internal mapping)."
+
+  - id: loop-event-storage.an-undecodable-payload-is-still-a-consumer-error
+    title: "Loop storage: an undecodable payload is still a consumer error"
+    persona: guest
+    priority: P2
+    summary: "Loop storage: an undecodable payload is still a consumer error"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop storage: an undecodable payload is still a consumer error"
+    tags: [tracking, analytics, loop-event-storage, unit]
+    status: not-testable
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestMalformedEnvelopeErrors. Not producible end to end (consumer-internal mapping)."
