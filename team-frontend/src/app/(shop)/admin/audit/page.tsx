@@ -35,7 +35,7 @@ function Forbidden({ subTitle }: { subTitle: string }) {
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>;
 }) {
   const principal = getPrincipal();
   const token = getToken();
@@ -50,7 +50,9 @@ export default async function AuditPage({
     );
   }
 
-  const { filters, cursor, params, error } = parseAuditFilters(searchParams);
+  const { filters, cursor, params, error } = parseAuditFilters(
+    await searchParams,
+  );
   if (error) {
     return (
       <AuditLogView events={[]} nextCursor="" params={params} error={error} />
