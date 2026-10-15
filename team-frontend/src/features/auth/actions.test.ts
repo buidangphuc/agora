@@ -192,3 +192,107 @@ describe("logoutAction", () => {
     expect(redirect).toHaveBeenCalledWith("/");
   });
 });
+
+describe("auth event cookie (loop events)", () => {
+  const EVT = "agora_auth_evt";
+  const evtCalls = async () =>
+    vi.mocked((await cookies()).set).mock.calls.filter((c) => c[0] === EVT);
+
+  it("register success sets the sign_up event cookie", async () => {
+    stubAuth({
+      register: vi.fn().mockResolvedValue({ result: { token: "jwt-9" } }),
+    });
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass", role: "buyer" }),
+    );
+    const jar = await cookies();
+    const calls = await evtCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1]).toBe("sign_up");
+    expect(calls[0][2]).toEqual(
+      expect.objectContaining({
+        maxAge: 60,
+        sameSite: "lax",
+        path: "/",
+        httpOnly: false,
+      }),
+    );
+    const sets = vi.mocked(jar.set);
+    const order = (name: string) =>
+      sets.mock.invocationCallOrder[
+        sets.mock.calls.findIndex((c) => c[0] === name)
+      ];
+    expect(order("session")).toBeLessThan(order(EVT));
+    expect(order(EVT)).toBeLessThan(
+      vi.mocked(redirect).mock.invocationCallOrder[0],
+    );
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("login success sets the login event cookie", async () => {
+    stubAuth({
+      login: vi.fn().mockResolvedValue({ result: { token: "jwt-123" } }),
+    });
+    await loginAction(initial, form({ username: "alice", password: "pw" }));
+    const jar = await cookies();
+    const calls = await evtCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1]).toBe("login");
+    expect(calls[0][2]).toEqual(
+      expect.objectContaining({
+        maxAge: 60,
+        sameSite: "lax",
+        path: "/",
+        httpOnly: false,
+      }),
+    );
+    const sets = vi.mocked(jar.set);
+    const order = (name: string) =>
+      sets.mock.invocationCallOrder[
+        sets.mock.calls.findIndex((c) => c[0] === name)
+      ];
+    expect(order("session")).toBeLessThan(order(EVT));
+    expect(order(EVT)).toBeLessThan(
+      vi.mocked(redirect).mock.invocationCallOrder[0],
+    );
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("failures never set the event cookie", async () => {
+    const login = (
+      rpc: ReturnType<typeof vi.fn>,
+      fields: Record<string, string>,
+    ) => {
+      stubAuth({ login: rpc });
+      return loginAction(initial, form(fields));
+    };
+    const register = (
+      rpc: ReturnType<typeof vi.fn>,
+      fields: Record<string, string>,
+    ) => {
+      stubAuth({ register: rpc });
+      return registerAction(initial, form(fields));
+    };
+    const ok = { username: "alice", password: "pass1234" };
+
+    await login(vi.fn(), { username: "  ", password: "" });
+    await login(
+      vi.fn().mockRejectedValue(new ConnectError("no", Code.Unauthenticated)),
+      ok,
+    );
+    await login(vi.fn().mockRejectedValue(new Error("dns")), ok);
+    await login(vi.fn().mockResolvedValue({ result: { token: "" } }), ok);
+
+    await register(vi.fn(), { username: "ab", password: "1" });
+    await register(
+      vi.fn().mockRejectedValue(new ConnectError("dup", Code.AlreadyExists)),
+      ok,
+    );
+    await register(vi.fn().mockRejectedValue(new Error("boom")), ok);
+    await register(vi.fn().mockResolvedValue({ result: { token: "" } }), ok);
+
+    expect(await evtCalls()).toHaveLength(0);
+    expect(redirect).not.toHaveBeenCalled();
+  });
+});

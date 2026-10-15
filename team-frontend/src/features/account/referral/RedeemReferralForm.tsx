@@ -7,6 +7,7 @@ import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/ToastProvider";
 import { usePendingAction } from "@/features/account/usePendingAction";
+import { trackEcommerce } from "@/lib/analytics";
 import { redeemReferralAction } from "./actions";
 
 /**
@@ -24,6 +25,7 @@ export function RedeemReferralForm() {
     void run(async () => {
       const res = await redeemReferralAction(code);
       if (res.ok) {
+        trackEcommerce("referral_redeem");
         setCode("");
         setError("");
         toast.success("Đã nhập mã giới thiệu.");

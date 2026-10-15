@@ -15,8 +15,14 @@ export type GA4EventName =
   | "purchase"
   | "apply_promotion"
   | "search_filter"
-  | "favorite"
-  | "share";
+  | "add_to_wishlist"
+  | "share"
+  | "sign_up"
+  | "login"
+  | "follow_seller"
+  | "referral_redeem"
+  | "daily_check_in"
+  | "alert_subscribe";
 
 export type InternalEventType =
   | "view"
@@ -32,7 +38,13 @@ export type InternalEventType =
   | "view_cart"
   | "add_shipping_info"
   | "add_payment_info"
-  | "purchase";
+  | "purchase"
+  | "sign_up"
+  | "login"
+  | "follow_seller"
+  | "referral_redeem"
+  | "daily_check_in"
+  | "alert_subscribe";
 
 export interface EcommerceItem {
   itemId: string;

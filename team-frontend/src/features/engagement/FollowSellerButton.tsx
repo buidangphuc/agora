@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { useToast } from "@/components/ui/ToastProvider";
+import { trackEcommerce } from "@/lib/analytics";
 import { followSellerAction, unfollowSellerAction } from "./actions";
 
 /**
@@ -28,6 +29,10 @@ export function FollowSellerButton({
         ? await followSellerAction(sellerId)
         : await unfollowSellerAction(sellerId);
       if (res.ok) {
+        if (next)
+          trackEcommerce("follow_seller", {
+            properties: { seller_id: sellerId },
+          });
         toast.success(next ? "✓ Đã theo dõi shop." : "Đã bỏ theo dõi shop.");
       } else {
         setFollowing(!next);

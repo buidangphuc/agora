@@ -8,6 +8,7 @@ import {
   unsubscribeAlertAction,
 } from "@/features/notification/actions";
 import { AlertType } from "@/generated/platform/notification/v1/notification_pb.js";
+import { trackEcommerce } from "@/lib/analytics";
 
 /**
  * "Notify me" toggles on the listing page: price-drop and back-in-stock.
@@ -66,6 +67,10 @@ function ToggleButton({
         const res = await subscribeAlertAction(listingId, meta.type);
         if (res.ok) {
           setSubId(res.subscriptionId || "pending");
+          trackEcommerce("alert_subscribe", {
+            items: [{ itemId: listingId }],
+            properties: { alert_type: kind },
+          });
           toast.success(`✓ Sẽ báo khi ${meta.label.toLowerCase()}!`);
         } else {
           toast.error(res.message || "Đăng ký thông báo thất bại.");
