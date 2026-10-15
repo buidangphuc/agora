@@ -52,6 +52,8 @@ type Observability struct {
 // DBs, Rule 3). Empty OrderAddr disables verified-purchase enrichment.
 type Upstream struct {
 	OrderAddr string `env:"UPSTREAM_ORDER_ADDR" default:""`
+	// AuditAddr is team-audit; empty disables audit writes (hide fails closed).
+	AuditAddr string `env:"UPSTREAM_AUDIT_ADDR" default:""`
 	// CallTimeoutSeconds bounds each upstream lookup (also capped to the inbound
 	// request deadline minus a margin), so a dead sibling cannot hang a handler.
 	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
