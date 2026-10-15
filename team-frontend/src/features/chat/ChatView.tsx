@@ -95,6 +95,12 @@ export function ChatView({
 
   const activeThreadId = activeThread?.id;
 
+  // A thread switch disarms the pending copilot "edited" event.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when the thread changes
+  useEffect(() => {
+    insertedSuggestion.current = null;
+  }, [activeThreadId]);
+
   // Mark read once when active thread ID changes
   useEffect(() => {
     if (activeThreadId) {
