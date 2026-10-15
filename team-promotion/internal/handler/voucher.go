@@ -70,8 +70,12 @@ func (h *VoucherHandler) CreateVoucher(ctx context.Context, req *promotionv1.Cre
 		Quota:         req.GetQuota(),
 		StartsAt:      service.TimeFromProto(req.GetStartsAt()),
 		EndsAt:        service.TimeFromProto(req.GetEndsAt()),
+		AuditActorID:  principal.GetId(),
 	})
 	if err != nil {
+		if _, ok := status.FromError(err); ok {
+			return nil, err
+		}
 		if errors.Is(err, service.ErrInvalidVoucher) {
 			return nil, status.Error(codes.InvalidArgument, "invalid voucher")
 		}

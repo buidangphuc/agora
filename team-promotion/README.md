@@ -101,6 +101,7 @@ declared keys. The Makefile auto-loads `.env` if present.
 | `KAFKA_ENABLED` | `false` | |
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `PROMOTION_EVENTS_TOPIC` | `promotion.events` | |
+| `UPSTREAM_AUDIT_ADDR` | `""` | team-audit gRPC address (`team-audit-svc:50066` in compose). Platform/unspecified-scope `CreateVoucher`, admin `CreateCampaign` and admin `CreateAdCampaign` write an audit event (as `service-team-promotion`, `audit.write`) before inserting; unset or audit failure is `Unavailable` and nothing is created. Seller paths are not audited |
 | `UPSTREAM_DOMAIN_ADDR` | `""` | team-domain gRPC address (`team-domain-svc:50051` in compose). Unset: non-admin `CreateCampaign` fails closed; `.env.example` uses `localhost:50051` |
 
 The only flag is `flash-sale-enabled` (fail-open, default true). Switched off, it makes

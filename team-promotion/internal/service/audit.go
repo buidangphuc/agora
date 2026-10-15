@@ -1,12 +1,13 @@
 package service
 
-// TEST-STUB: compile-only placeholder written by the test-author. The implementer
-// replaces this file (task 3) with the real AuditWriter, newCampaignID and the
-// WithAudit wiring in voucher.go / flashsale.go / sponsored.go (and deletes the
-// WithAudit stubs below).
-
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/buidangphuc/team-promotion/internal/upstream"
 )
@@ -16,10 +17,24 @@ type AuditWriter interface {
 	WriteEvent(ctx context.Context, ev upstream.AuditEvent) error
 }
 
-// newCampaignID: TEST-STUB (must return a 32-char hex id).
-func newCampaignID() string { return "" }
+// writeAudit writes ev through w, failing closed: a nil writer or any write error
+// is Unavailable so the audited action is refused.
+func writeAudit(ctx context.Context, w AuditWriter, ev upstream.AuditEvent) error {
+	if w == nil {
+		return status.Error(codes.Unavailable, "audit trail not configured")
+	}
+	if err := w.WriteEvent(ctx, ev); err != nil {
+		return status.Error(codes.Unavailable, "audit trail unavailable")
+	}
+	return nil
+}
 
-// WithAudit: TEST-STUBs (must store the writer; nil means fail closed).
-func (s *VoucherService) WithAudit(w AuditWriter) *VoucherService     { return s }
-func (s *FlashSaleService) WithAudit(w AuditWriter) *FlashSaleService { return s }
-func (s *SponsoredService) WithAudit(w AuditWriter) *SponsoredService { return s }
+// newCampaignID returns a random 128-bit id as 32 hex chars, pre-generated so the
+// audit event can carry the id the campaign is stored under.
+func newCampaignID() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(errors.New("promotion: crypto/rand unavailable: " + err.Error()))
+	}
+	return hex.EncodeToString(b[:])
+}

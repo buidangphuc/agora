@@ -69,8 +69,9 @@ type Kafka struct {
 // non-admin CreateCampaign fails closed (Unavailable).
 type Upstream struct {
 	DomainAddr string `env:"UPSTREAM_DOMAIN_ADDR" default:""`
-	// TEST-STUB: compile-only; implementer adds `env:"UPSTREAM_AUDIT_ADDR" default:""`.
-	AuditAddr string
+	// AuditAddr is team-audit's gRPC address; unset fails platform/admin promotion
+	// creation closed. Calls reuse CallTimeoutSeconds.
+	AuditAddr string `env:"UPSTREAM_AUDIT_ADDR" default:""`
 	// CallTimeoutSeconds bounds one team-domain lookup, so a dead upstream yields
 	// UNAVAILABLE instead of consuming the whole request budget (a gateway 504).
 	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`

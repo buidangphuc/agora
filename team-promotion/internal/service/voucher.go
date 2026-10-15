@@ -8,10 +8,12 @@ import (
 	"strings"
 	"time"
 
+	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-promotion/internal/bootstrap"
 	"github.com/buidangphuc/team-promotion/internal/featureflags"
 	"github.com/buidangphuc/team-promotion/internal/producer"
 	"github.com/buidangphuc/team-promotion/internal/repository"
+	"github.com/buidangphuc/team-promotion/internal/upstream"
 )
 
 // Discount type / scope enum values (mirror platform.promotion.v1 without importing
@@ -33,6 +35,7 @@ type VoucherService struct {
 	flags        featureflags.Evaluator
 	logger       *slog.Logger
 	nowFn        func() time.Time
+	audit        AuditWriter // nil = platform voucher creation fails closed
 }
 
 // NewVoucherService wires the voucher + reservation repositories, the
@@ -79,7 +82,14 @@ type CreateVoucherParams struct {
 	StartsAt      time.Time
 	EndsAt        time.Time
 
-	AuditActorID string // TEST-STUB field: verified admin id written as audit actor_id
+	// AuditActorID is the verified admin id written as the audit actor_id.
+	AuditActorID string
+}
+
+// WithAudit sets the audit writer used for platform voucher creation.
+func (s *VoucherService) WithAudit(w AuditWriter) *VoucherService {
+	s.audit = w
+	return s
 }
 
 // ErrInvalidVoucher is returned for malformed CreateVoucher input.
@@ -101,6 +111,20 @@ func (s *VoucherService) CreateVoucher(ctx context.Context, p CreateVoucherParam
 		Quota:         p.Quota,
 		StartsAt:      p.StartsAt,
 		EndsAt:        p.EndsAt,
+	}
+	if p.Scope != voucherScopeShop {
+		if err := writeAudit(ctx, s.audit, upstream.AuditEvent{
+			ActorID:    p.AuditActorID,
+			Action:     "voucher.platform_create",
+			TargetType: "voucher",
+			TargetID:   v.Code,
+			Metadata: map[string]string{
+				"discount_type": promotionv1.DiscountType(p.DiscountType).String(),
+				"value":         strconv.FormatInt(p.DiscountValue, 10),
+			},
+		}); err != nil {
+			return repository.Voucher{}, err
+		}
 	}
 	created, err := s.vouchers.Create(ctx, v)
 	if err != nil {
