@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/buidangphuc/team-engagement/internal/repository"
 )
@@ -14,12 +16,24 @@ var (
 	ErrEmptyListing  = errors.New("listing_id is required")
 	ErrEmptyReviewID = errors.New("review_id is required")
 	ErrEmptySeller   = errors.New("seller_id is required")
+
+	ErrOrderUnavailable = errors.New("order verification unavailable")
+	ErrOrderNotEligible = errors.New("order not eligible for review")
+	ErrReasonTooLong    = errors.New("reason must be at most 500 characters")
+	ErrAuditUnavailable = errors.New("audit unavailable")
 )
 
+// maxHideReasonRunes bounds the moderation reason after trimming.
+const maxHideReasonRunes = 500
+
+// AuditWriter is the slice of internal/upstream.AuditClient the service needs.
+type AuditWriter interface {
+	WriteHideEvent(ctx context.Context, actorID, reviewID, listingID, reason string) error
+}
+
 // OrderVerifier consults team-order to confirm a buyer completed an order for a
-// listing. Implemented by internal/upstream.OrderClient; a nil verifier disables
-// verification (verified_purchase stays false), so the service degrades cleanly
-// when UPSTREAM_ORDER_ADDR is unset.
+// listing. Implemented by internal/upstream.OrderClient; a nil verifier makes
+// CreateReview fail closed with ErrOrderUnavailable.
 type OrderVerifier interface {
 	VerifyPurchase(ctx context.Context, buyerID, listingID, orderID string) (verified bool, sellerID string, err error)
 }
@@ -27,7 +41,14 @@ type OrderVerifier interface {
 type ReviewService struct {
 	repo     repository.ReviewRepository
 	verifier OrderVerifier
+	audit    AuditWriter
 	logger   *slog.Logger
+}
+
+// WithAudit wires the audit writer. Without one, HideReview fails closed.
+func (s *ReviewService) WithAudit(w AuditWriter) *ReviewService {
+	s.audit = w
+	return s
 }
 
 func NewReviewService(repo repository.ReviewRepository, verifier OrderVerifier, logger *slog.Logger) *ReviewService {
@@ -51,27 +72,31 @@ func (s *ReviewService) CreateReview(
 		return repository.Review{}, ErrInvalidRating
 	}
 
-	review := repository.Review{
-		ListingID: listingID,
-		UserID:    userID,
-		UserName:  userName,
-		OrderID:   orderID,
-		Rating:    rating,
-		Comment:   comment,
-		MediaURLs: mediaURLs,
+	if orderID == "" {
+		return repository.Review{}, ErrEmptyOrderID
+	}
+	if s.verifier == nil {
+		return repository.Review{}, ErrOrderUnavailable
+	}
+	verified, sellerID, err := s.verifier.VerifyPurchase(ctx, userID, listingID, orderID)
+	if err != nil {
+		s.logger.Warn("verify purchase failed", slog.String("order_id", orderID), slog.Any("err", err))
+		return repository.Review{}, fmt.Errorf("%w: %v", ErrOrderUnavailable, err)
+	}
+	if !verified {
+		return repository.Review{}, ErrOrderNotEligible
 	}
 
-	// verified_purchase + seller_id are computed via team-order (gRPC, no DB join).
-	// Any upstream failure degrades to an unverified review rather than blocking.
-	if s.verifier != nil && orderID != "" {
-		verified, sellerID, err := s.verifier.VerifyPurchase(ctx, userID, listingID, orderID)
-		if err != nil {
-			s.logger.Warn("verify purchase failed; recording unverified review",
-				slog.String("order_id", orderID), slog.Any("err", err))
-		} else {
-			review.VerifiedPurchase = verified
-			review.SellerID = sellerID
-		}
+	review := repository.Review{
+		ListingID:        listingID,
+		UserID:           userID,
+		UserName:         userName,
+		OrderID:          orderID,
+		Rating:           rating,
+		Comment:          comment,
+		MediaURLs:        mediaURLs,
+		VerifiedPurchase: true,
+		SellerID:         sellerID,
 	}
 
 	saved, err := s.repo.CreateReview(ctx, review)
@@ -134,4 +159,36 @@ func (s *ReviewService) GetShopRatingSummary(ctx context.Context, sellerID strin
 		return repository.ShopRatingSummary{}, ErrEmptySeller
 	}
 	return s.repo.GetShopRatingSummary(ctx, sellerID)
+}
+
+// HideReview hides a review after durably writing an audit event. Hiding an
+// already-hidden review is a no-op. The reason is never logged.
+func (s *ReviewService) HideReview(ctx context.Context, adminID, reviewID, reason string) error {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return ErrEmptyReason
+	}
+	if utf8.RuneCountInString(reason) > maxHideReasonRunes {
+		return ErrReasonTooLong
+	}
+	if reviewID == "" {
+		return ErrEmptyReviewID
+	}
+	review, err := s.repo.GetReview(ctx, reviewID)
+	if err != nil {
+		return err
+	}
+	if review.HiddenAt != nil {
+		return nil
+	}
+	if s.audit == nil {
+		return ErrAuditUnavailable
+	}
+	if err := s.audit.WriteHideEvent(ctx, adminID, reviewID, review.ListingID, reason); err != nil {
+		return fmt.Errorf("%w: %v", ErrAuditUnavailable, err)
+	}
+	if _, err := s.repo.HideReview(ctx, reviewID, adminID, reason); err != nil {
+		return err
+	}
+	return nil
 }

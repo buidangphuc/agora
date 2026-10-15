@@ -81,12 +81,26 @@ func run() error {
 		logger.Warn("UPSTREAM_ORDER_ADDR unset; verified-purchase enrichment disabled and CreateDispute fails closed")
 	}
 
+	auditClient, err := upstream.NewAuditClient(settings.Upstream.AuditAddr, time.Duration(settings.Upstream.CallTimeoutSeconds*float64(time.Second)))
+	if err != nil {
+		return fmt.Errorf("dial team-audit: %w", err)
+	}
+	if auditClient != nil {
+		defer func() { _ = auditClient.Close() }()
+		logger.Info("audit upstream enabled", slog.String("audit_addr", settings.Upstream.AuditAddr))
+	} else {
+		logger.Warn("UPSTREAM_AUDIT_ADDR unset; audit writes disabled")
+	}
+
 	reviewRepo := repository.NewPostgresReviewRepository(res.Pool)
 	var reviewVerifier service.OrderVerifier
 	if orderClient != nil {
 		reviewVerifier = orderClient
 	}
 	reviewSvc := service.NewReviewService(reviewRepo, reviewVerifier, logger)
+	if auditClient != nil {
+		reviewSvc.WithAudit(auditClient)
+	}
 	qaRepo := repository.NewPostgresQARepository(res.Pool)
 	qaSvc := service.NewQAService(qaRepo, logger)
 	disputeRepo := repository.NewPostgresDisputeRepository(res.Pool)

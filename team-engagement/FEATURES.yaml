@@ -474,3 +474,695 @@ features:
     status: automated
     covered_by: "engagement/rvp_reviews_pagination.feature::A malformed cursor is rejected"
     notes: "needs rebuild"
+
+  # ---- engagement-review-integrity (e2e-author; automated, green against the local stack)
+  - id: engagement-review-integrity.completed-order-is-reviewed
+    title: "Completed order is reviewed"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Completed order is reviewed"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewVerifiedStoresVerified`"
+
+  - id: engagement-review-integrity.empty-order-id-is-rejected
+    title: "Empty order id is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Empty order id is rejected"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReviewEmptyOrderInvalidArgument`"
+
+  - id: engagement-review-integrity.ineligible-order-returns-one-message
+    title: "Ineligible order returns one message"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Ineligible order returns one message"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReviewIneligibleOrderSingleMessage`"
+
+  - id: engagement-review-integrity.anonymous-caller-cannot-review
+    title: "Anonymous caller cannot review"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Anonymous caller cannot review"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReviewAnonymousUnauthenticated`"
+
+  - id: engagement-review-integrity.rating-boundary-values
+    title: "Rating boundary values"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Rating boundary values"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewRatingBounds`"
+
+  - id: engagement-review-integrity.verifier-returns-an-error
+    title: "Verifier returns an error"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Verifier returns an error"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewVerifierErrorUnavailable`"
+
+  - id: engagement-review-integrity.verifier-times-out
+    title: "Verifier times out"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Verifier times out"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestVerifyPurchaseTimeoutIsError`, `internal/service` `TestCreateReviewVerifierErrorUnavailable`"
+
+  - id: engagement-review-integrity.no-order-upstream-configured
+    title: "No order upstream configured"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "No order upstream configured"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewNilVerifierUnavailable`"
+
+  - id: engagement-review-integrity.upstream-not-found-is-not-an-outage
+    title: "Upstream not-found is not an outage"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Upstream not-found is not an outage"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestVerifyPurchaseNotFoundIsIneligible`"
+
+  - id: engagement-review-integrity.duplicate-review-is-refused
+    title: "Duplicate review is refused"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Duplicate review is refused"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestPGCreateReviewDuplicateOrderListing`"
+
+  - id: engagement-review-integrity.concurrent-duplicates-yield-one-row
+    title: "Concurrent duplicates yield one row"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Concurrent duplicates yield one row"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestPGCreateReviewConcurrentDuplicates`"
+
+  - id: engagement-review-integrity.same-order-different-listing-is-allowed
+    title: "Same order, different listing is allowed"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Same order, different listing is allowed"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewSameOrderTwoListings`"
+
+  - id: engagement-review-integrity.migration-demotes-later-duplicates
+    title: "Migration demotes later duplicates"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Migration demotes later duplicates"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestMigration0011DemotesDuplicateVerified`"
+
+  - id: engagement-review-integrity.migration-leaves-unverified-rows-alone
+    title: "Migration leaves unverified rows alone"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Migration leaves unverified rows alone"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestMigration0011IgnoresUnverified`"
+
+  - id: engagement-review-integrity.down-migration-removes-the-new-schema
+    title: "Down migration removes the new schema"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Down migration removes the new schema"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestMigration0011Down`"
+
+  - id: engagement-review-integrity.listing-summary-ignores-unverified-reviews
+    title: "Listing summary ignores unverified reviews"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing summary ignores unverified reviews"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestPGRatingSummaryVerifiedOnly`"
+
+  - id: engagement-review-integrity.shop-summary-applies-the-same-rule
+    title: "Shop summary applies the same rule"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Shop summary applies the same rule"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestPGShopSummaryVerifiedNonHidden`"
+
+  - id: engagement-review-integrity.listing-with-no-verified-reviews
+    title: "Listing with no verified reviews"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing with no verified reviews"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestRatingSummaryNoVerifiedIsZero`"
+
+  - id: engagement-review-integrity.listreviews-shows-legacy-reviews
+    title: "ListReviews shows legacy reviews"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "ListReviews shows legacy reviews"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReviewsIncludesUnverifiedExcludesHidden`"
+
+  - id: engagement-review-integrity.hidden-review-is-excluded-from-the-list-and-the-total
+    title: "Hidden review is excluded from the list and the total"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Hidden review is excluded from the list and the total"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestPGListReviewsExcludesHidden`"
+
+  - id: engagement-review-integrity.in-memory-repository-matches-postgres
+    title: "In-memory repository matches Postgres"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "In-memory repository matches Postgres"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestReviewRepoParity`"
+
+  - id: engagement-review-integrity.stored-review-emits-one-event
+    title: "Stored review emits one event"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Stored review emits one event"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestOutboxReviewCreated`"
+
+  - id: engagement-review-integrity.refused-review-emits-nothing
+    title: "Refused review emits nothing"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Refused review emits nothing"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewRefusedWritesNoOutbox`"
+
+  - id: engagement-review-integrity.review-from-a-completed-order-end-to-end
+    title: "Review from a completed order, end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews, engagement.v1.GetListingRatingSummary]
+    acceptance:
+      - "Review from a completed order, end to end"
+    tags: [buyer, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Review from a completed order, end to end"
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
+
+  - id: engagement-review-integrity.second-review-for-the-same-order-is-refused-end-to-end
+    title: "Second review for the same order is refused, end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews, engagement.v1.GetListingRatingSummary]
+    acceptance:
+      - "Second review for the same order is refused, end to end"
+    tags: [buyer, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Second review for the same order is refused, end to end"
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
+
+  - id: engagement-review-integrity.review-without-an-order-is-refused-end-to-end
+    title: "Review without an order is refused, end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews, engagement.v1.GetListingRatingSummary]
+    acceptance:
+      - "Review without an order is refused, end to end"
+    tags: [buyer, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Review without an order is refused, end to end"
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
+
+  - id: engagement-review-integrity.review-of-an-order-that-is-not-completed-is-refused-end-to-end
+    title: "Review of an order that is not completed is refused, end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews, engagement.v1.GetListingRatingSummary]
+    acceptance:
+      - "Review of an order that is not completed is refused, end to end"
+    tags: [buyer, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Review of an order that is not completed is refused, end to end"
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
+
+  - id: engagement-review-integrity.summary-reflects-verified-reviews-end-to-end
+    title: "Summary reflects verified reviews, end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews, engagement.v1.GetListingRatingSummary]
+    acceptance:
+      - "Summary reflects verified reviews, end to end"
+    tags: [buyer, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Summary reflects verified reviews, end to end"
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
+
+  - id: engagement-review-integrity.legacy-unverified-review-is-listed-but-excluded-from-stars-end-to-end
+    title: "Legacy unverified review is listed but excluded from stars, end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews, engagement.v1.GetListingRatingSummary]
+    acceptance:
+      - "Legacy unverified review is listed but excluded from stars, end to end"
+    tags: [buyer, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Legacy unverified review is listed but excluded from stars, end to end"
+    notes: "engagement-review-integrity: review-integrity. API-level journey through the gateway."
+
+  - id: engagement-review-integrity.admin-hides-a-review
+    title: "Admin hides a review"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Admin hides a review"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewHidesFromList`"
+
+  - id: engagement-review-integrity.hide-removes-the-review-from-both-summaries
+    title: "Hide removes the review from both summaries"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Hide removes the review from both summaries"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewUpdatesSummaries`"
+
+  - id: engagement-review-integrity.audit-event-carries-the-required-fields
+    title: "Audit event carries the required fields"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Audit event carries the required fields"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewAuditEventFields`"
+
+  - id: engagement-review-integrity.audit-is-called-as-the-service-principal
+    title: "Audit is called as the service principal"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Audit is called as the service principal"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestAuditClientUsesServicePrincipal`"
+
+  - id: engagement-review-integrity.audit-is-written-before-the-hide
+    title: "Audit is written before the hide"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Audit is written before the hide"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestHideReviewAuditBeforeHide`"
+
+  - id: engagement-review-integrity.audit-failure-leaves-the-review-visible
+    title: "Audit failure leaves the review visible"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Audit failure leaves the review visible"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestHideReviewAuditFailureFailsClosed`"
+
+  - id: engagement-review-integrity.no-audit-upstream-configured
+    title: "No audit upstream configured"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "No audit upstream configured"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestHideReviewNilAuditClientUnavailable`"
+
+  - id: engagement-review-integrity.hide-failure-after-audit-is-internal-and-retryable
+    title: "Hide failure after audit is Internal and retryable"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Hide failure after audit is Internal and retryable"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestHideReviewUpdateFailureInternalThenRetry`"
+
+  - id: engagement-review-integrity.hiding-an-already-hidden-review-is-idempotent
+    title: "Hiding an already hidden review is idempotent"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Hiding an already hidden review is idempotent"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestHideReviewIdempotentNoSecondAudit`"
+
+  - id: engagement-review-integrity.unknown-review
+    title: "Unknown review"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Unknown review"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewNotFound`"
+
+  - id: engagement-review-integrity.empty-or-whitespace-reason-is-rejected
+    title: "Empty or whitespace reason is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Empty or whitespace reason is rejected"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewEmptyReasonInvalidArgument`"
+
+  - id: engagement-review-integrity.reason-length-boundary
+    title: "Reason length boundary"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Reason length boundary"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewReasonLengthBoundary`"
+
+  - id: engagement-review-integrity.reason-is-trimmed-before-storing
+    title: "Reason is trimmed before storing"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Reason is trimmed before storing"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewReasonTrimmed`"
+
+  - id: engagement-review-integrity.empty-review-id-is-rejected
+    title: "Empty review id is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Empty review id is rejected"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewEmptyIDInvalidArgument`"
+
+  - id: engagement-review-integrity.non-admin-is-denied-at-the-service
+    title: "Non-admin is denied at the service"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Non-admin is denied at the service"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewNonAdminPermissionDenied`"
+
+  - id: engagement-review-integrity.authorization-is-checked-before-validation
+    title: "Authorization is checked before validation"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Authorization is checked before validation"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewNonAdminInvalidReasonPermissionDenied`"
+
+  - id: engagement-review-integrity.anonymous-caller-is-unauthenticated-at-the-service
+    title: "Anonymous caller is unauthenticated at the service"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Anonymous caller is unauthenticated at the service"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewAnonymousUnauthenticated`"
+
+  - id: engagement-review-integrity.hidden-review-is-invisible-to-the-admin-too
+    title: "Hidden review is invisible to the admin too"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Hidden review is invisible to the admin too"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewInvisibleToAdminList`"
+
+  - id: engagement-review-integrity.other-review-rpcs-treat-a-hidden-review-as-missing
+    title: "Other review RPCs treat a hidden review as missing"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Other review RPCs treat a hidden review as missing"
+    tags: [review-integrity, unit]
+    status: not-testable
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestMarkHelpfulHiddenReviewNotFound`"
+
+  - id: engagement-review-integrity.hide-a-review-end-to-end
+    title: "Hide a review end to end"
+    persona: admin
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews, engagement.v1.GetListingRatingSummary, engagement.v1.HideReview, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Hide a review end to end"
+    tags: [admin, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Hide a review end to end"
+    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway."
+
+  - id: engagement-review-integrity.re-hide-writes-no-second-audit-event-end-to-end
+    title: "Re-hide writes no second audit event, end to end"
+    persona: admin
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order, team-audit]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews, engagement.v1.GetListingRatingSummary, engagement.v1.HideReview, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Re-hide writes no second audit event, end to end"
+    tags: [admin, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Re-hide writes no second audit event, end to end"
+    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway."
+
+  - id: engagement-review-integrity.buyer-cannot-hide-a-review-end-to-end
+    title: "Buyer cannot hide a review, end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order, team-audit]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews, engagement.v1.GetListingRatingSummary, engagement.v1.HideReview, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Buyer cannot hide a review, end to end"
+    tags: [buyer, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Buyer cannot hide a review, end to end"
+    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway."
+
+  - id: engagement-review-integrity.anonymous-caller-cannot-hide-a-review-end-to-end
+    title: "Anonymous caller cannot hide a review, end to end"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order, team-audit]
+    preconditions:
+      login: guest
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews, engagement.v1.GetListingRatingSummary, engagement.v1.HideReview, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Anonymous caller cannot hide a review, end to end"
+    tags: [guest, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Anonymous caller cannot hide a review, end to end"
+    notes: "engagement-review-integrity: review-moderation. API-level journey through the gateway."
+
+  - id: engagement-review-integrity.another-buyer-s-completed-order-is-refused-as-ineligible-end-to-end
+    title: "Another buyer's completed order is refused as ineligible, end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateReview, engagement.v1.ListReviews]
+    acceptance:
+      - "Another buyer's completed order is refused as ineligible, end to end"
+    tags: [buyer, review-integrity]
+    status: automated
+    covered_by: "engagement/review_integrity.feature::Another buyer's completed order is refused as ineligible, end to end"
+    notes: "engagement-review-integrity: review-integrity (extra e2e for 'Ineligible order returns one message', which is unit-verified)."

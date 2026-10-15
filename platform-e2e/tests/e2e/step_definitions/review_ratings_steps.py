@@ -19,7 +19,8 @@ from src.constants import PageName, timeouts
 from src.models import Listing, User
 from src.pages import ListingDetailPage
 from src.utils import data as fake
-from tests.e2e.flows import complete_order_as_seller, login_via_api, seed_listing
+from tests.e2e.flows import login_via_api, seed_listing
+from tests.e2e.support import review_order_support as ros
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -105,44 +106,32 @@ def _create_review(
 
 
 def _complete_order_for(world: World, buyer: User, seller: User, listing_id: str) -> str:
-    """Create a COD order for the buyer and drive it to COMPLETED so the review
-    verifies as a real purchase (team-order.GetOrder must report COMPLETED)."""
-    sf = world.service_factory
-    sf.set_token(buyer.token)
-    try:
-        sf.address.create_address(
-            recipient_name="Nguyen Van A",
-            phone="0912345678",
-            street="29 Lieu Giai",
-            city="Ha Noi",
-            ward="Phuong Lieu Giai",
-            district="Quan Ba Dinh",
-            is_default=True,
-        )
-    except Exception:  # noqa: BLE001 - address may already exist
-        pass
-    try:
-        sf.cart.clear_cart()
-    except Exception:  # noqa: BLE001
-        pass
-    sf.cart.add_to_cart(listing_id=listing_id, quantity=1)
-    res = sf.order.create_order({"paymentMethod": "PAYMENT_METHOD_COD"})
-    orders = res.get("orders", [])
-    order_id = orders[0].get("id") if orders else res.get("order", {}).get("id", "")
-    assert order_id, f"order not created: {res}"
-    # Only the listing's seller may ship and complete the order.
-    complete_order_as_seller(world, seller, order_id, restore_token=buyer.token)
-    return order_id
+    """Completed order for the buyer (real order through the gateway); see review_order_support."""
+    return ros.completed_order_for(world, buyer, seller, listing_id)
+
+
+def _seed_review(
+    world: World,
+    buyer: User,
+    seller: User,
+    listing_id: str,
+    rating: int,
+    comment: str,
+    media_urls: list[str] | None = None,
+) -> dict:
+    """A verified review: the buyer's own completed order, then CreateReview with its id."""
+    return ros.seed_verified_review(world, buyer, seller, listing_id, rating, comment, media_urls)
 
 
 # ── Post a review with a photo ───────────────────────────────────────────
 @given("a buyer has posted a review with a photo on a seeded listing")
 def buyer_posted_review_with_photo(world: World) -> None:
-    _seller, listing = _seed_seller_and_listing(world, "photo")
+    seller, listing = _seed_seller_and_listing(world, "photo")
     author = _register_buyer(world, "photo")
-    _create_review(
+    _seed_review(
         world,
-        author.token,
+        author,
+        seller,
         listing.listing_id,
         rating=5,
         comment="Sản phẩm rất tốt, đóng gói cẩn thận!",
@@ -170,15 +159,9 @@ def review_and_photo_shown(world: World) -> None:
 # ── Helpful vote (increments once per user) ──────────────────────────────
 @given("a buyer is viewing a listing with another user's review")
 def buyer_viewing_others_review(world: World) -> None:
-    _seller, listing = _seed_seller_and_listing(world, "helpful")
+    seller, listing = _seed_seller_and_listing(world, "helpful")
     author = _register_buyer(world, "helpful_author")
-    _create_review(
-        world,
-        author.token,
-        listing.listing_id,
-        rating=4,
-        comment="Ổn trong tầm giá.",
-    )
+    _seed_review(world, author, seller, listing.listing_id, rating=4, comment="Ổn trong tầm giá.")
     viewer = _register_buyer(world, "helpful_viewer")
     login_via_api(world, viewer)
     world.state.current_user = viewer
@@ -210,14 +193,13 @@ def helpful_count_increments_once(world: World) -> None:
 def buyer_reviewed_completed_order(world: World) -> None:
     seller, listing = _seed_seller_and_listing(world, "verified")
     buyer = _register_buyer(world, "verified")
-    order_id = _complete_order_for(world, buyer, seller, listing.listing_id)
-    _create_review(
+    _seed_review(
         world,
-        buyer.token,
+        buyer,
+        seller,
         listing.listing_id,
         rating=5,
         comment="Đã mua và dùng thử, rất hài lòng!",
-        order_id=order_id,
     )
     login_via_api(world, buyer)
     world.state.current_user = buyer

@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
@@ -17,6 +18,10 @@ import (
 
 // ErrReviewNotFound is returned when a review id does not exist.
 var ErrReviewNotFound = errors.New("review not found")
+
+// ErrDuplicateReview is returned when a verified review already exists for the
+// same (order, listing).
+var ErrDuplicateReview = errors.New("review already exists for this order and listing")
 
 type Review struct {
 	ID               string
@@ -31,6 +36,9 @@ type Review struct {
 	VerifiedPurchase bool
 	SellerID         string
 	CreatedAt        time.Time
+	HiddenAt         *time.Time
+	HiddenBy         string
+	HideReason       string
 }
 
 type RatingBreakdown struct {
@@ -65,6 +73,11 @@ type ReviewRepository interface {
 	MarkHelpful(ctx context.Context, reviewID, userID string) (int64, error)
 	// GetShopRatingSummary aggregates ratings across all of the seller's listings.
 	GetShopRatingSummary(ctx context.Context, sellerID string) (ShopRatingSummary, error)
+	// GetReview returns a review including hidden ones; ErrReviewNotFound if absent.
+	GetReview(ctx context.Context, id string) (Review, error)
+	// HideReview hides a review. Idempotent: changed=false when already hidden
+	// (existing hidden_* state is kept). ErrReviewNotFound if absent.
+	HideReview(ctx context.Context, id, adminID, reason string) (bool, error)
 }
 
 // ── Postgres Implementation ──────────────────────────────────────────
@@ -77,12 +90,12 @@ func NewPostgresReviewRepository(pool *pgxpool.Pool) *PostgresReviewRepository {
 	return &PostgresReviewRepository{pool: pool}
 }
 
-const reviewColumns = `id, listing_id, user_id, user_name, order_id, rating, comment, media_urls, helpful_count, verified_purchase, seller_id, created_at`
+const reviewColumns = `id, listing_id, user_id, user_name, order_id, rating, comment, media_urls, helpful_count, verified_purchase, seller_id, created_at, hidden_at, hidden_by, hide_reason`
 
 func scanReview(row pgx.Row, rev *Review) error {
 	return row.Scan(&rev.ID, &rev.ListingID, &rev.UserID, &rev.UserName, &rev.OrderID,
 		&rev.Rating, &rev.Comment, &rev.MediaURLs, &rev.HelpfulCount, &rev.VerifiedPurchase,
-		&rev.SellerID, &rev.CreatedAt)
+		&rev.SellerID, &rev.CreatedAt, &rev.HiddenAt, &rev.HiddenBy, &rev.HideReason)
 }
 
 func (r *PostgresReviewRepository) CreateReview(ctx context.Context, review Review) (Review, error) {
@@ -100,6 +113,10 @@ func (r *PostgresReviewRepository) CreateReview(ctx context.Context, review Revi
 		if _, err := tx.Exec(ctx, q, review.ID, review.ListingID, review.UserID, review.UserName, review.OrderID,
 			review.Rating, review.Comment, review.MediaURLs, review.HelpfulCount, review.VerifiedPurchase,
 			review.SellerID, review.CreatedAt); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "uq_reviews_order_listing_verified" {
+				return ErrDuplicateReview
+			}
 			return fmt.Errorf("insert review: %w", err)
 		}
 		// Seller comes from the verified order; else from our own seller_listings
@@ -130,12 +147,12 @@ func (r *PostgresReviewRepository) ListReviews(ctx context.Context, listingID st
 	var err error
 
 	if ratingFilter >= 1 && ratingFilter <= 5 {
-		_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM reviews WHERE listing_id = $1 AND rating = $2`, listingID, ratingFilter).Scan(&total)
-		listQ = `SELECT ` + reviewColumns + ` FROM reviews WHERE listing_id = $1 AND rating = $2 ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`
+		_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM reviews WHERE listing_id = $1 AND hidden_at IS NULL AND rating = $2`, listingID, ratingFilter).Scan(&total)
+		listQ = `SELECT ` + reviewColumns + ` FROM reviews WHERE listing_id = $1 AND hidden_at IS NULL AND rating = $2 ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4`
 		rows, err = r.pool.Query(ctx, listQ, listingID, ratingFilter, limit, offset)
 	} else {
-		_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM reviews WHERE listing_id = $1`, listingID).Scan(&total)
-		listQ = `SELECT ` + reviewColumns + ` FROM reviews WHERE listing_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`
+		_ = r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM reviews WHERE listing_id = $1 AND hidden_at IS NULL`, listingID).Scan(&total)
+		listQ = `SELECT ` + reviewColumns + ` FROM reviews WHERE listing_id = $1 AND hidden_at IS NULL ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`
 		rows, err = r.pool.Query(ctx, listQ, listingID, limit, offset)
 	}
 
@@ -188,7 +205,7 @@ func aggregateRows(rows pgx.Rows) (float64, int64, RatingBreakdown, error) {
 }
 
 func (r *PostgresReviewRepository) GetRatingSummary(ctx context.Context, listingID string) (RatingSummary, error) {
-	rows, err := r.pool.Query(ctx, `SELECT rating, COUNT(*) FROM reviews WHERE listing_id = $1 GROUP BY rating`, listingID)
+	rows, err := r.pool.Query(ctx, `SELECT rating, COUNT(*) FROM reviews WHERE listing_id = $1 AND verified_purchase AND hidden_at IS NULL GROUP BY rating`, listingID)
 	if err != nil {
 		return RatingSummary{ListingID: listingID}, fmt.Errorf("query rating summary: %w", err)
 	}
@@ -200,7 +217,7 @@ func (r *PostgresReviewRepository) GetRatingSummary(ctx context.Context, listing
 }
 
 func (r *PostgresReviewRepository) GetShopRatingSummary(ctx context.Context, sellerID string) (ShopRatingSummary, error) {
-	rows, err := r.pool.Query(ctx, `SELECT rating, COUNT(*) FROM reviews WHERE seller_id = $1 GROUP BY rating`, sellerID)
+	rows, err := r.pool.Query(ctx, `SELECT rating, COUNT(*) FROM reviews WHERE seller_id = $1 AND verified_purchase AND hidden_at IS NULL GROUP BY rating`, sellerID)
 	if err != nil {
 		return ShopRatingSummary{SellerID: sellerID}, fmt.Errorf("query shop rating summary: %w", err)
 	}
@@ -214,7 +231,7 @@ func (r *PostgresReviewRepository) GetShopRatingSummary(ctx context.Context, sel
 func (r *PostgresReviewRepository) MarkHelpful(ctx context.Context, reviewID, userID string) (int64, error) {
 	// Ensure the review exists first (FK would also reject, but this gives a clean error).
 	var current int64
-	err := r.pool.QueryRow(ctx, `SELECT helpful_count FROM reviews WHERE id = $1`, reviewID).Scan(&current)
+	err := r.pool.QueryRow(ctx, `SELECT helpful_count FROM reviews WHERE id = $1 AND hidden_at IS NULL`, reviewID).Scan(&current)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, ErrReviewNotFound
@@ -239,6 +256,38 @@ func (r *PostgresReviewRepository) MarkHelpful(ctx context.Context, reviewID, us
 		return 0, fmt.Errorf("bump helpful_count: %w", err)
 	}
 	return updated, nil
+}
+
+func (r *PostgresReviewRepository) GetReview(ctx context.Context, id string) (Review, error) {
+	var rev Review
+	err := scanReview(r.pool.QueryRow(ctx, `SELECT `+reviewColumns+` FROM reviews WHERE id = $1`, id), &rev)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Review{}, ErrReviewNotFound
+	}
+	if err != nil {
+		return Review{}, fmt.Errorf("get review: %w", err)
+	}
+	return rev, nil
+}
+
+func (r *PostgresReviewRepository) HideReview(ctx context.Context, id, adminID, reason string) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE reviews SET hidden_at = now(), hidden_by = $2, hide_reason = $3 WHERE id = $1 AND hidden_at IS NULL`,
+		id, adminID, reason)
+	if err != nil {
+		return false, fmt.Errorf("hide review: %w", err)
+	}
+	if tag.RowsAffected() == 1 {
+		return true, nil
+	}
+	var exists bool
+	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM reviews WHERE id = $1)`, id).Scan(&exists); err != nil {
+		return false, fmt.Errorf("hide review: %w", err)
+	}
+	if !exists {
+		return false, ErrReviewNotFound
+	}
+	return false, nil
 }
 
 var _ ReviewRepository = (*PostgresReviewRepository)(nil)
@@ -268,6 +317,13 @@ func (r *InMemoryReviewRepository) CreateReview(_ context.Context, review Review
 	if review.MediaURLs == nil {
 		review.MediaURLs = []string{}
 	}
+	if review.VerifiedPurchase {
+		for _, e := range r.data {
+			if e.VerifiedPurchase && e.OrderID == review.OrderID && e.ListingID == review.ListingID {
+				return Review{}, ErrDuplicateReview
+			}
+		}
+	}
 	r.data = append(r.data, review)
 	return review, nil
 }
@@ -279,7 +335,7 @@ func (r *InMemoryReviewRepository) ListReviews(_ context.Context, listingID stri
 	var filtered []Review
 	for i := len(r.data) - 1; i >= 0; i-- {
 		rev := r.data[i]
-		if rev.ListingID == listingID {
+		if rev.ListingID == listingID && rev.HiddenAt == nil {
 			if ratingFilter == 0 || rev.Rating == ratingFilter {
 				filtered = append(filtered, rev)
 			}
@@ -335,7 +391,7 @@ func (r *InMemoryReviewRepository) GetRatingSummary(_ context.Context, listingID
 	defer r.mu.RUnlock()
 	var matched []Review
 	for _, rev := range r.data {
-		if rev.ListingID == listingID {
+		if rev.ListingID == listingID && rev.VerifiedPurchase && rev.HiddenAt == nil {
 			matched = append(matched, rev)
 		}
 	}
@@ -348,7 +404,7 @@ func (r *InMemoryReviewRepository) GetShopRatingSummary(_ context.Context, selle
 	defer r.mu.RUnlock()
 	var matched []Review
 	for _, rev := range r.data {
-		if rev.SellerID == sellerID {
+		if rev.SellerID == sellerID && rev.VerifiedPurchase && rev.HiddenAt == nil {
 			matched = append(matched, rev)
 		}
 	}
@@ -362,7 +418,7 @@ func (r *InMemoryReviewRepository) MarkHelpful(_ context.Context, reviewID, user
 
 	idx := -1
 	for i := range r.data {
-		if r.data[i].ID == reviewID {
+		if r.data[i].ID == reviewID && r.data[i].HiddenAt == nil {
 			idx = i
 			break
 		}
@@ -382,6 +438,34 @@ func (r *InMemoryReviewRepository) MarkHelpful(_ context.Context, reviewID, user
 	set[userID] = struct{}{}
 	r.data[idx].HelpfulCount++
 	return r.data[idx].HelpfulCount, nil
+}
+
+func (r *InMemoryReviewRepository) GetReview(_ context.Context, id string) (Review, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, rev := range r.data {
+		if rev.ID == id {
+			return rev, nil
+		}
+	}
+	return Review{}, ErrReviewNotFound
+}
+
+func (r *InMemoryReviewRepository) HideReview(_ context.Context, id, adminID, reason string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.data {
+		if r.data[i].ID != id {
+			continue
+		}
+		if r.data[i].HiddenAt != nil {
+			return false, nil
+		}
+		now := time.Now()
+		r.data[i].HiddenAt, r.data[i].HiddenBy, r.data[i].HideReason = &now, adminID, reason
+		return true, nil
+	}
+	return false, ErrReviewNotFound
 }
 
 var _ ReviewRepository = (*InMemoryReviewRepository)(nil)

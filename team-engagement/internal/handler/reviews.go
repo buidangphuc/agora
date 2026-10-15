@@ -10,6 +10,7 @@ import (
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
 	"github.com/buidangphuc/team-engagement/internal/repository"
+	"github.com/buidangphuc/team-engagement/internal/service"
 )
 
 // MarkReviewHelpful records the caller's "helpful" vote (idempotent per user).
@@ -64,4 +65,28 @@ func (h *EngagementHandler) GetShopRatingSummary(
 			Star_5: summary.Breakdown.Star5,
 		},
 	}, nil
+}
+
+// HideReview hides a review (admin only). The actor is the verified principal.
+func (h *EngagementHandler) HideReview(
+	ctx context.Context, req *engagementv1.HideReviewRequest,
+) (*engagementv1.HideReviewResponse, error) {
+	if err := interceptor.RequireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	if h.reviewSvc == nil {
+		return nil, status.Error(codes.Unimplemented, "reviews service unavailable")
+	}
+	err := h.reviewSvc.HideReview(ctx, userID(ctx), req.GetReviewId(), req.GetReason())
+	switch {
+	case err == nil:
+		return &engagementv1.HideReviewResponse{}, nil
+	case errors.Is(err, service.ErrEmptyReviewID), errors.Is(err, service.ErrEmptyReason), errors.Is(err, service.ErrReasonTooLong):
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, repository.ErrReviewNotFound):
+		return nil, status.Error(codes.NotFound, "review not found")
+	case errors.Is(err, service.ErrAuditUnavailable):
+		return nil, status.Error(codes.Unavailable, "audit unavailable")
+	}
+	return nil, status.Error(codes.Internal, "hide review failed")
 }

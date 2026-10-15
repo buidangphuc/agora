@@ -16,8 +16,8 @@ from src.constants import PageName, timeouts
 from src.pages import ListingDetailPage
 from tests.e2e.flows import login_via_api
 from tests.e2e.step_definitions.review_ratings_steps import (
-    _create_review,
     _register_buyer,
+    _seed_review,
     _seed_seller_and_listing,
 )
 from tests.e2e.support.world import World
@@ -47,12 +47,13 @@ def _listed_ratings(world: World) -> list[int]:
 
 @given("a buyer is viewing a listing with reviews of several star values")
 def buyer_viewing_listing_with_reviews(world: World) -> None:
-    _seller, listing = _seed_seller_and_listing(world, "pdpfilter")
+    seller, listing = _seed_seller_and_listing(world, "pdpfilter")
     for i, stars in enumerate(_SEEDED_STARS):
         author = _register_buyer(world, f"pdpfilter{i}")
-        _create_review(
+        _seed_review(
             world,
-            author.token,
+            author,
+            seller,
             listing.listing_id,
             rating=stars,
             comment=f"Nhận xét {stars} sao #{i}",

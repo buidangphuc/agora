@@ -1,12 +1,7 @@
 """Binds engagement/rich_reviews.feature to step definitions.
 
-Two scenarios (review photo + helpful vote) run green. The verified-purchase
-badge scenario is marked xfail: the running team-engagement service has no
-UPSTREAM_ORDER_ADDR configured, so its team-order verifier is nil and
-verified_purchase is always false (the badge never renders) regardless of the
-order being COMPLETED. It self-heals (xpass) once the deployment wires the order
-upstream. Scenarios are bound explicitly (not via scenarios()) so only the
-verified-purchase one carries the marker.
+Every review is seeded through a completed order (review_order_support), so the
+verified-purchase badge scenario runs un-marked: UPSTREAM_ORDER_ADDR is wired on the stack.
 """
 
 from pytest_bdd import scenario

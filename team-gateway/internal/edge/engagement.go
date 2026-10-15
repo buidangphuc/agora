@@ -35,6 +35,21 @@ func (f *EngagementForwarder) AddFavorite(
 	return connect.NewResponse(out), nil
 }
 
+func (f *EngagementForwarder) HideReview(
+	ctx context.Context, req *connect.Request[engagementv1.HideReviewRequest],
+) (*connect.Response[engagementv1.HideReviewResponse], error) {
+	var out *engagementv1.HideReviewResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.HideReview(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
 func (f *EngagementForwarder) RemoveFavorite(
 	ctx context.Context, req *connect.Request[engagementv1.RemoveFavoriteRequest],
 ) (*connect.Response[engagementv1.RemoveFavoriteResponse], error) {

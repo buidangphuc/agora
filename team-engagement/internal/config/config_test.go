@@ -69,3 +69,23 @@ func TestEngagementEventsDefaultsAndValidation(t *testing.T) {
 		t.Error("zero interval must fail")
 	}
 }
+
+// Scenario: No audit upstream configured / config for UPSTREAM_AUDIT_ADDR.
+func TestUpstreamAuditAddr(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Upstream.AuditAddr != "" {
+		t.Errorf("default UPSTREAM_AUDIT_ADDR = %q, want empty (audit disabled)", s.Upstream.AuditAddr)
+	}
+	t.Setenv("UPSTREAM_AUDIT_ADDR", "team-audit-svc:50066")
+	s, err = LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Upstream.AuditAddr != "team-audit-svc:50066" {
+		t.Errorf("AuditAddr = %q", s.Upstream.AuditAddr)
+	}
+}

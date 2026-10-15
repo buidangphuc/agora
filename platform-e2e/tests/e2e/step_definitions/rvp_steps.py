@@ -1,8 +1,9 @@
 """Steps for the reviews-pagination change (ListReviews paging + PDP `?rpage=`).
 
-One listing with 105 reviews is seeded through the gateway once per session and
-shared by the scenarios (they only read). Review comments are `rvp-001`..`rvp-105`
-in creation order, so "the 5 oldest" are rvp-001..rvp-005.
+One listing with 105 verified reviews is seeded once per session and shared by the scenarios
+(they only read). Rows are inserted by direct SQL (`seed_verified_reviews_sql`): 105 real
+completed orders would be far too slow and CreateReview now requires one. Review comments are
+`rvp-001`..`rvp-105` in creation order, so "the 5 oldest" are rvp-001..rvp-005.
 """
 
 from __future__ import annotations
@@ -15,12 +16,12 @@ from pytest_bdd import given, parsers, then, when
 from config.settings import get_settings
 from src.api.services import AuthService, ListingService
 from src.api.services.base_service import BaseService, GatewayError
-from src.api.services.engagement_service import EngagementService
 from src.constants import PageName, timeouts
 from src.models import Listing, User
 from src.pages import ListingDetailPage
 from src.utils import data as fake
 from tests.e2e.flows import login_via_api
+from tests.e2e.support import review_order_support as ros
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -46,12 +47,10 @@ def _listing_with_reviews() -> str:
             description="Seed for reviews pagination.",
         )
     )
-    author = AuthService().register(
-        fake.unique_username("rvp_buyer"), SETTINGS.seed_password, "buyer"
-    )
-    reviews = EngagementService(token=author)
-    for i in range(1, _TOTAL + 1):
-        reviews.add_review(listing_id, 1 + i % 5, f"rvp-{i:03d}")
+    seller_id = BaseService().post(
+        "/platform.listing.v1.ListingService/GetListing", {"id": listing_id}
+    )["listing"]["sellerId"]
+    ros.seed_verified_reviews_sql(listing_id, seller_id, _TOTAL)
     _seeded["listing_id"] = listing_id
     return listing_id
 

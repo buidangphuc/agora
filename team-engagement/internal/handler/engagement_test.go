@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -390,4 +391,151 @@ func TestEngagementHandler(t *testing.T) {
 			t.Fatalf("expected FailedPrecondition, got %v", err)
 		}
 	})
+}
+
+// ── CreateReview (review integrity) ──
+
+func createReviewReq(listing, order string, rating int32) *engagementv1.CreateReviewRequest {
+	return &engagementv1.CreateReviewRequest{ListingId: listing, OrderId: order, Rating: rating, Comment: "ok"}
+}
+
+func TestCreateReviewVerifiedStored(t *testing.T) {
+	f := newReviewFixture(t)
+	f.verifier.orders["buyer-1|order-1|L-1"] = "seller-1"
+	res, err := f.h.CreateReview(userCtx("buyer-1"), createReviewReq("L-1", "order-1", 5))
+	if err != nil {
+		t.Fatalf("CreateReview: %v", err)
+	}
+	if !res.GetReview().GetVerifiedPurchase() || res.GetReview().GetOrderId() != "order-1" {
+		t.Fatalf("unexpected review %v", res.GetReview())
+	}
+	if ids := f.listIDs(t, context.Background(), "L-1"); len(ids) != 1 {
+		t.Fatalf("review not listed: %v", ids)
+	}
+}
+
+func TestCreateReviewEmptyOrderInvalidArgument(t *testing.T) {
+	f := newReviewFixture(t)
+	_, err := f.h.CreateReview(userCtx("buyer-1"), createReviewReq("L-1", "", 5))
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("want InvalidArgument, got %v", err)
+	}
+	if f.verifier.calls != 0 || f.count("L-1") != 0 {
+		t.Fatalf("empty order must not reach the verifier or store a row (calls=%d)", f.verifier.calls)
+	}
+}
+
+func TestCreateReviewIneligibleOrderSingleMessage(t *testing.T) {
+	f := newReviewFixture(t)
+	// Only buyer-1 / order-ok / L-1 is eligible; each call below fails a different condition
+	// (not completed, someone else's order, listing not in the order, unknown order),
+	// all of which the verifier reports as (false, nil).
+	f.verifier.orders["buyer-1|order-ok|L-1"] = "seller-1"
+	calls := []struct{ buyer, order, listing string }{
+		{"buyer-1", "order-pending", "L-1"},
+		{"buyer-2", "order-ok", "L-1"},
+		{"buyer-1", "order-ok", "L-other"},
+		{"buyer-1", "order-404", "L-1"},
+	}
+	var msgs []string
+	for _, c := range calls {
+		_, err := f.h.CreateReview(userCtx(c.buyer), createReviewReq(c.listing, c.order, 4))
+		if status.Code(err) != codes.FailedPrecondition {
+			t.Fatalf("%+v: want FailedPrecondition, got %v", c, err)
+		}
+		msgs = append(msgs, status.Convert(err).Message())
+	}
+	for _, m := range msgs {
+		if m == "" || m != msgs[0] {
+			t.Fatalf("messages must be identical and non-empty, got %q", msgs)
+		}
+	}
+	if f.count("L-1") != 0 || f.count("L-other") != 0 {
+		t.Fatal("an ineligible review was stored")
+	}
+}
+
+func TestCreateReviewAnonymousUnauthenticated(t *testing.T) {
+	f := newReviewFixture(t)
+	for name, ctx := range map[string]context.Context{"anonymous principal": anonCtx(), "no principal": context.Background()} {
+		t.Run(name, func(t *testing.T) {
+			_, err := f.h.CreateReview(ctx, createReviewReq("L-1", "order-1", 5))
+			if status.Code(err) != codes.Unauthenticated {
+				t.Fatalf("want Unauthenticated, got %v", err)
+			}
+			if f.verifier.calls != 0 {
+				t.Fatal("verifier called for an anonymous caller")
+			}
+		})
+	}
+}
+
+func TestCreateReviewVerifierDownUnavailable(t *testing.T) {
+	f := newReviewFixture(t)
+	f.verifier.err = errors.New("order down")
+	_, err := f.h.CreateReview(userCtx("buyer-1"), createReviewReq("L-1", "order-1", 5))
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("want Unavailable, got %v", err)
+	}
+	if f.count("L-1") != 0 {
+		t.Fatal("review stored while verifier was down")
+	}
+}
+
+func TestCreateReviewNoVerifierUnavailable(t *testing.T) {
+	svc := service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil)
+	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(), svc, nil, nil, nil)
+	_, err := h.CreateReview(userCtx("buyer-1"), createReviewReq("L-1", "order-1", 5))
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("want Unavailable, got %v", err)
+	}
+}
+
+func TestCreateReviewDuplicateAlreadyExists(t *testing.T) {
+	f := newReviewFixture(t)
+	f.verifier.orders["buyer-1|order-1|L-1"] = "seller-1"
+	if _, err := f.h.CreateReview(userCtx("buyer-1"), createReviewReq("L-1", "order-1", 5)); err != nil {
+		t.Fatal(err)
+	}
+	_, err := f.h.CreateReview(userCtx("buyer-1"), createReviewReq("L-1", "order-1", 4))
+	if status.Code(err) != codes.AlreadyExists {
+		t.Fatalf("want AlreadyExists, got %v", err)
+	}
+	if f.count("L-1") != 1 {
+		t.Fatalf("want 1 row, got %d", f.count("L-1"))
+	}
+}
+
+func TestListReviewsIncludesUnverifiedExcludesHidden(t *testing.T) {
+	f := newReviewFixture(t)
+	f.seed(t, "L-1", "s-1", 5, true)
+	f.seed(t, "L-1", "s-1", 3, true)
+	legacy := f.seed(t, "L-1", "s-1", 1, false)
+	hidden := f.seed(t, "L-1", "s-1", 4, true)
+	if _, err := f.hide(adminCtx(), hidden.ID, "spam"); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := f.h.ListReviews(context.Background(), &engagementv1.ListReviewsRequest{ListingId: "L-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.GetReviews()) != 3 || res.GetPage().GetTotal() != 3 {
+		t.Fatalf("want 3 reviews / total 3, got %d / %d", len(res.GetReviews()), res.GetPage().GetTotal())
+	}
+	var sawLegacy bool
+	for _, r := range res.GetReviews() {
+		if r.GetId() == hidden.ID {
+			t.Fatal("hidden review listed")
+		}
+		if r.GetId() == legacy.ID {
+			sawLegacy = true
+			if r.GetVerifiedPurchase() {
+				t.Fatal("legacy review must be verified_purchase=false")
+			}
+		}
+	}
+	if !sawLegacy {
+		t.Fatal("legacy unverified review missing from the list")
+	}
 }
