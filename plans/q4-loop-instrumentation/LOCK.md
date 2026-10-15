@@ -1,16 +1,16 @@
 # LOCK — q4-loop-instrumentation
-status: pending            # human sets: approved | rejected
-approved-by:               # human name
-date:
+status: approved
+approved-by: Bùi Đăng Phúc (chat "ok", 2026-10-15)
+date: 2026-10-15
 spec: plans/q4-loop-instrumentation/00-spec.md (Locked 2026-10-15)
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
-| q4-loop-events-contract | platform-core | [] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 0e01ce929270 | [ ] |
-| analytics-loop-event-storage | team-analytics | [q4-loop-events-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 9fbd3104f295 | [ ] |
-| gateway-loop-event-intake | team-gateway | [q4-loop-events-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6f2058a25087 | [ ] |
-| frontend-loop-events | team-frontend | [gateway-loop-event-intake] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | f0e3660a66c6 | [ ] |
-| frontend-ai-interaction-events | team-frontend | [gateway-loop-event-intake, frontend-loop-events] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c5c4f85a1fb4 | [ ] |
+| q4-loop-events-contract | platform-core | [] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 0e01ce929270 | [x] |
+| analytics-loop-event-storage | team-analytics | [q4-loop-events-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 9fbd3104f295 | [x] |
+| gateway-loop-event-intake | team-gateway | [q4-loop-events-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 6f2058a25087 | [x] |
+| frontend-loop-events | team-frontend | [gateway-loop-event-intake] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | f0e3660a66c6 | [x] |
+| frontend-ai-interaction-events | team-frontend | [gateway-loop-event-intake, frontend-loop-events] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | c5c4f85a1fb4 | [x] |
 ## Build order (cross_change_check)
 1. q4-loop-events-contract (sequential, alone)  2. analytics-loop-event-storage + gateway-loop-event-intake (disjoint repos)  3. frontend-loop-events  4. frontend-ai-interaction-events
 — hot-file pair that must not run in parallel: frontend-loop-events / frontend-ai-interaction-events (team-frontend/src/lib/analytics/schema.ts, map.ts, dataLayer.ts).
