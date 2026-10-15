@@ -7,8 +7,8 @@ import {
   subscribeAlertAction,
   unsubscribeAlertAction,
 } from "@/features/notification/actions";
-import { trackEcommerce } from "@/lib/analytics";
 import { AlertType } from "@/generated/platform/notification/v1/notification_pb.js";
+import { trackEcommerce } from "@/lib/analytics";
 
 /**
  * "Notify me" toggles on the listing page: price-drop and back-in-stock.

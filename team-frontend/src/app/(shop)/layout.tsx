@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-import { AuthEventBeacon } from "@/features/auth/AuthEventBeacon";
 import { ConsumerShell } from "@/components/shell/ConsumerShell";
+import { AuthEventBeacon } from "@/features/auth/AuthEventBeacon";
 
 /** Consumer chrome for every route except checkout. */
 export default function ShopLayout({ children }: { children: ReactNode }) {

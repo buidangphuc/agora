@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 
 import { useToast } from "@/components/ui/ToastProvider";
-import type { ViewLoyalty } from "@/lib/gateway/engagement";
 import { trackEcommerce } from "@/lib/analytics";
+import type { ViewLoyalty } from "@/lib/gateway/engagement";
 import { checkInAction } from "./actions";
 
 /**
