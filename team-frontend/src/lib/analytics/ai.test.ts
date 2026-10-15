@@ -30,6 +30,7 @@ describe("trackAiInteraction", () => {
     trackAiInteraction("magic_listing", "accepted", "lst_1");
     const beacons = queued();
     expect(beacons).toHaveLength(1);
+    expect(beacons[0].type).toBe("ai_interaction");
     expect(beacons[0].listingId).toBe("lst_1");
     expect(beacons[0].properties).toEqual({
       surface: "magic_listing",
@@ -49,6 +50,7 @@ describe("trackAiInteraction", () => {
     trackAiInteraction("assistant", "shown");
     const beacons = queued();
     expect(beacons).toHaveLength(1);
+    expect(beacons[0].type).toBe("ai_interaction");
     expect(beacons[0].listingId).toBe("");
     expect(beacons[0].properties).toEqual({
       surface: "assistant",
