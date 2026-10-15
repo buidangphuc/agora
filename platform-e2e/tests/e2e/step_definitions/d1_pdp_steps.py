@@ -745,6 +745,14 @@ def submit_review(world: World) -> None:
     dialog.get_by_role("button", name="Hoàn thành").click()
 
 
+@then("every listed review carries the verified purchase badge")
+def reviews_verified(world: World) -> None:
+    items = _detail(world).review_items
+    expect(items.first).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(items.get_by_test_id("verified-purchase")).to_have_count(items.count())
+    expect(items.get_by_test_id("unverified-purchase")).to_have_count(0)
+
+
 @then("the submit button is pending and the modal controls are disabled")
 def review_pending(world: World) -> None:
     dialog = _x(world)["review_dialog"]

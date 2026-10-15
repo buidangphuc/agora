@@ -8187,9 +8187,9 @@ features:
     acceptance:
       - "Following the hint reaches the orders page"
     tags: [review-integrity]
-    status: planned
-    covered_by: "frontend/review_integrity_ui.feature::PDP offers no write button and links to the orders page"
-    notes: "frontend-review-integrity: e2e-covered, planned until green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `PDP offers no write button and links to the orders page`"
+    status: automated
+    covered_by: "frontend/review_integrity_ui.feature::Following the hint reaches the orders page"
+    notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `Following the hint reaches the orders page`"
 
   - id: frontend-review-integrity.review-from-a-completed-order-still-works
     title: "Review from a completed order still works"
@@ -8200,9 +8200,9 @@ features:
     acceptance:
       - "Review from a completed order still works"
     tags: [review-integrity]
-    status: planned
-    covered_by: "frontend/review_integrity_ui.feature::Reviewing a completed order item shows a verified review"
-    notes: "frontend-review-integrity: e2e-covered, planned until green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `Reviewing a completed order item shows a verified review`"
+    status: automated
+    covered_by: "frontend/review_integrity_ui.feature::Review from a completed order still works"
+    notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `Reviewing a completed order item shows a verified review`"
 
   - id: frontend-review-integrity.a-guest-following-the-hint-is-sent-to-login-not-to-a-review-form
     title: "A guest following the hint is sent to login, not to a review form"
@@ -8213,9 +8213,9 @@ features:
     acceptance:
       - "A guest following the hint is sent to login, not to a review form"
     tags: [review-integrity]
-    status: planned
-    covered_by: "frontend/review_integrity_ui.feature::PDP offers no write button and links to the orders page"
-    notes: "frontend-review-integrity: e2e-covered, planned until green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `PDP offers no write button and links to the orders page`; `team-frontend/src/features/review/actions.test.ts` `maps Unauthenticated on create`"
+    status: automated
+    covered_by: "frontend/review_integrity_ui.feature::A guest following the hint is sent to login, not to a review form"
+    notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `A guest following the hint is sent to login, not to a review form`; `team-frontend/src/features/review/actions.test.ts` `maps Unauthenticated on create`"
 
   - id: frontend-review-integrity.second-review-for-the-same-order-and-listing
     title: "Second review for the same order and listing"
@@ -8286,9 +8286,9 @@ features:
     acceptance:
       - "Duplicate review shown end to end"
     tags: [review-integrity]
-    status: planned
-    covered_by: "frontend/review_integrity_ui.feature::A second review for the same order item is refused"
-    notes: "frontend-review-integrity: e2e-covered, planned until green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `A second review for the same order item is refused`"
+    status: automated
+    covered_by: "frontend/review_integrity_ui.feature::Duplicate review shown end to end"
+    notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `A second review for the same order item is refused`"
 
   - id: frontend-review-integrity.legacy-review-carries-the-unverified-badge
     title: "Legacy review carries the unverified badge"
@@ -8335,9 +8335,9 @@ features:
     acceptance:
       - "Stars exclude the legacy review end to end"
     tags: [review-integrity]
-    status: planned
-    covered_by: "frontend/review_integrity_ui.feature::Legacy unverified review is listed but not counted"
-    notes: "frontend-review-integrity: e2e-covered, planned until green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `Legacy unverified review is listed but not counted`"
+    status: automated
+    covered_by: "frontend/review_integrity_ui.feature::Stars exclude the legacy review end to end"
+    notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `Legacy unverified review is listed but not counted`"
 
   - id: frontend-review-integrity.admin-sees-the-hide-button-on-every-review
     title: "Admin sees the hide button on every review"
@@ -8372,9 +8372,9 @@ features:
     acceptance:
       - "Hide succeeds and the review disappears"
     tags: [review-integrity]
-    status: planned
-    covered_by: "frontend/review_integrity_ui.feature::Admin hides a review and it disappears for everyone"
-    notes: "frontend-review-integrity: e2e-covered, planned until green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `Admin hides a review and it disappears for everyone`"
+    status: automated
+    covered_by: "frontend/review_integrity_ui.feature::Hide succeeds and the review disappears"
+    notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `Admin hides a review and it disappears for everyone`"
 
   - id: frontend-review-integrity.hide-action-sends-one-call-and-revalidates
     title: "Hide action sends one call and revalidates"
@@ -8469,9 +8469,9 @@ features:
     acceptance:
       - "A non-admin does not get the control in the browser"
     tags: [review-integrity]
-    status: planned
-    covered_by: "frontend/review_integrity_ui.feature::Buyers and guests do not see the hide control"
-    notes: "frontend-review-integrity: e2e-covered, planned until green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `Buyers and guests do not see the hide control`"
+    status: automated
+    covered_by: "frontend/review_integrity_ui.feature::A non-admin does not get the control in the browser"
+    notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/review_integrity_ui.feature` `Buyers and guests do not see the hide control`"
 
   - id: frontend-review-integrity.seeded-reviews-are-verified
     title: "Seeded reviews are verified"
@@ -8482,9 +8482,9 @@ features:
     acceptance:
       - "Seeded reviews are verified"
     tags: [review-integrity]
-    status: planned
-    covered_by: "frontend/product_detail_ui.feature::Reviews paginate at 10"
-    notes: "frontend-review-integrity: e2e-covered, planned until green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/product_detail_ui.feature` `Reviews paginate at 10`; `platform-e2e/tests/e2e/features/frontend/rvp_reviews_pagination_ui.feature` `A listing with 105 reviews shows 11 pages`; `platform-e2e/tests/e2e/features/frontend/uif_product_detail.feature` `The reviews section renders with its reviews and no AI summary, error text or leftover skeleton`"
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Seeded reviews are verified"
+    notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/product_detail_ui.feature` `Reviews paginate at 10`; `platform-e2e/tests/e2e/features/frontend/rvp_reviews_pagination_ui.feature` `A listing with 105 reviews shows 11 pages`; `platform-e2e/tests/e2e/features/frontend/uif_product_detail.feature` `The reviews section renders with its reviews and no AI summary, error text or leftover skeleton`"
 
   - id: frontend-review-integrity.submit-review-scenario-runs-from-the-orders-page
     title: "Submit-review scenario runs from the orders page"
@@ -8495,9 +8495,9 @@ features:
     acceptance:
       - "Submit-review scenario runs from the orders page"
     tags: [review-integrity]
-    status: planned
-    covered_by: "frontend/product_detail_ui.feature::Submitting a review shows pending then success"
-    notes: "frontend-review-integrity: e2e-covered, planned until green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/product_detail_ui.feature` `Submitting a review shows pending then success`"
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Submit-review scenario runs from the orders page"
+    notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/product_detail_ui.feature` `Submitting a review shows pending then success`"
 
   - id: frontend-review-integrity.a-foreign-or-ineligible-order-is-shown-as-a-clear-error
     title: "A foreign or ineligible order is shown as a clear error"
@@ -8520,6 +8520,6 @@ features:
     acceptance:
       - "Seeded reviews belong to the buyer who owns the order"
     tags: [review-integrity]
-    status: planned
-    covered_by: "frontend/product_detail_ui.feature::A successful mutation revalidates the page"
-    notes: "frontend-review-integrity: e2e-covered, planned until green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/product_detail_ui.feature` `A successful mutation revalidates the page`"
+    status: automated
+    covered_by: "frontend/product_detail_ui.feature::Seeded reviews belong to the buyer who owns the order"
+    notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/product_detail_ui.feature` `A successful mutation revalidates the page`"
