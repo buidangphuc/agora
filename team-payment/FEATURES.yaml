@@ -1317,3 +1317,309 @@ features:
     status: automated
     covered_by: "payment/payout_scope.feature::A seller can still request a payout"
     notes: "Scenario: payment/payout_scope.feature::A seller can still request a payout. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated. Serial lane (@destructive): waits the payout hold window out, needs platform-e2e/compose/payment-ledger.override.yaml (PAYOUT_HOLD_WINDOW=20s); stops nothing."
+
+  # ---- payment-admin-refund-audit (initiative q3-audit-log): written from the spec; e2e red until team-payment audits admin refunds.
+  - id: payment.praa-admin-refund-writes-one-audit-event-and-refunds
+    title: "Admin refund writes one audit event and refunds"
+    persona: admin
+    priority: P2
+    summary: "Admin refund writes one audit event and refunds"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Admin refund writes one audit event and refunds (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundWritesAuditEvent`. Not producible end to end."
+
+  - id: payment.praa-audit-is-written-before-the-refund
+    title: "Audit is written before the refund"
+    persona: admin
+    priority: P2
+    summary: "Audit is written before the refund"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit is written before the refund (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditBeforeRefund`. Not producible end to end."
+
+  - id: payment.praa-admin-refund-is-audited-end-to-end
+    title: "Admin refund is audited end to end"
+    persona: admin
+    priority: P1
+    summary: "Admin refund is audited end to end"
+    entry_route: /seller/analytics
+    services: [team-payment, team-audit, team-order, team-gateway]
+    preconditions:
+      login: admin
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment, payment.v1.GetPayment, audit.v1.QueryAuditLog]
+    acceptance:
+      - "When an admin refunds 200000 of a PAID payment through the gateway"
+      - "Then the call succeeds and QueryAuditLog by target_type `payment` and the payment id returns exactly one event with action `payment.admin_refund`, the admin's user id as actor and metadata `amount`=\"200000\""
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Admin refund is audited end to end"
+    notes: "Written from the spec ahead of the code (payment-admin-refund-audit); red on the pre-change stack."
+
+  - id: payment.praa-admin-who-is-the-order-s-seller-is-audited
+    title: "Admin who is the order's seller is audited"
+    persona: admin
+    priority: P2
+    summary: "Admin who is the order's seller is audited"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Admin who is the order's seller is audited (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminWhoIsSellerRefundIsAudited`. Not producible end to end."
+
+  - id: payment.praa-audit-is-called-as-the-service-principal
+    title: "Audit is called as the service principal"
+    persona: admin
+    priority: P2
+    summary: "Audit is called as the service principal"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit is called as the service principal (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestAuditClientUsesServicePrincipal`. Not producible end to end."
+
+  - id: payment.praa-reason-is-not-copied-into-the-audit-event
+    title: "Reason is not copied into the audit event"
+    persona: admin
+    priority: P2
+    summary: "Reason is not copied into the audit event"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Reason is not copied into the audit event (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditMetadataKeys`. Not producible end to end."
+
+  - id: payment.praa-refusal-before-the-audit-write-writes-no-event
+    title: "Refusal before the audit write writes no event"
+    persona: admin
+    priority: P2
+    summary: "Refusal before the audit write writes no event"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refusal before the audit write writes no event (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundRefusedBeforeAuditWritesNothing`. Not producible end to end."
+
+  - id: payment.praa-unauthenticated-caller-writes-no-event
+    title: "Unauthenticated caller writes no event"
+    persona: admin
+    priority: P2
+    summary: "Unauthenticated caller writes no event"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Unauthenticated caller writes no event (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestRefundPaymentAnonymousNoAudit`. Not producible end to end."
+
+  - id: payment.praa-audit-error-leaves-the-ledger-unchanged
+    title: "Audit error leaves the ledger unchanged"
+    persona: admin
+    priority: P2
+    summary: "Audit error leaves the ledger unchanged"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit error leaves the ledger unchanged (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditErrorFailsClosed`. Not producible end to end."
+
+  - id: payment.praa-audit-timeout-is-bounded-and-refuses-the-refund
+    title: "Audit timeout is bounded and refuses the refund"
+    persona: admin
+    priority: P2
+    summary: "Audit timeout is bounded and refuses the refund"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit timeout is bounded and refuses the refund (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestAuditClientTimeoutBounded`; team-payment `internal/handler` `TestAdminRefundAuditTimeoutFailsClosed`. Not producible end to end."
+
+  - id: payment.praa-payment-audit-no-audit-upstream-configured
+    title: "Payment audit: no audit upstream configured"
+    persona: admin
+    priority: P2
+    summary: "Payment audit: no audit upstream configured"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Payment audit: no audit upstream configured (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestNewAuditClientEmptyAddrIsNil`; team-payment `internal/handler` `TestAdminRefundNilAuditWriterUnavailable`. Not producible end to end."
+
+  - id: payment.praa-audit-down-refuses-the-admin-refund-end-to-end
+    title: "Audit down refuses the admin refund end to end"
+    persona: admin
+    priority: P1
+    summary: "Audit down refuses the admin refund end to end"
+    entry_route: /seller/analytics
+    services: [team-payment, team-audit, team-order, team-gateway]
+    preconditions:
+      login: admin
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment, payment.v1.GetPayment, audit.v1.QueryAuditLog]
+    acceptance:
+      - "When team-audit is stopped and an admin refunds 200000 of a PAID payment through the gateway"
+      - "Then the call fails with `unavailable`, and after team-audit is started again the payment reads PAID with refunded amount 0 and no audit event exists for the payment"
+    tags: [fintech, security, destructive]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Audit down refuses the admin refund end to end"
+    notes: "Written from the spec ahead of the code (payment-admin-refund-audit). Serial lane (@destructive): stops team-audit and restores it in teardown."
+
+  - id: payment.praa-retry-after-audit-success-and-refund-failure-refunds-once
+    title: "Retry after audit success and refund failure refunds once"
+    persona: admin
+    priority: P2
+    summary: "Retry after audit success and refund failure refunds once"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Retry after audit success and refund failure refunds once (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundRetryAfterFailureRefundsOnce`. Not producible end to end."
+
+  - id: payment.praa-replay-of-an-applied-refund-id-does-not-move-money-again
+    title: "Replay of an applied refund id does not move money again"
+    persona: admin
+    priority: P2
+    summary: "Replay of an applied refund id does not move money again"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Replay of an applied refund id does not move money again (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundReplayIsIdempotent`. Not producible end to end."
+
+  - id: payment.praa-refund-above-the-remainder-is-refused-on-the-admin-path
+    title: "Refund above the remainder is refused on the admin path"
+    persona: admin
+    priority: P2
+    summary: "Refund above the remainder is refused on the admin path"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund above the remainder is refused on the admin path (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundExceedsRemainderRefused`. Not producible end to end."
+
+  - id: payment.praa-seller-refund-writes-no-audit-event
+    title: "Seller refund writes no audit event"
+    persona: seller
+    priority: P1
+    summary: "Seller refund writes no audit event"
+    entry_route: /seller/analytics
+    services: [team-payment, team-audit, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment, payment.v1.GetPayment, audit.v1.QueryAuditLog]
+    acceptance:
+      - "When the order's seller refunds 200000 of a PAID payment"
+      - "Then the call returns success, the payment reads PARTIALLY_REFUNDED, and zero audit events exist for the payment"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Seller refund writes no audit event"
+    notes: "Written from the spec ahead of the code (payment-admin-refund-audit); red on the pre-change stack."
+
+  - id: payment.praa-seller-refund-succeeds-while-audit-is-down
+    title: "Seller refund succeeds while audit is down"
+    persona: admin
+    priority: P2
+    summary: "Seller refund succeeds while audit is down"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Seller refund succeeds while audit is down (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestSellerRefundIgnoresAuditOutage`. Not producible end to end."
+
+  - id: payment.praa-non-seller-non-admin-is-denied-without-an-event
+    title: "Non-seller non-admin is denied without an event"
+    persona: admin
+    priority: P2
+    summary: "Non-seller non-admin is denied without an event"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Non-seller non-admin is denied without an event (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestRefundPaymentNonSellerDeniedNoAudit`. Not producible end to end."
+
+  - id: payment.praa-non-admin-buyer-cannot-trigger-an-admin-audit
+    title: "Non-admin buyer cannot trigger an admin audit"
+    persona: buyer
+    priority: P1
+    summary: "Non-admin buyer cannot trigger an admin audit"
+    entry_route: /seller/analytics
+    services: [team-payment, team-audit, team-order, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment, payment.v1.GetPayment, audit.v1.QueryAuditLog]
+    acceptance:
+      - "When the buyer of the payment calls RefundPayment"
+      - "Then the call fails with `permission_denied`, the payment is unchanged and no audit event exists for the payment"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Non-admin buyer cannot trigger an admin audit"
+    notes: "Written from the spec ahead of the code (payment-admin-refund-audit); red on the pre-change stack."
