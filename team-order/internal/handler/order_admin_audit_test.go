@@ -209,7 +209,7 @@ func newOrderRig(t *testing.T, w *fakeAudit) orderRig {
 	ships := repository.NewInMemoryShipmentRepository()
 	for _, o := range []repository.Order{
 		{ID: "ord_p", BuyerID: "buyer_1", SellerID: "sa", Status: repository.OrderStatusPaid},
-		{ID: "ord_pending", BuyerID: "buyer_1", SellerID: "sa", Status: repository.OrderStatusPending},
+		{ID: "ord_pending", BuyerID: "buyer_1", SellerID: "sa", Status: repository.OrderStatusCancelled},
 	} {
 		if _, err := orders.CreateOrder(context.Background(), o); err != nil {
 			t.Fatal(err)
@@ -595,6 +595,7 @@ func TestCreateShipmentRefusedWritesNoAudit(t *testing.T) {
 }
 
 // Scenario: Order audit: Shipment on a Pending order keeps the audit row
+// (a Pending order is shippable by COD hand-over, so a Cancelled order stands in as the non-shippable one)
 func TestCreateShipmentAdminInvalidStatusAfterAudit(t *testing.T) {
 	w := &fakeAudit{}
 	r := newOrderRig(t, w)
@@ -604,4 +605,7 @@ func TestCreateShipmentAdminInvalidStatusAfterAudit(t *testing.T) {
 		t.Fatalf("audit calls = %d, want 1", w.n())
 	}
 	r.noShipment(t, "ord_pending")
+	if got := r.status(t, "ord_pending"); got != repository.OrderStatusCancelled {
+		t.Fatalf("order = %v, want Cancelled", got)
+	}
 }
