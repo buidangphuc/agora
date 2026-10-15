@@ -37,6 +37,12 @@ correctness — not general logic or style.
    verification that skips `kid`.
 5. **Scope-role drift.** Role→scope mappings changed in a way that grants a role
    more than intended, or a buyer-scope RPC reachable with public/anonymous scopes.
+6. **Unaudited admin mutation.** A mutation RPC reachable by a caller holding the
+   `admin` scope (team-order: `order.admin`) that does not write an audit event
+   (`AuditService.WriteAuditEvent`) before mutating, or that proceeds when the audit
+   write fails (it must fail closed). Every admin-scope call is audited, including
+   an admin who owns the resource. Do NOT flag an owner path for a caller lacking
+   the admin scope (e.g. a seller on their own order): those calls are never audited.
 
 ## How to work
 
@@ -50,6 +56,6 @@ correctness — not general logic or style.
 
 - **BLOCKING** — `file:line` · which rule · why it's exploitable · minimal fix.
 - **QUESTION** — needs author confirmation (e.g. is this RPC intentionally public?).
-- **CLEAN** — say so and list the RPCs/paths you verified.
+- **CLEAN** — required output when nothing is flagged: say so and list the RPCs/paths you verified (including the admin mutations confirmed audited fail-closed).
 
 Report only. Do not edit files.

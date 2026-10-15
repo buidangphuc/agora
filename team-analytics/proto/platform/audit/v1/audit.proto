@@ -9,7 +9,12 @@ import "platform/common/v1/common.proto";
 service AuditService {
   // Append an audit event (write-only; server assigns id + created_at).
   rpc WriteAuditEvent(WriteAuditEventRequest) returns (WriteAuditEventResponse);
-  // Query the audit trail, filtered by actor and/or target type.
+  // Query the audit trail. Admin-only: callers holding the admin scope may
+  // read; a non-admin caller gets PermissionDenied and an anonymous caller
+  // gets Unauthenticated. All filters that are set are combined with AND; an
+  // unset or empty filter does not restrict the result. A created_after later
+  // than created_before (created_after > created_before) is rejected with
+  // InvalidArgument; equal bounds are valid. Results are ordered newest first.
   rpc QueryAuditLog(QueryAuditLogRequest) returns (QueryAuditLogResponse);
 }
 
@@ -23,6 +28,18 @@ message AuditEvent {
   google.protobuf.Timestamp created_at = 7;
 }
 
+// Naming rule: action is "<entity>.<verb>" (lower snake_case parts), e.g.
+// "review.hide". Admin-path rule: every call by a caller holding the admin
+// scope (team-order: order.admin) to one of the catalogued RPCs is audited,
+// even when that admin also owns the resource. A caller without that scope
+// (for example a seller acting on their own order) is never audited, and a
+// caller whose request is permission denied writes no event.
+//
+// Action catalogue (13):
+//   review.hide, kyc.review, dispute.resolve, listing.admin_update,
+//   listing.admin_delete, order.force_fail, order.admin_status_update,
+//   return.admin_status_update, shipment.admin_create, payment.admin_refund,
+//   voucher.platform_create, flash_sale.admin_create, ad_campaign.admin_create
 message WriteAuditEventRequest {
   string actor_id = 1;
   string action = 2;
@@ -34,9 +51,17 @@ message WriteAuditEventRequest {
 message WriteAuditEventResponse {}
 
 message QueryAuditLogRequest {
-  string actor_id = 1;     // optional filter
-  string target_type = 2;  // optional filter
+  string actor_id = 1;     // optional filter; empty = unset
+  string target_type = 2;  // optional filter; empty = unset
   platform.common.v1.PageRequest page = 3;
+  // Exact match on the target id (optional).
+  optional string target_id = 4;
+  // Exact match on the action, e.g. "review.hide" (optional).
+  optional string action = 5;
+  // Inclusive lower bound on created_at (created_at >= created_after).
+  google.protobuf.Timestamp created_after = 6;
+  // Exclusive upper bound on created_at (created_at < created_before).
+  google.protobuf.Timestamp created_before = 7;
 }
 
 message QueryAuditLogResponse {
