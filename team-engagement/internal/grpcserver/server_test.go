@@ -23,6 +23,13 @@ import (
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
+// eligibleVerifier is a fake team-order that confirms every (buyer, order, listing).
+type eligibleVerifier struct{}
+
+func (eligibleVerifier) VerifyPurchase(_ context.Context, _, _, _ string) (bool, string, error) {
+	return true, "seller-1", nil
+}
+
 func startServer(t *testing.T) engagementv1.EngagementServiceClient {
 	t.Helper()
 	s := &config.Settings{}
@@ -30,7 +37,7 @@ func startServer(t *testing.T) engagementv1.EngagementServiceClient {
 	s.Server.ReflectionEnabled = false
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	reviewRepo := repository.NewInMemoryReviewRepository()
-	reviewSvc := service.NewReviewService(reviewRepo, nil, logger)
+	reviewSvc := service.NewReviewService(reviewRepo, eligibleVerifier{}, logger)
 	qaRepo := repository.NewInMemoryQARepository()
 	qaSvc := service.NewQAService(qaRepo, logger)
 	disputeRepo := repository.NewInMemoryDisputeRepository()
@@ -126,6 +133,7 @@ func TestReviewLifecycleAndRatingSummary(t *testing.T) {
 	// 1. Create a 5-star review
 	rev1, err := client.CreateReview(ctx, &engagementv1.CreateReviewRequest{
 		ListingId: "listing-100",
+		OrderId:   "order-1",
 		Rating:    5,
 		Comment:   "Sản phẩm rất tuyệt vời!",
 	})
@@ -139,6 +147,7 @@ func TestReviewLifecycleAndRatingSummary(t *testing.T) {
 	// 2. Create a 4-star review
 	_, err = client.CreateReview(ctx, &engagementv1.CreateReviewRequest{
 		ListingId: "listing-100",
+		OrderId:   "order-2",
 		Rating:    4,
 		Comment:   "Giao hàng hơi chậm nhưng hàng đẹp.",
 	})

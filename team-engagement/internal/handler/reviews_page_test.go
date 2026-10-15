@@ -19,9 +19,13 @@ func seedReviews(t *testing.T, n int) *handler.EngagementHandler {
 	t.Helper()
 	repo := repository.NewInMemoryReviewRepository()
 	svc := service.NewReviewService(repo, nil, nil)
+	// Seeded straight into the repository: CreateReview now needs a completed order.
 	for i := 1; i <= n; i++ {
 		rating := int32(i%5) + 1
-		if _, err := svc.CreateReview(context.Background(), "l1", fmt.Sprintf("u%d", i), "U", "", rating, fmt.Sprintf("c%03d", i), nil); err != nil {
+		if _, err := repo.CreateReview(context.Background(), repository.Review{
+			ListingID: "l1", UserID: fmt.Sprintf("u%d", i), UserName: "U", OrderID: fmt.Sprintf("o%d", i),
+			Rating: rating, Comment: fmt.Sprintf("c%03d", i), VerifiedPurchase: true,
+		}); err != nil {
 			t.Fatal(err)
 		}
 	}
