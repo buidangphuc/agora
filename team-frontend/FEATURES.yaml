@@ -8523,3 +8523,460 @@ features:
     status: automated
     covered_by: "frontend/product_detail_ui.feature::Seeded reviews belong to the buyer who owns the order"
     notes: "frontend-review-integrity: e2e-covered, green. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/product_detail_ui.feature` `A successful mutation revalidates the page`"
+
+  # ---- frontend-audit-viewer (q3-audit-log)
+  - id: frontend-audit-viewer.anonymous-visitor-is-redirected-to-login
+    title: "Anonymous visitor is redirected to login"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Anonymous visitor is redirected to login"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `redirects an anonymous visitor to login`"
+
+  - id: frontend-audit-viewer.anonymous-browser-visit
+    title: "Anonymous browser visit"
+    persona: guest
+    priority: P2
+    summary: "Anonymous browser visit"
+    entry_route: /admin/audit
+    related_routes: [/login]
+    services: [team-frontend, team-gateway, team-audit]
+    preconditions:
+      login: guest
+    acceptance:
+      - "When a visitor with no session opens `/admin/audit` in the browser"
+      - "Then the browser lands on `/login`"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "frontend/audit_viewer_ui.feature::Anonymous browser visit - An anonymous visitor is sent to login"
+    notes: "frontend-audit-viewer: e2e. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/audit_viewer_ui.feature` `An anonymous visitor is sent to login`"
+
+  - id: frontend-audit-viewer.non-admin-sees-the-403-result
+    title: "Non-admin sees the 403 result"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Non-admin sees the 403 result"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `renders 403 for a non-admin`"
+
+  - id: frontend-audit-viewer.gateway-refusal-is-shown-as-the-same-403
+    title: "Gateway refusal is shown as the same 403"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Gateway refusal is shown as the same 403"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `renders 403 when the gateway denies`"
+
+  - id: frontend-audit-viewer.expired-session-is-sent-to-login
+    title: "Expired session is sent to login"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Expired session is sent to login"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `redirects on gateway unauthenticated`"
+
+  - id: frontend-audit-viewer.a-buyer-opening-the-page-in-the-browser-is-refused
+    title: "A buyer opening the page in the browser is refused"
+    persona: buyer
+    priority: P2
+    summary: "A buyer opening the page in the browser is refused"
+    entry_route: /admin/audit
+    services: [team-frontend, team-gateway, team-audit]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "When a signed-in buyer opens `/admin/audit` in the browser"
+      - "Then the page shows \"Cần tài khoản Quản trị\" and no audit table"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "frontend/audit_viewer_ui.feature::A buyer opening the page in the browser is refused - A buyer cannot open the audit page"
+    notes: "frontend-audit-viewer: e2e. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/audit_viewer_ui.feature` `A buyer cannot open the audit page`"
+
+  - id: frontend-audit-viewer.rows-show-the-five-columns
+    title: "Rows show the five columns"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Rows show the five columns"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/AuditLogView.test.tsx` `renders one row with sorted metadata`"
+
+  - id: frontend-audit-viewer.server-order-is-kept
+    title: "Server order is kept"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Server order is kept"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/AuditLogView.test.tsx` `keeps the server order`"
+
+  - id: frontend-audit-viewer.page-size-is-20
+    title: "Page size is 20"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Page size is 20"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/lib/gateway/audit.test.ts` `sends page size 20 and the cursor`"
+
+  - id: frontend-audit-viewer.time-is-shown-in-vietnam-time
+    title: "Time is shown in Vietnam time"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Time is shown in Vietnam time"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/AuditLogView.test.tsx` `formats time in UTC+7`"
+
+  - id: frontend-audit-viewer.next-page-link-carries-cursor-and-filters
+    title: "Next page link carries cursor and filters"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Next page link carries cursor and filters"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/AuditLogView.test.tsx` `next link keeps filters`"
+
+  - id: frontend-audit-viewer.last-page-has-no-next-link
+    title: "Last page has no next link"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Last page has no next link"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/AuditLogView.test.tsx` `hides next link on last page`"
+
+  - id: frontend-audit-viewer.markup-in-metadata-is-shown-as-text
+    title: "Markup in metadata is shown as text"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Markup in metadata is shown as text"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/AuditLogView.test.tsx` `escapes metadata values`"
+
+  - id: frontend-audit-viewer.seeded-events-paginate-end-to-end
+    title: "Seeded events paginate end to end"
+    persona: admin
+    priority: P2
+    summary: "Seeded events paginate end to end"
+    entry_route: /admin/audit
+    services: [team-frontend, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin has 25 events seeded with `seed_events` at distinct whole-second `created_at` values for one target id and opens `/admin/audit?target_id=<id>`, then clicks \"Trang sau\""
+      - "Then page 1 shows 20 rows with the newest event first and page 2 shows the remaining 5 rows and no \"Trang sau\" link"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "frontend/audit_viewer_ui.feature::Seeded events paginate end to end - Admin pages through 25 events"
+    notes: "frontend-audit-viewer: e2e. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/audit_viewer_ui.feature` `Admin pages through 25 events`"
+
+  - id: frontend-audit-viewer.all-filters-are-forwarded
+    title: "All filters are forwarded"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "All filters are forwarded"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/auditFilters.test.ts` `maps url params to request filters`"
+
+  - id: frontend-audit-viewer.empty-and-whitespace-filters-are-omitted
+    title: "Empty and whitespace filters are omitted"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Empty and whitespace filters are omitted"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/auditFilters.test.ts` `omits blank values`"
+
+  - id: frontend-audit-viewer.same-day-range-is-valid-and-inclusive
+    title: "Same day range is valid and inclusive"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Same day range is valid and inclusive"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/auditFilters.test.ts` `same day is inclusive`"
+
+  - id: frontend-audit-viewer.oversized-value-is-capped
+    title: "Oversized value is capped"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Oversized value is capped"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/auditFilters.test.ts` `caps long values`"
+
+  - id: frontend-audit-viewer.only-a-start-date-is-given
+    title: "Only a start date is given"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Only a start date is given"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/auditFilters.test.ts` `from only sets a lower bound`"
+
+  - id: frontend-audit-viewer.only-an-end-date-is-given
+    title: "Only an end date is given"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Only an end date is given"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/auditFilters.test.ts` `to only sets an upper bound`"
+
+  - id: frontend-audit-viewer.unparseable-date-is-refused-locally
+    title: "Unparseable date is refused locally"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Unparseable date is refused locally"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `shows a local error for a bad date`"
+
+  - id: frontend-audit-viewer.form-is-pre-filled-from-the-url
+    title: "Form is pre-filled from the URL"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Form is pre-filled from the URL"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/AuditLogView.test.tsx` `prefills filters from the url`"
+
+  - id: frontend-audit-viewer.filtering-by-target-narrows-the-list
+    title: "Filtering by target narrows the list"
+    persona: admin
+    priority: P2
+    summary: "Filtering by target narrows the list"
+    entry_route: /admin/audit
+    services: [team-frontend, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin has seeded events for two different order ids and opens `/admin/audit?target_type=order&target_id=<first id>`"
+      - "Then every row shows the first order id and no row shows the second"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "frontend/audit_viewer_ui.feature::Filtering by target narrows the list - Admin filters events by target and action"
+    notes: "frontend-audit-viewer: e2e. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/audit_viewer_ui.feature` `Admin filters events by target and action`"
+
+  - id: frontend-audit-viewer.filtering-by-action-and-actor
+    title: "Filtering by action and actor"
+    persona: admin
+    priority: P2
+    summary: "Filtering by action and actor"
+    entry_route: /admin/audit
+    services: [team-frontend, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin seeds events with a per-run unique actor id with actions \"kyc.review\" and \"order.force_fail\" and submits the form with the action \"kyc.review\" and the actor id of the seeded actor"
+      - "Then only rows with action \"kyc.review\" and that actor are listed"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "frontend/audit_viewer_ui.feature::Filtering by action and actor - Admin filters events by target and action"
+    notes: "frontend-audit-viewer: e2e. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/audit_viewer_ui.feature` `Admin filters events by target and action`"
+
+  - id: frontend-audit-viewer.day-edge-in-vietnam-time
+    title: "Day edge in Vietnam time"
+    persona: admin
+    priority: P2
+    summary: "Day edge in Vietnam time"
+    entry_route: /admin/audit
+    services: [team-frontend, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin has events at 2026-10-05T16:59:59Z and 2026-10-05T17:00:00Z for one target and filters with `from` and `to` both 2026-10-05"
+      - "Then the list shows the 16:59:59Z event and does not show the 17:00:00Z event"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "frontend/audit_viewer_ui.feature::Day edge in Vietnam time - Day edge follows Vietnam time"
+    notes: "frontend-audit-viewer: e2e. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/audit_viewer_ui.feature` `Day edge follows Vietnam time`"
+
+  - id: frontend-audit-viewer.date-range-excludes-events-outside-it
+    title: "Date range excludes events outside it"
+    persona: admin
+    priority: P2
+    summary: "Date range excludes events outside it"
+    entry_route: /admin/audit
+    services: [team-frontend, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin filters with `from` and `to` both set to a day with no seeded events"
+      - "Then the page shows \"Không có sự kiện nào\""
+    tags: [admin, audit]
+    status: automated
+    covered_by: "frontend/audit_viewer_ui.feature::Date range excludes events outside it - Admin filters events by date range"
+    notes: "frontend-audit-viewer: e2e. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/audit_viewer_ui.feature` `Admin filters events by date range`"
+
+  - id: frontend-audit-viewer.filters-never-reach-the-gateway-for-a-non-admin
+    title: "Filters never reach the gateway for a non-admin"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Filters never reach the gateway for a non-admin"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `does not query for a non-admin with filters`"
+
+  - id: frontend-audit-viewer.no-matching-events
+    title: "No matching events"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "No matching events"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/AuditLogView.test.tsx` `shows the empty state`"
+
+  - id: frontend-audit-viewer.end-date-before-start-date-in-the-browser
+    title: "End date before start date in the browser"
+    persona: admin
+    priority: P2
+    summary: "End date before start date in the browser"
+    entry_route: /admin/audit
+    services: [team-frontend, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin submits the form with \"Từ ngày\" 2026-10-05 and \"Đến ngày\" 2026-10-01"
+      - "Then the page shows the invalid-range message and the form keeps both dates"
+    tags: [admin, audit]
+    status: automated
+    covered_by: "frontend/audit_viewer_ui.feature::End date before start date in the browser - Reversed date range shows an error"
+    notes: "frontend-audit-viewer: e2e. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/audit_viewer_ui.feature` `Reversed date range shows an error`"
+
+  - id: frontend-audit-viewer.server-rejected-cursor
+    title: "Server-rejected cursor"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Server-rejected cursor"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `maps a rejected cursor to unavailable`"
+
+  - id: frontend-audit-viewer.team-audit-unavailable
+    title: "team-audit unavailable"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "team-audit unavailable"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/lib/gateway/audit.test.ts` `maps Unavailable and unknown errors to unavailable`; `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `shows the unavailable message, no raw error, no table`"
+
+  - id: frontend-audit-viewer.cockpit-shows-the-audit-link
+    title: "Cockpit shows the audit link"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Cockpit shows the audit link"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/features/admin/CockpitView.test.tsx` `links to the audit log`"
+
+  - id: frontend-audit-viewer.following-the-cockpit-link
+    title: "Following the cockpit link"
+    persona: admin
+    priority: P2
+    summary: "Following the cockpit link"
+    entry_route: /admin/cockpit
+    related_routes: [/admin/audit]
+    services: [team-frontend, team-gateway, team-audit]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin clicks \"Nhật ký kiểm toán\" on the cockpit"
+      - "Then the browser lands on `/admin/audit` showing the heading \"Nhật ký kiểm toán\""
+    tags: [admin, audit]
+    status: automated
+    covered_by: "frontend/audit_viewer_ui.feature::Following the cockpit link - Admin reaches the audit page from the cockpit"
+    notes: "frontend-audit-viewer: e2e. VERIFIED BY: `platform-e2e/tests/e2e/features/frontend/audit_viewer_ui.feature` `Admin reaches the audit page from the cockpit`"
+
+  - id: frontend-audit-viewer.non-admin-cockpit-visitor-sees-no-audit-link
+    title: "Non-admin cockpit visitor sees no audit link"
+    persona: admin
+    priority: P2
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "Non-admin cockpit visitor sees no audit link"
+    tags: [audit, unit]
+    status: not-testable
+    notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/app/(shop)/admin/cockpit/page.test.tsx` `403 has no audit link`"
+
