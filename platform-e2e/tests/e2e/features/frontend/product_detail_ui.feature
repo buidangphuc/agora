@@ -107,7 +107,7 @@ Feature: Product detail page - anatomy, real data, gallery, purchase, reviews, Q
     Then the new count comes from the server without a reload and survives a reload
 
   Scenario: Submitting a review shows pending then success
-    Given a published listing with stock 12 and a buyer on its page at 1280px
+    Given a published listing with stock 12 and a buyer with a completed order for the listing
     And the form submission is slowed down
     When the buyer picks 5 stars, types a comment and submits the review modal
     Then the submit button is pending and the modal controls are disabled
