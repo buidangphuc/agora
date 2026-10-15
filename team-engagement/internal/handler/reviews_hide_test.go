@@ -17,6 +17,7 @@ import (
 	"github.com/buidangphuc/team-engagement/internal/handler"
 	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 // ── shared fakes for the review handler tests (also used by engagement_test.go) ──
@@ -42,7 +43,17 @@ type auditEvent struct{ actor, review, listing, reason string }
 // auditSpy is a fake team-audit client: records events, can be forced to fail.
 type auditSpy struct {
 	events []auditEvent
-	err    error
+	// generic events (dispute.resolve etc.); err applies to both write methods.
+	generic []upstream.AuditEvent
+	err     error
+}
+
+func (a *auditSpy) WriteEvent(_ context.Context, ev upstream.AuditEvent) error {
+	if a.err != nil {
+		return a.err
+	}
+	a.generic = append(a.generic, ev)
+	return nil
 }
 
 func (a *auditSpy) WriteHideEvent(_ context.Context, actorID, reviewID, listingID, reason string) error {

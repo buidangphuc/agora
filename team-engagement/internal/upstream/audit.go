@@ -76,3 +76,18 @@ func (c *AuditClient) WriteHideEvent(ctx context.Context, actorID, reviewID, lis
 	}
 	return nil
 }
+
+// AuditEvent is one generic team-audit event.
+// TEST-STUB (implementer replaces): struct shape fixed by tests, WriteEvent unimplemented.
+type AuditEvent struct {
+	ActorID    string
+	Action     string
+	TargetType string
+	TargetID   string
+	Metadata   map[string]string
+}
+
+// WriteEvent writes ev to team-audit. TEST-STUB: not implemented yet.
+func (c *AuditClient) WriteEvent(ctx context.Context, ev AuditEvent) error {
+	return errors.New("not implemented")
+}

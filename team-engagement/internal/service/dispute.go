@@ -23,7 +23,14 @@ var (
 
 type DisputeService struct {
 	repo   repository.DisputeRepository
+	audit  AuditWriter
 	logger *slog.Logger
+}
+
+// WithAudit wires the audit writer. TEST-STUB: not used by ResolveDispute yet.
+func (s *DisputeService) WithAudit(w AuditWriter) *DisputeService {
+	s.audit = w
+	return s
 }
 
 func NewDisputeService(repo repository.DisputeRepository, logger *slog.Logger) *DisputeService {
@@ -91,6 +98,7 @@ func (s *DisputeService) GetDispute(ctx context.Context, id string) (repository.
 
 func (s *DisputeService) ResolveDispute(
 	ctx context.Context,
+	actorID string,
 	id string,
 	status repository.DisputeStatus,
 	resolution string,
