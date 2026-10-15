@@ -7,6 +7,7 @@ import { makeReview, makeReviews } from "./reviewFixtures";
 vi.mock("./actions", () => ({
   markReviewHelpfulAction: vi.fn(),
   createReviewAction: vi.fn(),
+  hideReviewAction: vi.fn(),
 }));
 
 // The server serves one page of `reviews` out of `total` matching reviews.
@@ -84,15 +85,58 @@ describe("ReviewList", () => {
     expect(all).toHaveAttribute("href", "/listing/L?variant=v1#reviews");
   });
 
-  it("shows Chưa có đánh giá nào, with Viết đánh giá only for a logged-in buyer", async () => {
-    const { unmount } = await renderList({ reviews: [] });
-    expect(screen.getByText("Chưa có đánh giá nào")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Viết đánh giá" })).toBeNull();
-    unmount();
-    await renderList({ reviews: [], loggedIn: true });
-    expect(
-      screen.getByRole("button", { name: "Viết đánh giá" }),
-    ).toBeInTheDocument();
+  it("empty state links to orders for buyer and guest", async () => {
+    for (const loggedIn of [true, false]) {
+      const { unmount, container } = await renderList({
+        reviews: [],
+        loggedIn,
+      });
+      expect(screen.getByText("Chưa có đánh giá nào")).toBeInTheDocument();
+      expect(container.querySelector('a[href="/account/orders"]')).not.toBeNull();
+      expect(container).toHaveTextContent("Để đánh giá, hãy vào");
+      expect(screen.queryByRole("button", { name: "Viết đánh giá" })).toBeNull();
+      expect(screen.queryByTestId("write-review")).toBeNull();
+      unmount();
+    }
+  });
+
+  it("badges verified and unverified reviews", async () => {
+    await renderList({
+      reviews: [
+        makeReview({ id: "r1", verifiedPurchase: true }),
+        makeReview({ id: "r2", verifiedPurchase: true }),
+        makeReview({ id: "r3", verifiedPurchase: false }),
+      ],
+    });
+    const items = screen.getAllByTestId("review-item");
+    expect(items).toHaveLength(3);
+    for (const item of items.slice(0, 2)) {
+      expect(within(item).getByTestId("verified-purchase")).toHaveTextContent(
+        "✓ Đã mua hàng",
+      );
+      expect(within(item).queryByTestId("unverified-purchase")).toBeNull();
+    }
+    expect(within(items[2]).getByTestId("unverified-purchase")).toHaveTextContent(
+      "Chưa xác minh mua hàng",
+    );
+    expect(within(items[2]).queryByTestId("verified-purchase")).toBeNull();
+  });
+
+  it("shows hide only to admins", async () => {
+    const three = () => makeReviews(3);
+    const admin = await renderList({ reviews: three(), isAdmin: true });
+    expect(screen.getAllByTestId("hide-review")).toHaveLength(3);
+    admin.unmount();
+    for (const extra of [{ isAdmin: false }, {}]) {
+      const view = await renderList({
+        reviews: three(),
+        loggedIn: true,
+        ...extra,
+      });
+      expect(screen.queryByTestId("hide-review")).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Ẩn đánh giá" })).toBeNull();
+      view.unmount();
+    }
   });
 
   it("renders a review with avatar, Rate, verified tag, photos and the helpful button, keeping its test ids", async () => {
@@ -113,9 +157,10 @@ describe("ReviewList", () => {
       within(first).getByRole("img", { name: "4 trên 5 sao" }),
     ).toBeInTheDocument();
     expect(within(first).getByTestId("verified-purchase")).toHaveTextContent(
-      "Đã mua hàng",
+      "✓ Đã mua hàng",
     );
     expect(within(second).queryByTestId("verified-purchase")).toBeNull();
+    expect(within(second).getByTestId("unverified-purchase")).toBeInTheDocument();
     const photos = within(first).getAllByAltText("Ảnh đánh giá");
     expect(photos).toHaveLength(2);
     for (const p of photos) expect(p).toHaveAttribute("loading", "lazy");

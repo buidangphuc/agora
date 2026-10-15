@@ -76,7 +76,11 @@ vi.mock("@/features/listing/LiveFlashSaleStock", () => ({
 vi.mock("@/features/recommendations/RecommendationsRow", () => ({
   RecommendationsRow: () => null,
 }));
-vi.mock("@/features/review/ReviewList", () => ({ ReviewList: () => null }));
+vi.mock("@/features/review/ReviewList", () => ({
+  ReviewList: ({ isAdmin }: { isAdmin?: boolean }) => (
+    <div data-testid="review-list-stub" data-is-admin={String(isAdmin)} />
+  ),
+}));
 vi.mock("@/features/review/AiReviewSummary", () => ({
   AiReviewSummary: () => null,
 }));
@@ -415,5 +419,25 @@ describe("ProductDetailPage: saved favorite", () => {
       "data-initial",
       "false",
     );
+  });
+});
+
+describe("ProductDetailPage: review admin plumbing", () => {
+  it.each([
+    ["a guest", null, "false"],
+    ["a buyer", { id: "u1", name: "B", scopes: ["buyer"] }, "false"],
+    ["a seller", { id: "u2", name: "S", scopes: ["seller"] }, "false"],
+    ["an admin", { id: "u3", name: "A", scopes: ["buyer", "admin"] }, "true"],
+  ])("passes isAdmin only for the admin scope (%s)", async (_who, principal, want) => {
+    vi.mocked(getPrincipal).mockReturnValue(principal as never);
+    try {
+      await renderPage();
+      expect(screen.getByTestId("review-list-stub")).toHaveAttribute(
+        "data-is-admin",
+        want,
+      );
+    } finally {
+      vi.mocked(getPrincipal).mockReturnValue(null);
+    }
   });
 });

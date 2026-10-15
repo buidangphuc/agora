@@ -20,6 +20,7 @@ function renderModal(
     <ToastProvider>
       <ReviewModal
         listingId="l1"
+        orderId="o1"
         productTitle="Áo thun"
         onClose={onClose}
         onSuccess={onSuccess}
@@ -41,7 +42,7 @@ describe("ReviewModal", () => {
         resolve = r;
       }),
     );
-    const { onClose, onSuccess } = renderModal({ orderId: "o1" });
+    const { onClose, onSuccess } = renderModal();
 
     await user.click(screen.getByRole("radio", { name: "4 sao" }));
     await user.type(screen.getByLabelText("Nhận xét chi tiết"), "  Tốt lắm  ");
@@ -108,5 +109,44 @@ describe("ReviewModal", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Có lỗi xảy ra khi gửi đánh giá.",
     );
+  });
+
+  it("keeps the modal open and the comment on error", async () => {
+    const user = setupUser();
+    vi.mocked(createReviewAction).mockResolvedValue({
+      ok: false,
+      error: "Chưa xác minh được đơn hàng của bạn. Vui lòng thử lại sau.",
+    });
+    const { onClose, onSuccess } = renderModal();
+    await user.type(screen.getByLabelText("Nhận xét chi tiết"), "Giữ lại nhé");
+    await user.click(screen.getByRole("button", { name: "Hoàn thành" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Chưa xác minh được đơn hàng của bạn. Vui lòng thử lại sau.",
+    );
+    expect(screen.getByLabelText("Nhận xét chi tiết")).toHaveValue("Giữ lại nhé");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("shows the ineligible-order message", async () => {
+    const user = setupUser();
+    const msg =
+      "Chỉ có thể đánh giá sản phẩm trong đơn hàng đã hoàn thành của chính bạn.";
+    vi.mocked(createReviewAction).mockResolvedValue({ ok: false, error: msg });
+    const { onClose } = renderModal();
+    await user.type(screen.getByLabelText("Nhận xét chi tiết"), "ok");
+    await user.click(screen.getByRole("button", { name: "Hoàn thành" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(msg);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("always sends the order id it was given", async () => {
+    const user = setupUser();
+    vi.mocked(createReviewAction).mockResolvedValue({ ok: true });
+    renderModal({ orderId: "o-77" });
+    await user.type(screen.getByLabelText("Nhận xét chi tiết"), "ok");
+    await user.click(screen.getByRole("button", { name: "Hoàn thành" }));
+    expect(vi.mocked(createReviewAction).mock.calls[0][3]).toBe("o-77");
   });
 });
