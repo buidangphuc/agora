@@ -14,7 +14,8 @@ service AuditService {
   // gets Unauthenticated. All filters that are set are combined with AND; an
   // unset or empty filter does not restrict the result. A created_after later
   // than created_before (created_after > created_before) is rejected with
-  // InvalidArgument; equal bounds are valid. Results are ordered newest first.
+  // InvalidArgument; equal bounds are valid. Results are ordered newest first
+  // and paged via `page` (existing offset cursor).
   rpc QueryAuditLog(QueryAuditLogRequest) returns (QueryAuditLogResponse);
 }
 

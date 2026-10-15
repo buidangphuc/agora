@@ -38,10 +38,12 @@ correctness — not general logic or style.
 5. **Scope-role drift.** Role→scope mappings changed in a way that grants a role
    more than intended, or a buyer-scope RPC reachable with public/anonymous scopes.
 6. **Unaudited admin mutation.** A mutation RPC reachable by a caller holding the
-   `admin` scope (team-order: `order.admin`) that does not write an audit event
-   (`AuditService.WriteAuditEvent`) before mutating, or that proceeds when the audit
-   write fails (it must fail closed). Every admin-scope call is audited, including
-   an admin who owns the resource. Do NOT flag an owner path for a caller lacking
+   `admin` scope (team-order: `order.admin`) that does not write a team-audit event
+   (`AuditService.WriteAuditEvent`) first, or that proceeds when the audit write
+   fails (it must return `Unavailable` and make no change). Every admin-scope call
+   is audited, including an admin who owns the resource. Also flag an audit write
+   that forwards the caller's principal instead of the service's own service
+   principal holding `audit.write`. Do NOT flag an owner path for a caller lacking
    the admin scope (e.g. a seller on their own order): those calls are never audited.
 
 ## How to work
