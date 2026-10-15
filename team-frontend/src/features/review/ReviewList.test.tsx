@@ -21,7 +21,6 @@ async function renderList(
   const { reviews, total = reviews.length, page = 1, ...rest } = props;
   const ui = await ReviewList({
     listingId: "L",
-    productTitle: "Áo",
     pagePromise: Promise.resolve({
       reviews,
       total,
@@ -29,7 +28,6 @@ async function renderList(
       pages: Math.max(1, Math.ceil(total / 10)),
     }),
     rating: 0,
-    loggedIn: false,
     ...rest,
   });
   return render(ui);
@@ -86,22 +84,13 @@ describe("ReviewList", () => {
   });
 
   it("empty state links to orders for buyer and guest", async () => {
-    for (const loggedIn of [true, false]) {
-      const { unmount, container } = await renderList({
-        reviews: [],
-        loggedIn,
-      });
-      expect(screen.getByText("Chưa có đánh giá nào")).toBeInTheDocument();
-      expect(
-        container.querySelector('a[href="/account/orders"]'),
-      ).not.toBeNull();
-      expect(container).toHaveTextContent("Để đánh giá, hãy vào");
-      expect(
-        screen.queryByRole("button", { name: "Viết đánh giá" }),
-      ).toBeNull();
-      expect(screen.queryByTestId("write-review")).toBeNull();
-      unmount();
-    }
+    // The output no longer depends on login state: one render covers both.
+    const { container } = await renderList({ reviews: [] });
+    expect(screen.getByText("Chưa có đánh giá nào")).toBeInTheDocument();
+    expect(container.querySelector('a[href="/account/orders"]')).not.toBeNull();
+    expect(container).toHaveTextContent("Để đánh giá, hãy vào");
+    expect(screen.queryByRole("button", { name: "Viết đánh giá" })).toBeNull();
+    expect(screen.queryByTestId("write-review")).toBeNull();
   });
 
   it("badges verified and unverified reviews", async () => {
@@ -134,7 +123,6 @@ describe("ReviewList", () => {
     for (const extra of [{ isAdmin: false }, {}]) {
       const view = await renderList({
         reviews: three(),
-        loggedIn: true,
         ...extra,
       });
       expect(screen.queryByTestId("hide-review")).toBeNull();

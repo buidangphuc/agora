@@ -1,13 +1,22 @@
 import { render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ViewRatingSummary } from "@/lib/gateway/reviews";
+import { makeReviews } from "./reviewFixtures";
 import { ReviewSection } from "./ReviewSection";
 
 // The async children stream in their own Suspense boundaries; stub them so the
 // synchronous shell (heading, summary box, filter) can be rendered here.
+// `listOutput` lets one test swap in the output of the real (async) ReviewList.
+let listOutput: ReactNode = <div data-testid="list" />;
 vi.mock("./ReviewList", () => ({
-  ReviewList: () => <div data-testid="list" />,
+  ReviewList: () => listOutput,
+}));
+vi.mock("./actions", () => ({
+  markReviewHelpfulAction: vi.fn(),
+  createReviewAction: vi.fn(),
+  hideReviewAction: vi.fn(),
 }));
 vi.mock("./AiReviewSummary", () => ({ AiReviewSummary: () => null }));
 vi.mock("./ReviewRatingFilter", () => ({
@@ -33,15 +42,10 @@ const unrated: ViewRatingSummary = {
   breakdown: { star1: 0, star2: 0, star3: 0, star4: 0, star5: 0 },
 };
 
-function renderSection(
-  summary: ViewRatingSummary,
-  rating = 0,
-  loggedIn = true,
-) {
+function renderSection(summary: ViewRatingSummary, rating = 0) {
   return render(
     <ReviewSection
       listingId="L"
-      productTitle="Áo"
       summary={summary}
       reviewsPromise={Promise.resolve([])}
       pagePromise={Promise.resolve({
@@ -51,7 +55,6 @@ function renderSection(
         pages: 1,
       })}
       rating={rating}
-      loggedIn={loggedIn}
     />,
   );
 }
@@ -86,13 +89,6 @@ describe("ReviewSection", () => {
     expect(section).toHaveTextContent("Để đánh giá, hãy vào");
   });
 
-  it("renders the orders hint and no write button for a guest too", () => {
-    renderSection(rated, 0, false);
-    const section = document.getElementById("reviews") as HTMLElement;
-    expect(within(section).queryByTestId("write-review")).toBeNull();
-    expect(section.querySelector('a[href="/account/orders"]')).not.toBeNull();
-  });
-
   it("shows the average with a read-only Rate, the count and the star breakdown as Progress", () => {
     renderSection(rated, 4);
     const box = screen.getByTestId("review-summary");
@@ -119,4 +115,37 @@ describe("ReviewSection", () => {
     expect(within(box).queryByRole("img")).toBeNull();
     expect(within(box).queryAllByRole("progressbar")).toHaveLength(0);
   });
+
+  it.each([
+    ["0 reviews", unrated, 0],
+    ["3 reviews", { ...rated, reviewCount: 3 }, 3],
+  ])(
+    "shows the orders hint exactly once in #reviews with the real ReviewList for %s",
+    async (_label, summary, n) => {
+      const actual =
+        await vi.importActual<typeof import("./ReviewList")>("./ReviewList");
+      listOutput = await actual.ReviewList({
+        listingId: "L",
+        pagePromise: Promise.resolve({
+          reviews: makeReviews(n),
+          total: n,
+          page: 1,
+          pages: 1,
+        }),
+        rating: 0,
+      });
+      try {
+        renderSection(summary);
+        const section = document.getElementById("reviews") as HTMLElement;
+        expect(
+          section.querySelectorAll('a[href="/account/orders"]'),
+        ).toHaveLength(1);
+        expect(section.textContent?.split("Để đánh giá, hãy vào").length).toBe(
+          2,
+        );
+      } finally {
+        listOutput = <div data-testid="list" />;
+      }
+    },
+  );
 });

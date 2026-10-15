@@ -43,17 +43,14 @@ export function ReviewListSkeleton() {
  */
 export function ReviewSection({
   listingId,
-  productTitle,
   summary,
   reviewsPromise,
   pagePromise,
   rating,
   variant,
-  loggedIn,
   isAdmin = false,
 }: {
   listingId: string;
-  productTitle?: string;
   summary: ViewRatingSummary;
   /** First-100 sample for the AI summary. */
   reviewsPromise: Promise<ViewReview[]>;
@@ -61,7 +58,6 @@ export function ReviewSection({
   pagePromise: Promise<ViewReviewsPage>;
   rating: number;
   variant?: string;
-  loggedIn?: boolean;
   isAdmin?: boolean;
 }) {
   const rated = summary.reviewCount > 0;
@@ -86,7 +82,7 @@ export function ReviewSection({
             </p>
           </div>
         </div>
-        <ReviewOrdersHint />
+        {rated && <ReviewOrdersHint />}
 
         <Suspense fallback={<AiSummarySkeleton />}>
           <AiReviewSummary
@@ -159,7 +155,6 @@ export function ReviewSection({
         <Suspense fallback={<ReviewListSkeleton />}>
           <ReviewList
             listingId={listingId}
-            productTitle={productTitle}
             pagePromise={pagePromise}
             rating={rating}
             variant={variant}
