@@ -45,6 +45,9 @@ type Upstream struct {
 	DomainAddr    string `env:"UPSTREAM_DOMAIN_ADDR" default:"localhost:50051"`
 	IdentityAddr  string `env:"UPSTREAM_IDENTITY_ADDR" default:"localhost:50053"`
 	PromotionAddr string `env:"UPSTREAM_PROMOTION_ADDR" default:""`
+	AuditAddr     string `env:"UPSTREAM_AUDIT_ADDR" default:""`
+	// CallTimeoutSeconds bounds each audit write (one attempt, no retry).
+	CallTimeoutSeconds int `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
 }
 
 type Observability struct {

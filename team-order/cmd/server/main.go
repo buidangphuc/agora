@@ -133,6 +133,16 @@ func run() error {
 		defer promoClients.Close()
 	}
 
+	// team-audit client for the admin audit trail; nil when UPSTREAM_AUDIT_ADDR is
+	// unset (audited admin actions then fail closed).
+	auditClient, err := upstream.NewAuditClient(settings.Upstream.AuditAddr,
+		time.Duration(settings.Upstream.CallTimeoutSeconds)*time.Second)
+	if err != nil {
+		logger.Warn("could not set up the audit client; audited admin actions will fail closed", slog.Any("err", err))
+	} else if auditClient != nil {
+		defer auditClient.Close()
+	}
+
 	var cartRepo repository.CartRepository
 	var orderRepo repository.OrderRepository
 	var returnRepo repository.ReturnRepository
@@ -173,7 +183,11 @@ func run() error {
 	orderSvc := service.NewOrderService(orderRepo, cartRepo, returnRepo, shipmentRepo, upstreamClients.Listing, upstreamClients.Address, logger, orderOpts...)
 
 	cartHandler := handler.NewCartHandler(cartSvc, logger)
-	orderHandler := handler.NewOrderHandler(orderSvc, upstreamClients.Address, logger, handler.WithFeatureFlags(res.Flags))
+	orderHandlerOpts := []handler.Option{handler.WithFeatureFlags(res.Flags)}
+	if auditClient != nil {
+		orderHandlerOpts = append(orderHandlerOpts, handler.WithAuditWriter(auditClient))
+	}
+	orderHandler := handler.NewOrderHandler(orderSvc, upstreamClients.Address, logger, orderHandlerOpts...)
 
 	// PaymentSettled consumer (AD4): drive orders to PAID from the event-carried
 	// PaymentSettled on "payment.events", idempotently, with a DLQ for poison

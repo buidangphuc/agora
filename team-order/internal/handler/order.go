@@ -26,8 +26,37 @@ type OrderHandler struct {
 	svc        *service.OrderService
 	addrClient identityv1.AddressServiceClient
 	flags      featureflags.Evaluator
+	audit      AuditWriter
 	logger     *slog.Logger
 }
+
+// AuditWriter writes one admin audit event to team-audit.
+type AuditWriter interface {
+	WriteAdminEvent(ctx context.Context, actorID, action, targetType, targetID string, metadata map[string]string) error
+}
+
+// WithAuditWriter injects the audit writer. Without one, every audited admin
+// action fails closed with Unavailable.
+func WithAuditWriter(w AuditWriter) Option {
+	return func(h *OrderHandler) { h.audit = w }
+}
+
+// auditAdmin writes the audit event before the change (fail closed): a nil writer
+// or a write error is Unavailable; the cause is logged, never returned.
+func (h *OrderHandler) auditAdmin(ctx context.Context, actorID, action, targetType, targetID string, meta map[string]string) error {
+	if h.audit == nil {
+		h.logger.Error("admin audit unavailable: no audit client configured", slog.String("action", action), slog.String("target_id", targetID))
+		return status.Error(codes.Unavailable, "audit trail unavailable; action not performed")
+	}
+	if err := h.audit.WriteAdminEvent(ctx, actorID, action, targetType, targetID, meta); err != nil {
+		h.logger.Error("admin audit write failed", slog.String("action", action), slog.String("target_id", targetID), slog.Any("error", err))
+		return status.Error(codes.Unavailable, "audit trail unavailable; action not performed")
+	}
+	return nil
+}
+
+// isAdminPath: the caller acts through the order.admin scope (owner or not).
+func isAdminPath(p *commonv1.Principal) bool { return hasScope(p, scopeOrderAdmin) }
 
 // Option customizes an OrderHandler. Variadic options keep NewOrderHandler
 // backward-compatible with existing call sites.
@@ -247,6 +276,13 @@ func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.Updat
 		return nil, status.Error(codes.PermissionDenied, "only the seller or an admin can update order status")
 	}
 
+	if isAdminPath(principal) {
+		if err := h.auditAdmin(ctx, principal.GetId(), "order.admin_status_update", "order", existing.ID,
+			map[string]string{"seller_id": existing.SellerID, "to_status": req.GetStatus().String()}); err != nil {
+			return nil, err
+		}
+	}
+
 	updated, err := h.svc.UpdateOrderStatus(ctx, req.GetId(), service.ActorSeller, repository.OrderStatus(req.GetStatus()), req.GetTrackingNumber())
 	if err != nil {
 		switch {
@@ -362,6 +398,20 @@ func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFail
 	case "", "payment", "shipping":
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "fail_step must be empty, \"payment\" or \"shipping\", got %q", step)
+	}
+	if _, err := h.svc.GetOrder(ctx, req.GetOrderId()); err != nil {
+		if errors.Is(err, repository.ErrOrderNotFound) {
+			return nil, status.Error(codes.NotFound, "order not found")
+		}
+		return nil, internalErr(h.logger, "get order", err)
+	}
+	auditStep := step
+	if auditStep == "" {
+		auditStep = "unspecified"
+	}
+	if err := h.auditAdmin(ctx, principal.GetId(), "order.force_fail", "order", req.GetOrderId(),
+		map[string]string{"fail_step": auditStep}); err != nil {
+		return nil, err
 	}
 	cancelled, err := h.svc.CancelOrder(ctx, req.GetOrderId())
 	if err != nil {
@@ -484,6 +534,13 @@ func (h *OrderHandler) UpdateReturnStatus(ctx context.Context, req *orderv1.Upda
 		return nil, status.Error(codes.PermissionDenied, "only seller or admin can update return request status")
 	}
 
+	if isAdminPath(principal) {
+		if err := h.auditAdmin(ctx, principal.GetId(), "return.admin_status_update", "return_request", existing.ID,
+			map[string]string{"order_id": existing.OrderID, "to_status": req.GetStatus().String()}); err != nil {
+			return nil, err
+		}
+	}
+
 	updated, err := h.svc.UpdateReturnStatus(ctx, req.GetId(), repository.ReturnStatus(req.GetStatus()))
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidReturnStatus) {
@@ -555,6 +612,20 @@ func (h *OrderHandler) CreateShipment(ctx context.Context, req *orderv1.CreateSh
 
 	if !isAdminOrUser(principal, order.SellerID) {
 		return nil, status.Error(codes.PermissionDenied, "only seller or admin can create shipment")
+	}
+
+	if isAdminPath(principal) {
+		carrier := req.GetCarrier()
+		if carrier == "" {
+			carrier = "SPX"
+		}
+		if r := []rune(carrier); len(r) > 64 {
+			carrier = string(r[:64])
+		}
+		if err := h.auditAdmin(ctx, principal.GetId(), "shipment.admin_create", "order", order.ID,
+			map[string]string{"carrier": carrier}); err != nil {
+			return nil, err
+		}
 	}
 
 	shipment, err := h.svc.CreateShipment(ctx, req.GetOrderId(), req.GetCarrier(), req.GetTrackingCode())
