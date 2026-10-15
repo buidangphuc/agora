@@ -2072,3 +2072,171 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_unexpected_exception_exit_1. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: engagement-review-contract.service-and-messages-exist-in-every-generated-language
+    title: "Service and messages exist in every generated language"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Service and messages exist in every generated language"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+  - id: engagement-review-contract.request-field-numbers-are-fixed
+    title: "Request field numbers are fixed"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Request field numbers are fixed"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor/round-trip test `platform-core/packages/proto/platform/engagement/v1/hidereview_roundtrip_test.go` (tasks 2.1)"
+  - id: engagement-review-contract.round-trip-of-a-boundary-reason
+    title: "Round-trip of a boundary reason"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Round-trip of a boundary reason"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `hidereview_roundtrip_test.go` (tasks 2.1)"
+  - id: engagement-review-contract.error-and-authz-contract-is-documented
+    title: "Error and authz contract is documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Error and authz contract is documented"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: error-code text assertion in `hidereview_roundtrip_test.go` (tasks 2.1) plus comment review (tasks 1.2); behaviour is verified in engagement-review-integrity"
+  - id: engagement-review-contract.anonymous-and-non-admin-callers-are-documented-with-distinct-codes
+    title: "Anonymous and non-admin callers are documented with distinct codes"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Anonymous and non-admin callers are documented with distinct codes"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: descriptor assertion in `hidereview_roundtrip_test.go` that `HideReviewRequest` has exactly the fields `review_id` and `reason`, error-code text assertion in `hidereview_roundtrip_test.go` (tasks 2.1) plus comment review (tasks 1.2); enforcement is verified in engagement-review-integrity"
+  - id: engagement-review-contract.change-is-backward-compatible
+    title: "Change is backward compatible"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Change is backward compatible"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking`"
+  - id: engagement-review-contract.existing-messages-keep-their-wire-shape
+    title: "Existing messages keep their wire shape"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Existing messages keep their wire shape"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor assertion in `hidereview_roundtrip_test.go` (tasks 2.1) plus `make -C platform-core breaking`"
+  - id: engagement-review-contract.wire-breaking-edit-is-rejected
+    title: "Wire-breaking edit is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Wire-breaking edit is rejected"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` plus the descriptor assertion in `hidereview_roundtrip_test.go` (tasks 2.1, 1.4)"
+  - id: engagement-review-contract.rule-comments-are-present
+    title: "Rule comments are present"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Rule comments are present"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: four-string comment assertion (reads the proto file and checks each rule text) in `hidereview_roundtrip_test.go` (tasks 2.1)"
+  - id: engagement-review-contract.copies-match-the-source
+    title: "Copies match the source"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Copies match the source"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `cmp` of the three copies against the source (tasks 2.3)"
+  - id: engagement-review-contract.consumer-copies-lint
+    title: "Consumer copies lint"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Consumer copies lint"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `buf lint` per consumer proto directory (tasks 2.3)"
+  - id: engagement-review-contract.drifted-copy-is-rejected
+    title: "Drifted copy is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Drifted copy is rejected"
+    tags:
+    - engagement-review-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `cmp` of the three copies against the source (tasks 2.3)"
