@@ -648,7 +648,7 @@ func (h *EngagementHandler) ResolveDispute(
 		return nil, status.Error(codes.InvalidArgument, "invalid dispute status")
 	}
 
-	disp, err := h.disputeSvc.ResolveDispute(ctx, req.GetDisputeId(), statusDomain, req.GetResolution())
+	disp, err := h.disputeSvc.ResolveDispute(ctx, userID(ctx), req.GetDisputeId(), statusDomain, req.GetResolution())
 	if err != nil {
 		if errors.Is(err, repository.ErrDisputeNotFound) {
 			return nil, status.Error(codes.NotFound, "dispute not found")
@@ -658,6 +658,9 @@ func (h *EngagementHandler) ResolveDispute(
 		}
 		if errors.Is(err, service.ErrInvalidDisputeStatus) {
 			return nil, status.Error(codes.InvalidArgument, "invalid dispute status")
+		}
+		if errors.Is(err, service.ErrAuditUnavailable) {
+			return nil, status.Error(codes.Unavailable, "audit unavailable")
 		}
 		return nil, internalError(ctx, "resolve dispute", err)
 	}

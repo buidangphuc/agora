@@ -1166,3 +1166,311 @@ features:
     status: automated
     covered_by: "engagement/review_integrity.feature::Another buyer's completed order is refused as ineligible, end to end"
     notes: "engagement-review-integrity: review-integrity (extra e2e for 'Ineligible order returns one message', which is unit-verified)."
+
+  - id: engagement-dispute-audit.resolved-dispute-leaves-one-audit-event-end-to-end
+    title: "Dispute audit: Resolved dispute leaves one audit event end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order, team-audit]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateDispute, engagement.v1.ResolveDispute, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Dispute audit: Resolved dispute leaves one audit event end to end"
+    tags: [buyer, dispute-audit]
+    status: automated
+    covered_by: "engagement/dispute_audit.feature::Dispute audit: Resolved dispute leaves one audit event end to end"
+    notes: "engagement-dispute-audit: audited-dispute-resolution. API-level journey through the gateway."
+
+  - id: engagement-dispute-audit.resolution-is-refused-while-team-audit-is-down-end-to-end
+    title: "Dispute audit: Resolution is refused while team-audit is down end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order, team-audit]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateDispute, engagement.v1.ResolveDispute, engagement.v1.GetDispute, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Dispute audit: Resolution is refused while team-audit is down end to end"
+    tags: [buyer, dispute-audit]
+    status: automated
+    covered_by: "engagement/dispute_audit.feature::Dispute audit: Resolution is refused while team-audit is down end to end"
+    notes: "engagement-dispute-audit: audited-dispute-resolution. API-level journey through the gateway."
+
+  - id: engagement-dispute-audit.a-buyer-cannot-resolve-a-dispute-end-to-end
+    title: "Dispute audit: A buyer cannot resolve a dispute end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order, team-audit]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateDispute, engagement.v1.ResolveDispute, engagement.v1.GetDispute, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Dispute audit: A buyer cannot resolve a dispute end to end"
+    tags: [buyer, dispute-audit]
+    status: automated
+    covered_by: "engagement/dispute_audit.feature::Dispute audit: A buyer cannot resolve a dispute end to end"
+    notes: "engagement-dispute-audit: audited-dispute-resolution. API-level journey through the gateway."
+
+  - id: engagement-dispute-audit.resolving-a-closed-dispute-writes-no-second-event-end-to-end
+    title: "Dispute audit: Resolving a closed dispute writes no second event end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order, team-audit]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateDispute, engagement.v1.ResolveDispute, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Dispute audit: Resolving a closed dispute writes no second event end to end"
+    tags: [buyer, dispute-audit]
+    status: automated
+    covered_by: "engagement/dispute_audit.feature::Dispute audit: Resolving a closed dispute writes no second event end to end"
+    notes: "engagement-dispute-audit: audited-dispute-resolution. API-level journey through the gateway."
+
+  - id: engagement-dispute-audit.dispute-audit-admin-resolves-a-dispute-and-one-event-is-written
+    title: "Dispute audit: Admin resolves a dispute and one event is written"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Admin resolves a dispute and one event is written"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeWritesAuditEvent`"
+
+  - id: engagement-dispute-audit.dispute-audit-investigating-dispute-can-be-updated-again-with-one-event-each
+    title: "Dispute audit: Investigating dispute can be updated again with one event each"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Investigating dispute can be updated again with one event each"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeInvestigatingRepeatAudited`"
+
+  - id: engagement-dispute-audit.dispute-audit-any-permitted-target-status-is-audited
+    title: "Dispute audit: Any permitted target status is audited"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Any permitted target status is audited"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeAuditsEveryStatus`"
+
+  - id: engagement-dispute-audit.dispute-audit-audit-is-written-before-the-update
+    title: "Dispute audit: Audit is written before the update"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Audit is written before the update"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveDisputeAuditBeforeUpdate`"
+
+  - id: engagement-dispute-audit.dispute-audit-written-as-the-service-principal
+    title: "Dispute audit: written as the service principal"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: written as the service principal"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestAuditClientWriteEventUsesServicePrincipal`"
+
+  - id: engagement-dispute-audit.dispute-audit-hide-review-audit-behaviour-is-unchanged
+    title: "Dispute audit: Hide-review audit behaviour is unchanged"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Hide-review audit behaviour is unchanged"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestWriteHideEventStillBuildsReviewHideEvent`"
+
+  - id: engagement-dispute-audit.dispute-audit-resolution-note-is-trimmed-in-the-event
+    title: "Dispute audit: Resolution note is trimmed in the event"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Resolution note is trimmed in the event"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeAuditResolutionTrimmed`"
+
+  - id: engagement-dispute-audit.dispute-audit-empty-resolution-is-audited-as-empty
+    title: "Dispute audit: Empty resolution is audited as empty"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Empty resolution is audited as empty"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeEmptyResolutionAudited`"
+
+  - id: engagement-dispute-audit.dispute-audit-audit-error-leaves-the-dispute-open
+    title: "Dispute audit: Audit error leaves the dispute open"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Audit error leaves the dispute open"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveDisputeAuditFailureFailsClosed`"
+
+  - id: engagement-dispute-audit.dispute-audit-timeout-is-unavailable
+    title: "Dispute audit: timeout is Unavailable"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: timeout is Unavailable"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestAuditClientWriteEventTimeout`; team-engagement `internal/service` `TestResolveDisputeAuditTimeoutUnavailable`"
+
+  - id: engagement-dispute-audit.dispute-audit-no-audit-upstream-configured
+    title: "Dispute audit: No audit upstream configured"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: No audit upstream configured"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveDisputeNilAuditUnavailable`"
+
+  - id: engagement-dispute-audit.dispute-audit-update-failure-after-audit-is-internal-and-retryable
+    title: "Dispute audit: Update failure after audit is Internal and retryable"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Update failure after audit is Internal and retryable"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveDisputeUpdateFailureInternalThenRetry`"
+
+  - id: engagement-dispute-audit.dispute-audit-other-dispute-rpcs-ignore-team-audit-availability
+    title: "Dispute audit: Other dispute RPCs ignore team-audit availability"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Other dispute RPCs ignore team-audit availability"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestDisputeReadWriteIndependentOfAudit`"
+
+  - id: engagement-dispute-audit.dispute-audit-anonymous-caller-is-unauthenticated
+    title: "Dispute audit: Anonymous caller is unauthenticated"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Anonymous caller is unauthenticated"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeAnonymousNoAudit`"
+
+  - id: engagement-dispute-audit.dispute-audit-non-admin-is-denied
+    title: "Dispute audit: Non-admin is denied"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Non-admin is denied"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeNonAdminDeniedNoAudit`"
+
+  - id: engagement-dispute-audit.dispute-audit-authorization-precedes-validation
+    title: "Dispute audit: Authorization precedes validation"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Authorization precedes validation"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeAuthBeforeValidationAndAudit`"
+
+  - id: engagement-dispute-audit.dispute-audit-empty-dispute-id-is-rejected
+    title: "Dispute audit: Empty dispute id is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Empty dispute id is rejected"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeEmptyIDNoAudit`"
+
+  - id: engagement-dispute-audit.dispute-audit-invalid-status-is-rejected
+    title: "Dispute audit: Invalid status is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Invalid status is rejected"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeInvalidStatusNoAudit`"
+
+  - id: engagement-dispute-audit.dispute-audit-unknown-dispute
+    title: "Dispute audit: Unknown dispute"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Unknown dispute"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeNotFoundNoAudit`"
+
+  - id: engagement-dispute-audit.dispute-audit-already-closed-dispute-is-not-re-audited
+    title: "Dispute audit: Already closed dispute is not re-audited"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Dispute audit: Already closed dispute is not re-audited"
+    tags: [dispute-audit, unit]
+    status: not-testable
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeClosedNoAudit`"

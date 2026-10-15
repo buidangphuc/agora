@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/buidangphuc/team-engagement/internal/repository"
+	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 var (
@@ -29,6 +30,7 @@ const maxHideReasonRunes = 500
 // AuditWriter is the slice of internal/upstream.AuditClient the service needs.
 type AuditWriter interface {
 	WriteHideEvent(ctx context.Context, actorID, reviewID, listingID, reason string) error
+	WriteEvent(ctx context.Context, ev upstream.AuditEvent) error
 }
 
 // OrderVerifier consults team-order to confirm a buyer completed an order for a
