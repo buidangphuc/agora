@@ -14,12 +14,10 @@ vi.mock("./ReviewRatingFilter", () => ({
   ReviewRatingFilter: ({
     total,
     current,
-  }: { total: number; current: number }) => (
-    <div data-testid="filter" data-total={total} data-current={current} />
-  ),
-}));
-vi.mock("./WriteReviewButton", () => ({
-  WriteReviewButton: () => <button type="button">Viết đánh giá</button>,
+  }: {
+    total: number;
+    current: number;
+  }) => <div data-testid="filter" data-total={total} data-current={current} />,
 }));
 
 const rated: ViewRatingSummary = {
@@ -35,7 +33,11 @@ const unrated: ViewRatingSummary = {
   breakdown: { star1: 0, star2: 0, star3: 0, star4: 0, star5: 0 },
 };
 
-function renderSection(summary: ViewRatingSummary, rating = 0) {
+function renderSection(
+  summary: ViewRatingSummary,
+  rating = 0,
+  loggedIn = true,
+) {
   return render(
     <ReviewSection
       listingId="L"
@@ -49,12 +51,20 @@ function renderSection(summary: ViewRatingSummary, rating = 0) {
         pages: 1,
       })}
       rating={rating}
-      loggedIn
+      loggedIn={loggedIn}
     />,
   );
 }
 
 describe("ReviewSection", () => {
+  it("labels the count as verified purchases", () => {
+    renderSection({ ...rated, averageRating: 4.0, reviewCount: 2 });
+    const box = screen.getByTestId("review-summary");
+    expect(box).toHaveTextContent("4.0");
+    expect(box).toHaveTextContent("từ 2 đánh giá đã mua hàng");
+    expect(box.textContent).not.toMatch(/\b2 đánh giá(?! đã mua hàng)/);
+  });
+
   it("is the always-rendered #reviews section with the kept heading", () => {
     renderSection(rated);
     const section = document.getElementById("reviews");
@@ -62,9 +72,25 @@ describe("ReviewSection", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "ĐÁNH GIÁ SẢN PHẨM" }),
     ).toBeInTheDocument();
+  });
+
+  it("renders the orders hint and no write button", () => {
+    renderSection(rated);
+    const section = document.getElementById("reviews") as HTMLElement;
+    expect(within(section).queryByTestId("write-review")).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Viết đánh giá" }),
-    ).toBeInTheDocument();
+      within(section).queryByRole("button", { name: "Viết đánh giá" }),
+    ).toBeNull();
+    const link = section.querySelector('a[href="/account/orders"]');
+    expect(link).not.toBeNull();
+    expect(section).toHaveTextContent("Để đánh giá, hãy vào");
+  });
+
+  it("renders the orders hint and no write button for a guest too", () => {
+    renderSection(rated, 0, false);
+    const section = document.getElementById("reviews") as HTMLElement;
+    expect(within(section).queryByTestId("write-review")).toBeNull();
+    expect(section.querySelector('a[href="/account/orders"]')).not.toBeNull();
   });
 
   it("shows the average with a read-only Rate, the count and the star breakdown as Progress", () => {
@@ -72,7 +98,6 @@ describe("ReviewSection", () => {
     const box = screen.getByTestId("review-summary");
     expect(box).toHaveTextContent("3.5");
     expect(box).toHaveTextContent("/ 5");
-    expect(box).toHaveTextContent("20 đánh giá");
     expect(
       within(box).getByRole("img", { name: "3.5 trên 5 sao" }),
     ).toBeInTheDocument();
@@ -85,10 +110,11 @@ describe("ReviewSection", () => {
     expect(screen.getByTestId("filter")).toHaveAttribute("data-total", "20");
   });
 
-  it("shows only Chưa có đánh giá, with no stars and no invented 5.0, for zero reviews", () => {
+  it("keeps the empty summary text: only Chưa có đánh giá, with no stars and no invented 5.0, for zero reviews", () => {
     renderSection(unrated);
     const box = screen.getByTestId("review-summary");
     expect(box).toHaveTextContent("Chưa có đánh giá");
+    expect(box).not.toHaveTextContent("từ 0 đánh giá đã mua hàng");
     expect(box).not.toHaveTextContent("5.0");
     expect(within(box).queryByRole("img")).toBeNull();
     expect(within(box).queryAllByRole("progressbar")).toHaveLength(0);

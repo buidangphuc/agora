@@ -91,6 +91,14 @@ export async function createReview(
   return mapReview(res.review);
 }
 
+/** Admin-only soft delete; the gateway enforces the scope. Errors propagate. */
+export async function hideReview(
+  reviewId: string,
+  reason: string,
+): Promise<void> {
+  await gateway().engagement.hideReview({ reviewId, reason });
+}
+
 /** Mark a review helpful; returns the new helpful count (team-engagement
  * dedupes per user, so calling twice is a no-op there). */
 export async function markReviewHelpful(reviewId: string): Promise<number> {

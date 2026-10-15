@@ -34,7 +34,7 @@ export function ReviewModal({
   onSuccess,
 }: {
   listingId: string;
-  orderId?: string;
+  orderId: string;
   productTitle?: string;
   onClose: () => void;
   onSuccess?: () => void;

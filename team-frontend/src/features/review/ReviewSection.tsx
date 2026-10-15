@@ -13,7 +13,7 @@ import type {
 import { AiReviewSummary } from "./AiReviewSummary";
 import { ReviewList } from "./ReviewList";
 import { ReviewRatingFilter } from "./ReviewRatingFilter";
-import { WriteReviewButton } from "./WriteReviewButton";
+import { ReviewOrdersHint } from "./ReviewOrdersHint";
 
 const STARS = [5, 4, 3, 2, 1];
 
@@ -50,6 +50,7 @@ export function ReviewSection({
   rating,
   variant,
   loggedIn,
+  isAdmin = false,
 }: {
   listingId: string;
   productTitle?: string;
@@ -60,7 +61,8 @@ export function ReviewSection({
   pagePromise: Promise<ViewReviewsPage>;
   rating: number;
   variant?: string;
-  loggedIn: boolean;
+  loggedIn?: boolean;
+  isAdmin?: boolean;
 }) {
   const rated = summary.reviewCount > 0;
 
@@ -83,11 +85,8 @@ export function ReviewSection({
               Nhận xét thực tế từ người mua hàng đã trải nghiệm
             </p>
           </div>
-          <WriteReviewButton
-            listingId={listingId}
-            productTitle={productTitle}
-          />
         </div>
+        <ReviewOrdersHint />
 
         <Suspense fallback={<AiSummarySkeleton />}>
           <AiReviewSummary
@@ -116,7 +115,7 @@ export function ReviewSection({
                   className="justify-center"
                 />
                 <p className="text-sm text-text-secondary">
-                  {summary.reviewCount} đánh giá
+                  từ {summary.reviewCount} đánh giá đã mua hàng
                 </p>
               </>
             ) : (
@@ -164,7 +163,7 @@ export function ReviewSection({
             pagePromise={pagePromise}
             rating={rating}
             variant={variant}
-            loggedIn={loggedIn}
+            isAdmin={isAdmin}
           />
         </Suspense>
       </Card>

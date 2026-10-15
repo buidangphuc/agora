@@ -6,8 +6,10 @@ from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
-from tests.e2e.step_definitions.review_ratings_steps import _create_review, _register_buyer
+from src.models import User
+from tests.e2e.step_definitions.review_ratings_steps import _register_buyer
 from tests.e2e.support import d2_support as d2
+from tests.e2e.support import review_order_support as ros
 from tests.e2e.support.uif_support import ALERTS
 from tests.e2e.support.world import World
 
@@ -26,7 +28,11 @@ def listing_with_reviews(world: World) -> None:
     _x(world)["uif_shop"] = shop
     for i, stars in enumerate((5, 4)):
         author = _register_buyer(world, f"uifpdp{i}")
-        _create_review(world, author.token, shop["listing_id"], stars, f"Rất tốt lần {i} {stars}")
+        seller = User(shop["username"], world.settings.seed_password, "seller", token=shop["token"])
+        review = ros.seed_verified_review(
+            world, author, seller, shop["listing_id"], stars, f"Rất tốt lần {i} {stars}"
+        )
+        assert review.get("verifiedPurchase") is True, review
 
 
 @when("a guest opens the listing page without waiting for its streamed sections")
