@@ -94,6 +94,8 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `OUTBOX_MAX_ATTEMPTS` | `10` |
 | `RESERVATION_TTL` | `15m` (Go duration): how long an uncommitted (`active`) reservation holds stock before the sweeper restores it |
 | `RESERVATION_SWEEP_INTERVAL` | `1m` (Go duration): sweeper period |
+| `UPSTREAM_AUDIT_ADDR` | empty: team-audit gRPC address. Admin listing update/delete are audited (`listing.admin_update` / `listing.admin_delete`) before applying and fail closed with `Unavailable` when audit is unset or down; owner writes are never audited |
+| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2`: per-call audit timeout, single attempt |
 | `OTEL_ENABLED` | `false` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty |
 | `OTEL_SERVICE_NAME` | `team-domain` |
