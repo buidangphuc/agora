@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { MessageType } from "@/generated/platform/chat/v1/chat_pb.js";
+import { trackAiInteraction } from "@/lib/analytics/ai";
 import type { ViewChatMessage, ViewChatThread } from "@/lib/gateway/chat";
 import {
   chatCopilotAction,
@@ -50,6 +51,26 @@ export function ChatView({
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
+  // The inserted copilot suggestion still waiting for its first edit.
+  const insertedSuggestion = useRef<string | null>(null);
+
+  function insertSuggestion(sug: string) {
+    setText(sug);
+    insertedSuggestion.current = sug;
+    trackAiInteraction("chat_copilot", "accepted", activeThread?.listingId);
+  }
+
+  function handleComposerChange(value: string) {
+    setText(value);
+    if (
+      insertedSuggestion.current !== null &&
+      value !== insertedSuggestion.current
+    ) {
+      insertedSuggestion.current = null;
+      trackAiInteraction("chat_copilot", "edited", activeThread?.listingId);
+    }
+  }
+
   const isSeller = !!activeThread && activeThread.sellerId === currentUserId;
 
   // Ask team-ai (through the gateway) for reply suggestions based on the last
@@ -66,7 +87,10 @@ export function ChatView({
       activeThread.listingId,
     );
     setCopilotLoading(false);
-    if (res.ok && res.replies.length > 0) setCopilotReplies(res.replies);
+    if (res.ok && res.replies.length > 0) {
+      setCopilotReplies(res.replies);
+      trackAiInteraction("chat_copilot", "shown", activeThread.listingId);
+    }
   }
 
   const activeThreadId = activeThread?.id;
@@ -188,6 +212,7 @@ export function ChatView({
     e.preventDefault();
     if (!activeThread || !text.trim()) return;
     const content = text.trim();
+    insertedSuggestion.current = null;
     setText("");
     setSending(true);
 
@@ -524,7 +549,7 @@ export function ChatView({
                   <button
                     key={sug}
                     type="button"
-                    onClick={() => setText(sug)}
+                    onClick={() => insertSuggestion(sug)}
                     className="px-3 py-1 bg-white hover:bg-indigo-100/80 text-indigo-700 border border-indigo-200/90 rounded-full shrink-0 font-medium transition shadow-2xs hover:border-indigo-300 cursor-pointer"
                   >
                     {sug}
@@ -561,7 +586,7 @@ export function ChatView({
                 <input
                   type="text"
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={(e) => handleComposerChange(e.target.value)}
                   placeholder="Nhập nội dung tin nhắn trao đổi..."
                   className="w-full rounded-xl border border-gray-300 bg-gray-50/50 px-4 py-2.5 text-xs text-gray-900 placeholder-gray-400 focus:bg-white focus:border-brand focus:ring-1 focus:ring-brand focus:outline-hidden transition"
                 />

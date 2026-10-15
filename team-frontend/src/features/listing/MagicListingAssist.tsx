@@ -10,6 +10,7 @@ import { Tag } from "@/components/ui/Tag";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatPrice } from "@/components/ui/format";
 import { usePending } from "@/features/seller/usePending";
+import { trackAiInteraction } from "@/lib/analytics/ai";
 import type { ViewMagicListing } from "@/lib/gateway/ai";
 import { magicListingAction } from "./actions";
 
@@ -28,10 +29,15 @@ export interface MagicApply {
 export function MagicListingAssist({
   title,
   categoryId,
+  listingId,
+  onDraft,
   onApply,
 }: {
   title: string;
   categoryId: string;
+  listingId?: string;
+  /** Called when a new draft arrives, before it is shown. */
+  onDraft?: () => void;
   onApply: (values: MagicApply) => void;
 }) {
   const [suggestion, setSuggestion] = useState<ViewMagicListing | null>(null);
@@ -44,11 +50,18 @@ export function MagicListingAssist({
     const res = await run(() => magicListingAction(title, categoryId));
     if (res.ok && res.data) {
       setSuggestion(res.data);
+      onDraft?.();
+      trackAiInteraction("magic_listing", "shown", listingId);
       return;
     }
     const message = res.ok ? "AI chưa có gợi ý cho sản phẩm này." : res.error;
     setError(message);
     toast.error(message);
+  }
+
+  function apply(values: MagicApply) {
+    onApply(values);
+    trackAiInteraction("magic_listing", "accepted", listingId);
   }
 
   const s = suggestion;
@@ -105,7 +118,7 @@ export function MagicListingAssist({
               <SuggestionRow
                 label="Tiêu đề"
                 value={s.generatedTitle}
-                onApply={() => onApply({ title: s.generatedTitle })}
+                onApply={() => apply({ title: s.generatedTitle })}
               />
             )}
             {s.generatedDescription && (
@@ -113,7 +126,7 @@ export function MagicListingAssist({
                 label="Mô tả"
                 value={s.generatedDescription}
                 multiline
-                onApply={() => onApply({ description: s.generatedDescription })}
+                onApply={() => apply({ description: s.generatedDescription })}
               />
             )}
             {price !== undefined && (
@@ -123,7 +136,7 @@ export function MagicListingAssist({
                   s.suggestedPriceMax,
                 )}`}
                 applyLabel="Áp dụng giá thấp nhất"
-                onApply={() => onApply({ price })}
+                onApply={() => apply({ price })}
               />
             )}
             {s.highlightTags.length > 0 && (
@@ -136,7 +149,7 @@ export function MagicListingAssist({
             <Button
               size="sm"
               onClick={() =>
-                onApply({
+                apply({
                   title: s.generatedTitle || undefined,
                   description: s.generatedDescription || undefined,
                   price,

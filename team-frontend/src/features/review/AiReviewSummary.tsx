@@ -2,15 +2,19 @@ import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/Tag";
 import { type ViewReviewSummary, summarizeReviews } from "@/lib/gateway/ai";
 import type { ViewReview } from "@/lib/gateway/reviews";
+import { AiReviewSummaryShown } from "./AiReviewSummaryShown";
 
 /** The AI summary card. Presentational. */
 export function AiReviewSummaryCard({
   summary,
+  listingId,
 }: {
   summary: ViewReviewSummary;
+  listingId?: string;
 }) {
   return (
     <Card data-testid="ai-review-summary" className="p-5">
+      <AiReviewSummaryShown listingId={listingId} />
       <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold text-text-primary">
         <span>Tóm tắt đánh giá bằng AI</span>
         {summary.sentiment && <Tag color="info">{summary.sentiment}</Tag>}
@@ -73,5 +77,5 @@ export async function AiReviewSummary({
     )
     .catch(() => null);
   if (!summary) return null;
-  return <AiReviewSummaryCard summary={summary} />;
+  return <AiReviewSummaryCard summary={summary} listingId={listingId} />;
 }

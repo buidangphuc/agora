@@ -22,7 +22,8 @@ export type GA4EventName =
   | "follow_seller"
   | "referral_redeem"
   | "daily_check_in"
-  | "alert_subscribe";
+  | "alert_subscribe"
+  | "ai_interaction";
 
 export type InternalEventType =
   | "view"
@@ -44,7 +45,8 @@ export type InternalEventType =
   | "follow_seller"
   | "referral_redeem"
   | "daily_check_in"
-  | "alert_subscribe";
+  | "alert_subscribe"
+  | "ai_interaction";
 
 export interface EcommerceItem {
   itemId: string;

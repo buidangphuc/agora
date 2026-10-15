@@ -22,6 +22,7 @@ const GA4_TO_INTERNAL: Record<GA4EventName, InternalEventType> = {
   referral_redeem: "referral_redeem",
   daily_check_in: "daily_check_in",
   alert_subscribe: "alert_subscribe",
+  ai_interaction: "ai_interaction",
 };
 
 const INTERNAL_TO_GA4: Record<InternalEventType, GA4EventName | undefined> = {
@@ -46,6 +47,7 @@ const INTERNAL_TO_GA4: Record<InternalEventType, GA4EventName | undefined> = {
   referral_redeem: "referral_redeem",
   daily_check_in: "daily_check_in",
   alert_subscribe: "alert_subscribe",
+  ai_interaction: "ai_interaction",
 };
 
 export function ga4ToInternal(name: GA4EventName): InternalEventType {

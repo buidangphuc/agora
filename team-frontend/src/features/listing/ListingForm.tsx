@@ -16,6 +16,7 @@ import { Tag } from "@/components/ui/Tag";
 import { useToast } from "@/components/ui/ToastProvider";
 import { LinkButton } from "@/features/seller/LinkButton";
 import { usePending } from "@/features/seller/usePending";
+import { trackAiInteraction } from "@/lib/analytics/ai";
 import { getImageUrl } from "@/lib/media";
 import { MagicListingAssist } from "./MagicListingAssist";
 import {
@@ -178,6 +179,19 @@ export function ListingForm({
     setEdited((prev) => ({ ...prev, [field]: true }));
   }
 
+  // Magic Listing: fields the seller applied from the current draft, and
+  // whether the one "edited" event of this draft was already reported.
+  const magicApplied = useRef<{ fields: Set<string>; reported: boolean }>({
+    fields: new Set(),
+    reported: false,
+  });
+  function noteEdit(field: "title" | "description" | "price") {
+    const m = magicApplied.current;
+    if (m.reported || !m.fields.has(field)) return;
+    m.reported = true;
+    trackAiInteraction("magic_listing", "edited", listingId);
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pending || uploading) return;
@@ -283,7 +297,14 @@ export function ListingForm({
       <MagicListingAssist
         title={title}
         categoryId={categoryId}
+        listingId={listingId}
+        onDraft={() => {
+          magicApplied.current = { fields: new Set(), reported: false };
+        }}
         onApply={(v) => {
+          for (const f of ["title", "description", "price"] as const) {
+            if (v[f] !== undefined) magicApplied.current.fields.add(f);
+          }
           if (v.title !== undefined)
             change("title", () => setTitle(v.title ?? ""));
           if (v.description !== undefined) setDescription(v.description);
@@ -309,7 +330,10 @@ export function ListingForm({
               name="title"
               required
               value={title}
-              onChange={(e) => change("title", () => setTitle(e.target.value))}
+              onChange={(e) => {
+                noteEdit("title");
+                change("title", () => setTitle(e.target.value));
+              }}
               onBlur={() => touch("title")}
               placeholder="VD: Điện thoại iPhone 15 Pro Max 256GB - Hàng Chính Hãng"
             />
@@ -344,7 +368,10 @@ export function ListingForm({
               name="description"
               rows={5}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                noteEdit("description");
+                setDescription(e.target.value);
+              }}
               className={textareaClass}
               placeholder="Thông số kỹ thuật, chất liệu, kích thước, xuất xứ, chính sách bảo hành..."
             />
@@ -418,9 +445,10 @@ export function ListingForm({
                 type="number"
                 min={0}
                 value={price}
-                onChange={(e) =>
-                  change("price", () => setPrice(e.target.value))
-                }
+                onChange={(e) => {
+                  noteEdit("price");
+                  change("price", () => setPrice(e.target.value));
+                }}
                 onBlur={() => touch("price")}
                 placeholder="VD: 29990000"
               />

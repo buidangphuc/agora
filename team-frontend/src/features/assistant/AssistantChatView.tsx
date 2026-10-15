@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
+import { trackAiInteraction } from "@/lib/analytics/ai";
 import { askAssistantAction } from "./actions";
 
 interface ProductCard {
@@ -41,6 +42,23 @@ export function AssistantChatView() {
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Report each AI message that carries product cards once, after render
+  // (never during streaming patches, which carry no cards).
+  const reportedShown = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const m of messages) {
+      if (
+        m.sender === "ai" &&
+        m.product_cards &&
+        m.product_cards.length > 0 &&
+        !reportedShown.current.has(m.id)
+      ) {
+        reportedShown.current.add(m.id);
+        trackAiInteraction("assistant", "shown");
+      }
+    }
+  }, [messages]);
 
   const handleSend = async (textToSend?: string) => {
     const query = textToSend || input;
@@ -206,12 +224,26 @@ export function AssistantChatView() {
                         <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
                           <Link
                             href={`/listing/${p.listing_id}`}
+                            onClick={() =>
+                              trackAiInteraction(
+                                "assistant",
+                                "accepted",
+                                p.listing_id,
+                              )
+                            }
                             className="flex-1 sm:flex-none px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg text-center transition-all shadow-sm"
                           >
                             Xem Ngay
                           </Link>
                           <Link
                             href={"/checkout"}
+                            onClick={() =>
+                              trackAiInteraction(
+                                "assistant",
+                                "accepted",
+                                p.listing_id,
+                              )
+                            }
                             className="flex-1 sm:flex-none px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg text-center transition-all shadow-sm"
                           >
                             Mua Ngay
