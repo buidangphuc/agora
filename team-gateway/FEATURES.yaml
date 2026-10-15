@@ -1233,7 +1233,8 @@ features:
     acceptance:
       - "Loop intake: each activation and loop beacon becomes a tracking event"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: each activation and loop beacon becomes a tracking event"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: each activation and loop beacon becomes a tracking event; unit twin `internal/edge` `TestHandleTrackLoopEventTypes`"
 
   - id: loop-event-intake.properties-of-a-loop-beacon-reach-the-event
@@ -1247,7 +1248,8 @@ features:
     acceptance:
       - "Loop intake: properties of a loop beacon reach the event"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: properties of a loop beacon reach the event"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: properties of a loop beacon reach the event; unit twin `internal/edge` `TestHandleTrackLoopEventProperties`"
 
   - id: loop-event-intake.the-envelope-principal-is-the-signed-in-buyer
@@ -1261,7 +1263,8 @@ features:
     acceptance:
       - "Loop intake: the envelope principal is the signed-in buyer"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: the envelope principal is the signed-in buyer"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: the envelope principal is the signed-in buyer; unit twin `internal/edge` `TestHandleTrackLoopEventPrincipalFromCookie`"
 
   - id: loop-event-intake.an-anonymous-caller-is-attributed-to-the-anonymous-principal
@@ -1275,7 +1278,8 @@ features:
     acceptance:
       - "Loop intake: an anonymous caller is attributed to the anonymous principal"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: an anonymous caller is attributed to the anonymous principal"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an anonymous caller is attributed to the anonymous principal; unit twin `internal/edge` `TestHandleTrackLoopEventAnonymousPrincipal`"
 
   - id: loop-event-intake.free-text-in-a-loop-property-is-scrubbed
@@ -1303,7 +1307,8 @@ features:
     acceptance:
       - "Loop intake: an oversized loop property is rejected"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: an oversized loop property is rejected"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an oversized loop property is rejected; unit twin `internal/edge` `TestHandleTrackLoopEventBounds`"
 
   - id: loop-event-intake.existing-beacon-types-are-unchanged
@@ -1317,7 +1322,8 @@ features:
     acceptance:
       - "Loop intake: existing beacon types are unchanged"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: existing beacon types are unchanged"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: existing beacon types are unchanged; unit twin `internal/edge` `TestHandleTrackExistingTypesUnchanged`"
 
   - id: loop-event-intake.an-unknown-type-is-still-rejected
@@ -1331,7 +1337,8 @@ features:
     acceptance:
       - "Loop intake: an unknown type is still rejected"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: an unknown type is still rejected"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an unknown type is still rejected; unit twin `internal/edge` `TestHandleTrackUnknownTypeStillRejected`"
 
   - id: loop-event-intake.a-valid-ai-interaction-becomes-a-tracking-event
@@ -1345,7 +1352,8 @@ features:
     acceptance:
       - "Loop intake: a valid AI interaction becomes a tracking event"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: a valid AI interaction becomes a tracking event"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: a valid AI interaction becomes a tracking event; unit twin `internal/edge` `TestHandleTrackAIInteractionAccepted`"
 
   - id: loop-event-intake.every-allowlisted-surface-and-action-pair-is-accepted
@@ -1373,7 +1381,8 @@ features:
     acceptance:
       - "Loop intake: an AI interaction with a surface outside the allowlist is rejected"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: an AI interaction with a surface outside the allowlist is rejected"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an AI interaction with a surface outside the allowlist is rejected; unit twin `internal/edge` `TestHandleTrackAIInteractionBadSurface`"
 
   - id: loop-event-intake.an-ai-interaction-with-an-action-outside-the-allowlist-is-rejected
@@ -1387,7 +1396,8 @@ features:
     acceptance:
       - "Loop intake: an AI interaction with an action outside the allowlist is rejected"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: an AI interaction with an action outside the allowlist is rejected"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an AI interaction with an action outside the allowlist is rejected; unit twin `internal/edge` `TestHandleTrackAIInteractionBadAction`"
 
   - id: loop-event-intake.an-ai-interaction-missing-surface-or-action-is-rejected
@@ -1401,7 +1411,8 @@ features:
     acceptance:
       - "Loop intake: an AI interaction missing surface or action is rejected"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: an AI interaction missing surface or action is rejected"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an AI interaction missing surface or action is rejected; unit twin `internal/edge` `TestHandleTrackAIInteractionMissingProperties`"
 
   - id: loop-event-intake.ai-allowlist-matching-is-exact
@@ -1415,7 +1426,8 @@ features:
     acceptance:
       - "Loop intake: AI allowlist matching is exact"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: AI allowlist matching is exact"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: AI allowlist matching is exact; unit twin `internal/edge` `TestHandleTrackAIInteractionExactMatch`"
 
   - id: loop-event-intake.an-invalid-ai-beacon-does-not-drop-the-valid-ones-in-a-batch
@@ -1429,7 +1441,8 @@ features:
     acceptance:
       - "Loop intake: an invalid AI beacon does not drop the valid ones in a batch"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: an invalid AI beacon does not drop the valid ones in a batch"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an invalid AI beacon does not drop the valid ones in a batch; unit twin `internal/edge` `TestHandleTrackAIInteractionBatchIndependent`"
 
   - id: loop-event-intake.an-ai-interaction-is-attributed-by-the-cookie-not-by-the-body
@@ -1457,7 +1470,8 @@ features:
     acceptance:
       - "Loop intake: an AI interaction with an extra property key is rejected"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: an AI interaction with an extra property key is rejected"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an AI interaction with an extra property key is rejected; unit twin `internal/edge` `TestHandleTrackAIInteractionExtraKeyRejected`"
 
   - id: loop-event-intake.an-extra-key-ai-beacon-in-a-batch-is-dropped-and-counted
@@ -1471,7 +1485,8 @@ features:
     acceptance:
       - "Loop intake: an extra-key AI beacon in a batch is dropped and counted"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: an extra-key AI beacon in a batch is dropped and counted"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an extra-key AI beacon in a batch is dropped and counted; unit twin `internal/edge` `TestHandleTrackAIInteractionExtraKeyBatch`"
 
   - id: loop-event-intake.an-ai-beacon-type-with-odd-casing-is-still-validated
@@ -1485,5 +1500,6 @@ features:
     acceptance:
       - "Loop intake: an AI beacon type with odd casing is still validated"
     tags: [tracking, loop-event-intake]
-    status: planned
+    status: automated
+    covered_by: "tracking/loop_event_intake.feature::Loop intake: an AI beacon type with odd casing is still validated"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an AI beacon type with odd casing is still validated; unit twin `internal/edge` `TestHandleTrackAIInteractionTypeCasingValidated`"
