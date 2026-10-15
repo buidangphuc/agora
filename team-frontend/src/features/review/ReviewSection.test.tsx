@@ -14,9 +14,10 @@ vi.mock("./ReviewRatingFilter", () => ({
   ReviewRatingFilter: ({
     total,
     current,
-  }: { total: number; current: number }) => (
-    <div data-testid="filter" data-total={total} data-current={current} />
-  ),
+  }: {
+    total: number;
+    current: number;
+  }) => <div data-testid="filter" data-total={total} data-current={current} />,
 }));
 
 const rated: ViewRatingSummary = {

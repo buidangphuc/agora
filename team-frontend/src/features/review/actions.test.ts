@@ -168,7 +168,10 @@ describe("hideReviewAction", () => {
       new ConnectError("admin only", Code.PermissionDenied),
     );
     const res = await hideReviewAction("r1", "l1", "x");
-    expect(res).toEqual({ ok: false, error: "Bạn không có quyền ẩn đánh giá." });
+    expect(res).toEqual({
+      ok: false,
+      error: "Bạn không có quyền ẩn đánh giá.",
+    });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -183,12 +186,15 @@ describe("hideReviewAction", () => {
       Code.Unauthenticated,
       "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
     ],
-  ])("maps NotFound, Unavailable, Unauthenticated (code %s)", async (code, msg) => {
-    vi.mocked(hideReview).mockRejectedValue(new ConnectError("raw", code));
-    const res = await hideReviewAction("r1", "l1", "x");
-    expect(res).toEqual({ ok: false, error: msg });
-    expect(revalidatePath).not.toHaveBeenCalled();
-  });
+  ])(
+    "maps NotFound, Unavailable, Unauthenticated (code %s)",
+    async (code, msg) => {
+      vi.mocked(hideReview).mockRejectedValue(new ConnectError("raw", code));
+      const res = await hideReviewAction("r1", "l1", "x");
+      expect(res).toEqual({ ok: false, error: msg });
+      expect(revalidatePath).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     new ConnectError("boom detail", Code.Internal),

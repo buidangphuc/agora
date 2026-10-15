@@ -92,9 +92,13 @@ describe("ReviewList", () => {
         loggedIn,
       });
       expect(screen.getByText("Chưa có đánh giá nào")).toBeInTheDocument();
-      expect(container.querySelector('a[href="/account/orders"]')).not.toBeNull();
+      expect(
+        container.querySelector('a[href="/account/orders"]'),
+      ).not.toBeNull();
       expect(container).toHaveTextContent("Để đánh giá, hãy vào");
-      expect(screen.queryByRole("button", { name: "Viết đánh giá" })).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: "Viết đánh giá" }),
+      ).toBeNull();
       expect(screen.queryByTestId("write-review")).toBeNull();
       unmount();
     }
@@ -116,9 +120,9 @@ describe("ReviewList", () => {
       );
       expect(within(item).queryByTestId("unverified-purchase")).toBeNull();
     }
-    expect(within(items[2]).getByTestId("unverified-purchase")).toHaveTextContent(
-      "Chưa xác minh mua hàng",
-    );
+    expect(
+      within(items[2]).getByTestId("unverified-purchase"),
+    ).toHaveTextContent("Chưa xác minh mua hàng");
     expect(within(items[2]).queryByTestId("verified-purchase")).toBeNull();
   });
 
@@ -160,7 +164,9 @@ describe("ReviewList", () => {
       "✓ Đã mua hàng",
     );
     expect(within(second).queryByTestId("verified-purchase")).toBeNull();
-    expect(within(second).getByTestId("unverified-purchase")).toBeInTheDocument();
+    expect(
+      within(second).getByTestId("unverified-purchase"),
+    ).toBeInTheDocument();
     const photos = within(first).getAllByAltText("Ảnh đánh giá");
     expect(photos).toHaveLength(2);
     for (const p of photos) expect(p).toHaveAttribute("loading", "lazy");

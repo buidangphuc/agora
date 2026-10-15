@@ -124,7 +124,9 @@ describe("ReviewModal", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Chưa xác minh được đơn hàng của bạn. Vui lòng thử lại sau.",
     );
-    expect(screen.getByLabelText("Nhận xét chi tiết")).toHaveValue("Giữ lại nhé");
+    expect(screen.getByLabelText("Nhận xét chi tiết")).toHaveValue(
+      "Giữ lại nhé",
+    );
     expect(onClose).not.toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
   });

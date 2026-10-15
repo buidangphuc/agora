@@ -20,6 +20,7 @@ function stubEngagement(rpcs: Record<string, ReturnType<typeof vi.fn>>) {
     createReview: vi.fn(),
     listReviews: vi.fn(),
     getListingRatingSummary: vi.fn(),
+    hideReview: vi.fn(),
     ...rpcs,
   };
   vi.mocked(makeClients).mockReturnValue({ engagement } as never);

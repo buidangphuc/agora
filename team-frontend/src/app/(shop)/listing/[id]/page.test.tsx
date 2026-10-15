@@ -428,16 +428,19 @@ describe("ProductDetailPage: review admin plumbing", () => {
     ["a buyer", { id: "u1", name: "B", scopes: ["buyer"] }, "false"],
     ["a seller", { id: "u2", name: "S", scopes: ["seller"] }, "false"],
     ["an admin", { id: "u3", name: "A", scopes: ["buyer", "admin"] }, "true"],
-  ])("passes isAdmin only for the admin scope (%s)", async (_who, principal, want) => {
-    vi.mocked(getPrincipal).mockReturnValue(principal as never);
-    try {
-      await renderPage();
-      expect(screen.getByTestId("review-list-stub")).toHaveAttribute(
-        "data-is-admin",
-        want,
-      );
-    } finally {
-      vi.mocked(getPrincipal).mockReturnValue(null);
-    }
-  });
+  ])(
+    "passes isAdmin only for the admin scope (%s)",
+    async (_who, principal, want) => {
+      vi.mocked(getPrincipal).mockReturnValue(principal as never);
+      try {
+        await renderPage();
+        expect(screen.getByTestId("review-list-stub")).toHaveAttribute(
+          "data-is-admin",
+          want,
+        );
+      } finally {
+        vi.mocked(getPrincipal).mockReturnValue(null);
+      }
+    },
+  );
 });

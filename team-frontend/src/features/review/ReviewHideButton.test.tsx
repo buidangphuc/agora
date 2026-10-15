@@ -28,8 +28,7 @@ async function openDialog(user: ReturnType<typeof setupUser>) {
   return screen.getByRole("dialog", { name: "Ẩn đánh giá" });
 }
 
-const submit = () =>
-  screen.getByRole("button", { name: "Ẩn đánh giá", exact: true });
+const submit = () => screen.getByRole("button", { name: /^Ẩn đánh giá$/ });
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -100,7 +99,9 @@ describe("ReviewHideButton", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Chưa ẩn được đánh giá. Vui lòng thử lại sau.",
     );
-    expect(screen.getByRole("dialog", { name: "Ẩn đánh giá" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Ẩn đánh giá" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("textbox")).toHaveValue("Spam");
     expect(screen.queryByText("Đã ẩn đánh giá.")).toBeNull();
   });
