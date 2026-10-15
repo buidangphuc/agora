@@ -240,6 +240,8 @@ read directly from the environment, not part of `Settings`).
 | `DATABASE_URL` | empty | Required when `DATABASE_ENABLED=true` (startup fails otherwise) |
 | `DB_MAX_CONNS` | `10` | pgx pool size |
 | `UPSTREAM_ORDER_ADDR` | `localhost:50055` | team-order gRPC address (insecure channel) |
+| `UPSTREAM_AUDIT_ADDR` | empty | team-audit gRPC address. Every admin `RefundPayment` writes a `payment.admin_refund` audit event (target `payment/<id>`, metadata `order_id`, `amount`) before the refund; unset or audit failure returns `UNAVAILABLE` and no refund happens. Seller refunds are not audited |
+| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Bound on each audit call (single attempt) |
 | `MOCK_PAYMENTS` | `false` | Enables `ProcessMockPayment`; startup is refused when true and `ENV` is staging/stage/prod/production |
 | `OTEL_ENABLED` | `false` | Loaded but unused; see Known gaps |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | Loaded but unused; see Known gaps |

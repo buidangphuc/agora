@@ -41,6 +41,11 @@ type Database struct {
 
 type Upstream struct {
 	OrderAddr string `env:"UPSTREAM_ORDER_ADDR" default:"localhost:50055"`
+	// AuditAddr is team-audit's gRPC address; empty disables admin-refund auditing
+	// (admin refunds then fail closed).
+	AuditAddr string `env:"UPSTREAM_AUDIT_ADDR" default:""`
+	// CallTimeoutSeconds bounds each upstream audit call.
+	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
 }
 
 // Mock holds development conveniences that must never be on in a shared environment.

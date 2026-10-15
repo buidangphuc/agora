@@ -38,6 +38,13 @@ func (m *mockOrderClient) UpdateOrderStatus(_ context.Context, req *orderv1.Upda
 	return nil, service.ErrOrderNotFound
 }
 
+// permissiveAudit accepts every admin-refund audit write (these tests are not about audit).
+type permissiveAudit struct{}
+
+func (permissiveAudit) WriteAdminRefund(context.Context, string, string, string, int64) error {
+	return nil
+}
+
 func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRepository, *repository.InMemoryLedgerRepository, *mockOrderClient) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	paymentRepo := repository.NewInMemoryPaymentRepository()
@@ -56,7 +63,7 @@ func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRep
 	}
 	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, service.WithLedgerRepo(ledger),
 		service.WithSettlementLedger(repository.NewInMemorySettlementLedger(paymentRepo, ledger)))
-	h := handler.NewPaymentHandler(svc, logger, handler.WithMockPayments(true))
+	h := handler.NewPaymentHandler(svc, logger, handler.WithMockPayments(true), handler.WithAuditWriter(permissiveAudit{}))
 	return h, paymentRepo, ledger, orderClient
 }
 
