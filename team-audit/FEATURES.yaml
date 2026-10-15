@@ -30,3 +30,445 @@ features:
     - audit
     status: automated
     covered_by: security/audit_access.feature::A refused edge write leaves no audit event
+  - id: audit.qf-target-id-and-target-type-narrow-to-one-target
+    title: Target id and target type narrow to one target
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Target id and target type narrow to one target
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::An admin filters the audit log by target (Target id and target type narrow to one target)
+  - id: audit.qf-action-filter-is-an-exact-match
+    title: Action filter is an exact match
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Action filter is an exact match
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::An admin filters the audit log by action (Action filter is an exact match)
+  - id: audit.qf-filters-combine-with-and
+    title: Filters combine with AND
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Filters combine with AND
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::Filters combine with AND
+  - id: audit.qf-time-range-includes-the-lower-bound-and-excludes-the-upper-bound
+    title: Time range includes the lower bound and excludes the upper bound
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Time range includes the lower bound and excludes the upper bound
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::The time range includes created_after and excludes created_before (Time range includes the lower bound and excludes the upper bound)
+  - id: audit.qf-one-sided-time-bounds
+    title: One-sided time bounds
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - One-sided time bounds
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-audit internal/service TestQueryOneSidedTimeBounds. Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-equal-bounds-match-nothing
+    title: Equal bounds match nothing
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - Equal bounds match nothing
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-audit internal/service TestQueryEqualTimeBoundsIsEmpty. Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-no-match-returns-an-empty-page
+    title: No match returns an empty page
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - No match returns an empty page
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::A filter with no match returns an empty list (No match returns an empty page)
+  - id: audit.qf-paging-walks-a-filtered-result
+    title: Paging walks a filtered result
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Paging walks a filtered result
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::A filtered result is paged newest first (Paging walks a filtered result)
+  - id: audit.qf-requests-without-the-new-fields-behave-as-before
+    title: Requests without the new fields behave as before
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - Requests without the new fields behave as before
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-audit internal/handler TestQueryAuditLogCursorPaging. Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-filter-values-are-bound-parameters
+    title: Filter values are bound parameters
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Filter values are bound parameters
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::A quote in a filter value is matched literally (Filter values are bound parameters)
+  - id: audit.qf-in-memory-repository-matches-postgres
+    title: In-memory repository matches Postgres
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - In-memory repository matches Postgres
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-audit internal/repository TestRepositoryFilterParity (Postgres half runs when TEST_DATABASE_URL is set). Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-created-before-earlier-than-created-after
+    title: created_before earlier than created_after
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - created_before earlier than created_after
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::An inverted time range is refused (created_before earlier than created_after)
+  - id: audit.qf-authorization-precedes-validation
+    title: Authorization precedes validation
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - Authorization precedes validation
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-audit internal/handler TestQueryAuditLogAuthBeforeValidation. Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-non-admin-cannot-query-with-filters
+    title: Non-admin cannot query with filters
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Non-admin cannot query with filters
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::Only an admin can query with filters (Non-admin cannot query with filters)
+  - id: audit.qf-anonymous-caller-cannot-query-with-filters
+    title: Anonymous caller cannot query with filters
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Anonymous caller cannot query with filters
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::Only an admin can query with filters (Anonymous caller cannot query with filters)
+  - id: audit.qf-handler-refuses-a-missing-principal-with-any-filter
+    title: Handler refuses a missing principal with any filter
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - Handler refuses a missing principal with any filter
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-audit internal/handler TestQueryAuditLogUnauthenticated. Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-handler-denies-a-non-admin-before-reading-filters
+    title: Handler denies a non-admin before reading filters
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - Handler denies a non-admin before reading filters
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-audit internal/handler TestQueryAuditLogAdminOnly. Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-gateway-forwards-the-new-fields-unchanged
+    title: Gateway forwards the new fields unchanged
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - Gateway forwards the new fields unchanged
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge TestQueryAuditLogForwardsFilters. Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-the-admin-procedure-set-is-unchanged
+    title: The admin procedure set is unchanged
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - The admin procedure set is unchanged
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-gateway internal/edge TestAdminProcedureSetIsPinned. Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-migration-creates-and-drops-the-index
+    title: Migration creates and drops the index
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - Migration creates and drops the index
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-audit internal/repository TestMigration002ActionIndex (runs when TEST_DATABASE_URL is set). Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-migration-up-is-re-runnable-without-failure
+    title: Migration up is re-runnable without failure
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-query-filters.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - Migration up is re-runnable without failure
+    tags:
+    - security
+    - audit
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-audit internal/repository TestMigration002ActionIndex (runs when TEST_DATABASE_URL is set). Not producible end to end through the gateway (unit or database level)."
+  - id: audit.qf-helper-finds-seeded-events-through-the-gateway
+    title: Helper finds seeded events through the gateway
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Helper finds seeded events through the gateway
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::The audit helper finds seeded events through the gateway (Helper finds seeded events through the gateway)
+  - id: audit.qf-helper-restarts-team-audit-after-a-stop
+    title: Helper restarts team-audit after a stop
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Helper restarts team-audit after a stop
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::The audit helper restarts team-audit after a stop (Helper restarts team-audit after a stop)
+  - id: audit.qf-query-fails-clearly-while-team-audit-is-down
+    title: Query fails clearly while team-audit is down
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Query fails clearly while team-audit is down
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::The audit helper fails clearly while team-audit is down (Query fails clearly while team-audit is down)
+  - id: audit.qf-helper-query-with-a-non-admin-token-is-refused
+    title: Helper query with a non-admin token is refused
+    persona: admin
+    priority: P1
+    summary: Audit log query filters through the gateway (change audit-query-filters).
+    entry_route: /
+    services:
+    - team-audit
+    - team-gateway
+    api:
+      exercised:
+      - audit.v1.AuditService.QueryAuditLog
+    acceptance:
+    - Helper query with a non-admin token is refused
+    tags:
+    - security
+    - audit
+    status: automated
+    covered_by: security/audit_query_filters.feature::Only an admin can query with filters (Helper query with a non-admin token is refused)

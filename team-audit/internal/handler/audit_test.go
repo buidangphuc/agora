@@ -3,10 +3,14 @@ package handler_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	auditv1 "github.com/buidangphuc/team-audit/generated/platform/audit/v1"
 	commonv1 "github.com/buidangphuc/team-audit/generated/platform/common/v1"
@@ -197,5 +201,223 @@ func TestQueryAuditLogAdminOnly(t *testing.T) {
 				t.Fatalf("got %v, want %v", code(err), c.want)
 			}
 		})
+	}
+}
+
+// spyRepo counts Query calls so "the repository is not called" is observable.
+type spyRepo struct {
+	repository.AuditRepository
+	queries int
+}
+
+func (s *spyRepo) Query(ctx context.Context, f repository.QueryFilter) ([]*auditv1.AuditEvent, int64, error) {
+	s.queries++
+	return s.AuditRepository.Query(ctx, f)
+}
+
+func newSpiedHandler() (*handler.AuditHandler, *spyRepo) {
+	spy := &spyRepo{AuditRepository: repository.NewInMemoryAuditRepo()}
+	return handler.NewAuditHandler(service.NewAuditService(spy)), spy
+}
+
+func hr(h int) time.Time { return time.Date(2026, 1, 1, h, 0, 0, 0, time.UTC) }
+
+func ts(h int) *timestamppb.Timestamp { return timestamppb.New(hr(h)) }
+
+// seedEvent appends an event with a fixed timestamp straight into the repo.
+func seedEvent(t *testing.T, repo repository.AuditRepository, id, actor, action, tType, tID string, at time.Time) {
+	t.Helper()
+	if _, err := repo.Append(context.Background(), &auditv1.AuditEvent{
+		Id: id, ActorId: actor, Action: action, TargetType: tType, TargetId: tID, CreatedAt: timestamppb.New(at),
+	}); err != nil {
+		t.Fatalf("seed %s: %v", id, err)
+	}
+}
+
+func newSeededHandler(t *testing.T) *handler.AuditHandler {
+	t.Helper()
+	repo := repository.NewInMemoryAuditRepo()
+	seedEvent(t, repo, "e1", "adm-1", "kyc.review", "order", "o-1", hr(10))
+	seedEvent(t, repo, "e2", "adm-1", "kyc.reviewed", "order", "o-1", hr(11))
+	seedEvent(t, repo, "e3", "adm-2", "review.hide", "order", "o-2", hr(12))
+	seedEvent(t, repo, "e4", "adm-1", "order.force_fail", "order", "o-1", hr(13))
+	seedEvent(t, repo, "e5", "adm-1", "kyc.review", "listing", "l-1", hr(14))
+	return handler.NewAuditHandler(service.NewAuditService(repo))
+}
+
+func respIDs(r *auditv1.QueryAuditLogResponse) []string {
+	out := []string{}
+	for _, e := range r.GetEvents() {
+		out = append(out, e.GetId())
+	}
+	return out
+}
+
+func sameIDs(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func mustQuery(t *testing.T, h *handler.AuditHandler, req *auditv1.QueryAuditLogRequest, want []string, wantTotal int64) {
+	t.Helper()
+	res, err := h.QueryAuditLog(asAdmin(), req)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if !sameIDs(respIDs(res), want) {
+		t.Fatalf("ids = %v, want %v", respIDs(res), want)
+	}
+	if res.GetPage().GetTotal() != wantTotal {
+		t.Fatalf("total = %d, want %d", res.GetPage().GetTotal(), wantTotal)
+	}
+}
+
+// Scenario: Target id and target type narrow to one target.
+func TestQueryAuditLogFilterByTarget(t *testing.T) {
+	h := newSeededHandler(t)
+	mustQuery(t, h, &auditv1.QueryAuditLogRequest{TargetType: "order", TargetId: proto.String("o-1")},
+		[]string{"e4", "e2", "e1"}, 3)
+}
+
+// Scenario: Action filter is an exact match.
+func TestQueryAuditLogFilterByActionExact(t *testing.T) {
+	h := newSeededHandler(t)
+	mustQuery(t, h, &auditv1.QueryAuditLogRequest{Action: proto.String("kyc.review")},
+		[]string{"e5", "e1"}, 2)
+}
+
+// Scenario: Filters combine with AND.
+func TestQueryAuditLogFiltersAreAnded(t *testing.T) {
+	h := newSeededHandler(t)
+	mustQuery(t, h, &auditv1.QueryAuditLogRequest{
+		ActorId: "adm-1", Action: proto.String("order.force_fail"), TargetId: proto.String("o-1"),
+	}, []string{"e4"}, 1)
+}
+
+// An explicitly empty optional string means no filter (spec: empty = unset),
+// and a time range is honoured end to end (inclusive lower, exclusive upper).
+func TestQueryAuditLogEmptyOptionalIsNoFilterAndTimeRange(t *testing.T) {
+	h := newSeededHandler(t)
+	mustQuery(t, h, &auditv1.QueryAuditLogRequest{TargetId: proto.String(""), Action: proto.String("")},
+		[]string{"e5", "e4", "e3", "e2", "e1"}, 5)
+	mustQuery(t, h, &auditv1.QueryAuditLogRequest{CreatedAfter: ts(10), CreatedBefore: ts(12)},
+		[]string{"e2", "e1"}, 2)
+	mustQuery(t, h, &auditv1.QueryAuditLogRequest{CreatedAfter: ts(13)},
+		[]string{"e5", "e4"}, 2)
+}
+
+// Scenario: No match returns an empty page.
+func TestQueryAuditLogNoMatchIsEmpty(t *testing.T) {
+	h := newSeededHandler(t)
+	res, err := h.QueryAuditLog(asAdmin(), &auditv1.QueryAuditLogRequest{TargetId: proto.String("nobody")})
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(res.GetEvents()) != 0 || res.GetPage().GetTotal() != 0 || res.GetPage().GetNextCursor() != "" {
+		t.Fatalf("want empty page, got %v total=%d cursor=%q",
+			respIDs(res), res.GetPage().GetTotal(), res.GetPage().GetNextCursor())
+	}
+}
+
+// Scenario: Paging walks a filtered result.
+func TestQueryAuditLogFilteredPaging(t *testing.T) {
+	repo := repository.NewInMemoryAuditRepo()
+	for i := 0; i < 25; i++ {
+		seedEvent(t, repo, fmt.Sprintf("p-%02d", i), "adm-1", "a.b", "order", "o-25", hr(0).Add(time.Duration(i)*time.Minute))
+	}
+	seedEvent(t, repo, "other", "adm-1", "a.b", "order", "o-other", hr(5))
+	h := handler.NewAuditHandler(service.NewAuditService(repo))
+
+	req := &auditv1.QueryAuditLogRequest{TargetType: "order", TargetId: proto.String("o-25"), Page: &commonv1.PageRequest{PageSize: 20}}
+	p1, err := h.QueryAuditLog(asAdmin(), req)
+	if err != nil {
+		t.Fatalf("page1: %v", err)
+	}
+	if len(p1.GetEvents()) != 20 || p1.GetPage().GetTotal() != 25 || p1.GetPage().GetNextCursor() == "" {
+		t.Fatalf("page1: len=%d total=%d cursor=%q", len(p1.GetEvents()), p1.GetPage().GetTotal(), p1.GetPage().GetNextCursor())
+	}
+	if p1.GetEvents()[0].GetId() != "p-24" || p1.GetEvents()[19].GetId() != "p-05" {
+		t.Fatalf("page1 not newest first: %s..%s", p1.GetEvents()[0].GetId(), p1.GetEvents()[19].GetId())
+	}
+	req.Page.Cursor = p1.GetPage().GetNextCursor()
+	p2, err := h.QueryAuditLog(asAdmin(), req)
+	if err != nil {
+		t.Fatalf("page2: %v", err)
+	}
+	if want := []string{"p-04", "p-03", "p-02", "p-01", "p-00"}; !sameIDs(respIDs(p2), want) {
+		t.Fatalf("page2 = %v, want %v", respIDs(p2), want)
+	}
+	if p2.GetPage().GetTotal() != 25 || p2.GetPage().GetNextCursor() != "" {
+		t.Fatalf("page2 total=%d cursor=%q", p2.GetPage().GetTotal(), p2.GetPage().GetNextCursor())
+	}
+}
+
+// Scenario: created_before earlier than created_after.
+func TestQueryAuditLogInvertedRangeInvalidArgument(t *testing.T) {
+	h, spy := newSpiedHandler()
+	_, err := h.QueryAuditLog(asAdmin(), &auditv1.QueryAuditLogRequest{CreatedAfter: ts(12), CreatedBefore: ts(10)})
+	if code(err) != codes.InvalidArgument {
+		t.Fatalf("got %v, want InvalidArgument", code(err))
+	}
+	if spy.queries != 0 {
+		t.Fatalf("repository must not be called, got %d queries", spy.queries)
+	}
+	// Equal bounds are legal.
+	if _, err := h.QueryAuditLog(asAdmin(), &auditv1.QueryAuditLogRequest{CreatedAfter: ts(12), CreatedBefore: ts(12)}); err != nil {
+		t.Fatalf("equal bounds must succeed, got %v", err)
+	}
+}
+
+// Scenario: Authorization precedes validation.
+func TestQueryAuditLogAuthBeforeValidation(t *testing.T) {
+	h, spy := newSpiedHandler()
+	_, err := h.QueryAuditLog(asUser("u1"), &auditv1.QueryAuditLogRequest{CreatedAfter: ts(12), CreatedBefore: ts(10)})
+	if code(err) != codes.PermissionDenied {
+		t.Fatalf("got %v, want PermissionDenied", code(err))
+	}
+	if spy.queries != 0 {
+		t.Fatalf("repository must not be called, got %d", spy.queries)
+	}
+}
+
+func allFilters() *auditv1.QueryAuditLogRequest {
+	return &auditv1.QueryAuditLogRequest{
+		ActorId: "adm-1", TargetType: "order", TargetId: proto.String("o-1"), Action: proto.String("x"),
+		CreatedAfter: ts(10), CreatedBefore: ts(12),
+	}
+}
+
+// Scenario: Handler refuses a missing principal with any filter.
+func TestQueryAuditLogUnauthenticated(t *testing.T) {
+	for name, ctx := range map[string]context.Context{"no principal": context.Background(), "anonymous": asAnonymous()} {
+		h, spy := newSpiedHandler()
+		_, err := h.QueryAuditLog(ctx, allFilters())
+		if code(err) != codes.Unauthenticated {
+			t.Fatalf("%s: got %v, want Unauthenticated", name, code(err))
+		}
+		if spy.queries != 0 {
+			t.Fatalf("%s: repository must not be called", name)
+		}
+	}
+}
+
+// Scenario: Handler denies a non-admin before reading filters.
+func TestQueryAuditLogAdminOnlyWithFilters(t *testing.T) {
+	for name, ctx := range map[string]context.Context{"plain user": asUser("u1"), "service": asService("svc-order")} {
+		h, spy := newSpiedHandler()
+		_, err := h.QueryAuditLog(ctx, allFilters())
+		if code(err) != codes.PermissionDenied {
+			t.Fatalf("%s: got %v, want PermissionDenied", name, code(err))
+		}
+		if spy.queries != 0 {
+			t.Fatalf("%s: repository must not be called", name)
+		}
 	}
 }

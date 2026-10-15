@@ -11,7 +11,7 @@ Served from `proto/platform/audit/v1/audit.proto` (vendored; see Gotchas): `plat
 | RPC | Authorization and behaviour |
 |---|---|
 | `WriteAuditEvent` | Service-only: requires a `service` principal holding `audit.write` (`Unauthenticated` with no/anonymous principal, `PermissionDenied` for users incl. admins and scopeless services). The stored `actor_id` is the request's `actor_id` if set, else the service's own id. Empty `action` returns `InvalidArgument`. The response is empty (fire-and-forget); the server assigns `id` (`audit_` + 8 chars of a UUID) and `created_at`. Storage failures return a generic `Internal` ("internal error"); the cause is logged server-side. |
-| `QueryAuditLog` | Admin only: authenticated, then scope `admin` (`PermissionDenied` otherwise; a service principal also needs `admin`). Optional filters `actor_id` and `target_type` (exact match). Newest first (`created_at DESC, id DESC`). The page cursor is a row offset as a decimal string; an empty or malformed cursor means the first page. `page_size` defaults to 20 and is capped at 100 (`internal/service/audit.go`). `next_cursor` is set only while more rows remain; `total` is the match count before paging. |
+| `QueryAuditLog` | Admin only: authenticated, then scope `admin` (`PermissionDenied` otherwise; a service principal also needs `admin`). Optional filters, combined with AND: `actor_id`, `target_type`, `target_id`, `action` (all exact match; absent or empty means no filter) and a `created_at` range (`created_after` inclusive, `created_before` exclusive; `created_after` later than `created_before` returns `InvalidArgument`, equal bounds match nothing). Newest first (`created_at DESC, id DESC`). The page cursor is a row offset as a decimal string; an empty or malformed cursor means the first page. `page_size` defaults to 20 and is capped at 100 (`internal/service/audit.go`). `next_cursor` is set only while more rows remain; `total` is the match count before paging. |
 
 Also served: gRPC health (`""` is SERVING) and server reflection (always on).
 
@@ -34,7 +34,7 @@ Database `audit_db` (role `audit_svc`) on the stack's shared Postgres. One table
 | `metadata` | `JSONB` not null, default `{}` |
 | `created_at` | `TIMESTAMPTZ` not null, default `NOW()` (the service writes `NOW()`) |
 
-Indexes: `(actor_id, created_at DESC)` and `(target_type, target_id, created_at DESC)`. Rows are immutable: the code never issues `UPDATE` or `DELETE`, and there is no such RPC.
+Indexes: `(actor_id, created_at DESC)`, `(target_type, target_id, created_at DESC)` and `(action, created_at DESC)` (migration `002_audit_action_created_index`). Rows are immutable: the code never issues `UPDATE` or `DELETE`, and there is no such RPC.
 
 Migrations are applied only by the compose one-shot `team-audit-migrate` (golang-migrate, `up`), which the service waits on. The service itself never migrates.
 
@@ -96,7 +96,6 @@ There is no lint target, no `.github/workflows` and no other CI config here; run
 
 ## Known gaps
 
-- `QueryAuditLog` supports only `actor_id` and `target_type` filters; there is no `target_id` or time-range filter even though an index on `(target_type, target_id, created_at)` exists.
 - `.env.example` documents many variables the code ignores (see Configuration).
 - No FEATURES.yaml, so `features-check` has no manifest for this service.
 - No tracing: `OTEL_*` is declared but nothing configures a tracer.
