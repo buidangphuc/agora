@@ -23,6 +23,14 @@ import (
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
+// permissiveAudit is a fake team-audit that accepts every write.
+type permissiveAudit struct{}
+
+func (permissiveAudit) WriteHideEvent(context.Context, string, string, string, string) error {
+	return nil
+}
+func (permissiveAudit) WriteEvent(context.Context, upstream.AuditEvent) error { return nil }
+
 // eligibleVerifier is a fake team-order that confirms every (buyer, order, listing).
 type eligibleVerifier struct{}
 
@@ -41,7 +49,7 @@ func startServer(t *testing.T) engagementv1.EngagementServiceClient {
 	qaRepo := repository.NewInMemoryQARepository()
 	qaSvc := service.NewQAService(qaRepo, logger)
 	disputeRepo := repository.NewInMemoryDisputeRepository()
-	disputeSvc := service.NewDisputeService(disputeRepo, logger)
+	disputeSvc := service.NewDisputeService(disputeRepo, logger).WithAudit(permissiveAudit{})
 	collectionRepo := repository.NewInMemoryCollectionRepository()
 	collectionSvc := service.NewCollectionService(collectionRepo, logger)
 	repo := repository.NewInMemoryRepository()

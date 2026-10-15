@@ -13,7 +13,7 @@ import (
 func TestDisputeService(t *testing.T) {
 	ctx := context.Background()
 	repo := repository.NewInMemoryDisputeRepository()
-	svc := service.NewDisputeService(repo, nil)
+	svc := service.NewDisputeService(repo, nil).WithAudit(&disputeAuditFake{log: &disputeCallLog{}})
 
 	t.Run("CreateDispute Validations", func(t *testing.T) {
 		// Empty order ID

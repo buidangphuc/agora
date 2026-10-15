@@ -23,7 +23,7 @@ func TestEngagementHandler(t *testing.T) {
 	qaRepo := repository.NewInMemoryQARepository()
 	qaSvc := service.NewQAService(qaRepo, nil)
 	disputeRepo := repository.NewInMemoryDisputeRepository()
-	disputeSvc := service.NewDisputeService(disputeRepo, nil)
+	disputeSvc := service.NewDisputeService(disputeRepo, nil).WithAudit(&auditSpy{})
 	collectionRepo := repository.NewInMemoryCollectionRepository()
 	collectionSvc := service.NewCollectionService(collectionRepo, nil)
 
