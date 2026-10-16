@@ -23,6 +23,8 @@ enum PaymentStatus {
   PAYMENT_STATUS_REFUNDED = 4;
   // Some but not all of the paid amount has been refunded (cumulative refunds).
   PAYMENT_STATUS_PARTIALLY_REFUNDED = 5;
+  // The order was cancelled before payment; ProcessMockPayment refuses it.
+  PAYMENT_STATUS_CANCELLED = 6;
 }
 
 // Where a refund came from. The stored refund key is prefixed by source, so an id a
