@@ -2072,3 +2072,129 @@ features:
     status: not-testable
     notes: 'add-model-registry: verified by test_cli.py::test_unexpected_exception_exit_1. Platform library
       / infra / docs behaviour with no user journey; not producible end to end.'
+  - id: identity-auth-contract.fields-exist-with-the-agreed-numbers
+    title: "Fields exist with the agreed numbers"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Fields exist with the agreed numbers"
+    tags:
+    - identity-auth-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `platform-core/packages/proto` descriptor check run by `make check`/`buf build` plus a generated-code field-number assertion in the generated-code task (tasks 2.1)"
+  - id: identity-auth-contract.change-is-backward-compatible
+    title: "Change is backward compatible"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Change is backward compatible"
+    tags:
+    - identity-auth-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking`"
+  - id: identity-auth-contract.boundary-sessions-disabled
+    title: "Boundary, sessions disabled"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Boundary, sessions disabled"
+    tags:
+    - identity-auth-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `platform-core/packages/proto/platform/identity/v1/authresult_roundtrip_test.go` (tasks 2.1)"
+  - id: identity-auth-contract.service-and-messages-exist-in-every-generated-language
+    title: "Service and messages exist in every generated language"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Service and messages exist in every generated language"
+    tags:
+    - identity-auth-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+  - id: identity-auth-contract.lint-passes
+    title: "Lint passes"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Lint passes"
+    tags:
+    - identity-auth-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core lint-proto`"
+  - id: identity-auth-contract.error-contract-is-documented
+    title: "Error contract is documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Error contract is documented"
+    tags:
+    - identity-auth-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: proto comment check in `make -C platform-core check` review gate (tasks 1.3); behaviour is verified in identity-session-refresh"
+  - id: identity-auth-contract.existing-rpcs-are-untouched
+    title: "Existing RPCs are untouched"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Existing RPCs are untouched"
+    tags:
+    - identity-auth-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` plus diff review"
+  - id: identity-auth-contract.empty-or-malformed-token-is-documented-as-unauthenticated
+    title: "Empty or malformed token is documented as Unauthenticated"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Empty or malformed token is documented as Unauthenticated"
+    tags:
+    - identity-auth-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: proto comment review (tasks 1.3); behaviour verified in identity-session-refresh"
+  - id: identity-auth-contract.grace-replay-semantics-are-documented
+    title: "Grace replay semantics are documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Grace replay semantics are documented"
+    tags:
+    - identity-auth-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: proto comment review (tasks 1.3); behaviour verified in identity-session-refresh"
