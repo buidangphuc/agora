@@ -109,7 +109,7 @@ export function ReportListingButton({
           </div>
           <div className="space-y-1">
             <label htmlFor={`${id}-note`} className="text-sm font-medium">
-              Ghi chú (không bắt buộc)
+              Chi tiết (không bắt buộc)
             </label>
             <textarea
               id={`${id}-note`}
@@ -119,6 +119,9 @@ export function ReportListingButton({
               className="block w-full rounded-lg border border-border-subtle p-2 text-sm"
               rows={3}
             />
+            <p className="text-right text-xs text-text-muted">
+              {note.length}/500
+            </p>
           </div>
         </div>
       </Modal>
