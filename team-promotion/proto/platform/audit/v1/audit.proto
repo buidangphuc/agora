@@ -36,11 +36,12 @@ message AuditEvent {
 // (for example a seller acting on their own order) is never audited, and a
 // caller whose request is permission denied writes no event.
 //
-// Action catalogue (13):
+// Action catalogue (17):
 //   review.hide, kyc.review, dispute.resolve, listing.admin_update,
 //   listing.admin_delete, order.force_fail, order.admin_status_update,
 //   return.admin_status_update, shipment.admin_create, payment.admin_refund,
-//   voucher.platform_create, flash_sale.admin_create, ad_campaign.admin_create
+//   voucher.platform_create, flash_sale.admin_create, ad_campaign.admin_create,
+//   listing.moderate, user.set_status, report.resolve, return.dispute_refund
 message WriteAuditEventRequest {
   string actor_id = 1;
   string action = 2;

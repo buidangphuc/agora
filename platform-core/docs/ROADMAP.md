@@ -60,7 +60,7 @@ suggest (team-search) · Favorites + views (team-engagement) · Edge gateway
 |---|---|---|---|---|
 | Promotions / vouchers | Owns `vouchers/promo_rules/campaigns/redemptions`; seller creates shop-voucher, admin creates platform-campaign; order applies at checkout via `ValidateAndReserve → Commit/Release`; frontend shows badges | **team-promotion** (start as module in team-order, split when it grows) | Yes (eventually) | ⬜ |
 | Seller dashboard + metrics | Revenue, orders, views/favorites over time (read from engagement/order via gRPC) | team-frontend | No | ⬜ |
-| Admin | Approve/lock listings, manage users, handle reports | team-frontend (admin area) + identity/domain | No | ⬜ |
+| Admin | Approve/lock listings, manage users, handle reports (Q6 trust enforcement: q6-trust-contract, ai-listing-screen, domain-listing-moderation, identity-user-enforcement, domain-seller-enforcement-hold, engagement-listing-reports, engagement-dispute-escalation, order-dispute-refund, frontend-listing-moderation, frontend-user-enforcement, frontend-dispute-cases) | team-frontend (admin area) + identity/domain | No | ⬜ |
 
 ---
 

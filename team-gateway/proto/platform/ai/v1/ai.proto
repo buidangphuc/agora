@@ -15,6 +15,36 @@ service AIService {
   // tag taxonomy. Internal: called by team-search's indexer as a service principal (scope
   // "ai.classify"); the gateway does not route it.
   rpc ClassifyTags(ClassifyTagsRequest) returns (ClassifyTagsResponse);
+  // ScreenListing screens a listing's text for prohibited content. Internal:
+  // called by team-domain as a service principal with scope ai.classify; the
+  // gateway does not route it. A caller without it gets PERMISSION_DENIED and
+  // an unauthenticated one UNAUTHENTICATED. The backend is chosen by
+  // llm_router; the mock backend returns ALLOW for every listing and REVIEW only
+  // for the documented prohibited keywords. On an error or timeout the caller
+  // decides (fail-closed to review); the verdict is never UNSPECIFIED on
+  // success. listing_id is empty on create (the listing has no id yet).
+  rpc ScreenListing(ScreenListingRequest) returns (ScreenListingResponse);
+}
+
+enum ScreenVerdict {
+  SCREEN_VERDICT_UNSPECIFIED = 0;
+  SCREEN_VERDICT_ALLOW = 1;
+  SCREEN_VERDICT_REVIEW = 2;
+}
+
+message ScreenListingRequest {
+  string listing_id = 1;
+  string title = 2;
+  string description = 3;
+  string category_id = 4;
+}
+
+message ScreenListingResponse {
+  ScreenVerdict verdict = 1;
+  // Machine labels for what triggered REVIEW, e.g. "weapon", "keyword:x".
+  repeated string labels = 2;
+  // Which backend produced the verdict, e.g. "mock".
+  string backend = 3;
 }
 
 message ProductCardSnippet {
