@@ -23,7 +23,8 @@ Implement OpenSpec change `notification-order-work` test-first per its tasks.md 
 - team-notification/internal/config/config.go
 - team-notification/internal/config/config_test.go
 - team-notification/cmd/server/main.go
-- team-notification/.env.example # widened at build: task 4
+- team-notification/.env.example (# widened at build: task 4)
+- plans/q10-order-lifecycle/wave3-task1-notification-order-work.md (# widened at build: task 4; packet widening record)
 - team-notification/README.md
 - team-notification/FEATURES.yaml
 - platform-e2e/tests/e2e/support/**
