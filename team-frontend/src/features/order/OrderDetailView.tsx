@@ -8,7 +8,11 @@ import { PriceTag } from "@/components/ui/PriceTag";
 import { type StepItem, Stepper } from "@/components/ui/Stepper";
 import { Table, type TableColumn } from "@/components/ui/Table";
 import { formatPrice } from "@/components/ui/format";
-import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import {
+  CancelReason,
+  OrderStatus,
+} from "@/generated/platform/order/v1/order_pb.js";
+import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import type { ViewOrder, ViewOrderItem } from "@/lib/gateway/orders";
 import { OrderActions, ReviewButton } from "./OrderActions";
 import { OrderDetailTabs } from "./OrderDetailTabs";
@@ -16,19 +20,18 @@ import { OrderItemThumb } from "./OrderItemThumb";
 import { OrderStatusBadge } from "./OrderStatusBadge";
 import { ReturnRequestSection } from "./ReturnRequestSection";
 import type { OrderDetailTab } from "./detailTab";
+import { canPayAgain, canReturn } from "./lifecycle";
+import { linkButton } from "./linkStyles";
 
-/** Cancel on the detail is offered until the order is completed or cancelled. */
-export function canCancelFromDetail(status: OrderStatus): boolean {
-  return (
-    status === OrderStatus.PENDING ||
-    status === OrderStatus.PAID ||
-    status === OrderStatus.SHIPPED
-  );
+function formatInstant(iso: string): string {
+  return new Date(iso).toLocaleString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
 }
 
-/** Returns are offered for completed orders only. */
-export function canReturnOrder(status: OrderStatus): boolean {
-  return status === OrderStatus.COMPLETED;
+/** Cancel on the detail is offered while the order is pending or paid. */
+export function canCancelFromDetail(status: OrderStatus): boolean {
+  return status === OrderStatus.PENDING || status === OrderStatus.PAID;
 }
 
 const STEP_TITLES = [
@@ -147,6 +150,15 @@ export function OrderDetailView({
 }) {
   const cancelled = order.status === OrderStatus.CANCELLED;
   const steps = orderSteps(order.status);
+  const now = new Date();
+  const returnable = canReturn(order, now);
+  const isOnlinePending =
+    order.status === OrderStatus.PENDING &&
+    order.paymentMethod !== PaymentMethod.COD &&
+    order.paymentMethod !== PaymentMethod.UNSPECIFIED;
+  const payable = isOnlinePending && canPayAgain(order, now);
+  const expiredCancel =
+    cancelled && order.cancelReason === CancelReason.PAYMENT_EXPIRED;
 
   const recipient = [
     { key: "recipient", label: "Người nhận", children: order.recipientName },
@@ -228,17 +240,57 @@ export function OrderDetailView({
                 Ngày đặt: {order.createdAt}
               </p>
             )}
+            {isOnlinePending && order.paymentDueAt !== "" && payable && (
+              <p className="text-xs text-text-secondary">
+                Hạn thanh toán: {formatInstant(order.paymentDueAt)}
+              </p>
+            )}
+            {isOnlinePending && order.paymentDueAt !== "" && !payable && (
+              <p className="text-xs text-text-secondary">
+                Đã hết hạn thanh toán
+              </p>
+            )}
+            {order.status === OrderStatus.SHIPPED &&
+              order.autoCompleteAt !== "" && (
+                <p className="text-xs text-text-secondary">
+                  Tự động hoàn thành vào {formatInstant(order.autoCompleteAt)}
+                </p>
+              )}
+            {order.status === OrderStatus.COMPLETED &&
+              order.returnWindowEndsAt !== "" &&
+              (returnable ? (
+                <p className="text-xs text-text-secondary">
+                  Có thể trả hàng đến {formatInstant(order.returnWindowEndsAt)}
+                </p>
+              ) : (
+                <p className="text-xs text-text-secondary">
+                  Đã hết thời hạn trả hàng
+                </p>
+              ))}
             <div className="pt-1">
               <PriceTag price={order.totalAmount} size="xl" />
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end">
+            {payable && (
+              <Link
+                href={`/checkout/pay/${order.id}`}
+                className={`${linkButton.primary} w-full sm:w-auto`}
+              >
+                Thanh toán lại
+              </Link>
+            )}
+            {order.status === OrderStatus.SHIPPED && (
+              <button type="button" className={linkButton.outline}>
+                Đã nhận được hàng
+              </button>
+            )}
             <OrderActions
               orderId={order.id}
               orderTotal={order.totalAmount}
               primaryReorder
               canCancel={canCancelFromDetail(order.status)}
-              canReturn={canReturnOrder(order.status)}
+              canReturn={returnable}
             />
           </div>
         </div>
@@ -249,7 +301,11 @@ export function OrderDetailView({
           <Alert
             type="warning"
             title="Đơn hàng đã hủy"
-            description="Tồn kho sản phẩm đã được hoàn lại cho người bán."
+            description={
+              expiredCancel
+                ? "Đơn hàng đã hết hạn thanh toán và được hệ thống hủy tự động."
+                : "Tồn kho sản phẩm đã được hoàn lại cho người bán."
+            }
           />
         ) : (
           <div className="rounded-xl border border-border-subtle bg-surface-card p-5">
@@ -285,7 +341,7 @@ export function OrderDetailView({
           <ReturnRequestSection
             orderId={order.id}
             orderTotal={order.totalAmount}
-            canRequest={canReturnOrder(order.status)}
+            canRequest={returnable}
           />
         }
       />
