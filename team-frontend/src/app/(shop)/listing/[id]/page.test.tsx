@@ -468,3 +468,37 @@ describe("ProductDetailPage: review admin plumbing", () => {
     },
   );
 });
+
+describe("ProductDetailPage: report control", () => {
+  it("hides the report control from the owner", async () => {
+    // Moderation UI: Seller does not see the control on their own listing
+    vi.mocked(getPrincipal).mockReturnValueOnce({
+      id: "seller-abcdef123",
+      name: "s",
+      scopes: [],
+    } as never);
+    await renderPage();
+    expect(screen.queryByText("Báo cáo tin đăng")).toBeNull();
+  });
+
+  it("shows the report control to a signed-in non-owner", async () => {
+    // Moderation UI: Signed-in buyer sees the report control
+    vi.mocked(getPrincipal).mockReturnValueOnce({
+      id: "u-1",
+      name: "b",
+      scopes: [],
+    } as never);
+    await renderPage();
+    expect(
+      screen.getByRole("button", { name: "Báo cáo tin đăng" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a guest a login link returning to the product page", async () => {
+    // Moderation UI: Guest is sent to login and back (unit level)
+    await renderPage();
+    expect(
+      screen.getByRole("link", { name: "Báo cáo tin đăng" }),
+    ).toHaveAttribute("href", "/login?returnUrl=%2Flisting%2FL");
+  });
+});
