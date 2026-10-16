@@ -637,6 +637,18 @@ func TestCreateWithEventScreenErrorPendingReview(t *testing.T) {
 	}
 }
 
+// Scenario: Auto-screen: AI timeout fails safe within the bound.
+func TestCreateWithEventScreenTimeoutPendingReview(t *testing.T) {
+	f := newScreenFixture(t, "draft", &fakeAI{err: context.DeadlineExceeded})
+	got, err := f.svc.CreateWithEvent(context.Background(), newListing("clean text", "published"), "seller-a", noEvent)
+	if err != nil {
+		t.Fatalf("write must succeed on screen timeout: %v", err)
+	}
+	if got.Status != "pending_review" {
+		t.Fatalf("status = %q, want pending_review", got.Status)
+	}
+}
+
 // Scenario: Auto-screen: Unconfigured team-ai fails safe (service side).
 func TestCreateWithEventNilScreenerPendingReview(t *testing.T) {
 	f := newScreenFixture(t, "draft", nil)
