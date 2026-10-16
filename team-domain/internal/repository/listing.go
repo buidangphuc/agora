@@ -73,6 +73,13 @@ type Listing struct {
 	CategoryID  string    // category ID
 	Stock       int32     // base stock if no variants
 	Variants    []Variant // product variants
+
+	// TEST-STUB (task 2): moderation fields; the real columns land in task 3.
+	ModerationReasonCode string
+	ModerationNote       string
+	ScreenFlags          []string
+	ModerationDecidedAt  time.Time
+	SubmittedAt          time.Time
 }
 
 // Page is a single page of listings plus keyset-pagination metadata.
