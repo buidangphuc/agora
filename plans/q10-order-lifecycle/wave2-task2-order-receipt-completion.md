@@ -26,7 +26,7 @@ Implement OpenSpec change `order-receipt-completion` test-first per its tasks.md
 - team-order/internal/events/publisher.go
 - team-order/internal/events/*_test.go
 - team-order/internal/service/transitions.go
-- team-order/internal/service/order.go
+- team-order/internal/service/order.go (widened at build: task 5)
 - team-order/internal/service/saga.go
 - team-order/internal/service/lifecycle.go
 - team-order/internal/service/*_test.go
