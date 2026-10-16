@@ -49,7 +49,7 @@ func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID st
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
+func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string, _ ...repository.StatusOption) (repository.Order, error) {
 	o, ok := m.orders[id]
 	if !ok {
 		return repository.Order{}, repository.ErrOrderNotFound

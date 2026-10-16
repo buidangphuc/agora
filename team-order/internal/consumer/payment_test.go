@@ -34,7 +34,7 @@ func (s *countingOrderStore) GetOrder(_ context.Context, id string) (repository.
 	return o, nil
 }
 
-func (s *countingOrderStore) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
+func (s *countingOrderStore) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string, _ ...repository.StatusOption) (repository.Order, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	o, ok := s.orders[id]
