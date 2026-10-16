@@ -167,3 +167,75 @@ func TestUpstreamAuditConfig(t *testing.T) {
 		t.Fatalf("AuditAddr = %q", got)
 	}
 }
+
+type lifecycleAccessor struct {
+	env string
+	def time.Duration
+	get func(*config.Settings) (time.Duration, string)
+}
+
+func lifecycleAccessors() []lifecycleAccessor {
+	return []lifecycleAccessor{
+		{"PAYMENT_DEADLINE", 24 * time.Hour, (*config.Settings).PaymentDeadline},
+		{"PAYMENT_REMINDER_BEFORE", 2 * time.Hour, (*config.Settings).PaymentReminderBefore},
+		{"LIFECYCLE_SWEEP_INTERVAL", time.Minute, (*config.Settings).LifecycleSweepInterval},
+	}
+}
+
+func loadLifecycle(t *testing.T) *config.Settings {
+	t.Helper()
+	t.Setenv("DATABASE_ENABLED", "false")
+	cfg, err := config.LoadSettings()
+	if err != nil {
+		t.Fatalf("startup must not fail: %v", err)
+	}
+	return cfg
+}
+
+// Scenario: Order expiry: Defaults apply when nothing is configured
+func TestLifecycleDefaults(t *testing.T) {
+	for _, a := range lifecycleAccessors() {
+		os.Unsetenv(a.env)
+	}
+	cfg := loadLifecycle(t)
+	for _, a := range lifecycleAccessors() {
+		d, warn := a.get(cfg)
+		if d != a.def || warn != "" {
+			t.Errorf("%s: got (%s, %q), want (%s, no warning)", a.env, d, warn, a.def)
+		}
+	}
+}
+
+// Scenario: Order expiry: Invalid duration falls back with a warning
+func TestLifecycleUnusableDurationFallsBack(t *testing.T) {
+	for _, a := range lifecycleAccessors() {
+		for _, bad := range []string{"0", "-5m", "soon", "", "0s"} {
+			t.Run(a.env+"="+bad, func(t *testing.T) {
+				t.Setenv(a.env, bad)
+				cfg := loadLifecycle(t)
+				d, warn := a.get(cfg)
+				if d != a.def {
+					t.Errorf("got %s, want default %s", d, a.def)
+				}
+				if !strings.Contains(warn, a.env) {
+					t.Errorf("warning %q must name %s", warn, a.env)
+				}
+			})
+		}
+	}
+}
+
+// Scenario: Order expiry: Invalid duration falls back with a warning (valid values are honoured, no warning)
+func TestLifecycleValidDurationHonoured(t *testing.T) {
+	vals := map[string]time.Duration{"PAYMENT_DEADLINE": 45 * time.Second, "PAYMENT_REMINDER_BEFORE": 30 * time.Second, "LIFECYCLE_SWEEP_INTERVAL": 2 * time.Second}
+	for k, v := range vals {
+		t.Setenv(k, v.String())
+	}
+	cfg := loadLifecycle(t)
+	for _, a := range lifecycleAccessors() {
+		d, warn := a.get(cfg)
+		if d != vals[a.env] || warn != "" {
+			t.Errorf("%s: got (%s, %q), want (%s, no warning)", a.env, d, warn, vals[a.env])
+		}
+	}
+}
