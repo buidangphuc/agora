@@ -15,6 +15,7 @@ import {
   updateOrderStatus,
 } from "@/lib/gateway/orders";
 import { createPayment, processMockPayment } from "@/lib/gateway/payment";
+import { findCancelReason } from "./cancelReasons";
 import { PRICE_CHANGED_MESSAGE } from "./shippingCopy";
 
 export interface OrderActionResult {
@@ -121,8 +122,10 @@ export async function cancelOrderAction(
   orderId: string,
   reason?: string,
 ): Promise<ActionResult> {
+  const choice = findCancelReason(reason);
+  if (!choice) return fail("Lý do hủy không hợp lệ.");
   try {
-    await cancelOrder(orderId, reason);
+    await cancelOrder(orderId, choice.label, choice.code);
     revalidateBuyerOrder(orderId);
     revalidatePath("/seller/orders");
     return ok();
