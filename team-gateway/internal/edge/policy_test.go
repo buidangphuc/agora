@@ -28,7 +28,9 @@ func TestAdminProceduresPinnedSet(t *testing.T) {
 		analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure, // Only admins can read the channel funnel
 		auditv1connect.AuditServiceQueryAuditLogProcedure,
 		engagementv1connect.EngagementServiceResolveDisputeProcedure,
-		engagementv1connect.EngagementServiceHideReviewProcedure, // HideReview is admin-gated
+		engagementv1connect.EngagementServiceHideReviewProcedure,    // HideReview is admin-gated
+		engagementv1connect.EngagementServiceListReportsProcedure,   // listing reports
+		engagementv1connect.EngagementServiceResolveReportProcedure, // listing reports
 		orderv1connect.OrderServiceForceFailSagaProcedure,
 		verificationv1connect.VerificationServiceReviewKycProcedure,
 	}
