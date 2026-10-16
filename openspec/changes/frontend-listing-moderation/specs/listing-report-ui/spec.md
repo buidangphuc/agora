@@ -17,7 +17,7 @@ The product page SHALL show a "Báo cáo tin đăng" control to a signed-in prin
 #### Scenario: Moderation UI: Guest is sent to login and back
 - **WHEN** a guest clicks "Báo cáo tin đăng" on a product page
 - **THEN** the browser goes to `/login` with the return URL `/listing/<id>`, and after login lands on the product page
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/listing_report_ui.feature` `A guest is sent to login to report`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/listing_report_ui.feature` `Moderation UI: Guest is sent to login and back`
 
 #### Scenario: Moderation UI: Submit a report with reason and note
 - **WHEN** a buyer picks reason `scam`, types the note "Giá quá rẻ, yêu cầu chuyển khoản ngoài" and submits
@@ -72,9 +72,9 @@ The product page SHALL show a "Báo cáo tin đăng" control to a signed-in prin
 #### Scenario: Moderation UI: A buyer's report reaches the admin inbox
 - **WHEN** a buyer reports a published listing with reason `scam` and a note in the browser, and an admin opens `/admin/cases`
 - **THEN** the report is listed under "Đang mở" for that listing with the buyer as reporter
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/listing_report_ui.feature` `A buyer's report reaches the admin inbox`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/listing_report_ui.feature` `Moderation UI: A buyer's report reaches the admin inbox`
 
 #### Scenario: Moderation UI: The seller never sees the reporter
 - **WHEN** a buyer has reported a listing and its seller opens the seller center and the listing edit page
 - **THEN** neither page contains the reporter's id or username or the report note
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/listing_report_ui.feature` `The seller never sees who reported`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/listing_report_ui.feature` `Moderation UI: The seller never sees the reporter`

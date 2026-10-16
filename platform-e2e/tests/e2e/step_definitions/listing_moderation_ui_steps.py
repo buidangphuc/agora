@@ -12,6 +12,7 @@ flagged listing holds the seeded keyword `replica` and the team-ai mock marker
 from __future__ import annotations
 
 import re
+import time
 import uuid
 from urllib.parse import quote
 
@@ -55,6 +56,17 @@ def _admin_page(world: World) -> AdminModerationPage:
 
 def _anonymous(world: World) -> None:
     world.context.clear_cookies()
+    # clear_cookies also drops the consent choice seeded by setup_web_context; re-seed it so
+    # the cookie banner does not cover the page.
+    world.context.add_cookies(
+        [
+            {
+                "name": "agora_consent",
+                "value": f"v=1&a=1&m=0&p=0&ts={int(time.time())}",
+                "url": world.settings.base_url,
+            }
+        ]
+    )
     world.service_factory.set_token(None)
 
 
@@ -275,10 +287,12 @@ def open_reported_page(world: World) -> None:
 
 @when(parsers.parse('the visitor clicks "{name}"'))
 def click_report_control(world: World, name: str) -> None:
-    button = world.page.get_by_role("button", name=name)
-    expect(button.first).to_be_visible(timeout=timeouts.NAVIGATION)
-    _admin_page(world).wait_until_interactive(button)
-    button.first.click()
+    # A guest sees a login link (returnUrl) instead of a button; accept either role.
+    page = world.page
+    control = page.get_by_role("button", name=name).or_(page.get_by_role("link", name=name))
+    expect(control.first).to_be_visible(timeout=timeouts.NAVIGATION)
+    _admin_page(world).wait_until_interactive(control)
+    control.first.click()
 
 
 @when("the moderation buyer signs in on that login page")
@@ -629,8 +643,10 @@ def browser_on(world: World, path: str) -> None:
 
 @then(parsers.parse('the "{name}" tab is selected'))
 def tab_selected(world: World, name: str) -> None:
-    tab = world.page.get_by_role("tab", name=name, exact=True)
-    expect(tab).to_have_attribute("aria-selected", "true", timeout=timeouts.NAVIGATION)
+    tab = world.page.get_by_role("navigation", name="Hồ sơ cần xử lý").get_by_role(
+        "link", name=name, exact=True
+    )
+    expect(tab).to_have_attribute("aria-current", "page", timeout=timeouts.NAVIGATION)
 
 
 @then(parsers.parse('the report is listed under "{filt}" and no longer under "Đang mở"'))

@@ -24,7 +24,8 @@ Feature: Reporting a listing from its page (frontend-listing-moderation)
     When the moderation buyer reports the listing in the browser with reason "Lừa đảo" and the note "Giá quá rẻ, yêu cầu chuyển khoản ngoài"
     Then the toast "Đã gửi báo cáo. Cảm ơn bạn." is shown
     And the gateway lists one open scam report on the listing by the buyer
-    When the admin opens the cases inbox
+    When an admin is signed in the browser
+    And the admin opens the cases inbox
     Then the open reports show a row for the listing with "Lừa đảo" and the buyer as reporter
 
   Scenario: Moderation UI: The seller never sees the reporter

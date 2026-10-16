@@ -10,6 +10,7 @@ import re
 
 from playwright.sync_api import Locator, Page
 
+from src.constants import timeouts
 from src.core.base_page import BasePage
 
 FORBIDDEN_TITLE = "Cần tài khoản Quản trị"
@@ -47,7 +48,8 @@ class AdminModerationPage(BasePage):
 
     @property
     def dialog(self) -> Locator:
-        return self.page.get_by_role("dialog")
+        # Exclude the cookie-consent banner, which is also role=dialog.
+        return self.page.get_by_role("dialog").filter(has_not_text="Cookie preferences")
 
     def rows_of(self, text: str) -> Locator:
         return self.page.locator("tbody tr").filter(has_text=text)
@@ -56,6 +58,7 @@ class AdminModerationPage(BasePage):
         """The first table row containing `text`, following "Trang sau" links; None when absent."""
         for _ in range(MAX_PAGES):
             self.page.wait_for_load_state("domcontentloaded")
+            self.content_or_empty.wait_for(state="visible", timeout=timeouts.NAVIGATION)
             rows = self.rows_of(text)
             if rows.count() > 0:
                 return rows.first
