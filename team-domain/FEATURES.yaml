@@ -1225,7 +1225,8 @@ features:
     acceptance:
       - "Moderation: Rejected listing leaves search end to end"
     tags: [admin, moderation]
-    status: planned
+    status: automated
+    covered_by: "seller/listing_moderation.feature::Moderation: Rejected listing leaves search end to end"
 
   - id: listing.moderation-queue-oldest-submission-first
     title: "Queue: Oldest submission first"
@@ -1774,4 +1775,5 @@ features:
     acceptance:
       - "Auto-screen: Publish end to end, clean and flagged"
     tags: [admin, moderation]
-    status: planned
+    status: automated
+    covered_by: "seller/listing_moderation.feature::Auto-screen: Publish end to end, clean and flagged"
