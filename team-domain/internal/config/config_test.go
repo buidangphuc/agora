@@ -213,3 +213,46 @@ func TestUpstreamAuditConfig(t *testing.T) {
 		}
 	}
 }
+
+// Scenario: Auto-screen: Missing terms file stops start-up.
+func TestScreenTermsFileMissingFails(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	missing := t.TempDir() + "/does-not-exist.txt"
+	t.Setenv("SCREEN_TERMS_FILE", missing)
+	_, err := LoadSettings()
+	if err == nil {
+		t.Fatal("expected start-up error for a missing SCREEN_TERMS_FILE")
+	}
+	if !strings.Contains(err.Error(), missing) {
+		t.Errorf("error %q must name the file %q", err, missing)
+	}
+}
+
+// Scenario: Auto-screen: Embedded term list is the default (unset = no file needed).
+func TestScreenTermsFileDefaultEmpty(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if s.Screen.TermsFile != "" {
+		t.Errorf("default SCREEN_TERMS_FILE = %q, want empty", s.Screen.TermsFile)
+	}
+}
+
+// Scenario: Auto-screen: Keyword list loads from the config file (existing file passes).
+func TestScreenTermsFileExistingLoads(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	p := t.TempDir() + "/terms.txt"
+	if err := os.WriteFile(p, []byte("a\nb\nc\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SCREEN_TERMS_FILE", p)
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if s.Screen.TermsFile != p {
+		t.Errorf("TermsFile = %q, want %q", s.Screen.TermsFile, p)
+	}
+}
