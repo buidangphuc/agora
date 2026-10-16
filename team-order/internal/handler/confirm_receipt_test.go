@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,7 +26,7 @@ type receiptEnv struct {
 
 func newReceiptEnv() receiptEnv {
 	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository(repository.WithCompletedOutbox(events.BuildCompletedOutboxRow), repository.WithInMemoryOutbox(outbox))
+	orders := repository.NewInMemoryOrderRepository(repository.WithCompletedOutbox(events.BuildCompletedOutboxRow), repository.WithInMemoryOutbox(outbox), repository.WithReturnWindow(15*24*time.Hour))
 	returns := repository.NewInMemoryReturnRepository()
 	svc := service.NewOrderService(orders, nil, returns, nil, nil, nil, nil)
 	return receiptEnv{h: handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{})), orders: orders, outbox: outbox}
