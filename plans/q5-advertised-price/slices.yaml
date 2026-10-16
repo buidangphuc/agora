@@ -1,0 +1,19 @@
+# plans/q5-advertised-price/slices.yaml — one slice = one OpenSpec change.
+initiative: q5-advertised-price
+slices:
+  - id: q5-flash-stock-contract
+    owner: platform-core
+    depends_on: []
+    provides: [FlashSaleService.ReserveFlashSaleStock, FlashSaleService.CommitFlashSaleStock, FlashSaleService.ReleaseFlashSaleStock]
+  - id: promotion-flash-stock-hold
+    owner: team-promotion
+    depends_on: [q5-flash-stock-contract]
+    uses: [FlashSaleService.ReserveFlashSaleStock, FlashSaleService.CommitFlashSaleStock, FlashSaleService.ReleaseFlashSaleStock]
+  - id: order-advertised-price
+    owner: team-order
+    depends_on: [promotion-flash-stock-hold]
+    uses: [FlashSaleService.GetActiveFlashSale, FlashSaleService.ReserveFlashSaleStock, FlashSaleService.CommitFlashSaleStock, FlashSaleService.ReleaseFlashSaleStock]
+  - id: frontend-advertised-price
+    owner: team-frontend
+    depends_on: [order-advertised-price]
+    uses: [OrderService.CalculateShippingFee, OrderService.CreateOrder]
