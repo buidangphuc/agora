@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -132,7 +132,7 @@ export default async function SecurityPage(props: {
   searchParams?: Promise<{ page?: string }>;
 }) {
   const searchParams = await props.searchParams;
-  if (!getPrincipal()) redirect("/login");
+  if (!getPrincipal()) redirectGuestToLogin("/account/security", searchParams);
 
   const [sessions, history] = await Promise.all([
     settle(listSessions),

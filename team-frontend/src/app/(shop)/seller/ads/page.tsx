@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { AdCampaignForm } from "@/features/seller/AdCampaignForm";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Quảng cáo | Kênh người bán" };
 
 export default async function SellerAdsPage() {
-  if (!hasScope("listing.write")) redirect("/login");
+  if (!hasScope("listing.write")) redirectGuestToLogin("/seller/ads");
 
   const listings = await getAllListings().catch(() => []);
 

@@ -23,6 +23,12 @@ const toast = vi.hoisted(() => ({
   info: vi.fn(),
 }));
 vi.mock("@/components/ui/ToastProvider", () => ({ useToast: () => toast }));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
+  notFound: vi.fn(),
+}));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
 vi.mock("@/lib/gateway/listings", () => ({ getListing: vi.fn() }));
 vi.mock("@/lib/gateway/notification", () => ({
@@ -82,10 +88,20 @@ beforeEach(() => {
 });
 
 describe("/notifications", () => {
-  it("redirects an anonymous visitor to /login", async () => {
+  it("redirects an anonymous visitor to /login with returnUrl", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
-    await NotificationsPage({});
-    expect(redirect).toHaveBeenCalledWith("/login");
+    await expect(NotificationsPage({})).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith("/login?returnUrl=%2Fnotifications");
+  });
+
+  it("[Query string of the guarded page is preserved] notifications keeps its query in returnUrl", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    await expect(
+      NotificationsPage({ searchParams: Promise.resolve({ tab: "alerts" }) }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Fnotifications%3Ftab%3Dalerts",
+    );
   });
 
   it("keeps data-testid and data-type on notification and alert rows", async () => {

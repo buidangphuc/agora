@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { AuthSubmitButton } from "./AuthSubmitButton";
 import { type AuthState, registerAction } from "./actions";
+import { loginPath } from "./returnUrlShared";
 import { useCredentialForm } from "./useCredentialForm";
 import { MIN_PASSWORD, MIN_USERNAME, validateRegister } from "./validation";
 
@@ -20,7 +21,7 @@ const ROLE_OPTIONS = [
   { value: "seller", label: "Người bán (seller)" },
 ];
 
-export function RegisterForm() {
+export function RegisterForm({ returnUrl }: { returnUrl?: string }) {
   const [state, action] = useActionState(registerAction, initial);
   const form = useCredentialForm(state, validateRegister);
 
@@ -42,6 +43,9 @@ export function RegisterForm() {
           noValidate
           className="space-y-4"
         >
+          {returnUrl ? (
+            <input type="hidden" name="returnUrl" value={returnUrl} />
+          ) : null}
           <FormItem
             label="Tên đăng nhập"
             required
@@ -100,7 +104,7 @@ export function RegisterForm() {
           <p className="text-center text-sm text-text-secondary">
             Đã có tài khoản?{" "}
             <Link
-              href="/login"
+              href={loginPath(returnUrl)}
               className="font-medium text-action-primary hover:underline"
             >
               Đăng nhập ngay

@@ -1,5 +1,5 @@
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
@@ -34,7 +34,7 @@ export default async function FollowingPage(props: {
   searchParams?: Promise<{ tab?: string }>;
 }) {
   const searchParams = await props.searchParams;
-  if (!getPrincipal()) redirect("/login");
+  if (!getPrincipal()) redirectGuestToLogin("/account/following", searchParams);
 
   const tab = parseTab(searchParams?.tab);
   const followed = await listFollowedSellers();
