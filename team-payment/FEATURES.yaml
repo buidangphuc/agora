@@ -1623,3 +1623,331 @@ features:
     status: automated
     covered_by: "payment/admin_refund_audit.feature::Non-admin buyer cannot trigger an admin audit"
     notes: "Written from the spec ahead of the code (payment-admin-refund-audit); red on the pre-change stack."
+
+  - id: payment.puc-pending-transaction-is-voided-on-unpaid-cancel
+    title: "Pending transaction is voided on unpaid cancel"
+    persona: buyer
+    priority: P1
+    summary: "Pending transaction is voided on unpaid cancel"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Pending transaction is voided on unpaid cancel"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-failed-transaction-is-voided-on-unpaid-cancel
+    title: "Failed transaction is voided on unpaid cancel"
+    persona: buyer
+    priority: P1
+    summary: "Failed transaction is voided on unpaid cancel"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Failed transaction is voided on unpaid cancel"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-order-without-a-transaction-is-a-no-op
+    title: "Order without a transaction is a no-op"
+    persona: buyer
+    priority: P1
+    summary: "Order without a transaction is a no-op"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Order without a transaction is a no-op"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-redelivered-cancel-leaves-one-end-state
+    title: "Redelivered cancel leaves one end state"
+    persona: buyer
+    priority: P1
+    summary: "Redelivered cancel leaves one end state"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Redelivered cancel leaves one end state"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-shipped-order-cancel-changes-no-transaction
+    title: "Shipped-order cancel changes no transaction"
+    persona: buyer
+    priority: P1
+    summary: "Shipped-order cancel changes no transaction"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Shipped-order cancel changes no transaction"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-paid-order-cancel-still-refunds-without-voiding
+    title: "Paid-order cancel still refunds without voiding"
+    persona: buyer
+    priority: P1
+    summary: "Paid-order cancel still refunds without voiding"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Paid-order cancel still refunds without voiding"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-malformed-cancel-is-parked
+    title: "Malformed cancel is parked"
+    persona: buyer
+    priority: P1
+    summary: "Malformed cancel is parked"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Malformed cancel is parked"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-paying-a-cancelled-transaction-is-refused
+    title: "Paying a cancelled transaction is refused"
+    persona: buyer
+    priority: P1
+    summary: "Paying a cancelled transaction is refused"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Paying a cancelled transaction is refused"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-simulated-failure-on-a-cancelled-transaction-is-refused
+    title: "Simulated failure on a cancelled transaction is refused"
+    persona: buyer
+    priority: P1
+    summary: "Simulated failure on a cancelled transaction is refused"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Simulated failure on a cancelled transaction is refused"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-non-owner-is-denied-before-the-cancelled-check
+    title: "Non-owner is denied before the cancelled check"
+    persona: buyer
+    priority: P1
+    summary: "Non-owner is denied before the cancelled check"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Non-owner is denied before the cancelled check"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-settle-that-loses-the-race-to-the-void-is-refused
+    title: "Settle that loses the race to the void is refused"
+    persona: buyer
+    priority: P1
+    summary: "Settle that loses the race to the void is refused"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Settle that loses the race to the void is refused"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-settle-on-an-order-already-cancelled-upstream-is-refused-and-voided
+    title: "Settle on an order already cancelled upstream is refused and voided"
+    persona: buyer
+    priority: P1
+    summary: "Settle on an order already cancelled upstream is refused and voided"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Settle on an order already cancelled upstream is refused and voided"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-settle-is-not-attempted-when-team-order-is-unreachable
+    title: "Settle is not attempted when team-order is unreachable"
+    persona: buyer
+    priority: P1
+    summary: "Settle is not attempted when team-order is unreachable"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Settle is not attempted when team-order is unreachable"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-retry-payment-still-works-before-the-cancel
+    title: "Retry payment still works before the cancel"
+    persona: buyer
+    priority: P1
+    summary: "Retry payment still works before the cancel"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Retry payment still works before the cancel"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-cancelled-order-cannot-open-a-new-transaction
+    title: "Cancelled order cannot open a new transaction"
+    persona: buyer
+    priority: P1
+    summary: "Cancelled order cannot open a new transaction"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Cancelled order cannot open a new transaction"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-late-payment-is-refunded-in-full
+    title: "Late payment is refunded in full"
+    persona: buyer
+    priority: P1
+    summary: "Late payment is refunded in full"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Late payment is refunded in full"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-redelivery-after-a-late-payment-refund-moves-no-money-again
+    title: "Redelivery after a late-payment refund moves no money again"
+    persona: buyer
+    priority: P1
+    summary: "Redelivery after a late-payment refund moves no money again"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Redelivery after a late-payment refund moves no money again"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-void-that-loses-the-compare-and-set-falls-back-to-the-refund
+    title: "Void that loses the compare-and-set falls back to the refund"
+    persona: buyer
+    priority: P1
+    summary: "Void that loses the compare-and-set falls back to the refund"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Void that loses the compare-and-set falls back to the refund"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-concurrent-settle-and-cancel-converge
+    title: "Concurrent settle and cancel converge"
+    persona: buyer
+    priority: P1
+    summary: "Concurrent settle and cancel converge"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Concurrent settle and cancel converge"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-already-refunded-payment-gets-no-second-refund
+    title: "Already refunded payment gets no second refund"
+    persona: buyer
+    priority: P1
+    summary: "Already refunded payment gets no second refund"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Already refunded payment gets no second refund"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-partially-refunded-late-payment-is-refunded-the-remainder-once
+    title: "Partially refunded late payment is refunded the remainder once"
+    persona: buyer
+    priority: P1
+    summary: "Partially refunded late payment is refunded the remainder once"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Partially refunded late payment is refunded the remainder once"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-buyer-cannot-trigger-the-late-payment-refund-by-rpc
+    title: "Buyer cannot trigger the late-payment refund by RPC"
+    persona: buyer
+    priority: P1
+    summary: "Buyer cannot trigger the late-payment refund by RPC"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Buyer cannot trigger the late-payment refund by RPC"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-expired-order-s-payment-is-cancelled-and-cannot-be-paid
+    title: "Expired order's payment is cancelled and cannot be paid"
+    persona: buyer
+    priority: P1
+    summary: "Expired order's payment is cancelled and cannot be paid"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Expired order's payment is cancelled and cannot be paid"
+    tags: [payment, unpaid-cancel]
+    status: automated
+    covered_by: "payment/unpaid_cancel.feature::Expired order's payment is cancelled and cannot be paid"
+    notes: "payment-unpaid-cancel e2e."
+
+  - id: payment.puc-buyer-cancelled-pending-order-voids-its-failed-payment
+    title: "Buyer-cancelled pending order voids its failed payment"
+    persona: buyer
+    priority: P1
+    summary: "Buyer-cancelled pending order voids its failed payment"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Buyer-cancelled pending order voids its failed payment"
+    tags: [payment, unpaid-cancel]
+    status: automated
+    covered_by: "payment/unpaid_cancel.feature::Buyer-cancelled pending order voids its failed payment"
+    notes: "payment-unpaid-cancel e2e."
+
+  - id: payment.puc-another-buyer-cannot-pay-a-cancelled-order-s-transaction
+    title: "Another buyer cannot pay a cancelled order's transaction"
+    persona: buyer
+    priority: P1
+    summary: "Another buyer cannot pay a cancelled order's transaction"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Another buyer cannot pay a cancelled order's transaction"
+    tags: [payment, unpaid-cancel]
+    status: automated
+    covered_by: "payment/unpaid_cancel.feature::Another buyer cannot pay a cancelled order's transaction"
+    notes: "payment-unpaid-cancel e2e."
