@@ -488,6 +488,11 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, actor A
 	if to == repository.OrderStatusCancelled {
 		return repository.Order{}, ErrActorForbidden
 	}
+	// Buyer and system rows exist for ConfirmReceipt and the sweep; this RPC
+	// resolves only the seller and admin classes.
+	if actor == ActorBuyer || actor == ActorSystem {
+		return repository.Order{}, ErrActorForbidden
+	}
 	from := AllowedFrom(to, actor)
 	if len(from) == 0 {
 		return repository.Order{}, ErrActorForbidden
