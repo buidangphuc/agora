@@ -8,12 +8,35 @@ from contextlib import asynccontextmanager
 import grpc
 import pytest
 
+from loguru import logger
+
+from app.core.errors import ServiceUnavailableError
 from app.modules.business.ai_assistant.factory import build_ai_assistant_services
+from app.modules.business.listing_screen.mock import MockScreenService
+from app.modules.business.listing_screen.ports import ScreenResult, ScreenVerdict
 from app.modules.business.tag_classifier.service import TagClassifierService
 from app.transport.grpc._pb.platform.ai.v1 import ai_pb2, ai_pb2_grpc
 from app.transport.grpc.server import build_grpc_server
 from app.transport.grpc.servicers.ai import ai_service_registration
 from tests.factories import allow_all_limiter
+
+
+_MARKER = "screen-review-marker"
+_MARKER_SCREEN = MockScreenService(_MARKER)
+
+
+class _RecordingScreen:
+    """Fake ScreenService at the backend boundary; optionally fails."""
+
+    def __init__(self, *, fail: bool = False) -> None:
+        self.calls = 0
+        self._fail = fail
+
+    async def screen(self, *, title, description, listing_id="", category_id=""):
+        self.calls += 1
+        if self._fail:
+            raise ServiceUnavailableError("provider down")
+        return ScreenResult(ScreenVerdict.ALLOW, [], "llm_router")
 
 
 def _md(principal_id: str = "u1", *scopes: str, ptype: str = "user"):
@@ -26,7 +49,7 @@ def _md(principal_id: str = "u1", *scopes: str, ptype: str = "user"):
 
 @asynccontextmanager
 async def _serving(
-    *, require_ai_use: bool = False
+    *, require_ai_use: bool = False, screen: object | None = None
 ) -> AsyncIterator[ai_pb2_grpc.AIServiceStub]:
     services = build_ai_assistant_services(None, rag_min_score=0.0)
     server = build_grpc_server(
@@ -34,6 +57,7 @@ async def _serving(
             ai_service_registration(
                 services,
                 TagClassifierService(store=None),
+                screen=screen if screen is not None else _MARKER_SCREEN,
                 require_ai_use=require_ai_use,
             ),
         ),
@@ -58,6 +82,7 @@ def test_only_shopping_assistant_is_rate_limited():
     registration = ai_service_registration(
         build_ai_assistant_services(None, rag_min_score=0.0),
         TagClassifierService(store=None),
+        screen=_MARKER_SCREEN,
         require_ai_use=False,
     )
 
@@ -302,3 +327,120 @@ async def test_classify_tags_short_title_is_invalid_argument(title):
 
     assert error.code() == grpc.StatusCode.INVALID_ARGUMENT
     assert error.details() == "invalid argument: title"
+
+
+def _screen_req(title="Ao thun nam", description="hang moi", listing_id="l1"):
+    return ai_pb2.ScreenListingRequest(
+        listing_id=listing_id, title=title, description=description, category_id="c1"
+    )
+
+
+async def test_screen_listing_mock_marker_in_title_is_review():
+    """Scenario: Mock backend flags a listing containing the marker."""
+    async with _serving() as stub:
+        reply = await stub.ScreenListing(
+            _screen_req(title=f"Ao {_MARKER} nam"),
+            metadata=_service_md("ai.classify"),
+        )
+
+    assert reply.verdict == ai_pb2.SCREEN_VERDICT_REVIEW
+    assert list(reply.labels) == ["mock_marker"]
+    assert reply.backend == "mock"
+
+
+async def test_screen_listing_mock_clean_text_is_allow():
+    """Scenario: Mock backend allows a listing without the marker."""
+    async with _serving() as stub:
+        reply = await stub.ScreenListing(
+            _screen_req(), metadata=_service_md("ai.classify")
+        )
+
+    assert reply.verdict == ai_pb2.SCREEN_VERDICT_ALLOW
+    assert list(reply.labels) == []
+    assert reply.backend == "mock"
+
+
+@pytest.mark.parametrize("title", ["", "   ", "\t\n "])
+async def test_screen_listing_blank_title_is_invalid_argument(title):
+    """Scenario: Blank title is refused."""
+    backend = _RecordingScreen()
+    async with _serving(screen=backend) as stub:
+        error = await _fails(
+            stub.ScreenListing(
+                _screen_req(title=title), metadata=_service_md("ai.classify")
+            )
+        )
+
+    assert error.code() == grpc.StatusCode.INVALID_ARGUMENT
+    assert backend.calls == 0
+
+
+async def test_screen_listing_provider_error_is_unavailable():
+    """Scenario: Provider error is UNAVAILABLE, never ALLOW."""
+    backend = _RecordingScreen(fail=True)
+    async with _serving(screen=backend) as stub:
+        error = await _fails(
+            stub.ScreenListing(_screen_req(), metadata=_service_md("ai.classify"))
+        )
+
+    assert error.code() == grpc.StatusCode.UNAVAILABLE
+    assert backend.calls == 1
+
+
+async def test_screen_listing_requires_the_scope():
+    """Scenario: Caller without the scope is refused."""
+    backend = _RecordingScreen()
+    async with _serving(screen=backend) as stub:
+        error = await _fails(
+            stub.ScreenListing(_screen_req(), metadata=_service_md("listing.read"))
+        )
+
+    assert error.code() == grpc.StatusCode.PERMISSION_DENIED
+    assert backend.calls == 0
+
+
+async def test_screen_listing_user_principal_is_refused():
+    """Scenario: User principal holding the scope is refused."""
+    backend = _RecordingScreen()
+    async with _serving(screen=backend) as stub:
+        error = await _fails(
+            stub.ScreenListing(
+                _screen_req(), metadata=_md("u1", "ai.classify", ptype="user")
+            )
+        )
+
+    assert error.code() == grpc.StatusCode.PERMISSION_DENIED
+    assert backend.calls == 0
+
+
+async def test_screen_listing_without_principal_is_unauthenticated():
+    """Scenario: Call without a principal is refused."""
+    backend = _RecordingScreen()
+    async with _serving(screen=backend) as stub:
+        error = await _fails(stub.ScreenListing(_screen_req()))
+
+    assert error.code() == grpc.StatusCode.UNAUTHENTICATED
+    assert backend.calls == 0
+
+
+async def test_screen_listing_does_not_log_listing_text():
+    """Scenario: Screening does not log listing text."""
+    records = []
+    sink = logger.add(lambda m: records.append(m.record), level="DEBUG")
+    try:
+        async with _serving() as stub:
+            await stub.ScreenListing(
+                _screen_req(
+                    title="SECRET-TITLE-123",
+                    description="SECRET-DESC-456",
+                    listing_id="listing-789",
+                ),
+                metadata=_service_md("ai.classify"),
+            )
+    finally:
+        logger.remove(sink)
+
+    rendered = [f"{r['message']} {r['extra']}" for r in records]
+    assert not any("SECRET-TITLE-123" in r or "SECRET-DESC-456" in r for r in rendered)
+    mine = [r for r in rendered if "listing-789" in r]
+    assert any("allow" in r.lower() and "mock" in r for r in mine)
