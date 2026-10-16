@@ -2224,7 +2224,8 @@ features:
     acceptance:
       - "Advertised price: Flash price is visible end to end after add-to-cart"
     tags: [buyer, promotion, pricing]
-    status: planned
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: Flash price is visible end to end after add-to-cart"
     notes: "Feature scenario: Advertised price: Flash price is visible end to end after add-to-cart (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'Flash price is the cart price'"
 
   - id: order.adv-ended-sale-refuses-checkout-and-re-prices-the-cart
@@ -2346,7 +2347,8 @@ features:
     acceptance:
       - "Advertised price: Ended sale is refused end to end and the retry is charged the regular price"
     tags: [buyer, promotion, pricing]
-    status: planned
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: Ended sale is refused end to end and the retry is charged the regular price"
     notes: "Feature scenario: Advertised price: Ended sale is refused end to end and the retry is charged the regular price (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'An ended sale is refused and re-priced'"
 
   - id: order.adv-promotion-outage-blocks-a-flash-priced-line
@@ -2507,7 +2509,8 @@ features:
     acceptance:
       - "Advertised price: Concurrent buyers cannot exceed the campaign cap end to end"
     tags: [buyer, promotion, pricing]
-    status: planned
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: Concurrent buyers cannot exceed the campaign cap end to end"
     notes: "Feature scenario: Advertised price: Concurrent buyers cannot exceed the campaign cap end to end (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'Concurrent buyers cannot exceed the flash cap'"
 
   - id: order.adv-flash-hold-is-committed-before-the-order-exists
@@ -2616,7 +2619,8 @@ features:
     acceptance:
       - "Advertised price: Placing a flash-priced order grows stock_sold end to end"
     tags: [buyer, promotion, pricing]
-    status: planned
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: Placing a flash-priced order grows stock_sold end to end"
     notes: "Feature scenario: Advertised price: Placing a flash-priced order grows stock_sold end to end (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'A placed flash order counts as sold'"
 
   - id: order.adv-failed-checkout-returns-its-flash-holds
@@ -2725,7 +2729,8 @@ features:
     acceptance:
       - "Advertised price: Cancelled placed order returns flash units end to end"
     tags: [buyer, promotion, pricing]
-    status: planned
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: Cancelled placed order returns flash units end to end"
     notes: "Feature scenario: Advertised price: Cancelled placed order returns flash units end to end (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'A cancelled order returns its flash units'"
 
   - id: order.adv-hold-rpcs-carry-the-service-principal
@@ -2782,5 +2787,6 @@ features:
     acceptance:
       - "Advertised price: A buyer token cannot reserve flash stock end to end"
     tags: [buyer, promotion, pricing]
-    status: planned
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: A buyer token cannot reserve flash stock end to end"
     notes: "Feature scenario: Advertised price: A buyer token cannot reserve flash stock end to end (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'A buyer cannot hold flash stock directly'"
