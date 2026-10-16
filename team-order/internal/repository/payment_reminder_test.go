@@ -248,7 +248,10 @@ func TestFindReminderDueBatchBound(t *testing.T) {
 }
 
 func uniqueDue() time.Time {
-	return time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(time.Now().UnixNano()%1_000_000_000) * time.Minute)
+	// Bounded (< ~9.5 years of minutes, no int64 overflow) and minute-aligned, so it
+	// survives Postgres TIMESTAMPTZ microsecond precision.
+	off := time.Now().UnixMicro() % 5_000_000
+	return time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(off) * time.Minute).Truncate(time.Microsecond)
 }
 
 func TestReminderContract_Postgres(t *testing.T) {

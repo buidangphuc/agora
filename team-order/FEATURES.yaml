@@ -2897,7 +2897,8 @@ features:
     acceptance:
       - "Order expiry: Reminder is emitted two hours before the deadline"
     tags: [buyer, order, lifecycle]
-    status: planned
+    status: automated
+    covered_by: "order/unpaid_expiry.feature::Order expiry: Reminder is emitted two hours before the deadline"
     notes: "Feature scenario: Order expiry: Reminder is emitted two hours before the deadline (order/unpaid_expiry.feature)."
 
   - id: order.expiry-reminder-boundary-is-inclusive-at-deadline-minus-offset

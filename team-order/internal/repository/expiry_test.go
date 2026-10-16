@@ -31,6 +31,7 @@ func expire(ctx context.Context, repo repository.OrderRepository, id string) (re
 // their deadline (strictly), and the system claim stores PAYMENT_EXPIRED.
 func runExpiryContract(t *testing.T, repo expiryRepo, due time.Time) {
 	ctx := context.Background()
+	drainExpired(t, repo, due.Add(72*time.Hour))
 	find := func(now time.Time) map[string]bool {
 		t.Helper()
 		got, err := repo.FindExpired(ctx, now, 100)
@@ -89,35 +90,76 @@ func runExpiryContract(t *testing.T, repo expiryRepo, due time.Time) {
 	})
 }
 
-func runFindExpiredBatchBound(t *testing.T, repo expiryRepo, total int, due time.Time) {
+// drainExpired claims every Pending online order already past upTo, so foreign rows
+// left by other tests on a shared Postgres cannot crowd this test's rows out of the
+// bounded (limit 100, earliest first) FindExpired window.
+func drainExpired(t *testing.T, repo expiryRepo, upTo time.Time) {
+	t.Helper()
 	ctx := context.Background()
-	for i := 0; i < total; i++ {
-		d := due
-		newUnpaid(t, repo, momo, &d)
-	}
-	now := due.Add(time.Hour)
-	remaining := total
-	for tick := 1; remaining > 0; tick++ {
-		got, err := repo.FindExpired(ctx, now, 100)
+	for i := 0; i < 1000; i++ {
+		got, err := repo.FindExpired(ctx, upTo, 100)
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := remaining
-		if want > 100 {
-			want = 100
-		}
-		if len(got) != want {
-			t.Fatalf("tick %d: want %d rows (bounded at 100), got %d", tick, want, len(got))
+		if len(got) == 0 {
+			return
 		}
 		for _, o := range got {
 			if _, err := expire(ctx, repo, o.ID); err != nil {
 				t.Fatal(err)
 			}
 		}
-		remaining -= want
 	}
-	if got, err := repo.FindExpired(ctx, now, 100); err != nil || len(got) != 0 {
-		t.Fatalf("after all ticks: want none left, got %d (%v)", len(got), err)
+	t.Fatal("could not drain foreign expirable orders")
+}
+
+func runFindExpiredBatchBound(t *testing.T, repo expiryRepo, total int, due time.Time) {
+	ctx := context.Background()
+	own := map[string]bool{}
+	for i := 0; i < total; i++ {
+		d := due
+		own[newUnpaid(t, repo, momo, &d).ID] = true
+	}
+	// The pass looks at every Pending online order in the database, so a shared
+	// Postgres may hold foreign rows (other tests); they only add to a tick and are
+	// drained like any expired order. Assert the bound and that our rows all drain.
+	now := due.Add(time.Hour)
+	ownLeft := total
+	for tick := 1; ownLeft > 0; tick++ {
+		if tick > total+10 {
+			t.Fatalf("expiry pass did not drain %d own orders", ownLeft)
+		}
+		got, err := repo.FindExpired(ctx, now, 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) > 100 {
+			t.Fatalf("tick %d: bounded at 100, got %d", tick, len(got))
+		}
+		if tick == 1 && len(got) != 100 {
+			t.Fatalf("tick 1: %d pending orders exist, want a full batch of 100, got %d", total, len(got))
+		}
+		if len(got) == 0 {
+			t.Fatalf("tick %d: %d own orders still pending but the pass returned none", tick, ownLeft)
+		}
+		for _, o := range got {
+			if _, err := expire(ctx, repo, o.ID); err != nil {
+				t.Fatal(err)
+			}
+			if own[o.ID] {
+				delete(own, o.ID)
+				ownLeft--
+			}
+		}
+	}
+	got, err := repo.FindExpired(ctx, now, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, o := range got {
+		if own[o.ID] {
+			t.Fatalf("own order %s left after all ticks", o.ID)
+		}
 	}
 }
 
