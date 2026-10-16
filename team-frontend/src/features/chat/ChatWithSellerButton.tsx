@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { loginPath } from "@/features/auth/returnUrlShared";
+
 import { getOrCreateThreadAction } from "./actions";
 
 export function ChatWithSellerButton({
@@ -19,7 +21,7 @@ export function ChatWithSellerButton({
 
   async function handleChat() {
     if (!loggedIn) {
-      router.push(`/login?returnUrl=/listing/${listingId}`);
+      router.push(loginPath(`/listing/${listingId}`));
       return;
     }
     setLoading(true);

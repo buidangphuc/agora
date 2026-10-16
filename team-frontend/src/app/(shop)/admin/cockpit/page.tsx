@@ -1,5 +1,5 @@
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 
 import { Result } from "@/components/ui/Result";
 import { CockpitView } from "@/features/admin/CockpitView";
@@ -21,7 +21,7 @@ export default async function CockpitPage() {
   const principal = getPrincipal();
   const token = getToken();
   if (!principal || !token) {
-    redirect("/login");
+    redirectGuestToLogin("/admin/cockpit");
     return null;
   }
 
@@ -38,7 +38,7 @@ export default async function CockpitPage() {
 
   const result = await fetchCockpit(token);
   if (result.status === "unauthenticated") {
-    redirect("/login");
+    redirectGuestToLogin("/admin/cockpit");
     return null;
   }
   if (result.status === "forbidden") {

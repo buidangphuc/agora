@@ -1,5 +1,5 @@
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Alert } from "@/components/ui/Alert";
 import { Pagination } from "@/components/ui/Pagination";
@@ -22,7 +22,7 @@ export default async function AccountOrdersPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const me = getPrincipal();
-  if (!me) redirect("/login");
+  if (!me) redirectGuestToLogin("/account/orders", searchParams);
 
   const result = await listBuyerOrdersResult();
   const view = paginateOrders(

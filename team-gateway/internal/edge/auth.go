@@ -9,7 +9,7 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/identity/v1/identityv1connect"
 )
 
-// AuthForwarder exposes the identity AuthService at the edge (Register/Login).
+// AuthForwarder exposes the identity AuthService at the edge (Register/Login/RefreshSession).
 // These are public — no Principal is required — so it forwards straight to
 // team-identity. Not retried (they are writes / credential-sensitive).
 type AuthForwarder struct {
@@ -46,6 +46,22 @@ func (f *AuthForwarder) Login(
 	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
 		var e error
 		out, e = f.client.Login(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *AuthForwarder) RefreshSession(
+	ctx context.Context,
+	req *connect.Request[identityv1.RefreshSessionRequest],
+) (*connect.Response[identityv1.RefreshSessionResponse], error) {
+	var out *identityv1.RefreshSessionResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.RefreshSession(c, req.Msg)
 		return e
 	})
 	if err != nil {

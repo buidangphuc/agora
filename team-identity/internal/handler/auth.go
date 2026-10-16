@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
@@ -67,6 +68,37 @@ func (h *AuthHandler) Login(
 	return &identityv1.LoginResponse{Result: toResult(res)}, nil
 }
 
+const (
+	maxRefreshTokenLen    = 256
+	invalidRefreshMessage = "invalid refresh token"
+)
+
+// RefreshSession is public (no principal): the refresh token is the credential.
+// Every rejection of the token itself carries one generic Unauthenticated status.
+func (h *AuthHandler) RefreshSession(
+	ctx context.Context,
+	req *identityv1.RefreshSessionRequest,
+) (*identityv1.RefreshSessionResponse, error) {
+	tok := req.GetRefreshToken()
+	if tok == "" || len(tok) > maxRefreshTokenLen {
+		return nil, status.Error(codes.Unauthenticated, invalidRefreshMessage)
+	}
+	res, err := h.svc.RefreshSession(withClient(ctx), tok)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidRefreshToken):
+			return nil, status.Error(codes.Unauthenticated, invalidRefreshMessage)
+		case errors.Is(err, service.ErrRefreshUnavailable):
+			h.logger.WarnContext(ctx, "refresh unavailable")
+			return nil, status.Error(codes.Unavailable, "service unavailable")
+		default:
+			h.logger.ErrorContext(ctx, "refresh failed")
+			return nil, status.Error(codes.Internal, "internal error")
+		}
+	}
+	return &identityv1.RefreshSessionResponse{Result: toResult(res)}, nil
+}
+
 func (h *AuthHandler) ChangePassword(
 	ctx context.Context,
 	req *identityv1.ChangePasswordRequest,
@@ -124,9 +156,15 @@ func withClient(ctx context.Context) context.Context {
 }
 
 func toResult(r service.AuthResult) *identityv1.AuthResult {
+	var refreshExp *timestamppb.Timestamp
+	if !r.RefreshExpiresAt.IsZero() {
+		refreshExp = timestamppb.New(r.RefreshExpiresAt)
+	}
 	return &identityv1.AuthResult{
-		Token:    r.Token,
-		Username: r.Username,
+		Token:            r.Token,
+		RefreshToken:     r.RefreshToken,
+		RefreshExpiresAt: refreshExp,
+		Username:         r.Username,
 		Principal: &commonv1.Principal{
 			Id:     r.UserID,
 			Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,

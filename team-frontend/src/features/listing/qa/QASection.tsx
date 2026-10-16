@@ -1,3 +1,4 @@
+import { loginPath } from "@/features/auth/returnUrlShared";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -42,7 +43,7 @@ export function QASection({
             className="text-sm text-text-secondary"
           >
             <Link
-              href={`/login?returnUrl=/listing/${listingId}`}
+              href={loginPath(`/listing/${listingId}`)}
               className="font-semibold text-text-primary underline"
             >
               Đăng nhập

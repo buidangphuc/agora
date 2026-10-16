@@ -173,3 +173,49 @@ describe("RegisterForm", () => {
     );
   });
 });
+
+describe("forms keep returnUrl on cross links (frontend-login-return)", () => {
+  const RU = "/listing/abc?variant=v2";
+
+  it("forms keep returnUrl on cross links: login form submits it and links to register with it", () => {
+    render(<LoginForm returnUrl={RU} />);
+    const hidden = document.querySelector(
+      'form input[name="returnUrl"]',
+    ) as HTMLInputElement | null;
+    expect(hidden).not.toBeNull();
+    expect(hidden?.type).toBe("hidden");
+    expect(hidden?.value).toBe(RU);
+    expect(screen.getByRole("link", { name: "Đăng ký ngay" })).toHaveAttribute(
+      "href",
+      `/register?returnUrl=${encodeURIComponent(RU)}`,
+    );
+  });
+
+  it("forms keep returnUrl on cross links: register form submits it and links to login with it", () => {
+    render(<RegisterForm returnUrl={RU} />);
+    const hidden = document.querySelector(
+      'form input[name="returnUrl"]',
+    ) as HTMLInputElement | null;
+    expect(hidden).not.toBeNull();
+    expect(hidden?.type).toBe("hidden");
+    expect(hidden?.value).toBe(RU);
+    expect(
+      screen.getByRole("link", { name: "Đăng nhập ngay" }),
+    ).toHaveAttribute("href", `/login?returnUrl=${encodeURIComponent(RU)}`);
+  });
+
+  it("forms without returnUrl keep plain cross links and submit no target", () => {
+    const { unmount } = render(<LoginForm />);
+    expect(screen.getByRole("link", { name: "Đăng ký ngay" })).toHaveAttribute(
+      "href",
+      "/register",
+    );
+    const h = document.querySelector('form input[name="returnUrl"]');
+    expect((h as HTMLInputElement | null)?.value ?? "").toBe("");
+    unmount();
+    render(<RegisterForm />);
+    expect(
+      screen.getByRole("link", { name: "Đăng nhập ngay" }),
+    ).toHaveAttribute("href", "/login");
+  });
+});

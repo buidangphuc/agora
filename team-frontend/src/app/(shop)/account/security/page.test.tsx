@@ -18,7 +18,9 @@ const toast = vi.hoisted(() => ({
 }));
 const refresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
-  redirect: vi.fn(),
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
   notFound: vi.fn(),
   useRouter: () => ({ refresh }),
 }));
@@ -68,8 +70,10 @@ beforeEach(() => {
 describe("/account/security", () => {
   it("redirects an anonymous visitor to /login", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
-    await SecurityPage({});
-    expect(redirect).toHaveBeenCalledWith("/login");
+    await expect(SecurityPage({})).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Faccount%2Fsecurity",
+    );
   });
 
   it("shows the shell, both sections and result Tags", async () => {

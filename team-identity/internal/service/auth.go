@@ -41,6 +41,10 @@ type AuthResult struct {
 	Username string
 	Type     string // always "user" here
 	Scopes   []string
+
+	// RefreshToken is the raw opaque refresh token (only on issue/rotation; never stored raw).
+	RefreshToken     string
+	RefreshExpiresAt time.Time
 }
 
 // ClientInfo is the caller's device/IP as forwarded by the gateway
@@ -62,6 +66,20 @@ type AuthService struct {
 	sessions repository.SessionRepository // nil: no session is recorded
 	signer   *token.Signer
 	ttl      time.Duration
+	now      func() time.Time
+}
+
+// WithClock injects the time source (default time.Now).
+func (s *AuthService) WithClock(now func() time.Time) *AuthService {
+	s.now = now
+	return s
+}
+
+func (s *AuthService) clock() time.Time {
+	if s.now == nil {
+		return time.Now()
+	}
+	return s.now()
 }
 
 // WithSessions makes Register/Login record a session row and stamp its id into
@@ -146,9 +164,20 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Aut
 func (s *AuthService) issue(ctx context.Context, u repository.User) (AuthResult, error) {
 	scopes := authz.ScopesForRoles(u.Roles)
 	sid := ""
+	var refreshToken string
+	var refreshExp time.Time
 	if s.sessions != nil {
 		c, _ := ctx.Value(clientCtxKey{}).(ClientInfo)
-		sess, err := s.sessions.CreateSession(ctx, repository.Session{UserID: u.ID, Device: clip(c.UserAgent, 256), IP: clip(c.IP, 64)})
+		raw, err := newRefreshToken()
+		if err != nil {
+			return AuthResult{}, err
+		}
+		now := s.clock()
+		refreshToken, refreshExp = raw, now.Add(repository.RefreshTTL)
+		sess, err := s.sessions.CreateSession(ctx, repository.Session{
+			UserID: u.ID, Device: clip(c.UserAgent, 256), IP: clip(c.IP, 64),
+			CreatedAt: now, RefreshHash: hashToken(raw), RefreshExpiresAt: refreshExp,
+		})
 		if err != nil {
 			return AuthResult{}, err
 		}
@@ -158,7 +187,8 @@ func (s *AuthService) issue(ctx context.Context, u repository.User) (AuthResult,
 	if err != nil {
 		return AuthResult{}, err
 	}
-	return AuthResult{Token: signed, UserID: u.ID, Username: u.Username, Type: "user", Scopes: scopes}, nil
+	return AuthResult{Token: signed, UserID: u.ID, Username: u.Username, Type: "user", Scopes: scopes,
+		RefreshToken: refreshToken, RefreshExpiresAt: refreshExp}, nil
 }
 
 // ChangePassword verifies old password and updates user's password with new hash.

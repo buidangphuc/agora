@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Descriptions } from "@/components/ui/Descriptions";
@@ -16,7 +16,7 @@ export const metadata = {
 };
 
 export default async function VerificationPage() {
-  if (!getPrincipal()) redirect("/login");
+  if (!getPrincipal()) redirectGuestToLogin("/account/verification");
 
   const verification = await getVerificationStatus();
 
