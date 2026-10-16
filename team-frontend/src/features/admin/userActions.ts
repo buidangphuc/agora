@@ -84,11 +84,11 @@ export async function setUserStatusAction(
       return fail("Không tìm thấy người dùng này; trạng thái không thay đổi.");
     case "failed_precondition":
       return fail(
-        "Không thể thực hiện thao tác này; trạng thái không thay đổi.",
+        "Không thể thay đổi trạng thái của chính bạn hoặc của một quản trị viên khác.",
       );
     default:
       return fail(
-        "Dịch vụ tạm thời không khả dụng; trạng thái không thay đổi.",
+        "Hệ thống chưa ghi nhận được thao tác; trạng thái không thay đổi. Vui lòng thử lại sau.",
       );
   }
 }
