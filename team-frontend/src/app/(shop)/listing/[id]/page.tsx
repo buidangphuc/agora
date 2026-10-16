@@ -16,6 +16,10 @@ import { LiveFlashSaleStock } from "@/features/listing/LiveFlashSaleStock";
 import { PdpAnchorNav } from "@/features/listing/PdpAnchorNav";
 import { SelectedPrice } from "@/features/listing/SelectedPrice";
 import { ShareButton } from "@/features/listing/ShareButton";
+import {
+  ShippingInfo,
+  ShippingInfoFallback,
+} from "@/features/listing/ShippingInfo";
 import { SpecsSection } from "@/features/listing/SpecsSection";
 import { VariantSelector } from "@/features/listing/VariantSelector";
 import { parsePdpParams, resolveVariant } from "@/features/listing/pdp";
@@ -212,25 +216,13 @@ export default async function ProductDetailPage(props: {
                 currency={listing.currency}
               />
 
-              <dl className="space-y-2 text-sm">
-                <div className="flex gap-3">
-                  <dt className="w-24 shrink-0 text-text-secondary">
-                    Vận chuyển
-                  </dt>
-                  <dd className="text-text-primary">
-                    Miễn phí vận chuyển cho đơn hàng từ 0Đ. Giao hàng nhanh bởi
-                    SPX Express (1-2 ngày)
-                  </dd>
-                </div>
-                <div className="flex gap-3">
-                  <dt className="w-24 shrink-0 text-text-secondary">
-                    Bảo hiểm
-                  </dt>
-                  <dd className="text-text-primary">
-                    Bảo hiểm thiết bị và bảo vệ người mua
-                  </dd>
-                </div>
-              </dl>
+              {me ? (
+                <Suspense fallback={<ShippingInfoFallback />}>
+                  <ShippingInfo signedIn />
+                </Suspense>
+              ) : (
+                <ShippingInfoFallback />
+              )}
 
               <VariantSelector />
 

@@ -7,7 +7,7 @@ import { Tag } from "@/components/ui/Tag";
 import { formatPrice } from "@/components/ui/format";
 import { MobileSummaryBar } from "./MobileSummaryBar";
 import { orderTotal } from "./orderTotal";
-import type { ShippingFee } from "./shipping";
+import type { ShippingFee } from "./shippingCopy";
 
 export interface OrderSummaryProps {
   itemCount: number;

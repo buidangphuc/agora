@@ -5,7 +5,7 @@
  */
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T }
-  | { ok: false; error: string };
+  | { ok: false; error: string; priceChanged?: boolean };
 
 export function ok<T = undefined>(data?: T): ActionResult<T> {
   return data === undefined ? { ok: true } : { ok: true, data };
