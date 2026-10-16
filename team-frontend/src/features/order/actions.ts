@@ -201,6 +201,9 @@ export async function processMockPaymentAction(
   }
 }
 
+const RETURN_WINDOW_CLOSED =
+  "Đã hết thời hạn trả hàng (15 ngày kể từ khi đơn hoàn thành).";
+
 export async function createReturnRequestAction(
   orderId: string,
   reason: string,
@@ -221,6 +224,13 @@ export async function createReturnRequestAction(
     revalidateBuyerOrder(orderId);
     return ok(returnRequest);
   } catch (err: unknown) {
+    if (
+      err instanceof ConnectError &&
+      err.code === Code.FailedPrecondition &&
+      err.rawMessage.includes("return window closed")
+    ) {
+      return fail(RETURN_WINDOW_CLOSED);
+    }
     return fail(
       err instanceof Error ? err.message : "Gửi yêu cầu trả hàng thất bại.",
     );
