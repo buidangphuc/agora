@@ -21,4 +21,4 @@ Write-set: the `proto/platform/...` trees of the consumer repos listed in the pr
 - [ ] 3.2 Run `buf lint` in the proto directory of each consumer that has a `buf.yaml` (covers: Trust contract: Consumer copies lint). Each consumer slice re-runs the `cmp` check before it is done.
 
 ## 4. E2E track
-- [ ] 4.1 None: no user-facing behaviour. `platform-core/FEATURES.yaml` entries with `status: not-testable` (reason: pure contract, verified by the Go tests, `buf breaking` and `cmp`) for every scenario (done by the e2e-author).
+- [x] 4.1 None: no user-facing behaviour. `platform-core/FEATURES.yaml` entries with `status: not-testable` (reason: pure contract, verified by the Go tests, `buf breaking` and `cmp`) for every scenario (done by the e2e-author).
