@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc"
 
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
+	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 	"github.com/buidangphuc/team-order/internal/service"
 )
@@ -131,5 +132,226 @@ func TestCartService_Reorder_EmptyOrderID(t *testing.T) {
 	_, _, err := svc.Reorder(ctx, "buyer_1", "")
 	if !errors.Is(err, repository.ErrOrderNotFound) {
 		t.Fatalf("expected ErrOrderNotFound for empty order id, got %v", err)
+	}
+}
+
+// ---- order-advertised-price: AddToCart / Reorder at the active flash price ----
+//
+// Interface fixed by these tests (implementer must provide):
+//   - service.WithFlashSaleClient(c service.FlashSaleClient) service.CartOption
+//   - service.NewCartService(repo, orderRepo, domain, logger, opts ...service.CartOption)
+//     (variadic; existing 4-arg calls keep compiling)
+//   - service.FlashSaleClient: an interface that promotionv1.FlashSaleServiceClient
+//     satisfies (it must be assignable from the fake below, which embeds the full
+//     promotionv1.FlashSaleServiceClient and implements only GetActiveFlashSale).
+//   - WithFlashSaleClient(nil) and a typed-nil are treated as "no client".
+//   - AddToCart makes exactly one GetActiveFlashSale(listing_id) call per add.
+
+// flashDomain prices listings from a table and supports variants.
+type flashDomain struct {
+	listings map[string]*listingv1.Listing
+}
+
+func (f *flashDomain) GetListing(_ context.Context, req *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
+	l, ok := f.listings[req.GetId()]
+	if !ok {
+		return nil, errors.New("not found")
+	}
+	return &listingv1.GetListingResponse{Listing: l}, nil
+}
+
+func (f *flashDomain) ReserveStock(context.Context, *listingv1.ReserveStockRequest, ...grpc.CallOption) (*listingv1.ReserveStockResponse, error) {
+	return &listingv1.ReserveStockResponse{}, nil
+}
+func (f *flashDomain) CommitReservation(context.Context, *listingv1.CommitReservationRequest, ...grpc.CallOption) (*listingv1.CommitReservationResponse, error) {
+	return &listingv1.CommitReservationResponse{}, nil
+}
+func (f *flashDomain) ReleaseStock(context.Context, *listingv1.ReleaseStockRequest, ...grpc.CallOption) (*listingv1.ReleaseStockResponse, error) {
+	return &listingv1.ReleaseStockResponse{}, nil
+}
+
+type flashFake struct {
+	promotionv1.FlashSaleServiceClient
+	byListing map[string]*promotionv1.GetActiveFlashSaleResponse
+	err       error
+	calls     []string
+}
+
+func (f *flashFake) GetActiveFlashSale(_ context.Context, req *promotionv1.GetActiveFlashSaleRequest, _ ...grpc.CallOption) (*promotionv1.GetActiveFlashSaleResponse, error) {
+	f.calls = append(f.calls, req.GetListingId())
+	if f.err != nil {
+		return nil, f.err
+	}
+	if r, ok := f.byListing[req.GetListingId()]; ok {
+		return r, nil
+	}
+	return &promotionv1.GetActiveFlashSaleResponse{}, nil
+}
+
+func activeSale(variantID string, price int64) *promotionv1.GetActiveFlashSaleResponse {
+	return &promotionv1.GetActiveFlashSaleResponse{
+		Active:   true,
+		Campaign: &promotionv1.FlashSaleCampaign{Id: "c1", VariantId: variantID, SalePrice: price, StockCap: 10},
+	}
+}
+
+func newFlashCart(dom *flashDomain, orders map[string]repository.Order, opts ...service.CartOption) *service.CartService {
+	return service.NewCartService(repository.NewInMemoryCartRepository(),
+		&mockOrderServiceRepo{orders: orders}, dom, nil, opts...)
+}
+
+func linePrice(t *testing.T, items []repository.CartItem, listing, variant string) int64 {
+	t.Helper()
+	for _, it := range items {
+		if it.ListingID == listing && it.VariantID == variant {
+			return it.UnitPrice
+		}
+	}
+	t.Fatalf("no cart line %s/%s in %+v", listing, variant, items)
+	return 0
+}
+
+func TestAddToCartFlashPriceListingWide(t *testing.T) {
+	dom := &flashDomain{listings: map[string]*listingv1.Listing{"l1": {Id: "l1", Price: 500000, SellerId: "s"}}}
+	fl := &flashFake{byListing: map[string]*promotionv1.GetActiveFlashSaleResponse{"l1": activeSale("", 350000)}}
+	svc := newFlashCart(dom, nil, service.WithFlashSaleClient(fl))
+
+	items, subtotal, err := svc.AddToCart(context.Background(), "b1", "l1", "", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := linePrice(t, items, "l1", ""); got != 350000 {
+		t.Errorf("unit_price = %d, want 350000", got)
+	}
+	if subtotal != 700000 {
+		t.Errorf("subtotal = %d, want 700000", subtotal)
+	}
+	if len(fl.calls) != 1 || fl.calls[0] != "l1" {
+		t.Errorf("GetActiveFlashSale calls = %v, want exactly [l1]", fl.calls)
+	}
+}
+
+func TestAddToCartFlashPriceVariantOnly(t *testing.T) {
+	dom := &flashDomain{listings: map[string]*listingv1.Listing{"l1": {
+		Id: "l1", Price: 400000, SellerId: "s",
+		Variants: []*listingv1.Variant{{Id: "v1", Name: "V1", Price: 400000}, {Id: "v2", Name: "V2", Price: 400000}},
+	}}}
+	fl := &flashFake{byListing: map[string]*promotionv1.GetActiveFlashSaleResponse{"l1": activeSale("v1", 300000)}}
+	svc := newFlashCart(dom, nil, service.WithFlashSaleClient(fl))
+
+	ctx := context.Background()
+	if _, _, err := svc.AddToCart(ctx, "b1", "l1", "v1", 1); err != nil {
+		t.Fatal(err)
+	}
+	items, _, err := svc.AddToCart(ctx, "b1", "l1", "v2", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := linePrice(t, items, "l1", "v1"); got != 300000 {
+		t.Errorf("v1 unit_price = %d, want 300000", got)
+	}
+	if got := linePrice(t, items, "l1", "v2"); got != 400000 {
+		t.Errorf("v2 unit_price = %d, want 400000", got)
+	}
+}
+
+func TestAddToCartFlashPriceNotBelowRegularIgnored(t *testing.T) {
+	dom := &flashDomain{listings: map[string]*listingv1.Listing{
+		"eq":   {Id: "eq", Price: 200000, SellerId: "s"},
+		"hi":   {Id: "hi", Price: 200000, SellerId: "s"},
+		"zero": {Id: "zero", Price: 200000, SellerId: "s"},
+	}}
+	fl := &flashFake{byListing: map[string]*promotionv1.GetActiveFlashSaleResponse{
+		"eq":   activeSale("", 200000),
+		"hi":   activeSale("", 250000),
+		"zero": activeSale("", 0),
+	}}
+	svc := newFlashCart(dom, nil, service.WithFlashSaleClient(fl))
+	ctx := context.Background()
+	var items []repository.CartItem
+	var err error
+	for _, l := range []string{"eq", "hi", "zero"} {
+		if items, _, err = svc.AddToCart(ctx, "b1", l, "", 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, l := range []string{"eq", "hi", "zero"} {
+		if got := linePrice(t, items, l, ""); got != 200000 {
+			t.Errorf("%s unit_price = %d, want regular 200000", l, got)
+		}
+	}
+}
+
+func TestAddToCartNoCampaignRegularPrice(t *testing.T) {
+	dom := &flashDomain{listings: map[string]*listingv1.Listing{"l1": {Id: "l1", Price: 123000, SellerId: "s"}}}
+	// Active=false even though a campaign body is present: must be ignored.
+	fl := &flashFake{byListing: map[string]*promotionv1.GetActiveFlashSaleResponse{"l1": {
+		Active: false, Campaign: &promotionv1.FlashSaleCampaign{SalePrice: 1000},
+	}}}
+	svc := newFlashCart(dom, nil, service.WithFlashSaleClient(fl))
+	items, _, err := svc.AddToCart(context.Background(), "b1", "l1", "", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := linePrice(t, items, "l1", ""); got != 123000 {
+		t.Errorf("unit_price = %d, want 123000", got)
+	}
+}
+
+func TestAddToCartPromotionErrorRegularPrice(t *testing.T) {
+	dom := &flashDomain{listings: map[string]*listingv1.Listing{"l1": {Id: "l1", Price: 123000, SellerId: "s"}}}
+	fl := &flashFake{err: errors.New("promotion down")}
+	svc := newFlashCart(dom, nil, service.WithFlashSaleClient(fl))
+	items, _, err := svc.AddToCart(context.Background(), "b1", "l1", "", 1)
+	if err != nil {
+		t.Fatalf("AddToCart must succeed on promotion error: %v", err)
+	}
+	if got := linePrice(t, items, "l1", ""); got != 123000 {
+		t.Errorf("unit_price = %d, want 123000", got)
+	}
+}
+
+func TestAddToCartNilFlashClientRegularPrice(t *testing.T) {
+	dom := &flashDomain{listings: map[string]*listingv1.Listing{"l1": {Id: "l1", Price: 123000, SellerId: "s"}}}
+	ctx := context.Background()
+
+	// No option at all (today's 4-arg construction).
+	items, _, err := newFlashCart(dom, nil).AddToCart(ctx, "b1", "l1", "", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := linePrice(t, items, "l1", ""); got != 123000 {
+		t.Errorf("no option: unit_price = %d, want 123000", got)
+	}
+
+	// Untyped nil and typed-nil pointer must both be treated as "no client".
+	var typedNil *flashFake
+	for name, c := range map[string]service.FlashSaleClient{"nil": nil, "typed-nil": typedNil} {
+		items, _, err := newFlashCart(dom, nil, service.WithFlashSaleClient(c)).AddToCart(ctx, "b1", "l1", "", 1)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got := linePrice(t, items, "l1", ""); got != 123000 {
+			t.Errorf("%s: unit_price = %d, want 123000", name, got)
+		}
+	}
+}
+
+func TestReorderUsesFlashPrice(t *testing.T) {
+	dom := &flashDomain{listings: map[string]*listingv1.Listing{"l1": {Id: "l1", Price: 500000, SellerId: "s"}}}
+	fl := &flashFake{byListing: map[string]*promotionv1.GetActiveFlashSaleResponse{"l1": activeSale("", 350000)}}
+	svc := newFlashCart(dom, map[string]repository.Order{
+		"o1": {ID: "o1", BuyerID: "b1", Items: []repository.OrderItem{{ListingID: "l1", Quantity: 1, UnitPrice: 500000}}},
+	}, service.WithFlashSaleClient(fl))
+
+	items, subtotal, err := svc.Reorder(context.Background(), "b1", "o1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := linePrice(t, items, "l1", ""); got != 350000 {
+		t.Errorf("unit_price = %d, want 350000", got)
+	}
+	if subtotal != 350000 {
+		t.Errorf("subtotal = %d, want 350000", subtotal)
 	}
 }

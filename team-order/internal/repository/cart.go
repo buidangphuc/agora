@@ -33,6 +33,8 @@ type CartRepository interface {
 	RemoveItem(ctx context.Context, userID, itemID string) ([]CartItem, error)
 	ClearCart(ctx context.Context, userID string) error
 	RemoveItems(ctx context.Context, userID string, itemIDs []string) error
+	// UpdateItemPrice sets only unit_price of the user's line; ErrCartItemNotFound if none.
+	UpdateItemPrice(ctx context.Context, userID, itemID string, unitPrice int64) error
 }
 
 type PostgresCartRepository struct {
@@ -141,6 +143,18 @@ func (r *PostgresCartRepository) RemoveItems(ctx context.Context, userID string,
 	return err
 }
 
+func (r *PostgresCartRepository) UpdateItemPrice(ctx context.Context, userID, itemID string, unitPrice int64) error {
+	const q = `UPDATE cart_items SET unit_price = $3, updated_at = now() WHERE id = $1 AND user_id = $2`
+	res, err := r.pool.Exec(ctx, q, itemID, userID, unitPrice)
+	if err != nil {
+		return fmt.Errorf("update cart item price: %w", err)
+	}
+	if res.RowsAffected() == 0 {
+		return ErrCartItemNotFound
+	}
+	return nil
+}
+
 // InMemoryCartRepository is for unit tests.
 type InMemoryCartRepository struct {
 	mu    sync.RWMutex
@@ -247,5 +261,17 @@ func (r *InMemoryCartRepository) RemoveItems(_ context.Context, userID string, i
 			}
 		}
 	}
+	return nil
+}
+
+func (r *InMemoryCartRepository) UpdateItemPrice(_ context.Context, userID, itemID string, unitPrice int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	item, ok := r.items[itemID]
+	if !ok || item.UserID != userID {
+		return ErrCartItemNotFound
+	}
+	item.UnitPrice = unitPrice
+	r.items[itemID] = item
 	return nil
 }

@@ -142,6 +142,12 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 			h.logger.Warn("voucher rejected", slog.String("buyer_id", principal.GetId()), slog.Any("error", err))
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
+		if errors.Is(err, service.ErrPriceChanged) {
+			return nil, status.Error(codes.FailedPrecondition, "price changed")
+		}
+		if errors.Is(err, service.ErrPromotionUnavailable) {
+			return nil, clientErr(h.logger, codes.Unavailable, "promotion service unavailable; please retry", err)
+		}
 		if errors.Is(err, service.ErrInsufficientStock) {
 			return nil, clientErr(h.logger, codes.ResourceExhausted, "stock reservation failed: insufficient stock", err)
 		}

@@ -18,6 +18,9 @@ import (
 type PromotionClients struct {
 	conn    *grpc.ClientConn
 	Voucher promotionv1.VoucherServiceClient
+	// Flash is the FlashSaleService client: stock hold RPCs are sent as the
+	// service principal; GetActiveFlashSale keeps the forwarded principal.
+	Flash promotionv1.FlashSaleServiceClient
 }
 
 // DialPromotion opens a lazy gRPC client to team-promotion at addr. An empty addr
@@ -37,6 +40,7 @@ func DialPromotion(addr string) (*PromotionClients, error) {
 	return &PromotionClients{
 		conn:    conn,
 		Voucher: NewServicePromotionClient(promotionv1.NewVoucherServiceClient(conn)),
+		Flash:   NewServiceFlashClient(promotionv1.NewFlashSaleServiceClient(conn)),
 	}, nil
 }
 
@@ -78,4 +82,34 @@ func (c servicePromotionClient) CommitReservation(ctx context.Context, req *prom
 
 func (c servicePromotionClient) ReleaseReservation(ctx context.Context, req *promotionv1.ReleaseReservationRequest, opts ...grpc.CallOption) (*promotionv1.ReleaseReservationResponse, error) {
 	return c.VoucherServiceClient.ReleaseReservation(asServiceWithPromotion(ctx), req, opts...)
+}
+
+// serviceFlashClient marks the three flash stock-hold RPCs AsService with scope
+// promotion.reserve. Reads such as GetActiveFlashSale keep the forwarded principal.
+type serviceFlashClient struct {
+	promotionv1.FlashSaleServiceClient
+}
+
+// NewServiceFlashClient wraps inner so ReserveFlashSaleStock, CommitFlashSaleStock
+// and ReleaseFlashSaleStock are sent as team-order's service principal.
+func NewServiceFlashClient(inner promotionv1.FlashSaleServiceClient) promotionv1.FlashSaleServiceClient {
+	if inner == nil {
+		return nil
+	}
+	if already, ok := inner.(serviceFlashClient); ok {
+		return already
+	}
+	return serviceFlashClient{FlashSaleServiceClient: inner}
+}
+
+func (c serviceFlashClient) ReserveFlashSaleStock(ctx context.Context, req *promotionv1.ReserveFlashSaleStockRequest, opts ...grpc.CallOption) (*promotionv1.ReserveFlashSaleStockResponse, error) {
+	return c.FlashSaleServiceClient.ReserveFlashSaleStock(asServiceWithPromotion(ctx), req, opts...)
+}
+
+func (c serviceFlashClient) CommitFlashSaleStock(ctx context.Context, req *promotionv1.CommitFlashSaleStockRequest, opts ...grpc.CallOption) (*promotionv1.CommitFlashSaleStockResponse, error) {
+	return c.FlashSaleServiceClient.CommitFlashSaleStock(asServiceWithPromotion(ctx), req, opts...)
+}
+
+func (c serviceFlashClient) ReleaseFlashSaleStock(ctx context.Context, req *promotionv1.ReleaseFlashSaleStockRequest, opts ...grpc.CallOption) (*promotionv1.ReleaseFlashSaleStockResponse, error) {
+	return c.FlashSaleServiceClient.ReleaseFlashSaleStock(asServiceWithPromotion(ctx), req, opts...)
 }
