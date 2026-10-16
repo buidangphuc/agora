@@ -5,6 +5,9 @@ const LISTING: Record<string, { color: TagColor; text: string }> = {
   published: { color: "success", text: "Đang bán" },
   draft: { color: "neutral", text: "Bản nháp" },
   rejected: { color: "danger", text: "Bị từ chối" },
+  pending_review: { color: "warning", text: "Chờ duyệt" },
+  banned: { color: "danger", text: "Bị khóa" },
+  held: { color: "warning", text: "Tạm ẩn" },
 };
 
 export function ListingStatusTag({ status }: { status: string }) {
