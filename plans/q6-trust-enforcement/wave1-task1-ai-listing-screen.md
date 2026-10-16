@@ -29,6 +29,7 @@ Implement OpenSpec change `ai-listing-screen` test-first per its tasks.md (scena
 - platform-e2e/tests/e2e/features/ai/listing_screen_edge.feature
 - platform-e2e/tests/e2e/step_definitions/test_listing_screen_edge.py
 - openspec/changes/ai-listing-screen/**
+- team-ai/tests/unit/test_readme_screen_listing.py # widened at build: task 5
 
 ## Read-only dependencies
 - openspec/changes/ai-listing-screen/** is frozen by the LOCK.md digest (only task ticks change)
