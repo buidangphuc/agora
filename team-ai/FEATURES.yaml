@@ -1576,7 +1576,7 @@ features:
       - "ai-listing-screen: Default backend is mock and an unknown backend fails startup"
     tags: [ai, trust]
     status: not-testable
-    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/core/test_screen_settings.py` `test_screen_backend_defaults_to_mock_and_rejects_unknown`"
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/core/test_screen_settings.py` `test_default_backend_is_mock_and_defaults_hold_scenario_default_backend_is_mock` and `test_unknown_backend_fails_startup_scenario_unknown_backend_fails`"
 
   - id: ai.listing-screen-unit.llm-review-verdict-is-returned-with-its-labels
     title: "LLM review verdict is returned with its labels"
