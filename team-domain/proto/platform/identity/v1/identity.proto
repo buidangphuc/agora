@@ -1,18 +1,43 @@
 syntax = "proto3";
 
 // team-identity (Go) owns this: user accounts + credential verification. It
-// issues signed tokens (HS256 JWT today) whose claims the Gateway verifies at
+// issues signed tokens (RS256 JWT) whose claims the Gateway verifies at
 // the edge and turns into a platform.common.v1.Principal (ADR-0003). Downstream
 // services never see credentials — only the resolved Principal.
 package platform.identity.v1;
 
+import "google/protobuf/timestamp.proto";
 import "platform/common/v1/common.proto";
 
 // Public auth surface: no Principal/scope is required to call these (they are
 // how a caller obtains one).
 service AuthService {
   rpc Register(RegisterRequest) returns (RegisterResponse);
+  // Login verifies credentials and opens a session. An account that is
+  // SUSPENDED or BANNED is refused with PERMISSION_DENIED and one generic
+  // message: it does not tell suspended from banned and does not reveal an end
+  // time. An expired suspension is lifted to ACTIVE at that login.
   rpc Login(LoginRequest) returns (LoginResponse);
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+  // RefreshSession exchanges a refresh_token for a new access token and a
+  // rotated refresh_token. It is a public RPC (no Principal or Authorization is
+  // required, like Login and Register) because the access token is expired by
+  // definition when it is called; the gateway does not retry it (not retried).
+  // The new access token carries the same sid, so ListSessions and
+  // RevokeSession keep working unchanged.
+  // Errors: UNAUTHENTICATED for an unknown, expired, revoked or reused token,
+  // and for an empty or malformed refresh_token. The error message is a fixed
+  // string that does not distinguish causes. Presenting a reused
+  // (already-rotated) token also revokes the session (SessionRevoked event).
+  // Grace: replaying the token that was just rotated within 10 s (inclusive) of
+  // the rotation is not reuse; it returns a fresh access token and an empty
+  // refresh_token.
+  // An account that is SUSPENDED or BANNED is refused with PERMISSION_DENIED and
+  // one generic message: it does not tell suspended from banned and does not
+  // reveal an end time. Refresh never lifts an expired suspension; only Login does.
+  rpc RefreshSession(RefreshSessionRequest) returns (RefreshSessionResponse);
 }
 
 message RegisterRequest {
@@ -33,6 +58,24 @@ message AuthResult {
   string token = 1;
   platform.common.v1.Principal principal = 2;
   string username = 3;
+  // Opaque rotating refresh token; empty when sessions are disabled.
+  // Secret bearer credential. Never log it and never send it to analytics; the
+  // server stores only its SHA-256 hash.
+  string refresh_token = 4;
+  // Absolute expiry of the refresh token, used as the client cookie maxAge;
+  // unset when refresh_token is empty.
+  google.protobuf.Timestamp refresh_expires_at = 5;
+}
+
+message RefreshSessionRequest {
+  // Secret bearer credential. Never log it and never send it to analytics; the
+  // server stores only its SHA-256 hash.
+  string refresh_token = 1;
+}
+
+// result carries the new access token and the rotated refresh token.
+message RefreshSessionResponse {
+  AuthResult result = 1;
 }
 
 message RegisterResponse {
@@ -41,6 +84,34 @@ message RegisterResponse {
 
 message LoginResponse {
   AuthResult result = 1;
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string old_password = 2;
+  string new_password = 3;
+}
+
+message ChangePasswordResponse {
+  bool success = 1;
+}
+
+message RequestPasswordResetRequest {
+  string username = 1;
+}
+
+message RequestPasswordResetResponse {
+  string reset_token = 1;
+  int64 expires_at = 2;
+}
+
+message ResetPasswordRequest {
+  string token = 1;
+  string new_password = 2;
+}
+
+message ResetPasswordResponse {
+  bool success = 1;
 }
 
 // AddressService manages shipping addresses for registered buyers.
@@ -112,4 +183,167 @@ message SetDefaultAddressRequest {
 
 message SetDefaultAddressResponse {
   Address address = 1;
+}
+
+// SessionService exposes a signed-in user's active sessions and login history.
+// Requires valid user authentication (Principal) — these operate on the caller's
+// own account.
+service SessionService {
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+  rpc ListLoginHistory(ListLoginHistoryRequest) returns (ListLoginHistoryResponse);
+}
+
+// An active authenticated session (device/browser) for the caller.
+message Session {
+  string id = 1;
+  string device = 2;
+  string ip = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp last_seen = 5;
+  bool revoked = 6;
+}
+
+message ListSessionsRequest {}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message RevokeSessionRequest {
+  string session_id = 1;
+}
+
+message RevokeSessionResponse {}
+
+// SessionRevoked is the event published on Kafka topic `identity.events` (key = user
+// id, wrapped in platform.events.v1.EventEnvelope with type
+// "platform.identity.v1.SessionRevoked") when a user revokes one of their sessions.
+// The gateway keeps `session_id` in an in-memory denylist until `expires_at` (the
+// revoked token's expiry) and rejects any token whose `sid` claim matches.
+message SessionRevoked {
+  string session_id = 1;
+  string user_id = 2;
+  // Expiry of the longest-lived token that can carry this session id; after this
+  // instant the denylist entry is redundant and may be dropped.
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+// A recorded login attempt (successful or failed) against the caller's account.
+message LoginEvent {
+  string id = 1;
+  string ip = 2;
+  string user_agent = 3;
+  bool success = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ListLoginHistoryRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListLoginHistoryResponse {
+  repeated LoginEvent events = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// PublicProfileService resolves public display names for other users. It is an
+// internal, service-to-service surface: callers MUST be service principals
+// carrying the identity.read scope (e.g. team-notification naming a chat sender).
+// User principals are rejected with PERMISSION_DENIED.
+service PublicProfileService {
+  // GetPublicProfiles returns the public profile of each known user id. Unknown
+  // ids are omitted and duplicates ignored. Max 100 ids (INVALID_ARGUMENT above).
+  rpc GetPublicProfiles(GetPublicProfilesRequest) returns (GetPublicProfilesResponse);
+}
+
+message GetPublicProfilesRequest {
+  repeated string user_ids = 1;
+}
+
+// PublicProfile is the only user data exposed to other services: the id and the
+// name to show. display_name is the username unless a display name exists.
+message PublicProfile {
+  string user_id = 1;
+  string display_name = 2;
+}
+
+message GetPublicProfilesResponse {
+  repeated PublicProfile profiles = 1;
+}
+
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_RESTRICTED = 2;
+  USER_STATUS_SUSPENDED = 3;
+  USER_STATUS_BANNED = 4;
+}
+
+// AccountAdminService is user administration for admins. A caller without scope
+// admin gets PERMISSION_DENIED and a caller without a principal gets
+// UNAUTHENTICATED; this holds for both RPCs.
+service AccountAdminService {
+  // ListUsers is admin-only. query matches a username prefix or an exact id;
+  // an UNSPECIFIED status means all. It is a read and not audited.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  // SetUserStatus is admin-only (scope admin; UNAUTHENTICATED without a
+  // principal, PERMISSION_DENIED otherwise). The user.set_status audit entry is
+  // written first; if the audit store is down the call fails UNAVAILABLE with
+  // no change. FAILED_PRECONDITION when the target is the caller's own id or an
+  // admin target. INVALID_ARGUMENT for status UNSPECIFIED, a reason_code that is
+  // not lower_snake_case up to 64 characters, note over 500 characters, until
+  // missing or not in the future for SUSPENDED, or until set for any other
+  // status. NOT_FOUND for an unknown user. Publishes one UserStatusChanged per
+  // call, including re-setting the current status. Moving to RESTRICTED,
+  // SUSPENDED or BANNED revokes every session of the user (one SessionRevoked
+  // per session); ACTIVE revokes none.
+  rpc SetUserStatus(SetUserStatusRequest) returns (SetUserStatusResponse);
+}
+
+message AdminUser {
+  string id = 1;
+  string username = 2;
+  repeated string roles = 3;
+  UserStatus status = 4;
+  string status_reason = 5;
+  google.protobuf.Timestamp status_until = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message ListUsersRequest {
+  string query = 1;
+  UserStatus status = 2;
+  platform.common.v1.PageRequest page = 3;
+}
+
+message ListUsersResponse {
+  repeated AdminUser users = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message SetUserStatusRequest {
+  string user_id = 1;
+  UserStatus status = 2;
+  string reason_code = 3;
+  string note = 4;
+  // Required for SUSPENDED; must be unset for every other status.
+  google.protobuf.Timestamp until = 5;
+}
+
+message SetUserStatusResponse {
+  AdminUser user = 1;
+  int32 sessions_revoked = 2;
+}
+
+// UserStatusChanged is the event published on Kafka topic `identity.events` (key = user
+// id, wrapped in platform.events.v1.EventEnvelope with type
+// "platform.identity.v1.UserStatusChanged") when an admin sets a user's status.
+message UserStatusChanged {
+  string user_id = 1;
+  UserStatus status = 2;
+  UserStatus previous_status = 3;
+  string reason_code = 4;
+  google.protobuf.Timestamp until = 5;
+  google.protobuf.Timestamp changed_at = 6;
 }

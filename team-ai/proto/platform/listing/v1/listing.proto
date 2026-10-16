@@ -17,10 +17,25 @@ service ListingService {
   // ListMyListings returns the listings owned by the calling Principal (the
   // seller center). Requires the listing.write scope.
   rpc ListMyListings(ListMyListingsRequest) returns (ListMyListingsResponse);
+  // CreateListing stores a new listing. status and moderation are server-owned:
+  // any seller-supplied value is dropped with no error, and the stored status is
+  // set by the server (DRAFT, or PENDING_REVIEW after the screen). A seller
+  // cannot publish past the screen. An admin writing their own listing follows
+  // the seller path. Writes are still audited. Callers without listing.write
+  // get PERMISSION_DENIED.
   rpc CreateListing(CreateListingRequest) returns (CreateListingResponse);
+  // UpdateListing replaces the seller's own listing. status and moderation are
+  // server-owned: any supplied value is dropped with no error. A REJECTED
+  // listing edited by its seller returns to PENDING_REVIEW (re-screened), never
+  // to PUBLISHED; a seller cannot undo a rejection by writing status. A listing
+  // that is BANNED or HELD fails with FAILED_PRECONDITION. An admin writing
+  // their own listing follows the seller path. Writes are still audited;
+  // PERMISSION_DENIED for non-owners.
   rpc UpdateListing(UpdateListingRequest) returns (UpdateListingResponse);
   // DeleteListing removes the caller's own listing (or any, for admin) and emits
-  // ListingChanged(DELETED) so read-models drop it.
+  // ListingChanged(DELETED) so read-models drop it. A listing that is BANNED or
+  // HELD fails with FAILED_PRECONDITION (an admin writing their own listing
+  // follows the seller path); deletes are still audited.
   rpc DeleteListing(DeleteListingRequest) returns (DeleteListingResponse);
   // GetImageUploadUrl generates a presigned URL to upload a product image.
   rpc GetImageUploadUrl(GetImageUploadUrlRequest) returns (GetImageUploadUrlResponse);
@@ -59,6 +74,70 @@ service ListingService {
   rpc CreateBundle(CreateBundleRequest) returns (CreateBundleResponse);
   rpc GetBundle(GetBundleRequest) returns (GetBundleResponse);
   rpc ListBundlesBySeller(ListBundlesBySellerRequest) returns (ListBundlesBySellerResponse);
+
+  // ── Moderation ──
+  // ModerateListing is admin-only (scope admin; UNAUTHENTICATED without a
+  // session, PERMISSION_DENIED for non-admin callers). The listing.moderate
+  // audit entry is written first; if the audit store is down the call fails
+  // UNAVAILABLE with no change. INVALID_ARGUMENT for an empty listing_id, an
+  // UNSPECIFIED decision, a missing reason_code on REJECT or BAN, or a note over
+  // 500 characters. NOT_FOUND for an unknown listing. FAILED_PRECONDITION for a
+  // disallowed transition: APPROVE from PENDING_REVIEW only; REJECT and BAN from
+  // PENDING_REVIEW or PUBLISHED; nothing from DRAFT, HELD, REJECTED or BANNED.
+  // Emits ListingChanged(UPDATED) without the note or screen flags.
+  rpc ModerateListing(ModerateListingRequest) returns (ModerateListingResponse);
+  // ListModerationQueue is admin-only (scope admin; UNAUTHENTICATED without a
+  // session, PERMISSION_DENIED for non-admin callers). Lists PENDING_REVIEW
+  // listings, oldest first. It is a read and not audited.
+  rpc ListModerationQueue(ListModerationQueueRequest) returns (ListModerationQueueResponse);
+}
+
+enum ModerationDecision {
+  MODERATION_DECISION_UNSPECIFIED = 0;
+  MODERATION_DECISION_APPROVE = 1;
+  MODERATION_DECISION_REJECT = 2;
+  MODERATION_DECISION_BAN = 3;
+}
+
+message ModerateListingRequest {
+  string listing_id = 1;
+  ModerationDecision decision = 2;
+  // Required for REJECT and BAN.
+  string reason_code = 3;
+  // Optional, at most 500 characters.
+  string note = 4;
+}
+
+message ModerateListingResponse {
+  Listing listing = 1;
+}
+
+message ListModerationQueueRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ModerationQueueItem {
+  Listing listing = 1;
+  google.protobuf.Timestamp submitted_at = 2;
+}
+
+message ListModerationQueueResponse {
+  repeated ModerationQueueItem items = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// ModerationInfo is the admin/seller-visible moderation outcome of a listing.
+// It is server-owned: ignored on writes. reason_code is one of prohibited_item,
+// counterfeit, misleading, inappropriate, duplicate, seller_enforcement, other.
+// The note and screen_flags are for the owner and admin only; the
+// ListingChanged event carries ModerationInfo with no note and no screen_flags.
+// A decision takes reason_code and note from the moderation RPC; note is at
+// most 500 characters.
+message ModerationInfo {
+  string reason_code = 1;
+  string note = 2;
+  repeated string screen_flags = 3;
+  google.protobuf.Timestamp decided_at = 4;
 }
 
 // A seller-defined bundle of listings sold together at bundle_price.
@@ -219,6 +298,10 @@ message Listing {
   string description = 3;
   int64 price = 4; // minor units (e.g. VND), integer to avoid float money
   string currency = 5; // ISO 4217, e.g. "VND"
+  // Publication status. server-owned: ignored on writes. A seller can only
+  // save DRAFT or publish through the screen; an update that supplies a status
+  // keeps the stored status. Moderation states (PENDING_REVIEW, BANNED, HELD)
+  // are set by the server only.
   ListingStatus status = 6;
   // Owner (Principal id of the seller). Server-assigned on create; read-only.
   string seller_id = 7;
@@ -230,6 +313,9 @@ message Listing {
   int32 stock = 10;
   // Product variants (color/size/specs).
   repeated Variant variants = 11;
+  // Moderation outcome; server-owned and ignored on writes. Unset until a
+  // decision, screen or hold exists.
+  ModerationInfo moderation = 12;
 }
 
 enum ListingStatus {
@@ -237,6 +323,9 @@ enum ListingStatus {
   LISTING_STATUS_DRAFT = 1;
   LISTING_STATUS_PUBLISHED = 2;
   LISTING_STATUS_REJECTED = 3;
+  LISTING_STATUS_PENDING_REVIEW = 4;
+  LISTING_STATUS_BANNED = 5;
+  LISTING_STATUS_HELD = 6;
 }
 
 message GetImageUploadUrlRequest {
@@ -360,3 +449,5 @@ message ListingStatusChanged {
   string listing_id = 1;
   ListingStatus status = 2;
 }
+
+
