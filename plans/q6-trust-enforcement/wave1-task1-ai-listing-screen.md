@@ -17,9 +17,6 @@ Implement OpenSpec change `ai-listing-screen` test-first per its tasks.md (scena
 - team-ai/tests/unit/modules/screen/**
 - team-ai/app/transport/grpc/scopes.py
 - team-ai/app/transport/grpc/servicers/ai.py
-- team-ai/app/bootstrap/grpc.py
-- team-ai/app/bootstrap/resources.py
-- team-ai/app/bootstrap/services.py
 - team-ai/tests/unit/transport/test_ai_servicer.py
 - team-ai/tests/unit/transport/test_grpc_scopes.py
 - team-ai/app/modules/messaging/listing_indexer/decode.py
