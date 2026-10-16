@@ -105,7 +105,33 @@ type Lifecycle struct {
 	PaymentDeadline       string `env:"PAYMENT_DEADLINE" default:"24h"`
 	PaymentReminderBefore string `env:"PAYMENT_REMINDER_BEFORE" default:"2h"`
 	SweepInterval         string `env:"LIFECYCLE_SWEEP_INTERVAL" default:"1m"`
+
+	// Receipt/return durations are strict: a malformed or non-positive value
+	// stops startup (see Validate).
+	AutoCompleteAfter      string `env:"AUTO_COMPLETE_AFTER" default:"168h"`
+	ReturnWindow           string `env:"RETURN_WINDOW" default:"360h"`
+	ReturnAutoApproveAfter string `env:"RETURN_AUTO_APPROVE_AFTER" default:"72h"`
+	ShipByAfter            string `env:"SHIP_BY_AFTER" default:"48h"`
 }
+
+// strictDuration parses a validated duration; invalid input yields 0 (Validate
+// rejects it at startup, so callers of a loaded Settings never see that).
+func strictDuration(raw string) time.Duration {
+	d, err := time.ParseDuration(strings.TrimSpace(raw))
+	if err != nil || d <= 0 {
+		return 0
+	}
+	return d
+}
+
+func (s *Settings) AutoCompleteAfter() time.Duration {
+	return strictDuration(s.Lifecycle.AutoCompleteAfter)
+}
+func (s *Settings) ReturnWindow() time.Duration { return strictDuration(s.Lifecycle.ReturnWindow) }
+func (s *Settings) ReturnAutoApproveAfter() time.Duration {
+	return strictDuration(s.Lifecycle.ReturnAutoApproveAfter)
+}
+func (s *Settings) ShipByAfter() time.Duration { return strictDuration(s.Lifecycle.ShipByAfter) }
 
 const (
 	DefaultPaymentDeadline        = 24 * time.Hour
@@ -198,6 +224,20 @@ func (s *Settings) Validate() error {
 	}
 	if s.Server.Port <= 0 || s.Server.Port > 65535 {
 		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
+	}
+	for _, c := range []struct{ key, raw string }{
+		{"AUTO_COMPLETE_AFTER", s.Lifecycle.AutoCompleteAfter},
+		{"RETURN_WINDOW", s.Lifecycle.ReturnWindow},
+		{"RETURN_AUTO_APPROVE_AFTER", s.Lifecycle.ReturnAutoApproveAfter},
+		{"SHIP_BY_AFTER", s.Lifecycle.ShipByAfter},
+	} {
+		d, err := time.ParseDuration(strings.TrimSpace(c.raw))
+		if err != nil {
+			return fmt.Errorf("%s: invalid duration %q (want a positive Go duration such as 168h): %w", c.key, c.raw, err)
+		}
+		if d <= 0 {
+			return fmt.Errorf("%s: duration must be positive, got %q", c.key, c.raw)
+		}
 	}
 	return nil
 }

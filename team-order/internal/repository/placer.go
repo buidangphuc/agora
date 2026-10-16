@@ -39,7 +39,7 @@ const bindReservationsSQL = `UPDATE order_reservations
 
 const completeSagaSQL = `UPDATE order_sagas SET status = $2, updated_at = now() WHERE id = $1 AND status = $3`
 
-func prepareOrder(o *Order, now time.Time, deadline time.Duration) {
+func prepareOrder(o *Order, now time.Time, deadline, shipBy time.Duration) {
 	if o.ID == "" {
 		o.ID = uuid.NewString()
 	}
@@ -55,6 +55,10 @@ func prepareOrder(o *Order, now time.Time, deadline time.Duration) {
 	if deadline > 0 {
 		due := now.Add(deadline)
 		o.PaymentDueAt = &due
+	}
+	o.ShipBy = nil
+	if o.PaymentMethod == codPaymentMethod {
+		o.ShipBy = stampAfter(now, shipBy)
 	}
 	items := make([]OrderItem, len(o.Items))
 	copy(items, o.Items)
@@ -84,7 +88,7 @@ func (r *PostgresOrderRepository) PlaceOrders(ctx context.Context, sagaID string
 	out := make([]Order, 0, len(placed))
 	for _, p := range placed {
 		o := p.Order
-		prepareOrder(&o, now, p.PaymentDeadline)
+		prepareOrder(&o, now, p.PaymentDeadline, r.shipByAfter)
 		if err := insertOrderTx(ctx, tx, &o); err != nil {
 			return nil, err
 		}
@@ -172,7 +176,7 @@ func (p *InMemoryOrderPlacer) PlaceOrders(ctx context.Context, sagaID string, pl
 	out := make([]Order, 0, len(placed))
 	for _, po := range placed {
 		o := po.Order
-		prepareOrder(&o, now, po.PaymentDeadline)
+		prepareOrder(&o, now, po.PaymentDeadline, p.orders.shipByAfter)
 		for _, id := range po.ReservationIDs {
 			res := st.reservations[id]
 			res.Status = ReservationStatusCommitted

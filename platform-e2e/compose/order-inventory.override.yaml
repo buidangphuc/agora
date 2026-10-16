@@ -10,6 +10,9 @@
 # team-order also runs the order lifecycle on short timers (change order-unpaid-expiry):
 # PAYMENT_DEADLINE=45s, PAYMENT_REMINDER_BEFORE=30s (reminder due 15s after placement),
 # LIFECYCLE_SWEEP_INTERVAL=2s. Online-pay orders left Pending longer than 45s are cancelled.
+# order-receipt-completion adds AUTO_COMPLETE_AFTER=12s, RETURN_WINDOW=20s,
+# RETURN_AUTO_APPROVE_AFTER=30s (above AUTO_COMPLETE_AFTER so a return opened right after
+# shipping is still PENDING at the auto-complete deadline) and SHIP_BY_AFTER=60s.
 # Keys by service name only (no container_name), so it works under any project.
 services:
   team-domain:
@@ -23,3 +26,7 @@ services:
       PAYMENT_DEADLINE: 45s
       PAYMENT_REMINDER_BEFORE: 30s
       LIFECYCLE_SWEEP_INTERVAL: 2s
+      AUTO_COMPLETE_AFTER: 12s
+      RETURN_WINDOW: 20s
+      RETURN_AUTO_APPROVE_AFTER: 30s
+      SHIP_BY_AFTER: 60s

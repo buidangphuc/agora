@@ -177,6 +177,7 @@ def concurrent_refunds(prm, n, name):
 @any_step(parsers.parse('"{b}" sends {n:d} concurrent return requests of {amount:d}'))
 def concurrent_requests(prm, b, n, amount):
     buyer, order_id = prm.actors[b], _order(prm)
+    r.ship_if_paid(prm, buyer, order_id)  # ship once, so the racing calls do not race the ship
     prm.data["race"] = race([lambda: r.request_return(prm, buyer, order_id, amount)] * n)
     prm.data["lister"] = buyer
 
@@ -367,6 +368,19 @@ def lists_and_has(prm, b, n, amount):
     tx = p.payment_of(prm, prm.actors[b], _order(prm))
     assert len(r.refunds_of(tx, r.SRC_RETURN)) == int(n), tx.get("refunds")
     assert r.refunded_of(tx) == int(amount), tx
+
+
+@then(
+    parsers.re(
+        r"the payment lists 1 RETURN refund and 1 seller refund whose applied amounts sum to "
+        r"(?P<total>\d+)"
+    )
+)
+def lists_return_and_seller(prm, total):
+    tx = p.payment_of(prm, prm.actors["b1"], _order(prm))
+    returns, sellers = r.refunds_of(tx, r.SRC_RETURN), r.refunds_of(tx, r.SRC_SELLER)
+    assert (len(returns), len(sellers)) == (1, 1), tx.get("refunds")
+    assert sum(r.applied(x) for x in returns + sellers) == int(total), tx.get("refunds")
 
 
 @then(

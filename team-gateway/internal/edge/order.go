@@ -2,6 +2,7 @@ package edge
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 
@@ -259,6 +260,25 @@ func (f *OrderForwarder) GetShipmentTracking(
 	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
 		var e error
 		out, e = f.client.GetShipmentTracking(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *OrderForwarder) ConfirmReceipt(
+	ctx context.Context,
+	req *connect.Request[orderv1.ConfirmReceiptRequest],
+) (*connect.Response[orderv1.ConfirmReceiptResponse], error) {
+	if p, ok := principalFrom(ctx); !ok || p.ptype == "anonymous" || p.id == "" {
+		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("authentication required"))
+	}
+	var out *orderv1.ConfirmReceiptResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ConfirmReceipt(c, req.Msg)
 		return e
 	})
 	if err != nil {

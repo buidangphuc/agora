@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -304,6 +305,38 @@ func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.Updat
 	return &orderv1.UpdateOrderStatusResponse{Order: toWireOrder(updated)}, nil
 }
 
+// ConfirmReceipt lets the order's buyer (only) complete a Shipped order.
+func (h *OrderHandler) ConfirmReceipt(ctx context.Context, req *orderv1.ConfirmReceiptRequest) (*orderv1.ConfirmReceiptResponse, error) {
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "order id is required")
+	}
+	existing, err := h.svc.GetOrder(ctx, req.GetId())
+	if err != nil {
+		if errors.Is(err, repository.ErrOrderNotFound) {
+			return nil, status.Error(codes.NotFound, "order not found")
+		}
+		return nil, internalErr(h.logger, "get order", err)
+	}
+	if existing.BuyerID != principal.GetId() {
+		return nil, status.Error(codes.PermissionDenied, "only the buyer can confirm receipt")
+	}
+	done, err := h.svc.ConfirmReceipt(ctx, req.GetId())
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrOrderNotFound):
+			return nil, status.Error(codes.NotFound, "order not found")
+		case errors.Is(err, service.ErrInvalidStatus):
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "order is not shipped", err)
+		}
+		return nil, internalErr(h.logger, "confirm receipt", err)
+	}
+	return &orderv1.ConfirmReceiptResponse{Order: toWireOrder(done)}, nil
+}
+
 func (h *OrderHandler) CancelOrder(ctx context.Context, req *orderv1.CancelOrderRequest) (*orderv1.CancelOrderResponse, error) {
 	principal, err := interceptor.RequirePrincipal(ctx)
 	if err != nil {
@@ -480,6 +513,9 @@ func (h *OrderHandler) CreateReturnRequest(ctx context.Context, req *orderv1.Cre
 		if errors.Is(err, service.ErrInvalidRefundAmount) {
 			return nil, clientErr(h.logger, codes.InvalidArgument, "invalid refund amount", err)
 		}
+		if errors.Is(err, service.ErrReturnWindowClosed) {
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "return window closed", err)
+		}
 		if errors.Is(err, service.ErrOrderCannotBeReturned) {
 			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be returned in its current status", err)
 		}
@@ -490,7 +526,7 @@ func (h *OrderHandler) CreateReturnRequest(ctx context.Context, req *orderv1.Cre
 	}
 
 	return &orderv1.CreateReturnRequestResponse{
-		ReturnRequest: toWireOrderReturn(ret),
+		ReturnRequest: h.wireReturn(ctx, ret),
 	}, nil
 }
 
@@ -516,7 +552,7 @@ func (h *OrderHandler) GetReturnRequest(ctx context.Context, req *orderv1.GetRet
 	}
 
 	return &orderv1.GetReturnRequestResponse{
-		ReturnRequest: toWireOrderReturn(ret),
+		ReturnRequest: h.wireReturn(ctx, ret),
 	}, nil
 }
 
@@ -567,7 +603,7 @@ func (h *OrderHandler) UpdateReturnStatus(ctx context.Context, req *orderv1.Upda
 	}
 
 	return &orderv1.UpdateReturnStatusResponse{
-		ReturnRequest: toWireOrderReturn(updated),
+		ReturnRequest: h.wireReturn(ctx, updated),
 	}, nil
 }
 
@@ -597,7 +633,9 @@ func (h *OrderHandler) ListOrderReturns(ctx context.Context, req *orderv1.ListOr
 	}
 	out := make([]*orderv1.OrderReturn, 0, len(returns))
 	for _, r := range returns {
-		out = append(out, toWireOrderReturn(r))
+		w := toWireOrderReturn(r)
+		w.CanEscalate = h.svc.CanEscalate(r, o)
+		out = append(out, w)
 	}
 	return &orderv1.ListOrderReturnsResponse{Returns: out}, nil
 }
@@ -715,19 +753,31 @@ func toWireOrder(o repository.Order) *orderv1.Order {
 		due = timestamppb.New(*o.PaymentDueAt)
 	}
 
+	ts := func(t *time.Time) *timestamppb.Timestamp {
+		if t == nil {
+			return nil
+		}
+		return timestamppb.New(*t)
+	}
+
 	return &orderv1.Order{
-		PaidAt:        paidAt,
-		PaymentDueAt:  due,
-		Id:            o.ID,
-		BuyerId:       o.BuyerID,
-		SellerId:      o.SellerID,
-		Status:        orderv1.OrderStatus(o.Status),
-		CancelReason:  orderv1.CancelReason(o.CancelReason),
-		TotalAmount:   o.TotalAmount,
-		ItemsSubtotal: o.ItemsSubtotal,
-		ShippingFee:   o.ShippingFee,
-		PaymentMethod: paymentv1.PaymentMethod(o.PaymentMethod),
-		Currency:      o.Currency,
+		ShipBy:             ts(o.ShipBy),
+		ShippedAt:          ts(o.ShippedAt),
+		CompletedAt:        ts(o.CompletedAt),
+		ReturnWindowEndsAt: ts(o.ReturnWindowEndsAt),
+		AutoCompleteAt:     ts(o.AutoCompleteAt),
+		PaidAt:             paidAt,
+		PaymentDueAt:       due,
+		Id:                 o.ID,
+		BuyerId:            o.BuyerID,
+		SellerId:           o.SellerID,
+		Status:             orderv1.OrderStatus(o.Status),
+		CancelReason:       orderv1.CancelReason(o.CancelReason),
+		TotalAmount:        o.TotalAmount,
+		ItemsSubtotal:      o.ItemsSubtotal,
+		ShippingFee:        o.ShippingFee,
+		PaymentMethod:      paymentv1.PaymentMethod(o.PaymentMethod),
+		Currency:           o.Currency,
 		ShippingAddress: &identityv1.Address{
 			Id:            o.ShippingAddress.ID,
 			UserId:        o.ShippingAddress.UserID,
@@ -746,6 +796,19 @@ func toWireOrder(o repository.Order) *orderv1.Order {
 		VoucherCode:    o.VoucherCode,
 		DiscountAmount: o.DiscountAmount,
 	}
+}
+
+// wireReturn converts a return and computes can_escalate from its order; a
+// failed order lookup leaves can_escalate false.
+func (h *OrderHandler) wireReturn(ctx context.Context, r repository.OrderReturn) *orderv1.OrderReturn {
+	w := toWireOrderReturn(r)
+	if r.Status != repository.ReturnStatusRejected {
+		return w
+	}
+	if o, err := h.svc.GetOrder(ctx, r.OrderID); err == nil {
+		w.CanEscalate = h.svc.CanEscalate(r, o)
+	}
+	return w
 }
 
 func toWireOrderReturn(r repository.OrderReturn) *orderv1.OrderReturn {

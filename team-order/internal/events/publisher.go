@@ -28,11 +28,17 @@ const OrderCancelledEventType = "platform.order.v1.OrderCancelled"
 // ReturnRefundedEventType is the fully-qualified proto type for ReturnRefunded.
 const ReturnRefundedEventType = "platform.order.v1.ReturnRefunded"
 
+// ReturnRequestedEventType is the fully-qualified proto type for ReturnRequested.
+const ReturnRequestedEventType = "platform.order.v1.ReturnRequested"
+
 // OrderPlacedEventType is the fully-qualified proto type for OrderPlaced.
 const OrderPlacedEventType = "platform.order.v1.OrderPlaced"
 
 // OrderPaymentReminderEventType is the fully-qualified proto type for OrderPaymentReminder.
 const OrderPaymentReminderEventType = "platform.order.v1.OrderPaymentReminder"
+
+// OrderCompletedEventType is the fully-qualified proto type for OrderCompleted.
+const OrderCompletedEventType = "platform.order.v1.OrderCompleted"
 
 // OrderEventsTopic is the Kafka topic for order lifecycle events.
 const OrderEventsTopic = "order.events"
@@ -57,14 +63,19 @@ func BuildOrderPaidEnvelope(
 		}
 	}
 
-	payload, err := proto.Marshal(&orderv1.OrderPaidEvent{
+	paid := &orderv1.OrderPaidEvent{
 		OrderId:     order.ID,
 		BuyerId:     order.BuyerID,
+		SellerId:    order.SellerID,
 		Items:       items,
 		TotalAmount: order.TotalAmount,
 		Currency:    order.Currency,
 		PaidAt:      timestamppb.New(occurredAt),
-	})
+	}
+	if order.ShipBy != nil {
+		paid.ShipBy = timestamppb.New(order.ShipBy.UTC())
+	}
+	payload, err := proto.Marshal(paid)
 	if err != nil {
 		return nil, fmt.Errorf("marshal OrderPaidEvent: %w", err)
 	}
@@ -185,7 +196,7 @@ func OrderPlacedEventID(orderID string) string {
 // BuildPlacedOutboxRow is the repository.PlacedOutboxBuilder for team-order: it
 // wraps OrderPlaced in an EventEnvelope keyed by order_id, ready to commit in the
 // placement transaction. order.CreatedAt is placed_at; payment_due_at is the
-// order's own (unset for COD); ship_by is left unset.
+// order's own (unset for COD); ship_by is the order's own (set for COD only).
 func BuildPlacedOutboxRow(order repository.Order) (repository.OutboxRow, error) {
 	placedAt := order.CreatedAt
 	if placedAt.IsZero() {
@@ -203,6 +214,9 @@ func BuildPlacedOutboxRow(order repository.Order) (repository.OutboxRow, error) 
 	}
 	if order.PaymentDueAt != nil {
 		ev.PaymentDueAt = timestamppb.New(order.PaymentDueAt.UTC())
+	}
+	if order.ShipBy != nil {
+		ev.ShipBy = timestamppb.New(order.ShipBy.UTC())
 	}
 	eventID := OrderPlacedEventID(order.ID)
 	payload, err := proto.Marshal(ev)
@@ -223,6 +237,59 @@ func BuildPlacedOutboxRow(order repository.Order) (repository.OutboxRow, error) 
 		AggregateType: "Order",
 		AggregateID:   order.ID,
 		EventType:     OrderPlacedEventType,
+		Payload:       value,
+	}, nil
+}
+
+// OrderCompletedEventID is the stable EventEnvelope.event_id for an order's
+// COMPLETED fact; an order completes at most once.
+func OrderCompletedEventID(orderID string) string { return "order-completed:" + orderID }
+
+// BuildCompletedOutboxRow is the repository.CompletedOutboxBuilder for team-order:
+// it wraps OrderCompleted in an EventEnvelope keyed by order_id, committed in the
+// same transaction as the winning move to COMPLETED. order is the row that move
+// returned; paid_online is true iff the order has a paid_at.
+func BuildCompletedOutboxRow(order repository.Order) (repository.OutboxRow, error) {
+	completedAt := order.UpdatedAt
+	if order.CompletedAt != nil {
+		completedAt = *order.CompletedAt
+	}
+	if completedAt.IsZero() {
+		completedAt = time.Now()
+	}
+	completedAt = completedAt.UTC()
+	ev := &orderv1.OrderCompleted{
+		OrderId:     order.ID,
+		BuyerId:     order.BuyerID,
+		SellerId:    order.SellerID,
+		TotalAmount: order.TotalAmount,
+		Currency:    order.Currency,
+		CompletedBy: orderv1.CompletedBy(order.CompletedBy),
+		PaidOnline:  order.PaidAt != nil,
+		CompletedAt: timestamppb.New(completedAt),
+	}
+	if order.ReturnWindowEndsAt != nil {
+		ev.ReturnWindowEndsAt = timestamppb.New(order.ReturnWindowEndsAt.UTC())
+	}
+	eventID := OrderCompletedEventID(order.ID)
+	payload, err := proto.Marshal(ev)
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal OrderCompleted: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       OrderCompletedEventType,
+		OccurredAt: timestamppb.New(completedAt),
+		Payload:    payload,
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "Order",
+		AggregateID:   order.ID,
+		EventType:     OrderCompletedEventType,
 		Payload:       value,
 	}, nil
 }
@@ -374,6 +441,48 @@ func BuildReturnRefundedOutboxRow(ret repository.OrderReturn, currency string) (
 		AggregateType: "Order",
 		AggregateID:   ret.OrderID,
 		EventType:     ReturnRefundedEventType,
+		Payload:       value,
+	}, nil
+}
+
+// ReturnRequestedEventID is the stable event_id of a return's ReturnRequested fact.
+func ReturnRequestedEventID(returnID string) string { return "return-requested:" + returnID }
+
+// BuildReturnRequestedOutboxRow is the repository.ReturnOutboxBuilder for a
+// created return: ReturnRequested in an EventEnvelope keyed by order_id.
+func BuildReturnRequestedOutboxRow(ret repository.OrderReturn, currency string) (repository.OutboxRow, error) {
+	requestedAt := ret.CreatedAt
+	if requestedAt.IsZero() {
+		requestedAt = time.Now()
+	}
+	requestedAt = requestedAt.UTC()
+	eventID := ReturnRequestedEventID(ret.ID)
+	payload, err := proto.Marshal(&orderv1.ReturnRequested{
+		ReturnId:     ret.ID,
+		OrderId:      ret.OrderID,
+		BuyerId:      ret.BuyerID,
+		SellerId:     ret.SellerID,
+		RefundAmount: ret.RefundAmount,
+		Currency:     currency,
+		RequestedAt:  timestamppb.New(requestedAt),
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal ReturnRequested: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       ReturnRequestedEventType,
+		OccurredAt: timestamppb.New(requestedAt),
+		Payload:    payload,
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "Order",
+		AggregateID:   ret.OrderID,
+		EventType:     ReturnRequestedEventType,
 		Payload:       value,
 	}, nil
 }

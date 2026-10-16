@@ -29,6 +29,67 @@ func (s *OrderService) SweepLifecycle(ctx context.Context, now time.Time) {
 	// Expiry runs first so an order already past its deadline is never reminded.
 	s.expireUnpaid(ctx, now)
 	s.remindUnpaid(ctx, now)
+	if _, err := s.AutoCompleteShipped(ctx, now); err != nil {
+		s.logger.Error("auto-complete shipped orders", "error", err)
+	}
+	if _, err := s.AutoApproveReturns(ctx, now); err != nil {
+		s.logger.Error("auto-approve returns", "error", err)
+	}
+}
+
+// AutoCompleteShipped completes up to one batch of SHIPPED orders whose
+// auto-complete deadline has passed and that no return blocks, as the system. It
+// returns how many it completed; an order that lost a race (confirmed, completed
+// or moved meanwhile) is skipped.
+func (s *OrderService) AutoCompleteShipped(ctx context.Context, now time.Time) (int, error) {
+	finder, ok := s.orderRepo.(repository.AutoCompleteFinder)
+	if !ok {
+		return 0, nil
+	}
+	due, err := finder.ListAutoCompletable(ctx, now, lifecycleBatch)
+	if err != nil {
+		return 0, err
+	}
+	done := 0
+	for _, o := range due {
+		_, err := s.orderRepo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCompleted,
+			AllowedFrom(repository.OrderStatusCompleted, ActorSystem), "",
+			repository.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_SYSTEM)))
+		switch {
+		case err == nil:
+			done++
+		case errors.Is(err, repository.ErrStatusConflict), errors.Is(err, repository.ErrOrderNotFound):
+		default:
+			s.logger.Error("auto-complete order", "order_id", o.ID, "error", err)
+		}
+	}
+	return done, nil
+}
+
+// AutoApproveReturns approves up to one batch of PENDING returns whose answer
+// window has passed. It returns how many it approved; a return the seller answered
+// first is skipped. Refund still goes through UpdateReturnStatus.
+func (s *OrderService) AutoApproveReturns(ctx context.Context, now time.Time) (int, error) {
+	finder, ok := s.returnRepo.(repository.AutoApproveFinder)
+	if !ok {
+		return 0, nil
+	}
+	due, err := finder.ListAutoApprovable(ctx, now, lifecycleBatch)
+	if err != nil {
+		return 0, err
+	}
+	done := 0
+	for _, ret := range due {
+		_, err := s.returnRepo.TransitionReturn(ctx, ret.ID, repository.ReturnStatusPending, repository.ReturnStatusApproved)
+		switch {
+		case err == nil:
+			done++
+		case errors.Is(err, repository.ErrReturnStatusConflict), errors.Is(err, repository.ErrReturnNotFound):
+		default:
+			s.logger.Error("auto-approve return", "return_id", ret.ID, "error", err)
+		}
+	}
+	return done, nil
 }
 
 func (s *OrderService) expireUnpaid(ctx context.Context, now time.Time) {
