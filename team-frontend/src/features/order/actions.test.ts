@@ -10,6 +10,7 @@ import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { reorder } from "@/lib/gateway/cart";
 import {
   cancelOrder,
+  confirmReceipt,
   createOrder,
   updateOrderStatus,
 } from "@/lib/gateway/orders";
@@ -18,6 +19,7 @@ import { createPayment, processMockPayment } from "@/lib/gateway/payment";
 import {
   cancelOrderAction,
   checkoutAction,
+  confirmReceiptAction,
   createPaymentAction,
   processMockPaymentAction,
   reorderAction,
@@ -30,6 +32,7 @@ vi.mock("@/lib/gateway/orders", () => ({
   createOrder: vi.fn(),
   updateOrderStatus: vi.fn(),
   cancelOrder: vi.fn(),
+  confirmReceipt: vi.fn(),
 }));
 vi.mock("@/lib/gateway/payment", () => ({
   createPayment: vi.fn(),
@@ -315,5 +318,46 @@ describe("payment actions", () => {
     });
     const res = await processMockPaymentAction("tx1", false);
     expect(res).toEqual({ ok: false, error: "card declined" });
+  });
+});
+
+describe("confirmReceiptAction", () => {
+  it("Order lifecycle: confirming receipt calls the server and completes the order - action calls confirmReceipt and revalidates list and detail", async () => {
+    vi.mocked(confirmReceipt).mockResolvedValue({ id: "o1" } as never);
+    const res = await confirmReceiptAction("o1");
+    expect(res.ok).toBe(true);
+    expect(confirmReceipt).toHaveBeenCalledTimes(1);
+    expect(confirmReceipt).toHaveBeenCalledWith("o1");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
+  });
+
+  it("Order lifecycle: a confirm that lost to auto-complete is explained - confirm after auto-complete is explained", async () => {
+    vi.mocked(confirmReceipt).mockRejectedValue(
+      new ConnectError("order is not shipped", Code.FailedPrecondition),
+    );
+    const res = await confirmReceiptAction("o1");
+    expect(res).toEqual({ ok: false, error: "Đơn hàng đã được hoàn thành." });
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
+  });
+
+  it("Order lifecycle: a refused confirm shows the server error - refused confirm returns the server error", async () => {
+    vi.mocked(confirmReceipt).mockRejectedValue(new Error("forbidden"));
+    const res = await confirmReceiptAction("o1");
+    expect(res).toEqual({ ok: false, error: "forbidden" });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("Order lifecycle: a refused confirm shows the server error - permission denied is not mapped to completed", async () => {
+    vi.mocked(confirmReceipt).mockRejectedValue(
+      new ConnectError("not your order", Code.PermissionDenied),
+    );
+    const res = await confirmReceiptAction("o1");
+    expect(res.ok).toBe(false);
+    expect(res.ok === false && res.error).not.toBe(
+      "Đơn hàng đã được hoàn thành.",
+    );
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

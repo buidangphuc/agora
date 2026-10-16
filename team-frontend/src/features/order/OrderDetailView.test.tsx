@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CancelReason,
   OrderStatus,
+  ReturnStatus,
 } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { setupUser } from "@/test/user";
@@ -358,5 +359,57 @@ describe("OrderDetailView lifecycle", () => {
     expect(
       screen.getAllByRole("button", { name: "Yêu cầu trả hàng" }).length,
     ).toBeGreaterThan(0);
+  });
+
+  it.each([
+    ["PENDING", ReturnStatus.PENDING],
+    ["APPROVED", ReturnStatus.APPROVED],
+  ])(
+    "Order lifecycle: a shipped order with an open return still offers receipt - receipt offered while a return is open (%s)",
+    async (_n, status) => {
+      render(
+        <ReturnStateProvider
+          initialReturns={[
+            {
+              id: "r1",
+              orderId: "o1",
+              reason: "lỗi",
+              refundAmount: 1000,
+              status,
+              statusText: "x",
+            },
+          ]}
+        >
+          <OrderDetailView
+            order={makeOrder("o1", OrderStatus.SHIPPED)}
+            timeline={<div>timeline</div>}
+          />
+        </ReturnStateProvider>,
+      );
+      const buttons = screen.getAllByRole("button", {
+        name: "Đã nhận được hàng",
+      });
+      expect(buttons).toHaveLength(1);
+      const user = setupUser();
+      await user.click(buttons[0]);
+      expect(
+        screen.getByText("Xác nhận bạn đã nhận được hàng?", { exact: false }),
+      ).toBeInTheDocument();
+      expect(screen.getByTestId("receipt-confirm")).toBeInTheDocument();
+    },
+  );
+
+  it("Order lifecycle: a shipped order offers receipt and return instead of cancel - receipt is absent on non-shipped orders", () => {
+    for (const st of [
+      OrderStatus.PENDING,
+      OrderStatus.PAID,
+      OrderStatus.COMPLETED,
+    ]) {
+      const { unmount } = render(view(makeOrder("o1", st)));
+      expect(
+        screen.queryByRole("button", { name: "Đã nhận được hàng" }),
+      ).toBeNull();
+      unmount();
+    }
   });
 });

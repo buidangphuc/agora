@@ -1,9 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
+
+import { setupUser } from "@/test/user";
 
 import { OrderList } from "./OrderList";
 import { makeOrder } from "./orderFixtures";
@@ -197,6 +199,33 @@ describe("OrderList lifecycle", () => {
     expect(screen.queryByText(/Hạn thanh toán/)).toBeNull();
     expect(
       screen.getByRole("link", { name: "Thanh toán lại" }),
+    ).toBeInTheDocument();
+  });
+
+  it("Order lifecycle: a shipped order row offers receipt on the buyer list - shipped row offers receipt", async () => {
+    render(
+      <OrderList
+        orders={[
+          makeOrder("o-shipped", OrderStatus.SHIPPED),
+          makeOrder("o-paid", OrderStatus.PAID),
+          makeOrder("o-done", OrderStatus.COMPLETED),
+        ]}
+        status="all"
+        shopNames={new Map()}
+      />,
+    );
+    const cards = screen.getAllByTestId("order-card");
+    expect(cards).toHaveLength(3);
+    const receipt = (i: number) =>
+      within(cards[i]).queryAllByRole("button", { name: "Đã nhận được hàng" });
+    expect(receipt(0)).toHaveLength(1);
+    expect(receipt(1)).toHaveLength(0);
+    expect(receipt(2)).toHaveLength(0);
+
+    const user = setupUser();
+    await user.click(receipt(0)[0]);
+    expect(
+      screen.getByText("Xác nhận bạn đã nhận được hàng?", { exact: false }),
     ).toBeInTheDocument();
   });
 });
