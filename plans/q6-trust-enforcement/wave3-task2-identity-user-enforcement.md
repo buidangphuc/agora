@@ -55,6 +55,7 @@ Implement OpenSpec change `identity-user-enforcement` test-first per its tasks.m
 - openspec/changes/identity-user-enforcement/**
 - team-identity/internal/grpcserver/accountadmin_server_test.go (# widened at build: task 8)
 - team-identity/internal/grpcserver/server_test.go (# widened at build: task 8)
+- team-gateway/internal/upstream/clients.go (# widened at build: task 9)
 
 ## Read-only dependencies
 - openspec/changes/identity-user-enforcement/** is frozen by the LOCK.md digest (only task ticks change)
