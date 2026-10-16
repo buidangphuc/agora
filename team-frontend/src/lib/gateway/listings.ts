@@ -49,6 +49,13 @@ export interface ViewVariant {
   imageUrl: string;
 }
 
+/** Seller-safe moderation outcome; screen flags are deliberately absent. */
+export interface ViewModeration {
+  reasonCode: string;
+  note: string;
+  decidedAt: string;
+}
+
 export interface ViewListing {
   id: string;
   title: string;
@@ -62,6 +69,7 @@ export interface ViewListing {
   categoryId: string;
   stock: number;
   variants: ViewVariant[];
+  moderation?: ViewModeration;
 }
 
 export interface CreateListingInput {
@@ -97,6 +105,12 @@ function statusLabel(s: ListingStatus): string {
       return "published";
     case ListingStatus.REJECTED:
       return "rejected";
+    case ListingStatus.PENDING_REVIEW:
+      return "pending_review";
+    case ListingStatus.BANNED:
+      return "banned";
+    case ListingStatus.HELD:
+      return "held";
     default:
       return "unspecified";
   }
@@ -137,6 +151,17 @@ function mapListing(l: Listing): ViewListing {
     categoryId: l.categoryId,
     stock: l.stock,
     variants,
+    moderation: l.moderation
+      ? {
+          reasonCode: l.moderation.reasonCode,
+          note: l.moderation.note,
+          decidedAt: l.moderation.decidedAt
+            ? new Date(
+                Number(l.moderation.decidedAt.seconds) * 1000,
+              ).toISOString()
+            : "",
+        }
+      : undefined,
   };
 }
 

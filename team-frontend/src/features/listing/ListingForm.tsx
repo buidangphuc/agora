@@ -117,11 +117,14 @@ export function ListingForm({
   defaults = {},
   categories = [],
   submitLabel = "Lưu & Hiển Thị Bán",
+  readOnly = false,
 }: {
   listingId?: string;
   defaults?: ListingDefaults;
   categories?: CategoryOption[];
   submitLabel?: string;
+  /** Banned or held listings: fields disabled, no Save. */
+  readOnly?: boolean;
 }) {
   const [title, setTitle] = useState(defaults.title ?? "");
   const [categoryId, setCategoryId] = useState(defaults.categoryId ?? "");
@@ -315,7 +318,7 @@ export function ListingForm({
       />
 
       <fieldset
-        disabled={pending}
+        disabled={pending || readOnly}
         className="m-0 min-w-0 space-y-4 border-0 p-0"
       >
         <Section title="Thông tin cơ bản">
@@ -574,9 +577,11 @@ export function ListingForm({
         >
           Huỷ
         </Link>
-        <Button type="submit" isLoading={pending} disabled={uploading}>
-          {submitLabel}
-        </Button>
+        {!readOnly && (
+          <Button type="submit" isLoading={pending} disabled={uploading}>
+            {submitLabel}
+          </Button>
+        )}
       </div>
     </form>
   );

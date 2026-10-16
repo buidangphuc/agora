@@ -12,7 +12,7 @@
 #### Scenario: Moderation UI: Anonymous browser visit
 - **WHEN** a visitor with no session opens `/admin/listings` in the browser
 - **THEN** the browser lands on `/login`
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `An anonymous visitor is sent to login`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `Moderation UI: Anonymous browser visit`
 
 #### Scenario: Moderation UI: Non-admin sees the 403 result
 - **WHEN** a signed-in buyer without the `admin` scope opens `/admin/listings` or `/admin/cases`
@@ -22,7 +22,7 @@
 #### Scenario: Moderation UI: A buyer opening the pages in the browser is refused
 - **WHEN** a signed-in buyer opens `/admin/listings` in the browser
 - **THEN** the page shows "Cần tài khoản Quản trị" and no queue table
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `A buyer cannot open the moderation queue`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `Moderation UI: A buyer opening the pages in the browser is refused`
 
 #### Scenario: Moderation UI: Gateway refusal is shown as the same 403
 - **WHEN** the principal carries the `admin` scope but the gateway answers `PermissionDenied`
@@ -71,7 +71,7 @@ The queue view SHALL call `ListModerationQueue` once per render with `page.pageS
 #### Scenario: Moderation UI: A flagged listing appears in the queue end to end
 - **WHEN** a seller publishes a listing whose title contains the mock marker term and an admin opens `/admin/listings`
 - **THEN** the queue lists that listing with a screen flag, and a clean listing published at the same time is not listed
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `A flagged listing appears in the queue`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `Moderation UI: A flagged listing appears in the queue end to end`
 
 ### Requirement: Admin decides a queued listing
 
@@ -130,17 +130,17 @@ Each queue row SHALL offer "Duyệt", "Từ chối" and "Khóa". "Duyệt" SHALL
 #### Scenario: Moderation UI: Admin approves a flagged listing end to end
 - **WHEN** an admin clicks "Duyệt" on a flagged listing in `/admin/listings`
 - **THEN** the row disappears and the listing opens on its product page for an anonymous visitor
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `Admin approves a flagged listing`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `Moderation UI: Admin approves a flagged listing end to end`
 
 #### Scenario: Moderation UI: Admin rejects a flagged listing and the seller sees the reason
 - **WHEN** an admin rejects a flagged listing with reason `counterfeit` and a note
 - **THEN** the row disappears, the listing is NOT_FOUND for an anonymous visitor, and the seller center shows the status "Bị từ chối" with the reason label and the note
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `Admin rejects a flagged listing`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `Moderation UI: Admin rejects a flagged listing and the seller sees the reason`
 
 #### Scenario: Moderation UI: Moderation fails closed when audit is down
 - **WHEN** team-audit is stopped and an admin approves a flagged listing in the browser
 - **THEN** the dialog or banner shows the audit message and, after team-audit restarts, the listing is still in the queue
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `Moderation fails closed when audit is down`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_listing_moderation_ui.feature` `Moderation UI: Moderation fails closed when audit is down`
 
 ### Requirement: The cases inbox has tabs and a report list
 
@@ -228,17 +228,17 @@ A report row SHALL offer "Xử lý tin đăng" (the reject / ban dialog of the q
 #### Scenario: Moderation UI: Admin bans a reported listing and closes the report
 - **WHEN** a buyer reports a published listing, an admin opens `/admin/cases`, uses "Xử lý tin đăng" with decision "Khóa" and then closes the report as "Đã xử lý" with a note
 - **THEN** the listing is NOT_FOUND for an anonymous visitor and the report is listed under "Đã xử lý" and no longer under "Đang mở"
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Admin bans a reported listing`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Moderation UI: Admin bans a reported listing and closes the report`
 
 #### Scenario: Moderation UI: Admin dismisses a report
 - **WHEN** an admin closes an open report as "Bác bỏ" with a note
 - **THEN** the report moves from "Đang mở" to "Đã bác bỏ" and the listing stays visible to an anonymous visitor
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Admin dismisses a report`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Moderation UI: Admin dismisses a report`
 
 #### Scenario: Moderation UI: Closing a report fails closed when audit is down
 - **WHEN** team-audit is stopped and an admin closes a report in the browser
 - **THEN** the dialog shows the audit message and the report is still OPEN after team-audit restarts
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Closing a report fails closed when audit is down`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Moderation UI: Closing a report fails closed when audit is down`
 
 ### Requirement: Admin entry links
 
@@ -247,7 +247,7 @@ The cockpit page and the admin footer list in `ConsumerShell` SHALL link to `/ad
 #### Scenario: Moderation UI: Admin reaches the pages from the cockpit
 - **WHEN** an admin opens `/admin/cockpit` and clicks "Hộp thư vụ việc"
 - **THEN** the browser lands on `/admin/cases` and the "Báo cáo" tab is selected
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Admin reaches the inbox from the cockpit`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Moderation UI: Admin reaches the pages from the cockpit`
 
 #### Scenario: Moderation UI: Cockpit shows both links
 - **WHEN** an admin renders the cockpit view
@@ -257,4 +257,4 @@ The cockpit page and the admin footer list in `ConsumerShell` SHALL link to `/ad
 #### Scenario: Moderation UI: A non-admin following an admin link is refused
 - **WHEN** a signed-in buyer follows the footer link "Hộp thư vụ việc" to `/admin/cases`
 - **THEN** the page shows "Cần tài khoản Quản trị" and no report row, and `ListReports` is called zero times
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `A buyer cannot open the cases inbox`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/admin_cases_ui.feature` `Moderation UI: A non-admin following an admin link is refused`

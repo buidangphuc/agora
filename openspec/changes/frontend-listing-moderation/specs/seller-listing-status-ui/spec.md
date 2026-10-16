@@ -62,19 +62,19 @@ The seller listing views SHALL map `PENDING_REVIEW`, `BANNED` and `HELD` to the 
 #### Scenario: Moderation UI: Seller sees the pending status after publishing a flagged listing
 - **WHEN** a seller publishes a listing whose title contains the mock marker term
 - **THEN** the seller list shows the tag "Chờ duyệt" and the edit page shows "Tin đăng đang chờ kiểm duyệt."
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_listing_status_ui.feature` `A flagged listing shows as pending`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_listing_status_ui.feature` `Moderation UI: Seller sees the pending status after publishing a flagged listing`
 
 #### Scenario: Moderation UI: Seller sees a clean listing as selling
 - **WHEN** a seller publishes a clean listing
 - **THEN** the seller list shows the tag "Đang bán" and the listing opens for an anonymous visitor
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_listing_status_ui.feature` `A clean listing shows as selling`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_listing_status_ui.feature` `Moderation UI: Seller sees a clean listing as selling`
 
 #### Scenario: Moderation UI: Seller edits a rejected listing and it returns to review
 - **WHEN** an admin has rejected a listing and its seller saves an edit
 - **THEN** the seller list shows "Chờ duyệt" and the listing is still NOT_FOUND for an anonymous visitor
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_listing_status_ui.feature` `A rejected listing returns to review after an edit`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_listing_status_ui.feature` `Moderation UI: Seller edits a rejected listing and it returns to review`
 
 #### Scenario: Moderation UI: The seller never sees the screen flags
 - **WHEN** a seller opens the edit page of a flagged pending listing in the browser
 - **THEN** the page text does not contain "keyword:" or "ai:"
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_listing_status_ui.feature` `The seller never sees the screen flags`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/seller_listing_status_ui.feature` `Moderation UI: The seller never sees the screen flags`

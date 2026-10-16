@@ -195,7 +195,90 @@ describe("deleteListingAction", () => {
   it("returns the error instead of throwing", async () => {
     vi.mocked(deleteListing).mockRejectedValue(new Error("not yours"));
     const res = await deleteListingAction("l1");
-    expect(res).toEqual({ ok: false, error: "not yours" });
+    expect(res).toEqual({ ok: false, error: "Xoá sản phẩm thất bại." });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("moderation messages", () => {
+  // Scenario: Moderation UI: A save that ends pending is explained
+  it("a pending result is reported as waiting for review", async () => {
+    vi.mocked(createListing).mockResolvedValue({
+      id: "l1",
+      title: "Phone",
+      status: "pending_review",
+    } as never);
+    const created = await saveListingAction(initial, form(validListing));
+    expect(created.ok).toBe(true);
+    expect(created.message).toBe(
+      "Tin đăng đã được gửi và đang chờ kiểm duyệt.",
+    );
+    expect(created.message).not.toContain("đang bán");
+
+    vi.mocked(updateListing).mockResolvedValue({
+      id: "l1",
+      title: "Phone",
+      status: "pending_review",
+    } as never);
+    const updated = await saveListingAction(
+      initial,
+      form({ ...validListing, id: "l1" }),
+    );
+    expect(updated).toMatchObject({ ok: true, id: "l1" });
+    expect(updated.message).toBe(
+      "Tin đăng đã được gửi và đang chờ kiểm duyệt.",
+    );
+  });
+
+  it("a published result keeps the selling message", async () => {
+    vi.mocked(createListing).mockResolvedValue({
+      id: "l1",
+      title: "Phone",
+      status: "published",
+    } as never);
+    const res = await saveListingAction(initial, form(validListing));
+    expect(res.message).toContain("Đã đăng bán thành công");
+  });
+
+  // Scenario: Moderation UI: Write to a banned or held listing is refused
+  it("maps failed precondition on update", async () => {
+    vi.mocked(updateListing).mockRejectedValue(
+      new ConnectError(
+        "listing is banned: secret internal",
+        Code.FailedPrecondition,
+      ),
+    );
+    const res = await saveListingAction(
+      initial,
+      form({ ...validListing, id: "l1" }),
+    );
+    expect(res.ok).toBe(false);
+    expect(res.message).toBe(
+      "Tin đăng đang bị khóa hoặc tạm ẩn nên không thể chỉnh sửa.",
+    );
+    expect(res.error).toBe(res.message);
+    expect(JSON.stringify(res)).not.toContain("secret internal");
+  });
+
+  // Scenario: Moderation UI: Delete of a banned or held listing is refused
+  it("maps failed precondition on delete", async () => {
+    vi.mocked(deleteListing).mockRejectedValue(
+      new ConnectError(
+        "listing is banned: secret internal",
+        Code.FailedPrecondition,
+      ),
+    );
+    const res = await deleteListingAction("l1");
+    expect(res).toEqual({
+      ok: false,
+      error: "Tin đăng đang bị khóa hoặc tạm ẩn nên không thể xoá.",
+    });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("an unknown delete error returns the generic message, never err.message", async () => {
+    vi.mocked(deleteListing).mockRejectedValue(new Error("db exploded"));
+    const res = await deleteListingAction("l1");
+    expect(res).toEqual({ ok: false, error: "Xoá sản phẩm thất bại." });
   });
 });

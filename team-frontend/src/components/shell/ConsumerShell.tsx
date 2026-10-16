@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { FloatingChatBubble } from "@/components/ui/FloatingChatBubble";
-import { CookieSettingsLink } from "@/features/consent/ConsentBanner";
 import { logoutAction } from "@/features/auth/actions";
+import { CookieSettingsLink } from "@/features/consent/ConsentBanner";
 import { SearchBar } from "@/features/search/SearchBar";
 import { getCart } from "@/lib/gateway/cart";
 import { getPrincipal } from "@/lib/gateway/session";
@@ -348,6 +348,16 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
               <li>
                 <Link href="/admin/cockpit" className="hover:text-brand">
                   Admin Observability Cockpit
+                </Link>
+              </li>
+              <li>
+                <Link href="/admin/listings" className="hover:text-brand">
+                  Kiểm duyệt tin đăng
+                </Link>
+              </li>
+              <li>
+                <Link href="/admin/cases" className="hover:text-brand">
+                  Hộp thư vụ việc
                 </Link>
               </li>
               <li>
