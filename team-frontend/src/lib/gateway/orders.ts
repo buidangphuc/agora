@@ -136,23 +136,23 @@ function mapOrder(o: Order): ViewOrder {
 export async function calculateShippingFee(
   city: string,
   itemsSubtotal: number,
-): Promise<{ shippingFee: number; isFreeShipping: boolean; message: string }> {
+): Promise<{
+  shippingFee: number;
+  isFreeShipping: boolean;
+  message: string;
+} | null> {
   try {
-    const res = await gateway().order.calculateShippingFee({
-      city,
-      itemsSubtotal: BigInt(itemsSubtotal),
-    });
+    const res = await gateway().order.calculateShippingFee(
+      { city, itemsSubtotal: BigInt(itemsSubtotal) },
+      { timeoutMs: 2000 },
+    );
     return {
       shippingFee: Number(res.shippingFee),
       isFreeShipping: res.isFreeShipping,
       message: res.message,
     };
   } catch {
-    return {
-      shippingFee: 20000,
-      isFreeShipping: false,
-      message: "Phí vận chuyển tiêu chuẩn",
-    };
+    return null;
   }
 }
 

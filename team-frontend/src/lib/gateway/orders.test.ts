@@ -224,9 +224,9 @@ describe("orders gateway wrapper", () => {
         message: "",
       }),
     });
-    await expect(
-      calculateShippingFee("Hà Nội", 350000),
-    ).resolves.toMatchObject({ shippingFee: 20000, isFreeShipping: false });
+    await expect(calculateShippingFee("Hà Nội", 350000)).resolves.toMatchObject(
+      { shippingFee: 20000, isFreeShipping: false },
+    );
   });
 
   it("updateOrderStatus throws when the gateway returns no order", async () => {

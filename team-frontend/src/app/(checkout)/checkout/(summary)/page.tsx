@@ -19,10 +19,11 @@ import {
   resolveCheckout,
 } from "@/features/order/checkoutParams";
 import { orderTotal } from "@/features/order/orderTotal";
-import { computeShippingFee } from "@/features/order/shipping";
+import type { ShippingFee } from "@/features/order/shippingCopy";
 import { isCheckoutEnabled } from "@/lib/flags";
 import { listAddresses } from "@/lib/gateway/addresses";
 import { getCart } from "@/lib/gateway/cart";
+import { calculateShippingFee } from "@/lib/gateway/orders";
 import { listVouchers, previewVoucher } from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
 
@@ -73,8 +74,15 @@ export default async function CheckoutPage(props: {
   const discount = preview?.valid ? preview.discountAmount : 0;
   const view = { ...state, voucher: applied };
 
-  const shipping = computeShippingFee(address?.city ?? "", cart.subtotal);
-  const total = orderTotal(cart.subtotal, discount, shipping.fee);
+  // The fee is team-order's quote on the server cart subtotal; a failed call
+  // raises (error.tsx) rather than showing an invented fee.
+  let shipping: ShippingFee | null = null;
+  if (address) {
+    const quote = await calculateShippingFee(address.city, cart.subtotal);
+    if (!quote) throw new Error("shipping fee unavailable");
+    shipping = { fee: quote.shippingFee, isFree: quote.isFreeShipping };
+  }
+  const total = orderTotal(cart.subtotal, discount, shipping?.fee ?? 0);
   const trackItems = cart.items.map((it, idx) => ({
     itemId: it.listingId,
     itemName: it.title,
@@ -106,7 +114,9 @@ export default async function CheckoutPage(props: {
 
   const steps = {
     address: <AddressStep addresses={addresses} state={view} />,
-    shipping: <ShippingStep shipping={shipping} state={view} />,
+    shipping: shipping ? (
+      <ShippingStep shipping={shipping} state={view} />
+    ) : null,
     payment: (
       <PaymentStep
         state={view}
@@ -116,16 +126,17 @@ export default async function CheckoutPage(props: {
         appliedDiscount={discount}
       />
     ),
-    confirm: address ? (
-      <ConfirmStep
-        state={view}
-        address={address}
-        items={cart.items}
-        shipping={shipping}
-        total={total}
-        trackItems={trackItems}
-      />
-    ) : null,
+    confirm:
+      address && shipping ? (
+        <ConfirmStep
+          state={view}
+          address={address}
+          items={cart.items}
+          shipping={shipping}
+          total={total}
+          trackItems={trackItems}
+        />
+      ) : null,
   } as const;
 
   return (
@@ -139,7 +150,7 @@ export default async function CheckoutPage(props: {
             subtotal={cart.subtotal}
             discount={discount}
             voucherCode={applied}
-            shipping={address ? shipping : null}
+            shipping={shipping}
             action={
               <Link
                 href="/cart"
