@@ -3,30 +3,52 @@ package service_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
 )
 
-// mockOrderVerifier is a stand-in for internal/upstream.OrderClient so review
-// enrichment can be tested without team-order.
-type mockOrderVerifier struct {
-	verified bool
-	sellerID string
-	err      error
-	calls    int
+// fakeVerifier is a stand-in for internal/upstream.OrderClient (true external
+// boundary). An order is eligible only for the exact (buyer, order, listing).
+type fakeVerifier struct {
+	orders map[string]string // "buyer|order|listing" -> seller
+	err    error
+	calls  int
 }
 
-func (m *mockOrderVerifier) VerifyPurchase(_ context.Context, _, _, _ string) (bool, string, error) {
-	m.calls++
-	return m.verified, m.sellerID, m.err
+func eligible(seller string, keys ...string) *fakeVerifier {
+	v := &fakeVerifier{orders: map[string]string{}}
+	for _, k := range keys {
+		v.orders[k] = seller
+	}
+	return v
 }
 
-func TestCreateReviewPersistsMediaAndVerifiedPurchase(t *testing.T) {
+func (f *fakeVerifier) VerifyPurchase(_ context.Context, buyerID, listingID, orderID string) (bool, string, error) {
+	f.calls++
+	if f.err != nil {
+		return false, "", f.err
+	}
+	seller, ok := f.orders[buyerID+"|"+orderID+"|"+listingID]
+	return ok, seller, nil
+}
+
+func total(t *testing.T, repo repository.ReviewRepository, listing string) int64 {
+	t.Helper()
+	_, n, err := repo.ListReviews(context.Background(), listing, 0, 0, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestCreateReviewVerifiedStoresVerified(t *testing.T) {
 	ctx := context.Background()
 	repo := repository.NewInMemoryReviewRepository()
-	verifier := &mockOrderVerifier{verified: true, sellerID: "seller-1"}
+	verifier := eligible("seller-1", "buyer-1|order-1|listing-1")
 	svc := service.NewReviewService(repo, verifier, nil)
 
 	rev, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "Buyer", "order-1", 5, "Tuyệt vời",
@@ -34,61 +56,372 @@ func TestCreateReviewPersistsMediaAndVerifiedPurchase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateReview: %v", err)
 	}
-	if len(rev.MediaURLs) != 2 {
-		t.Fatalf("expected 2 media urls, got %v", rev.MediaURLs)
+	if !rev.VerifiedPurchase || rev.SellerID != "seller-1" || len(rev.MediaURLs) != 2 || rev.OrderID != "order-1" {
+		t.Fatalf("unexpected review %+v", rev)
 	}
-	if !rev.VerifiedPurchase {
-		t.Fatal("expected verified_purchase true when order confirms")
-	}
-	if rev.SellerID != "seller-1" {
-		t.Fatalf("expected seller-1, got %q", rev.SellerID)
+	got, err := repo.GetReview(ctx, rev.ID)
+	if err != nil || !got.VerifiedPurchase {
+		t.Fatalf("stored review not verified: %+v %v", got, err)
 	}
 	if verifier.calls != 1 {
 		t.Fatalf("expected verifier called once, got %d", verifier.calls)
 	}
 }
 
-func TestCreateReviewUnverifiedWhenOrderDenies(t *testing.T) {
-	ctx := context.Background()
+func TestCreateReviewEmptyOrderIDRejected(t *testing.T) {
 	repo := repository.NewInMemoryReviewRepository()
-	verifier := &mockOrderVerifier{verified: false, sellerID: ""}
+	verifier := eligible("s", "buyer-1||listing-1")
 	svc := service.NewReviewService(repo, verifier, nil)
-
-	rev, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "Buyer", "order-1", 4, "Ổn", nil)
-	if err != nil {
-		t.Fatalf("CreateReview: %v", err)
+	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "", 5, "", nil)
+	if !errors.Is(err, service.ErrEmptyOrderID) {
+		t.Fatalf("want ErrEmptyOrderID, got %v", err)
 	}
-	if rev.VerifiedPurchase {
-		t.Fatal("expected verified_purchase false when order does not confirm")
+	if verifier.calls != 0 || total(t, repo, "listing-1") != 0 {
+		t.Fatalf("empty order must not call verifier or store (calls=%d)", verifier.calls)
 	}
 }
 
-func TestCreateReviewDegradesWhenVerifierErrors(t *testing.T) {
-	ctx := context.Background()
+func TestCreateReviewIneligibleOrderFailedPrecondition(t *testing.T) {
 	repo := repository.NewInMemoryReviewRepository()
-	verifier := &mockOrderVerifier{err: errors.New("order unavailable")}
-	svc := service.NewReviewService(repo, verifier, nil)
-
-	rev, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "Buyer", "order-1", 5, "", nil)
-	if err != nil {
-		t.Fatalf("CreateReview should degrade, not fail: %v", err)
+	svc := service.NewReviewService(repo, eligible("s"), nil) // nothing eligible
+	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
+	if !errors.Is(err, service.ErrOrderNotEligible) {
+		t.Fatalf("want ErrOrderNotEligible, got %v", err)
 	}
-	if rev.VerifiedPurchase {
-		t.Fatal("expected verified_purchase false on verifier error")
+	if total(t, repo, "listing-1") != 0 {
+		t.Fatal("ineligible review stored")
 	}
 }
 
-func TestCreateReviewNoVerifierNoCall(t *testing.T) {
+func TestCreateReviewVerifierErrorUnavailable(t *testing.T) {
+	repo := repository.NewInMemoryReviewRepository()
+	verifier := &fakeVerifier{err: errors.New("order unavailable")}
+	svc := service.NewReviewService(repo, verifier, nil)
+
+	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
+	if !errors.Is(err, service.ErrOrderUnavailable) {
+		t.Fatalf("want ErrOrderUnavailable, got %v", err)
+	}
+	if errors.Is(err, service.ErrOrderNotEligible) {
+		t.Fatal("outage must not read as ineligible")
+	}
+	if total(t, repo, "listing-1") != 0 {
+		t.Fatal("review stored despite verifier error")
+	}
+}
+
+func TestCreateReviewNilVerifierUnavailable(t *testing.T) {
+	repo := repository.NewInMemoryReviewRepository()
+	svc := service.NewReviewService(repo, nil, nil)
+	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
+	if !errors.Is(err, service.ErrOrderUnavailable) {
+		t.Fatalf("want ErrOrderUnavailable, got %v", err)
+	}
+	if total(t, repo, "listing-1") != 0 {
+		t.Fatal("review stored with nil verifier")
+	}
+}
+
+func TestCreateReviewRatingBounds(t *testing.T) {
 	ctx := context.Background()
 	repo := repository.NewInMemoryReviewRepository()
-	svc := service.NewReviewService(repo, nil, nil) // verifier disabled
+	svc := service.NewReviewService(repo,
+		eligible("seller-1", "buyer-1|order-1|listing-1", "buyer-1|order-1|listing-2"), nil)
 
-	rev, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "Buyer", "order-1", 5, "", nil)
-	if err != nil {
-		t.Fatalf("CreateReview: %v", err)
+	for _, bad := range []int32{0, 6} {
+		if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", "order-1", bad, "", nil); !errors.Is(err, service.ErrInvalidRating) {
+			t.Fatalf("rating %d: want ErrInvalidRating, got %v", bad, err)
+		}
 	}
-	if rev.VerifiedPurchase {
-		t.Fatal("expected verified_purchase false when no verifier configured")
+	if total(t, repo, "listing-1") != 0 {
+		t.Fatal("invalid rating stored a row")
+	}
+	if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", "order-1", 1, "", nil); err != nil {
+		t.Fatalf("rating 1: %v", err)
+	}
+	if _, err := svc.CreateReview(ctx, "listing-2", "buyer-1", "B", "order-1", 5, "", nil); err != nil {
+		t.Fatalf("rating 5: %v", err)
+	}
+}
+
+func TestCreateReviewSameOrderTwoListings(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewInMemoryReviewRepository()
+	svc := service.NewReviewService(repo,
+		eligible("seller-1", "buyer-1|order-1|listing-1", "buyer-1|order-1|listing-2"), nil)
+	for _, l := range []string{"listing-1", "listing-2"} {
+		if _, err := svc.CreateReview(ctx, l, "buyer-1", "B", "order-1", 4, "", nil); err != nil {
+			t.Fatalf("%s: %v", l, err)
+		}
+	}
+}
+
+func TestCreateReviewDuplicateOrderListingRefused(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewInMemoryReviewRepository()
+	svc := service.NewReviewService(repo, eligible("seller-1", "buyer-1|order-1|listing-1"), nil)
+	if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", "order-1", 4, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	_, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
+	if !errors.Is(err, repository.ErrDuplicateReview) {
+		t.Fatalf("want ErrDuplicateReview, got %v", err)
+	}
+	if total(t, repo, "listing-1") != 1 {
+		t.Fatal("duplicate stored a second row")
+	}
+}
+
+// Every refusal leaves the store (and therefore the transactional outbox) untouched.
+func TestCreateReviewRefusedWritesNoOutbox(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		name     string
+		verifier service.OrderVerifier
+		order    string
+		rating   int32
+		want     error
+	}{
+		{"unavailable", &fakeVerifier{err: errors.New("down")}, "order-1", 5, service.ErrOrderUnavailable},
+		{"nil verifier", nil, "order-1", 5, service.ErrOrderUnavailable},
+		{"ineligible", eligible("s"), "order-1", 5, service.ErrOrderNotEligible},
+		{"invalid rating", eligible("s", "buyer-1|order-1|listing-1"), "order-1", 9, service.ErrInvalidRating},
+		{"empty order", eligible("s", "buyer-1||listing-1"), "", 5, service.ErrEmptyOrderID},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			repo := repository.NewInMemoryReviewRepository()
+			svc := service.NewReviewService(repo, c.verifier, nil)
+			if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", c.order, c.rating, "", nil); !errors.Is(err, c.want) {
+				t.Fatalf("want %v, got %v", c.want, err)
+			}
+			if total(t, repo, "listing-1") != 0 {
+				t.Fatal("refused review was stored")
+			}
+		})
+	}
+}
+
+// ── HideReview ──
+
+type hideEvent struct{ actor, review, listing, reason string }
+
+type callLog struct{ calls []string }
+
+type spyAudit struct {
+	log    *callLog
+	events []hideEvent
+	err    error
+}
+
+func (a *spyAudit) WriteHideEvent(_ context.Context, actorID, reviewID, listingID, reason string) error {
+	a.log.calls = append(a.log.calls, "audit")
+	if a.err != nil {
+		return a.err
+	}
+	a.events = append(a.events, hideEvent{actorID, reviewID, listingID, reason})
+	return nil
+}
+
+// spyRepo records the hide call order and can fail the hide update.
+type spyRepo struct {
+	*repository.InMemoryReviewRepository
+	log     *callLog
+	hideErr error
+}
+
+func (r *spyRepo) HideReview(ctx context.Context, id, adminID, reason string) (bool, error) {
+	r.log.calls = append(r.log.calls, "hide")
+	if r.hideErr != nil {
+		return false, r.hideErr
+	}
+	return r.InMemoryReviewRepository.HideReview(ctx, id, adminID, reason)
+}
+
+type hideFixture struct {
+	svc    *service.ReviewService
+	repo   *spyRepo
+	audit  *spyAudit
+	log    *callLog
+	review repository.Review
+}
+
+func newHideFixture(t *testing.T) *hideFixture {
+	t.Helper()
+	log := &callLog{}
+	mem := repository.NewInMemoryReviewRepository()
+	rev, err := mem.CreateReview(context.Background(), repository.Review{
+		ListingID: "L-1", UserID: "buyer-1", OrderID: "order-1", Rating: 1,
+		VerifiedPurchase: true, SellerID: "seller-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := &spyRepo{InMemoryReviewRepository: mem, log: log}
+	audit := &spyAudit{log: log}
+	return &hideFixture{svc: service.NewReviewService(repo, nil, nil).WithAudit(audit), repo: repo, audit: audit, log: log, review: rev}
+}
+
+func (f *hideFixture) hiddenAt(t *testing.T) *time.Time {
+	t.Helper()
+	got, err := f.repo.GetReview(context.Background(), f.review.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return got.HiddenAt
+}
+
+func TestHideReviewAuditBeforeHide(t *testing.T) {
+	f := newHideFixture(t)
+	if err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam link"); err != nil {
+		t.Fatalf("HideReview: %v", err)
+	}
+	if got := f.log.calls; len(got) != 2 || got[0] != "audit" || got[1] != "hide" {
+		t.Fatalf("call order = %v, want [audit hide]", got)
+	}
+	want := hideEvent{"adm-1", f.review.ID, "L-1", "spam link"}
+	if len(f.audit.events) != 1 || f.audit.events[0] != want {
+		t.Fatalf("audit events = %+v, want %+v", f.audit.events, want)
+	}
+	got, _ := f.repo.GetReview(context.Background(), f.review.ID)
+	if got.HiddenAt == nil || got.HiddenBy != "adm-1" || got.HideReason != "spam link" {
+		t.Fatalf("review not hidden correctly: %+v", got)
+	}
+}
+
+func TestHideReviewAuditFailureFailsClosed(t *testing.T) {
+	f := newHideFixture(t)
+	f.audit.err = errors.New("audit down")
+	err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam")
+	if !errors.Is(err, service.ErrAuditUnavailable) {
+		t.Fatalf("want ErrAuditUnavailable, got %v", err)
+	}
+	if f.hiddenAt(t) != nil {
+		t.Fatal("review hidden although audit failed")
+	}
+	if n := total(t, f.repo, "L-1"); n != 1 {
+		t.Fatalf("review no longer listed: total=%d", n)
+	}
+	for _, c := range f.log.calls {
+		if c == "hide" {
+			t.Fatal("hide must not run after a failed audit")
+		}
+	}
+}
+
+func TestHideReviewNilAuditClientUnavailable(t *testing.T) {
+	f := newHideFixture(t)
+	for name, svc := range map[string]*service.ReviewService{
+		"never wired": service.NewReviewService(f.repo, nil, nil),
+		"nil writer":  service.NewReviewService(f.repo, nil, nil).WithAudit(nil),
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam")
+			if !errors.Is(err, service.ErrAuditUnavailable) {
+				t.Fatalf("want ErrAuditUnavailable, got %v", err)
+			}
+			if f.hiddenAt(t) != nil {
+				t.Fatal("review hidden without an audit upstream")
+			}
+		})
+	}
+}
+
+func TestHideReviewUpdateFailureInternalThenRetry(t *testing.T) {
+	f := newHideFixture(t)
+	boom := errors.New("db down")
+	f.repo.hideErr = boom
+	err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam")
+	if err == nil || !errors.Is(err, boom) {
+		t.Fatalf("want the raw repository error (mapped to Internal by the handler), got %v", err)
+	}
+	for _, s := range []error{service.ErrAuditUnavailable, service.ErrEmptyReason, service.ErrReasonTooLong, service.ErrEmptyReviewID, repository.ErrReviewNotFound} {
+		if errors.Is(err, s) {
+			t.Fatalf("update failure must not be classified as %v", s)
+		}
+	}
+	if f.hiddenAt(t) != nil {
+		t.Fatal("review hidden although update failed")
+	}
+
+	f.repo.hideErr = nil
+	if err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam"); err != nil {
+		t.Fatalf("retry: %v", err)
+	}
+	if f.hiddenAt(t) == nil {
+		t.Fatal("retry did not hide the review")
+	}
+	if len(f.audit.events) != 2 {
+		t.Fatalf("want 2 audit events (failed attempt + retry), got %d", len(f.audit.events))
+	}
+}
+
+func TestHideReviewIdempotentNoSecondAudit(t *testing.T) {
+	f := newHideFixture(t)
+	if err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "first"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.HideReview(context.Background(), "adm-2", f.review.ID, "second"); err != nil {
+		t.Fatalf("re-hide must be OK, got %v", err)
+	}
+	if len(f.audit.events) != 1 {
+		t.Fatalf("want 1 audit event, got %d", len(f.audit.events))
+	}
+	got, _ := f.repo.GetReview(context.Background(), f.review.ID)
+	if got.HiddenBy != "adm-1" || got.HideReason != "first" {
+		t.Fatalf("first hide state must be kept, got %+v", got)
+	}
+}
+
+func TestHideReviewReasonTrimmedBeforeStoring(t *testing.T) {
+	f := newHideFixture(t)
+	if err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "  spam \n"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := f.repo.GetReview(context.Background(), f.review.ID)
+	if got.HideReason != "spam" || f.audit.events[0].reason != "spam" {
+		t.Fatalf("reason not trimmed: stored %q audit %q", got.HideReason, f.audit.events[0].reason)
+	}
+}
+
+func TestHideReviewReasonValidation(t *testing.T) {
+	cases := []struct {
+		name   string
+		reason string
+		want   error
+	}{
+		{"empty", "", service.ErrEmptyReason},
+		{"whitespace", "   \t", service.ErrEmptyReason},
+		{"500 ascii ok", strings.Repeat("a", 500), nil},
+		{"500 runes multibyte ok", strings.Repeat("ạ", 500), nil},
+		{"500 runes padded with spaces ok", "  " + strings.Repeat("a", 500) + "  ", nil},
+		{"501 ascii", strings.Repeat("a", 501), service.ErrReasonTooLong},
+		{"501 runes multibyte", strings.Repeat("ạ", 501), service.ErrReasonTooLong},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := newHideFixture(t)
+			err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, c.reason)
+			if !errors.Is(err, c.want) || (c.want == nil && err != nil) {
+				t.Fatalf("want %v, got %v", c.want, err)
+			}
+			if c.want != nil && (len(f.audit.events) != 0 || f.hiddenAt(t) != nil) {
+				t.Fatal("rejected reason must not audit or hide")
+			}
+		})
+	}
+}
+
+func TestHideReviewUnknownAndEmptyID(t *testing.T) {
+	f := newHideFixture(t)
+	if err := f.svc.HideReview(context.Background(), "adm-1", "nope", "spam"); !errors.Is(err, repository.ErrReviewNotFound) {
+		t.Fatalf("want ErrReviewNotFound, got %v", err)
+	}
+	if err := f.svc.HideReview(context.Background(), "adm-1", "", "spam"); !errors.Is(err, service.ErrEmptyReviewID) {
+		t.Fatalf("want ErrEmptyReviewID, got %v", err)
+	}
+	if len(f.audit.events) != 0 {
+		t.Fatal("no audit event may be written")
 	}
 }
 
@@ -97,9 +430,9 @@ func TestMarkHelpfulIdempotentPerUser(t *testing.T) {
 	repo := repository.NewInMemoryReviewRepository()
 	svc := service.NewReviewService(repo, nil, nil)
 
-	rev, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "Buyer", "", 5, "", nil)
+	rev, err := repo.CreateReview(ctx, repository.Review{ListingID: "listing-1", UserID: "buyer-1", Rating: 5})
 	if err != nil {
-		t.Fatalf("CreateReview: %v", err)
+		t.Fatalf("seed review: %v", err)
 	}
 
 	// Same user voting twice counts once.
@@ -136,7 +469,8 @@ func TestMarkHelpfulIdempotentPerUser(t *testing.T) {
 func TestGetShopRatingSummaryAcrossListings(t *testing.T) {
 	ctx := context.Background()
 	repo := repository.NewInMemoryReviewRepository()
-	verifier := &mockOrderVerifier{verified: true, sellerID: "seller-1"}
+	verifier := eligible("seller-1",
+		"b1|o1|listing-1", "b2|o2|listing-1", "b3|o3|listing-2")
 	svc := service.NewReviewService(repo, verifier, nil)
 
 	// Two listings, same seller, ratings 5,3 (listing-1) and 4 (listing-2).
@@ -150,7 +484,7 @@ func TestGetShopRatingSummaryAcrossListings(t *testing.T) {
 		t.Fatalf("review3: %v", err)
 	}
 	// A review for a different seller must not leak in.
-	other := &mockOrderVerifier{verified: true, sellerID: "seller-2"}
+	other := eligible("seller-2", "b9|o9|listing-9")
 	otherSvc := service.NewReviewService(repo, other, nil)
 	if _, err := otherSvc.CreateReview(ctx, "listing-9", "b9", "B9", "o9", 1, "", nil); err != nil {
 		t.Fatalf("review-other: %v", err)

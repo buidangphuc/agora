@@ -17,7 +17,6 @@ from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
 from src.api.services import AuthService, ListingService
-from src.api.services.engagement_service import EngagementService
 from src.constants import PageName, timeouts
 from src.models import Listing, User
 from src.pages import ListingDetailPage
@@ -26,6 +25,7 @@ from tests.e2e.flows import login_via_api
 from tests.e2e.step_definitions.d1_gates_steps import FRONTEND, _run
 from tests.e2e.step_definitions.follow_seller_steps import _principal_id
 from tests.e2e.step_definitions.pdp_streaming_steps import _record_beacons
+from tests.e2e.support import review_order_support as ros
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -199,14 +199,36 @@ def listing_brand(world: World, price: int) -> None:
     _open(world)
 
 
+def _seed_verified_review(world: World, rating: int, comment: str) -> None:
+    """A review by a fresh buyer through that buyer's own completed order (shared fixture).
+
+    Asserts the review author is the buyer who owns the order, so no seeding step relies on a
+    foreign order being accepted.
+    """
+    token = AuthService().register(fake.unique_username("pdp_rev"), SETTINGS.seed_password, "buyer")
+    author = User("pdp-rev", SETTINGS.seed_password, "buyer", token=token)
+    seller = User(
+        "pdp-seller", SETTINGS.seed_password, "seller", token=_x(world)["pdp_seller_token"]
+    )
+    review = ros.seed_verified_review(world, author, seller, _listing_id(world), rating, comment)
+    assert review.get("verifiedPurchase") is True, f"seeded review is not verified: {review}"
+    assert review.get("userId") == _principal_id(token), (
+        f"review author {review.get('userId')} is not the order owner {_principal_id(token)}"
+    )
+
+
 @given(parsers.parse("a published listing with {count:d} reviews and a buyer on its page"))
 def listing_with_reviews(world: World, count: int) -> None:
-    _seed(world)
-    for i in range(count):
-        author = AuthService().register(
-            fake.unique_username("pdp_rev"), SETTINGS.seed_password, "buyer"
-        )
-        EngagementService(token=author).add_review(_listing_id(world), 1 + i % 5, f"Nhận xét #{i}")
+    from concurrent.futures import ThreadPoolExecutor
+
+    _seed(world, stock=count + 10)  # one unit per completed order
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = [
+            pool.submit(_seed_verified_review, world, 1 + i % 5, f"Nhận xét #{i}")
+            for i in range(count)
+        ]
+        for future in futures:
+            future.result()
     _sign_in(world)
     _open(world)
 
@@ -214,10 +236,7 @@ def listing_with_reviews(world: World, count: int) -> None:
 @given("a published listing with one review by another buyer and a buyer on its page")
 def listing_one_review(world: World) -> None:
     _seed(world)
-    author = AuthService().register(
-        fake.unique_username("pdp_rev"), SETTINGS.seed_password, "buyer"
-    )
-    EngagementService(token=author).add_review(_listing_id(world), 4, "Nhận xét để bấm hữu ích")
+    _seed_verified_review(world, 4, "Nhận xét để bấm hữu ích")
     _sign_in(world)
     _open(world)
 
@@ -358,9 +377,9 @@ def lint_pdp_clean(world: World) -> None:
 def no_stars_no_sold(world: World) -> None:
     detail = _detail(world)
     expect(detail.rating_row).to_contain_text("Chưa có đánh giá")
-    assert (
-        detail.rating_row.get_by_role("img").count() == 0
-    ), "stars rendered for an unrated listing"
+    assert detail.rating_row.get_by_role("img").count() == 0, (
+        "stars rendered for an unrated listing"
+    )
     card = world.page.get_by_test_id("shop-header-card")
     assert card.get_by_role("img", name=re.compile(r"trên 5 sao")).count() == 0
     for area in (world.page.locator("main").first,):
@@ -694,9 +713,28 @@ def helpful_revalidated(world: World) -> None:
     assert _helpful_count(world) == expected, "the stored count differs from the displayed one"
 
 
+@given(
+    parsers.parse(
+        "a published listing with stock {stock:d} and a buyer with a completed order for the listing"
+    )
+)
+def listing_with_completed_order(world: World, stock: int) -> None:
+    _seed(world, stock=stock)
+    _sign_in(world)
+    seller = User(
+        "pdp-seller", SETTINGS.seed_password, "seller", token=_x(world)["pdp_seller_token"]
+    )
+    _x(world)["pdp_order_id"] = ros.completed_order_for(
+        world, world.state.current_user, seller, _listing_id(world)
+    )
+
+
 @when("the buyer picks 5 stars, types a comment and submits the review modal")
 def submit_review(world: World) -> None:
-    write = world.page.get_by_test_id("write-review").first
+    # The PDP has no review entry; the only one is "Đánh giá" on a completed order item.
+    world.page.goto(f"{BASE}/account/orders", wait_until="domcontentloaded")
+    write = world.page.get_by_role("button", name="Đánh giá").first
+    expect(write).to_be_visible(timeout=timeouts.NAVIGATION)
     LoginPageWait.wait(world, write)
     write.click()
     dialog = world.page.get_by_role("dialog", name="Đánh giá sản phẩm")
@@ -705,6 +743,14 @@ def submit_review(world: World) -> None:
     dialog.get_by_label("Nhận xét chi tiết").fill("Sản phẩm rất tốt, giao nhanh")
     _x(world)["review_dialog"] = dialog
     dialog.get_by_role("button", name="Hoàn thành").click()
+
+
+@then("every listed review carries the verified purchase badge")
+def reviews_verified(world: World) -> None:
+    items = _detail(world).review_items
+    expect(items.first).to_be_visible(timeout=timeouts.NAVIGATION)
+    expect(items.get_by_test_id("verified-purchase")).to_have_count(items.count())
+    expect(items.get_by_test_id("unverified-purchase")).to_have_count(0)
 
 
 @then("the submit button is pending and the modal controls are disabled")
@@ -719,6 +765,7 @@ def review_pending(world: World) -> None:
 def review_done(world: World) -> None:
     expect(_toast(world).first).to_be_visible(timeout=timeouts.NAVIGATION)
     expect(world.page.get_by_role("dialog")).to_have_count(0, timeout=timeouts.NAVIGATION)
+    world.page.goto(f"{BASE}/listing/{_listing_id(world)}", wait_until="domcontentloaded")
     expect(
         _detail(world).review_items.filter(has_text="Sản phẩm rất tốt, giao nhanh")
     ).to_have_count(1, timeout=timeouts.NAVIGATION)

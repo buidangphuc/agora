@@ -4,6 +4,7 @@ import { makeClients } from "./client.js";
 import {
   createReview,
   getListingRatingSummary,
+  hideReview,
   listReviews,
   listReviewsPage,
 } from "./reviews.js";
@@ -19,6 +20,7 @@ function stubEngagement(rpcs: Record<string, ReturnType<typeof vi.fn>>) {
     createReview: vi.fn(),
     listReviews: vi.fn(),
     getListingRatingSummary: vi.fn(),
+    hideReview: vi.fn(),
     ...rpcs,
   };
   vi.mocked(makeClients).mockReturnValue({ engagement } as never);
@@ -153,5 +155,24 @@ describe("reviews gateway wrapper", () => {
       reviewCount: 0,
       breakdown: { star1: 0, star2: 0, star3: 0, star4: 0, star5: 0 },
     });
+  });
+
+  it("hideReview sends review id and reason in one HideReview call", async () => {
+    const engagement = stubEngagement({
+      hideReview: vi.fn().mockResolvedValue({}),
+    });
+    await hideReview("r1", "Spam quảng cáo");
+    expect(engagement.hideReview).toHaveBeenCalledTimes(1);
+    expect(engagement.hideReview).toHaveBeenCalledWith({
+      reviewId: "r1",
+      reason: "Spam quảng cáo",
+    });
+  });
+
+  it("hideReview lets gateway errors propagate to the action", async () => {
+    stubEngagement({
+      hideReview: vi.fn().mockRejectedValue(new Error("denied")),
+    });
+    await expect(hideReview("r1", "x")).rejects.toThrow("denied");
   });
 });

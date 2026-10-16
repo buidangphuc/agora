@@ -20,6 +20,7 @@ Implement OpenSpec change `frontend-review-integrity` test-first per its tasks.m
 - platform-e2e/tests/e2e/step_definitions/d1_pdp_steps.py
 - platform-e2e/tests/e2e/step_definitions/uif_pdp_steps.py
 - platform-e2e/tests/e2e/step_definitions/review_integrity_steps.py
+- platform-e2e/tests/e2e/step_definitions/test_review_integrity_ui.py
 
 ## Read-only dependencies
 - openspec/changes/frontend-review-integrity/** (frozen by LOCK.md digest)

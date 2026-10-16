@@ -1,0 +1,7 @@
+platform-core/packages/proto/go.mod
+platform-core/packages/proto/go.sum
+platform-core/packages/proto/platform/engagement/v1/engagement.proto
+platform-core/packages/proto/platform/engagement/v1/hidereview_roundtrip_test.go
+team-engagement/proto/platform/engagement/v1/engagement.proto
+team-frontend/proto/platform/engagement/v1/engagement.proto
+team-gateway/proto/platform/engagement/v1/engagement.proto

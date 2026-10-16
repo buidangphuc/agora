@@ -45,6 +45,12 @@ func servicePrincipalInterceptor(ctx context.Context, method string, req, reply 
 // ErrOrderNotFound means team-order has no such order.
 var ErrOrderNotFound = errors.New("order not found")
 
+// ErrOrderClientNotConfigured means no team-order client is wired (verification cannot run).
+var ErrOrderClientNotConfigured = errors.New("order client not configured")
+
+// ErrOrderIDRequired means a purchase check was asked for without an order id.
+var ErrOrderIDRequired = errors.New("order id required")
+
 // OrderClient verifies purchases against team-order over gRPC.
 type OrderClient struct {
 	conn    *grpc.ClientConn
@@ -77,13 +83,19 @@ func (c *OrderClient) Close() error {
 // includes listingID, and returns the order's seller_id. It performs NO DB
 // join — it calls team-order.GetOrder and inspects the response.
 func (c *OrderClient) VerifyPurchase(ctx context.Context, buyerID, listingID, orderID string) (bool, string, error) {
-	if c == nil || c.svc == nil || orderID == "" {
-		return false, "", nil
+	if c == nil || c.svc == nil {
+		return false, "", ErrOrderClientNotConfigured
+	}
+	if orderID == "" {
+		return false, "", ErrOrderIDRequired
 	}
 	callCtx, cancel := boundedCtx(ctx, c.timeout)
 	defer cancel()
 	resp, err := c.svc.GetOrder(callCtx, &orderv1.GetOrderRequest{Id: orderID})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return false, "", nil
+		}
 		return false, "", fmt.Errorf("get order %s: %w", orderID, err)
 	}
 	order := resp.GetOrder()

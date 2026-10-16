@@ -17,15 +17,18 @@ Implement OpenSpec change `engagement-review-integrity` test-first per its tasks
 - team-engagement/internal/service/review_test.go
 - team-engagement/internal/handler/**
 - team-engagement/cmd/**
+- team-engagement/internal/grpcserver/server_test.go
 - team-engagement/docker-compose.local.yaml
 - team-engagement/.env.example
 - team-engagement/README.md
 - team-engagement/FEATURES.yaml
+- team-engagement/proto/platform/audit/v1/audit.proto
 - team-gateway/internal/edge/engagement.go
 - team-gateway/internal/edge/engagement*_test.go
 - team-gateway/internal/edge/policy.go
 - team-gateway/internal/edge/policy_test.go
 - team-gateway/internal/edge/policy_edge_test.go
+- team-gateway/internal/edge/policy_edge_hidereview_test.go
 - team-gateway/internal/edge/unrouted_test.go
 - team-gateway/FEATURES.yaml
 - platform-e2e/tests/e2e/support/review_order_support.py
@@ -41,6 +44,8 @@ Implement OpenSpec change `engagement-review-integrity` test-first per its tasks
 - platform-e2e/tests/e2e/step_definitions/pdp_reviews_steps.py
 - platform-e2e/tests/e2e/step_definitions/efe_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_review_integrity.py
+- platform-e2e/tests/e2e/step_definitions/group_c_steps.py
+- platform-e2e/tests/e2e/step_definitions/test_reviews.py
 - platform-core/tools/seed_full_marketplace.py
 - platform-core/tools/seed/01-base-info.sh
 - platform-core/tools/seed-full-marketplace.sh

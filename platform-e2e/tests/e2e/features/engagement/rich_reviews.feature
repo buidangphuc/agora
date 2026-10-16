@@ -14,9 +14,6 @@ Feature: Richer product reviews
     When the buyer marks the review as helpful
     Then the helpful count increases by one and cannot be voted again
 
-  # NOTE: marked xfail in the binding module — the running team-engagement
-  # service has no UPSTREAM_ORDER_ADDR, so its team-order verifier is disabled and
-  # verified_purchase is always false. Self-heals once the order upstream is wired.
   Scenario: A delivered order earns a verified-purchase badge
     Given a buyer has reviewed a listing they completed an order for
     When the buyer opens the reviewed listing

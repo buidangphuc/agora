@@ -14,15 +14,13 @@ import time
 
 from tests.e2e.flows.tracking_flow import _fields
 from tests.e2e.support import plp_stack as stack
+from tests.e2e.support import review_order_support as ros
 from tests.e2e.support.oic_order_support import (
-    COMPLETED,
     Actor,
     OicWorld,
     create_listing,
     ok,
-    place_order,
     post,
-    put_in_status,
     register,
 )
 
@@ -126,9 +124,7 @@ def follow(w: OicWorld, buyer: Actor, seller: Actor) -> None:
 
 
 def delivered_order(w: OicWorld, buyer: Actor, seller: Actor, listing: str) -> str:
-    order = place_order(w, buyer, listing, 1)
-    put_in_status(w, order, buyer, seller, COMPLETED)
-    return order
+    return ros.completed_order_for(w, buyer, seller, listing_id(w, listing))
 
 
 def review(w: OicWorld, buyer: Actor, listing: str, rating: int, comment: str, order: str) -> None:

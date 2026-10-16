@@ -82,6 +82,7 @@ Read by `internal/config/config.go`; `.env.example` is the template.
 | `DATABASE_URL` | empty | Required when enabled. Standalone `postgresql://engagement_svc:engagement_pass@localhost:5436/engagement_db`; in root compose the host is `postgres:5432` |
 | `DB_MAX_CONNS` | `10` | pgx pool size |
 | `UPSTREAM_ORDER_ADDR` | empty | `team-order` gRPC address. Empty disables verified-purchase checks. Root compose sets `team-order-svc:50055` |
+| `UPSTREAM_AUDIT_ADDR` | empty | `team-audit` gRPC address; `HideReview` writes its audit record there. Fails closed: when unset, `HideReview` returns `Unavailable`. Root compose sets `team-audit-svc:50066` |
 | `KAFKA_ENABLED` | `false` | Run the `listing.events` consumer that fills the follow feed. Off means the feed stays empty |
 | `KAFKA_BROKERS` | `localhost:9092` | Comma-separated seed brokers (root compose: `redpanda:9092`) |
 | `KAFKA_CONSUMER_GROUP` | `team-engagement-feed` | Consumer group |

@@ -380,7 +380,35 @@ class JourneyRunner:
         )
         log_success(f"In-app Notification delivered to buyer: 'Đơn hàng đang giao'")
 
-        # 3. Verified Review
+        # 3. Verified Review: CreateReview needs the buyer's COMPLETED order containing the
+        # listing. Journey 3's order id is synthetic, so place a real one-item COD order for
+        # the target listing and have its seller ship + complete it.
+        self.post_rpc("order.v1.CartService", "ClearCart", {}, token=buyer_token)
+        self.post_rpc(
+            "identity.v1.AddressService",
+            "CreateAddress",
+            {
+                "recipient_name": "Nguyễn Văn An",
+                "phone": "0912345678",
+                "street": "29 Liễu Giai",
+                "ward": "Phường Liễu Giai",
+                "district": "Quận Ba Đình",
+                "city": "Hà Nội",
+                "is_default": True,
+            },
+            token=buyer_token,
+        )
+        self.post_rpc("order.v1.CartService", "AddToCart", {"listing_id": target_item["id"], "quantity": 1}, token=buyer_token)
+        _, o_res = self.post_rpc("order.v1.OrderService", "CreateOrder", {"payment_method": "PAYMENT_METHOD_COD"}, token=buyer_token)
+        real_orders = o_res.get("orders", [])
+        review_order_id = real_orders[0].get("id", "") if len(real_orders) == 1 else ""
+        for status in ("ORDER_STATUS_SHIPPED", "ORDER_STATUS_COMPLETED"):
+            self.post_rpc(
+                "order.v1.OrderService",
+                "UpdateOrderStatus",
+                {"id": review_order_id, "status": status},
+                token=self.tokens[target_item["seller"]],
+            )
         self.post_rpc(
             "engagement.v1.EngagementService",
             "CreateReview",
@@ -388,7 +416,7 @@ class JourneyRunner:
                 "listing_id": target_item["id"],
                 "rating": 5,
                 "comment": "Sản phẩm đóng gói rất cẩn thận, giao hàng siêu nhanh, hàng chính hãng 100%!",
-                "order_id": self.order_id,
+                "order_id": review_order_id,
             },
             token=buyer_token,
         )

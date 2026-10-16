@@ -306,6 +306,8 @@ services:
       - DATABASE_URL=postgres://engagement_svc:engagement_pass@postgres:5432/engagement_db?sslmode=disable
       # verified-purchase check: engagement calls team-order to confirm a delivered order (no cross-DB join)
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
+      # HideReview writes an audit record via team-audit; fails closed (Unavailable) when unset
+      - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       # Follow feed: consume listing.events into seller_listings (DLQ listing.events.dlq).
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092

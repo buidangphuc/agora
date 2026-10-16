@@ -1417,6 +1417,36 @@ class MarketplaceSeeder:
 
         print(f"✓ Emitted {len(self.emitted_tracking_events)} tracking beacons across views, impressions, clicks, adds & purchases.")
 
+    def _complete_order_for_review(self, buyer_token: str, listing: Dict[str, Any]) -> Optional[str]:
+        """Place a one-item COD order for the buyer and have the listing's seller complete it.
+
+        Returns the order id, or None when the order could not be placed/completed.
+        """
+        s_token = self.seller_tokens.get(listing.get("seller_user"))
+        if not s_token:
+            return None
+        self.client.post("/platform.order.v1.CartService/ClearCart", {}, token=buyer_token)
+        variant_id = listing["variants"][0]["sku"] if listing.get("variants") else ""
+        self.client.post(
+            "/platform.order.v1.CartService/AddToCart",
+            {"listing_id": listing["id"], "variant_id": variant_id, "quantity": 1},
+            token=buyer_token,
+        )
+        _, res = self.client.post(
+            "/platform.order.v1.OrderService/CreateOrder", {"payment_method": 1}, token=buyer_token
+        )  # 1: COD
+        orders = res.get("orders", []) if isinstance(res, dict) else []
+        if len(orders) != 1 or not orders[0].get("id"):
+            return None
+        order_id = orders[0]["id"]
+        for target in (3, 4):  # ORDER_STATUS_SHIPPED, ORDER_STATUS_COMPLETED (seller token)
+            self.client.post(
+                "/platform.order.v1.OrderService/UpdateOrderStatus",
+                {"id": order_id, "status": target, "tracking_number": f"SPX-VN-{uuid.uuid4().hex[:8].upper()}"},
+                token=s_token,
+            )
+        return order_id
+
     def seed_order_history_and_reviews(self, days: int = 30):
         print(f"\n🛒 [6/6] Simulating {days}-Day Order History, Reviews & DuckDB Warehouse Outbox Events...")
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -1428,12 +1458,17 @@ class MarketplaceSeeder:
             buyer_idx = idx % len(buyer_keys)
             b_token = self.buyer_tokens[buyer_keys[buyer_idx]]
 
-            review_payload = {
-                "listing_id": listing["id"],
-                "rating": rating,
-                "comment": comment,
-            }
-            self.client.post("/platform.engagement.v1.EngagementService/CreateReview", review_payload, token=b_token)
+            # CreateReview requires the caller's COMPLETED order containing the listing:
+            # place a COD order for just this listing, the seller ships + completes it.
+            order_id = self._complete_order_for_review(b_token, listing)
+            if order_id:
+                review_payload = {
+                    "listing_id": listing["id"],
+                    "rating": rating,
+                    "comment": comment,
+                    "order_id": order_id,
+                }
+                self.client.post("/platform.engagement.v1.EngagementService/CreateReview", review_payload, token=b_token)
             self.client.post("/platform.engagement.v1.EngagementService/RecordView", {"listing_id": listing["id"]})
             self.client.post("/platform.engagement.v1.EngagementService/AddFavorite", {"listing_id": listing["id"]}, token=b_token)
 
