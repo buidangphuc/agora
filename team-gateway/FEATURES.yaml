@@ -1583,3 +1583,87 @@ features:
     status: automated
     covered_by: "tracking/loop_event_intake.feature::Loop intake: an AI beacon type with odd casing is still validated"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an AI beacon type with odd casing is still validated; unit twin `internal/edge` `TestHandleTrackAIInteractionTypeCasingValidated`"
+
+  - id: engagement-listing-reports.listing-reports-anonymous-caller-cannot-list-reports-at-the-edge
+    title: "Listing reports: Anonymous caller cannot list reports at the edge"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: Anonymous caller cannot list reports at the edge"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestListReportsAnonymousUnauthenticated`"
+
+  - id: engagement-listing-reports.listing-reports-non-admin-is-refused-at-the-edge
+    title: "Listing reports: Non-admin is refused at the edge"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: Non-admin is refused at the edge"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestReportAdminProceduresNonAdminPermissionDenied`"
+
+  - id: engagement-listing-reports.listing-reports-admin-close-is-forwarded-once
+    title: "Listing reports: Admin close is forwarded once"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: Admin close is forwarded once"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestResolveReportForwardedOnceNoRetry`"
+
+  - id: engagement-listing-reports.listing-reports-createreport-is-forwarded-once-with-the-caller-identity
+    title: "Listing reports: CreateReport is forwarded once with the caller identity"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: CreateReport is forwarded once with the caller identity"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestCreateReportForwardedOnceWithPrincipal`"
+
+  - id: engagement-listing-reports.listing-reports-anonymous-createreport-is-not-rejected-by-the-edge-policy
+    title: "Listing reports: Anonymous CreateReport is not rejected by the edge policy"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: Anonymous CreateReport is not rejected by the edge policy"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestCreateReportAnonymousAnsweredByService`"
+
+  - id: engagement-listing-reports.listing-reports-the-admin-procedure-set-is-pinned
+    title: "Listing reports: The admin procedure set is pinned"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: The admin procedure set is pinned"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestAdminProceduresPinnedSet`"
+
+  - id: engagement-listing-reports.listing-reports-report-rpcs-are-not-left-unrouted
+    title: "Listing reports: Report RPCs are not left unrouted"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: Report RPCs are not left unrouted"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestUnroutedGuardCoversReportRPCs`"

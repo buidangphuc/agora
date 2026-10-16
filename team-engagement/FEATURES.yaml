@@ -1474,3 +1474,670 @@ features:
     tags: [dispute-audit, unit]
     status: not-testable
     notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeClosedNoAudit`"
+
+  - id: engagement-listing-reports.listing-reports-buyer-reports-a-listing
+    title: "Listing reports: Buyer reports a listing"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Buyer reports a listing"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportStoresOpenReport`"
+
+  - id: engagement-listing-reports.listing-reports-second-open-report-by-the-same-user-returns-the-existing-one
+    title: "Listing reports: Second open report by the same user returns the existing one"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Second open report by the same user returns the existing one"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportIdempotentWhileOpen`"
+
+  - id: engagement-listing-reports.listing-reports-concurrent-duplicate-reports-yield-one-row
+    title: "Listing reports: Concurrent duplicate reports yield one row"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Concurrent duplicate reports yield one row"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestCreateReportConcurrentDuplicatesOneRow`"
+
+  - id: engagement-listing-reports.listing-reports-a-closed-report-does-not-block-a-new-one
+    title: "Listing reports: A closed report does not block a new one"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: A closed report does not block a new one"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportAfterCloseCreatesNew`"
+
+  - id: engagement-listing-reports.listing-reports-different-users-report-the-same-listing
+    title: "Listing reports: Different users report the same listing"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Different users report the same listing"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportTwoReportersTwoRows`"
+
+  - id: engagement-listing-reports.listing-reports-anonymous-caller-is-unauthenticated
+    title: "Listing reports: Anonymous caller is unauthenticated"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Anonymous caller is unauthenticated"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportAnonymousUnauthenticated`"
+
+  - id: engagement-listing-reports.listing-reports-caller-without-the-write-scope-is-denied
+    title: "Listing reports: Caller without the write scope is denied"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Caller without the write scope is denied"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportMissingWriteScopeDenied`"
+
+  - id: engagement-listing-reports.listing-reports-seller-cannot-report-their-own-listing
+    title: "Listing reports: Seller cannot report their own listing"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Seller cannot report their own listing"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportOwnListingRefused`"
+
+  - id: engagement-listing-reports.listing-reports-unknown-reason-code-is-rejected
+    title: "Listing reports: Unknown reason code is rejected"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Unknown reason code is rejected"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportUnknownReasonInvalidArgument`"
+
+  - id: engagement-listing-reports.listing-reports-target-type-and-target-id-are-validated
+    title: "Listing reports: Target type and target id are validated"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Target type and target id are validated"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportTargetValidation`"
+
+  - id: engagement-listing-reports.listing-reports-note-length-boundary
+    title: "Listing reports: Note length boundary"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Note length boundary"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportNoteLengthBoundary`"
+
+  - id: engagement-listing-reports.listing-reports-note-is-optional-and-trimmed
+    title: "Listing reports: Note is optional and trimmed"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Note is optional and trimmed"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportNoteOptionalAndTrimmed`"
+
+  - id: engagement-listing-reports.listing-reports-open-report-cap-per-reporter
+    title: "Listing reports: Open report cap per reporter"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Open report cap per reporter"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportOpenCapPerReporter`"
+
+  - id: engagement-listing-reports.listing-reports-report-of-an-unknown-listing-is-accepted
+    title: "Listing reports: Report of an unknown listing is accepted"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Report of an unknown listing is accepted"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportUnknownListingAccepted`"
+
+  - id: engagement-listing-reports.listing-reports-report-note-is-never-logged
+    title: "Listing reports: Report note is never logged"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Report note is never logged"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportNoteNotLogged`"
+
+  - id: engagement-listing-reports.listing-reports-report-created-end-to-end
+    title: "Listing reports: Report created end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Report created end to end"
+    tags: [listing-reports]
+    status: planned
+    notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Report created end to end"
+    covered_by: "engagement/listing_reports.feature::Listing reports: Report created end to end"
+
+  - id: engagement-listing-reports.listing-reports-anonymous-report-is-refused-end-to-end
+    title: "Listing reports: Anonymous report is refused end to end"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Anonymous report is refused end to end"
+    tags: [listing-reports]
+    status: planned
+    notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Anonymous report is refused end to end"
+    covered_by: "engagement/listing_reports.feature::Listing reports: Anonymous report is refused end to end"
+
+  - id: engagement-listing-reports.listing-reports-seller-self-report-is-refused-end-to-end
+    title: "Listing reports: Seller self-report is refused end to end"
+    persona: seller
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Seller self-report is refused end to end"
+    tags: [listing-reports]
+    status: planned
+    notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Seller self-report is refused end to end"
+    covered_by: "engagement/listing_reports.feature::Listing reports: Seller self-report is refused end to end"
+
+  - id: engagement-listing-reports.listing-reports-seller-cannot-list-reports
+    title: "Listing reports: Seller cannot list reports"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Seller cannot list reports"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsSellerDenied`"
+
+  - id: engagement-listing-reports.listing-reports-seller-cannot-read-reports-end-to-end
+    title: "Listing reports: Seller cannot read reports end to end"
+    persona: seller
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Seller cannot read reports end to end"
+    tags: [listing-reports]
+    status: planned
+    notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Seller cannot read reports end to end"
+    covered_by: "engagement/listing_reports.feature::Listing reports: Seller cannot read reports end to end"
+
+  - id: engagement-listing-reports.listing-reports-admin-lists-open-reports-oldest-first
+    title: "Listing reports: Admin lists open reports oldest first"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Admin lists open reports oldest first"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsOldestFirst`"
+
+  - id: engagement-listing-reports.listing-reports-filter-by-target-id
+    title: "Listing reports: Filter by target id"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Filter by target id"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestListReportsFilterByTarget`"
+
+  - id: engagement-listing-reports.listing-reports-page-size-boundary
+    title: "Listing reports: Page size boundary"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Page size boundary"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsPageSizeBoundary`"
+
+  - id: engagement-listing-reports.listing-reports-empty-result
+    title: "Listing reports: Empty result"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Empty result"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsEmpty`"
+
+  - id: engagement-listing-reports.listing-reports-non-admin-and-anonymous-callers-are-refused
+    title: "Listing reports: Non-admin and anonymous callers are refused"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Non-admin and anonymous callers are refused"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsAuthzMatrix`"
+
+  - id: engagement-listing-reports.listing-reports-listing-is-not-audited
+    title: "Listing reports: Listing is not audited"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Listing is not audited"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsWritesNoAudit`"
+
+  - id: engagement-listing-reports.listing-reports-admin-closes-a-report-as-actioned
+    title: "Listing reports: Admin closes a report as actioned"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Admin closes a report as actioned"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportActioned`"
+
+  - id: engagement-listing-reports.listing-reports-admin-dismisses-a-report
+    title: "Listing reports: Admin dismisses a report"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Admin dismisses a report"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportDismissed`"
+
+  - id: engagement-listing-reports.listing-reports-audit-event-carries-the-required-fields
+    title: "Listing reports: Audit event carries the required fields"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Audit event carries the required fields"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportAuditEventFields`"
+
+  - id: engagement-listing-reports.listing-reports-audit-is-called-as-the-service-principal
+    title: "Listing reports: Audit is called as the service principal"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Audit is called as the service principal"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestAuditClientUsesServicePrincipalForReports`"
+
+  - id: engagement-listing-reports.listing-reports-audit-is-written-before-the-close
+    title: "Listing reports: Audit is written before the close"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Audit is written before the close"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportAuditBeforeClose`"
+
+  - id: engagement-listing-reports.listing-reports-audit-failure-leaves-the-report-open
+    title: "Listing reports: Audit failure leaves the report open"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Audit failure leaves the report open"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportAuditFailureFailsClosed`"
+
+  - id: engagement-listing-reports.listing-reports-no-audit-upstream-configured
+    title: "Listing reports: No audit upstream configured"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: No audit upstream configured"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportNilAuditClientUnavailable`"
+
+  - id: engagement-listing-reports.listing-reports-close-failure-after-audit-is-internal-and-retryable
+    title: "Listing reports: Close failure after audit is Internal and retryable"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Close failure after audit is Internal and retryable"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportCloseFailureInternalThenRetry`"
+
+  - id: engagement-listing-reports.listing-reports-closing-again-with-the-same-status-is-refused
+    title: "Listing reports: Closing again with the same status is refused"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Closing again with the same status is refused"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportSameStatusReCloseRefused`"
+
+  - id: engagement-listing-reports.listing-reports-closing-with-a-different-status-is-refused
+    title: "Listing reports: Closing with a different status is refused"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Closing with a different status is refused"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportConflictingStatusRefused`"
+
+  - id: engagement-listing-reports.listing-reports-two-admins-close-the-same-report-at-once
+    title: "Listing reports: Two admins close the same report at once"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Two admins close the same report at once"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestCloseReportCompareAndSetOneWinner`"
+
+  - id: engagement-listing-reports.listing-reports-invalid-final-status-is-rejected
+    title: "Listing reports: Invalid final status is rejected"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Invalid final status is rejected"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportInvalidStatus`"
+
+  - id: engagement-listing-reports.listing-reports-empty-or-whitespace-note-is-rejected
+    title: "Listing reports: Empty or whitespace note is rejected"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Empty or whitespace note is rejected"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportEmptyNoteInvalidArgument`"
+
+  - id: engagement-listing-reports.listing-reports-resolution-note-length-boundary
+    title: "Listing reports: Resolution note length boundary"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Resolution note length boundary"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportNoteLengthBoundary`"
+
+  - id: engagement-listing-reports.listing-reports-unknown-report
+    title: "Listing reports: Unknown report"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Unknown report"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportNotFoundAndEmptyID`"
+
+  - id: engagement-listing-reports.listing-reports-non-admin-and-anonymous-callers-cannot-close
+    title: "Listing reports: Non-admin and anonymous callers cannot close"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Non-admin and anonymous callers cannot close"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportAuthzMatrix`"
+
+  - id: engagement-listing-reports.listing-reports-closing-a-report-leaves-the-listing-alone
+    title: "Listing reports: Closing a report leaves the listing alone"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Closing a report leaves the listing alone"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportTouchesOnlyAudit`"
+
+  - id: engagement-listing-reports.listing-reports-admin-works-a-report-end-to-end
+    title: "Listing reports: Admin works a report end to end"
+    persona: admin
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Admin works a report end to end"
+    tags: [listing-reports]
+    status: planned
+    notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Admin works a report end to end"
+    covered_by: "engagement/listing_reports.feature::Listing reports: Admin works a report end to end"
+
+  - id: engagement-listing-reports.listing-reports-audit-outage-blocks-closing-end-to-end
+    title: "Listing reports: Audit outage blocks closing end to end"
+    persona: admin
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Audit outage blocks closing end to end"
+    tags: [listing-reports]
+    status: planned
+    notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Audit outage blocks closing end to end"
+    covered_by: "engagement/listing_reports.feature::Listing reports: Audit outage blocks closing end to end"
+
+  - id: engagement-listing-reports.listing-reports-buyer-cannot-work-the-queue-end-to-end
+    title: "Listing reports: Buyer cannot work the queue end to end"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Buyer cannot work the queue end to end"
+    tags: [listing-reports]
+    status: planned
+    notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Buyer cannot work the queue end to end"
+    covered_by: "engagement/listing_reports.feature::Listing reports: Buyer cannot work the queue end to end"
+
+  - id: engagement-listing-reports.listing-reports-old-closed-report-is-pseudonymised
+    title: "Listing reports: Old closed report is pseudonymised"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Old closed report is pseudonymised"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestSweepPseudonymisesOldClosedReports`"
+
+  - id: engagement-listing-reports.listing-reports-retention-boundary
+    title: "Listing reports: Retention boundary"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Retention boundary"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestSweepRetentionBoundary`"
+
+  - id: engagement-listing-reports.listing-reports-open-reports-are-never-swept
+    title: "Listing reports: Open reports are never swept"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Open reports are never swept"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestSweepSkipsOpenReports`"
+
+  - id: engagement-listing-reports.listing-reports-sweep-is-idempotent-and-batched
+    title: "Listing reports: Sweep is idempotent and batched"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Sweep is idempotent and batched"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestSweepIdempotentAndBatched`"
+
+  - id: engagement-listing-reports.listing-reports-pseudonymised-reporter-can-report-again
+    title: "Listing reports: Pseudonymised reporter can report again"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Pseudonymised reporter can report again"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportAfterSweep`"
+
+  - id: engagement-listing-reports.listing-reports-retention-config-is-validated
+    title: "Listing reports: Retention config is validated"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Retention config is validated"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/config` `TestReportRetentionConfigValidated`"
+
+  - id: engagement-listing-reports.listing-reports-migration-creates-the-schema
+    title: "Listing reports: Migration creates the schema"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Migration creates the schema"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestMigrationReportsUp`"
+
+  - id: engagement-listing-reports.listing-reports-down-migration-removes-the-schema
+    title: "Listing reports: Down migration removes the schema"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: Down migration removes the schema"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestMigrationReportsDown`"
+
+  - id: engagement-listing-reports.listing-reports-in-memory-repository-matches-postgres
+    title: "Listing reports: In-memory repository matches Postgres"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Listing reports: In-memory repository matches Postgres"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestReportRepositoryParity`"
