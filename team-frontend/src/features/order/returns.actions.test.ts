@@ -1,3 +1,4 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -47,5 +48,40 @@ describe("createReturnRequestAction", () => {
     vi.mocked(createReturnRequest).mockRejectedValue(new Error("boom"));
     const res = await createReturnRequestAction("o1", "hỏng", 1000);
     expect(res).toEqual({ ok: false, error: "boom" });
+  });
+});
+
+describe("createReturnRequestAction refusals", () => {
+  it("Order lifecycle: a window-closed refusal is explained - window closed refusal is explained", async () => {
+    vi.mocked(createReturnRequest).mockRejectedValue(
+      new ConnectError("return window closed", Code.FailedPrecondition),
+    );
+    const res = await createReturnRequestAction("o1", "hỏng", 1000);
+    expect(res).toEqual({
+      ok: false,
+      error: "Đã hết thời hạn trả hàng (15 ngày kể từ khi đơn hoàn thành).",
+    });
+  });
+
+  it("Order lifecycle: a window-closed refusal is explained - other failed-precondition keeps the server message", async () => {
+    vi.mocked(createReturnRequest).mockRejectedValue(
+      new ConnectError("order not eligible", Code.FailedPrecondition),
+    );
+    const res = await createReturnRequestAction("o1", "hỏng", 1000);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error).toContain("order not eligible");
+      expect(res.error).not.toContain("15 ngày");
+    }
+  });
+
+  it("Order lifecycle: a return on an order that is not the buyer's is refused - foreign order return is refused", async () => {
+    vi.mocked(createReturnRequest).mockRejectedValue(
+      new ConnectError("order not found", Code.PermissionDenied),
+    );
+    const res = await createReturnRequestAction("o2", "hỏng", 1000);
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toContain("order not found");
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
