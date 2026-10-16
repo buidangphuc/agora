@@ -31,6 +31,7 @@ Implement OpenSpec change `ai-listing-screen` test-first per its tasks.md (scena
 - openspec/changes/ai-listing-screen/**
 - team-ai/tests/unit/test_readme_screen_listing.py (# widened at build: task 5)
 - plans/q6-trust-enforcement/wave1-task1-ai-listing-screen.md (# widened at build: task 5; packet widening record)
+- team-ai/tests/unit/core/test_flag_trim.py # widened at build: task 6
 
 ## Read-only dependencies
 - openspec/changes/ai-listing-screen/** is frozen by the LOCK.md digest (only task ticks change)
