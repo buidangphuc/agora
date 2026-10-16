@@ -53,8 +53,8 @@ Implement OpenSpec change `identity-user-enforcement` test-first per its tasks.m
 - plans/q6-trust-enforcement/wave3-task2-identity-user-enforcement.md (# widened at build: task 4; packet widening record)
 - platform-e2e/tests/e2e/step_definitions/test_user_enforcement.py
 - openspec/changes/identity-user-enforcement/**
-- team-identity/internal/grpcserver/accountadmin_server_test.go # widened at build: task 8
-- team-identity/internal/grpcserver/server_test.go # widened at build: task 8
+- team-identity/internal/grpcserver/accountadmin_server_test.go (# widened at build: task 8)
+- team-identity/internal/grpcserver/server_test.go (# widened at build: task 8)
 
 ## Read-only dependencies
 - openspec/changes/identity-user-enforcement/** is frozen by the LOCK.md digest (only task ticks change)
