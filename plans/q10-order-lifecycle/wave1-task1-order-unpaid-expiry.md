@@ -39,6 +39,7 @@ Implement OpenSpec change `order-unpaid-expiry` test-first per its tasks.md (sce
 - team-order/.env.example (# widened at build: task 2)
 - plans/q10-order-lifecycle/wave1-task1-order-unpaid-expiry.md (# widened at build: task 2; packet widening record)
 - team-order/internal/consumer/payment.go (# widened at build: task 4)
+- team-order/cmd/server/lifecycle_sweeper_test.go # widened at build: task 8
 
 ## Read-only dependencies
 - openspec/changes/order-unpaid-expiry/** is frozen by its LOCK.md digest except tasks.md ticks
