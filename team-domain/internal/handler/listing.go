@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 
@@ -102,7 +103,7 @@ func (h *ListingHandler) GetListing(
 		return nil, status.Error(codes.NotFound, "not_found")
 	}
 
-	return &listingv1.GetListingResponse{Listing: toWire(l)}, nil
+	return &listingv1.GetListingResponse{Listing: toWireFor(ctx, l)}, nil
 }
 
 // ListListings returns a keyset page of listings.
@@ -460,6 +461,7 @@ func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listi
 	requestID, _ := interceptor.RequestIDFromContext(ctx)
 	return func(written repository.Listing) (repository.OutboxRow, error) {
 		wire := toWire(written)
+		wire.Moderation = moderationWire(written, false, false)
 		eventID := uuid.NewString()
 		payload, err := events.BuildListingChangedEnvelope(eventID, wire, change, principal, requestID)
 		if err != nil {
@@ -645,7 +647,46 @@ func wireStatus(s string) listingv1.ListingStatus {
 		return listingv1.ListingStatus_LISTING_STATUS_PUBLISHED
 	case "rejected":
 		return listingv1.ListingStatus_LISTING_STATUS_REJECTED
+	case "banned":
+		return listingv1.ListingStatus_LISTING_STATUS_BANNED
+	case "pending_review":
+		return listingv1.ListingStatus_LISTING_STATUS_PENDING_REVIEW
+	case "held":
+		return listingv1.ListingStatus_LISTING_STATUS_HELD
 	default:
 		return listingv1.ListingStatus_LISTING_STATUS_UNSPECIFIED
 	}
+}
+
+// toWireFor maps a listing for a specific reader: the owner sees reason, note
+// and decision time; admin and internal services also see screen flags;
+// everyone else gets no moderation info.
+func toWireFor(ctx context.Context, l repository.Listing) *listingv1.Listing {
+	w := toWire(l)
+	id, admin := principalOwner(ctx)
+	staff := admin || isService(ctx)
+	owner := id != "" && id == l.SellerID
+	if owner || staff {
+		w.Moderation = moderationWire(l, true, staff)
+	}
+	return w
+}
+
+// moderationWire builds ModerationInfo; note and flags only when asked. It
+// returns nil when the listing has no moderation data.
+func moderationWire(l repository.Listing, withNote, withFlags bool) *listingv1.ModerationInfo {
+	if l.ModerationReasonCode == "" && l.ModerationNote == "" && len(l.ScreenFlags) == 0 && l.ModerationDecidedAt.IsZero() {
+		return nil
+	}
+	m := &listingv1.ModerationInfo{ReasonCode: l.ModerationReasonCode}
+	if withNote {
+		m.Note = l.ModerationNote
+	}
+	if withFlags {
+		m.ScreenFlags = l.ScreenFlags
+	}
+	if !l.ModerationDecidedAt.IsZero() {
+		m.DecidedAt = timestamppb.New(l.ModerationDecidedAt)
+	}
+	return m
 }
