@@ -72,4 +72,14 @@ describe("ReportListingButton", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(toastSuccess).toHaveBeenCalledWith("Đã gửi báo cáo. Cảm ơn bạn.");
   });
+
+  it("note counter reaches 500 and the textarea caps at 500", () => {
+    // Moderation UI: Report note length boundary (task 1.7 note counter 500)
+    render(<ReportListingButton listingId="L" loggedIn />);
+    openDialog();
+    const note = screen.getByLabelText(/Chi tiết/) as HTMLTextAreaElement;
+    expect(note).toHaveAttribute("maxlength", "500");
+    fireEvent.change(note, { target: { value: "a".repeat(500) } });
+    expect(screen.getByText("500/500")).toBeInTheDocument();
+  });
 });
