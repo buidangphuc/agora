@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { FloatingChatBubble } from "@/components/ui/FloatingChatBubble";
-import { CookieSettingsLink } from "@/features/consent/ConsentBanner";
 import { logoutAction } from "@/features/auth/actions";
+import { CookieSettingsLink } from "@/features/consent/ConsentBanner";
 import { SearchBar } from "@/features/search/SearchBar";
 import { getCart } from "@/lib/gateway/cart";
 import { getPrincipal } from "@/lib/gateway/session";
