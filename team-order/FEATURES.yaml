@@ -412,11 +412,11 @@ features:
     covered_by: order/return_refund_settlement.feature::Two returns on one order refund cumulatively
     notes: payment-refund-model; green against the stack on 2026-10-08.
 
-  - id: order.rrs-a-return-refund-and-a-cancel-of-the-same-paid-order-refund-t
-    title: A return refund and a cancel of the same paid order refund the payment once in total
+  - id: order.rrs-a-return-refund-and-a-seller-refund-of-the-same-paid-order-refund-t
+    title: A return refund and a seller refund of the same paid order refund the payment once in total
     persona: seller
     priority: P1
-    summary: A return refund and a cancel of the same paid order refund the payment once in total
+    summary: A return refund and a seller refund of the same paid order refund the payment once in total
     entry_route: "/seller/orders/{order_id}"
     services: [team-order, team-payment, team-gateway]
     preconditions:
@@ -427,13 +427,13 @@ features:
       - And "b1" requests the return "R1" of 200000
       - And the seller approves the return "R1"
       - When the seller moves the return "R1" to REFUNDED
-      - And "b1" cancels the order
+      - And the seller refunds 300000 of the payment directly
       - Then within the settle window the payment read by "b1" is REFUNDED with 500000 refunded
-      - And the payment lists 1 RETURN refund and 1 ORDER_CANCEL refund whose applied amounts sum to 500000
+      - And the payment lists 1 RETURN refund and 1 seller refund whose applied amounts sum to 500000
       - And within the settle window the seller's REFUND_DEDUCTION entries sum to -500000
     tags: [order, fintech]
     status: automated
-    covered_by: order/return_refund_settlement.feature::A return refund and a cancel of the same paid order refund the payment once in total
+    covered_by: order/return_refund_settlement.feature::A return refund and a seller refund of the same paid order refund the payment once in total
     notes: payment-refund-model; green against the stack on 2026-10-08.
 
   - id: order.rrs-a-return-above-the-order-s-remaining-returnable-amount-is-re
@@ -3311,8 +3311,9 @@ features:
     acceptance:
       - "Order receipt: Buyer confirms a shipped order"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Buyer confirms a shipped order."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Buyer confirms a shipped order"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-another-user-cannot-confirm-receipt
     title: "Order receipt: Another user cannot confirm receipt"
@@ -3329,8 +3330,9 @@ features:
     acceptance:
       - "Order receipt: Another user cannot confirm receipt"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Another user cannot confirm receipt."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Another user cannot confirm receipt"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-confirming-an-order-that-is-not-shipped-is-refused
     title: "Order receipt: Confirming an order that is not shipped is refused"
@@ -3347,8 +3349,9 @@ features:
     acceptance:
       - "Order receipt: Confirming an order that is not shipped is refused"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Confirming an order that is not shipped is refused."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Confirming an order that is not shipped is refused"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-buyer-may-confirm-while-their-return-is-open
     title: "Order receipt: Buyer may confirm while their return is open"
@@ -3391,8 +3394,9 @@ features:
     acceptance:
       - "Order receipt: A buyer cannot complete through UpdateOrderStatus"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A buyer cannot complete through UpdateOrderStatus."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: A buyer cannot complete through UpdateOrderStatus"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-shipping-stamps-the-auto-complete-deadline
     title: "Order receipt: Shipping stamps the auto-complete deadline"
@@ -3409,8 +3413,9 @@ features:
     acceptance:
       - "Order receipt: Shipping stamps the auto-complete deadline"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Shipping stamps the auto-complete deadline."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Shipping stamps the auto-complete deadline"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-unconfirmed-shipped-order-completes-after-the-window
     title: "Order receipt: Unconfirmed shipped order completes after the window"
@@ -3427,8 +3432,9 @@ features:
     acceptance:
       - "Order receipt: Unconfirmed shipped order completes after the window"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Unconfirmed shipped order completes after the window."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Unconfirmed shipped order completes after the window"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-a-shipped-order-inside-its-window-is-not-completed
     title: "Order receipt: A shipped order inside its window is not completed"
@@ -3458,8 +3464,9 @@ features:
     acceptance:
       - "Order receipt: An open return blocks auto-complete"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: An open return blocks auto-complete."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: An open return blocks auto-complete"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-an-approved-unrefunded-return-blocks-auto-complete
     title: "Order receipt: An approved unrefunded return blocks auto-complete"
@@ -3567,8 +3574,9 @@ features:
     acceptance:
       - "Order receipt: Buyer confirm emits OrderCompleted with completed_by BUYER"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Buyer confirm emits OrderCompleted with completed_by BUYER."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Buyer confirm emits OrderCompleted with completed_by BUYER"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-seller-completion-still-works-and-emits-ordercompleted
     title: "Order receipt: Seller completion still works and emits OrderCompleted"
@@ -3585,8 +3593,9 @@ features:
     acceptance:
       - "Order receipt: Seller completion still works and emits OrderCompleted"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Seller completion still works and emits OrderCompleted."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Seller completion still works and emits OrderCompleted"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-a-cash-on-delivery-completion-is-marked-not-paid-online
     title: "Order receipt: A cash-on-delivery completion is marked not paid online"
@@ -3616,8 +3625,9 @@ features:
     acceptance:
       - "Order receipt: A refused completion emits nothing"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A refused completion emits nothing."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: A refused completion emits nothing"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-concurrent-confirms-emit-one-ordercompleted
     title: "Order receipt: Concurrent confirms emit one OrderCompleted"
@@ -3634,8 +3644,9 @@ features:
     acceptance:
       - "Order receipt: Concurrent confirms emit one OrderCompleted"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Concurrent confirms emit one OrderCompleted."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Concurrent confirms emit one OrderCompleted"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-outbox-failure-rolls-the-completion-back
     title: "Order receipt: Outbox failure rolls the completion back"
@@ -3665,8 +3676,9 @@ features:
     acceptance:
       - "Order receipt: Return on a shipped order is accepted and announced"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Return on a shipped order is accepted and announced."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Return on a shipped order is accepted and announced"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-return-inside-the-window-after-completion-is-accepted
     title: "Order receipt: Return inside the window after completion is accepted"
@@ -3683,8 +3695,9 @@ features:
     acceptance:
       - "Order receipt: Return inside the window after completion is accepted"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Return inside the window after completion is accepted."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Return inside the window after completion is accepted"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-return-after-the-window-closes-is-refused
     title: "Order receipt: Return after the window closes is refused"
@@ -3701,8 +3714,9 @@ features:
     acceptance:
       - "Order receipt: Return after the window closes is refused"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Return after the window closes is refused."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Return after the window closes is refused"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-return-at-the-exact-window-end-is-refused
     title: "Order receipt: Return at the exact window end is refused"
@@ -3732,8 +3746,9 @@ features:
     acceptance:
       - "Order receipt: Return on a paid unshipped order is refused"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Return on a paid unshipped order is refused."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Return on a paid unshipped order is refused"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-return-on-a-pending-or-cancelled-order-is-refused
     title: "Order receipt: Return on a pending or cancelled order is refused"
@@ -3789,8 +3804,9 @@ features:
     acceptance:
       - "Order receipt: Unanswered return is approved after the window"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Unanswered return is approved after the window."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Unanswered return is approved after the window"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-a-return-inside-its-answer-window-is-not-approved
     title: "Order receipt: A return inside its answer window is not approved"
@@ -3820,8 +3836,9 @@ features:
     acceptance:
       - "Order receipt: Rejected return is never auto-approved"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Rejected return is never auto-approved."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Rejected return is never auto-approved"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-approved-return-is-not-touched-by-the-sweep
     title: "Order receipt: Approved return is not touched by the sweep"
@@ -3864,8 +3881,9 @@ features:
     acceptance:
       - "Order receipt: Auto-approved return is refunded through the existing path"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Auto-approved return is refunded through the existing path."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Auto-approved return is refunded through the existing path"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-a-caller-cannot-request-the-system-approve
     title: "Order receipt: A caller cannot request the system approve"
@@ -3882,8 +3900,9 @@ features:
     acceptance:
       - "Order receipt: A caller cannot request the system approve"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A caller cannot request the system approve."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: A caller cannot request the system approve"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-the-auto-approve-pass-handles-at-most-one-batch-per-run
     title: "Order receipt: The auto-approve pass handles at most one batch per run"
@@ -3913,8 +3932,9 @@ features:
     acceptance:
       - "Order receipt: A rejected return on a shipped order can escalate"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A rejected return on a shipped order can escalate."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: A rejected return on a shipped order can escalate"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-a-rejected-return-inside-the-window-after-completion-can-escalate
     title: "Order receipt: A rejected return inside the window after completion can escalate"
@@ -3944,8 +3964,9 @@ features:
     acceptance:
       - "Order receipt: A rejected return cannot escalate after the window closes"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A rejected return cannot escalate after the window closes."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: A rejected return cannot escalate after the window closes"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-a-return-that-is-not-rejected-cannot-escalate
     title: "Order receipt: A return that is not rejected cannot escalate"
@@ -4001,8 +4022,9 @@ features:
     acceptance:
       - "Order receipt: Payment stamps ship_by and the paid event carries it"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Payment stamps ship_by and the paid event carries it."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: Payment stamps ship_by and the paid event carries it"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-a-cash-on-delivery-order-gets-ship-by-at-placement
     title: "Order receipt: A cash-on-delivery order gets ship_by at placement"
@@ -4019,8 +4041,9 @@ features:
     acceptance:
       - "Order receipt: A cash-on-delivery order gets ship_by at placement"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A cash-on-delivery order gets ship_by at placement."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: A cash-on-delivery order gets ship_by at placement"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-an-unpaid-online-order-has-no-ship-by
     title: "Order receipt: An unpaid online order has no ship_by"
@@ -4037,8 +4060,9 @@ features:
     acceptance:
       - "Order receipt: An unpaid online order has no ship_by"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: An unpaid online order has no ship_by."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: An unpaid online order has no ship_by"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-a-passed-ship-by-changes-nothing
     title: "Order receipt: A passed ship_by changes nothing"
@@ -4133,8 +4157,9 @@ features:
     acceptance:
       - "Order receipt: A completed order cannot be reopened or cancelled"
     tags: [buyer, order, lifecycle]
-    status: planned
-    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A completed order cannot be reopened or cancelled."
+    status: automated
+    covered_by: "order/order_receipt_completion.feature::Order receipt: A completed order cannot be reopened or cancelled"
+    notes: "order-receipt-completion e2e; green against the stack."
 
   - id: order.receipt-migration-backfills-deadlines-without-completing-anything
     title: "Order receipt: Migration backfills deadlines without completing anything"

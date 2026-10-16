@@ -109,15 +109,16 @@ Feature: An approved RMA return refunds the buyer exactly once
     And the seller has a REFUND_DEDUCTION of -200000 referencing the return "R1"
     And the seller has a REFUND_DEDUCTION of -300000 referencing the return "R2"
 
-  Scenario: A return refund and a cancel of the same paid order refund the payment once in total
+  # A shipped order can no longer be cancelled, so the second refund path is a direct seller refund.
+  Scenario: A return refund and a seller refund of the same paid order refund the payment once in total
     Given a seller with a listing whose order pays 500000
     And "b1" has paid an order of the listing and the seller is credited
     And "b1" requests the return "R1" of 200000
     And the seller approves the return "R1"
     When the seller moves the return "R1" to REFUNDED
-    And "b1" cancels the order
+    And the seller refunds 300000 of the payment directly
     Then within the settle window the payment read by "b1" is REFUNDED with 500000 refunded
-    And the payment lists 1 RETURN refund and 1 ORDER_CANCEL refund whose applied amounts sum to 500000
+    And the payment lists 1 RETURN refund and 1 seller refund whose applied amounts sum to 500000
     And within the settle window the seller's REFUND_DEDUCTION entries sum to -500000
 
   Scenario: A return above the order's remaining returnable amount is refused
