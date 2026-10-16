@@ -151,6 +151,15 @@ func (w *PgTxWriter) UpdateTx(ctx context.Context, l Listing, ev EnqueueFn) (Lis
 	return w.run(ctx, ev, func(tx pgx.Tx) (Listing, error) { return updateListing(ctx, tx, l) })
 }
 
+// ModerateTx applies an admin decision and enqueues its event in one tx. It is
+// conditional on fromStatus and the updated_at the caller loaded; a lost race is
+// ErrStatusChanged.
+func (w *PgTxWriter) ModerateTx(ctx context.Context, id, fromStatus string, loadedUpdatedAt time.Time, d ModerationUpdate, ev EnqueueFn) (Listing, error) {
+	return w.run(ctx, ev, func(tx pgx.Tx) (Listing, error) {
+		return moderateListing(ctx, tx, id, fromStatus, loadedUpdatedAt, d)
+	})
+}
+
 func (w *PgTxWriter) DeleteTx(ctx context.Context, id string, ev EnqueueFn) (Listing, error) {
 	return w.run(ctx, ev, func(tx pgx.Tx) (Listing, error) { return deleteListing(ctx, tx, id) })
 }
