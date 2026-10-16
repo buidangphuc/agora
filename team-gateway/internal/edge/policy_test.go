@@ -31,6 +31,8 @@ func TestAdminProceduresPinnedSet(t *testing.T) {
 		engagementv1connect.EngagementServiceHideReviewProcedure, // HideReview is admin-gated
 		orderv1connect.OrderServiceForceFailSagaProcedure,
 		verificationv1connect.VerificationServiceReviewKycProcedure,
+		listingv1connect.ListingServiceModerateListingProcedure,     // domain-listing-moderation: admin-gated
+		listingv1connect.ListingServiceListModerationQueueProcedure, // domain-listing-moderation: admin-gated
 	}
 	var got []string
 	for k := range adminProcedures {
