@@ -1142,3 +1142,849 @@ features:
     tags: [auth, unit]
     status: not-testable
     notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs direct inserts into the sessions table."
+
+  # ---- identity-user-enforcement (e2e-author; planned until the feature scenarios run green)
+  - id: user-enforcement.login-enforcement-banned-user-is-refused-after-a-correct-password
+    title: "Login enforcement: Banned user is refused after a correct password"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Banned user is refused after a correct password"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a banned user logs in with the correct password"
+      - "Then the call returns `PermissionDenied` with message `tài khoản bị khóa`, no session row is created and login history holds one failed attempt"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::Login enforcement: Banned user is refused after a correct password"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestLoginBannedPermissionDenied`"
+
+  - id: user-enforcement.login-enforcement-suspended-user-is-refused-until-the-end-time
+    title: "Login enforcement: Suspended user is refused until the end time"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Suspended user is refused until the end time"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Suspended user is refused until the end time (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginSuspendedPermissionDenied`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-wrong-password-reveals-no-status
+    title: "Login enforcement: Wrong password reveals no status"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Wrong password reveals no status"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a banned user, a suspended user and an active user each log in with a wrong password"
+      - "Then all three calls return the identical invalid-credentials error with the same code and message"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::Login enforcement: Wrong password reveals no status"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestLoginWrongPasswordNoStatusOracle`"
+
+  - id: user-enforcement.login-enforcement-refusal-does-not-leak-the-reason-or-note
+    title: "Login enforcement: Refusal does not leak the reason or note"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Refusal does not leak the reason or note"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Refusal does not leak the reason or note (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestLoginRefusalLeaksNothing`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-ban-committed-during-login-leaves-no-live-session
+    title: "Login enforcement: Ban committed during login leaves no live session"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Ban committed during login leaves no live session"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Ban committed during login leaves no live session (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestCreateSessionRechecksStatusUnderLockPG` and team-identity `internal/service` `TestLoginBanRaceNoLiveSession`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-restricted-and-active-users-log-in
+    title: "Login enforcement: Restricted and active users log in"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Restricted and active users log in"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Restricted and active users log in (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginRestrictedAndActiveSucceed`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-expired-suspension-is-lifted
+    title: "Login enforcement: Expired suspension is lifted"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Expired suspension is lifted"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a user suspended until 1 second ago logs in with the correct password"
+      - "Then the login succeeds, the user has status `active`, and the outbox holds exactly 1 `UserStatusChanged` with previous status `suspended` and reason code `suspension_expired`"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::Login enforcement: Expired suspension is lifted"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestLoginLiftsExpiredSuspension`"
+
+  - id: user-enforcement.login-enforcement-suspension-ending-exactly-now-is-lifted
+    title: "Login enforcement: Suspension ending exactly now is lifted"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Suspension ending exactly now is lifted"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Suspension ending exactly now is lifted (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginSuspensionBoundaryIsLifted`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-concurrent-logins-lift-once
+    title: "Login enforcement: Concurrent logins lift once"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Concurrent logins lift once"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Concurrent logins lift once (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestLiftExpiredSuspensionOnceUnderConcurrencyPG`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-ban-racing-the-lift-refuses-the-login
+    title: "Login enforcement: Ban racing the lift refuses the login"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Ban racing the lift refuses the login"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Ban racing the lift refuses the login (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginLiftMissRereadsStatus`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-failed-lift-fails-the-login-closed
+    title: "Login enforcement: Failed lift fails the login closed"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Failed lift fails the login closed"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Failed lift fails the login closed (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginLiftFailureFailsClosed`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-lift-writes-no-audit-event
+    title: "Login enforcement: Lift writes no audit event"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Lift writes no audit event"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Lift writes no audit event (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginLiftNotAudited`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-a-banned-user-is-never-lifted-by-time
+    title: "Login enforcement: A banned user is never lifted by time"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: A banned user is never lifted by time"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: A banned user is never lifted by time (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginBannedNeverLifted`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-surviving-session-of-a-banned-user-is-refused-and-revoked
+    title: "Login enforcement: Surviving session of a banned user is refused and revoked"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Surviving session of a banned user is refused and revoked"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Surviving session of a banned user is refused and revoked (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestRefreshBannedPermissionDeniedRevokes`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-expired-suspension-is-not-lifted-by-refresh
+    title: "Login enforcement: Expired suspension is not lifted by refresh"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Expired suspension is not lifted by refresh"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Expired suspension is not lifted by refresh (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestRefreshSuspendedNotLifted`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-unknown-token-is-still-generic
+    title: "Login enforcement: Unknown token is still generic"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Unknown token is still generic"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Unknown token is still generic (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestRefreshUnknownTokenBeforeStatusCheck`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-restricted-user-refreshes-without-listing-write
+    title: "Login enforcement: Restricted user refreshes without listing.write"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Restricted user refreshes without listing.write"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Restricted user refreshes without listing.write (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestRefreshRestrictedDropsListingWrite`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-restricted-seller-token-lacks-listing-write
+    title: "Login enforcement: Restricted seller token lacks listing.write"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Restricted seller token lacks listing.write"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a restricted seller logs in"
+      - "Then the access token scopes equal the seller scopes without `listing.write` and still contain `listing.read`, `engagement:write` and `search:write`"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::Login enforcement: Restricted seller token lacks listing.write"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/authz` `TestScopesForUserRestricted` and team-identity `internal/service` `TestLoginRestrictedSellerNoListingWrite`"
+
+  - id: user-enforcement.login-enforcement-active-user-scopes-unchanged
+    title: "Login enforcement: Active user scopes unchanged"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Active user scopes unchanged"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Active user scopes unchanged (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/authz` `TestScopesForUserActiveUnchanged`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-reinstated-user-regains-listing-write-at-next-refresh
+    title: "Login enforcement: Reinstated user regains listing.write at next refresh"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Reinstated user regains listing.write at next refresh"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Reinstated user regains listing.write at next refresh (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestRefreshAfterReinstatementRestoresScope`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.login-enforcement-unknown-status-gets-no-extra-scopes
+    title: "Login enforcement: Unknown status gets no extra scopes"
+    persona: admin
+    priority: P1
+    summary: "Login enforcement: Unknown status gets no extra scopes"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Login enforcement: Unknown status gets no extra scopes (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/authz` `TestScopesForUserUnknownStatusFailsClosed`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-new-user-is-active
+    title: "User enforcement: New user is active"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: New user is active"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: New user is active (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestCreateUserDefaultsToActive`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-existing-rows-read-as-active-after-migration
+    title: "User enforcement: Existing rows read as active after migration"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Existing rows read as active after migration"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Existing rows read as active after migration (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `migrations` `TestMigration0007UserStatusUpDown`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-unknown-status-value-is-refused-by-the-schema
+    title: "User enforcement: Unknown status value is refused by the schema"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Unknown status value is refused by the schema"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Unknown status value is refused by the schema (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestUserStatusCheckConstraint`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-ban-writes-one-audit-event-and-revokes-sessions
+    title: "User enforcement: Ban writes one audit event and revokes sessions"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Ban writes one audit event and revokes sessions"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin bans a buyer who has 3 active sessions with reason code `scam`"
+      - "Then the RPC succeeds with `sessions_revoked` = 3, the user has status `banned` and `status_reason` `scam`, and team-audit holds exactly 1 event with the admin id as `actor_id`, `action` `user.set_status`, `target_type` `user`, the user id as `target_id` and metadata `status` = `banned`"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::User enforcement: Ban writes one audit event and revokes sessions"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestSetUserStatusBanAuditsAndRevokes`"
+
+  - id: user-enforcement.user-enforcement-audit-is-written-before-the-change
+    title: "User enforcement: Audit is written before the change"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Audit is written before the change"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Audit is written before the change (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusAuditPrecedesChange`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-audit-down-refuses-the-change
+    title: "User enforcement: Audit down refuses the change"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Audit down refuses the change"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When team-audit returns an error, and in a second case a deadline-exceeded, while an admin suspends a user"
+      - "Then each case returns `Unavailable`, the user row and all sessions are unchanged, and no outbox row is written"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::User enforcement: Audit down refuses the change"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/handler` `TestSetUserStatusAuditDownUnavailableNoChange`"
+
+  - id: user-enforcement.user-enforcement-no-audit-upstream-configured
+    title: "User enforcement: No audit upstream configured"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: No audit upstream configured"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: No audit upstream configured (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/upstream` `TestNewAuditClientEmptyAddrIsNil` and team-identity `internal/service` `TestSetUserStatusNilAuditUnavailable`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-audit-is-called-as-the-service-principal
+    title: "User enforcement: Audit is called as the service principal"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Audit is called as the service principal"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Audit is called as the service principal (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/upstream` `TestAuditUsesServicePrincipal`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-change-failure-after-audit-keeps-the-audit-row
+    title: "User enforcement: Change failure after audit keeps the audit row"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Change failure after audit keeps the audit row"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Change failure after audit keeps the audit row (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusTxFailureAfterAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-status-change-and-revokes-are-atomic
+    title: "User enforcement: Status change and revokes are atomic"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Status change and revokes are atomic"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Status change and revokes are atomic (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestSetUserStatusRollsBackOnOutboxFailure`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-restrict-revokes-sessions-and-keeps-the-user-able-to-log-in
+    title: "User enforcement: Restrict revokes sessions and keeps the user able to log in"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Restrict revokes sessions and keeps the user able to log in"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Restrict revokes sessions and keeps the user able to log in (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusRestrictRevokesSessions`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-reinstating-to-active-revokes-nothing
+    title: "User enforcement: Reinstating to active revokes nothing"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Reinstating to active revokes nothing"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Reinstating to active revokes nothing (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusActiveRevokesNothing`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-setting-the-same-status-updates-reason-and-until
+    title: "User enforcement: Setting the same status updates reason and until"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Setting the same status updates reason and until"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Setting the same status updates reason and until (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusSuspendExtend`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-unknown-user-is-notfound-without-audit
+    title: "User enforcement: Unknown user is NotFound without audit"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Unknown user is NotFound without audit"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Unknown user is NotFound without audit (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusNotFoundNoAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-admin-cannot-change-their-own-status
+    title: "User enforcement: Admin cannot change their own status"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Admin cannot change their own status"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls SetUserStatus with their own user id"
+      - "Then the RPC returns `FailedPrecondition`, the fake audit writer receives 0 calls and the user row is unchanged"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::User enforcement: Admin cannot change their own status"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestSetUserStatusSelfRefused`"
+
+  - id: user-enforcement.user-enforcement-admin-cannot-change-another-admin
+    title: "User enforcement: Admin cannot change another admin"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Admin cannot change another admin"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an admin calls SetUserStatus on a user holding role `admin`"
+      - "Then the RPC returns `FailedPrecondition`, the fake audit writer receives 0 calls and the user row is unchanged"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::User enforcement: Admin cannot change another admin"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestSetUserStatusAdminTargetRefused`"
+
+  - id: user-enforcement.user-enforcement-invalid-input-is-rejected-before-any-audit
+    title: "User enforcement: Invalid input is rejected before any audit"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Invalid input is rejected before any audit"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Invalid input is rejected before any audit (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestSetUserStatusInvalidInput`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-input-boundaries-are-accepted
+    title: "User enforcement: Input boundaries are accepted"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Input boundaries are accepted"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Input boundaries are accepted (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestSetUserStatusInputBoundaries`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-non-admin-cannot-set-a-status
+    title: "User enforcement: Non-admin cannot set a status"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Non-admin cannot set a status"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a caller holding the seller scopes, and in a second case a caller with no principal, calls SetUserStatus"
+      - "Then the first call returns `PermissionDenied`, the second returns `Unauthenticated`, and the fake audit writer receives 0 calls"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::User enforcement: Non-admin cannot set a status"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/handler` `TestSetUserStatusRequiresAdminScope`"
+
+  - id: user-enforcement.user-enforcement-audit-metadata-never-leaks-into-logs
+    title: "User enforcement: Audit metadata never leaks into logs"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Audit metadata never leaks into logs"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Audit metadata never leaks into logs (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestSetUserStatusNoteNeverLogged`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-one-sessionrevoked-per-session-then-one-userstatuschanged
+    title: "User enforcement: One SessionRevoked per session then one UserStatusChanged"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: One SessionRevoked per session then one UserStatusChanged"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: One SessionRevoked per session then one UserStatusChanged (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestSetUserStatusOutboxRows`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-events-keep-per-user-order
+    title: "User enforcement: Events keep per-user order"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Events keep per-user order"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Events keep per-user order (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestSetUserStatusOutboxOrderPG`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-event-carries-no-note-and-no-username
+    title: "User enforcement: Event carries no note and no username"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Event carries no note and no username"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Event carries no note and no username (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/events` `TestUserStatusChangedPayloadMinimal`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-user-without-sessions-still-emits-the-status-event
+    title: "User enforcement: User without sessions still emits the status event"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: User without sessions still emits the status event"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: User without sessions still emits the status event (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestSetUserStatusNoSessions`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-already-revoked-sessions-are-not-revoked-twice
+    title: "User enforcement: Already revoked sessions are not revoked twice"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Already revoked sessions are not revoked twice"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Already revoked sessions are not revoked twice (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestSetUserStatusSkipsRevokedSessions`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-refresh-tokens-of-revoked-sessions-are-dead
+    title: "User enforcement: Refresh tokens of revoked sessions are dead"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Refresh tokens of revoked sessions are dead"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a user is banned and the previously issued refresh token of one of their sessions is presented to RefreshSession"
+      - "Then the call returns `Unauthenticated` (unknown token) and no session row changes"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::User enforcement: Refresh tokens of revoked sessions are dead"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestBannedUserRefreshTokenDead`"
+
+  - id: user-enforcement.user-enforcement-find-by-username-prefix
+    title: "User enforcement: Find by username prefix"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Find by username prefix"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Find by username prefix (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestListUsersPrefix`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-find-by-exact-id
+    title: "User enforcement: Find by exact id"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Find by exact id"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Find by exact id (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestListUsersExactID`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-filter-by-status
+    title: "User enforcement: Filter by status"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Filter by status"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Filter by status (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestListUsersStatusFilter`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-wildcards-in-the-query-are-literal
+    title: "User enforcement: Wildcards in the query are literal"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Wildcards in the query are literal"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Wildcards in the query are literal (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestListUsersEscapesLikeWildcards`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-paging-boundaries
+    title: "User enforcement: Paging boundaries"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Paging boundaries"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Paging boundaries (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestListUsersPaging`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-oversized-query-is-rejected
+    title: "User enforcement: Oversized query is rejected"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Oversized query is rejected"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Oversized query is rejected (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestListUsersQueryTooLong`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-listing-never-exposes-credentials-and-is-not-audited
+    title: "User enforcement: Listing never exposes credentials and is not audited"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Listing never exposes credentials and is not audited"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Listing never exposes credentials and is not audited (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestListUsersNoCredentialsNoAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-non-admin-cannot-list-users
+    title: "User enforcement: Non-admin cannot list users"
+    persona: admin
+    priority: P1
+    summary: "User enforcement: Non-admin cannot list users"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement: Non-admin cannot list users (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestListUsersRequiresAdminScope`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."

@@ -1583,3 +1583,132 @@ features:
     status: automated
     covered_by: "tracking/loop_event_intake.feature::Loop intake: an AI beacon type with odd casing is still validated"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an AI beacon type with odd casing is still validated; unit twin `internal/edge` `TestHandleTrackAIInteractionTypeCasingValidated`"
+
+  # ---- identity-user-enforcement (e2e-author; planned until the feature scenarios run green)
+  - id: user-enforcement.user-enforcement-edge-admin-reaches-setuserstatus
+    title: "User enforcement edge: Admin reaches SetUserStatus"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Admin reaches SetUserStatus"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement edge: Admin reaches SetUserStatus (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-gateway `internal/edge` `TestAccountAdminSetUserStatusForwarded`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-edge-anonymous-caller-is-rejected-at-the-edge
+    title: "User enforcement edge: Anonymous caller is rejected at the edge"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Anonymous caller is rejected at the edge"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an anonymous caller calls `ListUsers` or `SetUserStatus`"
+      - "Then each call returns `unauthenticated` and team-identity receives 0 requests"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::User enforcement edge: Anonymous caller is rejected at the edge"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-gateway `internal/edge` `TestAccountAdminAnonymousUnauthenticated`"
+
+  - id: user-enforcement.user-enforcement-edge-seller-without-admin-scope-is-denied
+    title: "User enforcement edge: Seller without admin scope is denied"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Seller without admin scope is denied"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a signed-in seller calls `ListUsers` or `SetUserStatus`"
+      - "Then each call returns `permission_denied` and team-identity receives 0 requests"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::User enforcement edge: Seller without admin scope is denied"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-gateway `internal/edge` `TestAccountAdminNonAdminPermissionDenied`"
+
+  - id: user-enforcement.user-enforcement-edge-setuserstatus-is-not-retried
+    title: "User enforcement edge: SetUserStatus is not retried"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: SetUserStatus is not retried"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement edge: SetUserStatus is not retried (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-gateway `internal/edge` `TestAccountAdminSetUserStatusNotRetried`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-edge-admin-policy-set-is-pinned
+    title: "User enforcement edge: Admin policy set is pinned"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Admin policy set is pinned"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement edge: Admin policy set is pinned (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-gateway `internal/edge` `TestAdminProceduresPinned`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-edge-procedures-are-covered-by-the-unrouted-guard
+    title: "User enforcement edge: Procedures are covered by the unrouted guard"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Procedures are covered by the unrouted guard"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement edge: Procedures are covered by the unrouted guard (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-gateway `internal/edge` `TestUnroutedGuardAccountAdmin`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-edge-banned-user-s-token-is-rejected-within-a-minute
+    title: "User enforcement edge: Banned user's token is rejected within a minute"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Banned user's token is rejected within a minute"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a logged-in buyer is banned by an admin and the buyer then calls an authenticated RPC with the old access token"
+      - "Then within 60 s the call returns `unauthenticated`"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::User enforcement edge: Banned user's token is rejected within a minute"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: platform-e2e `features/admin/user_enforcement.feature` \"Banned user loses access within a minute\""
+
+  - id: user-enforcement.user-enforcement-edge-banned-user-s-open-stream-ends
+    title: "User enforcement edge: Banned user's open stream ends"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Banned user's open stream ends"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a buyer holds an open notification SSE stream and an admin bans them"
+      - "Then the stream ends within 60 s"
+    tags: [admin, audit, auth]
+    status: planned
+    covered_by: "admin/user_enforcement.feature::User enforcement edge: Banned user's open stream ends"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: platform-e2e `features/admin/user_enforcement.feature` \"Banned user's open stream ends\""
