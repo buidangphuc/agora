@@ -15,6 +15,7 @@ Implement OpenSpec change `order-receipt-completion` test-first per its tasks.md
 - team-order/internal/config/config.go
 - team-order/internal/config/envcheck.go
 - team-order/internal/config/config_test.go
+- team-order/.env.example (widened at build: task 2)
 - team-order/migrations/*_order_lifecycle_completion.up.sql
 - team-order/migrations/*_order_lifecycle_completion.down.sql
 - team-order/internal/repository/order.go
