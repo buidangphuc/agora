@@ -111,3 +111,26 @@ WHEN `checkoutAction` receives `FAILED_PRECONDITION` with the reason "price chan
 - **WHEN** `createOrder` rejects with `Unavailable`
 - **THEN** `checkoutAction` returns `{ ok: false }` without `priceChanged` and `revalidatePath` is not called for `/cart`
 - **VERIFIED BY**: `team-frontend/src/features/order/actions.test.ts` `unavailable keeps the generic error and leaves the cart`
+
+### Requirement: The gateway routes the shipping fee quote
+
+team-gateway SHALL forward `OrderService.CalculateShippingFee` to team-order as a read call with the caller's forwarded principal, the same way it forwards the other order reads, and SHALL return team-order's response unchanged (Clarifications Round 2).
+
+#### Scenario: Advertised price: the gateway forwards the shipping fee quote
+- **GIVEN** team-gateway with an order client that answers `CalculateShippingFee(city "Hà Nội", items_subtotal 350000)` with fee 20000, is_free false
+- **WHEN** a caller sends that request to the gateway's `OrderService/CalculateShippingFee`
+- **THEN** the gateway returns fee 20000 and is_free false, the order client received exactly that city and subtotal, and the call is not answered 501 Unimplemented
+- VERIFIED BY: `team-gateway/internal/edge/order_test.go` TestOrderForwarderCalculateShippingFee
+
+#### Scenario: Advertised price: an order-service error on the fee quote is passed through
+- **GIVEN** team-gateway with an order client whose `CalculateShippingFee` fails with gRPC `UNAVAILABLE`
+- **WHEN** a caller requests a shipping fee quote
+- **THEN** the gateway answers with the mapped connect error `unavailable` and no fee
+- VERIFIED BY: `team-gateway/internal/edge/order_test.go` TestOrderForwarderCalculateShippingFeeError
+
+
+#### Scenario: Advertised price: the fee quote needs no buyer scope
+- **GIVEN** team-gateway with an order client that answers a fee quote
+- **WHEN** an anonymous caller (no token) requests `CalculateShippingFee(city "Cần Thơ", items_subtotal 100000)`
+- **THEN** the gateway forwards it with the anonymous principal and returns the quote, not 401 or 403, because the quote holds only the published shipping rule and no personal data
+- VERIFIED BY: `team-gateway/internal/edge/order_test.go` TestOrderForwarderCalculateShippingFeeAnonymous
