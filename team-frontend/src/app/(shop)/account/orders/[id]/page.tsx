@@ -1,5 +1,5 @@
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { Alert } from "@/components/ui/Alert";
@@ -33,7 +33,11 @@ export default async function BuyerOrderDetailPage(props: {
   const searchParams = await props.searchParams;
   const params = await props.params;
   const me = getPrincipal();
-  if (!me) redirect("/login");
+  if (!me)
+    redirectGuestToLogin(
+      `/account/orders/${encodeURIComponent(params.id)}`,
+      searchParams,
+    );
 
   // Resolve ownership first: nothing else (shipment, saga, items) is fetched
   // or rendered unless the order is the caller's own.

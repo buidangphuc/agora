@@ -168,6 +168,6 @@ describe("QASection", () => {
     const prompt = screen.getByTestId("qa-login-prompt");
     expect(
       within(prompt).getByRole("link", { name: "Đăng nhập" }),
-    ).toHaveAttribute("href", "/login?returnUrl=/listing/L");
+    ).toHaveAttribute("href", "/login?returnUrl=%2Flisting%2FL");
   });
 });

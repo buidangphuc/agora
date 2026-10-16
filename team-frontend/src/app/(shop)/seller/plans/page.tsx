@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -17,7 +17,7 @@ export const metadata = { title: "Gói đăng ký | Kênh người bán" };
 /** Plan Card grid; the current plan carries a "Gói hiện tại" Tag and a disabled button. */
 export default async function SellerPlansPage() {
   const me = getPrincipal();
-  if (!me || !hasScope("listing.write")) redirect("/login");
+  if (!me || !hasScope("listing.write")) redirectGuestToLogin("/seller/plans");
 
   const [plans, entitlements] = await Promise.all([
     listPlans(),

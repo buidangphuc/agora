@@ -1,20 +1,19 @@
 import type { ReactNode } from "react";
 
 import { Result } from "@/components/ui/Result";
+import { redirectGuestToLoginFromHeader } from "@/features/auth/guardPath";
 import { LinkButton } from "@/features/seller/LinkButton";
 import { SellerNavDrawer } from "@/features/seller/SellerNavDrawer";
 import { SellerSidebar } from "@/features/seller/SellerSidebar";
 import { getPrincipal } from "@/lib/gateway/session";
 import { batchGetShopNames, shopLabel } from "@/lib/gateway/shops";
-import { redirect } from "next/navigation";
 
 export default async function SellerLayout({
   children,
 }: { children: ReactNode }) {
   const principal = getPrincipal();
   if (!principal) {
-    redirect("/login");
-    return null;
+    return redirectGuestToLoginFromHeader();
   }
 
   if (!principal.scopes.includes("listing.write")) {

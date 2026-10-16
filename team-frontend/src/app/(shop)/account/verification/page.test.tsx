@@ -16,6 +16,12 @@ const toast = vi.hoisted(() => ({
   info: vi.fn(),
 }));
 vi.mock("@/components/ui/ToastProvider", () => ({ useToast: () => toast }));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
+  notFound: vi.fn(),
+}));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
 vi.mock("@/lib/gateway/verification", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/gateway/verification")>()),
@@ -73,8 +79,10 @@ describe("/account/verification status Tag", () => {
   it("redirects an anonymous visitor to /login", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
     status(VerificationStatus.UNSPECIFIED, "Chưa xác minh");
-    await VerificationPage();
-    expect(redirect).toHaveBeenCalledWith("/login");
+    await expect(VerificationPage()).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Faccount%2Fverification",
+    );
   });
 });
 

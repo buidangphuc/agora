@@ -32,6 +32,27 @@ function consentEntries(layer: unknown[]): [string, Signals][] {
   return out;
 }
 
+function currentPageLocation(): string {
+  const loc = new URL(window.location.href);
+  if (loc.searchParams.has("returnUrl")) {
+    loc.searchParams.delete("returnUrl");
+    return loc.toString();
+  }
+  return loc.href;
+}
+
+/** Pushes the current page_location (without returnUrl) after a client-side navigation. */
+export function trackPageLocation(): void {
+  if (typeof window === "undefined") return;
+  window.dataLayer = window.dataLayer || [];
+  const layer = window.dataLayer as unknown[];
+  const granted = consentEntries(layer)
+    .filter(([k]) => k === "update")
+    .pop()?.[1];
+  if (granted?.analytics_storage !== "granted") return;
+  layer.push({ page_location: currentPageLocation() });
+}
+
 export function applyConsent(groups: ConsentGroups): void {
   if (typeof window === "undefined") return;
 
@@ -75,6 +96,19 @@ export function applyConsent(groups: ConsentGroups): void {
       )
     ) {
       layer.push({ debug_mode: true });
+    }
+
+    const pageLocation = currentPageLocation();
+    const lastPage = [...layer]
+      .reverse()
+      .find(
+        (e) =>
+          !!e &&
+          typeof e === "object" &&
+          typeof (e as { page_location?: unknown }).page_location === "string",
+      ) as { page_location: string } | undefined;
+    if (lastPage?.page_location !== pageLocation) {
+      layer.push({ page_location: pageLocation });
     }
 
     const gtmId = process.env.NEXT_PUBLIC_GTM_ID?.trim();
