@@ -2786,3 +2786,311 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `buf lint` per consumer proto directory (tasks 2.3)"
+  - id: flash-stock-contract.hold-rpcs-exist-on-flashsaleservice
+    title: "Flash stock contract: Hold RPCs exist on FlashSaleService"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Hold RPCs exist on FlashSaleService"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/promotion/v1/flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.message-fields-have-fixed-names-and-numbers
+    title: "Flash stock contract: Message fields have fixed names and numbers"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Message fields have fixed names and numbers"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.existing-messages-are-untouched
+    title: "Flash stock contract: Existing messages are untouched"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Existing messages are untouched"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.hold-messages-round-trip
+    title: "Flash stock contract: Hold messages round-trip"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Hold messages round-trip"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.maximum-quantity-and-price-round-trip
+    title: "Flash stock contract: Maximum quantity and price round-trip"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Maximum quantity and price round-trip"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.old-readers-skip-the-new-request-fields
+    title: "Flash stock contract: Old readers skip the new request fields"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Old readers skip the new request fields"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go test `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.service-only-is-documented
+    title: "Flash stock contract: Service-only is documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Service-only is documented"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.missing-service-only-note-is-caught
+    title: "Flash stock contract: Missing service-only note is caught"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Missing service-only note is caught"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.non-service-callers-are-documented-as-denied
+    title: "Flash stock contract: Non-service callers are documented as denied"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Non-service callers are documented as denied"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1); enforcement is tested end to end in promotion-flash-stock-hold"
+  - id: flash-stock-contract.hold-lifecycle-is-documented
+    title: "Flash stock contract: Hold lifecycle is documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Hold lifecycle is documented"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.reserve-replay-after-release
+    title: "Flash stock contract: Reserve replay after release"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Reserve replay after release"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.reasons-are-documented-as-a-closed-set
+    title: "Flash stock contract: Reasons are documented as a closed set"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Reasons are documented as a closed set"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.invalid-input-is-not-a-reason
+    title: "Flash stock contract: Invalid input is not a reason"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Invalid input is not a reason"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.reservation-id-shape-is-documented
+    title: "Flash stock contract: Reservation id shape is documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Reservation id shape is documented"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.remaining-meter-definition-is-documented
+    title: "Flash stock contract: Remaining meter definition is documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Remaining meter definition is documented"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `flashstock_compat_test.go` (tasks 2.1)"
+  - id: flash-stock-contract.change-is-backward-compatible
+    title: "Flash stock contract: Change is backward compatible"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Change is backward compatible"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` (tasks 1.2)"
+  - id: flash-stock-contract.lint-passes
+    title: "Flash stock contract: Lint passes"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Lint passes"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core lint-proto` (tasks 1.2)"
+  - id: flash-stock-contract.wire-breaking-edit-is-rejected
+    title: "Flash stock contract: Wire-breaking edit is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Wire-breaking edit is rejected"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` run on a mutated copy plus `flashstock_compat_test.go` (tasks 1.2, 2.1)"
+  - id: flash-stock-contract.new-rpcs-in-every-generated-language
+    title: "Flash stock contract: New RPCs in every generated language"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: New RPCs in every generated language"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+  - id: flash-stock-contract.copies-match-the-source
+    title: "Flash stock contract: Copies match the source"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Copies match the source"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the five copies against the source (tasks 2.3)"
+  - id: flash-stock-contract.drifted-or-missing-copy-is-rejected
+    title: "Flash stock contract: Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Drifted or missing copy is rejected"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the five copies against the source (tasks 2.3)"
+  - id: flash-stock-contract.consumer-copies-lint
+    title: "Flash stock contract: Consumer copies lint"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Flash stock contract: Consumer copies lint"
+    tags:
+    - flash-stock-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `buf lint` per consumer proto directory (tasks 2.3)"
