@@ -221,7 +221,7 @@ def ban_ok(world: World) -> None:
     assert revoked == s["before"], f"sessionsRevoked={revoked}, active sessions before={s['before']}"
 
 
-@then(parsers.parse('the admin sees the buyer as "{status}" with reason "{reason}"'))
+@then(parsers.re(r'the admin sees the buyer as "(?P<status>[^"]*)" with reason "(?P<reason>[^"]*)"'))
 def buyer_status(world: World, status: str, reason: str) -> None:
     row = ue.stored_user(world, _s(world)["buyer"]["id"])
     assert row.get("status") == f"USER_STATUS_{status.upper()}", row

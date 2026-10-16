@@ -1613,7 +1613,7 @@ features:
       - "When an anonymous caller calls `ListUsers` or `SetUserStatus`"
       - "Then each call returns `unauthenticated` and team-identity receives 0 requests"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement edge: Anonymous caller is rejected at the edge"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-gateway `internal/edge` `TestAccountAdminAnonymousUnauthenticated`"
 
@@ -1630,7 +1630,7 @@ features:
       - "When a signed-in seller calls `ListUsers` or `SetUserStatus`"
       - "Then each call returns `permission_denied` and team-identity receives 0 requests"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement edge: Seller without admin scope is denied"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-gateway `internal/edge` `TestAccountAdminNonAdminPermissionDenied`"
 
@@ -1692,7 +1692,7 @@ features:
       - "When a logged-in buyer is banned by an admin and the buyer then calls an authenticated RPC with the old access token"
       - "Then within 60 s the call returns `unauthenticated`"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement edge: Banned user's token is rejected within a minute"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: platform-e2e `features/admin/user_enforcement.feature` \"Banned user loses access within a minute\""
 
@@ -1709,6 +1709,6 @@ features:
       - "When a buyer holds an open notification SSE stream and an admin bans them"
       - "Then the stream ends within 60 s"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement edge: Banned user's open stream ends"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: platform-e2e `features/admin/user_enforcement.feature` \"Banned user's open stream ends\""

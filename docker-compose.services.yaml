@@ -221,6 +221,8 @@ services:
       - SEED_ADMIN_ENABLED=true
       - SEED_ADMIN_USERNAME=admin
       - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-admin-dev-password-123}
+      # SetUserStatus audits through team-audit and fails closed without it.
+      - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
 
   team-domain:
     build:

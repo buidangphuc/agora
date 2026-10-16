@@ -1157,7 +1157,7 @@ features:
       - "When a banned user logs in with the correct password"
       - "Then the call returns `PermissionDenied` with message `tài khoản bị khóa`, no session row is created and login history holds one failed attempt"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::Login enforcement: Banned user is refused after a correct password"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestLoginBannedPermissionDenied`"
 
@@ -1189,7 +1189,7 @@ features:
       - "When a banned user, a suspended user and an active user each log in with a wrong password"
       - "Then all three calls return the identical invalid-credentials error with the same code and message"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::Login enforcement: Wrong password reveals no status"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestLoginWrongPasswordNoStatusOracle`"
 
@@ -1251,7 +1251,7 @@ features:
       - "When a user suspended until 1 second ago logs in with the correct password"
       - "Then the login succeeds, the user has status `active`, and the outbox holds exactly 1 `UserStatusChanged` with previous status `suspended` and reason code `suspension_expired`"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::Login enforcement: Expired suspension is lifted"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestLoginLiftsExpiredSuspension`"
 
@@ -1418,7 +1418,7 @@ features:
       - "When a restricted seller logs in"
       - "Then the access token scopes equal the seller scopes without `listing.write` and still contain `listing.read`, `engagement:write` and `search:write`"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::Login enforcement: Restricted seller token lacks listing.write"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/authz` `TestScopesForUserRestricted` and team-identity `internal/service` `TestLoginRestrictedSellerNoListingWrite`"
 
@@ -1525,7 +1525,7 @@ features:
       - "When an admin bans a buyer who has 3 active sessions with reason code `scam`"
       - "Then the RPC succeeds with `sessions_revoked` = 3, the user has status `banned` and `status_reason` `scam`, and team-audit holds exactly 1 event with the admin id as `actor_id`, `action` `user.set_status`, `target_type` `user`, the user id as `target_id` and metadata `status` = `banned`"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Ban writes one audit event and revokes sessions"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestSetUserStatusBanAuditsAndRevokes`"
 
@@ -1557,7 +1557,7 @@ features:
       - "When team-audit returns an error, and in a second case a deadline-exceeded, while an admin suspends a user"
       - "Then each case returns `Unavailable`, the user row and all sessions are unchanged, and no outbox row is written"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Audit down refuses the change"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/handler` `TestSetUserStatusAuditDownUnavailableNoChange`"
 
@@ -1694,7 +1694,7 @@ features:
       - "When an admin calls SetUserStatus with their own user id"
       - "Then the RPC returns `FailedPrecondition`, the fake audit writer receives 0 calls and the user row is unchanged"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Admin cannot change their own status"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestSetUserStatusSelfRefused`"
 
@@ -1711,7 +1711,7 @@ features:
       - "When an admin calls SetUserStatus on a user holding role `admin`"
       - "Then the RPC returns `FailedPrecondition`, the fake audit writer receives 0 calls and the user row is unchanged"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Admin cannot change another admin"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestSetUserStatusAdminTargetRefused`"
 
@@ -1758,7 +1758,7 @@ features:
       - "When a caller holding the seller scopes, and in a second case a caller with no principal, calls SetUserStatus"
       - "Then the first call returns `PermissionDenied`, the second returns `Unauthenticated`, and the fake audit writer receives 0 calls"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Non-admin cannot set a status"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/handler` `TestSetUserStatusRequiresAdminScope`"
 
@@ -1865,7 +1865,7 @@ features:
       - "When a user is banned and the previously issued refresh token of one of their sessions is presented to RefreshSession"
       - "Then the call returns `Unauthenticated` (unknown token) and no session row changes"
     tags: [admin, audit, auth]
-    status: planned
+    status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Refresh tokens of revoked sessions are dead"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestBannedUserRefreshTokenDead`"
 
