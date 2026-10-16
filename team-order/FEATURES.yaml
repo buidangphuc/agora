@@ -1607,3 +1607,514 @@ features:
     status: automated
     covered_by: "security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"
     notes: "green after rebuild: security/ar2_order_admin.feature::A buyer cannot force-fail another buyer's order"
+
+  - id: order.oaa-admin-force-fails-an-order
+    title: "Order audit: Admin force-fails an order"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Admin force-fails an order"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaWritesAuditEvent. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-empty-fail-step-is-recorded-as-unspecified
+    title: "Order audit: Empty fail step is recorded as unspecified"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Empty fail step is recorded as unspecified"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaAuditEmptyStepUnspecified. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-force-fail-refused-while-audit-is-down
+    title: "Order audit: Force-fail refused while audit is down"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Force-fail refused while audit is down"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-force-fail-refused-without-an-audit-client
+    title: "Order audit: Force-fail refused without an audit client"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Force-fail refused without an audit client"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaNilAuditWriterUnavailable. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-unauthorized-force-fail-writes-no-event
+    title: "Order audit: Unauthorized force-fail writes no event"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Unauthorized force-fail writes no event"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaDeniedWritesNoAudit. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-invalid-or-unknown-input-writes-no-event
+    title: "Order audit: Invalid or unknown input writes no event"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Invalid or unknown input writes no event"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaInvalidInputWritesNoAudit. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-invalid-transition-keeps-the-audit-row
+    title: "Order audit: Invalid transition keeps the audit row"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Invalid transition keeps the audit row"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaInvalidStatusAfterAudit. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-admin-ships-a-seller-s-order
+    title: "Order audit: Admin ships a seller's order"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Admin ships a seller's order"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusAdminWritesAuditEvent. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-seller-updates-their-own-order-unaudited
+    title: "Order audit: Seller updates their own order unaudited"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Seller updates their own order unaudited"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusSellerNotAudited. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-order-admin-who-is-also-the-seller-is-audited
+    title: "Order audit: Order admin who is also the seller is audited"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Order admin who is also the seller is audited"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusOrderAdminSellerIsAudited. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-status-update-refused-while-audit-is-down
+    title: "Order audit: Status update refused while audit is down"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Status update refused while audit is down"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-status-update-refused-without-an-audit-client
+    title: "Order audit: Status update refused without an audit client"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Status update refused without an audit client"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusNilAuditWriterUnavailable. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-refused-status-calls-write-no-event
+    title: "Order audit: Refused status calls write no event"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Refused status calls write no event"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusRefusedWritesNoAudit. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-invalid-transition-by-an-admin-keeps-the-audit-row
+    title: "Order audit: Invalid transition by an admin keeps the audit row"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Invalid transition by an admin keeps the audit row"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusAdminInvalidTransitionAfterAudit. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-admin-approves-a-return
+    title: "Order audit: Admin approves a return"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Admin approves a return"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusAdminWritesAuditEvent. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-seller-updates-their-own-return-unaudited
+    title: "Order audit: Seller updates their own return unaudited"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Seller updates their own return unaudited"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusSellerNotAudited. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-return-update-refused-while-audit-is-down
+    title: "Order audit: Return update refused while audit is down"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Return update refused while audit is down"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-return-update-refused-without-an-audit-client
+    title: "Order audit: Return update refused without an audit client"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Return update refused without an audit client"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusNilAuditWriterUnavailable. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-refused-return-calls-write-no-event
+    title: "Order audit: Refused return calls write no event"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Refused return calls write no event"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusRefusedWritesNoAudit. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-invalid-return-transition-by-an-admin-keeps-the-audit-row
+    title: "Order audit: Invalid return transition by an admin keeps the audit row"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Invalid return transition by an admin keeps the audit row"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusAdminInvalidTransitionAfterAudit. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-admin-creates-a-shipment
+    title: "Order audit: Admin creates a shipment"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Admin creates a shipment"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentAdminWritesAuditEvent. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-seller-creates-a-shipment-unaudited
+    title: "Order audit: Seller creates a shipment unaudited"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Seller creates a shipment unaudited"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentSellerNotAudited. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-shipment-refused-while-audit-is-down
+    title: "Order audit: Shipment refused while audit is down"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Shipment refused while audit is down"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-shipment-refused-without-an-audit-client
+    title: "Order audit: Shipment refused without an audit client"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Shipment refused without an audit client"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentNilAuditWriterUnavailable. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-long-carrier-name-is-truncated-in-the-audit-event
+    title: "Order audit: Long carrier name is truncated in the audit event"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Long carrier name is truncated in the audit event"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentAuditCarrierTruncated. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-refused-shipment-calls-write-no-event
+    title: "Order audit: Refused shipment calls write no event"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Refused shipment calls write no event"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentRefusedWritesNoAudit. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-shipment-on-a-cancelled-order-keeps-the-audit-row
+    title: "Order audit: Shipment on a Cancelled order keeps the audit row"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Shipment on a Cancelled order keeps the audit row"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentAdminInvalidStatusAfterAudit. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-audit-call-carries-the-service-principal-only
+    title: "Order audit: Audit call carries the service principal only"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Audit call carries the service principal only"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/upstream TestAuditClientUsesServicePrincipal. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-audit-call-is-bounded-by-the-timeout
+    title: "Order audit: Audit call is bounded by the timeout"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Audit call is bounded by the timeout"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/upstream TestAuditClientTimeoutNoRetry. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-unset-audit-address-yields-no-client
+    title: "Order audit: Unset audit address yields no client"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Unset audit address yields no client"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/upstream TestNewAuditClientEmptyAddrNil. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-config-exposes-the-audit-address
+    title: "Order audit: Config exposes the audit address"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Config exposes the audit address"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/config TestUpstreamAuditConfig. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-audit-proto-copy-is-current
+    title: "Order audit: Audit proto copy is current"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-admin-audit."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order audit: Audit proto copy is current"
+    tags: [security, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/upstream TestAuditProtoCopyMatchesCore. Not producible end to end through the gateway (unit level)."
+  - id: order.oaa-admin-force-fail-appears-in-the-audit-log-end-to-end
+    title: "Order audit: Admin force-fail appears in the audit log end to end"
+    persona: admin
+    priority: P1
+    summary: "End-to-end scenario of change order-admin-audit (initiative q3-audit-log)."
+    entry_route: /
+    services: [team-gateway, team-order, team-audit]
+    preconditions:
+      login: admin
+      data: "Registers its own seller and buyer through the gateway; the seeded admin acts on the order."
+    api:
+      exercised: [order.v1.OrderService, audit.v1.AuditService.QueryAuditLog]
+    acceptance:
+      - "When the seeded admin force-fails a buyer's Pending order and then queries the audit log for target_type `order` and that order id"
+      - "Then exactly one event has action `order.force_fail`, actor_id equal to the admin's user id and metadata `fail_step`"
+    tags: [security, audit]
+    status: automated
+    covered_by: "order/admin_audit.feature::Order audit: Admin force-fail appears in the audit log end to end"
+  - id: order.oaa-admin-status-update-appears-in-the-audit-log-end-to-end
+    title: "Order audit: Admin status update appears in the audit log end to end"
+    persona: admin
+    priority: P1
+    summary: "End-to-end scenario of change order-admin-audit (initiative q3-audit-log)."
+    entry_route: /
+    services: [team-gateway, team-order, team-audit]
+    preconditions:
+      login: admin
+      data: "Registers its own seller and buyer through the gateway; the seeded admin acts on the order."
+    api:
+      exercised: [order.v1.OrderService, audit.v1.AuditService.QueryAuditLog]
+    acceptance:
+      - "When the seeded admin moves a seller's Paid order to Shipped and then queries the audit log for that order"
+      - "Then exactly one event has action `order.admin_status_update` with metadata `seller_id` equal to the seller's user id and `to_status`=\"ORDER_STATUS_SHIPPED\", and the order reads as Shipped"
+    tags: [security, audit]
+    status: automated
+    covered_by: "order/admin_audit.feature::Order audit: Admin status update appears in the audit log end to end"
+  - id: order.oaa-admin-return-update-appears-in-the-audit-log-end-to-end
+    title: "Order audit: Admin return update appears in the audit log end to end"
+    persona: admin
+    priority: P1
+    summary: "End-to-end scenario of change order-admin-audit (initiative q3-audit-log)."
+    entry_route: /
+    services: [team-gateway, team-order, team-audit]
+    preconditions:
+      login: admin
+      data: "Registers its own seller and buyer through the gateway; the seeded admin acts on the order."
+    api:
+      exercised: [order.v1.OrderService, audit.v1.AuditService.QueryAuditLog]
+    acceptance:
+      - "When the seeded admin approves a buyer's Requested return and then queries the audit log for target_type `return_request` and the return id"
+      - "Then exactly one event has action `return.admin_status_update` with metadata `to_status`=\"RETURN_STATUS_APPROVED\" and `order_id`"
+    tags: [security, audit]
+    status: automated
+    covered_by: "order/admin_audit.feature::Order audit: Admin return update appears in the audit log end to end"
+  - id: order.oaa-admin-shipment-appears-in-the-audit-log-end-to-end
+    title: "Order audit: Admin shipment appears in the audit log end to end"
+    persona: admin
+    priority: P1
+    summary: "End-to-end scenario of change order-admin-audit (initiative q3-audit-log)."
+    entry_route: /
+    services: [team-gateway, team-order, team-audit]
+    preconditions:
+      login: admin
+      data: "Registers its own seller and buyer through the gateway; the seeded admin acts on the order."
+    api:
+      exercised: [order.v1.OrderService, audit.v1.AuditService.QueryAuditLog]
+    acceptance:
+      - "When the seeded admin creates a shipment with carrier \"SPX\" on a Paid order and then queries the audit log for that order and action `shipment.admin_create`"
+      - "Then exactly one event is returned with metadata `carrier`=\"SPX\""
+    tags: [security, audit]
+    status: automated
+    covered_by: "order/admin_audit.feature::Order audit: Admin shipment appears in the audit log end to end"
+  - id: order.oaa-seller-actions-are-not-audited-end-to-end
+    title: "Order audit: Seller actions are not audited end to end"
+    persona: admin
+    priority: P1
+    summary: "End-to-end scenario of change order-admin-audit (initiative q3-audit-log)."
+    entry_route: /
+    services: [team-gateway, team-order, team-audit]
+    preconditions:
+      login: admin
+      data: "Registers its own seller and buyer through the gateway; the seeded admin acts on the order."
+    api:
+      exercised: [order.v1.OrderService, audit.v1.AuditService.QueryAuditLog]
+    acceptance:
+      - "When the seller ships their own Paid order through UpdateOrderStatus and then queries the audit log for target_type `order` and that order id"
+      - "Then the order reads as Shipped and zero events are returned"
+    tags: [security, audit]
+    status: automated
+    covered_by: "order/admin_audit.feature::Order audit: Seller actions are not audited end to end"
+  - id: order.oaa-admin-action-is-refused-while-team-audit-is-down-end-to-end
+    title: "Order audit: Admin action is refused while team-audit is down end to end"
+    persona: admin
+    priority: P1
+    summary: "End-to-end scenario of change order-admin-audit (initiative q3-audit-log)."
+    entry_route: /
+    services: [team-gateway, team-order, team-audit]
+    preconditions:
+      login: admin
+      data: "Registers its own seller and buyer through the gateway; the seeded admin acts on the order."
+    api:
+      exercised: [order.v1.OrderService, audit.v1.AuditService.QueryAuditLog]
+    acceptance:
+      - "When the scenario (tagged `@destructive`) calls `stop_audit`, then the seeded admin calls UpdateOrderStatus to Shipped on a seller's Paid order"
+      - "Then the call fails with `unavailable`; after `start_audit` the order read by the buyer is Paid and `assert_no_event` holds for the order"
+    tags: [security, audit]
+    status: automated
+    covered_by: "order/admin_audit.feature::Order audit: Admin action is refused while team-audit is down end to end"
+  - id: order.oaa-buyer-cannot-use-the-admin-path-end-to-end
+    title: "Order audit: Buyer cannot use the admin path end to end"
+    persona: admin
+    priority: P1
+    summary: "End-to-end scenario of change order-admin-audit (initiative q3-audit-log)."
+    entry_route: /
+    services: [team-gateway, team-order, team-audit]
+    preconditions:
+      login: admin
+      data: "Registers its own seller and buyer through the gateway; the seeded admin acts on the order."
+    api:
+      exercised: [order.v1.OrderService, audit.v1.AuditService.QueryAuditLog]
+    acceptance:
+      - "When a buyer calls UpdateOrderStatus to Shipped on their own Paid order"
+      - "Then the call fails with `permission_denied`, the order remains Paid and zero audit events exist for the order"
+    tags: [security, audit]
+    status: automated
+    covered_by: "order/admin_audit.feature::Order audit: Buyer cannot use the admin path end to end"

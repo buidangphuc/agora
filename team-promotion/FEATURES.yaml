@@ -196,3 +196,454 @@ features:
     covered_by: "security/promotion_access.feature::A seller cannot read another seller's entitlements"
     notes: >-
       A seller may read their own entitlements (the seller plans page relies on it); the spec was corrected to match.
+
+  - id: promotion.admin-audit-admin-creates-a-platform-voucher
+    title: "Admin creates a platform voucher"
+    persona: admin
+    priority: P1
+    summary: "Admin promotion audit (change promotion-admin-audit): Admin creates a platform voucher"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.CreateCampaign, promotion.v1.CreateAdCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given the seeded admin for the promotion audit check"
+      - "When the admin creates a PLATFORM voucher with a fresh code, discount type percent and value 10"
+      - "Then the promotion call succeeds"
+      - "And the voucher exists"
+      - "And the audit log holds exactly one \"voucher.platform_create\" event for the voucher by the admin with discount type \"DISCOUNT_TYPE_PERCENT\" and value \"10\""
+    tags: [promotion, audit]
+    status: automated
+    covered_by: "promo/promotion_admin_audit.feature::Promotion audit: Admin creates a platform voucher"
+
+  - id: promotion.admin-audit-unspecified-scope-is-audited-like-platform
+    title: "Unspecified scope is audited like platform"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Unspecified scope is audited like platform"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherUnspecifiedScopeAudited`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-promotion-audit-precedes-the-voucher-insert
+    title: "Promotion audit precedes the voucher insert"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Promotion audit precedes the voucher insert"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherAuditBeforeInsert`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-audit-down-blocks-a-platform-voucher
+    title: "Audit down blocks a platform voucher"
+    persona: admin
+    priority: P1
+    summary: "Admin promotion audit (change promotion-admin-audit): Audit down blocks a platform voucher"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.CreateCampaign, promotion.v1.CreateAdCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given the seeded admin for the promotion audit check"
+      - "And team-audit is stopped for the promotion audit check"
+      - "When the admin creates a PLATFORM voucher with a fresh code, discount type percent and value 10"
+      - "Then the promotion call fails with code \"unavailable\""
+      - "And the voucher is not found"
+    tags: [promotion, audit]
+    status: automated
+    covered_by: "promo/promotion_admin_audit.feature::Promotion audit: Audit down blocks a platform voucher"
+
+  - id: promotion.admin-audit-promotion-audit-upstream-not-configured
+    title: "Promotion audit upstream not configured"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Promotion audit upstream not configured"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherNilAuditUnavailable`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-promotion-audit-timeout-blocks-the-voucher
+    title: "Promotion audit timeout blocks the voucher"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Promotion audit timeout blocks the voucher"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestAuditClientTimeoutBounded` and `internal/service` `TestCreateVoucherAuditErrorFailsClosed`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-shop-voucher-by-a-seller-writes-no-event
+    title: "Shop voucher by a seller writes no event"
+    persona: admin
+    priority: P1
+    summary: "Admin promotion audit (change promotion-admin-audit): Shop voucher by a seller writes no event"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.CreateCampaign, promotion.v1.CreateAdCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given a promotion seller with a published listing"
+      - "And team-audit is stopped for the promotion audit check"
+      - "When the seller creates a SHOP voucher with a fresh code"
+      - "Then the promotion call succeeds"
+      - "And the audit log holds no \"voucher.platform_create\" event for the voucher after team-audit is started again"
+    tags: [promotion, audit]
+    status: automated
+    covered_by: "promo/promotion_admin_audit.feature::Promotion audit: Shop voucher by a seller writes no event"
+
+  - id: promotion.admin-audit-non-admin-cannot-create-a-platform-voucher-and-nothing-is-audited
+    title: "Non-admin cannot create a platform voucher and nothing is audited"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Non-admin cannot create a platform voucher and nothing is audited"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherPlatformDeniedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-invalid-platform-voucher-writes-no-event
+    title: "Invalid platform voucher writes no event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Invalid platform voucher writes no event"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherInvalidWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-promotion-audit-is-called-as-the-service-principal
+    title: "Promotion audit is called as the service principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Promotion audit is called as the service principal"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestAuditClientUsesServicePrincipal`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-admin-creates-a-flash-sale-with-an-audit-event
+    title: "Admin creates a flash sale with an audit event"
+    persona: admin
+    priority: P1
+    summary: "Admin promotion audit (change promotion-admin-audit): Admin creates a flash sale with an audit event"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.CreateCampaign, promotion.v1.CreateAdCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given the seeded admin for the promotion audit check"
+      - "And a promotion seller with a published listing"
+      - "When the admin creates a flash-sale campaign on that listing"
+      - "Then the promotion call succeeds"
+      - "And the audit log holds exactly one \"flash_sale.admin_create\" event for the returned campaign by the admin with the listing id"
+    tags: [promotion, audit]
+    status: automated
+    covered_by: "promo/promotion_admin_audit.feature::Promotion audit: Admin creates a flash sale with an audit event"
+
+  - id: promotion.admin-audit-seller-creates-a-flash-sale-on-their-own-listing
+    title: "Seller creates a flash sale on their own listing"
+    persona: admin
+    priority: P1
+    summary: "Admin promotion audit (change promotion-admin-audit): Seller creates a flash sale on their own listing"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.CreateCampaign, promotion.v1.CreateAdCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given a promotion seller with a published listing"
+      - "And team-audit is stopped for the promotion audit check"
+      - "When the seller creates a flash-sale campaign on their own listing"
+      - "Then the promotion call succeeds"
+      - "And the audit log holds no \"flash_sale.admin_create\" event for the returned campaign after team-audit is started again"
+    tags: [promotion, audit]
+    status: automated
+    covered_by: "promo/promotion_admin_audit.feature::Promotion audit: Seller creates a flash sale on their own listing"
+
+  - id: promotion.admin-audit-admin-flash-sale-makes-no-owner-lookup
+    title: "Admin flash sale makes no owner lookup"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Admin flash sale makes no owner lookup"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateCampaignAdminNoOwnerLookup`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-audit-down-blocks-an-admin-flash-sale
+    title: "Audit down blocks an admin flash sale"
+    persona: admin
+    priority: P1
+    summary: "Admin promotion audit (change promotion-admin-audit): Audit down blocks an admin flash sale"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.CreateCampaign, promotion.v1.CreateAdCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given the seeded admin for the promotion audit check"
+      - "And a promotion seller with a published listing"
+      - "And team-audit is stopped for the promotion audit check"
+      - "When the admin creates a flash-sale campaign on that listing"
+      - "Then the promotion call fails with code \"unavailable\""
+      - "And the listing has no active flash sale"
+    tags: [promotion, audit]
+    status: automated
+    covered_by: "promo/promotion_admin_audit.feature::Promotion audit: Audit down blocks an admin flash sale"
+
+  - id: promotion.admin-audit-promotion-audit-precedes-the-campaign-insert-and-carries-the-final-id
+    title: "Promotion audit precedes the campaign insert and carries the final id"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Promotion audit precedes the campaign insert and carries the final id"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateCampaignAuditBeforeInsertSameID`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-promotion-audit-failure-emits-nothing-for-a-flash-sale
+    title: "Promotion audit failure emits nothing for a flash sale"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Promotion audit failure emits nothing for a flash sale"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateCampaignAuditFailureFailsClosed`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-invalid-campaign-writes-no-event
+    title: "Invalid campaign writes no event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Invalid campaign writes no event"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateCampaignInvalidWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-refused-callers-write-no-flash-sale-event
+    title: "Refused callers write no flash-sale event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Refused callers write no flash-sale event"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateCampaignDeniedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-admin-creates-an-ad-campaign-with-an-audit-event
+    title: "Admin creates an ad campaign with an audit event"
+    persona: admin
+    priority: P1
+    summary: "Admin promotion audit (change promotion-admin-audit): Admin creates an ad campaign with an audit event"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.CreateCampaign, promotion.v1.CreateAdCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given the seeded admin for the promotion audit check"
+      - "And a promotion seller with a published listing"
+      - "When the admin creates an ad campaign with budget 50000 and bid 1000 on that listing"
+      - "Then the promotion call succeeds"
+      - "And the audit log holds exactly one \"ad_campaign.admin_create\" event for the returned campaign by the admin with the listing id, the stored seller id and budget \"50000\""
+    tags: [promotion, audit]
+    status: automated
+    covered_by: "promo/promotion_admin_audit.feature::Promotion audit: Admin creates an ad campaign with an audit event"
+
+  - id: promotion.admin-audit-seller-creates-an-ad-campaign-on-their-own-listing
+    title: "Seller creates an ad campaign on their own listing"
+    persona: admin
+    priority: P1
+    summary: "Admin promotion audit (change promotion-admin-audit): Seller creates an ad campaign on their own listing"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.CreateCampaign, promotion.v1.CreateAdCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given a promotion seller with a published listing"
+      - "And team-audit is stopped for the promotion audit check"
+      - "When the seller creates an ad campaign on their own listing"
+      - "Then the promotion call succeeds"
+      - "And the audit log holds no \"ad_campaign.admin_create\" event for the returned campaign after team-audit is started again"
+    tags: [promotion, audit]
+    status: automated
+    covered_by: "promo/promotion_admin_audit.feature::Promotion audit: Seller creates an ad campaign on their own listing"
+
+  - id: promotion.admin-audit-audit-down-blocks-an-admin-ad-campaign
+    title: "Audit down blocks an admin ad campaign"
+    persona: admin
+    priority: P1
+    summary: "Admin promotion audit (change promotion-admin-audit): Audit down blocks an admin ad campaign"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.CreateCampaign, promotion.v1.CreateAdCampaign, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given the seeded admin for the promotion audit check"
+      - "And a promotion seller with a published listing"
+      - "And team-audit is stopped for the promotion audit check"
+      - "When the admin creates an ad campaign with budget 50000 and bid 1000 on that listing"
+      - "Then the promotion call fails with code \"unavailable\""
+      - "And the listing is absent from the sponsored slots"
+    tags: [promotion, audit]
+    status: automated
+    covered_by: "promo/promotion_admin_audit.feature::Promotion audit: Audit down blocks an admin ad campaign"
+
+  - id: promotion.admin-audit-promotion-audit-precedes-the-ad-campaign-insert-and-carries-the-final-id
+    title: "Promotion audit precedes the ad campaign insert and carries the final id"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Promotion audit precedes the ad campaign insert and carries the final id"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateAdCampaignAuditBeforeInsertSameID`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-promotion-audit-failure-leaves-no-ad-campaign
+    title: "Promotion audit failure leaves no ad campaign"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Promotion audit failure leaves no ad campaign"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateAdCampaignAuditFailureFailsClosed`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-budget-boundary-is-validated-before-the-audit
+    title: "Budget boundary is validated before the audit"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Budget boundary is validated before the audit"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateAdCampaignBudgetBoundaryAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-refused-callers-write-no-ad-campaign-event
+    title: "Refused callers write no ad-campaign event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Refused callers write no ad-campaign event"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateAdCampaignDeniedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-empty-address-yields-no-client
+    title: "Empty address yields no client"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Empty address yields no client"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestNewAuditClientEmptyAddrNil`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-env-key-is-declared
+    title: "Env key is declared"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Env key is declared"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestDeclaredEnvKeysNoDrift`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-seller-cannot-create-a-platform-voucher-with-audit-unconfigured
+    title: "Seller cannot create a platform voucher with audit unconfigured"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller cannot create a platform voucher with audit unconfigured"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherPlatformSellerDeniedNilAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-seller-paths-unaffected-with-audit-unconfigured
+    title: "Seller paths unaffected with audit unconfigured"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-admin-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller paths unaffected with audit unconfigured"
+    tags: [promotion, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestSellerPathsIgnoreAuditAvailability`. Not producible end to end through the gateway (unit level)."

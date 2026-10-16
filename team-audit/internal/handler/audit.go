@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -30,7 +31,7 @@ func NewAuditHandler(svc *service.AuditService) *AuditHandler {
 // mapAuditErr turns a service validation error into the right gRPC status.
 func mapAuditErr(err error) error {
 	switch {
-	case errors.Is(err, service.ErrEmptyAction):
+	case errors.Is(err, service.ErrEmptyAction), errors.Is(err, service.ErrInvalidTimeRange):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		// Log the cause server-side; never leak storage error text to the caller.
@@ -60,7 +61,7 @@ func (h *AuditHandler) WriteAuditEvent(ctx context.Context, req *auditv1.WriteAu
 	return &auditv1.WriteAuditEventResponse{}, nil
 }
 
-// QueryAuditLog returns the audit trail filtered by actor and/or target type,
+// QueryAuditLog returns the audit trail filtered by actor, target, action and/or created_at range,
 // newest first, paginated. The opaque page cursor encodes the row offset; the
 // response's next_cursor is set only while further pages remain. Admin only.
 func (h *AuditHandler) QueryAuditLog(ctx context.Context, req *auditv1.QueryAuditLogRequest) (*auditv1.QueryAuditLogResponse, error) {
@@ -70,7 +71,24 @@ func (h *AuditHandler) QueryAuditLog(ctx context.Context, req *auditv1.QueryAudi
 	pageSize := int(req.GetPage().GetPageSize())
 	offset := decodeCursor(req.GetPage().GetCursor())
 
-	events, total, err := h.svc.Query(ctx, req.GetActorId(), req.GetTargetType(), pageSize, offset)
+	// Absent or zero timestamps mean "no bound". Filter values are never logged.
+	var after, before time.Time
+	if req.GetCreatedAfter() != nil {
+		after = req.GetCreatedAfter().AsTime()
+	}
+	if req.GetCreatedBefore() != nil {
+		before = req.GetCreatedBefore().AsTime()
+	}
+	events, total, err := h.svc.Query(ctx, service.QueryParams{
+		ActorID:       req.GetActorId(),
+		TargetType:    req.GetTargetType(),
+		TargetID:      req.GetTargetId(),
+		Action:        req.GetAction(),
+		CreatedAfter:  after,
+		CreatedBefore: before,
+		PageSize:      pageSize,
+		Offset:        offset,
+	})
 	if err != nil {
 		return nil, mapAuditErr(err)
 	}

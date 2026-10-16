@@ -8,15 +8,15 @@ base: asdlc/q2-review-integrity (stacked on Q2 PRs agora#24/#25)
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
-| q3-audit-log-contract | platform-core | [] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 865dff649314 | [x] |
-| audit-query-filters | team-audit | [q3-audit-log-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 244d7ef07053 | [x] |
-| verification-kyc-audit | team-verification | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | dde8adb88723 | [x] |
-| engagement-dispute-audit | team-engagement | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | b3be9c7d96ec | [x] |
-| domain-admin-listing-audit | team-domain | [audit-query-filters] | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 551c56bea47d | [x] |
-| order-admin-audit | team-order | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 37ba99e936e6 | [x] |
-| payment-admin-refund-audit | team-payment | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 5bc92c64f4f1 | [x] |
-| promotion-admin-audit | team-promotion | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | bd3892196e98 | [x] |
-| frontend-audit-viewer | team-frontend | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 11bf4c3b32a0 | [x] |
+| q3-audit-log-contract | platform-core | [] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 21db7e6e5970 | [x] |
+| audit-query-filters | team-audit | [q3-audit-log-contract] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | b4b6c3bd0481 | [x] |
+| verification-kyc-audit | team-verification | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | bc72ddc2ce03 | [x] |
+| engagement-dispute-audit | team-engagement | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d0b4c078ec67 | [x] |
+| domain-admin-listing-audit | team-domain | [audit-query-filters] | 3 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 895758fbe538 | [x] |
+| order-admin-audit | team-order | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 88fef3a42255 | [x] |
+| payment-admin-refund-audit | team-payment | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 570fdaefb137 | [x] |
+| promotion-admin-audit | team-promotion | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | d66e7dc5752d | [x] |
+| frontend-audit-viewer | team-frontend | [audit-query-filters] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 62c49cc6ba40 | [x] |
 
 Round notes: round 1 failures were domain (helper names, @destructive) and order (helper names, free-text carrier, untestable audit-down ordering). Domain round 2 failed on the `status` metadata format (enum name vs stored lowercase); fixed in round 3 → pass. Engagement/domain needed extra title-prefix passes for cross-change uniqueness (text only).
 
@@ -55,3 +55,6 @@ pass (`cross_change_check: OK`). Earlier duplicate scenario titles were removed 
 - `UPSTREAM_AUDIT_ADDR` must be set per environment (gitops) for verification, domain, order, payment, promotion, engagement — release item.
 
 **Tooling gaps**: decide.py ENGINE_DOWN (no units/engine) — reviewers used their checklists.
+
+## Re-lock 2026-10-15 (converge)
+Digests updated after: tasks.md ticked in all 9 changes; Clarifications Round 2 approved by Bùi Đăng Phúc — scenario renames "Audit query: In-memory repository matches Postgres", "Payment audit: Audit is called as the service principal" (cross-initiative title clash with engagement-review-integrity) and order "Shipment on a Cancelled order keeps the audit row" (Pending is shippable by COD).

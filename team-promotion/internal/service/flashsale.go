@@ -23,6 +23,7 @@ type FlashSaleService struct {
 	listings  upstream.ListingGetter // nil when UPSTREAM_DOMAIN_ADDR is unset
 	logger    *slog.Logger
 	nowFn     func() time.Time
+	audit     AuditWriter // nil = admin campaign creation fails closed
 }
 
 // NewFlashSaleService wires the campaign repository, the promotion.events producer
@@ -52,6 +53,12 @@ func NewFlashSaleService(
 	}
 }
 
+// WithAudit sets the audit writer used for admin campaign creation.
+func (s *FlashSaleService) WithAudit(w AuditWriter) *FlashSaleService {
+	s.audit = w
+	return s
+}
+
 // ErrInvalidCampaign is returned for malformed CreateCampaign input.
 var ErrInvalidCampaign = errors.New("invalid flash sale campaign")
 
@@ -77,12 +84,23 @@ func (s *FlashSaleService) CreateCampaign(ctx context.Context, p CreateCampaignP
 	if strings.TrimSpace(p.ListingID) == "" {
 		return repository.FlashSaleCampaign{}, ErrInvalidCampaign
 	}
-	if !p.IsAdmin {
-		if err := s.requireListingOwner(ctx, strings.TrimSpace(p.ListingID), p.CallerID); err != nil {
+	var id string
+	if p.IsAdmin {
+		id = newCampaignID()
+		if err := writeAudit(ctx, s.audit, upstream.AuditEvent{
+			ActorID:    p.CallerID,
+			Action:     "flash_sale.admin_create",
+			TargetType: "flash_sale",
+			TargetID:   id,
+			Metadata:   map[string]string{"listing_id": strings.TrimSpace(p.ListingID)},
+		}); err != nil {
 			return repository.FlashSaleCampaign{}, err
 		}
+	} else if err := s.requireListingOwner(ctx, strings.TrimSpace(p.ListingID), p.CallerID); err != nil {
+		return repository.FlashSaleCampaign{}, err
 	}
 	c := repository.FlashSaleCampaign{
+		ID:        id,
 		ListingID: strings.TrimSpace(p.ListingID),
 		VariantID: p.VariantID,
 		SalePrice: p.SalePrice,

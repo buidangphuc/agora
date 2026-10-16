@@ -19,3 +19,7 @@
 ### Round 1 — 2026-10-15
 
 - Q1 [permission]: uniform rule. Every UpdateOrderStatus, UpdateReturnStatus and CreateShipment call where the caller holds `order.admin` is audited, including an `order.admin` caller who is the seller. ForceFailSaga is unchanged (`admin` and `order.admin`, always audited). Callers without `order.admin` (pure sellers) are unaudited and unaffected by team-audit availability.
+
+### Round 2 — 2026-10-15
+
+- Q1 [outcome] "Shipment on a Pending order keeps the audit row": a Pending order is shippable by COD hand-over, so the non-shippable case is a Cancelled order; rename to "Shipment on a Cancelled order keeps the audit row" and fix the WHEN text? → **approved** (human, converge)

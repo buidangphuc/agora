@@ -102,8 +102,22 @@ func run() error {
 		logger.Warn("UPSTREAM_DOMAIN_ADDR unset: non-admin CreateCampaign/CreateAdCampaign fail closed")
 	}
 	flashSaleSvc := service.NewFlashSaleService(flashSaleRepo, res.Producer, res.Flags, listings, logger)
+	auditClient, err := upstream.NewAuditClient(settings.Upstream.AuditAddr, time.Duration(settings.Upstream.CallTimeoutSeconds*float64(time.Second)))
+	if err != nil {
+		return fmt.Errorf("upstream audit: %w", err)
+	}
+	if auditClient != nil {
+		defer func() { _ = auditClient.Close() }()
+		voucherSvc.WithAudit(auditClient)
+		flashSaleSvc.WithAudit(auditClient)
+	} else {
+		logger.Warn("UPSTREAM_AUDIT_ADDR unset: platform voucher and admin campaign creation fail closed")
+	}
 	subscriptionSvc := service.NewSubscriptionService(subscriptionRepo, logger)
 	sponsoredSvc := service.NewSponsoredService(adCampaignRepo, listings, logger).WithLimits(settings.Ads.MaxBid, settings.Ads.MaxBudget)
+	if auditClient != nil {
+		sponsoredSvc.WithAudit(auditClient)
+	}
 
 	voucherHandler := handler.NewVoucherHandler(voucherSvc, logger)
 	flashSaleHandler := handler.NewFlashSaleHandler(flashSaleSvc, logger)

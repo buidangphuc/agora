@@ -89,7 +89,7 @@ func newFixture(t *testing.T) (*fixture, string) {
 		repository.NewInMemoryRepository(),
 		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
 		service.NewQAService(repository.NewInMemoryQARepository(), nil),
-		service.NewDisputeService(disputes, nil),
+		service.NewDisputeService(disputes, nil).WithAudit(&auditSpy{}),
 		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil),
 		handler.WithOrderParties(orders),
 	)
@@ -156,7 +156,7 @@ func TestCreateDisputeFailsClosedWithoutOrderClient(t *testing.T) {
 	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(),
 		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
 		service.NewQAService(repository.NewInMemoryQARepository(), nil),
-		service.NewDisputeService(disputes, nil),
+		service.NewDisputeService(disputes, nil).WithAudit(&auditSpy{}),
 		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil))
 	_, err := h.CreateDispute(userCtx("buyer-1"), &engagementv1.CreateDisputeRequest{OrderId: "o", DefendantId: "s", Reason: "r"})
 	if status.Code(err) != codes.Unavailable {
@@ -230,7 +230,7 @@ func shopReplyFixture(t *testing.T) (*handler.EngagementHandler, string) {
 	qaSvc := service.NewQAService(repository.NewInMemoryQARepository(), nil)
 	h := handler.NewEngagementHandler(repo,
 		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil), qaSvc,
-		service.NewDisputeService(repository.NewInMemoryDisputeRepository(), nil),
+		service.NewDisputeService(repository.NewInMemoryDisputeRepository(), nil).WithAudit(&auditSpy{}),
 		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil))
 	if err := repo.IndexSellerListing(context.Background(), "seller-1", "listing-1"); err != nil {
 		t.Fatal(err)
@@ -280,7 +280,7 @@ func TestIsShopReplyFailsClosedForUnknownListing(t *testing.T) {
 	qa := service.NewQAService(repository.NewInMemoryQARepository(), nil)
 	h2 := handler.NewEngagementHandler(repo,
 		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil), qa,
-		service.NewDisputeService(repository.NewInMemoryDisputeRepository(), nil),
+		service.NewDisputeService(repository.NewInMemoryDisputeRepository(), nil).WithAudit(&auditSpy{}),
 		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil))
 	q, err := qa.AskQuestion(context.Background(), "unindexed-listing", "buyer-1", "ok?")
 	if err != nil {
@@ -371,7 +371,7 @@ func TestInternalErrorsAreGeneric(t *testing.T) {
 	qa := brokenQA{repository.NewInMemoryQARepository()}
 	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(),
 		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
-		service.NewQAService(qa, nil), service.NewDisputeService(disputes, nil),
+		service.NewQAService(qa, nil), service.NewDisputeService(disputes, nil).WithAudit(&auditSpy{}),
 		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil),
 		handler.WithOrderParties(fakeOrders{"order-1": {buyer: "buyer-1", seller: "seller-1"}}))
 	q, err := qa.CreateQuestion(context.Background(), repository.ProductQuestion{ListingID: "l", UserID: "buyer-1", QuestionText: "q"})

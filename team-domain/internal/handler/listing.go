@@ -205,7 +205,14 @@ func (h *ListingHandler) UpdateListing(
 		return nil, status.Error(codes.InvalidArgument, "listing.id is required")
 	}
 	ownerID, isAdmin := principalOwner(ctx)
-	updated, err := h.svc.UpdateWithEvent(ctx, fromWire(req.GetListing()), ownerID, isAdmin,
+	l := fromWire(req.GetListing())
+	if isAdmin && req.GetListing().GetStatus() == listingv1.ListingStatus_LISTING_STATUS_UNSPECIFIED {
+		// No status in the request: the audited (and applied) status is the stored one.
+		if existing, gerr := h.svc.Get(ctx, l.ID); gerr == nil {
+			l.Status = existing.Status
+		}
+	}
+	updated, err := h.svc.UpdateWithEvent(ctx, l, ownerID, isAdmin,
 		h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_UPDATED))
 	if err != nil {
 		switch {
@@ -213,6 +220,8 @@ func (h *ListingHandler) UpdateListing(
 			return nil, status.Error(codes.NotFound, "not_found")
 		case errors.Is(err, service.ErrForbidden):
 			return nil, status.Error(codes.PermissionDenied, "not the listing owner")
+		case errors.Is(err, service.ErrAuditUnavailable):
+			return nil, status.Error(codes.Unavailable, "audit unavailable")
 		default:
 			return nil, status.Error(codes.Internal, "internal error")
 		}
@@ -240,6 +249,8 @@ func (h *ListingHandler) DeleteListing(
 			return nil, status.Error(codes.NotFound, "not_found")
 		case errors.Is(err, service.ErrForbidden):
 			return nil, status.Error(codes.PermissionDenied, "not the listing owner")
+		case errors.Is(err, service.ErrAuditUnavailable):
+			return nil, status.Error(codes.Unavailable, "audit unavailable")
 		default:
 			return nil, status.Error(codes.Internal, "internal error")
 		}

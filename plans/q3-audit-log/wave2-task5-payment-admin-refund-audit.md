@@ -8,6 +8,7 @@ Implement OpenSpec change `payment-admin-refund-audit` test-first per its tasks.
 - Audits the admin branch of RefundPayment before money moves; the seller branch is untouched.
 
 ## Write-set (EXCLUSIVE)
+- team-payment/internal/handler/payment_test.go
 - team-payment/internal/upstream/audit.go
 - team-payment/internal/upstream/audit_test.go
 - team-payment/internal/config/config.go
@@ -19,6 +20,7 @@ Implement OpenSpec change `payment-admin-refund-audit` test-first per its tasks.
 - team-payment/internal/handler/payment.go
 - team-payment/internal/handler/refund_rpc_test.go
 - team-payment/internal/handler/refund_audit_test.go
+- platform-e2e/tests/e2e/support/prm_pay_stack.py
 - team-payment/FEATURES.yaml
 - platform-e2e/tests/e2e/features/payment/admin_refund_audit.feature
 - platform-e2e/tests/e2e/step_definitions/test_admin_refund_audit.py

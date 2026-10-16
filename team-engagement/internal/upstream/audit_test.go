@@ -144,3 +144,91 @@ func TestAuditClientNilReceiverFailsClosed_NoAuditUpstreamConfigured(t *testing.
 		t.Fatal("nil audit client must return an error, not nil")
 	}
 }
+
+// Scenario: Dispute audit: written as the service principal
+func TestAuditClientWriteEventUsesServicePrincipal(t *testing.T) {
+	rec := &recordingAudit{}
+	c, err := NewAuditClient(startAudit(t, rec), time.Second)
+	if err != nil || c == nil {
+		t.Fatalf("NewAuditClient: %v, %v", c, err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+		"x-principal-id", "adm-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
+	ev := AuditEvent{
+		ActorID: "adm-1", Action: "dispute.resolve", TargetType: "dispute", TargetID: "d-1",
+		Metadata: map[string]string{"resolution": "refund buyer", "order_id": "o-1", "status": "resolved"},
+	}
+	if err := c.WriteEvent(ctx, ev); err != nil {
+		t.Fatalf("WriteEvent: %v", err)
+	}
+	if len(rec.reqs) != 1 {
+		t.Fatalf("want exactly 1 call, got %d", len(rec.reqs))
+	}
+	req := rec.reqs[0]
+	if req.GetActorId() != "adm-1" || req.GetAction() != "dispute.resolve" || req.GetTargetType() != "dispute" || req.GetTargetId() != "d-1" {
+		t.Errorf("unexpected event: %+v", req)
+	}
+	if m := req.GetMetadata(); len(m) != 3 || m["resolution"] != "refund buyer" || m["order_id"] != "o-1" || m["status"] != "resolved" {
+		t.Errorf("metadata = %v", m)
+	}
+	want := map[string]string{
+		"x-principal-id":     "service-team-engagement",
+		"x-principal-type":   "service",
+		"x-principal-scopes": "audit.write",
+	}
+	for k, v := range want {
+		if vals := rec.mds[0].Get(k); len(vals) != 1 || vals[0] != v {
+			t.Errorf("%s = %v, want [%s]", k, vals, v)
+		}
+	}
+}
+
+// Scenario: Dispute audit: Hide-review audit behaviour is unchanged
+func TestWriteHideEventStillBuildsReviewHideEvent(t *testing.T) {
+	rec := &recordingAudit{}
+	c, err := NewAuditClient(startAudit(t, rec), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	if err := c.WriteHideEvent(context.Background(), "adm-1", "r-1", "L-1", "spam"); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.reqs) != 1 {
+		t.Fatalf("want 1 call, got %d", len(rec.reqs))
+	}
+	req := rec.reqs[0]
+	if req.GetAction() != "review.hide" || req.GetTargetType() != "review" || req.GetTargetId() != "r-1" || req.GetActorId() != "adm-1" {
+		t.Errorf("unexpected event: %+v", req)
+	}
+	if m := req.GetMetadata(); len(m) != 2 || m["reason"] != "spam" || m["listing_id"] != "L-1" {
+		t.Errorf("metadata = %v", m)
+	}
+}
+
+// Scenario: Dispute audit: timeout is Unavailable (client half)
+func TestAuditClientWriteEventTimeout(t *testing.T) {
+	c, err := NewAuditClient(startAudit(t, &recordingAudit{block: true}), 150*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	start := time.Now()
+	err = c.WriteEvent(context.Background(), AuditEvent{ActorID: "adm-1", Action: "dispute.resolve", TargetType: "dispute", TargetID: "d-1"})
+	if err == nil {
+		t.Fatal("expected an error when team-audit hangs")
+	}
+	if el := time.Since(start); el > 1150*time.Millisecond {
+		t.Fatalf("WriteEvent not bounded by timeout+1s: took %v", el)
+	}
+}
+
+// Scenario: Dispute audit: No audit upstream configured (nil client fails closed)
+func TestAuditClientWriteEventNilReceiverFailsClosed(t *testing.T) {
+	var c *AuditClient
+	if err := c.WriteEvent(context.Background(), AuditEvent{Action: "dispute.resolve"}); err == nil {
+		t.Fatal("nil audit client must return an error")
+	}
+}

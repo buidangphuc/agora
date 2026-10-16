@@ -14,6 +14,8 @@ Implement OpenSpec change `engagement-dispute-audit` test-first per its tasks.md
 - team-engagement/internal/service/dispute.go
 - team-engagement/internal/service/dispute_test.go
 - team-engagement/internal/handler/engagement.go
+- team-engagement/internal/grpcserver/server_test.go
+- team-engagement/internal/service/review_test.go
 - team-engagement/internal/handler/disputes_audit_test.go
 - team-engagement/internal/handler/reviews_hide_test.go
 - team-engagement/internal/handler/authz_test.go

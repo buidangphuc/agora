@@ -100,3 +100,24 @@ func indexByte(s string, b byte) int {
 	}
 	return -1
 }
+
+// Scenario: Env key is declared (UPSTREAM_AUDIT_ADDR defaults empty and is read
+// from the environment; the drift check above covers .env.example).
+func TestAuditAddrDeclaredEnvKey(t *testing.T) {
+	t.Setenv("DATABASE_ENABLED", "false")
+	cfg, err := config.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Upstream.AuditAddr != "" {
+		t.Errorf("default AuditAddr = %q, want empty", cfg.Upstream.AuditAddr)
+	}
+	t.Setenv("UPSTREAM_AUDIT_ADDR", "team-audit-svc:50066")
+	cfg, err = config.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Upstream.AuditAddr != "team-audit-svc:50066" {
+		t.Errorf("AuditAddr = %q, want value of UPSTREAM_AUDIT_ADDR", cfg.Upstream.AuditAddr)
+	}
+}

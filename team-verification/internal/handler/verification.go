@@ -18,11 +18,19 @@ import (
 // VerificationHandler adapts the gRPC VerificationService to the use-case layer.
 type VerificationHandler struct {
 	verificationv1.UnimplementedVerificationServiceServer
-	svc *service.VerificationService
+	svc   *service.VerificationService
+	audit AuditWriter
 }
 
-func NewVerificationHandler(svc *service.VerificationService) *VerificationHandler {
-	return &VerificationHandler{svc: svc}
+// AuditWriter records admin KYC reviews before they are applied.
+type AuditWriter interface {
+	WriteKycReviewEvent(ctx context.Context, actorID, submissionID, userID, decision string) error
+}
+
+// NewVerificationHandler builds the handler. A nil audit writer makes ReviewKyc
+// fail closed with Unavailable.
+func NewVerificationHandler(svc *service.VerificationService, audit AuditWriter) *VerificationHandler {
+	return &VerificationHandler{svc: svc, audit: audit}
 }
 
 const adminScope = "admin"
@@ -93,7 +101,23 @@ func (h *VerificationHandler) ReviewKyc(ctx context.Context, req *verificationv1
 	if sub.UserID == p.GetId() {
 		return nil, status.Error(codes.PermissionDenied, "reviewers cannot review their own submission")
 	}
-	st, err := h.svc.Review(ctx, req.GetId(), req.GetDecision())
+	decision, err := service.NormalizeDecision(req.GetDecision())
+	if err != nil {
+		return nil, mapErr(ctx, err)
+	}
+	if sub.Status != repository.StatusPending {
+		return nil, status.Error(codes.FailedPrecondition, repository.ErrAlreadyReviewed.Error())
+	}
+	// Fail closed: the review is applied only after the audit event is recorded.
+	if h.audit == nil {
+		slog.ErrorContext(ctx, "kyc review refused: audit not configured")
+		return nil, status.Error(codes.Unavailable, "audit unavailable")
+	}
+	if err := h.audit.WriteKycReviewEvent(ctx, p.GetId(), sub.ID, sub.UserID, decision); err != nil {
+		slog.ErrorContext(ctx, "kyc review refused: audit write failed", "submission_id", sub.ID, "error", err)
+		return nil, status.Error(codes.Unavailable, "audit unavailable")
+	}
+	st, err := h.svc.Review(ctx, req.GetId(), decision)
 	if err != nil {
 		return nil, mapErr(ctx, err)
 	}

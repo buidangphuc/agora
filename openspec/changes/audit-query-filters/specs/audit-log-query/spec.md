@@ -60,7 +60,7 @@
 - **THEN** the call succeeds with no events
 - **VERIFIED BY**: platform-e2e `features/security/audit_query_filters.feature` "A quote in a filter value is matched literally"
 
-#### Scenario: In-memory repository matches Postgres
+#### Scenario: Audit query: In-memory repository matches Postgres
 - **WHEN** the same table of filters runs against both repositories over the same seeded events
 - **THEN** both return the same event ids in the same order and the same total
 - **VERIFIED BY**: team-audit `internal/repository` `TestRepositoryFilterParity` (Postgres half runs when `TEST_DATABASE_URL` is set)

@@ -8,6 +8,10 @@ Implement OpenSpec change `order-admin-audit` test-first per its tasks.md (scena
 - Audits ForceFailSaga, UpdateOrderStatus, UpdateReturnStatus and CreateShipment on the `order.admin` path; the proto copy is the contract slice's (only regenerate).
 
 ## Write-set (EXCLUSIVE)
+- team-order/.env.example
+- team-order/internal/handler/order_admin_scope_test.go
+- team-order/internal/handler/return_refund_test.go
+- team-order/internal/handler/shipment_status_test.go
 - team-order/internal/upstream/audit.go
 - team-order/internal/upstream/audit_test.go
 - team-order/internal/config/config.go

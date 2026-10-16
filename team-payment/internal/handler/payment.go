@@ -23,6 +23,18 @@ type PaymentHandler struct {
 	svc          *service.PaymentService
 	logger       *slog.Logger
 	mockPayments bool
+	audit        AuditWriter
+}
+
+// AuditWriter records admin refunds in team-audit before money moves.
+type AuditWriter interface {
+	WriteAdminRefund(ctx context.Context, actorID, paymentID, orderID string, amount int64) error
+}
+
+// WithAuditWriter sets the audit writer used by the admin RefundPayment path. Without
+// one, admin refunds fail closed with UNAVAILABLE.
+func WithAuditWriter(w AuditWriter) Option {
+	return func(h *PaymentHandler) { h.audit = w }
 }
 
 // Option configures optional PaymentHandler behaviour.
@@ -289,7 +301,18 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 		}
 		return nil, h.internalError(ctx, "refund payment", err)
 	}
-	if !slices.Contains(principal.GetScopes(), "admin") {
+	if slices.Contains(principal.GetScopes(), "admin") {
+		// Audit before money moves; fail closed.
+		if h.audit == nil {
+			return nil, status.Error(codes.Unavailable, "audit unavailable")
+		}
+		if err := h.audit.WriteAdminRefund(ctx, principal.GetId(), target.ID, target.OrderID, req.GetAmount()); err != nil {
+			reqID, _ := interceptor.RequestIDFromContext(ctx)
+			h.logger.ErrorContext(ctx, "admin refund audit failed",
+				slog.String("request_id", reqID), slog.Any("err", err))
+			return nil, status.Error(codes.Unavailable, "audit unavailable")
+		}
+	} else {
 		sellerID, err := h.svc.OrderSellerID(ctx, target.OrderID)
 		if err != nil {
 			if errors.Is(err, service.ErrOrderServiceUnavailable) {

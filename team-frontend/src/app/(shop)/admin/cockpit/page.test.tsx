@@ -101,4 +101,18 @@ describe("CockpitPage", () => {
     render(await CockpitPage());
     expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
   });
+
+  it("403 has no audit link (Non-admin cockpit visitor sees no audit link)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "u-buyer",
+      name: "Buyer",
+      scopes: ["order.read"],
+    });
+    const { container } = render(await CockpitPage());
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(container.querySelector('a[href="/admin/audit"]')).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "Nhật ký kiểm toán" }),
+    ).toBeNull();
+  });
 });

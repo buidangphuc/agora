@@ -79,3 +79,7 @@ Regeneration only (`make proto`); add one forwarder test with a fake `AuditServi
 
 - Postgres `created_at` precision is microseconds; protobuf Timestamp is nanoseconds. Bounds are compared as sent; seeded events use whole seconds, so boundary scenarios are exact.
 - Offset paging can shift under concurrent writes (existing gap, unchanged).
+
+### Round 2 — 2026-10-15
+
+- Q1 [naming] scenario "In-memory repository matches Postgres" duplicates a title owned by engagement-review-integrity (team-engagement FEATURES.yaml); rename to "Audit query: In-memory repository matches Postgres"? → **approved** (human, converge)

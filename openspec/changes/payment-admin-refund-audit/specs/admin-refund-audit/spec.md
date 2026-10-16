@@ -24,7 +24,7 @@ When `PaymentService.RefundPayment` is called by a principal holding the `admin`
 - **THEN** the call returns success and exactly one audit event exists with action `payment.admin_refund` and that user's id as actor
 - **VERIFIED BY**: team-payment `internal/handler` `TestAdminWhoIsSellerRefundIsAudited`
 
-#### Scenario: Audit is called as the service principal
+#### Scenario: Payment audit: Audit is called as the service principal
 - **WHEN** the audit client sends WriteAuditEvent
 - **THEN** the outgoing principal metadata is id `service-team-payment`, type `service`, scopes `audit.write`, and the caller's own principal metadata is absent
 - **VERIFIED BY**: team-payment `internal/upstream` `TestAuditClientUsesServicePrincipal`

@@ -18,13 +18,19 @@ import (
 	auditv1 "github.com/buidangphuc/team-audit/generated/platform/audit/v1"
 )
 
-// QueryFilter narrows an audit-log query. An empty ActorID or TargetType means
-// "do not filter on that field". Limit/Offset drive newest-first pagination.
+// QueryFilter narrows an audit-log query. An empty string or zero time means
+// "do not filter on that field"; filters combine with AND. Action and ids match
+// exactly. CreatedAfter is inclusive, CreatedBefore exclusive. Limit/Offset
+// drive newest-first pagination.
 type QueryFilter struct {
-	ActorID    string
-	TargetType string
-	Limit      int
-	Offset     int
+	ActorID       string
+	TargetType    string
+	TargetID      string
+	Action        string
+	CreatedAfter  time.Time
+	CreatedBefore time.Time
+	Limit         int
+	Offset        int
 }
 
 // AuditRepository stores immutable audit events. Append-only: there is no update
@@ -82,13 +88,27 @@ func (r *PostgresAuditRepo) Append(ctx context.Context, ev *auditv1.AuditEvent) 
 func (r *PostgresAuditRepo) Query(ctx context.Context, f QueryFilter) ([]*auditv1.AuditEvent, int64, error) {
 	where := "WHERE 1=1"
 	args := []any{}
+	add := func(cond string, v any) {
+		args = append(args, v)
+		where += fmt.Sprintf(" AND "+cond, len(args))
+	}
 	if f.ActorID != "" {
-		args = append(args, f.ActorID)
-		where += fmt.Sprintf(" AND actor_id = $%d", len(args))
+		add("actor_id = $%d", f.ActorID)
 	}
 	if f.TargetType != "" {
-		args = append(args, f.TargetType)
-		where += fmt.Sprintf(" AND target_type = $%d", len(args))
+		add("target_type = $%d", f.TargetType)
+	}
+	if f.TargetID != "" {
+		add("target_id = $%d", f.TargetID)
+	}
+	if f.Action != "" {
+		add("action = $%d", f.Action)
+	}
+	if !f.CreatedAfter.IsZero() {
+		add("created_at >= $%d", f.CreatedAfter)
+	}
+	if !f.CreatedBefore.IsZero() {
+		add("created_at < $%d", f.CreatedBefore)
 	}
 
 	var total int64
@@ -171,6 +191,21 @@ func (r *InMemoryAuditRepo) Query(_ context.Context, f QueryFilter) ([]*auditv1.
 		}
 		if f.TargetType != "" && ev.TargetType != f.TargetType {
 			continue
+		}
+		if f.TargetID != "" && ev.TargetId != f.TargetID {
+			continue
+		}
+		if f.Action != "" && ev.Action != f.Action {
+			continue
+		}
+		if !f.CreatedAfter.IsZero() || !f.CreatedBefore.IsZero() {
+			ts := ev.GetCreatedAt().AsTime()
+			if !f.CreatedAfter.IsZero() && ts.Before(f.CreatedAfter) {
+				continue
+			}
+			if !f.CreatedBefore.IsZero() && !ts.Before(f.CreatedBefore) {
+				continue
+			}
 		}
 		matched = append(matched, ev)
 	}

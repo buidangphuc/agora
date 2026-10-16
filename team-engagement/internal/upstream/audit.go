@@ -76,3 +76,32 @@ func (c *AuditClient) WriteHideEvent(ctx context.Context, actorID, reviewID, lis
 	}
 	return nil
 }
+
+// AuditEvent is one generic team-audit event.
+type AuditEvent struct {
+	ActorID    string
+	Action     string
+	TargetType string
+	TargetID   string
+	Metadata   map[string]string
+}
+
+// WriteEvent writes ev to team-audit (single attempt, bounded by the call timeout).
+func (c *AuditClient) WriteEvent(ctx context.Context, ev AuditEvent) error {
+	if c == nil || c.svc == nil {
+		return errors.New("audit client not configured")
+	}
+	callCtx, cancel := boundedCtx(ctx, c.timeout)
+	defer cancel()
+	_, err := c.svc.WriteAuditEvent(callCtx, &auditv1.WriteAuditEventRequest{
+		ActorId:    ev.ActorID,
+		Action:     ev.Action,
+		TargetType: ev.TargetType,
+		TargetId:   ev.TargetID,
+		Metadata:   ev.Metadata,
+	})
+	if err != nil {
+		return fmt.Errorf("write audit event: %w", err)
+	}
+	return nil
+}

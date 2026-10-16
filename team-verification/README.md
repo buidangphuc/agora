@@ -31,7 +31,13 @@ Behavior notes:
 - Status is that of the user's latest submission (by `created_at`).
 - gRPC health (`grpc.health.v1`) and server reflection are always enabled.
 
-Consumes: nothing upstream, only the `common.v1.Principal` type from the vendored proto.
+Consumes: team-audit (`WriteAuditEvent`, service principal `service-team-verification` with scope
+`audit.write`, single attempt bounded by `UPSTREAM_CALL_TIMEOUT_SECONDS`).
+
+`ReviewKyc` writes a `kyc.review` audit event (target `kyc_submission`, metadata `decision` and
+`user_id`) after validation and before the decision is applied. It fails closed: any audit error,
+or no audit address configured, returns `Unavailable` and leaves the submission `PENDING`.
+Submit and status do not depend on team-audit.
 
 ## Events
 
@@ -56,6 +62,8 @@ Only these are read by the code (`internal/config/config.go`):
 |---|---|---|
 | `GRPC_PORT` | `50064` | gRPC listen port (same as the Dockerfile and compose) |
 | `DATABASE_URL` | `postgres://verification_svc:verification_pass@localhost:5444/verification_db?sslmode=disable` | Postgres DSN |
+| `UPSTREAM_AUDIT_ADDR` | empty | team-audit gRPC address; empty means `ReviewKyc` is refused (`Unavailable`) |
+| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Per-call audit timeout in seconds (float, must be > 0) |
 
 `.env.example` also lists `ENV`, `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`,
 `GRPC_REFLECTION_ENABLED`, `DATABASE_ENABLED`, `DB_MAX_CONNS`. **These are ignored** (see Known

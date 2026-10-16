@@ -9,6 +9,7 @@ import (
 
 	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 // fakeVerifier is a stand-in for internal/upstream.OrderClient (true external
@@ -222,6 +223,9 @@ func (a *spyAudit) WriteHideEvent(_ context.Context, actorID, reviewID, listingI
 	a.events = append(a.events, hideEvent{actorID, reviewID, listingID, reason})
 	return nil
 }
+
+// WriteEvent satisfies the extended AuditWriter; review tests never use it.
+func (a *spyAudit) WriteEvent(context.Context, upstream.AuditEvent) error { return nil }
 
 // spyRepo records the hide call order and can fail the hide update.
 type spyRepo struct {

@@ -27,7 +27,7 @@ func newAdminScopeHandler() (*handler.OrderHandler, *mockOrderServiceRepo) {
 	repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
 		"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1", Status: repository.OrderStatusPending},
 	}}
-	return handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil), repo
+	return handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil, handler.WithAuditWriter(&fakeAudit{})), repo
 }
 
 func TestForceFailSaga_NeedsAdminAndOrderAdmin(t *testing.T) {

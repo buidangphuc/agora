@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 	"strings"
 
 	"github.com/buidangphuc/team-promotion/internal/repository"
@@ -22,6 +23,7 @@ type SponsoredService struct {
 	logger    *slog.Logger
 	maxBid    int64
 	maxBudget int64
+	audit     AuditWriter // nil = admin campaign creation fails closed
 }
 
 // Default ceilings (minor units) used when none are configured; they match the
@@ -52,6 +54,12 @@ func (s *SponsoredService) WithLimits(maxBid, maxBudget int64) *SponsoredService
 	return s
 }
 
+// WithAudit sets the audit writer used for admin ad-campaign creation.
+func (s *SponsoredService) WithAudit(w AuditWriter) *SponsoredService {
+	s.audit = w
+	return s
+}
+
 // CreateAdCampaignParams is the validated input for CreateAdCampaign. SellerID is
 // bound by the caller from the authenticated seller principal — the wire request
 // carries no seller_id.
@@ -79,12 +87,27 @@ func (s *SponsoredService) CreateAdCampaign(ctx context.Context, p CreateAdCampa
 	if p.Budget < 0 || p.Bid < 0 || p.Budget > s.maxBudget || p.Bid > s.maxBid {
 		return repository.AdCampaign{}, ErrInvalidAdCampaign
 	}
-	if !p.IsAdmin {
-		if err := requireListingOwner(ctx, s.listings, s.logger, strings.TrimSpace(p.ListingID), p.SellerID); err != nil {
+	var id string
+	if p.IsAdmin {
+		id = newCampaignID()
+		if err := writeAudit(ctx, s.audit, upstream.AuditEvent{
+			ActorID:    p.SellerID,
+			Action:     "ad_campaign.admin_create",
+			TargetType: "ad_campaign",
+			TargetID:   id,
+			Metadata: map[string]string{
+				"seller_id":  strings.TrimSpace(p.SellerID),
+				"listing_id": strings.TrimSpace(p.ListingID),
+				"budget":     strconv.FormatInt(p.Budget, 10),
+			},
+		}); err != nil {
 			return repository.AdCampaign{}, err
 		}
+	} else if err := requireListingOwner(ctx, s.listings, s.logger, strings.TrimSpace(p.ListingID), p.SellerID); err != nil {
+		return repository.AdCampaign{}, err
 	}
 	created, err := s.repo.Create(ctx, repository.AdCampaign{
+		ID:        id,
 		SellerID:  strings.TrimSpace(p.SellerID),
 		ListingID: strings.TrimSpace(p.ListingID),
 		Budget:    p.Budget,
