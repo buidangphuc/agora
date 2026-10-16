@@ -6,10 +6,10 @@ spec: plans/q5-advertised-price/00-spec.md (Locked 2026-10-16; hold lifecycle de
 ## Slices
 | slice | owner | depends_on | rounds | validate | spec_lint | spec-quality | decide (spec) | digest | approve |
 |---|---|---|---|---|---|---|---|---|---|
-| q5-flash-stock-contract | platform-core | [] | 3 | pass | pass | pass (r2; r3 wording only) | ENGINE_DOWN (LLM fallback) | dfb13830f7ee | [x] |
-| promotion-flash-stock-hold | team-promotion | [q5-flash-stock-contract] | 3 | pass | pass | pass (r2; r3 purge scope + NITs) | ENGINE_DOWN (LLM fallback) | df79f26f03f9 | [x] |
-| order-advertised-price | team-order | [promotion-flash-stock-hold] | 3 | pass | pass | pass (r2; r3 Phase B commit order) | ENGINE_DOWN (LLM fallback) | da6e80314d62 | [x] |
-| frontend-advertised-price | team-frontend | [order-advertised-price] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 7f1bd092d411 | [x] |
+| q5-flash-stock-contract | platform-core | [] | 3 | pass | pass | pass (r2; r3 wording only) | ENGINE_DOWN (LLM fallback) | 7b52c7ace6c4 | [x] |
+| promotion-flash-stock-hold | team-promotion | [q5-flash-stock-contract] | 3 | pass | pass | pass (r2; r3 purge scope + NITs) | ENGINE_DOWN (LLM fallback) | 9423a7dbb16b | [x] |
+| order-advertised-price | team-order | [promotion-flash-stock-hold] | 3 | pass | pass | pass (r2; r3 Phase B commit order) | ENGINE_DOWN (LLM fallback) | 345c566d7e29 | [x] |
+| frontend-advertised-price | team-frontend | [order-advertised-price] | 2 | pass | pass | pass | ENGINE_DOWN (LLM fallback) | 0a64ffd0f52c | [x] |
 ## Build order (cross_change_check)
 1. q5-flash-stock-contract (sequential, alone)  2. promotion-flash-stock-hold  3. order-advertised-price  4. frontend-advertised-price — strictly sequential (each depends on the previous); hot files: platform-e2e flash-sale seed/helpers in `tests/e2e/support/` (promotion first, order/frontend reuse).
 ## Cross-change check
@@ -25,3 +25,4 @@ pass (cross_change_check: OK)
 ## Re-locks
 - 2026-10-16 (build): frontend-advertised-price re-locked by Bùi Đăng Phúc after spec-clarify Round 2 (gateway CalculateShippingFee forwarder added as task 0; two green-before e2e scenarios accepted as regression guards). Digest 7d8ccbaccd87 → 94069e3e6106.
 - 2026-10-16 (build): frontend-advertised-price VERIFIED BY markers on the 3 Round 2 gateway scenarios fixed to `**VERIFIED BY**` (formatting only, same text). Digest 94069e3e6106 → 7f1bd092d411.
+- 2026-10-16 (converge): re-lock by Bùi Đăng Phúc — tasks.md ticked in all 4 changes; spec-clarify Round 3 aligned e2e VERIFIED BY names (promotion, order, frontend). Digests: q5-flash-stock-contract dfb13830f7ee→7b52c7ace6c4; promotion-flash-stock-hold df79f26f03f9→9423a7dbb16b; order-advertised-price da6e80314d62→345c566d7e29; frontend-advertised-price 7f1bd092d411→0a64ffd0f52c;

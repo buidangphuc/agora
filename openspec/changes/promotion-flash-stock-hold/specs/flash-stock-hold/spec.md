@@ -7,12 +7,12 @@
 #### Scenario: Reserve holds the units of an active campaign
 - **WHEN** the order service reserves 2 units with the campaign's exact `sale_price` on an active campaign with `stock_cap` 5, `stock_sold` 0 and no holds
 - **THEN** the response is `reserved=true` with an empty `reason` and `GetFlashSaleStock.remaining` is 3
-- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockHoldsUnits`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A service reserve holds units and the meter drops"
+- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockHoldsUnits`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "Reserve holds the units of an active campaign"
 
 #### Scenario: Reserve is idempotent on the reservation id
 - **WHEN** the same `reservation_id` is reserved twice with identical fields on a campaign with `stock_cap` 5
 - **THEN** both responses are `reserved=true`, exactly one hold of the quantity exists, and `remaining` dropped once
-- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockIdempotent`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A repeated reserve holds only once"
+- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockIdempotent`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "Reserve is idempotent on the reservation id"
 
 #### Scenario: Reserve replay with different fields returns the stored outcome
 - **WHEN** a hold of 2 units exists for `reservation_id` "r1" and the order service reserves "r1" again with quantity 4 and a different `expected_sale_price`
@@ -22,7 +22,7 @@
 #### Scenario: Reserve refuses an ended campaign
 - **WHEN** the order service reserves 1 unit on a campaign whose `ends_at` is in the past
 - **THEN** the response is `reserved=false` with `reason=not_active` and no hold exists
-- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInactiveWindow`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A reserve on an ended campaign is refused"
+- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInactiveWindow`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "Reserve refuses an ended campaign"
 
 #### Scenario: Reserve refuses a campaign that has not started
 - **WHEN** the order service reserves 1 unit on a campaign whose `starts_at` is in the future
@@ -37,12 +37,12 @@
 #### Scenario: Reserve refuses a price that differs from the campaign
 - **WHEN** the order service reserves with `expected_sale_price` 1 below the campaign's `sale_price`
 - **THEN** the response is `reserved=false` with `reason=price_changed` and no hold exists
-- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesPriceMismatch`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A reserve with a different price is refused"
+- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesPriceMismatch`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "Reserve refuses a price that differs from the campaign"
 
 #### Scenario: Reserve refuses more units than remain
 - **WHEN** a campaign has `stock_cap` 5 and 4 units are held, and the order service reserves 2
 - **THEN** the response is `reserved=false` with `reason=insufficient_stock` and the held total stays 4
-- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInsufficientStock`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A reserve beyond the remaining stock is refused"
+- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInsufficientStock`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "Reserve refuses more units than remain"
 
 #### Scenario: Reserve accepts exactly the remaining units
 - **WHEN** a campaign has `stock_cap` 5 with `stock_sold` 2 and 1 unit held, and the order service reserves 2
@@ -106,7 +106,7 @@ The system SHALL guarantee that for any campaign, at all times, `stock_sold` plu
 #### Scenario: Concurrent reserves are capped
 - **WHEN** 20 concurrent reserves of 1 unit each, with distinct reservation ids, hit a campaign with `stock_cap` 5
 - **THEN** exactly 5 responses are `reserved=true`, 15 are `reserved=false` with `reason=insufficient_stock`, and `remaining` is 0
-- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockConcurrentCap` (in-memory) and `internal/repository` `TestPostgresFlashHoldConcurrentCap` (skipped without a database); platform-e2e `features/promo/flash_sale_stock_hold.feature` "Concurrent reserves never exceed the cap"
+- **VERIFIED BY**: team-promotion `internal/service` `TestReserveFlashSaleStockConcurrentCap` (in-memory) and `internal/repository` `TestPostgresFlashHoldConcurrentCap` (skipped without a database); platform-e2e `features/promo/flash_sale_stock_hold.feature` "Concurrent reserves are capped"
 
 #### Scenario: Concurrent reserves of one reservation id hold once
 - **WHEN** 10 concurrent reserves with the same `reservation_id` and quantity 2 hit a campaign with `stock_cap` 5
@@ -125,7 +125,7 @@ The system SHALL guarantee that for any campaign, at all times, `stock_sold` plu
 #### Scenario: Commit adds the quantity to stock_sold
 - **WHEN** a hold of 2 units on a campaign with `stock_cap` 5 is committed
 - **THEN** the response is `committed=true`, the campaign's `stock_sold` is 2, and `GetFlashSaleStock.remaining` is 3
-- **VERIFIED BY**: team-promotion `internal/service` `TestCommitFlashSaleStockAddsToSold`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A commit keeps the units sold"
+- **VERIFIED BY**: team-promotion `internal/service` `TestCommitFlashSaleStockAddsToSold`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "Commit adds the quantity to stock_sold"
 
 #### Scenario: Commit is idempotent
 - **WHEN** the same hold is committed twice
@@ -145,7 +145,7 @@ The system SHALL guarantee that for any campaign, at all times, `stock_sold` plu
 #### Scenario: Commit of an expired hold is refused
 - **WHEN** a hold is 15 minutes old and is committed
 - **THEN** the response is `committed=false` and `stock_sold` is unchanged
-- **VERIFIED BY**: team-promotion `internal/service` `TestCommitFlashSaleStockAfterExpiry`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "An expired hold cannot be committed"
+- **VERIFIED BY**: team-promotion `internal/service` `TestCommitFlashSaleStockAfterExpiry`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "Commit of an expired hold is refused"
 
 #### Scenario: Commit still works after the sale window ended
 - **WHEN** a hold was taken while the campaign was active, the campaign's `ends_at` has since passed, the hold is under 15 minutes old, and it is committed
@@ -164,12 +164,12 @@ The system SHALL guarantee that for any campaign, at all times, `stock_sold` plu
 #### Scenario: Release returns the units of an active hold
 - **WHEN** a hold of 2 units on a campaign with `stock_cap` 5 is released
 - **THEN** the response is `released=true` and `GetFlashSaleStock.remaining` is 5
-- **VERIFIED BY**: team-promotion `internal/service` `TestReleaseFlashSaleStockReturnsUnits`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A release returns the held units"
+- **VERIFIED BY**: team-promotion `internal/service` `TestReleaseFlashSaleStockReturnsUnits`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "Release returns the units of an active hold"
 
 #### Scenario: Release returns the units of a committed hold
 - **WHEN** a hold of 2 units on a campaign with `stock_cap` 5 is committed and then released
 - **THEN** the response is `released=true`, `stock_sold` is 0 and `remaining` is 5
-- **VERIFIED BY**: team-promotion `internal/service` `TestReleaseFlashSaleStockAfterCommit`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A release after commit returns the sold units"
+- **VERIFIED BY**: team-promotion `internal/service` `TestReleaseFlashSaleStockAfterCommit`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "Release returns the units of a committed hold"
 
 #### Scenario: Release is idempotent
 - **WHEN** a committed hold of 2 units is released twice
@@ -198,7 +198,7 @@ The system SHALL guarantee that for any campaign, at all times, `stock_sold` plu
 #### Scenario: Remaining reflects holds and sold units
 - **WHEN** a campaign has `stock_cap` 10, `stock_sold` 3 and an active hold of 2, a released hold of 4 and an expired hold of 1
 - **THEN** `GetFlashSaleStock` returns `remaining` 5 and `stock_cap` 10
-- **VERIFIED BY**: team-promotion `internal/service` `TestGetFlashSaleStockCountsHolds`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A service reserve holds units and the meter drops"
+- **VERIFIED BY**: team-promotion `internal/service` `TestGetFlashSaleStockCountsHolds`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "Remaining reflects holds and sold units"
 
 #### Scenario: Remaining is floored at zero
 - **WHEN** a campaign has `stock_sold` above `stock_cap` and a reserved hold
@@ -217,12 +217,12 @@ The three RPCs `ReserveFlashSaleStock`, `CommitFlashSaleStock` and `ReleaseFlash
 #### Scenario: A buyer cannot reserve flash stock
 - **WHEN** a user principal (buyer, no scopes) calls reserve, commit and release
 - **THEN** each call returns `PERMISSION_DENIED` and `GetFlashSaleStock.remaining` is unchanged
-- **VERIFIED BY**: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A user cannot hold flash stock"
+- **VERIFIED BY**: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A buyer cannot reserve flash stock"
 
 #### Scenario: A user carrying the service scope is still refused
 - **WHEN** a principal of type user with scopes `promotion.reserve` and `admin` calls reserve
 - **THEN** the call returns `PERMISSION_DENIED`
-- **VERIFIED BY**: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A user cannot hold flash stock"
+- **VERIFIED BY**: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`; platform-e2e `features/promo/flash_sale_stock_hold.feature` "A user carrying the service scope is still refused"
 
 #### Scenario: A service without the scope is refused
 - **WHEN** a service principal `service-other` without `promotion.reserve` calls commit
@@ -237,7 +237,7 @@ The three RPCs `ReserveFlashSaleStock`, `CommitFlashSaleStock` and `ReleaseFlash
 #### Scenario: The order service principal is served
 - **WHEN** a service principal `service-team-order` with scope `promotion.reserve` calls reserve, commit and release in turn
 - **THEN** each call returns OK
-- **VERIFIED BY**: platform-e2e `features/promo/flash_sale_stock_hold.feature` "A service reserve holds units and the meter drops"
+- **VERIFIED BY**: platform-e2e `features/promo/flash_sale_stock_hold.feature` "The order service principal is served"
 
 ### Requirement: Holds are persisted in a migration-managed table
 

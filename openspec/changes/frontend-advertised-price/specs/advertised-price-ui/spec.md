@@ -32,12 +32,12 @@ The PDP SHALL render one "Vận chuyển" row stating the free-shipping threshol
 #### Scenario: Advertised price: PDP never exposes another buyer's city
 - **WHEN** two different signed-in buyers with default cities "Hà Nội" and "Đà Nẵng" open the same PDP
 - **THEN** each page names only that buyer's own city, and an anonymous request names no city
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: PDP shipping row is personal and server-backed`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: PDP never exposes another buyer's city`
 
 #### Scenario: Advertised price: displayed shipping figures match the server rule
 - **WHEN** the real `CalculateShippingFee` is called with subtotal 500000, with subtotal 499999 for "Hà Nội" and for "Cần Thơ", and with subtotal 0 for "Hà Nội" (the subtotal the PDP sends)
 - **THEN** it returns free at 500000, a fee of 20000 for "Hà Nội" at 499999 and at 0, and 35000 for "Cần Thơ" at 499999, equal to `FREE_SHIPPING_THRESHOLD` and `SHIPPING_FEE_RANGE` in the PDP copy
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: PDP shipping row is personal and server-backed`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: displayed shipping figures match the server rule`
 
 ### Requirement: Checkout shipping and total come from the server
 
@@ -71,7 +71,7 @@ The checkout page SHALL obtain the shipping fee from `CalculateShippingFee(addre
 #### Scenario: Advertised price: shown checkout total equals the placed order total
 - **WHEN** a buyer with default address city "Hà Nội" and a single-shop cart with subtotal 350000 (one flash-priced line) opens the confirm step and places the order
 - **THEN** the confirm step shows shipping 20000 and total 370000, and the created order's `total_amount` is 370000
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: checkout total equals the placed order total`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: shown checkout total equals the placed order total`
 
 ### Requirement: A price change at checkout is explained and recoverable
 
@@ -95,12 +95,12 @@ WHEN `checkoutAction` receives `FAILED_PRECONDITION` with the reason "price chan
 #### Scenario: Advertised price: the buyer sees the new total and places again
 - **WHEN** a buyer carts a flash-priced listing, the campaign is switched off, and the buyer places the order from the confirm step
 - **THEN** no order exists for the buyer, the page shows the Vietnamese price-changed message and a total built from the regular price, and placing the order again creates one order whose `total_amount` equals that total
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: a price change is explained and the buyer can place again`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: the buyer sees the new total and places again`
 
 #### Scenario: Advertised price: a sale that started after add is also explained
 - **WHEN** a buyer's cart holds a line at the regular price and a flash campaign then starts for it, and the buyer places the order
 - **THEN** the same message is shown, no order exists, and the refreshed total uses the sale price
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: a sale that started after add is explained and re-priced`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: a sale that started after add is also explained`
 
 #### Scenario: Advertised price: an anonymous visitor is redirected from checkout
 - **WHEN** an anonymous visitor opens `/checkout`

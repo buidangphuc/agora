@@ -42,7 +42,7 @@
 #### Scenario: Advertised price: Flash price is visible end to end after add-to-cart
 - **WHEN** a buyer adds a listing with an active campaign (sale_price below the regular price) through the gateway
 - **THEN** `GetCart` returns the line unit_price equal to the campaign sale_price
-- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "Flash price is the cart price"
+- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "Advertised price: Flash price is visible end to end after add-to-cart"
 
 ### Requirement: Checkout re-resolves every line and refuses a price change
 
@@ -91,7 +91,7 @@ Before creating the saga or reserving any stock, voucher or flash hold, `CreateO
 #### Scenario: Advertised price: Ended sale is refused end to end and the retry is charged the regular price
 - **WHEN** a buyer carts a flash-priced listing, the campaign is switched off, and the buyer calls CreateOrder, then GetCart, then CreateOrder again
 - **THEN** the first call fails with `failed_precondition` "price changed", the cart shows the regular price, and the second call returns an order whose item unit_price is the regular price
-- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "An ended sale is refused and re-priced"
+- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "Advertised price: Ended sale is refused end to end and the retry is charged the regular price"
 
 ### Requirement: Checkout fails closed when the flash price cannot be confirmed
 
@@ -159,7 +159,7 @@ For each flash-priced line, `reserveGroup` SHALL call `ReserveFlashSaleStock` af
 #### Scenario: Advertised price: Concurrent buyers cannot exceed the campaign cap end to end
 - **WHEN** two buyers each check out quantity 3 of a listing whose campaign has stock_cap 4 and both calls overlap
 - **THEN** exactly one order is created at the flash price and the other call fails with `failed_precondition` "price changed"
-- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "Concurrent buyers cannot exceed the flash cap"
+- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "Advertised price: Concurrent buyers cannot exceed the campaign cap end to end"
 
 ### Requirement: Flash holds are committed in Phase B
 
@@ -203,7 +203,7 @@ Before `commitDomainReservations` runs, `runCheckout` SHALL call `CommitFlashSal
 #### Scenario: Advertised price: Placing a flash-priced order grows stock_sold end to end
 - **WHEN** a buyer places a flash-priced order of quantity 2
 - **THEN** the campaign's `stock_sold` is 2 higher without waiting for payment
-- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "A placed flash order counts as sold"
+- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "Advertised price: Placing a flash-priced order grows stock_sold end to end"
 
 ### Requirement: Flash holds are released on compensation and cancel
 
@@ -247,7 +247,7 @@ Before `commitDomainReservations` runs, `runCheckout` SHALL call `CommitFlashSal
 #### Scenario: Advertised price: Cancelled placed order returns flash units end to end
 - **WHEN** a buyer places a flash-priced order for quantity 2 of a campaign with stock_cap 2 (the hold is already committed) and cancels it
 - **THEN** `stock_sold` decreases by 2, `GetFlashSaleStock.remaining` is 2 again and a second buyer's flash-priced checkout of quantity 2 succeeds
-- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "A cancelled order returns its flash units"
+- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "Advertised price: Cancelled placed order returns flash units end to end"
 
 ### Requirement: Flash RPCs are sent as team-order's service principal
 
@@ -271,4 +271,4 @@ Before `commitDomainReservations` runs, `runCheckout` SHALL call `CommitFlashSal
 #### Scenario: Advertised price: A buyer token cannot reserve flash stock end to end
 - **WHEN** a buyer token calls `ReserveFlashSaleStock` directly through the gateway
 - **THEN** the call is refused with `permission_denied`, `not_found` or `unimplemented` and `GetFlashSaleStock.remaining` is unchanged
-- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "A buyer cannot hold flash stock directly"
+- **VERIFIED BY**: platform-e2e `features/order/advertised_price.feature` "Advertised price: A buyer token cannot reserve flash stock end to end"

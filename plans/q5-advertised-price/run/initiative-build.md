@@ -6,4 +6,4 @@ integration: .claude/worktrees/q5-advertised-price (asdlc/q5-advertised-price, b
 | 0 | q5-flash-stock-contract | 178a0e5e | merged ed6ee6fb |
 | 1 | promotion-flash-stock-hold | ed6ee6fb | merged b4642001 |
 | 2 | order-advertised-price | b4642001 | merged f96772f9 |
-| 3 | frontend-advertised-price | f96772f9 | building |
+| 3 | frontend-advertised-price | f96772f9 | merged 6c4ec4a6 |

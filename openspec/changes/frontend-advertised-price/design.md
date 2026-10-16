@@ -19,3 +19,6 @@
 - Q6 [boundary] gateway reachability of CalculateShippingFee → **team-gateway had no forwarder (501 Unimplemented, masked by the old 20.000đ fallback). This slice adds task 0: `OrderForwarder.CalculateShippingFee` (read call, forwarded principal) with unit tests; 00-spec "Out of initiative" rule: a missing gateway route becomes a task of the slice that needs it.** (human)
 - Q7 [outcome] e2e scenarios green before implementation ("shown checkout total equals the placed order total", "an anonymous visitor is redirected from checkout") → **accepted as regression guards.** (human)
 
+
+### Round 3 — 2026-10-16 (converge, human)
+- Q8 [outcome] e2e VERIFIED BY names → **aligned mechanically to the actual .feature scenario names (renamed during build to echo the spec titles, which spec_sync matches on); FEATURES.yaml covered_by already used them.** (human)
