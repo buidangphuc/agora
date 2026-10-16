@@ -10,6 +10,7 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/audit/v1/auditv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/engagement/v1/engagementv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/identity/v1/identityv1connect"
+	"github.com/buidangphuc/team-gateway/generated/platform/listing/v1/listingv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/order/v1/orderv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/verification/v1/verificationv1connect"
 )
@@ -25,6 +26,8 @@ var adminProcedures = map[string]string{
 	engagementv1connect.EngagementServiceListReportsProcedure:                     adminScope,
 	engagementv1connect.EngagementServiceResolveReportProcedure:                   adminScope,
 	auditv1connect.AuditServiceQueryAuditLogProcedure:                             adminScope,
+	listingv1connect.ListingServiceModerateListingProcedure:                       adminScope,
+	listingv1connect.ListingServiceListModerationQueueProcedure:                   adminScope,
 	orderv1connect.OrderServiceForceFailSagaProcedure:                             adminScope,
 	identityv1connect.AccountAdminServiceListUsersProcedure:                       adminScope,
 	identityv1connect.AccountAdminServiceSetUserStatusProcedure:                   adminScope,

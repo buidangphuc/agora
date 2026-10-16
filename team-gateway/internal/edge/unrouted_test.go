@@ -174,6 +174,44 @@ func TestUnroutedGuardIncludesRefreshSession(t *testing.T) {
 	}
 }
 
+type screenAI struct {
+	aiv1.AIServiceClient
+	calls atomic.Int64
+}
+
+func (s *screenAI) ScreenListing(context.Context, *aiv1.ScreenListingRequest, ...grpc.CallOption) (*aiv1.ScreenListingResponse, error) {
+	s.calls.Add(1)
+	return &aiv1.ScreenListingResponse{}, nil
+}
+
+// Scenario: Edge: ScreenListing is not routed. Every caller, admin included,
+// gets 501 unimplemented and the upstream is never contacted.
+func TestUnroutedScreenListing(t *testing.T) {
+	f := newCockpitFixture(t)
+	ai := &screenAI{}
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{AI: ai}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	t.Cleanup(srv.Close)
+	for _, auth := range []string{"", "Bearer " + f.token(t, "admin")} {
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+"/platform.ai.v1.AIService/ScreenListing", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		if auth != "" {
+			req.Header.Set("Authorization", auth)
+		}
+		res, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+		if res.StatusCode != http.StatusNotImplemented || !strings.Contains(string(b), "unimplemented") {
+			t.Fatalf("ScreenListing (authenticated=%v) = %d %s, want 501 unimplemented", auth != "", res.StatusCode, b)
+		}
+	}
+	if n := ai.calls.Load(); n != 0 {
+		t.Fatalf("upstream received %d ScreenListing calls, want 0", n)
+	}
+}
+
 // Scenario: User enforcement edge: Procedures are covered by the unrouted guard.
 // Every AccountAdminService method in the generated descriptor is routed.
 func TestUnroutedGuardAccountAdmin(t *testing.T) {

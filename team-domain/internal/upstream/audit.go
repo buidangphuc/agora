@@ -72,6 +72,14 @@ func (c *AuditClient) WriteListingAdminDelete(ctx context.Context, actorID, list
 		map[string]string{"seller_id": sellerID})
 }
 
+// WriteListingModerate records an admin moderation decision on listingID.
+func (c *AuditClient) WriteListingModerate(ctx context.Context, actorID, listingID, sellerID, decision, reasonCode, note, fromStatus, toStatus string) error {
+	return c.write(ctx, "listing.moderate", actorID, listingID, map[string]string{
+		"seller_id": sellerID, "decision": decision, "reason_code": reasonCode, "note": note,
+		"from_status": fromStatus, "to_status": toStatus,
+	})
+}
+
 func (c *AuditClient) write(ctx context.Context, action, actorID, listingID string, md map[string]string) error {
 	if c == nil || c.svc == nil {
 		return errors.New("audit client not configured")

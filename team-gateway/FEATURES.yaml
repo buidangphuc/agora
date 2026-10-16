@@ -1584,6 +1584,58 @@ features:
     covered_by: "tracking/loop_event_intake.feature::Loop intake: an AI beacon type with odd casing is still validated"
     notes: "gateway-loop-event-intake: e2e tracking/loop_event_intake.feature::Loop intake: an AI beacon type with odd casing is still validated; unit twin `internal/edge` `TestHandleTrackAIInteractionTypeCasingValidated`"
 
+  - id: gateway.listing-moderation-seller-token-gets-403-on-moderation-rpcs
+    title: "Edge: Seller token gets 403 on moderation RPCs"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Edge: Seller token gets 403 on moderation RPCs"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestPolicyEdgeModerationAdminOnly`. Not producible end to end through the gateway (unit level)."
+
+  - id: gateway.listing-moderation-anonymous-gets-401-on-moderation-rpcs
+    title: "Edge: Anonymous gets 401 on moderation RPCs"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Edge: Anonymous gets 401 on moderation RPCs"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestPolicyEdgeModerationAnonymousUnauthenticated`. Not producible end to end through the gateway (unit level)."
+
+  - id: gateway.listing-moderation-admin-token-reaches-team-domain
+    title: "Edge: Admin token reaches team-domain"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Edge: Admin token reaches team-domain"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestListingForwarderModerationForwards`. Not producible end to end through the gateway (unit level)."
+
+  - id: gateway.listing-moderation-screenlisting-is-not-routed
+    title: "Edge: ScreenListing is not routed"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Edge: ScreenListing is not routed"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestUnroutedScreenListing`. Not producible end to end through the gateway (unit level)."
+
   - id: engagement-listing-reports.listing-reports-anonymous-caller-cannot-list-reports-at-the-edge
     title: "Listing reports: Anonymous caller cannot list reports at the edge"
     persona: guest

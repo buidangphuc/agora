@@ -15,6 +15,9 @@ Implement OpenSpec change `domain-listing-moderation` test-first per its tasks.m
 - team-domain/internal/service/moderation_test.go
 - team-domain/internal/handler/listing.go
 - team-domain/internal/handler/listing_test.go
+- team-domain/internal/handler/listing_visibility_test.go (widened at build: task 1) # widened at build: task 1
+- team-domain/internal/handler/listing_moderation_view_test.go (widened at build: task 2) # widened at build: task 2
+- team-domain/internal/handler/listing_audit_test.go (widened at build: task 7) # widened at build: task 7
 - team-domain/internal/handler/moderation.go
 - team-domain/internal/handler/moderation_test.go
 - team-domain/proto/platform/listing/v1/*.proto
@@ -38,12 +41,14 @@ Implement OpenSpec change `domain-listing-moderation` test-first per its tasks.m
 - team-domain/docker-compose.local.yaml
 - team-domain/.env.example
 - team-domain/README.md
+- team-domain/go.mod (widened at build: task 4) # widened at build: task 4
 - team-domain/FEATURES.yaml
 - team-gateway/internal/edge/policy.go
 - team-gateway/internal/edge/listing.go
 - team-gateway/internal/edge/policy_edge_test.go
 - team-gateway/internal/edge/listing_test.go
 - team-gateway/internal/edge/unrouted_test.go
+- team-gateway/internal/edge/policy_test.go (widened at build: task 9) # widened at build: task 9
 - team-gateway/generated/**
 - team-gateway/FEATURES.yaml
 - platform-e2e/tests/e2e/features/seller/listing_moderation.feature

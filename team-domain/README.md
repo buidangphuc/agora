@@ -96,6 +96,9 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `RESERVATION_SWEEP_INTERVAL` | `1m` (Go duration): sweeper period |
 | `UPSTREAM_AUDIT_ADDR` | empty: team-audit gRPC address. Admin listing update/delete are audited (`listing.admin_update` / `listing.admin_delete`) before applying and fail closed with `Unavailable` when audit is unset or down; owner writes are never audited |
 | `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2`: per-call audit timeout, single attempt |
+| `UPSTREAM_AI_ADDR` | empty: team-ai gRPC address for listing auto-screening (`ScreenListing`, service principal `ai.classify`). Empty fails safe: no verdict, never ALLOW |
+| `UPSTREAM_AI_TIMEOUT_SECONDS` | `2`: per-call screen timeout, single attempt, capped by the inbound deadline |
+| `SCREEN_TERMS_FILE` | empty: embedded prohibited-terms list. When set, the file (one term per line, `#` comments) replaces it; a missing file stops start-up. Matching ignores case and diacritics |
 | `OTEL_ENABLED` | `false` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty |
 | `OTEL_SERVICE_NAME` | `team-domain` |

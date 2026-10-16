@@ -35,6 +35,8 @@ func TestAdminProceduresPinned(t *testing.T) {
 		engagementv1connect.EngagementServiceResolveReportProcedure, // listing reports
 		orderv1connect.OrderServiceForceFailSagaProcedure,
 		verificationv1connect.VerificationServiceReviewKycProcedure,
+		listingv1connect.ListingServiceModerateListingProcedure,     // domain-listing-moderation: admin-gated
+		listingv1connect.ListingServiceListModerationQueueProcedure, // domain-listing-moderation: admin-gated
 		identityv1connect.AccountAdminServiceListUsersProcedure,
 		identityv1connect.AccountAdminServiceSetUserStatusProcedure,
 	}

@@ -3,10 +3,16 @@ package service_test
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 
+	aiv1 "github.com/buidangphuc/team-domain/generated/platform/ai/v1"
 	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/screen"
 	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/upstream"
 )
 
 func TestListingService(t *testing.T) {
@@ -177,6 +183,10 @@ func (f *fakeAudit) WriteListingAdminDelete(_ context.Context, actorID, listingI
 	return f.err
 }
 
+func (f *fakeAudit) WriteListingModerate(context.Context, string, string, string, string, string, string, string, string) error {
+	return f.err
+}
+
 // orderTx wraps the in-memory TxWriter and logs when the change happens.
 type orderTx struct {
 	*repository.InMemoryTxWriter
@@ -229,7 +239,7 @@ func TestUpdateWithEventAuditPrecedesUpdate(t *testing.T) {
 	if got := *f.log; len(got) != 2 || got[0] != "audit" || got[1] != "change" {
 		t.Fatalf("order = %v, want [audit change]", got)
 	}
-	want := auditCall{"update", "admin-1", "L-1", "seller-1", "rejected"}
+	want := auditCall{"update", "admin-1", "L-1", "seller-1", "published"}
 	if len(f.audit.calls) != 1 || f.audit.calls[0] != want {
 		t.Fatalf("audit calls = %+v, want [%+v]", f.audit.calls, want)
 	}
@@ -391,5 +401,471 @@ func TestWithEventNonAdminPathsMakeNoAuditCall(t *testing.T) {
 	}
 	if len(f.audit.calls) != 0 {
 		t.Fatalf("audit calls = %+v, want none", f.audit.calls)
+	}
+}
+
+func ownershipSvc(stored string) (*service.ListingService, *repository.InMemoryListingRepository) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{
+		ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Status: stored, SellerID: "seller-a", Stock: 1,
+	})
+	return service.NewListingServiceWithOutbox(repo, repository.NewInMemoryTxWriter(repo)), repo
+}
+
+func noEvent(l repository.Listing) (repository.OutboxRow, error) {
+	return repository.OutboxRow{EventID: "e-" + l.ID, AggregateID: l.ID, EventType: "test"}, nil
+}
+
+// Scenario: Status ownership: Seller cannot un-reject by sending PUBLISHED.
+func TestUpdateWithEventRejectedStaysUnpublished(t *testing.T) {
+	svc, repo := ownershipSvc("rejected")
+	_, _ = svc.UpdateWithEvent(context.Background(),
+		repository.Listing{ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Stock: 1, Status: "published"},
+		"seller-a", false, noEvent)
+	got, _ := repo.Get(context.Background(), "L-1")
+	if got.Status == "published" {
+		t.Fatalf("stored status = %q, a seller must not un-reject by sending published", got.Status)
+	}
+}
+
+// Scenario: Status ownership: Seller cannot move a published listing into a server-only status.
+func TestUpdateWithEventClientBannedIgnored(t *testing.T) {
+	for _, st := range []string{"banned", "held", "pending_review", "rejected"} {
+		t.Run(st, func(t *testing.T) {
+			svc, repo := ownershipSvc("published")
+			_, err := svc.UpdateWithEvent(context.Background(),
+				repository.Listing{ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Stock: 1, Status: st},
+				"seller-a", false, noEvent)
+			if err != nil {
+				t.Fatalf("UpdateWithEvent: %v", err)
+			}
+			got, _ := repo.Get(context.Background(), "L-1")
+			if got.Status != "published" {
+				t.Fatalf("stored status = %q, want published", got.Status)
+			}
+		})
+	}
+}
+
+// Scenario: Status ownership: Status omitted keeps a published listing published.
+func TestUpdateWithEventOmittedStatusKeepsStored(t *testing.T) {
+	for _, stored := range []string{"published", "draft"} {
+		t.Run(stored, func(t *testing.T) {
+			svc, repo := ownershipSvc(stored)
+			_, err := svc.UpdateWithEvent(context.Background(),
+				repository.Listing{ID: "L-1", Title: "orig", Currency: "VND", Price: 999, Stock: 1, Status: ""},
+				"seller-a", false, noEvent)
+			if err != nil {
+				t.Fatalf("UpdateWithEvent: %v", err)
+			}
+			got, _ := repo.Get(context.Background(), "L-1")
+			if got.Status != stored {
+				t.Fatalf("stored status = %q, want %q", got.Status, stored)
+			}
+		})
+	}
+}
+
+// Scenario: Status ownership: Server-only statuses sent on create are ignored.
+func TestCreateWithEventServerOnlyStatusIgnored(t *testing.T) {
+	for _, st := range []string{"rejected", "banned", "pending_review", "held", ""} {
+		t.Run("status="+st, func(t *testing.T) {
+			svc, _ := ownershipSvc("draft")
+			got, err := svc.CreateWithEvent(context.Background(),
+				repository.Listing{Title: "n", Currency: "VND", Stock: 1, Status: st}, "seller-a", noEvent)
+			if err != nil {
+				t.Fatalf("CreateWithEvent: %v", err)
+			}
+			if got.Status != "draft" {
+				t.Fatalf("status = %q, want draft", got.Status)
+			}
+		})
+	}
+}
+
+// Scenario: Status ownership: Another seller still cannot edit the listing.
+func TestUpdateWithEventNonOwnerForbidden(t *testing.T) {
+	svc, repo := ownershipSvc("pending_review")
+	_, err := svc.UpdateWithEvent(context.Background(),
+		repository.Listing{ID: "L-1", Title: "x", Currency: "VND", Stock: 1, Status: "published"},
+		"seller-b", false, noEvent)
+	if err != service.ErrForbidden {
+		t.Fatalf("err = %v, want ErrForbidden", err)
+	}
+	got, _ := repo.Get(context.Background(), "L-1")
+	if got.Status != "pending_review" {
+		t.Fatalf("status = %q", got.Status)
+	}
+}
+
+// ---- Auto-screen and state machine (domain-listing-moderation task 6) ----
+
+type fakeAI struct {
+	calls   int
+	verdict aiv1.ScreenVerdict
+	labels  []string
+	err     error
+}
+
+func (f *fakeAI) ScreenListing(_ context.Context, _ upstream.ScreenInput) (*aiv1.ScreenListingResponse, error) {
+	f.calls++
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &aiv1.ScreenListingResponse{Verdict: f.verdict, Labels: f.labels, Backend: "fake"}, nil
+}
+
+func allowAI() *fakeAI { return &fakeAI{verdict: aiv1.ScreenVerdict_SCREEN_VERDICT_ALLOW} }
+
+func termsFile(t *testing.T) *screen.Screener {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "terms.txt")
+	if err := os.WriteFile(p, []byte("replica\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sc, err := screen.New(p)
+	if err != nil {
+		t.Fatalf("screen.New: %v", err)
+	}
+	return sc
+}
+
+type screenFixture struct {
+	svc  *service.ListingService
+	repo *repository.InMemoryListingRepository
+	txw  *repository.InMemoryTxWriter
+	ai   *fakeAI
+}
+
+func newScreenFixture(t *testing.T, stored string, ai *fakeAI) *screenFixture {
+	t.Helper()
+	repo := repository.NewInMemoryListingRepository(repository.Listing{
+		ID: "L-1", Title: "orig", Description: "desc", CategoryID: "c1", Currency: "VND", Price: 100,
+		Status: stored, SellerID: "seller-a", Stock: 1,
+	})
+	txw := repository.NewInMemoryTxWriter(repo)
+	svc := service.NewListingServiceWithOutbox(repo, txw)
+	var ais service.Screener
+	if ai != nil {
+		ais = ai
+	}
+	svc = svc.WithScreener(termsFile(t), ais)
+	return &screenFixture{svc: svc, repo: repo, txw: txw, ai: ai}
+}
+
+func (f *screenFixture) stored(t *testing.T) repository.Listing {
+	t.Helper()
+	got, err := f.repo.Get(context.Background(), "L-1")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	return got
+}
+
+// capture records the status the enqueue callback sees (the persisted listing).
+type capture struct{ statuses []string }
+
+func (c *capture) enqueue(l repository.Listing) (repository.OutboxRow, error) {
+	c.statuses = append(c.statuses, l.Status)
+	return repository.OutboxRow{EventID: "e-" + l.ID, AggregateID: l.ID, EventType: "test"}, nil
+}
+
+func newListing(title string, status string) repository.Listing {
+	return repository.Listing{Title: title, Description: "desc", CategoryID: "c1", Currency: "VND", Price: 1, Stock: 1, Status: status}
+}
+
+// Scenario: Auto-screen: Clean listing publishes.
+func TestCreateWithEventCleanPublishes(t *testing.T) {
+	f := newScreenFixture(t, "draft", allowAI())
+	var c capture
+	got, err := f.svc.CreateWithEvent(context.Background(), newListing("clean phone", "published"), "seller-a", c.enqueue)
+	if err != nil {
+		t.Fatalf("CreateWithEvent: %v", err)
+	}
+	if got.Status != "published" {
+		t.Fatalf("status = %q, want published", got.Status)
+	}
+	if len(c.statuses) != 1 || c.statuses[0] != "published" {
+		t.Fatalf("event statuses = %v, want [published]", c.statuses)
+	}
+	if f.ai.calls != 1 {
+		t.Fatalf("ai calls = %d, want 1", f.ai.calls)
+	}
+}
+
+// Scenario: Auto-screen: Keyword hit goes to review without calling the AI.
+func TestCreateWithEventKeywordHitPendingReview(t *testing.T) {
+	f := newScreenFixture(t, "draft", allowAI())
+	got, err := f.svc.CreateWithEvent(context.Background(), newListing("Replica watch", "published"), "seller-a", noEvent)
+	if err != nil {
+		t.Fatalf("CreateWithEvent: %v", err)
+	}
+	if got.Status != "pending_review" {
+		t.Fatalf("status = %q, want pending_review", got.Status)
+	}
+	if !reflect.DeepEqual(got.ScreenFlags, []string{"keyword:replica"}) {
+		t.Fatalf("flags = %v, want [keyword:replica]", got.ScreenFlags)
+	}
+	if got.SubmittedAt.IsZero() {
+		t.Error("submitted_at must be set when entering pending_review")
+	}
+	if f.ai.calls != 0 {
+		t.Fatalf("ai calls = %d, want 0", f.ai.calls)
+	}
+}
+
+// Scenario: Auto-screen: AI REVIEW verdict goes to review.
+func TestCreateWithEventAIReviewPendingReview(t *testing.T) {
+	f := newScreenFixture(t, "draft", &fakeAI{verdict: aiv1.ScreenVerdict_SCREEN_VERDICT_REVIEW, labels: []string{"weapon"}})
+	got, err := f.svc.CreateWithEvent(context.Background(), newListing("clean text", "published"), "seller-a", noEvent)
+	if err != nil {
+		t.Fatalf("CreateWithEvent: %v", err)
+	}
+	if got.Status != "pending_review" || !reflect.DeepEqual(got.ScreenFlags, []string{"ai:weapon"}) {
+		t.Fatalf("status=%q flags=%v, want pending_review [ai:weapon]", got.Status, got.ScreenFlags)
+	}
+}
+
+// Scenario: Auto-screen: AI error fails safe.
+func TestCreateWithEventScreenErrorPendingReview(t *testing.T) {
+	f := newScreenFixture(t, "draft", &fakeAI{err: errors.New("team-ai down")})
+	got, err := f.svc.CreateWithEvent(context.Background(), newListing("clean text", "published"), "seller-a", noEvent)
+	if err != nil {
+		t.Fatalf("write must succeed on screen error: %v", err)
+	}
+	if got.Status != "pending_review" {
+		t.Fatalf("status = %q, want pending_review", got.Status)
+	}
+}
+
+// Scenario: Auto-screen: AI timeout fails safe within the bound.
+func TestCreateWithEventScreenTimeoutPendingReview(t *testing.T) {
+	f := newScreenFixture(t, "draft", &fakeAI{err: context.DeadlineExceeded})
+	got, err := f.svc.CreateWithEvent(context.Background(), newListing("clean text", "published"), "seller-a", noEvent)
+	if err != nil {
+		t.Fatalf("write must succeed on screen timeout: %v", err)
+	}
+	if got.Status != "pending_review" {
+		t.Fatalf("status = %q, want pending_review", got.Status)
+	}
+}
+
+// Scenario: Auto-screen: Unconfigured team-ai fails safe (service side).
+func TestCreateWithEventNilScreenerPendingReview(t *testing.T) {
+	f := newScreenFixture(t, "draft", nil)
+	got, err := f.svc.CreateWithEvent(context.Background(), newListing("clean text", "published"), "seller-a", noEvent)
+	if err != nil {
+		t.Fatalf("CreateWithEvent: %v", err)
+	}
+	if got.Status != "pending_review" {
+		t.Fatalf("status = %q, want pending_review", got.Status)
+	}
+}
+
+// Scenario: Auto-screen: Draft save is not screened.
+func TestCreateWithEventDraftNotScreened(t *testing.T) {
+	f := newScreenFixture(t, "draft", allowAI())
+	got, err := f.svc.CreateWithEvent(context.Background(), newListing("replica", "draft"), "seller-a", noEvent)
+	if err != nil {
+		t.Fatalf("CreateWithEvent: %v", err)
+	}
+	if got.Status != "draft" || f.ai.calls != 0 || len(got.ScreenFlags) != 0 {
+		t.Fatalf("status=%q ai=%d flags=%v, want draft, 0 calls, no flags", got.Status, f.ai.calls, got.ScreenFlags)
+	}
+}
+
+func fullUpdate(title, desc string, price int64, status string) repository.Listing {
+	return repository.Listing{ID: "L-1", Title: title, Description: desc, CategoryID: "c1", Currency: "VND", Price: price, Stock: 7, Status: status}
+}
+
+// Scenario: Auto-screen: Price and stock edits do not re-screen.
+func TestUpdateWithEventNonContentEditNoScreen(t *testing.T) {
+	f := newScreenFixture(t, "published", allowAI())
+	_, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("orig", "desc", 555, "published"), "seller-a", false, noEvent)
+	if err != nil {
+		t.Fatalf("UpdateWithEvent: %v", err)
+	}
+	got := f.stored(t)
+	if got.Status != "published" || got.Price != 555 || f.ai.calls != 0 {
+		t.Fatalf("status=%q price=%d ai=%d, want published 555 0", got.Status, got.Price, f.ai.calls)
+	}
+}
+
+// Scenario: Auto-screen: Title edit of a published listing is re-screened.
+func TestUpdateWithEventContentEditRescreens(t *testing.T) {
+	f := newScreenFixture(t, "published", allowAI())
+	var c capture
+	_, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("replica bag", "desc", 100, ""), "seller-a", false, c.enqueue)
+	if err != nil {
+		t.Fatalf("UpdateWithEvent: %v", err)
+	}
+	if got := f.stored(t); got.Status != "pending_review" {
+		t.Fatalf("status = %q, want pending_review", got.Status)
+	}
+	if len(c.statuses) != 1 || c.statuses[0] != "pending_review" {
+		t.Fatalf("event statuses = %v, want [pending_review]", c.statuses)
+	}
+}
+
+// Scenario: Auto-screen: Content edit sending a server-only status is re-screened.
+func TestUpdateWithEventServerOnlyStatusContentEditRescreens(t *testing.T) {
+	t.Run("keyword", func(t *testing.T) {
+		f := newScreenFixture(t, "published", allowAI())
+		if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("orig", "a replica item", 100, "banned"), "seller-a", false, noEvent); err != nil {
+			t.Fatalf("UpdateWithEvent: %v", err)
+		}
+		if got := f.stored(t); got.Status != "pending_review" {
+			t.Fatalf("status = %q, want pending_review (not published, not banned)", got.Status)
+		}
+	})
+	t.Run("ai runs once", func(t *testing.T) {
+		f := newScreenFixture(t, "published", &fakeAI{verdict: aiv1.ScreenVerdict_SCREEN_VERDICT_REVIEW, labels: []string{"weapon"}})
+		if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("orig", "new text", 100, "banned"), "seller-a", false, noEvent); err != nil {
+			t.Fatalf("UpdateWithEvent: %v", err)
+		}
+		if got := f.stored(t); got.Status != "pending_review" || f.ai.calls != 1 {
+			t.Fatalf("status=%q ai=%d, want pending_review and exactly 1 screen", got.Status, f.ai.calls)
+		}
+	})
+}
+
+// Scenario: Auto-screen: Draft published later is screened at that moment.
+func TestUpdateWithEventDraftToPublishScreens(t *testing.T) {
+	f := newScreenFixture(t, "draft", allowAI())
+	if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("replica", "desc", 100, "published"), "seller-a", false, noEvent); err != nil {
+		t.Fatalf("UpdateWithEvent: %v", err)
+	}
+	if got := f.stored(t); got.Status != "pending_review" {
+		t.Fatalf("status = %q, want pending_review", got.Status)
+	}
+}
+
+// Scenario: Status ownership: Seller edit of a rejected listing goes to manual review.
+func TestUpdateWithEventRejectedGoesToPendingReview(t *testing.T) {
+	for _, sent := range []string{"published", "draft", ""} {
+		t.Run("sent="+sent, func(t *testing.T) {
+			f := newScreenFixture(t, "rejected", allowAI())
+			if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("orig", "desc", 100, sent), "seller-a", false, noEvent); err != nil {
+				t.Fatalf("UpdateWithEvent: %v", err)
+			}
+			got := f.stored(t)
+			if got.Status != "pending_review" {
+				t.Fatalf("status = %q, want pending_review (ALLOW verdict must not publish)", got.Status)
+			}
+			if got.SubmittedAt.IsZero() {
+				t.Error("submitted_at must be set")
+			}
+		})
+	}
+}
+
+// Scenario: Status ownership: Seller can withdraw a published listing to draft.
+func TestUpdateWithEventPublishedToDraft(t *testing.T) {
+	f := newScreenFixture(t, "published", allowAI())
+	var c capture
+	if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("orig", "desc", 100, "draft"), "seller-a", false, c.enqueue); err != nil {
+		t.Fatalf("UpdateWithEvent: %v", err)
+	}
+	if got := f.stored(t); got.Status != "draft" {
+		t.Fatalf("status = %q, want draft", got.Status)
+	}
+	if len(c.statuses) != 1 || c.statuses[0] != "draft" {
+		t.Fatalf("event statuses = %v, want [draft]", c.statuses)
+	}
+}
+
+// Scenario: Status ownership: Banned listing refuses seller writes / Held listing refuses seller writes.
+func TestUpdateWithEventLockedStatusRefused(t *testing.T) {
+	for _, st := range []string{"banned", "held"} {
+		t.Run(st, func(t *testing.T) {
+			f := newScreenFixture(t, st, allowAI())
+			_, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("changed", "desc", 999, "published"), "seller-a", false, noEvent)
+			if !errors.Is(err, service.ErrStatusLocked) {
+				t.Fatalf("err = %v, want ErrStatusLocked", err)
+			}
+			got := f.stored(t)
+			if got.Status != st || got.Title != "orig" || len(f.txw.Rows()) != 0 {
+				t.Fatalf("row changed: status=%q title=%q rows=%d", got.Status, got.Title, len(f.txw.Rows()))
+			}
+		})
+	}
+}
+
+// Scenario: Status ownership: Banned or held listing refuses seller delete.
+func TestDeleteWithEventLockedStatusRefused(t *testing.T) {
+	for _, st := range []string{"banned", "held"} {
+		t.Run(st, func(t *testing.T) {
+			f := newScreenFixture(t, st, allowAI())
+			_, err := f.svc.DeleteWithEvent(context.Background(), "L-1", "seller-a", false, noEvent)
+			if !errors.Is(err, service.ErrStatusLocked) {
+				t.Fatalf("err = %v, want ErrStatusLocked", err)
+			}
+			if got := f.stored(t); got.Status != st || len(f.txw.Rows()) != 0 {
+				t.Fatalf("status=%q rows=%d, want unchanged and no outbox row", got.Status, len(f.txw.Rows()))
+			}
+		})
+	}
+}
+
+// Scenario: Status ownership: Admin's own listing goes through the screen.
+func TestAdminOwnListingFollowsSellerPath(t *testing.T) {
+	f := newScreenFixture(t, "draft", allowAI())
+	log := &[]string{}
+	fa := &fakeAudit{log: log}
+	f.svc = f.svc.WithAudit(fa)
+	created, err := f.svc.CreateWithEvent(context.Background(), newListing("replica", "published"), "admin-1", noEvent)
+	if err != nil {
+		t.Fatalf("CreateWithEvent: %v", err)
+	}
+	if created.Status != "pending_review" || !reflect.DeepEqual(created.ScreenFlags, []string{"keyword:replica"}) {
+		t.Fatalf("status=%q flags=%v, want pending_review [keyword:replica]", created.Status, created.ScreenFlags)
+	}
+	upd := created
+	upd.Description = "other description"
+	if _, err := f.svc.UpdateWithEvent(context.Background(), upd, "admin-1", true, noEvent); err != nil {
+		t.Fatalf("UpdateWithEvent: %v", err)
+	}
+	if len(fa.calls) != 1 || fa.calls[0].kind != "update" {
+		t.Fatalf("audit calls = %+v, want exactly 1 update", fa.calls)
+	}
+}
+
+// Scenario: Status ownership: Admin content edit does not re-screen.
+func TestUpdateWithEventAdminEditNoScreen(t *testing.T) {
+	for _, title := range []string{"better title", "replica title"} {
+		t.Run(title, func(t *testing.T) {
+			f := newScreenFixture(t, "published", allowAI())
+			f.svc = f.svc.WithAudit(&fakeAudit{log: new([]string)})
+			if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate(title, "desc", 100, ""), "admin-1", true, noEvent); err != nil {
+				t.Fatalf("UpdateWithEvent: %v", err)
+			}
+			got := f.stored(t)
+			if got.Title != title || got.Status != "published" || f.ai.calls != 0 {
+				t.Fatalf("title=%q status=%q ai=%d, want %q published 0", got.Title, got.Status, f.ai.calls, title)
+			}
+		})
+	}
+}
+
+// Scenario: Status ownership: Admin UpdateListing cannot set status (service side).
+func TestUpdateWithEventAdminCannotSetStatus(t *testing.T) {
+	for _, sent := range []string{"published", "draft", "banned", "pending_review"} {
+		t.Run("sent="+sent, func(t *testing.T) {
+			f := newScreenFixture(t, "rejected", allowAI())
+			fa := &fakeAudit{log: new([]string)}
+			f.svc = f.svc.WithAudit(fa)
+			var c capture
+			if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("orig", "desc", 100, sent), "admin-1", true, c.enqueue); err != nil {
+				t.Fatalf("UpdateWithEvent: %v", err)
+			}
+			if len(fa.calls) != 1 || fa.calls[0].status != "rejected" {
+				t.Fatalf("audit calls = %+v, want 1 with status rejected", fa.calls)
+			}
+			if got := f.stored(t); got.Status != "rejected" {
+				t.Fatalf("status = %q, want rejected", got.Status)
+			}
+			if len(c.statuses) != 1 || c.statuses[0] != "rejected" {
+				t.Fatalf("event statuses = %v, want [rejected]", c.statuses)
+			}
+		})
 	}
 }
