@@ -97,6 +97,7 @@ func run() error {
 		handler.NewAddressHandler(addrRepo, logger),
 		handler.NewSessionHandler(sessionRepo, logger).WithTokenTTL(time.Duration(settings.JWT.TTLSeconds)*time.Second),
 		handler.NewProfileHandler(repo, logger),
+		handler.NewAccountAdminHandler(authSvc, repo, logger),
 		res.Health,
 		logger,
 	)
