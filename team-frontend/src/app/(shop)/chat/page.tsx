@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { ChatView } from "@/features/chat/ChatView";
 import {
   type ViewChatMessage,
@@ -16,7 +15,7 @@ export default async function ChatPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const me = getPrincipal();
-  if (!me) redirect("/login?returnUrl=/chat");
+  if (!me) redirectGuestToLogin("/chat", searchParams);
 
   const threads = await listThreads();
   const targetId =

@@ -32,7 +32,7 @@ describe("QuestionList", () => {
       within(screen.getByTestId("qa-empty")).getByRole("link", {
         name: "Đăng nhập để hỏi",
       }),
-    ).toHaveAttribute("href", "/login?returnUrl=/listing/L");
+    ).toHaveAttribute("href", "/login?returnUrl=%2Flisting%2FL");
   });
 
   it("lists questions and answers with a Shop tag on shop replies and the answer toggle", async () => {

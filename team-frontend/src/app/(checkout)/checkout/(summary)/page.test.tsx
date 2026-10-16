@@ -138,7 +138,7 @@ beforeEach(() => {
 describe("/checkout page redirects and gates", () => {
   it("redirects a signed-out visitor to /login", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
-    expect(await redirectOf()).toBe("/login");
+    expect(await redirectOf()).toBe("/login?returnUrl=%2Fcheckout");
   });
 
   it("redirects a signed-in buyer with an empty cart to /cart", async () => {

@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Alert } from "@/components/ui/Alert";
 import { KpiRow } from "@/features/seller/KpiRow";
@@ -33,7 +33,7 @@ export default async function SellerPage(props: {
   searchParams?: Promise<SearchParams>;
 }) {
   const searchParams = await props.searchParams;
-  if (!hasScope("listing.write")) redirect("/login");
+  if (!hasScope("listing.write")) redirectGuestToLogin("/seller", searchParams);
 
   const params = parseListParams(searchParams, LISTING_STATUSES);
 

@@ -1,3 +1,4 @@
+import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -37,6 +38,41 @@ describe("addToCartAction", () => {
     vi.mocked(addToCart).mockRejectedValue(new Error("out of stock"));
     const res = await addToCartAction("l1");
     expect(res).toEqual({ ok: false, error: "out of stock" });
+  });
+});
+
+describe("addToCartAction unauthenticated (login-return: guest add-to-cart)", () => {
+  it("guest add-to-cart: Unauthenticated resolves ok:false with unauthenticated:true", async () => {
+    vi.mocked(addToCart).mockRejectedValue(
+      new ConnectError("no session", Code.Unauthenticated),
+    );
+    const res = await addToCartAction("l1", "v1", 1);
+    expect(res).toMatchObject({ ok: false, unauthenticated: true });
+    expect(typeof (res as { error?: unknown }).error).toBe("string");
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("non-auth errors stay generic: FailedPrecondition has no unauthenticated flag", async () => {
+    vi.mocked(addToCart).mockRejectedValue(
+      new ConnectError("out of stock", Code.FailedPrecondition),
+    );
+    const res = await addToCartAction("l1", "v1", 1);
+    expect(res).toMatchObject({ ok: false });
+    expect(res).not.toHaveProperty("unauthenticated");
+  });
+
+  it("non-auth errors stay generic: a plain Error has no unauthenticated flag", async () => {
+    vi.mocked(addToCart).mockRejectedValue(new Error("boom"));
+    const res = await addToCartAction("l1");
+    expect(res).toEqual({ ok: false, error: "boom" });
+  });
+
+  it("other actions keep the shared contract: updateCartItemAction Unauthenticated has no flag", async () => {
+    vi.mocked(updateCartItem).mockRejectedValue(
+      new ConnectError("no session", Code.Unauthenticated),
+    );
+    const res = await updateCartItemAction("ci1", 2);
+    expect(res).not.toHaveProperty("unauthenticated");
   });
 });
 

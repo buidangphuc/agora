@@ -187,6 +187,78 @@ describe("PurchasePanel", () => {
   });
 });
 
+const guest = { ok: false, error: "Chưa đăng nhập", unauthenticated: true };
+const twoVariants = {
+  ...baseListing,
+  variants: [
+    variant({ id: "a", name: "128GB", price: 100000, stock: 3 }),
+    variant({ id: "v2", name: "256GB", price: 150000, stock: 5 }),
+  ],
+};
+
+describe("PurchasePanel guest login routing", () => {
+  it("guest add to cart routes to login with the PDP and variant, no toast, no tracking", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockResolvedValue(guest as never);
+    renderPanel({ ...twoVariants, id: "abc" }, "v2");
+    await user.click(inlineAdd());
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Flisting%2Fabc%3Fvariant%3Dv2",
+    );
+    expect(screen.queryByText("Chưa đăng nhập")).not.toBeInTheDocument();
+    expect(trackEcommerce).not.toHaveBeenCalled();
+    expect(addToCartAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("guest buy now routes to login, not /checkout, no toast, no tracking", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockResolvedValue(guest as never);
+    renderPanel({ ...twoVariants, id: "abc" }, "v2");
+    await user.click(inlineBuy());
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Flisting%2Fabc%3Fvariant%3Dv2",
+    );
+    expect(push).not.toHaveBeenCalledWith("/checkout");
+    expect(screen.queryByText("Chưa đăng nhập")).not.toBeInTheDocument();
+    expect(trackEcommerce).not.toHaveBeenCalled();
+    expect(addToCartAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("guest add without variant omits the variant parameter", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockResolvedValue(guest as never);
+    renderPanel({ ...baseListing, id: "abc" });
+    await user.click(inlineAdd());
+    expect(push).toHaveBeenCalledWith("/login?returnUrl=%2Flisting%2Fabc");
+  });
+
+  it("other cart errors keep the toast and do not navigate", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockResolvedValue({
+      ok: false,
+      error: "Hết hàng rồi",
+    } as never);
+    renderPanel();
+    await user.click(inlineBuy());
+    expect(await screen.findByText("Hết hàng rồi")).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("signed-in add still succeeds with the toast and no navigation to login", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockResolvedValue({ ok: true });
+    renderPanel();
+    await user.click(inlineAdd());
+    expect(
+      await screen.findByText("Đã thêm 1 sản phẩm vào giỏ hàng"),
+    ).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+    expect(trackEcommerce).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("BuyBar", () => {
   it("is a below-lg bar and the inline row is hidden below lg: one visible set per breakpoint", () => {
     renderPanel();
