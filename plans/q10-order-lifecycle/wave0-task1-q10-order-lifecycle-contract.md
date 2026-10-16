@@ -33,7 +33,7 @@ Implement OpenSpec change `q10-order-lifecycle-contract` test-first per its task
 - team-engagement/proto/platform/payment/v1/payment.proto
 - platform-core/FEATURES.yaml
 - openspec/changes/q10-order-lifecycle-contract/**
-- platform-core/packages/proto/gen_lifecycle_contract_test.sh # widened at build: task 2.2
+- platform-core/packages/proto/gen_lifecycle_contract_test.sh (widened at build: task 2.2)
 
 ## Read-only dependencies
 - openspec/changes/q10-order-lifecycle-contract/** is frozen by its LOCK.md digest except tasks.md ticks
