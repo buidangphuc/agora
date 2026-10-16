@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import {
+  CancelReason,
+  OrderStatus,
+} from "@/generated/platform/order/v1/order_pb.js";
 import {
   PaymentMethod,
   PaymentStatus,
@@ -9,7 +12,7 @@ import {
 import type { ViewOrder } from "@/lib/gateway/orders";
 import { getOrder } from "@/lib/gateway/orders";
 import type { ViewPaymentTransaction } from "@/lib/gateway/payment";
-import { getPayment } from "@/lib/gateway/payment";
+import { createPayment, getPayment } from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
 
 import PaymentNotFound from "../not-found";
@@ -27,13 +30,39 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
 vi.mock("@/lib/gateway/orders", () => ({ getOrder: vi.fn() }));
-vi.mock("@/lib/gateway/payment", () => ({ getPayment: vi.fn() }));
+vi.mock("@/lib/gateway/payment", () => ({
+  getPayment: vi.fn(),
+  createPayment: vi.fn(),
+}));
 vi.mock("@/features/order/actions", () => ({
   processMockPaymentAction: vi.fn(),
 }));
 
-function order(status: OrderStatus): ViewOrder {
-  return { id: "order-12345678", status } as ViewOrder;
+const FUTURE = "2999-01-01T00:00:00.000Z";
+const PAST = "2000-01-01T00:00:00.000Z";
+
+function order(status: OrderStatus, extra: Partial<ViewOrder> = {}): ViewOrder {
+  return {
+    id: "order-12345678",
+    status,
+    totalAmount: 330000,
+    paymentMethod: PaymentMethod.MOCK_MOMO,
+    paymentMethodText: "Ví điện tử MoMo (Demo)",
+    paymentDueAt: FUTURE,
+    cancelReason: CancelReason.UNSPECIFIED,
+    ...extra,
+  } as ViewOrder;
+}
+
+function noPaymentCalls() {
+  expect(getPayment).not.toHaveBeenCalled();
+  expect(createPayment).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("button", { name: "Thanh toán thành công" }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Thanh toán thất bại" }),
+  ).toBeNull();
 }
 
 function tx(status: PaymentStatus): ViewPaymentTransaction {
@@ -78,9 +107,121 @@ describe("/checkout/pay/[id]", () => {
     expect(await outcome("does-not-exist")).toBe("notFound");
   });
 
-  it("calls notFound when the order has no transaction", async () => {
+  it("creates a transaction when none exists", async () => {
     vi.mocked(getPayment).mockResolvedValue(null);
-    expect(await outcome()).toBe("notFound");
+    vi.mocked(createPayment).mockResolvedValue({
+      transaction: tx(PaymentStatus.PENDING),
+      paymentUrl: "",
+    });
+    expect(await outcome()).toBeNull();
+    expect(createPayment).toHaveBeenCalledTimes(1);
+    expect(createPayment).toHaveBeenCalledWith(
+      "order-12345678",
+      PaymentMethod.MOCK_MOMO,
+    );
+    expect(
+      screen.getByRole("button", { name: "Thanh toán thành công" }),
+    ).toBeEnabled();
+  });
+
+  it("failed transaction is reused and the order is kept", async () => {
+    vi.mocked(getPayment).mockResolvedValue(tx(PaymentStatus.FAILED));
+    await outcome();
+    expect(createPayment).not.toHaveBeenCalled();
+    expect(screen.getByText(/Đơn hàng vẫn được giữ đến/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Thử lại" })).toBeInTheDocument();
+  });
+
+  it("no false cancellation claim", async () => {
+    vi.mocked(getPayment).mockResolvedValue(tx(PaymentStatus.FAILED));
+    await outcome();
+    const text = document.body.textContent ?? "";
+    expect(text.toLowerCase()).not.toContain("đơn hàng đã bị hủy");
+    expect(text.toLowerCase()).not.toContain("hoàn tác");
+  });
+
+  it("expired order shows the expiry message", async () => {
+    vi.mocked(getOrder).mockResolvedValue(
+      order(OrderStatus.CANCELLED, {
+        cancelReason: CancelReason.PAYMENT_EXPIRED,
+      }),
+    );
+    const first = render(
+      await MockPaymentPage({
+        params: Promise.resolve({ id: "order-12345678" }),
+      }),
+    );
+    expect(
+      screen.getByText("Đơn hàng đã hết hạn thanh toán"),
+    ).toBeInTheDocument();
+    noPaymentCalls();
+    first.unmount();
+
+    vi.mocked(getOrder).mockResolvedValue(
+      order(OrderStatus.PENDING, { paymentDueAt: PAST }),
+    );
+    await outcome();
+    expect(
+      screen.getByText("Đơn hàng đã hết hạn thanh toán"),
+    ).toBeInTheDocument();
+    noPaymentCalls();
+  });
+
+  it("cod order offers no online payment", async () => {
+    vi.mocked(getOrder).mockResolvedValue(
+      order(OrderStatus.PENDING, {
+        paymentMethod: PaymentMethod.COD,
+        paymentMethodText: "Thanh toán khi nhận hàng (COD)",
+      }),
+    );
+    await outcome();
+    expect(
+      screen.getByText("Đơn hàng thanh toán khi nhận hàng"),
+    ).toBeInTheDocument();
+    noPaymentCalls();
+  });
+
+  it("unreadable order makes no payment call", async () => {
+    vi.mocked(getOrder).mockResolvedValue(null);
+    expect(await outcome("someone-elses")).toBe("notFound");
+    expect(getPayment).not.toHaveBeenCalled();
+    expect(createPayment).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["PAID", OrderStatus.PAID],
+    ["SHIPPED", OrderStatus.SHIPPED],
+    ["COMPLETED", OrderStatus.COMPLETED],
+  ])(
+    "non-pending order renders its state without payment calls (%s)",
+    async (_n, status) => {
+      vi.mocked(getOrder).mockResolvedValue(order(status));
+      expect(await outcome()).toBeNull();
+      expect(
+        screen.getByText("Đơn hàng đã được thanh toán"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "Xem đơn hàng" }),
+      ).toHaveAttribute("href", "/account/orders/order-12345678");
+      expect(screen.getByText("330.000")).toBeInTheDocument();
+      expect(screen.getByText("Ví điện tử MoMo (Demo)")).toBeInTheDocument();
+      noPaymentCalls();
+    },
+  );
+
+  it("non-pending order renders its state without payment calls (cancelled, changed mind)", async () => {
+    vi.mocked(getOrder).mockResolvedValue(
+      order(OrderStatus.CANCELLED, {
+        cancelReason: CancelReason.CHANGED_MIND,
+      }),
+    );
+    expect(await outcome()).toBeNull();
+    expect(screen.getByText("Đơn hàng đã bị hủy")).toBeInTheDocument();
+    expect(
+      screen.getByText("Đơn hàng đã bị hủy và tồn kho đã được giải phóng."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("330.000")).toBeInTheDocument();
+    noPaymentCalls();
   });
 
   it("shows the summary and the simulator for a pending transaction", async () => {
@@ -115,20 +256,6 @@ describe("/checkout/pay/[id]", () => {
     expect(
       screen.getByRole("link", { name: "Đổi phương thức" }),
     ).toBeInTheDocument();
-  });
-
-  it("explains a saga-cancelled order with an Alert and a link to the orders", async () => {
-    vi.mocked(getOrder).mockResolvedValue(order(OrderStatus.CANCELLED));
-    await outcome();
-    expect(screen.getByText("Đơn hàng đã bị hủy")).toBeInTheDocument();
-    expect(screen.getByText(/tồn kho đã được giải phóng/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Xem đơn hàng" })).toHaveAttribute(
-      "href",
-      "/account/orders",
-    );
-    expect(
-      screen.queryByRole("button", { name: "Thanh toán thành công" }),
-    ).toBeNull();
   });
 });
 

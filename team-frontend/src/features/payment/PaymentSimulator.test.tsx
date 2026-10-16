@@ -13,6 +13,12 @@ const toast = vi.hoisted(() => ({
   showToast: vi.fn(),
 }));
 vi.mock("@/components/ui/ToastProvider", () => ({ useToast: () => toast }));
+const router = vi.hoisted(() => ({ refresh: vi.fn(), push: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => router,
+  redirect: vi.fn(),
+  notFound: vi.fn(),
+}));
 vi.mock("@/features/order/actions", () => ({
   processMockPaymentAction: vi.fn(),
 }));
@@ -126,5 +132,32 @@ describe("PaymentSimulator", () => {
     );
     expect(toast.error).toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Thử lại" })).toBeEnabled();
+  });
+
+  it("a failed payment refreshes the page", async () => {
+    const user = setupUser();
+    vi.mocked(processMockPaymentAction).mockResolvedValue({
+      ok: false,
+      error: "Đơn hàng đã hết hạn thanh toán",
+    });
+    render(<PaymentSimulator {...props} initialPhase="idle" />);
+    await user.click(
+      screen.getByRole("button", { name: "Thanh toán thành công" }),
+    );
+    expect(toast.error).toHaveBeenCalledWith("Đơn hàng đã hết hạn thanh toán");
+    expect(router.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("a successful payment does not refresh the page", async () => {
+    const user = setupUser();
+    vi.mocked(processMockPaymentAction).mockResolvedValue({
+      ok: true,
+      data: { message: "paid" },
+    });
+    render(<PaymentSimulator {...props} initialPhase="idle" />);
+    await user.click(
+      screen.getByRole("button", { name: "Thanh toán thành công" }),
+    );
+    expect(router.refresh).not.toHaveBeenCalled();
   });
 });
