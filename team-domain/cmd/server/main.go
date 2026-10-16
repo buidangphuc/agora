@@ -28,6 +28,7 @@ import (
 	"github.com/buidangphuc/team-domain/internal/handler"
 	"github.com/buidangphuc/team-domain/internal/observability"
 	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/screen"
 	"github.com/buidangphuc/team-domain/internal/service"
 	"github.com/buidangphuc/team-domain/internal/storage"
 	"github.com/buidangphuc/team-domain/internal/upstream"
@@ -107,6 +108,24 @@ func run() error {
 		logger.Info("audit upstream enabled", slog.String("audit_addr", settings.Upstream.AuditAddr))
 	} else {
 		logger.Warn("UPSTREAM_AUDIT_ADDR unset; admin listing writes will be refused")
+	}
+	// Listing screening: keyword matcher plus the team-ai screener. Without an AI
+	// address the AI side stays nil and publishes fail safe to pending_review.
+	kw, err := screen.New(settings.Screen.TermsFile)
+	if err != nil {
+		return fmt.Errorf("load screen terms: %w", err)
+	}
+	aiClient, err := upstream.NewAIClient(settings.Upstream.AIAddr, time.Duration(settings.Upstream.AITimeoutSeconds*float64(time.Second)))
+	if err != nil {
+		return fmt.Errorf("dial team-ai: %w", err)
+	}
+	if aiClient != nil {
+		defer func() { _ = aiClient.Close() }()
+		svc.WithScreener(kw, aiClient)
+		logger.Info("ai screener enabled", slog.String("ai_addr", settings.Upstream.AIAddr))
+	} else {
+		svc.WithScreener(kw, nil)
+		logger.Warn("UPSTREAM_AI_ADDR unset; published listings will go to review")
 	}
 	// Reservation timing (RESERVATION_TTL / RESERVATION_SWEEP_INTERVAL): parsed
 	// once here so an invalid value is warned about (and defaulted) at boot.
