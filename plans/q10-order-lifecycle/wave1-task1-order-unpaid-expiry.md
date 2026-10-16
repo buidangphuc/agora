@@ -36,6 +36,8 @@ Implement OpenSpec change `order-unpaid-expiry` test-first per its tasks.md (sce
 - platform-e2e/tests/e2e/features/order/unpaid_expiry.feature
 - platform-e2e/tests/e2e/step_definitions/test_order_unpaid_expiry.py
 - openspec/changes/order-unpaid-expiry/**
+- team-order/.env.example (# widened at build: task 2)
+- plans/q10-order-lifecycle/wave1-task1-order-unpaid-expiry.md (# widened at build: task 2; packet widening record)
 
 ## Read-only dependencies
 - openspec/changes/order-unpaid-expiry/** is frozen by its LOCK.md digest except tasks.md ticks
