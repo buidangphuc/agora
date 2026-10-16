@@ -53,6 +53,7 @@ var ErrAuditUnavailable = errors.New("audit unavailable")
 type AuditWriter interface {
 	WriteListingAdminUpdate(ctx context.Context, actorID, listingID, sellerID, status string) error
 	WriteListingAdminDelete(ctx context.Context, actorID, listingID, sellerID string) error
+	WriteListingModerate(ctx context.Context, actorID, listingID, sellerID, decision, reasonCode, note, fromStatus, toStatus string) error
 }
 
 type ListingService struct {
