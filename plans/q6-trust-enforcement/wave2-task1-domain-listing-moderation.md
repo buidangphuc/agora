@@ -48,6 +48,7 @@ Implement OpenSpec change `domain-listing-moderation` test-first per its tasks.m
 - team-gateway/internal/edge/policy_edge_test.go
 - team-gateway/internal/edge/listing_test.go
 - team-gateway/internal/edge/unrouted_test.go
+- team-gateway/internal/edge/policy_test.go (widened at build: task 9) # widened at build: task 9
 - team-gateway/generated/**
 - team-gateway/FEATURES.yaml
 - platform-e2e/tests/e2e/features/seller/listing_moderation.feature
