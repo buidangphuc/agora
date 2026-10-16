@@ -111,7 +111,12 @@ func run() error {
 	collectionRepo := repository.NewPostgresCollectionRepository(res.Pool)
 	collectionSvc := service.NewCollectionService(collectionRepo, logger)
 	engagementRepo := repository.NewPostgresRepository(res.Pool)
+	reportSvc := service.NewReportService(repository.NewPostgresReportRepository(res.Pool), logger)
+	if auditClient != nil {
+		reportSvc.WithAudit(auditClient)
+	}
 	var handlerOpts []handler.Option
+	handlerOpts = append(handlerOpts, handler.WithReportService(reportSvc))
 	if orderClient != nil {
 		handlerOpts = append(handlerOpts, handler.WithOrderParties(orderClient))
 	}
