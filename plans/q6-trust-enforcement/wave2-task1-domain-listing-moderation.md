@@ -40,6 +40,7 @@ Implement OpenSpec change `domain-listing-moderation` test-first per its tasks.m
 - team-domain/docker-compose.local.yaml
 - team-domain/.env.example
 - team-domain/README.md
+- team-domain/go.mod (widened at build: task 4) # widened at build: task 4
 - team-domain/FEATURES.yaml
 - team-gateway/internal/edge/policy.go
 - team-gateway/internal/edge/listing.go
