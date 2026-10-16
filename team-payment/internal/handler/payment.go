@@ -192,6 +192,12 @@ func (h *PaymentHandler) ProcessMockPayment(ctx context.Context, req *paymentv1.
 		if errors.Is(err, service.ErrPaymentRefunded) {
 			return nil, status.Error(codes.FailedPrecondition, service.ErrPaymentRefunded.Error())
 		}
+		if errors.Is(err, service.ErrPaymentCancelled) {
+			return nil, status.Error(codes.FailedPrecondition, service.ErrPaymentCancelled.Error())
+		}
+		if errors.Is(err, service.ErrOrderServiceUnavailable) {
+			return nil, status.Error(codes.Unavailable, "order service unavailable")
+		}
 		return nil, h.internalError(ctx, "process mock payment", err)
 	}
 
