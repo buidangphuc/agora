@@ -1191,7 +1191,7 @@ features:
     acceptance:
       - "Moderation: Decision flows end to end with audit"
     tags: [admin, moderation]
-    status: planned
+    status: automated
     covered_by: "seller/listing_moderation.feature::Moderation: Decision flows end to end with audit"
 
   - id: listing.moderation-moderation-is-refused-while-audit-is-down-end-to-end
@@ -1208,7 +1208,7 @@ features:
     acceptance:
       - "Moderation: Moderation is refused while audit is down end to end"
     tags: [admin, moderation]
-    status: planned
+    status: automated
     covered_by: "seller/listing_moderation.feature::Moderation: Moderation is refused while audit is down end to end"
 
   - id: listing.moderation-rejected-listing-leaves-search-end-to-end
@@ -1226,7 +1226,6 @@ features:
       - "Moderation: Rejected listing leaves search end to end"
     tags: [admin, moderation]
     status: planned
-    covered_by: "seller/listing_moderation.feature::Moderation: Rejected listing leaves search end to end"
 
   - id: listing.moderation-queue-oldest-submission-first
     title: "Queue: Oldest submission first"
@@ -1776,4 +1775,3 @@ features:
       - "Auto-screen: Publish end to end, clean and flagged"
     tags: [admin, moderation]
     status: planned
-    covered_by: "seller/listing_moderation.feature::Auto-screen: Publish end to end, clean and flagged"
