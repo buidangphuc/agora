@@ -34,6 +34,7 @@ func TestService_Settle_WritesPaymentAndOutboxAtomically(t *testing.T) {
 
 	t.Run("settle writes payment=SETTLED and a PaymentSettled outbox row in one tx", func(t *testing.T) {
 		svc, paymentRepo, txWriter, orderClient := setupOutboxService()
+		orderClient.orders["order-settle-1"] = &orderv1.Order{Id: "order-settle-1", Status: orderv1.OrderStatus_ORDER_STATUS_PENDING}
 		tx, _ := paymentRepo.CreateTransaction(ctx, repository.PaymentTransaction{
 			OrderID: "order-settle-1",
 			BuyerID: "buyer-1",
@@ -110,7 +111,8 @@ func TestService_Settle_WritesPaymentAndOutboxAtomically(t *testing.T) {
 	})
 
 	t.Run("rollback leaves neither payment=SETTLED nor an outbox row", func(t *testing.T) {
-		svc, paymentRepo, txWriter, _ := setupOutboxService()
+		svc, paymentRepo, txWriter, orderClient := setupOutboxService()
+		orderClient.orders["order-settle-2"] = &orderv1.Order{Id: "order-settle-2", Status: orderv1.OrderStatus_ORDER_STATUS_PENDING}
 		txWriter.FailWrite = true // simulate the tx failing to commit
 
 		tx, _ := paymentRepo.CreateTransaction(ctx, repository.PaymentTransaction{

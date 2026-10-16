@@ -39,6 +39,22 @@ const (
 	PaymentStatusRefunded    PaymentStatus = 4
 	// PaymentStatusPartiallyRefunded: 0 < RefundedAmount < Amount (more refunds possible).
 	PaymentStatusPartiallyRefunded PaymentStatus = 5
+	// PaymentStatusCancelled: voided because its order was cancelled unpaid (terminal).
+	PaymentStatusCancelled PaymentStatus = 6
+)
+
+// CancelUnpaidOutcome reports what CancelUnpaid found for the order.
+type CancelUnpaidOutcome int
+
+const (
+	// CancelAbsent: the order has no transaction.
+	CancelAbsent CancelUnpaidOutcome = iota
+	// CancelVoided: a PENDING or FAILED transaction was moved to CANCELLED.
+	CancelVoided
+	// CancelAlreadyCancelled: the transaction was already CANCELLED (redelivery).
+	CancelAlreadyCancelled
+	// CancelOtherStatus: the transaction is settled (paid or refunded); untouched.
+	CancelOtherStatus
 )
 
 type PaymentTransaction struct {
@@ -143,6 +159,31 @@ func (r *PostgresPaymentRepository) UpdateTransactionStatus(ctx context.Context,
 	return r.UpdateStatus(ctx, id, status, providerRef)
 }
 
+// CancelUnpaid voids the order's transaction: compare-and-set PENDING|FAILED ->
+// CANCELLED. It writes no outbox row. On 0 rows it re-reads to report why.
+func (r *PostgresPaymentRepository) CancelUnpaid(ctx context.Context, orderID string) (CancelUnpaidOutcome, error) {
+	const upd = `UPDATE payment_transactions SET status = 6, updated_at = NOW()
+		WHERE order_id = $1 AND status IN (1, 3)`
+	tag, err := r.pool.Exec(ctx, upd, orderID)
+	if err != nil {
+		return CancelAbsent, fmt.Errorf("cancel unpaid payment: %w", err)
+	}
+	if tag.RowsAffected() > 0 {
+		return CancelVoided, nil
+	}
+	t, err := r.GetTransactionByOrderID(ctx, orderID)
+	if err != nil {
+		if errors.Is(err, ErrTransactionNotFound) {
+			return CancelAbsent, nil
+		}
+		return CancelAbsent, err
+	}
+	if t.Status == PaymentStatusCancelled {
+		return CancelAlreadyCancelled, nil
+	}
+	return CancelOtherStatus, nil
+}
+
 // ── InMemory Implementation ───────────────────────────────────────────
 
 type InMemoryPaymentRepository struct {
@@ -230,4 +271,32 @@ func (r *InMemoryPaymentRepository) updateStatusFromSettleable(id string, status
 	t.UpdatedAt = time.Now()
 	r.data[id] = t
 	return t, nil
+}
+
+// CancelUnpaid is the in-memory compare-and-set PENDING|FAILED -> CANCELLED.
+func (r *InMemoryPaymentRepository) CancelUnpaid(_ context.Context, orderID string) (CancelUnpaidOutcome, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	outcome := CancelAbsent
+	for id, t := range r.data {
+		if t.OrderID != orderID {
+			continue
+		}
+		switch t.Status {
+		case PaymentStatusPending, PaymentStatusFailed:
+			t.Status = PaymentStatusCancelled
+			t.UpdatedAt = time.Now()
+			r.data[id] = t
+			outcome = CancelVoided
+		case PaymentStatusCancelled:
+			if outcome == CancelAbsent {
+				outcome = CancelAlreadyCancelled
+			}
+		default:
+			if outcome == CancelAbsent {
+				outcome = CancelOtherStatus
+			}
+		}
+	}
+	return outcome, nil
 }
