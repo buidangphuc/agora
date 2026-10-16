@@ -51,6 +51,8 @@ A checkout places **every order or none** (design D6 of `port-order-inventory-co
 7. The cart is cleared after C (best effort).
 8. Payment is **not** a synchronous step. The order moves PENDING -> PAID when `PaymentSettled` arrives (see Events).
 
+**Flash pricing** (`internal/service/flashprice.go`). Before the saga is created, each selected line's advertised price is re-derived (domain `GetListing` regular price, one `GetActiveFlashSale` per listing, same rule as AddToCart). Any line whose cart price differs is re-priced in the cart and the checkout is refused with `FailedPrecondition` "price changed" (nothing held; retry charges the new price). If the flash lookup fails: a cart price above regular is re-priced (`price changed`), equal to regular proceeds, below regular -> `Unavailable`. A listing with no known regular price (0) is not compared. In Phase A each flash line then gets one `ReserveFlashSaleStock` (hold id `<order_id>:<listing_id>:<variant_id>`, expected price = the charged price) after the stock reservation and the voucher (priced on the flash subtotal); a refused hold re-prices that line and fails with `price changed`, a transport error with `Unavailable`, and everything is released. Phase B commits the flash holds **before** the domain commit; a failure compensates and releases the holds. `CancelOrder` releases every item's flash hold, best effort (a failure never fails the cancel).
+
 **Idempotency.** `CreateOrder` reads the `idempotency-key` metadata (the gateway forwards `Idempotency-Key`), trimmed, 1-255 printable ASCII bytes, else `InvalidArgument` before anything is reserved. Keys are unique per buyer on `order_sagas` (`(buyer_id, idempotency_key)` partial unique index). A repeat of a COMPLETED checkout returns its orders and retries the cart clear; one still running -> `Aborted` (retry); a compensated checkout frees its key. No key = a fresh checkout every time.
 
 **Status changes** follow one table (`internal/service/transitions.go`) written with a compare-and-set (`UpdateOrderStatusFrom`: `UPDATE ... WHERE status = ANY(allowed)`):
@@ -76,7 +78,7 @@ An admin acts as the seller on `UpdateOrderStatus`. A target the caller may neve
 | team-domain (`UPSTREAM_DOMAIN_ADDR`) | `GetListing`, `ReserveStock`, `CommitReservation`, `ReleaseStock` | cart add, checkout, cancel, compensation, sweep, `cmd/resync-commits` |
 | team-identity (`UPSTREAM_IDENTITY_ADDR`) | `ListAddresses` | `CreateOrder` shipping address (matched by `address_id`, else default, else first; lookup errors are ignored and the address stays empty) |
 | team-audit (`UPSTREAM_AUDIT_ADDR`) | `WriteAuditEvent` as `service-team-order` with only `audit.write` | admin audit, written before the change; failure or unset address -> `Unavailable`, no change |
-| team-promotion (`UPSTREAM_PROMOTION_ADDR`, optional) | `ValidateAndReserve`, `CommitReservation`, `ReleaseReservation` | voucher hold, commit on settle, release on saga failure |
+| team-promotion (`UPSTREAM_PROMOTION_ADDR`, optional) | `ValidateAndReserve`, `CommitReservation`, `ReleaseReservation`, `GetActiveFlashSale`, `ReserveFlashSaleStock`, `CommitFlashSaleStock`, `ReleaseFlashSaleStock` | voucher hold, commit on settle, release on saga failure; flash price and flash stock holds |
 
 `ReserveStock`, `CommitReservation` and `ReleaseStock` always go to team-domain as the service principal `service-team-order` (type `service`) with exactly the scope `listing.write`, never the end user's principal; voucher saga RPCs carry only `promotion.reserve`. Other upstream calls forward the incoming principal metadata unchanged; with none they use the same service principal with only `listing.read` (`internal/upstream/domain.go`).
 
@@ -132,7 +134,7 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `DB_MAX_CONNS` | `10` | |
 | `UPSTREAM_DOMAIN_ADDR` | `localhost:50051` | |
 | `UPSTREAM_IDENTITY_ADDR` | `localhost:50053` | |
-| `UPSTREAM_PROMOTION_ADDR` | empty | Empty disables vouchers; `voucher_code` is then ignored |
+| `UPSTREAM_PROMOTION_ADDR` | empty | Empty disables vouchers and flash pricing/holds (lines are priced at the regular price; a flash-priced cart line is re-priced at checkout); `voucher_code` is then ignored |
 | `UPSTREAM_AUDIT_ADDR` | empty | team-audit address; empty means the audited admin actions (`ForceFailSaga`, admin `UpdateOrderStatus`, `UpdateReturnStatus`, `CreateShipment`) fail closed with `Unavailable` |
 | `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Bound for one audit write (single attempt, no retry) |
 | `OTEL_ENABLED` | `false` | Declared but not read (see Known gaps) |
@@ -204,7 +206,7 @@ There is no Makefile, no `.github/workflows` and no other CI config in this repo
 
 - `generated/` is gitignored (root `.gitignore`) and must be produced with `buf generate`. The Dockerfile builds from the local directory, so the build fails if `generated/` is absent. Never hand-edit it.
 - `proto/` is vendored from `platform-core/packages/proto`. Never edit it here; change the contract in platform-core. `proto/buf.gen.yaml` is platform-core's file; use the root `buf.gen.yaml`, which rewrites `go_package` to this module.
-- In-memory fallbacks: `DATABASE_ENABLED=false` (everything in memory), no `UPSTREAM_PROMOTION_ADDR` (no vouchers), Flipt unavailable (flags default, checkout open).
+- In-memory fallbacks: `DATABASE_ENABLED=false` (everything in memory), no `UPSTREAM_PROMOTION_ADDR` (no vouchers, no flash price or holds), Flipt unavailable (flags default, checkout open).
 - `KAFKA_ENABLED` defaults to `false`: orders stay PENDING after payment and outbox rows accumulate as `pending`.
 - `coverage.out` and `coverage.summary` in the directory are stray test artifacts, not part of the build.
 

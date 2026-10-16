@@ -183,6 +183,9 @@ func run() error {
 	}
 	if promoClients != nil {
 		orderOpts = append(orderOpts, service.WithPromotionClient(promoClients.Voucher))
+		if promoClients.Flash != nil {
+			orderOpts = append(orderOpts, service.WithOrderFlashSaleClient(promoClients.Flash))
+		}
 	}
 	orderSvc := service.NewOrderService(orderRepo, cartRepo, returnRepo, shipmentRepo, upstreamClients.Listing, upstreamClients.Address, logger, orderOpts...)
 
