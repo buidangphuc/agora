@@ -15,6 +15,7 @@ Implement OpenSpec change `domain-listing-moderation` test-first per its tasks.m
 - team-domain/internal/service/moderation_test.go
 - team-domain/internal/handler/listing.go
 - team-domain/internal/handler/listing_test.go
+- team-domain/internal/handler/listing_visibility_test.go # widened at build: task 1
 - team-domain/internal/handler/moderation.go
 - team-domain/internal/handler/moderation_test.go
 - team-domain/proto/platform/listing/v1/*.proto
