@@ -52,7 +52,7 @@ describe("AuditPage", () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
     vi.mocked(getToken).mockReturnValue(undefined);
     expect(await AuditPage({ searchParams: Promise.resolve({}) })).toBeNull();
-    expect(redirect).toHaveBeenCalledWith("/login");
+    expect(redirect).toHaveBeenCalledWith("/login?returnUrl=%2Fadmin%2Faudit");
     expect(queryAuditLog).not.toHaveBeenCalled();
   });
 
@@ -97,7 +97,7 @@ describe("AuditPage", () => {
       status: "unauthenticated",
     } as never);
     expect(await AuditPage({ searchParams: Promise.resolve({}) })).toBeNull();
-    expect(redirect).toHaveBeenCalledWith("/login");
+    expect(redirect).toHaveBeenCalledWith("/login?returnUrl=%2Fadmin%2Faudit");
   });
 
   it("queries once with parsed filters and cursor and renders rows (Page size is 20; All filters are forwarded)", async () => {
