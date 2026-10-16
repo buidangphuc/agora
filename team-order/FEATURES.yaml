@@ -2790,3 +2790,501 @@ features:
     status: automated
     covered_by: "order/advertised_price.feature::Advertised price: A buyer token cannot reserve flash stock end to end"
     notes: "Feature scenario: Advertised price: A buyer token cannot reserve flash stock end to end (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'A buyer cannot hold flash stock directly'"
+
+  - id: order.expiry-online-pay-order-gets-a-24-hour-deadline
+    title: "Order expiry: Online-pay order gets a 24-hour deadline"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Online-pay order gets a 24-hour deadline"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestPlaceOrdersSetsPaymentDueAtAndOrderPlaced`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-cod-order-has-no-deadline
+    title: "Order expiry: COD order has no deadline"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: COD order has no deadline"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestPlaceOrdersCodHasNoPaymentDueAt`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-rolled-back-placement-emits-no-orderplaced
+    title: "Order expiry: Rolled-back placement emits no OrderPlaced"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Rolled-back placement emits no OrderPlaced"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestPlaceOrdersRollbackWritesNoOrderPlaced`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-each-seller-order-of-one-checkout-gets-its-own-orderplaced
+    title: "Order expiry: Each seller order of one checkout gets its own OrderPlaced"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Each seller order of one checkout gets its own OrderPlaced"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCheckoutEmitsOrderPlacedPerOrder`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-a-later-config-change-does-not-move-an-existing-deadline
+    title: "Order expiry: A later config change does not move an existing deadline"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: A later config change does not move an existing deadline"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPaymentDueAtSnapshotSurvivesConfigChange`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-defaults-apply-when-nothing-is-configured
+    title: "Order expiry: Defaults apply when nothing is configured"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Defaults apply when nothing is configured"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestLifecycleDefaults`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-invalid-duration-falls-back-with-a-warning
+    title: "Order expiry: Invalid duration falls back with a warning"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Invalid duration falls back with a warning"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestLifecycleUnusableDurationFallsBack`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-reminder-is-emitted-two-hours-before-the-deadline
+    title: "Order expiry: Reminder is emitted two hours before the deadline"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-unpaid-expiry (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (deadline 45s, reminder 30s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.CancelOrder]
+    acceptance:
+      - "Order expiry: Reminder is emitted two hours before the deadline"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Feature scenario: Order expiry: Reminder is emitted two hours before the deadline (order/unpaid_expiry.feature)."
+
+  - id: order.expiry-reminder-boundary-is-inclusive-at-deadline-minus-offset
+    title: "Order expiry: Reminder boundary is inclusive at deadline minus offset"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Reminder boundary is inclusive at deadline minus offset"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestReminderBoundary`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-repeated-sweeps-never-repeat-the-reminder
+    title: "Order expiry: Repeated sweeps never repeat the reminder"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Repeated sweeps never repeat the reminder"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestReminderEmittedOnce`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-a-paid-order-is-never-reminded
+    title: "Order expiry: A paid order is never reminded"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: A paid order is never reminded"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestReminderSkipsPaidOrder`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-a-cod-order-is-never-reminded
+    title: "Order expiry: A COD order is never reminded"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: A COD order is never reminded"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestReminderSkipsCodOrder`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-a-sweep-that-first-sees-an-order-past-its-deadline-sends-no-reminder
+    title: "Order expiry: A sweep that first sees an order past its deadline sends no reminder"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: A sweep that first sees an order past its deadline sends no reminder"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestLateFirstSweepExpiresWithoutReminder`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-a-reminder-pass-handles-at-most-100-orders-per-tick
+    title: "Order expiry: A reminder pass handles at most 100 orders per tick"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: A reminder pass handles at most 100 orders per tick"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestFindReminderDueBatchBound`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-order-unpaid-past-its-deadline-is-cancelled-and-its-stock-released
+    title: "Order expiry: Order unpaid past its deadline is cancelled and its stock released"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-unpaid-expiry (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (deadline 45s, reminder 30s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.CancelOrder]
+    acceptance:
+      - "Order expiry: Order unpaid past its deadline is cancelled and its stock released"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Feature scenario: Order expiry: Order unpaid past its deadline is cancelled and its stock released (order/unpaid_expiry.feature)."
+
+  - id: order.expiry-expiry-emits-ordercancelled-with-the-expiry-reason
+    title: "Order expiry: Expiry emits OrderCancelled with the expiry reason"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-unpaid-expiry (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (deadline 45s, reminder 30s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.CancelOrder]
+    acceptance:
+      - "Order expiry: Expiry emits OrderCancelled with the expiry reason"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Feature scenario: Order expiry: Expiry emits OrderCancelled with the expiry reason (order/unpaid_expiry.feature)."
+
+  - id: order.expiry-expiry-releases-the-voucher-hold-and-flash-units-once
+    title: "Order expiry: Expiry releases the voucher hold and flash units once"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Expiry releases the voucher hold and flash units once"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestExpiryReleasesVoucherAndFlashOnce`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-boundary-at-the-deadline-keeps-the-order-payable
+    title: "Order expiry: Boundary at the deadline keeps the order payable"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Boundary at the deadline keeps the order payable"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestExpiryBoundaryStrictlyAfterDeadline`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-a-cod-order-is-never-expired
+    title: "Order expiry: A COD order is never expired"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-unpaid-expiry (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (deadline 45s, reminder 30s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.CancelOrder]
+    acceptance:
+      - "Order expiry: A COD order is never expired"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Feature scenario: Order expiry: A COD order is never expired (order/unpaid_expiry.feature)."
+
+  - id: order.expiry-an-order-without-a-deadline-is-never-expired
+    title: "Order expiry: An order without a deadline is never expired"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: An order without a deadline is never expired"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestExpirySkipsOrderWithoutDeadline`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-a-paid-order-is-never-expired
+    title: "Order expiry: A paid order is never expired"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: A paid order is never expired"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestExpirySkipsPaidOrder`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-payment-and-expiry-racing-produce-one-outcome
+    title: "Order expiry: Payment and expiry racing produce one outcome"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Payment and expiry racing produce one outcome"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestExpiryVersusPaymentSingleWinner`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-two-sweeps-expire-an-order-once
+    title: "Order expiry: Two sweeps expire an order once"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Two sweeps expire an order once"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestExpiryConcurrentSweepsReleaseOnce`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-a-failed-release-leaves-the-order-cancelled-and-parked
+    title: "Order expiry: A failed release leaves the order cancelled and parked"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: A failed release leaves the order cancelled and parked"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestExpiryReleaseFailureParksForSweep`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-one-failing-pass-does-not-stop-the-next
+    title: "Order expiry: One failing pass does not stop the next"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: One failing pass does not stop the next"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestSweepLifecyclePassesAreIndependent`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-an-expiry-pass-handles-at-most-100-orders-per-tick
+    title: "Order expiry: An expiry pass handles at most 100 orders per tick"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: An expiry pass handles at most 100 orders per tick"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestFindExpiredBatchBound`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-a-payment-settling-after-the-expiry-changes-nothing-in-team-order
+    title: "Order expiry: A payment settling after the expiry changes nothing in team-order"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: A payment settling after the expiry changes nothing in team-order"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestLateSettleAfterExpiryLeavesOrderCancelled`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-buyer-cancel-stores-the-chosen-reason
+    title: "Order expiry: Buyer cancel stores the chosen reason"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-unpaid-expiry (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (deadline 45s, reminder 30s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.CancelOrder]
+    acceptance:
+      - "Order expiry: Buyer cancel stores the chosen reason"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Feature scenario: Order expiry: Buyer cancel stores the chosen reason (order/unpaid_expiry.feature)."
+
+  - id: order.expiry-cancel-without-a-reason-code-still-succeeds
+    title: "Order expiry: Cancel without a reason code still succeeds"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Cancel without a reason code still succeeds"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCancelOrderWithoutReasonCode`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-buyer-cannot-send-a-system-reason-code
+    title: "Order expiry: Buyer cannot send a system reason code"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-unpaid-expiry (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (deadline 45s, reminder 30s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.CancelOrder]
+    acceptance:
+      - "Order expiry: Buyer cannot send a system reason code"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Feature scenario: Order expiry: Buyer cannot send a system reason code (order/unpaid_expiry.feature)."
+
+  - id: order.expiry-another-user-cannot-cancel-with-a-reason
+    title: "Order expiry: Another user cannot cancel with a reason"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Another user cannot cancel with a reason"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCancelOrderOtherUserWithReasonDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-cancel-of-a-shipped-order-is-refused
+    title: "Order expiry: Cancel of a shipped order is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Cancel of a shipped order is refused"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCancelShippedOrderKeepsReasonUnset`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-admin-force-fail-records-its-own-reason
+    title: "Order expiry: Admin force-fail records its own reason"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Admin force-fail records its own reason"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestForceFailSagaStoresAdminReason`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-concurrent-buyer-cancel-and-expiry-keep-one-reason
+    title: "Order expiry: Concurrent buyer cancel and expiry keep one reason"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: Concurrent buyer cancel and expiry keep one reason"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestCancelReasonMatchesClaimWinner`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-system-may-cancel-only-from-pending
+    title: "Order expiry: System may cancel only from Pending"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: System may cancel only from Pending"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestAllowedFromCancelledSystemIsPendingOnly`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.expiry-a-seller-or-admin-cannot-request-cancelled-through-updateorderstatus
+    title: "Order expiry: A seller or admin cannot request Cancelled through UpdateOrderStatus"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-unpaid-expiry."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order expiry: A seller or admin cannot request Cancelled through UpdateOrderStatus"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestUpdateOrderStatusCancelledStillForbidden`. Not producible end to end through the gateway (unit level)."
