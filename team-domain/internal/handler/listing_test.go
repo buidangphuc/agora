@@ -189,3 +189,79 @@ func TestUpdateListingNonOwnerPublishDeniedStaysPending(t *testing.T) {
 		t.Fatalf("status=%q rows=%d, want pending_review and no rows", got.Status, len(txw.Rows()))
 	}
 }
+
+// ---- domain-listing-moderation task 6: FAILED_PRECONDITION mapping ----
+
+func lockedUpdateReq() *listingv1.UpdateListingRequest {
+	return &listingv1.UpdateListingRequest{Listing: &listingv1.Listing{
+		Id: "L-1", Title: "changed", Currency: "VND", Price: 100, Stock: 1,
+		Status: listingv1.ListingStatus_LISTING_STATUS_PUBLISHED,
+	}}
+}
+
+// Scenario: Status ownership: Banned listing refuses seller writes.
+func TestUpdateListingBannedFailedPrecondition(t *testing.T) {
+	h, repo, txw := ownershipFixture(t, "banned")
+	_, err := h.UpdateListing(ownerCtx(), lockedUpdateReq())
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("code = %v, want FailedPrecondition (%v)", status.Code(err), err)
+	}
+	got, _ := repo.Get(context.Background(), "L-1")
+	if got.Status != "banned" || got.Title != "orig" || len(txw.Rows()) != 0 {
+		t.Fatalf("row changed: %+v rows=%d", got, len(txw.Rows()))
+	}
+}
+
+// Scenario: Status ownership: Held listing refuses seller writes.
+func TestUpdateListingHeldFailedPrecondition(t *testing.T) {
+	h, repo, txw := ownershipFixture(t, "held")
+	_, err := h.UpdateListing(ownerCtx(), lockedUpdateReq())
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("code = %v, want FailedPrecondition (%v)", status.Code(err), err)
+	}
+	got, _ := repo.Get(context.Background(), "L-1")
+	if got.Status != "held" || got.Title != "orig" || len(txw.Rows()) != 0 {
+		t.Fatalf("row changed: %+v rows=%d", got, len(txw.Rows()))
+	}
+}
+
+// Scenario: Status ownership: Banned or held listing refuses seller delete.
+func TestDeleteListingBannedOrHeldFailedPrecondition(t *testing.T) {
+	for _, st := range []string{"banned", "held"} {
+		t.Run(st, func(t *testing.T) {
+			h, repo, txw := ownershipFixture(t, st)
+			_, err := h.DeleteListing(ownerCtx(), &listingv1.DeleteListingRequest{Id: "L-1"})
+			if status.Code(err) != codes.FailedPrecondition {
+				t.Fatalf("code = %v, want FailedPrecondition (%v)", status.Code(err), err)
+			}
+			got, gerr := repo.Get(context.Background(), "L-1")
+			if gerr != nil || got.Status != st || len(txw.Rows()) != 0 {
+				t.Fatalf("row must remain unchanged with no outbox row: %+v err=%v rows=%d", got, gerr, len(txw.Rows()))
+			}
+		})
+	}
+}
+
+// statusChangedTx simulates a moderation decision committing between the
+// service's read and its transaction (the repository returns ErrStatusChanged).
+type statusChangedTx struct{ *repository.InMemoryTxWriter }
+
+func (statusChangedTx) UpdateTx(context.Context, repository.Listing, repository.EnqueueFn) (repository.Listing, error) {
+	return repository.Listing{}, repository.ErrStatusChanged
+}
+
+// Scenario: Status ownership: Seller write racing a moderation decision is refused (handler mapping).
+func TestUpdateListingStatusChangedFailedPrecondition(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{
+		ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Status: "pending_review", SellerID: "seller-a", Stock: 1,
+	})
+	txw := repository.NewInMemoryTxWriter(repo)
+	h := handler.NewListingHandler(service.NewListingServiceWithOutbox(repo, statusChangedTx{txw}), nil, nil)
+	_, err := h.UpdateListing(ownerCtx(), lockedUpdateReq())
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("code = %v, want FailedPrecondition (%v)", status.Code(err), err)
+	}
+	if len(txw.Rows()) != 0 {
+		t.Fatalf("outbox rows = %d, want 0", len(txw.Rows()))
+	}
+}
