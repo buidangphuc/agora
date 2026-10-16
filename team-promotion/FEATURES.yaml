@@ -647,3 +647,596 @@ features:
     tags: [promotion, audit, unit]
     status: not-testable
     notes: "VERIFIED BY team-promotion `internal/handler` `TestSellerPathsIgnoreAuditAvailability`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.flash-stock-hold-reserve-holds-the-units-of-an-active-campaign
+    title: "Reserve holds the units of an active campaign"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Reserve holds the units of an active campaign."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A service reserve holds units and the meter drops"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A service reserve holds units and the meter drops (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockHoldsUnits`"
+  - id: promotion.flash-stock-hold-reserve-is-idempotent-on-the-reservation-id
+    title: "Reserve is idempotent on the reservation id"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Reserve is idempotent on the reservation id."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A repeated reserve holds only once"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A repeated reserve holds only once (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockIdempotent`"
+  - id: promotion.flash-stock-hold-reserve-replay-with-different-fields-returns-the-stored-outcome
+    title: "Reserve replay with different fields returns the stored outcome"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve replay with different fields returns the stored outcome"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockReplayIgnoresChangedFields`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-reserve-refuses-an-ended-campaign
+    title: "Reserve refuses an ended campaign"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Reserve refuses an ended campaign."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A reserve on an ended campaign is refused"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A reserve on an ended campaign is refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInactiveWindow`"
+  - id: promotion.flash-stock-hold-reserve-refuses-a-campaign-that-has-not-started
+    title: "Reserve refuses a campaign that has not started"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve refuses a campaign that has not started"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInactiveWindow`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-reserve-refuses-while-the-kill-switch-is-off
+    title: "Reserve refuses while the kill-switch is OFF"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve refuses while the kill-switch is OFF"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockRefusesWhenKillSwitchOff`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-reserve-refuses-a-price-that-differs-from-the-campaign
+    title: "Reserve refuses a price that differs from the campaign"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Reserve refuses a price that differs from the campaign."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A reserve with a different price is refused"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A reserve with a different price is refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesPriceMismatch`"
+  - id: promotion.flash-stock-hold-reserve-refuses-more-units-than-remain
+    title: "Reserve refuses more units than remain"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Reserve refuses more units than remain."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A reserve beyond the remaining stock is refused"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A reserve beyond the remaining stock is refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInsufficientStock`"
+  - id: promotion.flash-stock-hold-reserve-accepts-exactly-the-remaining-units
+    title: "Reserve accepts exactly the remaining units"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve accepts exactly the remaining units"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockBoundaryExactRemaining`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-the-first-failing-check-decides-the-reason
+    title: "The first failing check decides the reason"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The first failing check decides the reason"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockReasonOrder`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-reserve-covers-a-variant-campaign-only-for-that-variant
+    title: "Reserve covers a variant campaign only for that variant"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve covers a variant campaign only for that variant"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockVariantScope`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-reserve-refuses-a-listing-that-is-not-the-campaign-s
+    title: "Reserve refuses a listing that is not the campaign's"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve refuses a listing that is not the campaign's"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockVariantScope`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-reserve-refuses-an-unknown-campaign
+    title: "Reserve refuses an unknown campaign"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve refuses an unknown campaign"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockUnknownCampaign`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-reserve-replay-after-release-is-not-active
+    title: "Reserve replay after release is not active"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve replay after release is not active"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockReplayAfterRelease`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-reserve-replay-after-expiry-is-not-active
+    title: "Reserve replay after expiry is not active"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve replay after expiry is not active"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockReplayAfterExpiry`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-a-hold-expires-15-minutes-after-reserve
+    title: "A hold expires 15 minutes after reserve"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A hold expires 15 minutes after reserve"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestFlashHoldExpiresAfterFifteenMinutes`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-reserve-rejects-malformed-input
+    title: "Reserve rejects malformed input"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reserve rejects malformed input"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldRPCsRejectInvalidInput`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-a-reservation-id-of-200-bytes-is-accepted-and-201-is-rejected
+    title: "A reservation id of 200 bytes is accepted and 201 is rejected"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A reservation id of 200 bytes is accepted and 201 is rejected"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldReservationIDLengthBoundary`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-an-empty-variant-id-is-valid
+    title: "An empty variant id is valid"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An empty variant id is valid"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldEmptyVariantAccepted`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-concurrent-reserves-are-capped
+    title: "Concurrent reserves are capped"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Concurrent reserves are capped."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "Concurrent reserves never exceed the cap"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: Concurrent reserves never exceed the cap (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockConcurrentCap` (in-memory) and `internal/repository` `TestPostgresFlashHoldConcurrentCap` (skipped without a database)"
+  - id: promotion.flash-stock-hold-concurrent-reserves-of-one-reservation-id-hold-once
+    title: "Concurrent reserves of one reservation id hold once"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Concurrent reserves of one reservation id hold once"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockConcurrentSameReservation`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-concurrent-commits-and-reserves-keep-the-invariant
+    title: "Concurrent commits and reserves keep the invariant"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Concurrent commits and reserves keep the invariant"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestFlashHoldConcurrentCommitAndReserve`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-commit-adds-the-quantity-to-stock-sold
+    title: "Commit adds the quantity to stock_sold"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Commit adds the quantity to stock_sold."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A commit keeps the units sold"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A commit keeps the units sold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestCommitFlashSaleStockAddsToSold`"
+  - id: promotion.flash-stock-hold-commit-is-idempotent
+    title: "Commit is idempotent"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Commit is idempotent"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCommitFlashSaleStockIdempotent`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-commit-of-an-unknown-reservation-does-nothing
+    title: "Commit of an unknown reservation does nothing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Commit of an unknown reservation does nothing"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCommitFlashSaleStockUnknown`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-commit-of-a-released-hold-is-refused
+    title: "Commit of a released hold is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Commit of a released hold is refused"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCommitFlashSaleStockAfterRelease`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-commit-of-an-expired-hold-is-refused
+    title: "Commit of an expired hold is refused"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Commit of an expired hold is refused."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "An expired hold cannot be committed"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: An expired hold cannot be committed (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestCommitFlashSaleStockAfterExpiry`"
+  - id: promotion.flash-stock-hold-commit-still-works-after-the-sale-window-ended
+    title: "Commit still works after the sale window ended"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Commit still works after the sale window ended"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCommitFlashSaleStockAfterWindowEnded`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-commit-rejects-an-empty-reservation-id
+    title: "Commit rejects an empty reservation id"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Commit rejects an empty reservation id"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldRPCsRejectInvalidInput`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-release-returns-the-units-of-an-active-hold
+    title: "Release returns the units of an active hold"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Release returns the units of an active hold."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A release returns the held units"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A release returns the held units (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReleaseFlashSaleStockReturnsUnits`"
+  - id: promotion.flash-stock-hold-release-returns-the-units-of-a-committed-hold
+    title: "Release returns the units of a committed hold"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Release returns the units of a committed hold."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A release after commit returns the sold units"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A release after commit returns the sold units (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReleaseFlashSaleStockAfterCommit`"
+  - id: promotion.flash-stock-hold-release-is-idempotent
+    title: "Release is idempotent"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Release is idempotent"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReleaseFlashSaleStockIdempotent`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-release-of-an-unknown-reservation-is-a-no-op
+    title: "Release of an unknown reservation is a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Release of an unknown reservation is a no-op"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReleaseFlashSaleStockUnknownNoOp`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-release-of-an-expired-hold-changes-no-counter
+    title: "Release of an expired hold changes no counter"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Release of an expired hold changes no counter"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestReleaseFlashSaleStockExpiredNoCounterChange`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-release-rejects-an-empty-reservation-id
+    title: "Release rejects an empty reservation id"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Release rejects an empty reservation id"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldRPCsRejectInvalidInput`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-remaining-reflects-holds-and-sold-units
+    title: "Remaining reflects holds and sold units"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): Remaining reflects holds and sold units."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A service reserve holds units and the meter drops"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A service reserve holds units and the meter drops (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestGetFlashSaleStockCountsHolds`"
+  - id: promotion.flash-stock-hold-remaining-is-floored-at-zero
+    title: "Remaining is floored at zero"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Remaining is floored at zero"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestGetFlashSaleStockRemaining`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-stock-of-an-unknown-campaign-is-not-found
+    title: "Stock of an unknown campaign is not found"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Stock of an unknown campaign is not found"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestGetFlashSaleStockUnknownNotFound`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-a-buyer-cannot-reserve-flash-stock
+    title: "A buyer cannot reserve flash stock"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): A buyer cannot reserve flash stock."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A user cannot hold flash stock"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A user cannot hold flash stock (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`"
+  - id: promotion.flash-stock-hold-a-user-carrying-the-service-scope-is-still-refused
+    title: "A user carrying the service scope is still refused"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): A user carrying the service scope is still refused."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A user cannot hold flash stock"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A user cannot hold flash stock (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`"
+  - id: promotion.flash-stock-hold-a-service-without-the-scope-is-refused
+    title: "A service without the scope is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A service without the scope is refused"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-an-anonymous-caller-is-unauthenticated
+    title: "An anonymous caller is unauthenticated"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An anonymous caller is unauthenticated"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-the-order-service-principal-is-served
+    title: "The order service principal is served"
+    persona: admin
+    priority: P1
+    summary: "Flash stock hold (change promotion-flash-stock-hold): The order service principal is served."
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    api:
+      exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
+    acceptance:
+      - "A service reserve holds units and the meter drops"
+    tags: [promotion, flash-stock-hold]
+    status: planned
+    notes: "Feature scenario: A service reserve holds units and the meter drops (promo/flash_sale_stock_hold.feature)."
+  - id: promotion.flash-stock-hold-migration-applies-and-rolls-back
+    title: "Migration applies and rolls back"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Migration applies and rolls back"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/repository` `TestPostgresFlashHoldMigrationRoundTrip` (skipped without a database). Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-a-store-failure-is-a-generic-internal-error
+    title: "A store failure is a generic internal error"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A store failure is a generic internal error"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldStoreFailureIsInternal`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-released-and-expired-holds-are-purged-after-30-days
+    title: "Released and expired holds are purged after 30 days"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Released and expired holds are purged after 30 days"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/repository` `TestPurgeReleasedAndExpiredHolds`. Not producible end to end through the gateway (unit level)."
+  - id: promotion.flash-stock-hold-a-committed-hold-older-than-30-days-is-not-purged
+    title: "A committed hold older than 30 days is not purged"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-flash-stock-hold.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A committed hold older than 30 days is not purged"
+    tags: [promotion, flash-stock-hold, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/repository` `TestPurgeKeepsCommittedHolds` and `internal/service` `TestReleaseOldCommittedHoldAfterPurge`. Not producible end to end through the gateway (unit level)."
