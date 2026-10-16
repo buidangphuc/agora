@@ -1,3 +1,4 @@
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -33,7 +34,7 @@ export default async function CheckoutPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const me = getPrincipal();
-  if (!me) redirect("/login");
+  if (!me) redirectGuestToLogin("/checkout", searchParams);
 
   // Kill-switch: evaluated server-side. When off, render the unavailable notice
   // instead of the wizard (covers direct navigation to /checkout). The

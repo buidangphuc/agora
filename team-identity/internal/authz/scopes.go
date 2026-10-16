@@ -63,3 +63,15 @@ func NormalizeRole(role string) string {
 		return RoleBuyer
 	}
 }
+
+// IsPublicRPC reports whether an identity RPC is callable without a Principal
+// or scopes: the caller is not yet (or no longer) holding a valid access token.
+func IsPublicRPC(fullMethod string) bool {
+	switch fullMethod {
+	case "/platform.identity.v1.AuthService/RefreshSession",
+		"/platform.identity.v1.AuthService/Login",
+		"/platform.identity.v1.AuthService/Register":
+		return true
+	}
+	return false
+}

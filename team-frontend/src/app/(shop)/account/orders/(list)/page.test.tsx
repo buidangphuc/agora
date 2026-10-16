@@ -139,6 +139,8 @@ describe("/account/orders page", () => {
     await expect(
       AccountOrdersPage({ searchParams: Promise.resolve({}) }),
     ).rejects.toThrow("NEXT_REDIRECT");
-    expect(redirect).toHaveBeenCalledWith("/login");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Faccount%2Forders",
+    );
   });
 });

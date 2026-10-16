@@ -9,6 +9,9 @@ Implement OpenSpec change `frontend-login-return` test-first per its tasks.md (s
 
 ## Write-set (EXCLUSIVE)
 - team-frontend/src/features/auth/returnUrl.ts
+- team-frontend/src/features/auth/returnUrlShared.ts
+- team-frontend/src/features/auth/guardPath.ts
+- team-frontend/src/features/tracking/AnalyticsProvider.tsx (navigation hook for trackPageLocation)
 - team-frontend/src/features/auth/returnUrl.test.ts
 - team-frontend/src/features/auth/actions.ts
 - team-frontend/src/features/auth/actions.test.ts
@@ -16,6 +19,9 @@ Implement OpenSpec change `frontend-login-return` test-first per its tasks.md (s
 - team-frontend/src/features/auth/RegisterForm.tsx
 - team-frontend/src/features/auth/forms.test.tsx
 - team-frontend/src/app/guards.test.ts
+- team-frontend/src/directives.test.ts
+- team-frontend/src/app/**/*.test.ts(x) (new test files for this slice)
+- team-frontend/src/features/**/*.test.ts(x) (new or extended test files for this slice)
 - team-frontend/src/app/(shop)/**/page.tsx (guard lines only)
 - team-frontend/src/app/(shop)/**/layout.tsx (guard lines only)
 - team-frontend/src/app/(checkout)/**/page.tsx (guard lines only)
@@ -30,6 +36,8 @@ Implement OpenSpec change `frontend-login-return` test-first per its tasks.md (s
 - team-frontend/src/features/listing/qa/QuestionList.tsx
 - team-frontend/src/lib/analytics/destinations/gtm.ts
 - team-frontend/src/lib/analytics/destinations/gtm.test.ts
+- team-frontend/analytics/gtm-container.json (human decision 2026-10-14: map page_location)
+- team-frontend/src/lib/analytics/destinations/gtm-container.test.ts (container mapping test)
 - team-frontend/FEATURES.yaml
 - platform-e2e/tests/e2e/features/auth/login_return*.feature
 - platform-e2e/tests/e2e/step_definitions/login_return*_steps.py

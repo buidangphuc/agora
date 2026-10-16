@@ -8,7 +8,9 @@ import { getPrincipal, getToken } from "@/lib/gateway/session";
 import CockpitPage from "./page";
 
 vi.mock("next/navigation", () => ({
-  redirect: vi.fn(),
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
   notFound: vi.fn(),
 }));
 vi.mock("@/lib/gateway/session", () => ({
@@ -46,9 +48,21 @@ describe("CockpitPage", () => {
   it("sends an anonymous visitor to /login without fetching", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
     vi.mocked(getToken).mockReturnValue(undefined);
-    expect(await CockpitPage()).toBeNull();
-    expect(redirect).toHaveBeenCalledWith("/login");
+    await expect(CockpitPage()).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Fadmin%2Fcockpit",
+    );
     expect(fetchCockpit).not.toHaveBeenCalled();
+  });
+
+  it("sends an Unauthenticated-after-fetch visitor to /login with returnUrl", async () => {
+    vi.mocked(fetchCockpit).mockResolvedValue({
+      status: "unauthenticated",
+    } as never);
+    await expect(CockpitPage()).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Fadmin%2Fcockpit",
+    );
   });
 
   it("renders a 403 result for a signed-in non-admin, without fetching", async () => {

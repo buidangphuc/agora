@@ -13,7 +13,13 @@ Implement OpenSpec change `identity-session-refresh` test-first per its tasks.md
 - team-identity/internal/repository/session.go
 - team-identity/internal/repository/session_refresh_pg_test.go
 - team-identity/internal/repository/session_test.go
+- team-identity/internal/repository/session_refresh_test.go
+- team-identity/internal/repository/*_test.go (new test files for this slice)
+- team-identity/internal/service/*_test.go (new test files for this slice)
+- team-identity/internal/handler/*_test.go (new test files for this slice)
+- team-gateway/internal/edge/*_test.go (new test files for this slice)
 - team-identity/internal/service/auth.go
+- team-identity/internal/service/refresh.go
 - team-identity/internal/service/auth_refresh_test.go
 - team-identity/internal/handler/auth.go
 - team-identity/internal/handler/auth_refresh_test.go
@@ -21,6 +27,7 @@ Implement OpenSpec change `identity-session-refresh` test-first per its tasks.md
 - team-identity/internal/handler/session_test.go
 - team-identity/internal/authz/scopes.go
 - team-identity/internal/authz/coverage_test.go
+- team-identity/internal/authz/*_test.go (new test files for this slice)
 - team-identity/internal/config/config.go
 - team-identity/FEATURES.yaml
 - team-gateway/internal/edge/auth.go

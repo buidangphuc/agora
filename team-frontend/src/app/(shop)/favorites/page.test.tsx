@@ -17,6 +17,12 @@ const toast = vi.hoisted(() => ({
   info: vi.fn(),
 }));
 vi.mock("@/components/ui/ToastProvider", () => ({ useToast: () => toast }));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
+  notFound: vi.fn(),
+}));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
 vi.mock("@/lib/gateway/engagement", () => ({
   listCollectionItems: vi.fn(),
@@ -69,10 +75,22 @@ beforeEach(() => {
 });
 
 describe("/favorites", () => {
-  it("redirects an anonymous visitor to /login", async () => {
+  it("redirects an anonymous visitor to /login with returnUrl", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
-    await FavoritesPage({});
-    expect(redirect).toHaveBeenCalledWith("/login");
+    await expect(FavoritesPage({})).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith("/login?returnUrl=%2Ffavorites");
+  });
+
+  it("[Query string of the guarded page is preserved] favorites keeps its query in returnUrl", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    await expect(
+      FavoritesPage({
+        searchParams: Promise.resolve({ collection: "c1", page: "2" }),
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Ffavorites%3Fcollection%3Dc1%26page%3D2",
+    );
   });
 
   it("shows the total in a Badge and hands ListingGrid only the listings and the favorites list id", async () => {
