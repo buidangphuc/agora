@@ -1,5 +1,6 @@
 import { Tag, type TagColor } from "@/components/ui/Tag";
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 
 const LISTING: Record<string, { color: TagColor; text: string }> = {
   published: { color: "success", text: "Đang bán" },
@@ -30,4 +31,15 @@ export function OrderStatusTag({
 /** An order the seller can still hand over to the carrier. */
 export function isShippable(status: OrderStatus): boolean {
   return status === OrderStatus.PENDING || status === OrderStatus.PAID;
+}
+
+/** Counts toward the seller's to-ship queue: paid, or COD awaiting handover. */
+export function isToShip(o: {
+  status: OrderStatus;
+  paymentMethod: PaymentMethod;
+}): boolean {
+  return (
+    o.status === OrderStatus.PAID ||
+    (o.status === OrderStatus.PENDING && o.paymentMethod === PaymentMethod.COD)
+  );
 }

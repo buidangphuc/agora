@@ -5,6 +5,8 @@ export interface KpiCell {
   title: string;
   /** Pre-formatted value. */
   value: string;
+  note?: string;
+  tone?: "danger";
 }
 
 export const KPI_GRID = "grid grid-cols-2 gap-4 lg:grid-cols-4";
@@ -31,6 +33,8 @@ export function KpiRow({
           title={c.title}
           value={c.value}
           loading={loading}
+          suffix={c.note}
+          className={c.tone === "danger" ? "border-danger" : ""}
         />
       ))}
     </div>
