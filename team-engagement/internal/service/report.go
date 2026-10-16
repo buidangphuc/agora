@@ -149,3 +149,8 @@ func (s *ReportService) ResolveReport(ctx context.Context, adminID, id string, s
 	}
 	return got, nil
 }
+
+// ListReports passes through to the repository (status "" and targetID "" mean any).
+func (s *ReportService) ListReports(ctx context.Context, status repository.ReportStatus, targetID string, offset, limit int) ([]repository.Report, int64, error) {
+	return s.repo.ListReports(ctx, status, targetID, offset, limit)
+}
