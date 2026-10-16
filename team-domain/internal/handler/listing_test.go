@@ -265,3 +265,24 @@ func TestUpdateListingStatusChangedFailedPrecondition(t *testing.T) {
 		t.Fatalf("outbox rows = %d, want 0", len(txw.Rows()))
 	}
 }
+
+// Scenario: Status ownership: Admin UpdateListing cannot set status.
+func TestUpdateListingAdminCannotSetStatus(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{
+		ID: "L-1", Title: "orig", Currency: "VND", Status: "rejected", SellerID: "seller-a", Stock: 1,
+	})
+	txw := repository.NewInMemoryTxWriter(repo)
+	fa := &handlerAudit{repo: repo}
+	svc := service.NewListingServiceWithOutbox(repo, txw).WithAudit(fa)
+	h := handler.NewListingHandler(svc, nil, nil)
+	if _, err := h.UpdateListing(adminCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_PUBLISHED)); err != nil {
+		t.Fatalf("UpdateListing: %v", err)
+	}
+	l, _ := repo.Get(context.Background(), "L-1")
+	if l.Status != "rejected" {
+		t.Fatalf("stored status = %q, want rejected", l.Status)
+	}
+	if len(fa.calls) != 1 || fa.calls[0].status != "rejected" {
+		t.Fatalf("audit calls = %+v, want 1 with status rejected", fa.calls)
+	}
+}

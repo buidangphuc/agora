@@ -96,14 +96,14 @@ func TestUpdateListingAdminWritesAuditBeforeChange(t *testing.T) {
 		t.Fatalf("UpdateListing: %v", err)
 	}
 	l, _ := f.repo.Get(context.Background(), "L-1")
-	if l.Status != "rejected" {
-		t.Fatalf("stored status = %q, want rejected", l.Status)
+	if l.Status != "published" {
+		t.Fatalf("stored status = %q, want published (admin cannot set status)", l.Status)
 	}
 	if len(f.audit.calls) != 1 {
 		t.Fatalf("audit calls = %d, want 1", len(f.audit.calls))
 	}
 	c := f.audit.calls[0]
-	if c.kind != "update" || c.actor != "admin-1" || c.listing != "L-1" || c.seller != "seller-a" || c.status != "rejected" {
+	if c.kind != "update" || c.actor != "admin-1" || c.listing != "L-1" || c.seller != "seller-a" || c.status != "published" {
 		t.Errorf("audit call = %+v", c)
 	}
 	if c.storedTitle != "orig" {

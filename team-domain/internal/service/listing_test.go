@@ -812,3 +812,44 @@ func TestAdminOwnListingFollowsSellerPath(t *testing.T) {
 		t.Fatalf("audit calls = %+v, want exactly 1 update", fa.calls)
 	}
 }
+
+// Scenario: Status ownership: Admin content edit does not re-screen.
+func TestUpdateWithEventAdminEditNoScreen(t *testing.T) {
+	for _, title := range []string{"better title", "replica title"} {
+		t.Run(title, func(t *testing.T) {
+			f := newScreenFixture(t, "published", allowAI())
+			f.svc = f.svc.WithAudit(&fakeAudit{log: new([]string)})
+			if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate(title, "desc", 100, ""), "admin-1", true, noEvent); err != nil {
+				t.Fatalf("UpdateWithEvent: %v", err)
+			}
+			got := f.stored(t)
+			if got.Title != title || got.Status != "published" || f.ai.calls != 0 {
+				t.Fatalf("title=%q status=%q ai=%d, want %q published 0", got.Title, got.Status, f.ai.calls, title)
+			}
+		})
+	}
+}
+
+// Scenario: Status ownership: Admin UpdateListing cannot set status (service side).
+func TestUpdateWithEventAdminCannotSetStatus(t *testing.T) {
+	for _, sent := range []string{"published", "draft", "banned", "pending_review"} {
+		t.Run("sent="+sent, func(t *testing.T) {
+			f := newScreenFixture(t, "rejected", allowAI())
+			fa := &fakeAudit{log: new([]string)}
+			f.svc = f.svc.WithAudit(fa)
+			var c capture
+			if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("orig", "desc", 100, sent), "admin-1", true, c.enqueue); err != nil {
+				t.Fatalf("UpdateWithEvent: %v", err)
+			}
+			if len(fa.calls) != 1 || fa.calls[0].status != "rejected" {
+				t.Fatalf("audit calls = %+v, want 1 with status rejected", fa.calls)
+			}
+			if got := f.stored(t); got.Status != "rejected" {
+				t.Fatalf("status = %q, want rejected", got.Status)
+			}
+			if len(c.statuses) != 1 || c.statuses[0] != "rejected" {
+				t.Fatalf("event statuses = %v, want [rejected]", c.statuses)
+			}
+		})
+	}
+}
