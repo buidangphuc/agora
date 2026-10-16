@@ -37,6 +37,7 @@ function stubOrder(rpcs: Record<string, ReturnType<typeof vi.fn>>) {
     listSellerOrders: vi.fn(),
     updateOrderStatus: vi.fn(),
     cancelOrder: vi.fn(),
+    confirmReceipt: vi.fn(),
     ...rpcs,
   };
   vi.mocked(makeClients).mockReturnValue({ order } as never);
