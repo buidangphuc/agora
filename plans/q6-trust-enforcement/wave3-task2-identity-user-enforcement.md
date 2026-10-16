@@ -49,6 +49,7 @@ Implement OpenSpec change `identity-user-enforcement` test-first per its tasks.m
 - team-gateway/FEATURES.yaml
 - platform-e2e/tests/e2e/support/user_enforcement_support.py
 - platform-e2e/tests/e2e/features/admin/user_enforcement.feature
+- team-identity/proto/platform/audit/v1/audit.proto (# widened at build: task 4)
 - platform-e2e/tests/e2e/step_definitions/test_user_enforcement.py
 - openspec/changes/identity-user-enforcement/**
 
