@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { getPrincipal } from "@/lib/gateway/session";
-import { setUserStatus, type UserStatusName } from "@/lib/gateway/users";
+import { type UserStatusName, setUserStatus } from "@/lib/gateway/users";
 
 export type UserStatusActionResult =
-  { ok: true; message: string } | { ok: false; error: string };
+  | { ok: true; message: string }
+  | { ok: false; error: string };
 
 const PATH = "/admin/users";
 const STATUSES: UserStatusName[] = [

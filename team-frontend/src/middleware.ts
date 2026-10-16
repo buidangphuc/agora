@@ -72,7 +72,11 @@ export async function middleware(req: NextRequest) {
     const res = next();
     res.cookies.set(SESSION_COOKIE, result.token, accessCookieOptions(secure));
     if (result.refreshToken) {
-      res.cookies.set(REFRESH_COOKIE, result.refreshToken, refreshCookieOptions(secure));
+      res.cookies.set(
+        REFRESH_COOKIE,
+        result.refreshToken,
+        refreshCookieOptions(secure),
+      );
     }
     return res;
   } catch (err) {
