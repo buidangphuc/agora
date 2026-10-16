@@ -65,8 +65,11 @@ class AdminModerationPage(BasePage):
             nxt = self.page.get_by_role("link", name=NEXT_LINK)
             if nxt.count() == 0:
                 return None
+            # Read the target before clicking: from page 2 on the URL already carries
+            # `cursor=`, so only the exact next href proves the client navigation happened.
+            href = nxt.first.get_attribute("href")
             nxt.first.click()
-            self.page.wait_for_url(re.compile(r"cursor="))
+            self.page.wait_for_url(lambda url, h=href: url.endswith(h or ""))
         return None
 
     def press(self, scope: Locator, name: str) -> None:
