@@ -4,14 +4,15 @@ import { ListingForm } from "@/features/listing/ListingForm";
 import { LinkButton } from "@/features/seller/LinkButton";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { listCategories } from "@/lib/gateway/listings";
-import { hasScope } from "@/lib/gateway/session";
+import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Đăng sản phẩm mới | Kênh người bán" };
 
 export default async function SellerNewPage() {
-  if (!hasScope("listing.write")) redirectGuestToLogin("/seller/new");
+  if (!getPrincipal()) redirectGuestToLogin("/seller/new");
+  if (!hasScope("listing.write")) return null;
   const categories = await listCategories();
 
   return (

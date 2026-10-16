@@ -72,11 +72,18 @@ export async function middleware(req: NextRequest) {
     const res = next();
     res.cookies.set(SESSION_COOKIE, result.token, accessCookieOptions(secure));
     if (result.refreshToken) {
-      res.cookies.set(REFRESH_COOKIE, result.refreshToken, refreshCookieOptions(secure));
+      res.cookies.set(
+        REFRESH_COOKIE,
+        result.refreshToken,
+        refreshCookieOptions(secure),
+      );
     }
     return res;
   } catch (err) {
-    if (ConnectError.from(err).code === Code.Unauthenticated) return clearBoth();
+    const code = ConnectError.from(err).code;
+    if (code === Code.Unauthenticated || code === Code.PermissionDenied) {
+      return clearBoth();
+    }
     // Transient failure: render anonymous, keep the refresh cookie for a retry.
     setCookie([SESSION_COOKIE]);
     return next();
