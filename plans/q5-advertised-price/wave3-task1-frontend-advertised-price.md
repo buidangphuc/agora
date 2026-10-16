@@ -10,6 +10,7 @@ Implement OpenSpec change `frontend-advertised-price` test-first per its tasks.m
 ## Write-set (EXCLUSIVE)
 - team-frontend/src/lib/gateway/orders.ts
 - team-frontend/src/lib/gateway/orders.test.ts
+- team-frontend/src/lib/action-result.ts
 - team-frontend/src/features/order/**
 - team-frontend/src/features/listing/ShippingInfo.tsx
 - team-frontend/src/features/listing/ShippingInfo.test.tsx
