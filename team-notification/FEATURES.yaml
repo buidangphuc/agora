@@ -360,3 +360,99 @@ features:
     covered_by: "notification/c1_shipment_event.feature::Order analytics ignores the new event"
     notes: "green after the fix and rebuild: notification/c1_shipment_event.feature::Order analytics ignores the new event"
 
+
+  - id: notification.order-work.cod-seller
+    title: "Order work: A COD order reaches the seller feed end to end"
+    persona: seller
+    priority: P1
+    summary: "Order work: A COD order reaches the seller feed end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: seller
+    api:
+      exercised: [order.v1.CreateOrder, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: A COD order reaches the seller feed end to end"
+    tags: [seller]
+    status: planned
+
+  - id: notification.order-work.paid-seller
+    title: "Order work: A paid online order reaches the seller feed once end to end"
+    persona: seller
+    priority: P1
+    summary: "Order work: A paid online order reaches the seller feed once end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: seller
+    api:
+      exercised: [order.v1.CreateOrder, payment.v1.ProcessMockPayment, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: A paid online order reaches the seller feed once end to end"
+    tags: [seller]
+    status: planned
+
+  - id: notification.order-work.unpaid-buyer
+    title: "Order work: An unpaid order reminds and then expires its buyer end to end"
+    persona: buyer
+    priority: P1
+    summary: "Order work: An unpaid order reminds and then expires its buyer end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [order.v1.CreateOrder, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: An unpaid order reminds and then expires its buyer end to end"
+    tags: [buyer]
+    status: planned
+
+  - id: notification.order-work.return-seller
+    title: "Order work: A return request reaches the seller feed end to end"
+    persona: seller
+    priority: P1
+    summary: "Order work: A return request reaches the seller feed end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: seller
+    api:
+      exercised: [order.v1.CreateReturnRequest, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: A return request reaches the seller feed end to end"
+    tags: [seller]
+    status: planned
+
+  - id: notification.order-work.completed-buyer
+    title: "Order work: A completed order reaches the buyer feed end to end"
+    persona: buyer
+    priority: P1
+    summary: "Order work: A completed order reaches the buyer feed end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [order.v1.ConfirmReceipt, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: A completed order reaches the buyer feed end to end"
+    tags: [buyer]
+    status: planned
+
+  - id: notification.order-work.low-stock-seller
+    title: "Order work: Selling stock down notifies the seller once end to end"
+    persona: seller
+    priority: P1
+    summary: "Order work: Selling stock down notifies the seller once end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: seller
+    api:
+      exercised: [order.v1.CreateOrder, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: Selling stock down notifies the seller once end to end"
+    tags: [seller]
+    status: planned
