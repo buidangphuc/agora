@@ -52,9 +52,9 @@ check_copies "$tmp/t" >/dev/null && { echo "FAIL one-byte drift accepted"; fail=
 mk; rm "$tmp/t/team-chat/proto/$PAY"
 check_copies "$tmp/t" >/dev/null && { echo "FAIL missing copy accepted"; fail=1; } || echo "ok   missing copy rejected"
 
-# Scenario: Consumer copies lint
+# Scenario: Consumer copies lint (scope: the copied files only; other protos in a consumer dir are out of scope)
 for r in $REPOS; do
-  if (cd "$ROOT/$r/proto" && buf lint >/dev/null 2>"$tmp/lint.err"); then echo "ok   buf lint $r"
+  if (cd "$ROOT/$r/proto" && buf lint --path "$ORDER" --path "$PAY" >"$tmp/lint.err" 2>&1); then echo "ok   buf lint $r"
   else echo "FAIL buf lint $r: $(head -3 "$tmp/lint.err" | tr '\n' ' ')"; fail=1; fi
 done
 exit $fail
