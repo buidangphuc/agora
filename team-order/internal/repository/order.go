@@ -620,6 +620,13 @@ func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 	return o, nil
 }
 
+// ExpiryFinder is implemented by order stores that can list unpaid orders past
+// their payment deadline. FindExpired returns up to limit Pending online-pay
+// orders whose deadline is strictly before now, earliest deadline first.
+type ExpiryFinder interface {
+	FindExpired(ctx context.Context, now time.Time, limit int) ([]Order, error)
+}
+
 // codPaymentMethod is paymentv1.PaymentMethod_PAYMENT_METHOD_COD; COD orders have
 // no payment deadline and are never reminded.
 const codPaymentMethod = int32(paymentv1.PaymentMethod_PAYMENT_METHOD_COD)
@@ -633,6 +640,26 @@ func (r *PostgresOrderRepository) FindReminderDue(ctx context.Context, now time.
 	rows, err := r.pool.Query(ctx, q, int32(OrderStatusPending), codPaymentMethod, before.Seconds(), now, limit)
 	if err != nil {
 		return nil, fmt.Errorf("find reminder due: %w", err)
+	}
+	defer rows.Close()
+	var res []Order
+	for rows.Next() {
+		var o Order
+		if err := scanOrder(rows, &o); err != nil {
+			return nil, fmt.Errorf("scan order: %w", err)
+		}
+		res = append(res, o)
+	}
+	return res, rows.Err()
+}
+
+func (r *PostgresOrderRepository) FindExpired(ctx context.Context, now time.Time, limit int) ([]Order, error) {
+	const q = `SELECT ` + orderColumns + ` FROM orders
+		WHERE status = $1 AND payment_method <> $2 AND payment_due_at IS NOT NULL AND payment_due_at < $3
+		ORDER BY payment_due_at, id LIMIT $4`
+	rows, err := r.pool.Query(ctx, q, int32(OrderStatusPending), codPaymentMethod, now, limit)
+	if err != nil {
+		return nil, fmt.Errorf("find expired: %w", err)
 	}
 	defer rows.Close()
 	var res []Order
@@ -700,6 +727,29 @@ func (r *InMemoryOrderRepository) FindReminderDue(_ context.Context, now time.Ti
 		}
 		due := *o.PaymentDueAt
 		if due.Add(-before).After(now) || !due.After(now) {
+			continue
+		}
+		res = append(res, o)
+	}
+	sort.Slice(res, func(i, j int) bool {
+		if !res[i].PaymentDueAt.Equal(*res[j].PaymentDueAt) {
+			return res[i].PaymentDueAt.Before(*res[j].PaymentDueAt)
+		}
+		return res[i].ID < res[j].ID
+	})
+	if limit > 0 && len(res) > limit {
+		res = res[:limit]
+	}
+	return res, nil
+}
+
+func (r *InMemoryOrderRepository) FindExpired(_ context.Context, now time.Time, limit int) ([]Order, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var res []Order
+	for _, o := range r.orders {
+		if o.Status != OrderStatusPending || o.PaymentMethod == codPaymentMethod || o.PaymentDueAt == nil ||
+			!o.PaymentDueAt.Before(now) {
 			continue
 		}
 		res = append(res, o)

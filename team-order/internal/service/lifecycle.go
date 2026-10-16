@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 )
 
@@ -24,7 +25,30 @@ func WithPaymentReminderBefore(d time.Duration) OrderServiceOption {
 // handles at most lifecycleBatch orders and is safe to repeat and to run on
 // several replicas (the stamp is a compare-and-set).
 func (s *OrderService) SweepLifecycle(ctx context.Context, now time.Time) {
+	// Passes are independent: a failure in one is logged and never stops the next.
+	// Expiry runs first so an order already past its deadline is never reminded.
+	s.expireUnpaid(ctx, now)
 	s.remindUnpaid(ctx, now)
+}
+
+func (s *OrderService) expireUnpaid(ctx context.Context, now time.Time) {
+	finder, ok := s.orderRepo.(repository.ExpiryFinder)
+	if !ok {
+		return
+	}
+	due, err := finder.FindExpired(ctx, now, lifecycleBatch)
+	if err != nil {
+		s.logger.Error("find expired orders", "error", err)
+		return
+	}
+	for _, o := range due {
+		if _, err := s.CancelOrderWithReason(ctx, o.ID, orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED); err != nil {
+			// Lost the race (paid, cancelled or expired by another replica): nothing to do.
+			if !errors.Is(err, ErrInvalidStatus) && !errors.Is(err, repository.ErrOrderNotFound) {
+				s.logger.Error("expire unpaid order", "order_id", o.ID, "error", err)
+			}
+		}
+	}
 }
 
 func (s *OrderService) remindUnpaid(ctx context.Context, now time.Time) {
