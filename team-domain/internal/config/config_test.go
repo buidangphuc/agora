@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log/slog"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -254,5 +255,66 @@ func TestScreenTermsFileExistingLoads(t *testing.T) {
 	}
 	if s.Screen.TermsFile != p {
 		t.Errorf("TermsFile = %q, want %q", s.Screen.TermsFile, p)
+	}
+}
+
+// settingByEnv returns the loaded value of the Settings field bound to env key.
+func settingByEnv(t *testing.T, s *Settings, key string) any {
+	t.Helper()
+	v := reflect.ValueOf(s).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		g := v.Field(i)
+		for j := 0; j < g.NumField(); j++ {
+			if g.Type().Field(j).Tag.Get("env") == key {
+				return g.Field(j).Interface()
+			}
+		}
+	}
+	t.Fatalf("no Settings field bound to %s", key)
+	return nil
+}
+
+// Scenario: Auto-screen: Unconfigured team-ai fails safe (UPSTREAM_AI_ADDR defaults to unset).
+func TestAIUpstreamDefaults(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := settingByEnv(t, s, "UPSTREAM_AI_ADDR"); got != "" {
+		t.Errorf("UPSTREAM_AI_ADDR default = %v, want empty", got)
+	}
+	if got := settingByEnv(t, s, "UPSTREAM_AI_TIMEOUT_SECONDS"); got != float64(2) {
+		t.Errorf("UPSTREAM_AI_TIMEOUT_SECONDS default = %v, want 2", got)
+	}
+}
+
+// Scenario: Auto-screen: AI timeout fails safe within the bound (timeout is configurable).
+func TestAIUpstreamFromEnv(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("UPSTREAM_AI_ADDR", "team-ai:50051")
+	t.Setenv("UPSTREAM_AI_TIMEOUT_SECONDS", "1.5")
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := settingByEnv(t, s, "UPSTREAM_AI_ADDR"); got != "team-ai:50051" {
+		t.Errorf("UPSTREAM_AI_ADDR = %v", got)
+	}
+	if got := settingByEnv(t, s, "UPSTREAM_AI_TIMEOUT_SECONDS"); got != 1.5 {
+		t.Errorf("UPSTREAM_AI_TIMEOUT_SECONDS = %v, want 1.5", got)
+	}
+}
+
+// Scenario: Auto-screen: Unconfigured team-ai fails safe (keys are documented in .env.example).
+func TestEnvExampleDocumentsAIUpstream(t *testing.T) {
+	raw, err := os.ReadFile("../../.env.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"UPSTREAM_AI_ADDR", "UPSTREAM_AI_TIMEOUT_SECONDS"} {
+		if !strings.Contains(string(raw), k) {
+			t.Errorf(".env.example does not document %s", k)
+		}
 	}
 }
