@@ -112,31 +112,34 @@ describe("listReports gateway wrapper", () => {
     ["open", ReportStatus.OPEN],
     ["actioned", ReportStatus.ACTIONED],
     ["dismissed", ReportStatus.DISMISSED],
-  ] as const)("status %s sends page size 20 and maps rows", async (s, enumV) => {
-    const engagement = stub({
-      listReports: vi.fn().mockResolvedValue({
-        reports: [report("r1", enumV), report("r2", enumV)],
-        page: { nextCursor: "20" },
-      }),
-    });
-    const res = await listReports(s, "");
-    const [req, opts] = engagement.listReports.mock.calls[0];
-    expect(req).toMatchObject({ status: enumV });
-    expect(req.page).toMatchObject({ cursor: "", pageSize: 20 });
-    expect(opts).toMatchObject({ timeoutMs: 5000 });
-    expect(res.status).toBe("ok");
-    if (res.status !== "ok") return;
-    expect(res.items.map((i) => i.id)).toEqual(["r1", "r2"]);
-    expect(res.items[0]).toMatchObject({
-      listingId: "l-r1",
-      reasonCode: "scam",
-      note: "Giá quá rẻ",
-      reporterId: "u-7",
-      status: s,
-      createdAt: "2026-10-01T00:00:00.000Z",
-    });
-    expect(res.nextCursor).toBe("20");
-  });
+  ] as const)(
+    "status %s sends page size 20 and maps rows",
+    async (s, enumV) => {
+      const engagement = stub({
+        listReports: vi.fn().mockResolvedValue({
+          reports: [report("r1", enumV), report("r2", enumV)],
+          page: { nextCursor: "20" },
+        }),
+      });
+      const res = await listReports(s, "");
+      const [req, opts] = engagement.listReports.mock.calls[0];
+      expect(req).toMatchObject({ status: enumV });
+      expect(req.page).toMatchObject({ cursor: "", pageSize: 20 });
+      expect(opts).toMatchObject({ timeoutMs: 5000 });
+      expect(res.status).toBe("ok");
+      if (res.status !== "ok") return;
+      expect(res.items.map((i) => i.id)).toEqual(["r1", "r2"]);
+      expect(res.items[0]).toMatchObject({
+        listingId: "l-r1",
+        reasonCode: "scam",
+        note: "Giá quá rẻ",
+        reporterId: "u-7",
+        status: s,
+        createdAt: "2026-10-01T00:00:00.000Z",
+      });
+      expect(res.nextCursor).toBe("20");
+    },
+  );
 
   // Scenario: Moderation UI: Empty report list
   it("forwards the cursor and returns an empty next cursor on the last page", async () => {

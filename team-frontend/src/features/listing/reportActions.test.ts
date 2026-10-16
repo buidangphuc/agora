@@ -120,7 +120,9 @@ describe("reportListingAction", () => {
 
   // Scenario: Moderation UI: Seller reporting their own listing is refused
   it("maps own-listing refusal", async () => {
-    vi.mocked(createReport).mockResolvedValue({ status: "failed_precondition" });
+    vi.mocked(createReport).mockResolvedValue({
+      status: "failed_precondition",
+    });
     expect(await reportListingAction("l1", "scam", "n")).toEqual({
       ok: false,
       error: OWN,

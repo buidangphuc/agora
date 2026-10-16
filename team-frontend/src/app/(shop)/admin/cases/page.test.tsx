@@ -90,7 +90,9 @@ describe("CasesPage", () => {
 
   it("does not call the gateway for a non-admin on the queue tab (Moderation UI: Non-admin sees the 403 result)", async () => {
     vi.mocked(getPrincipal).mockReturnValue(buyer);
-    render(await CasesPage({ searchParams: Promise.resolve({ tab: "queue" }) }));
+    render(
+      await CasesPage({ searchParams: Promise.resolve({ tab: "queue" }) }),
+    );
     expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
     expect(listModerationQueue).not.toHaveBeenCalled();
   });
@@ -142,13 +144,14 @@ describe("CasesPage", () => {
   });
 
   it("shows the queue tab through the queue gateway (Moderation UI: Default tab is reports with status OPEN)", async () => {
-    render(await CasesPage({ searchParams: Promise.resolve({ tab: "queue" }) }));
+    render(
+      await CasesPage({ searchParams: Promise.resolve({ tab: "queue" }) }),
+    );
     expect(listModerationQueue).toHaveBeenCalledTimes(1);
     expect(listReports).not.toHaveBeenCalled();
-    expect(screen.getByRole("link", { name: "Hàng chờ duyệt" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(
+      screen.getByRole("link", { name: "Hàng chờ duyệt" }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("shows the reports unavailable state and keeps the tabs (Moderation UI: Reports backend unavailable)", async () => {
