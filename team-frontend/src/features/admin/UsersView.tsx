@@ -20,14 +20,14 @@ const STATUS_ORDER: UserStatusName[] = [
   "suspended",
   "banned",
 ];
-const REASONS = [
-  "policy_violation",
-  "fraud",
-  "counterfeit",
-  "abuse",
-  "scam",
-  "spam",
-  "other",
+const REASONS: [string, string][] = [
+  ["policy_violation", "Vi phạm chính sách"],
+  ["fraud", "Gian lận"],
+  ["counterfeit", "Hàng giả"],
+  ["abuse", "Lạm dụng"],
+  ["scam", "Lừa đảo"],
+  ["spam", "Spam"],
+  ["other", "Khác"],
 ];
 
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -100,9 +100,9 @@ function RowForm({
       </label>
       <select id={id("reason")} name="reason" className={inputClass}>
         <option value="">Chọn lý do</option>
-        {REASONS.map((r) => (
+        {REASONS.map(([r, label]) => (
           <option key={r} value={r}>
-            {r}
+            {label}
           </option>
         ))}
       </select>
@@ -152,7 +152,9 @@ export function UsersView({
   );
   return (
     <div className="mx-auto max-w-6xl p-6">
-      <h1 className="text-2xl font-bold text-text-primary">Người dùng</h1>
+      <h1 className="text-2xl font-bold text-text-primary">
+        Quản lý người dùng
+      </h1>
 
       <form
         data-testid="users-search"
@@ -200,6 +202,12 @@ export function UsersView({
           >
             Tìm
           </button>
+          <Link
+            href="/admin/users"
+            className="ml-3 px-2 py-2 text-sm text-text-secondary underline"
+          >
+            Xóa bộ lọc
+          </Link>
         </div>
       </form>
 

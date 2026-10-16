@@ -9,8 +9,8 @@ import { getPrincipal, getToken } from "@/lib/gateway/session";
 import { listUsers } from "@/lib/gateway/users";
 
 export const metadata: Metadata = {
-  title: "Người dùng | Sàn Thương Mại Điện Tử",
-  description: "Tra cứu và quản lý trạng thái tài khoản người dùng.",
+  title: "Quản lý người dùng | Sàn Thương Mại Điện Tử",
+  description: "Tìm người dùng và hạn chế, tạm khóa hoặc cấm tài khoản.",
   referrer: "no-referrer",
 };
 
