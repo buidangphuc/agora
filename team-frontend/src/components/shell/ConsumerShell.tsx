@@ -351,6 +351,16 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                 </Link>
               </li>
               <li>
+                <Link href="/admin/listings" className="hover:text-brand">
+                  Kiểm duyệt tin đăng
+                </Link>
+              </li>
+              <li>
+                <Link href="/admin/cases" className="hover:text-brand">
+                  Hộp thư vụ việc
+                </Link>
+              </li>
+              <li>
                 <Link href="/seller" className="hover:text-brand">
                   Kênh Người Bán & Quản Lý Kho
                 </Link>
