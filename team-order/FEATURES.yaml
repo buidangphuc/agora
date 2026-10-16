@@ -2993,7 +2993,8 @@ features:
     acceptance:
       - "Order expiry: Order unpaid past its deadline is cancelled and its stock released"
     tags: [buyer, order, lifecycle]
-    status: planned
+    status: automated
+    covered_by: "order/unpaid_expiry.feature::Order expiry: Order unpaid past its deadline is cancelled and its stock released"
     notes: "Feature scenario: Order expiry: Order unpaid past its deadline is cancelled and its stock released (order/unpaid_expiry.feature)."
 
   - id: order.expiry-expiry-emits-ordercancelled-with-the-expiry-reason
@@ -3011,7 +3012,8 @@ features:
     acceptance:
       - "Order expiry: Expiry emits OrderCancelled with the expiry reason"
     tags: [buyer, order, lifecycle]
-    status: planned
+    status: automated
+    covered_by: "order/unpaid_expiry.feature::Order expiry: Expiry emits OrderCancelled with the expiry reason"
     notes: "Feature scenario: Order expiry: Expiry emits OrderCancelled with the expiry reason (order/unpaid_expiry.feature)."
 
   - id: order.expiry-expiry-releases-the-voucher-hold-and-flash-units-once
@@ -3055,7 +3057,8 @@ features:
     acceptance:
       - "Order expiry: A COD order is never expired"
     tags: [buyer, order, lifecycle]
-    status: planned
+    status: automated
+    covered_by: "order/unpaid_expiry.feature::Order expiry: A COD order is never expired"
     notes: "Feature scenario: Order expiry: A COD order is never expired (order/unpaid_expiry.feature)."
 
   - id: order.expiry-an-order-without-a-deadline-is-never-expired
@@ -3177,7 +3180,8 @@ features:
     acceptance:
       - "Order expiry: Buyer cancel stores the chosen reason"
     tags: [buyer, order, lifecycle]
-    status: planned
+    status: automated
+    covered_by: "order/unpaid_expiry.feature::Order expiry: Buyer cancel stores the chosen reason"
     notes: "Feature scenario: Order expiry: Buyer cancel stores the chosen reason (order/unpaid_expiry.feature)."
 
   - id: order.expiry-cancel-without-a-reason-code-still-succeeds
@@ -3208,7 +3212,8 @@ features:
     acceptance:
       - "Order expiry: Buyer cannot send a system reason code"
     tags: [buyer, order, lifecycle]
-    status: planned
+    status: automated
+    covered_by: "order/unpaid_expiry.feature::Order expiry: Buyer cannot send a system reason code"
     notes: "Feature scenario: Order expiry: Buyer cannot send a system reason code (order/unpaid_expiry.feature)."
 
   - id: order.expiry-another-user-cannot-cancel-with-a-reason
