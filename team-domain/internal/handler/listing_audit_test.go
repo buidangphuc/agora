@@ -46,6 +46,10 @@ func (a *handlerAudit) WriteListingAdminDelete(_ context.Context, actorID, listi
 	return a.err
 }
 
+func (a *handlerAudit) WriteListingModerate(context.Context, string, string, string, string, string, string, string, string) error {
+	return a.err
+}
+
 type auditHandlerFixture struct {
 	h     *handler.ListingHandler
 	repo  *repository.InMemoryListingRepository

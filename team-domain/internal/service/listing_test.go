@@ -183,6 +183,10 @@ func (f *fakeAudit) WriteListingAdminDelete(_ context.Context, actorID, listingI
 	return f.err
 }
 
+func (f *fakeAudit) WriteListingModerate(context.Context, string, string, string, string, string, string, string, string) error {
+	return f.err
+}
+
 // orderTx wraps the in-memory TxWriter and logs when the change happens.
 type orderTx struct {
 	*repository.InMemoryTxWriter

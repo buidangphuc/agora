@@ -187,3 +187,80 @@ func TestAuditClientNeverForwardsCallerPrincipal(t *testing.T) {
 		}
 	}
 }
+
+// Scenario: Moderation: Audit event is written first (wire shape of listing.moderate).
+func TestAuditClientWriteListingModerate(t *testing.T) {
+	rec := &recordingAudit{}
+	c, err := NewAuditClient(startAudit(t, rec), time.Second)
+	if err != nil || c == nil {
+		t.Fatalf("NewAuditClient: %v, %v", c, err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+		"x-principal-id", "adm-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
+	if err := c.WriteListingModerate(ctx, "adm-1", "L-1", "s-1", "reject", "counterfeit", "Fake logo", "pending_review", "rejected"); err != nil {
+		t.Fatalf("WriteListingModerate: %v", err)
+	}
+	if rec.calls() != 1 {
+		t.Fatalf("want 1 WriteAuditEvent call, got %d", rec.calls())
+	}
+	r := rec.reqs[0]
+	if r.GetActorId() != "adm-1" || r.GetAction() != "listing.moderate" || r.GetTargetType() != "listing" || r.GetTargetId() != "L-1" {
+		t.Errorf("unexpected event: %+v", r)
+	}
+	want := map[string]string{
+		"seller_id": "s-1", "decision": "reject", "reason_code": "counterfeit", "note": "Fake logo",
+		"from_status": "pending_review", "to_status": "rejected",
+	}
+	got := r.GetMetadata()
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("metadata[%s] = %q, want %q", k, got[k], v)
+		}
+	}
+	for k := range got {
+		if _, ok := want[k]; !ok {
+			t.Errorf("unexpected metadata key %q", k)
+		}
+	}
+	for k, v := range map[string]string{"x-principal-id": "service-team-domain", "x-principal-type": "service", "x-principal-scopes": "audit.write"} {
+		if vals := rec.mds[0].Get(k); len(vals) != 1 || vals[0] != v {
+			t.Errorf("%s = %v, want [%s] (service principal, never the caller)", k, vals, v)
+		}
+	}
+}
+
+// Scenario: Moderation: No audit upstream configured (nil client fails closed).
+func TestNilAuditClientModerateFailsClosed(t *testing.T) {
+	var c *AuditClient
+	if err := c.WriteListingModerate(context.Background(), "adm-1", "L-1", "s-1", "approve", "", "", "pending_review", "published"); err == nil {
+		t.Fatal("nil client must return an error")
+	}
+}
+
+// Scenario: Moderation: Audit down refuses the decision (single bounded attempt).
+func TestAuditClientModerateTimeoutSingleAttempt(t *testing.T) {
+	for name, rec := range map[string]*recordingAudit{
+		"error":    {err: status.Error(codes.Internal, "audit db down")},
+		"deadline": {block: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			c, err := NewAuditClient(startAudit(t, rec), 150*time.Millisecond)
+			if err != nil || c == nil {
+				t.Fatalf("NewAuditClient: %v, %v", c, err)
+			}
+			defer func() { _ = c.Close() }()
+			start := time.Now()
+			if err := c.WriteListingModerate(context.Background(), "adm-1", "L-1", "s-1", "ban", "other", "", "published", "banned"); err == nil {
+				t.Fatal("expected an error")
+			}
+			if el := time.Since(start); el > 2*time.Second {
+				t.Fatalf("call took %v, want bounded", el)
+			}
+			if n := rec.calls(); n != 1 {
+				t.Fatalf("want exactly 1 attempt, got %d", n)
+			}
+		})
+	}
+}
