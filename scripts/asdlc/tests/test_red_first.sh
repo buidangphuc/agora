@@ -150,5 +150,34 @@ OUT=$("$RF" 2>&1); RC=$?
 echo "$OUT" | sed 's/^/    /'
 [ $RC -eq 0 ] && echo "$OUT" | grep -q "impl=0" && ok "(j) metrics are non-impl" || bad "(j) expected exit 0 got $RC"
 
+# (k) buf generate failing (e.g. BSR rate limit) is an explicit error, not a misleading "red at head"
+rm -rf "$T/k"; cp -R "$T/i" "$T/k"; cd "$T/k" || exit 1
+mkdir -p "$T/binfail"
+printf '#!/usr/bin/env bash\necho "Failure: too many requests" >&2\nexit 1\n' > "$T/binfail/buf"; chmod +x "$T/binfail/buf"
+OUT=$(PATH="$T/binfail:$PATH" "$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'
+[ $RC -eq 1 ] && echo "$OUT" | grep -q "ERROR buf generate failed in \." && echo "$OUT" | grep -q "FAIL: buf generate failed" &&
+  ! echo "$OUT" | grep -q "red at head" && ok "(k) buf generate failure is explicit" || bad "(k) expected exit 1 with buf generate error, got $RC"
+
+# (l) remote BSR plugins are rewritten to local protoc-gen-* binaries on PATH; unmapped remotes stay
+rm -rf "$T/l"; cp -R "$T/i" "$T/l"; cd "$T/l" || exit 1
+mkdir -p "$T/binlocal"
+cat > "$T/binlocal/buf" <<SH
+#!/usr/bin/env bash
+[ "\$1" = generate ] && [ "\$2" = --template ] || exit 2
+cat "\$3" >> "$T/l-template.log"
+mkdir -p generated && printf 'package generated\n\nconst Factor = 1\n' > generated/gen.go
+SH
+chmod +x "$T/binlocal/buf"
+for p in protoc-gen-go protoc-gen-go-grpc protoc-gen-connect-go; do printf '#!/bin/sh\n' > "$T/binlocal/$p"; chmod +x "$T/binlocal/$p"; done
+printf 'version: v2\nplugins:\n  - remote: buf.build/protocolbuffers/go\n    out: generated\n  - remote: buf.build/grpc/go\n    out: generated\n  - remote: buf.build/connectrpc/go:v1.16.2   # pinned\n    out: generated\n  - remote: buf.build/protocolbuffers/python\n    out: py\n' > buf.gen.yaml
+commit "remote plugins"
+OUT=$(PATH="$T/binlocal:$PATH" "$RF" 2>&1); RC=$?
+echo "$OUT" | sed 's/^/    /'; sed 's/^/    tmpl| /' "$T/l-template.log"
+[ $RC -eq 0 ] && grep -qx '  - local: protoc-gen-go' "$T/l-template.log" && grep -qx '  - local: protoc-gen-go-grpc' "$T/l-template.log" &&
+  grep -qx '  - local: protoc-gen-connect-go' "$T/l-template.log" && grep -q 'remote: buf.build/protocolbuffers/python' "$T/l-template.log" &&
+  ! grep -qE 'remote: buf.build/(protocolbuffers|grpc|connectrpc)/go' "$T/l-template.log" &&
+  ok "(l) remote plugins rewritten to local" || bad "(l) expected local plugins in template, got $RC"
+
 [ $FAILS -eq 0 ] && echo "ALL OK" || echo "$FAILS FAILED"
 exit $FAILS

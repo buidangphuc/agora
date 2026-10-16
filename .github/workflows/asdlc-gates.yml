@@ -121,6 +121,15 @@ jobs:
       # red_first regenerates gitignored proto code (buf.gen.yaml modules) in its base/head worktrees
       - uses: bufbuild/buf-setup-action@v1
         with: { github_token: "${{ github.token }}" }
+      # red_first rewrites remote BSR plugins (buf.build/{protocolbuffers,grpc,connectrpc}/go) to these local
+      # binaries: unauthenticated BSR calls are rate-limited and turned whole PRs falsely "red at head".
+      # Versions match what the remotes resolve to (go/go-grpc are unpinned = latest; connect-go is pinned in
+      # buf.gen.yaml). Bump them together with a regenerated-code change.
+      - name: install local protoc plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+          go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.16.2
       - run: pip install pytest pyyaml jsonschema
       - run: git fetch origin "$BASE_REF" --depth=1000 || true
       - name: install deps of changed test dirs
