@@ -80,7 +80,18 @@ type Listing struct {
 	ScreenFlags          []string
 	ModerationDecidedAt  time.Time
 	SubmittedAt          time.Time
+
+	// TEST-STUB (task 3): optimistic-concurrency fields. UpdatedAt is filled by
+	// Get/scan from listings.updated_at. For UpdateTx, LoadedStatus and
+	// LoadedUpdatedAt are the status/updated_at the caller read before deciding;
+	// when LoadedUpdatedAt is non-zero the write is conditional on both.
+	UpdatedAt       time.Time
+	LoadedStatus    string
+	LoadedUpdatedAt time.Time
 }
+
+// TEST-STUB (task 3): replaced by the real definition.
+var ErrStatusChanged = errors.New("listing changed, reload and retry")
 
 // Page is a single page of listings plus keyset-pagination metadata.
 type Page struct {
