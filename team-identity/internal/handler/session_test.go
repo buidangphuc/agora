@@ -192,8 +192,8 @@ func TestSessionHandler_RevokeEnqueuesSessionRevoked(t *testing.T) {
 	if err := proto.Unmarshal(env.GetPayload(), &ev); err != nil {
 		t.Fatalf("unmarshal payload: %v", err)
 	}
-	wantExp := s1.CreatedAt.Add(time.Hour)
-	if ev.GetSessionId() != s1.ID || ev.GetUserId() != "user-1" || ev.GetExpiresAt().AsTime().Sub(wantExp).Abs() > time.Millisecond {
+	wantExp := time.Now().Add(time.Hour) // denylist expiry = revoke time + access TTL, not created_at + TTL
+	if ev.GetSessionId() != s1.ID || ev.GetUserId() != "user-1" || ev.GetExpiresAt().AsTime().Sub(wantExp).Abs() > 5*time.Second {
 		t.Fatalf("unexpected payload %+v, want expiry %v", &ev, wantExp)
 	}
 }
@@ -216,5 +216,39 @@ func TestSessionHandler_FailedOutboxWriteRollsBackRevoke(t *testing.T) {
 	}
 	if n := len(repo.OutboxRows()); n != 0 {
 		t.Fatalf("no outbox row may be left behind, got %d", n)
+	}
+}
+
+// Scenarios: RevokeSession denylist expiry is now plus access TTL; Revocation outlives the
+// denylist. A session created long ago must still get now+TTL, and its refresh hashes clear.
+func TestRevokeSessionDenylistExpiry_NowPlusAccessTTL(t *testing.T) {
+	repo := repository.NewInMemorySessionRepository()
+	h := handler.NewSessionHandler(repo, nil).WithTokenTTL(3600 * time.Second)
+	old := time.Now().Add(-48 * time.Hour)
+	s1, _ := repo.CreateSession(context.Background(), repository.Session{
+		UserID: "user-1", CreatedAt: old, RefreshHash: "h1", PrevRefreshHash: "h0", RefreshExpiresAt: time.Now().Add(time.Hour),
+	})
+	if _, err := h.RevokeSession(principalContext("user-1"), &identityv1.RevokeSessionRequest{SessionId: s1.ID}); err != nil {
+		t.Fatalf("RevokeSession: %v", err)
+	}
+	rows := repo.OutboxRows()
+	if len(rows) != 1 {
+		t.Fatalf("want 1 outbox row, got %d", len(rows))
+	}
+	var env eventsv1.EventEnvelope
+	if err := proto.Unmarshal(rows[0].Payload, &env); err != nil {
+		t.Fatal(err)
+	}
+	var ev identityv1.SessionRevoked
+	if err := proto.Unmarshal(env.GetPayload(), &ev); err != nil {
+		t.Fatal(err)
+	}
+	want := time.Now().Add(3600 * time.Second)
+	if d := ev.GetExpiresAt().AsTime().Sub(want).Abs(); d > 5*time.Second {
+		t.Fatalf("expires_at %v is %v from now+3600s", ev.GetExpiresAt().AsTime(), d)
+	}
+	got, _ := repo.ListSessions(context.Background(), "user-1")
+	if len(got) != 1 || !got[0].Revoked || got[0].RefreshHash != "" || got[0].PrevRefreshHash != "" {
+		t.Fatalf("revoke must clear refresh hashes, got %+v", got)
 	}
 }

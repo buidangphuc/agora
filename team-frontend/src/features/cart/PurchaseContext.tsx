@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { useToast } from "@/components/ui/ToastProvider";
+import { loginPath } from "@/features/auth/returnUrlShared";
 import { type ResolvedVariant, resolveVariant } from "@/features/listing/pdp";
 import { trackEcommerce } from "@/lib/analytics";
 import type { ViewVariant } from "@/lib/gateway/listings";
@@ -113,6 +114,14 @@ export function PurchaseProvider({
           selected.id || undefined,
           quantity,
         );
+        if (!res.ok && "unauthenticated" in res && res.unauthenticated) {
+          router.push(
+            loginPath(
+              `/listing/${listing.id}${selected.id ? `?variant=${selected.id}` : ""}`,
+            ),
+          );
+          return;
+        }
         if (res.ok) {
           trackEcommerce("add_to_cart", {
             currency: "VND",

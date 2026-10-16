@@ -1,0 +1,22 @@
+All paths relative to `team-frontend/`. Tests colocated `*.test.ts(x)`; run `npm test` (vitest) and the repo lint. Write each test first and see it fail.
+
+## 1. Code track
+
+- [x] 1.1 `src/features/auth/returnUrl.ts` with `safeReturnUrl`, `loginPath`, `redirectToLogin` (server-only wrapper over `next/navigation` `redirect`). Test first in `returnUrl.test.ts`. Scenarios: returnUrl guard (all, incl. percent-encoded, look-alike prefixes, over-length).
+- [x] 1.2 Login/register pages and forms: pages read `searchParams.returnUrl`, pass it to `LoginForm`/`RegisterForm`; hidden `returnUrl` input; cross links keep it. Scenario: Register carries returnUrl through; `forms.test.tsx`.
+- [x] 1.3 `src/features/auth/actions.ts` (HOT FILE, shared with frontend-session-continuity; rebase on it, touch only the two `redirect("/")` lines and read the `returnUrl` field): `redirect(safeReturnUrl(...))` in `loginAction` and `registerAction`; leave `logoutAction` untouched. Scenarios: login redirects, no returnUrl, tampered, failed login, register, register AlreadyExists.
+- [x] 1.4 Replace every bare `redirect("/login")` with `redirectToLogin(path)`: seller (layout, ads, plans, new, wallet, (dashboard), orders, [id]/edit, shop, analytics, bundles), account (security, verification, addresses, orders list, orders/[id] page and layout, referral, following), checkout (summary, pay/[id] page and layout), favorites, notifications, admin/cockpit (both branches), chat, cart (page covering update/remove). Param-less layouts (seller layout and similar) read the `x-pathname` header via `headers()`; any missing piece or >2048 chars gives plain `/login`. Build the path from route `params` and `searchParams`. Scenarios: guard (all 5); add page tests for orders/[id], chat, seller layout.
+- [x] 1.5 Add `guards.test.ts` scanning `src/app` for bare `redirect("/login` and fail on any. Scenario: Every guard uses the helper.
+- [x] 1.5b `src/lib/analytics/destinations/gtm.ts`: strip `returnUrl` from `page_location`; test first in `gtm.test.ts`. Scenario: page_location has no returnUrl.
+- [x] 1.6 Move the unencoded links (`chat/ChatWithSellerButton.tsx`, `listing/qa/QASection.tsx`, `listing/qa/QuestionList.tsx`) to `loginPath("/listing/<id>")`.
+- [x] 1.7 `src/features/cart/actions.ts`: in `addToCartAction` return `{ ok: false, error, unauthenticated: true }` on `ConnectError` `Code.Unauthenticated` (extend `CartActionResult`, not the shared `fail()` contract for other actions). Scenario: Other cart errors keep the toast; `actions.test.ts`.
+- [x] 1.8 `src/features/cart/PurchaseContext.tsx` `add()`: on `unauthenticated`, `router.push(loginPath(...))` before toast/tracking, for add and buy-now. Scenarios: guest add, guest buy-now (lands on PDP), no variant, signed-in unaffected; `PurchasePanel.test.tsx`.
+
+## 2. E2E track
+
+- [x] 2.1 `e2e/login-return.spec.ts` `guard redirect round trip`: anonymous `/favorites`, `/account/orders/o-9`, `/seller/orders`, `/cart` each redirect to login with returnUrl; login lands back on the page. Variants cover `/account/orders/o-9`, `/seller/orders` (x-pathname), `/cart`. Scenarios: Returned user passes through the guard after login; Guest opening a protected page; Param-less layout uses x-pathname; Cart page guard.
+- [x] 2.2 `no auto replay after login`: guest on `/listing/<id>?variant=<v>` clicks add, is sent to login, logs in, lands on the same URL; assert zero add-to-cart calls and unchanged cart count until clicking again. Scenarios: Guest add-to-cart goes to login with the variant; Add-to-cart is not replayed after login.
+- [x] 2.3 Open-redirect negative: visit `/login?returnUrl=https://evil.example` (test name `open redirect is rejected`), log in, assert landing on `/`. Scenarios: Tampered returnUrl; Absolute URLs rejected.
+- [x] 2.4 `guest buy now lands on PDP`: guest clicks Mua ngay, goes to login, logs in, lands on the PDP; assert no `/checkout` visit and zero addToCart calls. Scenario: Guest buy-now goes to login, then lands on the PDP.
+- [x] 2.5 `guard preserves query` (`/chat?thread=t1&tag=a&tag=b`) and `over-length path falls back to login` (`/chat?thread=` + 2100 chars, expect `/login` without returnUrl). Scenarios: Query string preserved with repeated keys; Over-length path falls back to plain login.
+- [x] 2.6 `buyer sees seller upgrade prompt`: signed-in buyer opens `/seller/new`, sees "Cần tài khoản Người Bán", no redirect. Scenario: Signed-in user without the scope is not redirected to login.

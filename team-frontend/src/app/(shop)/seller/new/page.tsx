@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { ListingForm } from "@/features/listing/ListingForm";
 import { LinkButton } from "@/features/seller/LinkButton";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Đăng sản phẩm mới | Kênh người bán" };
 
 export default async function SellerNewPage() {
-  if (!hasScope("listing.write")) redirect("/login");
+  if (!hasScope("listing.write")) redirectGuestToLogin("/seller/new");
   const categories = await listCategories();
 
   return (

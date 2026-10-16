@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -47,7 +47,8 @@ export default async function SellerWalletPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const me = getPrincipal();
-  if (!me || !hasScope("listing.write")) redirect("/login");
+  if (!me || !hasScope("listing.write"))
+    redirectGuestToLogin("/seller/wallet", searchParams);
 
   const { page } = parseListParams(searchParams);
   const [balance, entries] = await Promise.allSettled([

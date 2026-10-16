@@ -1,0 +1,7 @@
+platform-core/packages/proto/go.mod
+platform-core/packages/proto/go.sum
+platform-core/packages/proto/platform/identity/v1/authresult_roundtrip_test.go
+platform-core/packages/proto/platform/identity/v1/identity.proto
+team-frontend/proto/platform/identity/v1/identity.proto
+team-gateway/proto/platform/identity/v1/identity.proto
+team-identity/proto/platform/identity/v1/identity.proto
