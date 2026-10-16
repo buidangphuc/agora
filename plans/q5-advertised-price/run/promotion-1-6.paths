@@ -1,0 +1,12 @@
+team-promotion/README.md
+team-promotion/cmd/server/main.go
+team-promotion/internal/bootstrap/resources.go
+team-promotion/internal/handler/flashsale.go
+team-promotion/internal/handler/flashsale_hold_test.go
+team-promotion/internal/repository/flashsale.go
+team-promotion/internal/repository/flashsale_hold.go
+team-promotion/internal/repository/flashsale_hold_test.go
+team-promotion/internal/service/flashsale.go
+team-promotion/internal/service/flashsale_hold_test.go
+team-promotion/migrations/0004_flash_sale_holds.down.sql
+team-promotion/migrations/0004_flash_sale_holds.up.sql

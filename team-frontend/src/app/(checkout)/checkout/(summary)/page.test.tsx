@@ -7,6 +7,7 @@ import type { ViewAddress } from "@/lib/gateway/addresses";
 import { listAddresses } from "@/lib/gateway/addresses";
 import type { ViewCartItem } from "@/lib/gateway/cart";
 import { getCart } from "@/lib/gateway/cart";
+import { calculateShippingFee } from "@/lib/gateway/orders";
 import { listVouchers, previewVoucher } from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
 
@@ -30,6 +31,7 @@ vi.mock("@/lib/flags", () => ({ isCheckoutEnabled: vi.fn() }));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
 vi.mock("@/lib/gateway/addresses", () => ({ listAddresses: vi.fn() }));
 vi.mock("@/lib/gateway/cart", () => ({ getCart: vi.fn() }));
+vi.mock("@/lib/gateway/orders", () => ({ calculateShippingFee: vi.fn() }));
 vi.mock("@/lib/gateway/promotion", () => ({
   listVouchers: vi.fn(),
   previewVoucher: vi.fn(),
@@ -111,6 +113,18 @@ beforeEach(() => {
     addr("a1", "Đà Nẵng"),
     addr("a2", "Hồ Chí Minh", true),
   ]);
+  // The server rule, stubbed at the gateway boundary: free from 500000,
+  // 20000 for Hà Nội / Hồ Chí Minh, else 35000.
+  vi.mocked(calculateShippingFee).mockImplementation(async (city, subtotal) => {
+    if (subtotal >= 500000)
+      return { shippingFee: 0, isFreeShipping: true, message: "" };
+    const near = city === "Hà Nội" || city === "Hồ Chí Minh";
+    return {
+      shippingFee: near ? 20000 : 35000,
+      isFreeShipping: false,
+      message: "",
+    };
+  });
   vi.mocked(listVouchers).mockResolvedValue([]);
   vi.mocked(previewVoucher).mockResolvedValue({
     valid: false,
@@ -243,5 +257,83 @@ describe("/checkout steps", () => {
       "begin_checkout",
       expect.objectContaining({ currency: "VND", value: 200000 }),
     );
+  });
+});
+
+describe("/checkout server-backed shipping and totals", () => {
+  it("shipping comes from CalculateShippingFee on the cart subtotal", async () => {
+    vi.mocked(listAddresses).mockResolvedValue([addr("a1", "Hà Nội", true)]);
+    vi.mocked(getCart).mockResolvedValue({
+      userId: "u1",
+      items: [item(100000, 2)],
+      subtotal: 300000, // server subtotal, not the sum of the lines
+      totalItems: 1,
+    });
+    vi.mocked(calculateShippingFee).mockResolvedValue({
+      shippingFee: 25000,
+      isFreeShipping: false,
+      message: "",
+    });
+    await go({ step: "shipping", addr: "a1" });
+    expect(calculateShippingFee).toHaveBeenCalledWith("Hà Nội", 300000);
+    expect(screen.getAllByText("₫25.000").length).toBeGreaterThanOrEqual(1);
+    // 300000 + the server's 25000, no local rule
+    expect(screen.getByTestId("order-total")).toHaveTextContent("325.000");
+  });
+
+  it("free shipping at the threshold", async () => {
+    vi.mocked(listAddresses).mockResolvedValue([addr("a1", "Hà Nội", true)]);
+    vi.mocked(getCart).mockResolvedValue({
+      userId: "u1",
+      items: [item(250000, 2)],
+      subtotal: 500000,
+      totalItems: 1,
+    });
+    vi.mocked(calculateShippingFee).mockResolvedValue({
+      shippingFee: 0,
+      isFreeShipping: true,
+      message: "",
+    });
+    vi.mocked(previewVoucher).mockResolvedValue({
+      valid: true,
+      reason: "",
+      discountAmount: 50000,
+      voucherId: "v1",
+    });
+    await go({ step: "confirm", addr: "a1", voucher: "V1" });
+    expect(calculateShippingFee).toHaveBeenCalledWith("Hà Nội", 500000);
+    expect(screen.getAllByText("Freeship").length).toBeGreaterThanOrEqual(1);
+    // subtotal 500000 - discount 50000 + shipping 0
+    expect(screen.getByTestId("order-total")).toHaveTextContent("450.000");
+  });
+
+  it("voucher preview receives the server subtotal", async () => {
+    vi.mocked(getCart).mockResolvedValue({
+      userId: "u1",
+      items: [item(100000, 2)],
+      subtotal: 400000, // flash prices included, differs from the line sum
+      totalItems: 1,
+    });
+    vi.mocked(previewVoucher).mockResolvedValue({
+      valid: true,
+      reason: "",
+      discountAmount: 40000,
+      voucherId: "v1",
+    });
+    await go({ step: "confirm", addr: "a2", voucher: "V1" });
+    expect(previewVoucher).toHaveBeenCalledWith("V1", 400000, "s1");
+    expect(screen.getByTestId("voucher-discount")).toHaveTextContent(
+      "-₫40.000",
+    );
+  });
+
+  it("shipping failure raises instead of inventing a fee", async () => {
+    vi.mocked(calculateShippingFee).mockResolvedValue(null);
+    await expect(
+      CheckoutPage({
+        searchParams: Promise.resolve({ step: "shipping", addr: "a2" }),
+      }),
+    ).rejects.toThrow();
+    expect(nav.redirect).not.toHaveBeenCalled();
   });
 });

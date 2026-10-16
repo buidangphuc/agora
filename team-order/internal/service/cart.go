@@ -5,8 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
+
+	"google.golang.org/grpc"
 
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
+	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 	"github.com/buidangphuc/team-order/internal/upstream"
 )
@@ -21,18 +25,46 @@ type CartService struct {
 	orderRepo    repository.OrderRepository
 	domainClient upstream.DomainClient
 	logger       *slog.Logger
+	flash        FlashSaleClient
 }
 
-func NewCartService(repo repository.CartRepository, orderRepo repository.OrderRepository, domainClient upstream.DomainClient, logger *slog.Logger) *CartService {
+// FlashSaleClient is the read side of team-promotion's FlashSaleService that the
+// cart needs to price a line at the active flash sale price.
+type FlashSaleClient interface {
+	GetActiveFlashSale(ctx context.Context, in *promotionv1.GetActiveFlashSaleRequest, opts ...grpc.CallOption) (*promotionv1.GetActiveFlashSaleResponse, error)
+}
+
+// CartOption configures optional CartService collaborators.
+type CartOption func(*CartService)
+
+// WithFlashSaleClient prices cart adds at the active flash sale price. A nil or
+// typed-nil client is treated as "no client".
+func WithFlashSaleClient(c FlashSaleClient) CartOption {
+	return func(s *CartService) {
+		if c == nil {
+			return
+		}
+		if v := reflect.ValueOf(c); v.Kind() == reflect.Ptr && v.IsNil() {
+			return
+		}
+		s.flash = c
+	}
+}
+
+func NewCartService(repo repository.CartRepository, orderRepo repository.OrderRepository, domainClient upstream.DomainClient, logger *slog.Logger, opts ...CartOption) *CartService {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &CartService{
+	s := &CartService{
 		repo:         repo,
 		orderRepo:    orderRepo,
 		domainClient: domainClient,
 		logger:       logger,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 func (s *CartService) GetCart(ctx context.Context, userID string) ([]repository.CartItem, int64, error) {
@@ -84,6 +116,8 @@ func (s *CartService) AddToCart(ctx context.Context, userID, listingID, variantI
 			}
 		}
 	}
+
+	unitPrice = s.flashPrice(ctx, listingID, variantID, unitPrice)
 
 	sellerID := listing.GetSellerId()
 
@@ -160,4 +194,29 @@ func (s *CartService) Reorder(ctx context.Context, userID, orderID string) ([]re
 	}
 
 	return s.GetCart(ctx, userID)
+}
+
+// flashPrice returns the active flash sale price for the line when it is valid
+// (0 < sale_price < regular, campaign variant empty or equal); otherwise regular.
+// A promotion error never blocks the add.
+func (s *CartService) flashPrice(ctx context.Context, listingID, variantID string, regular int64) int64 {
+	if s.flash == nil {
+		return regular
+	}
+	resp, err := s.flash.GetActiveFlashSale(ctx, &promotionv1.GetActiveFlashSaleRequest{ListingId: listingID})
+	if err != nil {
+		s.logger.Warn("flash sale lookup failed; using regular price", slog.String("listing_id", listingID), slog.Any("err", err))
+		return regular
+	}
+	c := resp.GetCampaign()
+	if !resp.GetActive() || c == nil {
+		return regular
+	}
+	if c.GetVariantId() != "" && c.GetVariantId() != variantID {
+		return regular
+	}
+	if p := c.GetSalePrice(); p > 0 && p < regular {
+		return p
+	}
+	return regular
 }

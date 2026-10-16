@@ -24,6 +24,7 @@ type FlashSaleService struct {
 	logger    *slog.Logger
 	nowFn     func() time.Time
 	audit     AuditWriter // nil = admin campaign creation fails closed
+	holds     repository.FlashHoldRepository
 }
 
 // NewFlashSaleService wires the campaign repository, the promotion.events producer
@@ -56,6 +57,13 @@ func NewFlashSaleService(
 // WithAudit sets the audit writer used for admin campaign creation.
 func (s *FlashSaleService) WithAudit(w AuditWriter) *FlashSaleService {
 	s.audit = w
+	return s
+}
+
+// WithHolds sets the flash-stock hold repository used by the reserve/commit/release
+// RPCs and by GetFlashSaleStock.
+func (s *FlashSaleService) WithHolds(h repository.FlashHoldRepository) *FlashSaleService {
+	s.holds = h
 	return s
 }
 
@@ -167,18 +175,116 @@ func (s *FlashSaleService) ListActiveCampaigns(ctx context.Context, cursor strin
 	return items, next, nil
 }
 
-// GetFlashSaleStock returns remaining = stock_cap - stock_sold (floored at 0) plus
-// the cap, for the live banner/meter.
+// GetFlashSaleStock returns remaining = stock_cap - stock_sold - active holds (floored
+// at 0) plus the cap, for the live banner/meter.
 func (s *FlashSaleService) GetFlashSaleStock(ctx context.Context, campaignID string) (remaining, stockCap int64, err error) {
 	c, err := s.campaigns.GetByID(ctx, campaignID)
 	if err != nil {
 		return 0, 0, err
 	}
-	remaining = c.StockCap - c.StockSold
+	var held int64
+	if s.holds != nil {
+		if held, err = s.holds.ActiveHeld(ctx, campaignID, s.nowFn()); err != nil {
+			return 0, 0, err
+		}
+	}
+	remaining = c.StockCap - c.StockSold - held
 	if remaining < 0 {
 		remaining = 0
 	}
 	return remaining, c.StockCap, nil
+}
+
+// Closed set of Reserve refusal reasons.
+const (
+	reasonNotActive         = "not_active"
+	reasonPriceChanged      = "price_changed"
+	reasonInsufficientStock = "insufficient_stock"
+)
+
+var errHoldsNotConfigured = errors.New("flash sale holds are not configured")
+
+// replayOutcome maps a stored hold to the Reserve outcome: a live or committed hold
+// is reserved, a released or expired one is not active.
+func (s *FlashSaleService) replayOutcome(h repository.FlashHold) (bool, string) {
+	switch h.Status {
+	case repository.FlashHoldCommitted:
+		return true, ""
+	case repository.FlashHoldReserved:
+		if s.nowFn().Before(h.ExpiresAt) {
+			return true, ""
+		}
+	}
+	return false, reasonNotActive
+}
+
+// ReserveFlashSaleStock holds quantity units of a campaign under reservationID.
+// Idempotent on reservationID: a replay returns the stored outcome whatever the other
+// fields say. The first failing check decides the reason: not_active, price_changed,
+// insufficient_stock.
+func (s *FlashSaleService) ReserveFlashSaleStock(ctx context.Context, reservationID, campaignID, listingID, variantID string, quantity, expectedSalePrice int64) (bool, string, error) {
+	if s.holds == nil {
+		return false, "", errHoldsNotConfigured
+	}
+	stored, err := s.holds.Get(ctx, reservationID)
+	if err == nil {
+		reserved, reason := s.replayOutcome(stored)
+		return reserved, reason, nil
+	}
+	if !errors.Is(err, repository.ErrFlashHoldNotFound) {
+		return false, "", err
+	}
+	if !s.flashSaleEnabled(ctx) {
+		return false, reasonNotActive, nil
+	}
+	c, err := s.campaigns.GetByID(ctx, campaignID)
+	if err != nil {
+		if errors.Is(err, repository.ErrCampaignNotFound) {
+			return false, reasonNotActive, nil
+		}
+		return false, "", err
+	}
+	now := s.nowFn()
+	if (!c.StartsAt.IsZero() && now.Before(c.StartsAt)) || (!c.EndsAt.IsZero() && !now.Before(c.EndsAt)) ||
+		c.ListingID != listingID || (c.VariantID != "" && c.VariantID != variantID) {
+		return false, reasonNotActive, nil
+	}
+	if c.SalePrice != expectedSalePrice {
+		return false, reasonPriceChanged, nil
+	}
+	stored, created, err := s.holds.Reserve(ctx, repository.FlashHold{
+		ReservationID: reservationID, CampaignID: campaignID, ListingID: listingID, VariantID: variantID, Quantity: quantity,
+	}, now)
+	switch {
+	case errors.Is(err, repository.ErrFlashStockInsufficient):
+		return false, reasonInsufficientStock, nil
+	case errors.Is(err, repository.ErrCampaignNotFound):
+		return false, reasonNotActive, nil
+	case err != nil:
+		return false, "", err
+	case !created:
+		reserved, reason := s.replayOutcome(stored)
+		return reserved, reason, nil
+	}
+	return true, "", nil
+}
+
+// CommitFlashSaleStock turns a live hold into sold units. Idempotent; false for an
+// unknown, released or expired hold. The sale window is not checked.
+func (s *FlashSaleService) CommitFlashSaleStock(ctx context.Context, reservationID string) (bool, error) {
+	if s.holds == nil {
+		return false, errHoldsNotConfigured
+	}
+	return s.holds.Commit(ctx, reservationID, s.nowFn())
+}
+
+// ReleaseFlashSaleStock returns a hold's units (also after commit). Idempotent;
+// false for an unknown reservation.
+func (s *FlashSaleService) ReleaseFlashSaleStock(ctx context.Context, reservationID string) (bool, error) {
+	if s.holds == nil {
+		return false, errHoldsNotConfigured
+	}
+	return s.holds.Release(ctx, reservationID, s.nowFn())
 }
 
 // flashSaleEnabled evaluates the kill-switch, failing open (true) on any provider

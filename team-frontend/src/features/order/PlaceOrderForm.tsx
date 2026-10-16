@@ -111,6 +111,7 @@ export function PlaceOrderForm({
       );
       if (!res.ok) {
         release();
+        if (res.priceChanged) router.refresh();
         setError(res.error || "Đặt hàng thất bại.");
         toast.error(res.error || "Đặt hàng thất bại.");
         return;

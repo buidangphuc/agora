@@ -29,3 +29,6 @@ Voucher holds already exist: `voucher_reservations` (migration 0001), `Reservati
 - Q3 [outcome] PDP free-shipping threshold source → **Frontend constants (500.000đ, 20.000đ–35.000đ) guarded by an e2e parity scenario against the real CalculateShippingFee; no proto field.** (human)
 - Q4 [error] CalculateShippingFee failure at checkout → **Checkout renders the error page (no invented total); the PDP falls back to the range.** (human)
 - Q5 [boundary] retry identity → **Every checkout attempt generates fresh order ids, so a reservation_id is never reused after its hold was released.** (default accepted)
+
+### Round 3 — 2026-10-16 (converge, human)
+- Q8 [outcome] e2e VERIFIED BY names → **aligned mechanically to the actual .feature scenario names (renamed during build to echo the spec titles, which spec_sync matches on); FEATURES.yaml covered_by already used them.** (human)

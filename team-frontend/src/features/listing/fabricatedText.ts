@@ -13,4 +13,7 @@ export const FABRICATED_PDP_TEXT = [
   "Online",
   "Freeship Xtra",
   "Chính Hãng 100%",
+  "Miễn phí vận chuyển cho đơn hàng từ 0Đ",
+  "SPX Express (1-2 ngày)",
+  "Bảo hiểm thiết bị và bảo vệ người mua",
 ] as const;

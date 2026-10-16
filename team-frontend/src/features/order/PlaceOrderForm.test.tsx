@@ -19,10 +19,10 @@ const toast = vi.hoisted(() => ({
   info: vi.fn(),
   showToast: vi.fn(),
 }));
-const nav = vi.hoisted(() => ({ push: vi.fn() }));
+const nav = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("@/components/ui/ToastProvider", () => ({ useToast: () => toast }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: nav.push }),
+  useRouter: () => ({ push: nav.push, refresh: nav.refresh }),
 }));
 vi.mock("./actions", () => ({ checkoutAction: vi.fn() }));
 vi.mock("@/lib/analytics", () => ({ trackEcommerce: vi.fn() }));
@@ -246,6 +246,41 @@ describe("PlaceOrderForm double-submit guard", () => {
     expect(screen.getByTestId("saga-alert-slot").nextElementSibling).toBe(
       before,
     );
+  });
+});
+
+describe("PlaceOrderForm price change", () => {
+  it("price changed refreshes the summary and unlocks", async () => {
+    const user = setupUser();
+    const message =
+      "Giá một số sản phẩm trong giỏ đã thay đổi. Giỏ hàng đã được cập nhật, vui lòng kiểm tra tổng tiền mới rồi đặt hàng lại.";
+    vi.mocked(checkoutAction).mockResolvedValue({
+      ok: false,
+      error: message,
+      priceChanged: true,
+    } as Res);
+    setup();
+    await user.click(
+      screen.getAllByRole("button", { name: "Đặt hàng" })[0] as HTMLElement,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(message);
+    expect(nav.refresh).toHaveBeenCalledTimes(1);
+    for (const b of screen.getAllByRole("button", { name: "Đặt hàng" })) {
+      expect(b).toBeEnabled();
+    }
+    expect(trackEcommerce).not.toHaveBeenCalled();
+    expect(nav.push).not.toHaveBeenCalled();
+  });
+
+  it("a plain failure does not refresh the page", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
+    setup();
+    await user.click(
+      screen.getAllByRole("button", { name: "Đặt hàng" })[0] as HTMLElement,
+    );
+    expect(nav.refresh).not.toHaveBeenCalled();
   });
 });
 

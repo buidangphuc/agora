@@ -42,6 +42,7 @@ type OrderService struct {
 	domainClient upstream.DomainClient
 	addrClient   identityv1.AddressServiceClient
 	promo        PromotionClient
+	orderFlash   OrderFlashClient
 	logger       *slog.Logger
 
 	reservationTTL time.Duration
@@ -167,6 +168,12 @@ func (s *OrderService) CreateOrdersFromCart(
 		}
 	}
 
+	// Price pre-check (before any saga/stock/voucher): see precheckPrices.
+	flash, perr := s.precheckPrices(ctx, buyerID, itemsToCheckout)
+	if perr != nil {
+		return abandon(perr)
+	}
+
 	if !keyed {
 		// One durable saga header per checkout attempt (AD3).
 		sg, _, err := s.sagaRepo.CreateSaga(ctx, repository.Saga{BuyerID: buyerID})
@@ -175,7 +182,7 @@ func (s *OrderService) CreateOrdersFromCart(
 		}
 		saga = sg
 	}
-	return s.runCheckout(ctx, saga, buyerID, shippingAddr, itemsToCheckout, paymentMethod, voucherCode)
+	return s.runCheckout(ctx, saga, buyerID, shippingAddr, itemsToCheckout, paymentMethod, voucherCode, flash)
 }
 
 // selectItems returns the cart items to check out: all of them, or only those
@@ -205,6 +212,7 @@ type sellerGroup struct {
 	items    []repository.CartItem
 
 	reservations   []repository.Reservation
+	flashHolds     []flashHold
 	orderItems     []repository.OrderItem
 	itemsSubtotal  int64
 	discountAmount int64
@@ -258,6 +266,7 @@ func (s *OrderService) runCheckout(
 	items []repository.CartItem,
 	paymentMethod int32,
 	voucherCode string,
+	flash map[string]flashLine,
 ) ([]repository.Order, error) {
 	groups := groupBySeller(items)
 	expiresAt := time.Now().Add(s.reservationTTL)
@@ -270,6 +279,7 @@ func (s *OrderService) runCheckout(
 	// and the settle-time commit address the same hold with only the order id.
 	var voucherReservationID string
 	fail := func(cause error) ([]repository.Order, error) {
+		s.releaseFlashHolds(groups)
 		s.failAndCompensate(saga.ID, voucherReservationID)
 		return nil, cause
 	}
@@ -290,10 +300,25 @@ func (s *OrderService) runCheckout(
 			g.voucherCode = voucherCode
 			voucherReservationID = g.orderID
 		}
+		// Flash holds follow the stock reservation (and the voucher, which is priced
+		// on the flash subtotal); a refusal compensates all of it.
+		if s.orderFlash != nil {
+			for _, it := range g.items {
+				if fl, ok := flash[it.ID]; ok {
+					if err := s.holdFlashLine(ctx, buyerID, g, it, fl); err != nil {
+						return fail(err)
+					}
+				}
+			}
+		}
 	}
 
 	// Phase B — make every reservation permanent in team-domain before any order
 	// row exists.
+	// Flash holds are committed first: a failure here leaves no domain commit to undo.
+	if err := s.commitFlashHolds(ctx, groups); err != nil {
+		return fail(err)
+	}
 	var all []repository.Reservation
 	for _, g := range groups {
 		all = append(all, g.reservations...)
@@ -501,6 +526,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, id string) (CancelResult
 	if claimed.VoucherCode != "" {
 		s.releaseVoucher(bg, claimed.ID) // the hold id is the order id
 	}
+	s.releaseOrderFlashHolds(claimed)
 	return CancelResult{Order: claimed, ReleasePending: pending}, nil
 }
 

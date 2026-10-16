@@ -72,6 +72,7 @@ func run() error {
 		voucherRepo      repository.VoucherRepository
 		reservationRepo  repository.ReservationRepository
 		flashSaleRepo    repository.FlashSaleRepository
+		flashHoldRepo    repository.FlashHoldRepository
 		subscriptionRepo repository.SubscriptionRepository
 		adCampaignRepo   repository.AdCampaignRepository
 	)
@@ -79,12 +80,15 @@ func run() error {
 		voucherRepo = repository.NewPostgresVoucherRepository(res.Pool)
 		reservationRepo = repository.NewPostgresReservationRepository(res.Pool)
 		flashSaleRepo = repository.NewPostgresFlashSaleRepository(res.Pool)
+		flashHoldRepo = repository.NewPostgresFlashHoldRepository(res.Pool)
 		subscriptionRepo = repository.NewPostgresSubscriptionRepository(res.Pool)
 		adCampaignRepo = repository.NewPostgresAdCampaignRepository(res.Pool)
 	} else {
 		voucherRepo = repository.NewInMemoryVoucherRepository()
 		reservationRepo = repository.NewInMemoryReservationRepository()
-		flashSaleRepo = repository.NewInMemoryFlashSaleRepository()
+		memFlash := repository.NewInMemoryFlashSaleRepository()
+		flashSaleRepo = memFlash
+		flashHoldRepo = repository.NewInMemoryFlashHoldRepository(memFlash)
 		subscriptionRepo = repository.NewInMemorySubscriptionRepository()
 		adCampaignRepo = repository.NewInMemoryAdCampaignRepository()
 	}
@@ -101,7 +105,8 @@ func run() error {
 	} else {
 		logger.Warn("UPSTREAM_DOMAIN_ADDR unset: non-admin CreateCampaign/CreateAdCampaign fail closed")
 	}
-	flashSaleSvc := service.NewFlashSaleService(flashSaleRepo, res.Producer, res.Flags, listings, logger)
+	flashSaleSvc := service.NewFlashSaleService(flashSaleRepo, res.Producer, res.Flags, listings, logger).WithHolds(flashHoldRepo)
+	go bootstrap.RunFlashHoldPurge(ctx, flashHoldRepo, logger)
 	auditClient, err := upstream.NewAuditClient(settings.Upstream.AuditAddr, time.Duration(settings.Upstream.CallTimeoutSeconds*float64(time.Second)))
 	if err != nil {
 		return fmt.Errorf("upstream audit: %w", err)

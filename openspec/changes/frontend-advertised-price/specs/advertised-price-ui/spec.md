@@ -32,12 +32,12 @@ The PDP SHALL render one "Vận chuyển" row stating the free-shipping threshol
 #### Scenario: Advertised price: PDP never exposes another buyer's city
 - **WHEN** two different signed-in buyers with default cities "Hà Nội" and "Đà Nẵng" open the same PDP
 - **THEN** each page names only that buyer's own city, and an anonymous request names no city
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: PDP shipping row is personal and server-backed`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: PDP never exposes another buyer's city`
 
 #### Scenario: Advertised price: displayed shipping figures match the server rule
 - **WHEN** the real `CalculateShippingFee` is called with subtotal 500000, with subtotal 499999 for "Hà Nội" and for "Cần Thơ", and with subtotal 0 for "Hà Nội" (the subtotal the PDP sends)
 - **THEN** it returns free at 500000, a fee of 20000 for "Hà Nội" at 499999 and at 0, and 35000 for "Cần Thơ" at 499999, equal to `FREE_SHIPPING_THRESHOLD` and `SHIPPING_FEE_RANGE` in the PDP copy
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: PDP shipping row is personal and server-backed`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: displayed shipping figures match the server rule`
 
 ### Requirement: Checkout shipping and total come from the server
 
@@ -71,7 +71,7 @@ The checkout page SHALL obtain the shipping fee from `CalculateShippingFee(addre
 #### Scenario: Advertised price: shown checkout total equals the placed order total
 - **WHEN** a buyer with default address city "Hà Nội" and a single-shop cart with subtotal 350000 (one flash-priced line) opens the confirm step and places the order
 - **THEN** the confirm step shows shipping 20000 and total 370000, and the created order's `total_amount` is 370000
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: checkout total equals the placed order total`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: shown checkout total equals the placed order total`
 
 ### Requirement: A price change at checkout is explained and recoverable
 
@@ -95,12 +95,12 @@ WHEN `checkoutAction` receives `FAILED_PRECONDITION` with the reason "price chan
 #### Scenario: Advertised price: the buyer sees the new total and places again
 - **WHEN** a buyer carts a flash-priced listing, the campaign is switched off, and the buyer places the order from the confirm step
 - **THEN** no order exists for the buyer, the page shows the Vietnamese price-changed message and a total built from the regular price, and placing the order again creates one order whose `total_amount` equals that total
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: a price change is explained and the buyer can place again`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: the buyer sees the new total and places again`
 
 #### Scenario: Advertised price: a sale that started after add is also explained
 - **WHEN** a buyer's cart holds a line at the regular price and a flash campaign then starts for it, and the buyer places the order
 - **THEN** the same message is shown, no order exists, and the refreshed total uses the sale price
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: a sale that started after add is explained and re-priced`
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature` `Advertised price: a sale that started after add is also explained`
 
 #### Scenario: Advertised price: an anonymous visitor is redirected from checkout
 - **WHEN** an anonymous visitor opens `/checkout`
@@ -111,3 +111,26 @@ WHEN `checkoutAction` receives `FAILED_PRECONDITION` with the reason "price chan
 - **WHEN** `createOrder` rejects with `Unavailable`
 - **THEN** `checkoutAction` returns `{ ok: false }` without `priceChanged` and `revalidatePath` is not called for `/cart`
 - **VERIFIED BY**: `team-frontend/src/features/order/actions.test.ts` `unavailable keeps the generic error and leaves the cart`
+
+### Requirement: The gateway routes the shipping fee quote
+
+team-gateway SHALL forward `OrderService.CalculateShippingFee` to team-order as a read call with the caller's forwarded principal, the same way it forwards the other order reads, and SHALL return team-order's response unchanged (Clarifications Round 2).
+
+#### Scenario: Advertised price: the gateway forwards the shipping fee quote
+- **GIVEN** team-gateway with an order client that answers `CalculateShippingFee(city "Hà Nội", items_subtotal 350000)` with fee 20000, is_free false
+- **WHEN** a caller sends that request to the gateway's `OrderService/CalculateShippingFee`
+- **THEN** the gateway returns fee 20000 and is_free false, the order client received exactly that city and subtotal, and the call is not answered 501 Unimplemented
+- **VERIFIED BY**: `team-gateway/internal/edge/order_test.go` TestOrderForwarderCalculateShippingFee
+
+#### Scenario: Advertised price: an order-service error on the fee quote is passed through
+- **GIVEN** team-gateway with an order client whose `CalculateShippingFee` fails with gRPC `UNAVAILABLE`
+- **WHEN** a caller requests a shipping fee quote
+- **THEN** the gateway answers with the mapped connect error `unavailable` and no fee
+- **VERIFIED BY**: `team-gateway/internal/edge/order_test.go` TestOrderForwarderCalculateShippingFeeError
+
+
+#### Scenario: Advertised price: the fee quote needs no buyer scope
+- **GIVEN** team-gateway with an order client that answers a fee quote
+- **WHEN** an anonymous caller (no token) requests `CalculateShippingFee(city "Cần Thơ", items_subtotal 100000)`
+- **THEN** the gateway forwards it with the anonymous principal and returns the quote, not 401 or 403, because the quote holds only the published shipping rule and no personal data
+- **VERIFIED BY**: `team-gateway/internal/edge/order_test.go` TestOrderForwarderCalculateShippingFeeAnonymous

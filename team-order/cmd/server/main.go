@@ -167,7 +167,11 @@ func run() error {
 		shipmentRepo = repository.NewInMemoryShipmentRepository()
 	}
 
-	cartSvc := service.NewCartService(cartRepo, orderRepo, upstreamClients.Listing, logger)
+	var cartOpts []service.CartOption
+	if promoClients != nil && promoClients.Flash != nil {
+		cartOpts = append(cartOpts, service.WithFlashSaleClient(promoClients.Flash))
+	}
+	cartSvc := service.NewCartService(cartRepo, orderRepo, upstreamClients.Listing, logger, cartOpts...)
 
 	// Durable saga/reservation store (AD3): persist reservation state in Postgres
 	// so a crashed checkout's stock is swept and released, and compensation is not
@@ -179,6 +183,9 @@ func run() error {
 	}
 	if promoClients != nil {
 		orderOpts = append(orderOpts, service.WithPromotionClient(promoClients.Voucher))
+		if promoClients.Flash != nil {
+			orderOpts = append(orderOpts, service.WithOrderFlashSaleClient(promoClients.Flash))
+		}
 	}
 	orderSvc := service.NewOrderService(orderRepo, cartRepo, returnRepo, shipmentRepo, upstreamClients.Listing, upstreamClients.Address, logger, orderOpts...)
 

@@ -2,8 +2,10 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FABRICATED_PDP_TEXT } from "@/features/listing/fabricatedText";
+import { listAddresses } from "@/lib/gateway/addresses";
 import { isFavorite } from "@/lib/gateway/engagement";
 import { getCategory, getListing, getStorefront } from "@/lib/gateway/listings";
+import { calculateShippingFee } from "@/lib/gateway/orders";
 import { getActiveFlashSale } from "@/lib/gateway/promotion";
 import {
   getListingRatingSummary,
@@ -43,6 +45,12 @@ vi.mock("@/lib/gateway/engagement", () => ({
 vi.mock("@/lib/gateway/notification", () => ({
   AlertType: { PRICE_DROP: 1, BACK_IN_STOCK: 2 },
   listAlertSubscriptions: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("@/lib/gateway/addresses", () => ({
+  listAddresses: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("@/lib/gateway/orders", () => ({
+  calculateShippingFee: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("@/lib/gateway/promotion", () => ({ getActiveFlashSale: vi.fn() }));
 vi.mock("@/lib/gateway/reviews", () => ({
@@ -161,6 +169,22 @@ describe("ProductDetailPage: only real data", () => {
     for (const fake of FABRICATED_PDP_TEXT) {
       expect(container).not.toHaveTextContent(fake);
     }
+    // the shipping / insurance texts with no data behind them are gone and
+    // registered as fabricated; the row states the real threshold and range
+    for (const gone of [
+      "Miễn phí vận chuyển cho đơn hàng từ 0Đ",
+      "SPX Express (1-2 ngày)",
+      "Bảo hiểm thiết bị và bảo vệ người mua",
+    ]) {
+      expect(FABRICATED_PDP_TEXT).toContain(gone);
+      expect(container).not.toHaveTextContent(gone);
+    }
+    expect(container).toHaveTextContent("Vận chuyển");
+    expect(container).toHaveTextContent("500.000");
+    expect(container).toHaveTextContent("20.000");
+    expect(container).toHaveTextContent("35.000");
+    expect(listAddresses).not.toHaveBeenCalled();
+    expect(calculateShippingFee).not.toHaveBeenCalled();
     expect(container.querySelector('img[src*="unsplash"]')).toBeNull();
   });
 

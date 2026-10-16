@@ -10632,3 +10632,339 @@ features:
     status: automated
     covered_by: "tracking/ai_interaction_events.feature::No summary, no event"
     notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::No summary, no event"
+
+  # ---- frontend-advertised-price (initiative q5-advertised-price)
+  - id: frontend.adv-pdp-never-exposes-another-buyers-city
+    title: "Advertised price: PDP never exposes another buyer's city"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change frontend-advertised-price (initiative q5-advertised-price)."
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) with a default address and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.CalculateShippingFee, order.v1.CreateOrder, order.v1.GetCart]
+    acceptance:
+      - "Advertised price: PDP never exposes another buyer's city"
+    tags: [buyer, pricing, shipping]
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: PDP never exposes another buyer's city"
+    notes: "Feature scenario: Advertised price: PDP never exposes another buyer's city (frontend/advertised_price_ui.feature)."
+
+  - id: frontend.adv-displayed-shipping-figures-match-the-server-rule
+    title: "Advertised price: displayed shipping figures match the server rule"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change frontend-advertised-price (initiative q5-advertised-price)."
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) with a default address and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.CalculateShippingFee, order.v1.CreateOrder, order.v1.GetCart]
+    acceptance:
+      - "Advertised price: displayed shipping figures match the server rule"
+    tags: [buyer, pricing, shipping]
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: displayed shipping figures match the server rule"
+    notes: "Feature scenario: Advertised price: displayed shipping figures match the server rule (frontend/advertised_price_ui.feature)."
+
+  - id: frontend.adv-shown-checkout-total-equals-the-placed-order-total
+    title: "Advertised price: shown checkout total equals the placed order total"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change frontend-advertised-price (initiative q5-advertised-price)."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) with a default address and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.CalculateShippingFee, order.v1.CreateOrder, order.v1.GetCart]
+    acceptance:
+      - "Advertised price: shown checkout total equals the placed order total"
+    tags: [buyer, pricing, shipping]
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: shown checkout total equals the placed order total"
+    notes: "Feature scenario: Advertised price: shown checkout total equals the placed order total (frontend/advertised_price_ui.feature)."
+
+  - id: frontend.adv-the-buyer-sees-the-new-total-and-places-again
+    title: "Advertised price: the buyer sees the new total and places again"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change frontend-advertised-price (initiative q5-advertised-price)."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) with a default address and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.CalculateShippingFee, order.v1.CreateOrder, order.v1.GetCart]
+    acceptance:
+      - "Advertised price: the buyer sees the new total and places again"
+    tags: [buyer, pricing, shipping]
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: the buyer sees the new total and places again"
+    notes: "Feature scenario: Advertised price: the buyer sees the new total and places again (frontend/advertised_price_ui.feature)."
+
+  - id: frontend.adv-a-sale-that-started-after-add-is-also-explained
+    title: "Advertised price: a sale that started after add is also explained"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change frontend-advertised-price (initiative q5-advertised-price)."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) with a default address and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.CalculateShippingFee, order.v1.CreateOrder, order.v1.GetCart]
+    acceptance:
+      - "Advertised price: a sale that started after add is also explained"
+    tags: [buyer, pricing, shipping]
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: a sale that started after add is also explained"
+    notes: "Feature scenario: Advertised price: a sale that started after add is also explained (frontend/advertised_price_ui.feature)."
+
+  - id: frontend.adv-an-anonymous-visitor-is-redirected-from-checkout
+    title: "Advertised price: an anonymous visitor is redirected from checkout"
+    persona: guest
+    priority: P0
+    summary: "End-to-end scenario of change frontend-advertised-price (initiative q5-advertised-price)."
+    entry_route: "/checkout"
+    services: [team-frontend, team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: guest
+      data: "Registers its own seller, listing, buyer(s) with a default address and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.CalculateShippingFee, order.v1.CreateOrder, order.v1.GetCart]
+    acceptance:
+      - "Advertised price: an anonymous visitor is redirected from checkout"
+    tags: [buyer, pricing, shipping]
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: an anonymous visitor is redirected from checkout"
+    notes: "Feature scenario: Advertised price: an anonymous visitor is redirected from checkout (frontend/advertised_price_ui.feature)."
+
+  - id: frontend.adv-pdp-shows-the-buyers-city-fee
+    title: "Advertised price: PDP shows the buyer's city fee"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: PDP shows the buyer's city fee"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/features/listing/ShippingInfo.test.tsx `shows the city fee for a default address`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-anonymous-visitor-sees-the-threshold-and-the-range
+    title: "Advertised price: anonymous visitor sees the threshold and the range"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: anonymous visitor sees the threshold and the range"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/features/listing/ShippingInfo.test.tsx `anonymous gets the range without a server call`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-no-default-address-falls-back-to-the-range
+    title: "Advertised price: no default address falls back to the range"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: no default address falls back to the range"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/features/listing/ShippingInfo.test.tsx `no default address shows the range`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-a-failed-fee-call-degrades-to-the-range
+    title: "Advertised price: a failed fee call degrades to the range"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: a failed fee call degrades to the range"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/features/listing/ShippingInfo.test.tsx `server failure shows the range`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-removed-shipping-and-insurance-texts-are-never-rendered
+    title: "Advertised price: removed shipping and insurance texts are never rendered"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: removed shipping and insurance texts are never rendered"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/app/(shop)/listing/[id]/page.test.tsx `shows no invented numbers for a listing with no reviews and no sale`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-checkout-shipping-uses-the-server-subtotal
+    title: "Advertised price: checkout shipping uses the server subtotal"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: checkout shipping uses the server subtotal"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx `shipping comes from CalculateShippingFee on the cart subtotal`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-free-shipping-at-the-threshold
+    title: "Advertised price: free shipping at the threshold"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: free shipping at the threshold"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx `free shipping at the threshold`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-voucher-preview-uses-the-server-cart-subtotal
+    title: "Advertised price: voucher preview uses the server cart subtotal"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: voucher preview uses the server cart subtotal"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx `voucher preview receives the server subtotal`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-a-failed-shipping-call-does-not-show-a-made-up-total
+    title: "Advertised price: a failed shipping call does not show a made-up total"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: a failed shipping call does not show a made-up total"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx `shipping failure raises instead of inventing a fee`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-a-failed-shipping-call-returns-no-fee
+    title: "Advertised price: a failed shipping call returns no fee"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: a failed shipping call returns no fee"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/lib/gateway/orders.test.ts `calculateShippingFee returns null on error`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-action-maps-the-price-changed-refusal
+    title: "Advertised price: action maps the price-changed refusal"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: action maps the price-changed refusal"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/features/order/actions.test.ts `maps price changed to a refresh-worthy failure`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-another-failed-precondition-keeps-the-generic-error
+    title: "Advertised price: another failed precondition keeps the generic error"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: another failed precondition keeps the generic error"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/features/order/actions.test.ts `other failed preconditions are not price changes`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-the-form-refreshes-and-unlocks-after-a-price-change
+    title: "Advertised price: the form refreshes and unlocks after a price change"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: the form refreshes and unlocks after a price change"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/features/order/PlaceOrderForm.test.tsx `price changed refreshes the summary and unlocks`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-other-errors-from-createorder-do-not-touch-the-cart
+    title: "Advertised price: other errors from CreateOrder do not touch the cart"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Advertised price: other errors from CreateOrder do not touch the cart"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-frontend/src/features/order/actions.test.ts `unavailable keeps the generic error and leaves the cart`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-gw-forwards-the-shipping-fee-quote
+    title: "Advertised price: the gateway forwards the shipping fee quote"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified gateway scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Advertised price: the gateway forwards the shipping fee quote"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway/internal/edge/order_test.go TestOrderForwarderCalculateShippingFee. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-gw-fee-quote-error-is-passed-through
+    title: "Advertised price: an order-service error on the fee quote is passed through"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified gateway scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Advertised price: an order-service error on the fee quote is passed through"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway/internal/edge/order_test.go TestOrderForwarderCalculateShippingFeeError. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-gw-the-fee-quote-needs-no-buyer-scope
+    title: "Advertised price: the fee quote needs no buyer scope"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified gateway scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Advertised price: the fee quote needs no buyer scope"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway/internal/edge/order_test.go TestOrderForwarderCalculateShippingFeeAnonymous. Not producible end to end through the browser (unit level)."

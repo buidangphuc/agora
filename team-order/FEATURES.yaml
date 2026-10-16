@@ -2118,3 +2118,675 @@ features:
     tags: [security, audit]
     status: automated
     covered_by: "order/admin_audit.feature::Order audit: Buyer cannot use the admin path end to end"
+  - id: order.adv-listing-wide-flash-price-is-added-to-the-cart
+    title: "Advertised price: Listing-wide flash price is added to the cart"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Listing-wide flash price is added to the cart"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestAddToCartFlashPriceListingWide. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-variant-campaign-prices-only-its-variant
+    title: "Advertised price: Variant campaign prices only its variant"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Variant campaign prices only its variant"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestAddToCartFlashPriceVariantOnly. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-sale-price-at-or-above-the-regular-price-is-ignored
+    title: "Advertised price: Sale price at or above the regular price is ignored"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Sale price at or above the regular price is ignored"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestAddToCartFlashPriceNotBelowRegularIgnored. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-no-active-campaign-keeps-the-regular-price
+    title: "Advertised price: No active campaign keeps the regular price"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: No active campaign keeps the regular price"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestAddToCartNoCampaignRegularPrice. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-promotion-error-at-add-to-cart-falls-back-to-the-regular-price
+    title: "Advertised price: Promotion error at add-to-cart falls back to the regular price"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Promotion error at add-to-cart falls back to the regular price"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestAddToCartPromotionErrorRegularPrice. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-missing-promotion-client-keeps-today-s-behaviour
+    title: "Advertised price: Missing promotion client keeps today's behaviour"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Missing promotion client keeps today's behaviour"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestAddToCartNilFlashClientRegularPrice. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-reorder-re-prices-through-add-to-cart
+    title: "Advertised price: Reorder re-prices through add-to-cart"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Reorder re-prices through add-to-cart"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestReorderUsesFlashPrice. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-flash-price-is-visible-end-to-end-after-add-to-cart
+    title: "Advertised price: Flash price is visible end to end after add-to-cart"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change order-advertised-price (initiative q5-advertised-price)."
+    entry_route: /cart
+    services: [team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.AddToCart, order.v1.GetCart, order.v1.CreateOrder, order.v1.CancelOrder, promotion.v1.GetFlashSaleStock, promotion.v1.ReserveFlashSaleStock]
+    acceptance:
+      - "Advertised price: Flash price is visible end to end after add-to-cart"
+    tags: [buyer, promotion, pricing]
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: Flash price is visible end to end after add-to-cart"
+    notes: "Feature scenario: Advertised price: Flash price is visible end to end after add-to-cart (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'Flash price is the cart price'"
+
+  - id: order.adv-ended-sale-refuses-checkout-and-re-prices-the-cart
+    title: "Advertised price: Ended sale refuses checkout and re-prices the cart"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Ended sale refuses checkout and re-prices the cart"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutEndedSaleRefusedAndRepriced. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-sale-started-after-add-to-cart-refuses-checkout
+    title: "Advertised price: Sale started after add-to-cart refuses checkout"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Sale started after add-to-cart refuses checkout"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutSaleStartedRefusedAndRepriced. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-retry-after-the-re-price-places-the-order-at-the-new-price
+    title: "Advertised price: Retry after the re-price places the order at the new price"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Retry after the re-price places the order at the new price"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutRetryAfterRepriceSucceeds. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-matching-flash-price-proceeds-at-the-flash-price
+    title: "Advertised price: Matching flash price proceeds at the flash price"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Matching flash price proceeds at the flash price"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutChargesFlashPrice. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-one-changed-line-refuses-the-whole-checkout
+    title: "Advertised price: One changed line refuses the whole checkout"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: One changed line refuses the whole checkout"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutOneChangedLineRefusesAll. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-refused-checkout-frees-the-idempotency-key
+    title: "Advertised price: Refused checkout frees the idempotency key"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Refused checkout frees the idempotency key"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutPriceChangedFreesIdempotencyKey. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-another-buyer-s-cart-is-never-re-priced
+    title: "Advertised price: Another buyer's cart is never re-priced"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Another buyer's cart is never re-priced"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutRepriceScopedToBuyer. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-checkout-maps-price-changed-to-failed-precondition
+    title: "Advertised price: Checkout maps price changed to FAILED_PRECONDITION"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Checkout maps price changed to FAILED_PRECONDITION"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestCreateOrderPriceChangedFailedPrecondition. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-ended-sale-is-refused-end-to-end-and-the-retry-is-charged-the-regular-price
+    title: "Advertised price: Ended sale is refused end to end and the retry is charged the regular price"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change order-advertised-price (initiative q5-advertised-price)."
+    entry_route: /cart
+    services: [team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.AddToCart, order.v1.GetCart, order.v1.CreateOrder, order.v1.CancelOrder, promotion.v1.GetFlashSaleStock, promotion.v1.ReserveFlashSaleStock]
+    acceptance:
+      - "Advertised price: Ended sale is refused end to end and the retry is charged the regular price"
+    tags: [buyer, promotion, pricing]
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: Ended sale is refused end to end and the retry is charged the regular price"
+    notes: "Feature scenario: Advertised price: Ended sale is refused end to end and the retry is charged the regular price (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'An ended sale is refused and re-priced'"
+
+  - id: order.adv-promotion-outage-blocks-a-flash-priced-line
+    title: "Advertised price: Promotion outage blocks a flash-priced line"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Promotion outage blocks a flash-priced line"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutPromotionDownFlashLineUnavailable. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-promotion-outage-does-not-block-a-regular-priced-line
+    title: "Advertised price: Promotion outage does not block a regular-priced line"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Promotion outage does not block a regular-priced line"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutPromotionDownRegularLineProceeds. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-cart-price-above-regular-is-a-price-change-even-when-promotion-is-down
+    title: "Advertised price: Cart price above regular is a price change even when promotion is down"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Cart price above regular is a price change even when promotion is down"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutPromotionDownCartAboveRegularPriceChanged. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-hold-transport-error-releases-the-attempt
+    title: "Advertised price: Hold transport error releases the attempt"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Hold transport error releases the attempt"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutFlashHoldTransportErrorUnavailable. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-unconfigured-promotion-refuses-a-flash-priced-cart-line
+    title: "Advertised price: Unconfigured promotion refuses a flash-priced cart line"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Unconfigured promotion refuses a flash-priced cart line"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutNilPromotionFlashLineRepriced. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-checkout-maps-promotion-unavailable-to-unavailable
+    title: "Advertised price: Checkout maps promotion unavailable to UNAVAILABLE"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Checkout maps promotion unavailable to UNAVAILABLE"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/handler TestCreateOrderPromotionUnavailableUnavailable. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-flash-line-takes-one-hold-for-its-full-quantity
+    title: "Advertised price: Flash line takes one hold for its full quantity"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Flash line takes one hold for its full quantity"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutFlashHoldOnePerLineFullQuantity. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-regular-line-makes-no-hold-call
+    title: "Advertised price: Regular line makes no hold call"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Regular line makes no hold call"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutRegularLineNoFlashHold. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-refused-hold-is-a-price-change-and-releases-everything
+    title: "Advertised price: Refused hold is a price change and releases everything"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Refused hold is a price change and releases everything"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutRefusedFlashHoldPriceChangedReleasesAll. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-voucher-is-computed-on-the-flash-priced-subtotal
+    title: "Advertised price: Voucher is computed on the flash-priced subtotal"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Voucher is computed on the flash-priced subtotal"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutVoucherReservedOnFlashSubtotal. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-hold-call-never-carries-the-buyer-principal
+    title: "Advertised price: Hold call never carries the buyer principal"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Hold call never carries the buyer principal"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/upstream TestServiceFlashClientSendsServicePrincipal. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-concurrent-buyers-cannot-exceed-the-campaign-cap-end-to-end
+    title: "Advertised price: Concurrent buyers cannot exceed the campaign cap end to end"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change order-advertised-price (initiative q5-advertised-price)."
+    entry_route: /cart
+    services: [team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.AddToCart, order.v1.GetCart, order.v1.CreateOrder, order.v1.CancelOrder, promotion.v1.GetFlashSaleStock, promotion.v1.ReserveFlashSaleStock]
+    acceptance:
+      - "Advertised price: Concurrent buyers cannot exceed the campaign cap end to end"
+    tags: [buyer, promotion, pricing]
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: Concurrent buyers cannot exceed the campaign cap end to end"
+    notes: "Feature scenario: Advertised price: Concurrent buyers cannot exceed the campaign cap end to end (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'Concurrent buyers cannot exceed the flash cap'"
+
+  - id: order.adv-flash-hold-is-committed-before-the-order-exists
+    title: "Advertised price: Flash hold is committed before the order exists"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Flash hold is committed before the order exists"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutCommitsFlashHoldInPhaseB. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-flash-commit-failure-compensates-with-domain-stock-uncommitted
+    title: "Advertised price: Flash commit failure compensates with domain stock uncommitted"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Flash commit failure compensates with domain stock uncommitted"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutFlashCommitErrorCompensates. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-domain-commit-failure-releases-committed-flash-holds
+    title: "Advertised price: Domain commit failure releases committed flash holds"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Domain commit failure releases committed flash holds"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutDomainCommitFailureReleasesCommittedFlashHold. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-uncommitted-result-is-refused
+    title: "Advertised price: Uncommitted result is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Uncommitted result is refused"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutFlashCommitFalseCompensates. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-regular-only-checkout-makes-no-commit-call
+    title: "Advertised price: Regular-only checkout makes no commit call"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Regular-only checkout makes no commit call"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutRegularLineNoFlashCommit. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-payment-settlement-makes-no-flash-call
+    title: "Advertised price: Payment settlement makes no flash call"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Payment settlement makes no flash call"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/consumer TestPaymentConsumerMakesNoFlashCall. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-a-retry-uses-fresh-reservation-ids
+    title: "Advertised price: A retry uses fresh reservation ids"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: A retry uses fresh reservation ids"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCheckoutRetryUsesFreshFlashReservationIDs. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-placing-a-flash-priced-order-grows-stock-sold-end-to-end
+    title: "Advertised price: Placing a flash-priced order grows stock_sold end to end"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change order-advertised-price (initiative q5-advertised-price)."
+    entry_route: /cart
+    services: [team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.AddToCart, order.v1.GetCart, order.v1.CreateOrder, order.v1.CancelOrder, promotion.v1.GetFlashSaleStock, promotion.v1.ReserveFlashSaleStock]
+    acceptance:
+      - "Advertised price: Placing a flash-priced order grows stock_sold end to end"
+    tags: [buyer, promotion, pricing]
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: Placing a flash-priced order grows stock_sold end to end"
+    notes: "Feature scenario: Advertised price: Placing a flash-priced order grows stock_sold end to end (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'A placed flash order counts as sold'"
+
+  - id: order.adv-failed-checkout-returns-its-flash-holds
+    title: "Advertised price: Failed checkout returns its flash holds"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Failed checkout returns its flash holds"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestFailAndCompensateReleasesFlashHolds. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-compensation-releases-flash-lines-only
+    title: "Advertised price: Compensation releases flash lines only"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Compensation releases flash lines only"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestFailAndCompensateReleasesOnlyFlashLines. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-cancel-returns-the-flash-hold
+    title: "Advertised price: Cancel returns the flash hold"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Cancel returns the flash hold"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCancelOrderReleasesFlashHold. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-cancel-calls-release-for-every-item
+    title: "Advertised price: Cancel calls release for every item"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Cancel calls release for every item"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCancelOrderReleasesEveryItem. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-flash-release-failure-never-fails-the-cancel
+    title: "Advertised price: Flash release failure never fails the cancel"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Flash release failure never fails the cancel"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCancelOrderFlashReleaseErrorStillCancels. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-cancel-of-an-order-that-is-not-pending-or-paid-releases-nothing
+    title: "Advertised price: Cancel of an order that is not Pending or Paid releases nothing"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Cancel of an order that is not Pending or Paid releases nothing"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCancelOrderRefusedNoFlashRelease. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-cancel-of-a-paid-order-releases-the-committed-hold
+    title: "Advertised price: Cancel of a Paid order releases the committed hold"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Cancel of a Paid order releases the committed hold"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/service TestCancelPaidOrderReleasesCommittedFlashHold. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-cancelled-placed-order-returns-flash-units-end-to-end
+    title: "Advertised price: Cancelled placed order returns flash units end to end"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change order-advertised-price (initiative q5-advertised-price)."
+    entry_route: /cart
+    services: [team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.AddToCart, order.v1.GetCart, order.v1.CreateOrder, order.v1.CancelOrder, promotion.v1.GetFlashSaleStock, promotion.v1.ReserveFlashSaleStock]
+    acceptance:
+      - "Advertised price: Cancelled placed order returns flash units end to end"
+    tags: [buyer, promotion, pricing]
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: Cancelled placed order returns flash units end to end"
+    notes: "Feature scenario: Advertised price: Cancelled placed order returns flash units end to end (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'A cancelled order returns its flash units'"
+
+  - id: order.adv-hold-rpcs-carry-the-service-principal
+    title: "Advertised price: Hold RPCs carry the service principal"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Hold RPCs carry the service principal"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/upstream TestServiceFlashClientSendsServicePrincipal. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-price-read-keeps-the-forwarded-principal
+    title: "Advertised price: Price read keeps the forwarded principal"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Price read keeps the forwarded principal"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/upstream TestServiceFlashClientReadNotWrapped. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-unset-promotion-address-yields-no-client
+    title: "Advertised price: Unset promotion address yields no client"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-advertised-price."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Unset promotion address yields no client"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order internal/upstream TestDialPromotionEmptyAddrNil. Not producible end to end through the gateway (unit level)."
+
+  - id: order.adv-a-buyer-token-cannot-reserve-flash-stock-end-to-end
+    title: "Advertised price: A buyer token cannot reserve flash stock end to end"
+    persona: buyer
+    priority: P0
+    summary: "End-to-end scenario of change order-advertised-price (initiative q5-advertised-price)."
+    entry_route: /cart
+    services: [team-gateway, team-order, team-promotion, team-domain]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing, buyer(s) and an owner-seeded flash campaign through the gateway."
+    api:
+      exercised: [order.v1.AddToCart, order.v1.GetCart, order.v1.CreateOrder, order.v1.CancelOrder, promotion.v1.GetFlashSaleStock, promotion.v1.ReserveFlashSaleStock]
+    acceptance:
+      - "Advertised price: A buyer token cannot reserve flash stock end to end"
+    tags: [buyer, promotion, pricing]
+    status: automated
+    covered_by: "order/advertised_price.feature::Advertised price: A buyer token cannot reserve flash stock end to end"
+    notes: "Feature scenario: Advertised price: A buyer token cannot reserve flash stock end to end (order/advertised_price.feature). Spec: platform-e2e `features/order/advertised_price.feature` 'A buyer cannot hold flash stock directly'"

@@ -14,3 +14,11 @@
 - Q3 [outcome] PDP free-shipping threshold source → **Frontend constants (500.000đ, 20.000đ–35.000đ) guarded by an e2e parity scenario against the real CalculateShippingFee; no proto field.** (human)
 - Q4 [error] CalculateShippingFee failure at checkout → **Checkout renders the error page (no invented total); the PDP falls back to the range.** (human)
 - Q5 [boundary] retry identity → **Every checkout attempt generates fresh order ids, so a reservation_id is never reused after its hold was released.** (default accepted)
+
+### Round 2 — 2026-10-16 (build, human)
+- Q6 [boundary] gateway reachability of CalculateShippingFee → **team-gateway had no forwarder (501 Unimplemented, masked by the old 20.000đ fallback). This slice adds task 0: `OrderForwarder.CalculateShippingFee` (read call, forwarded principal) with unit tests; 00-spec "Out of initiative" rule: a missing gateway route becomes a task of the slice that needs it.** (human)
+- Q7 [outcome] e2e scenarios green before implementation ("shown checkout total equals the placed order total", "an anonymous visitor is redirected from checkout") → **accepted as regression guards.** (human)
+
+
+### Round 3 — 2026-10-16 (converge, human)
+- Q8 [outcome] e2e VERIFIED BY names → **aligned mechanically to the actual .feature scenario names (renamed during build to echo the spec titles, which spec_sync matches on); FEATURES.yaml covered_by already used them.** (human)

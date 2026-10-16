@@ -12,7 +12,37 @@ import (
 
 	"github.com/buidangphuc/team-promotion/internal/config"
 	"github.com/buidangphuc/team-promotion/internal/featureflags"
+	"github.com/buidangphuc/team-promotion/internal/repository"
 )
+
+const (
+	flashHoldPurgeInterval = 24 * time.Hour
+	flashHoldRetention     = 30 * 24 * time.Hour
+)
+
+// RunFlashHoldPurge deletes released and expired flash-sale holds older than 30 days
+// once a day (and once at start) until ctx ends. Committed holds are never purged.
+func RunFlashHoldPurge(ctx context.Context, holds repository.FlashHoldRepository, logger *slog.Logger) {
+	purge := func() {
+		n, err := holds.PurgeReleasedAndExpiredHolds(ctx, time.Now().Add(-flashHoldRetention))
+		if err != nil {
+			logger.Warn("purge flash sale holds failed", slog.Any("err", err))
+			return
+		}
+		logger.Info("purged flash sale holds", slog.Int64("deleted", n))
+	}
+	purge()
+	t := time.NewTicker(flashHoldPurgeInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			purge()
+		}
+	}
+}
 
 type Resources struct {
 	Pool     *pgxpool.Pool

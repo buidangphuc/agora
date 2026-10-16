@@ -1,0 +1,7 @@
+platform-core/packages/proto/platform/promotion/v1/flashstock_compat_test.go
+platform-core/packages/proto/platform/promotion/v1/promotion.proto
+team-analytics/proto/platform/promotion/v1/promotion.proto
+team-frontend/proto/platform/promotion/v1/promotion.proto
+team-gateway/proto/platform/promotion/v1/promotion.proto
+team-order/proto/platform/promotion/v1/promotion.proto
+team-promotion/proto/platform/promotion/v1/promotion.proto

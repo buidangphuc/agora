@@ -15,6 +15,7 @@ import {
   updateOrderStatus,
 } from "@/lib/gateway/orders";
 import { createPayment, processMockPayment } from "@/lib/gateway/payment";
+import { PRICE_CHANGED_MESSAGE } from "./shippingCopy";
 
 export interface OrderActionResult {
   ok: boolean;
@@ -71,6 +72,17 @@ export async function checkoutAction(
     // concurrent request. Nothing failed; the buyer can safely retry.
     if (err instanceof ConnectError && err.code === Code.Aborted) {
       return fail(CHECKOUT_IN_PROGRESS);
+    }
+    // team-order refused because a cart price moved: the cart was re-priced,
+    // so refresh it and let the buyer confirm the new total.
+    if (
+      err instanceof ConnectError &&
+      err.code === Code.FailedPrecondition &&
+      err.rawMessage.includes("price changed")
+    ) {
+      revalidatePath("/cart");
+      revalidatePath("/checkout");
+      return { ok: false, error: PRICE_CHANGED_MESSAGE, priceChanged: true };
     }
     return fail(err instanceof Error ? err.message : "Đặt hàng thất bại.");
   }

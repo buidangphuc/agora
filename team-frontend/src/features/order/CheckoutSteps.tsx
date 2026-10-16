@@ -21,7 +21,7 @@ import { PaymentOptionsGrid } from "./PaymentOptionsGrid";
 import { PlaceOrderForm } from "./PlaceOrderForm";
 import { type CheckoutState, checkoutHref } from "./checkoutParams";
 import { paymentOptionFor } from "./paymentOptions";
-import type { ShippingFee } from "./shipping";
+import type { ShippingFee } from "./shippingCopy";
 
 function StepActions({
   backHref,
