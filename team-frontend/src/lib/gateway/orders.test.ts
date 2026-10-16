@@ -204,15 +204,29 @@ describe("orders gateway wrapper", () => {
     expect(res).toHaveLength(1);
   });
 
-  it("calculateShippingFee falls back to a standard fee on error", async () => {
-    stubOrder({
+  it("calculateShippingFee returns null on error", async () => {
+    const order = stubOrder({
       calculateShippingFee: vi.fn().mockRejectedValue(new Error("down")),
     });
-    await expect(calculateShippingFee("HCM", 100000)).resolves.toEqual({
-      shippingFee: 20000,
-      isFreeShipping: false,
-      message: "Phí vận chuyển tiêu chuẩn",
+    await expect(calculateShippingFee("HCM", 100000)).resolves.toBeNull();
+    // bounded by the 2000 ms call timeout
+    expect(order.calculateShippingFee).toHaveBeenCalledWith(
+      { city: "HCM", itemsSubtotal: 100000n },
+      { timeoutMs: 2000 },
+    );
+  });
+
+  it("calculateShippingFee returns the server quote on success", async () => {
+    stubOrder({
+      calculateShippingFee: vi.fn().mockResolvedValue({
+        shippingFee: 20000n,
+        isFreeShipping: false,
+        message: "",
+      }),
     });
+    await expect(
+      calculateShippingFee("Hà Nội", 350000),
+    ).resolves.toMatchObject({ shippingFee: 20000, isFreeShipping: false });
   });
 
   it("updateOrderStatus throws when the gateway returns no order", async () => {

@@ -107,6 +107,47 @@ describe("checkoutAction", () => {
   });
 });
 
+describe("checkoutAction price change", () => {
+  const PRICE_CHANGED =
+    "Giá một số sản phẩm trong giỏ đã thay đổi. Giỏ hàng đã được cập nhật, vui lòng kiểm tra tổng tiền mới rồi đặt hàng lại.";
+
+  it("maps price changed to a refresh-worthy failure", async () => {
+    vi.mocked(createOrder).mockRejectedValue(
+      new ConnectError("price changed", Code.FailedPrecondition),
+    );
+    const res = await checkoutAction("addr1", undefined, PaymentMethod.COD);
+    expect(res).toEqual({
+      ok: false,
+      error: PRICE_CHANGED,
+      priceChanged: true,
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/cart");
+    expect(revalidatePath).toHaveBeenCalledWith("/checkout");
+    expect(createPayment).not.toHaveBeenCalled();
+  });
+
+  it("other failed preconditions are not price changes", async () => {
+    const err = new ConnectError(
+      "insufficient wallet balance",
+      Code.FailedPrecondition,
+    );
+    vi.mocked(createOrder).mockRejectedValue(err);
+    const res = await checkoutAction("addr1", undefined, PaymentMethod.COD);
+    expect(res).toEqual({ ok: false, error: err.message });
+    expect(res).not.toHaveProperty("priceChanged");
+    expect(revalidatePath).not.toHaveBeenCalledWith("/cart");
+  });
+
+  it("unavailable keeps the generic error and leaves the cart", async () => {
+    const err = new ConnectError("service unavailable", Code.Unavailable);
+    vi.mocked(createOrder).mockRejectedValue(err);
+    const res = await checkoutAction("addr1", undefined, PaymentMethod.COD);
+    expect(res).toEqual({ ok: false, error: err.message });
+    expect(res).not.toHaveProperty("priceChanged");
+    expect(revalidatePath).not.toHaveBeenCalledWith("/cart");
+  });
+});
+
 describe("updateOrderStatusAction", () => {
   it("returns ok with the new state and revalidates list and detail", async () => {
     vi.mocked(updateOrderStatus).mockResolvedValue({
