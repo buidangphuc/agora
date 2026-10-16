@@ -40,6 +40,12 @@ def _login(world: World) -> LoginPage:
     return LoginPage(world.page)
 
 
+def _status_cell(row):
+    """The 'Trạng thái' td (4th column). The row also embeds the status <select> whose options list
+    every label, so whole-row text matching would pass before the update lands."""
+    return row.locator("td").nth(3)
+
+
 def _subject(world: World) -> dict:
     x = _x(world)
     return x.get("buyer") or x["seller"]
@@ -162,7 +168,7 @@ def users_table(world: World) -> None:
 def buyer_listed(world: World, label: str) -> None:
     row = _users(world).row_of(_x(world)["buyer"]["username"])
     expect(row).to_have_count(1, timeout=timeouts.NAVIGATION)
-    expect(row).to_contain_text(label)
+    expect(_status_cell(row)).to_have_text(label, timeout=timeouts.NAVIGATION)
     expect(row).to_contain_text(_x(world)["buyer"]["id"])
 
 
@@ -174,14 +180,14 @@ def success_message(world: World) -> None:
 @then(parsers.parse('the buyer\'s row reads "{label}" with that end time'))
 def row_reads_with_until(world: World, label: str) -> None:
     row = _users(world).row_of(_x(world)["buyer"]["username"])
-    expect(row).to_contain_text(label, timeout=timeouts.NAVIGATION)
+    expect(_status_cell(row)).to_have_text(label, timeout=timeouts.NAVIGATION)
     expect(row).to_contain_text(_x(world)["until_text"], timeout=timeouts.NAVIGATION)
 
 
 @then(parsers.parse('the buyer\'s row reads "{label}"'))
 def row_reads(world: World, label: str) -> None:
     row = _users(world).row_of(_x(world)["buyer"]["username"])
-    expect(row).to_contain_text(label, timeout=timeouts.NAVIGATION)
+    expect(_status_cell(row)).to_have_text(label, timeout=timeouts.NAVIGATION)
 
 
 @then(parsers.parse('the gateway reports the buyer as "{status}"'))
