@@ -14,6 +14,7 @@ import { AuditService } from "@/generated/platform/audit/v1/audit_connect.js";
 import { ChatService } from "@/generated/platform/chat/v1/chat_connect.js";
 import { EngagementService } from "@/generated/platform/engagement/v1/engagement_connect.js";
 import {
+  AccountAdminService,
   AddressService,
   AuthService,
 } from "@/generated/platform/identity/v1/identity_connect.js";
@@ -55,6 +56,7 @@ export function makeClients(
     listing: createPromiseClient(ListingService, transport),
     auth: createPromiseClient(AuthService, transport),
     address: createPromiseClient(AddressService, transport),
+    accountAdmin: createPromiseClient(AccountAdminService, transport),
     engagement: createPromiseClient(EngagementService, transport),
     cart: createPromiseClient(CartService, transport),
     order: createPromiseClient(OrderService, transport),
