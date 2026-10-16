@@ -103,10 +103,12 @@ const (
 	DefaultReservationSweepInterval = time.Minute
 )
 
-// Upstream configures outbound service calls (team-audit).
+// Upstream configures outbound service calls (team-audit, team-ai).
 type Upstream struct {
 	AuditAddr          string  `env:"UPSTREAM_AUDIT_ADDR" default:""`
 	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
+	AIAddr             string  `env:"UPSTREAM_AI_ADDR" default:""`
+	AITimeoutSeconds   float64 `env:"UPSTREAM_AI_TIMEOUT_SECONDS" default:"2"`
 }
 
 // Screen configures the listing keyword screener. An empty TermsFile uses the
