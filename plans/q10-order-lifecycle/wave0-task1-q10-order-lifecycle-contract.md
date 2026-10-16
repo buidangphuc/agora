@@ -11,7 +11,6 @@ Implement OpenSpec change `q10-order-lifecycle-contract` test-first per its task
 - platform-core/packages/proto/platform/order/v1/order.proto
 - platform-core/packages/proto/platform/payment/v1/payment.proto
 - platform-core/packages/proto/platform/order/v1/lifecycle_compat_test.go
-- platform-core/packages/proto/gen_lifecycle_contract_test.sh  # widened at build: task 2.1
 - team-frontend/proto/platform/order/v1/order.proto
 - team-order/proto/platform/order/v1/order.proto
 - team-engagement/proto/platform/order/v1/order.proto
