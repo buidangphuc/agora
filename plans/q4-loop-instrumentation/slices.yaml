@@ -1,0 +1,23 @@
+# plans/q4-loop-instrumentation/slices.yaml — one slice = one OpenSpec change.
+initiative: q4-loop-instrumentation
+slices:
+  - id: q4-loop-events-contract
+    owner: platform-core
+    depends_on: []
+    provides: [analytics.events/TrackingEvent]
+  - id: gateway-loop-event-intake
+    owner: team-gateway
+    depends_on: [q4-loop-events-contract]
+    uses: [analytics.events/TrackingEvent]
+  - id: analytics-loop-event-storage
+    owner: team-analytics
+    depends_on: [q4-loop-events-contract]
+    uses: [analytics.events/TrackingEvent]
+  - id: frontend-loop-events
+    owner: team-frontend
+    depends_on: [gateway-loop-event-intake]
+    uses: [analytics.events/TrackingEvent]
+  - id: frontend-ai-interaction-events
+    owner: team-frontend
+    depends_on: [gateway-loop-event-intake, frontend-loop-events]   # hot files schema.ts/map.ts
+    uses: [analytics.events/TrackingEvent]

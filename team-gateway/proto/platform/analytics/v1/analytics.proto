@@ -252,6 +252,21 @@ enum EventType {
   EVENT_TYPE_ADD_PAYMENT_INFO = 13;
   // Order purchase completed on client (GA4 purchase, marketing/funnel signal).
   EVENT_TYPE_PURCHASE = 14;
+  // Registration completed (GA4 sign_up). properties: method.
+  EVENT_TYPE_SIGN_UP = 15;
+  // Login completed (GA4 login). properties: method.
+  EVENT_TYPE_LOGIN = 16;
+  // A buyer followed a shop. properties: seller_id.
+  EVENT_TYPE_FOLLOW_SELLER = 17;
+  // A referral code was redeemed. No properties (the code is never sent).
+  EVENT_TYPE_REFERRAL_REDEEM = 18;
+  // Daily loyalty check-in completed. properties: streak (optional).
+  EVENT_TYPE_DAILY_CHECK_IN = 19;
+  // A price/stock alert was subscribed. properties: alert_type; listing_id set.
+  EVENT_TYPE_ALERT_SUBSCRIBE = 20;
+  // An interaction with an AI surface. properties: exactly surface, action
+  // (both allowlisted values, no free text).
+  EVENT_TYPE_AI_INTERACTION = 21;
 }
 
 

@@ -2702,3 +2702,213 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: grep assertion on `.claude/agents/auth-scope-reviewer.md` for the owner-path exemption (tasks 3.3)"
+  - id: loop-events-contract.loop-event-types-exist-with-fixed-numbers
+    title: "Loop events contract: Loop event types exist with fixed numbers"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Loop event types exist with fixed numbers"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/analytics/v1/loopevents_compat_test.go` (tasks 2.1)"
+  - id: loop-events-contract.existing-values-keep-their-numbers
+    title: "Loop events contract: Existing values keep their numbers"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Existing values keep their numbers"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `loopevents_compat_test.go` (tasks 2.1)"
+  - id: loop-events-contract.each-new-type-round-trips
+    title: "Loop events contract: Each new type round-trips"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Each new type round-trips"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `loopevents_compat_test.go` (tasks 2.1)"
+  - id: loop-events-contract.event-with-maximum-value-round-trips
+    title: "Loop events contract: Event with maximum value round-trips"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Event with maximum value round-trips"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `loopevents_compat_test.go` (tasks 2.1)"
+  - id: loop-events-contract.old-event-bytes-still-parse
+    title: "Loop events contract: Old event bytes still parse"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Old event bytes still parse"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go test `loopevents_compat_test.go` (tasks 2.1) plus `make -C platform-core breaking`"
+  - id: loop-events-contract.property-keys-are-documented
+    title: "Loop events contract: Property keys are documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Property keys are documented"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `loopevents_compat_test.go` (tasks 2.1) plus comment review (tasks 1.1)"
+  - id: loop-events-contract.ai-event-forbids-free-text
+    title: "Loop events contract: AI event forbids free text"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: AI event forbids free text"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `loopevents_compat_test.go` (tasks 2.1)"
+  - id: loop-events-contract.missing-key-comment-is-caught
+    title: "Loop events contract: Missing key comment is caught"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Missing key comment is caught"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `loopevents_compat_test.go` (tasks 2.1)"
+  - id: loop-events-contract.new-types-in-every-generated-language
+    title: "Loop events contract: New types in every generated language"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: New types in every generated language"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+  - id: loop-events-contract.change-is-backward-compatible
+    title: "Loop events contract: Change is backward compatible"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Change is backward compatible"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` (tasks 1.3)"
+  - id: loop-events-contract.wire-breaking-edit-is-rejected
+    title: "Loop events contract: Wire-breaking edit is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Wire-breaking edit is rejected"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` run on a mutated copy plus `loopevents_compat_test.go` (tasks 1.3, 2.1)"
+  - id: loop-events-contract.lint-passes
+    title: "Loop events contract: Lint passes"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Lint passes"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core lint-proto` (tasks 1.3)"
+  - id: loop-events-contract.copies-match-the-source
+    title: "Loop events contract: Copies match the source"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Copies match the source"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the three copies against the source (tasks 2.3)"
+  - id: loop-events-contract.drifted-or-missing-copy-is-rejected
+    title: "Loop events contract: Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Drifted or missing copy is rejected"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the three copies against the source (tasks 2.3)"
+  - id: loop-events-contract.consumer-copies-lint
+    title: "Loop events contract: Consumer copies lint"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Loop events contract: Consumer copies lint"
+    tags:
+    - loop-events-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `buf lint` per consumer proto directory (tasks 2.3)"
