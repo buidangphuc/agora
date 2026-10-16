@@ -115,4 +115,25 @@ describe("CockpitPage", () => {
       screen.queryByRole("link", { name: "Nhật ký kiểm toán" }),
     ).toBeNull();
   });
+
+  it("non-admin sees no users link (Users UI: Non-admin cockpit visitor sees no users link)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      id: "u-buyer",
+      name: "Buyer",
+      scopes: ["order.read"],
+    });
+    const { container } = render(await CockpitPage());
+    expect(screen.getByText("Cần tài khoản Quản trị")).toBeInTheDocument();
+    expect(container.querySelector('a[href="/admin/users"]')).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "Quản lý người dùng" }),
+    ).toBeNull();
+  });
+
+  it("admin page contains the users link (Users UI: Cockpit shows the users link)", async () => {
+    const { container } = render(await CockpitPage());
+    const links = container.querySelectorAll('a[href="/admin/users"]');
+    expect(links).toHaveLength(1);
+    expect(links[0].textContent).toContain("Quản lý người dùng");
+  });
 });
