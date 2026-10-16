@@ -1469,3 +1469,33 @@ features:
     tags: [recsys, recommendations]
     status: not-testable
     notes: "recsys-gbdt-trainer: verified by team-ai/tests/unit/modules/recommendation/test_artifact.py › test_a_generation_switch_reloads_the_model_at_once. Moving the serving pointer is the publish flow, covered end to end by recsys-generation-publish; the per-process cache reload is unit-level."
+
+  - id: ai.listing-screen-edge-closed
+    title: "Listing screening is not reachable at the edge"
+    persona: buyer
+    priority: P2
+    summary: "ScreenListing is a service-only RPC; the gateway answers unimplemented for anonymous and buyer callers."
+    entry_route: /
+    services: [team-ai, gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [ai.v1.ScreenListing]
+    acceptance:
+      - "ai-listing-screen: The edge does not route ScreenListing"
+    tags: [ai, trust]
+    status: planned
+    covered_by: "ai/listing_screen_edge.feature::The edge does not route ScreenListing"
+
+  - id: ai.listing-screen-verdict
+    title: "ScreenListing verdict, fail-safe and published-only RAG index"
+    persona: seller
+    priority: P1
+    summary: "Service-only screen verdict (mock default) and PUBLISHED-only RAG indexing."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: all scenarios other than the edge scenario"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only RPC and RAG_ENABLED off in the e2e stack; each scenario is VERIFIED BY a team-ai unit test named in the spec. Mock marker flow end to end is covered by domain-listing-moderation."
