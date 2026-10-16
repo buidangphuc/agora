@@ -75,3 +75,23 @@ func IsPublicRPC(fullMethod string) bool {
 	}
 	return false
 }
+
+// StatusActive is the only account status that keeps the full role scopes.
+const StatusActive = "active"
+
+// ScopesForUser returns the role scopes narrowed by account status. Fail closed:
+// any status other than exactly "active" (restricted, unknown, empty) drops
+// listing.write. The shared role table is never mutated.
+func ScopesForUser(roles []string, status string) []string {
+	scopes := ScopesForRoles(roles)
+	if status == StatusActive {
+		return scopes
+	}
+	out := make([]string, 0, len(scopes))
+	for _, s := range scopes {
+		if s != "listing.write" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
