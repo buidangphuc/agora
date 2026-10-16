@@ -76,7 +76,10 @@ export async function middleware(req: NextRequest) {
     }
     return res;
   } catch (err) {
-    if (ConnectError.from(err).code === Code.Unauthenticated) return clearBoth();
+    const code = ConnectError.from(err).code;
+    if (code === Code.Unauthenticated || code === Code.PermissionDenied) {
+      return clearBoth();
+    }
     // Transient failure: render anonymous, keep the refresh cookie for a retry.
     setCookie([SESSION_COOKIE]);
     return next();
