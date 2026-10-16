@@ -125,10 +125,29 @@ func TestTrustContract_ConsumerCopiesLint(t *testing.T) {
 		t.Fatalf("buf not on PATH: %v", err)
 	}
 	r := root(t)
+	// Repos with no proto/buf.yaml of their own are linted from a scratch module
+	// holding a copy of their proto tree plus the shared lint config; they are
+	// never silently skipped.
+	sharedCfg, err := os.ReadFile(filepath.Join(r, "team-audit/proto/buf.yaml"))
+	if err != nil {
+		t.Fatalf("shared buf.yaml unreadable: %v", err)
+	}
 	for _, repo := range lintRepos {
 		dir := filepath.Join(r, repo, "proto")
 		if _, err := os.Stat(filepath.Join(dir, "buf.yaml")); err != nil {
-			continue
+			if _, serr := os.Stat(dir); serr != nil {
+				t.Errorf("%s: no proto dir to lint: %v", repo, serr)
+				continue
+			}
+			scratch := t.TempDir()
+			if err := os.CopyFS(scratch, os.DirFS(dir)); err != nil {
+				t.Errorf("%s: copy proto tree: %v", repo, err)
+				continue
+			}
+			if err := os.WriteFile(filepath.Join(scratch, "buf.yaml"), sharedCfg, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			dir = scratch
 		}
 		cmd := exec.Command(buf, "lint")
 		cmd.Dir = dir
