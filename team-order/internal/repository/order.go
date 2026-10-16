@@ -583,6 +583,7 @@ type InMemoryOrderRepository struct {
 	reminderOutbox  ReminderOutboxBuilder
 	completedOutbox CompletedOutboxBuilder
 	outbox          OutboxRepository
+	returnSource    ReturnRepository
 
 	autoCompleteAfter, returnWindow, shipByAfter time.Duration
 }
@@ -737,6 +738,87 @@ func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 // orders whose deadline is strictly before now, earliest deadline first.
 type ExpiryFinder interface {
 	FindExpired(ctx context.Context, now time.Time, limit int) ([]Order, error)
+}
+
+// AutoCompleteFinder is implemented by order stores that can list SHIPPED orders
+// whose auto_complete_at has passed and that no return blocks (a PENDING return,
+// or an APPROVED one on an online-paid order), oldest deadline first.
+type AutoCompleteFinder interface {
+	ListAutoCompletable(ctx context.Context, now time.Time, limit int) ([]Order, error)
+}
+
+func (r *PostgresOrderRepository) ListAutoCompletable(ctx context.Context, now time.Time, limit int) ([]Order, error) {
+	const q = `SELECT ` + orderColumns + ` FROM orders o
+		WHERE o.status = $1 AND o.auto_complete_at IS NOT NULL AND o.auto_complete_at <= $2
+		  AND NOT EXISTS (SELECT 1 FROM order_returns r WHERE r.order_id = o.id
+		                  AND (r.status = $3 OR (r.status = $4 AND o.paid_at IS NOT NULL)))
+		ORDER BY o.auto_complete_at, o.id LIMIT $5`
+	rows, err := r.pool.Query(ctx, q, int32(OrderStatusShipped), now, int32(ReturnStatusPending), int32(ReturnStatusApproved), limit)
+	if err != nil {
+		return nil, fmt.Errorf("list auto-completable orders: %w", err)
+	}
+	defer rows.Close()
+	var res []Order
+	for rows.Next() {
+		var o Order
+		if err := scanOrder(rows, &o); err != nil {
+			return nil, err
+		}
+		res = append(res, o)
+	}
+	return res, rows.Err()
+}
+
+// SetReturnSource lets the in-memory order store evaluate the blocking-return
+// rule of ListAutoCompletable (the Postgres store does it in SQL).
+func (r *InMemoryOrderRepository) SetReturnSource(src ReturnRepository) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.returnSource = src
+}
+
+// ListAutoCompletable: SHIPPED orders with auto_complete_at <= now and no blocking
+// return (PENDING, or APPROVED when the order has paid_at), oldest deadline first.
+func (r *InMemoryOrderRepository) ListAutoCompletable(ctx context.Context, now time.Time, limit int) ([]Order, error) {
+	r.mu.RLock()
+	var due []Order
+	for _, o := range r.orders {
+		if o.Status == OrderStatusShipped && o.AutoCompleteAt != nil && !o.AutoCompleteAt.After(now) {
+			due = append(due, o)
+		}
+	}
+	src := r.returnSource
+	r.mu.RUnlock()
+	sort.Slice(due, func(i, j int) bool {
+		if !due[i].AutoCompleteAt.Equal(*due[j].AutoCompleteAt) {
+			return due[i].AutoCompleteAt.Before(*due[j].AutoCompleteAt)
+		}
+		return due[i].ID < due[j].ID
+	})
+	var res []Order
+	for _, o := range due {
+		if limit > 0 && len(res) >= limit {
+			break
+		}
+		if src != nil {
+			rets, err := src.ListReturnsByOrder(ctx, o.ID)
+			if err != nil {
+				return nil, err
+			}
+			blocked := false
+			for _, ret := range rets {
+				if ret.Status == ReturnStatusPending || (ret.Status == ReturnStatusApproved && o.PaidAt != nil) {
+					blocked = true
+					break
+				}
+			}
+			if blocked {
+				continue
+			}
+		}
+		res = append(res, o)
+	}
+	return res, nil
 }
 
 // codPaymentMethod is paymentv1.PaymentMethod_PAYMENT_METHOD_COD; COD orders have
