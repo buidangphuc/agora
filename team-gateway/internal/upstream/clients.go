@@ -40,13 +40,14 @@ type Clients struct {
 	Address  identityv1.AddressServiceClient
 	// Session is team-identity's SessionService (active sessions + login history),
 	// reached at the same gRPC endpoint as AuthService/AddressService.
-	Session    identityv1.SessionServiceClient
-	Engagement engagementv1.EngagementServiceClient
-	Cart       orderv1.CartServiceClient
-	Order      orderv1.OrderServiceClient
-	Payment    paymentv1.PaymentServiceClient
-	Chat       chatv1.ChatServiceClient
-	AI         aiv1.AIServiceClient
+	Session      identityv1.SessionServiceClient
+	AccountAdmin identityv1.AccountAdminServiceClient
+	Engagement   engagementv1.EngagementServiceClient
+	Cart         orderv1.CartServiceClient
+	Order        orderv1.OrderServiceClient
+	Payment      paymentv1.PaymentServiceClient
+	Chat         chatv1.ChatServiceClient
+	AI           aiv1.AIServiceClient
 	// AIChat is team-ai's ChatService (StreamChat token streaming), distinct from
 	// Chat (team-chat's buyer↔seller messaging on the same contract).
 	AIChat chatv1.ChatServiceClient
@@ -188,6 +189,7 @@ func Dial(dialTimeout time.Duration, searchAddr, listingAddr, identityAddr, enga
 	c.Identity = identityv1.NewAuthServiceClient(identityConn)
 	c.Address = identityv1.NewAddressServiceClient(identityConn)
 	c.Session = identityv1.NewSessionServiceClient(identityConn)
+	c.AccountAdmin = identityv1.NewAccountAdminServiceClient(identityConn)
 	c.Engagement = engagementv1.NewEngagementServiceClient(engagementConn)
 	c.Cart = orderv1.NewCartServiceClient(orderConn)
 	c.Order = orderv1.NewOrderServiceClient(orderConn)

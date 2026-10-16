@@ -96,3 +96,43 @@ func TestOnlyAdminsCanReadTheChannelFunnel_EdgeRejects(t *testing.T) {
 		})
 	}
 }
+
+// User-enforcement edge: the AccountAdmin procedures are admin-gated at the edge.
+func accountAdminDenied(t *testing.T, auth func(*cockpitFixture) string, want int) {
+	t.Helper()
+	f := newCockpitFixture(t)
+	for _, path := range []string{listUsersPath, setUserStatusPath} {
+		up := &accountAdminUpstream{}
+		srv := httptest.NewServer(edge.NewMux(&upstream.Clients{AccountAdmin: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+		t.Cleanup(srv.Close)
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+path, strings.NewReader(`{"user_id":"u-9","status":"USER_STATUS_BANNED","reason_code":"fraud"}`))
+		req.Header.Set("Content-Type", "application/json")
+		if a := auth(f); a != "" {
+			req.Header.Set("Authorization", a)
+		}
+		res, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+		if res.StatusCode != want {
+			t.Errorf("%s = %d %s, want %d", path, res.StatusCode, b, want)
+		}
+		if n := up.setCalls.Load() + up.listCalls.Load(); n != 0 {
+			t.Errorf("%s: team-identity received %d requests, want 0", path, n)
+		}
+	}
+}
+
+// Scenario: User enforcement edge: Anonymous caller is rejected at the edge.
+func TestAccountAdminAnonymousUnauthenticated(t *testing.T) {
+	accountAdminDenied(t, func(*cockpitFixture) string { return "" }, http.StatusUnauthorized)
+}
+
+// Scenario: User enforcement edge: Seller without admin scope is denied.
+func TestAccountAdminNonAdminPermissionDenied(t *testing.T) {
+	accountAdminDenied(t, func(f *cockpitFixture) string {
+		return "Bearer " + f.token(t, "listing.read", "listing.write")
+	}, http.StatusForbidden)
+}

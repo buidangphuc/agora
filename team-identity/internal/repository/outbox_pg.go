@@ -38,10 +38,13 @@ func (s *OutboxStore) EnqueueTx(ctx context.Context, tx DBTX, row OutboxRow) err
 	return enqueueTx(ctx, tx, row)
 }
 
+// enqueueTx stamps available_at/created_at with clock_timestamp() (not now()) so
+// rows of one transaction keep their insertion order under the relayer's
+// (available_at, created_at) claim ordering.
 func enqueueTx(ctx context.Context, tx DBTX, row OutboxRow) error {
 	const q = `INSERT INTO identity_outbox_events
 		(event_id, aggregate_type, aggregate_id, event_type, payload, request_id, status, attempts, available_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, 'pending', 0, now(), now())`
+		VALUES ($1, $2, $3, $4, $5, $6, 'pending', 0, clock_timestamp(), clock_timestamp())`
 	if _, err := tx.Exec(ctx, q, row.EventID, row.AggregateType, row.AggregateID, row.EventType, row.Payload, row.RequestID); err != nil {
 		return fmt.Errorf("enqueue outbox event %q: %w", row.EventID, err)
 	}

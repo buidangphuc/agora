@@ -54,6 +54,50 @@ func BuildSessionRevokedEnvelope(
 	return value, nil
 }
 
+// UserStatusChangedEventType is the EventEnvelope.Type discriminator for the
+// UserStatusChanged event.
+const UserStatusChangedEventType = "platform.identity.v1.UserStatusChanged"
+
+// BuildUserStatusChangedEnvelope marshals the EventEnvelope for a user status
+// change. The payload carries only contract fields: there is deliberately no
+// note and no username parameter. until may be nil.
+func BuildUserStatusChangedEnvelope(
+	eventID, userID string,
+	status, previous identityv1.UserStatus,
+	reasonCode string,
+	until *time.Time,
+	changedAt time.Time,
+	principal *commonv1.Principal,
+	requestID string,
+) ([]byte, error) {
+	ev := &identityv1.UserStatusChanged{
+		UserId:         userID,
+		Status:         status,
+		PreviousStatus: previous,
+		ReasonCode:     reasonCode,
+		ChangedAt:      timestamppb.New(changedAt),
+	}
+	if until != nil {
+		ev.Until = timestamppb.New(*until)
+	}
+	payload, err := proto.Marshal(ev)
+	if err != nil {
+		return nil, fmt.Errorf("marshal UserStatusChanged: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       UserStatusChangedEventType,
+		OccurredAt: timestamppb.Now(),
+		Principal:  principal,
+		RequestId:  requestID,
+		Payload:    payload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return value, nil
+}
+
 // Publisher is the lifecycle handle for the event producer: either a
 // KafkaPublisher or a NoopPublisher, so bootstrap tears them down uniformly.
 type Publisher interface {

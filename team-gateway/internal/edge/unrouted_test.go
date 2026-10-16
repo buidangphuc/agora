@@ -19,6 +19,7 @@ import (
 
 	aiv1 "github.com/buidangphuc/team-gateway/generated/platform/ai/v1"
 	auditv1 "github.com/buidangphuc/team-gateway/generated/platform/audit/v1"
+	identityv1 "github.com/buidangphuc/team-gateway/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-gateway/generated/platform/listing/v1"
 	promotionv1 "github.com/buidangphuc/team-gateway/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-gateway/internal/edge"
@@ -170,5 +171,25 @@ func TestUnroutedGuardIncludesRefreshSession(t *testing.T) {
 	}
 	if id.calls.Load() != 1 {
 		t.Fatalf("identity calls = %d, want 1", id.calls.Load())
+	}
+}
+
+// Scenario: User enforcement edge: Procedures are covered by the unrouted guard.
+// Every AccountAdminService method in the generated descriptor is routed.
+func TestUnroutedGuardAccountAdmin(t *testing.T) {
+	svc := identityv1.File_platform_identity_v1_identity_proto.Services().ByName("AccountAdminService")
+	if svc == nil || svc.Methods().Len() < 2 {
+		t.Fatalf("AccountAdminService descriptor missing or incomplete")
+	}
+	for i := 0; i < svc.Methods().Len(); i++ {
+		path := "/platform.identity.v1.AccountAdminService/" + string(svc.Methods().Get(i).Name())
+		up := &accountAdminUpstream{}
+		code, body := callAccountAdmin(t, up, path, `{"user_id":"u-9","status":"USER_STATUS_BANNED","reason_code":"fraud"}`)
+		if code == http.StatusNotImplemented || strings.Contains(body, "unimplemented") {
+			t.Errorf("%s = %d %s, want routed", path, code, body)
+		}
+		if up.setCalls.Load()+up.listCalls.Load() != 1 {
+			t.Errorf("%s: upstream calls = %d, want 1", path, up.setCalls.Load()+up.listCalls.Load())
+		}
 	}
 }

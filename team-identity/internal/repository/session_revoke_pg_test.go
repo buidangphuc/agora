@@ -27,7 +27,7 @@ func TestRevokeSessionIsAtomicWithOutbox_Postgres(t *testing.T) {
 	if err := pool.Ping(ctx); err != nil {
 		t.Skipf("Postgres unreachable (%v); skipping", err)
 	}
-	for _, f := range []string{"0001_users.up.sql", "0004_sessions.up.sql", "0005_identity_outbox_events.up.sql"} {
+	for _, f := range []string{"0001_users.up.sql", "0004_sessions.up.sql", "0005_identity_outbox_events.up.sql", "0006_session_refresh.up.sql", "0007_user_status.up.sql"} {
 		ddl, err := os.ReadFile(filepath.Join("..", "..", "migrations", f))
 		if err != nil {
 			t.Fatalf("read %s: %v", f, err)

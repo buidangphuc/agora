@@ -23,6 +23,7 @@ type Settings struct {
 	Observability Observability
 	SeedAdmin     SeedAdmin
 	PasswordReset PasswordReset
+	Upstream      Upstream
 }
 
 type Runtime struct {
@@ -95,6 +96,13 @@ type PasswordReset struct {
 	ExposeToken bool `env:"PASSWORD_RESET_EXPOSE_TOKEN" default:"false"`
 }
 
+// Upstream configures identity's outbound gRPC clients. AuditAddr empty disables
+// the audit client (user-status changes then fail closed).
+type Upstream struct {
+	AuditAddr          string  `env:"UPSTREAM_AUDIT_ADDR" default:""`
+	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
+}
+
 type Observability struct {
 	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
 	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
@@ -105,6 +113,10 @@ func LoadSettings() (*Settings, error) {
 	s := &Settings{}
 	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
 		return nil, err
+	}
+	// Checked here, not in Validate: a zero-value Settings has no timeout yet.
+	if s.Upstream.CallTimeoutSeconds <= 0 {
+		return nil, fmt.Errorf("UPSTREAM_CALL_TIMEOUT_SECONDS must be > 0: %v", s.Upstream.CallTimeoutSeconds)
 	}
 	if err := s.Validate(); err != nil {
 		return nil, err
