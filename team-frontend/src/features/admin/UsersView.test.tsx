@@ -197,6 +197,18 @@ describe("UsersView", () => {
       "spam",
       "other",
     ]);
+    const reasonLabels = Array.from(reason.querySelectorAll("option"))
+      .filter((o) => o.getAttribute("value"))
+      .map((o) => o.textContent);
+    expect(reasonLabels).toEqual([
+      "Vi phạm chính sách",
+      "Gian lận",
+      "Hàng giả",
+      "Lạm dụng",
+      "Lừa đảo",
+      "Spam",
+      "Khác",
+    ]);
     const status = within(form).getByLabelText("Trạng thái mới");
     const labels = Array.from(status.querySelectorAll("option")).map(
       (o) => o.textContent,
@@ -210,5 +222,26 @@ describe("UsersView", () => {
       within(form).getByRole("button", { name: "Cập nhật trạng thái" }),
     ).toBeInTheDocument();
     expect(form.querySelector('input[name="userId"]')).toHaveValue("u-3");
+  });
+
+  it("shows the h1 and the clear-filter control (Users UI: Rows show the user columns)", () => {
+    render(<UsersView {...base} />);
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Quản lý người dùng" }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("users-search")).getByText("Xóa bộ lọc"),
+    ).toBeInTheDocument();
+  });
+
+  it("filter status select offers the proposal labels (Users UI: Rows show the user columns)", () => {
+    render(<UsersView {...base} />);
+    const select = within(screen.getByTestId("users-search")).getByLabelText(
+      "Trạng thái",
+    );
+    const labels = Array.from(select.querySelectorAll("option"))
+      .filter((o) => o.getAttribute("value"))
+      .map((o) => o.textContent);
+    expect(labels).toEqual(["Hoạt động", "Hạn chế", "Tạm khóa", "Cấm"]);
   });
 });

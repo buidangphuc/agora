@@ -104,6 +104,30 @@ describe("UsersPage", () => {
     expect(redirect).toHaveBeenCalledWith(LOGIN_WITH_QUERY);
   });
 
+  it("metadata title and description match the proposal copy (Users UI: The users page sends no referrer)", () => {
+    expect(String(metadata.title)).toContain("Quản lý người dùng");
+    expect(metadata.description).toBe(
+      "Tìm người dùng và hạn chế, tạm khóa hoặc cấm tài khoản.",
+    );
+  });
+
+  it("renders the h1 for an admin (Users UI: Search is forwarded as typed fields)", async () => {
+    render(await UsersPage({ searchParams: Promise.resolve({}) }));
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Quản lý người dùng" }),
+    ).toBeInTheDocument();
+  });
+
+  it("non-admin 403 sub-text matches the proposal (Users UI: Non-admin sees the 403 result)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(buyer);
+    render(await UsersPage({ searchParams: Promise.resolve({}) }));
+    expect(
+      screen.getByText(
+        "Tài khoản của bạn không có quyền admin để quản lý người dùng.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("metadata sets no-referrer (Users UI: The users page sends no referrer)", () => {
     expect(metadata.referrer).toBe("no-referrer");
   });
