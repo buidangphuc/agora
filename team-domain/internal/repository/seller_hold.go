@@ -116,3 +116,13 @@ func sellerBatch(ctx context.Context, tx pgx.Tx, sql, userID string) ([]Listing,
 	}
 	return out, nil
 }
+
+// PurgeProcessedEvents deletes dedupe rows processed before the cutoff and
+// returns how many were removed.
+func (r *PostgresListingRepository) PurgeProcessedEvents(ctx context.Context, before time.Time) (int, error) {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM processed_events WHERE processed_at < $1`, before)
+	if err != nil {
+		return 0, fmt.Errorf("purge processed_events: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
