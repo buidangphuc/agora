@@ -1664,7 +1664,7 @@ features:
     acceptance:
       - "Listing reports: Report created end to end"
     tags: [listing-reports]
-    status: planned
+    status: automated
     notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Report created end to end"
     covered_by: "engagement/listing_reports.feature::Listing reports: Report created end to end"
 
@@ -1677,7 +1677,7 @@ features:
     acceptance:
       - "Listing reports: Anonymous report is refused end to end"
     tags: [listing-reports]
-    status: planned
+    status: automated
     notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Anonymous report is refused end to end"
     covered_by: "engagement/listing_reports.feature::Listing reports: Anonymous report is refused end to end"
 
@@ -1690,7 +1690,7 @@ features:
     acceptance:
       - "Listing reports: Seller self-report is refused end to end"
     tags: [listing-reports]
-    status: planned
+    status: automated
     notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Seller self-report is refused end to end"
     covered_by: "engagement/listing_reports.feature::Listing reports: Seller self-report is refused end to end"
 
@@ -1715,7 +1715,7 @@ features:
     acceptance:
       - "Listing reports: Seller cannot read reports end to end"
     tags: [listing-reports]
-    status: planned
+    status: automated
     notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Seller cannot read reports end to end"
     covered_by: "engagement/listing_reports.feature::Listing reports: Seller cannot read reports end to end"
 
@@ -2004,7 +2004,7 @@ features:
     acceptance:
       - "Listing reports: Admin works a report end to end"
     tags: [listing-reports]
-    status: planned
+    status: automated
     notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Admin works a report end to end"
     covered_by: "engagement/listing_reports.feature::Listing reports: Admin works a report end to end"
 
@@ -2017,7 +2017,7 @@ features:
     acceptance:
       - "Listing reports: Audit outage blocks closing end to end"
     tags: [listing-reports]
-    status: planned
+    status: automated
     notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Audit outage blocks closing end to end"
     covered_by: "engagement/listing_reports.feature::Listing reports: Audit outage blocks closing end to end"
 
@@ -2030,7 +2030,7 @@ features:
     acceptance:
       - "Listing reports: Buyer cannot work the queue end to end"
     tags: [listing-reports]
-    status: planned
+    status: automated
     notes: "engagement-listing-reports: e2e engagement/listing_reports.feature::Listing reports: Buyer cannot work the queue end to end"
     covered_by: "engagement/listing_reports.feature::Listing reports: Buyer cannot work the queue end to end"
 
