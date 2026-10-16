@@ -13,4 +13,4 @@ Write-set: `platform-core/packages/proto/platform/order/v1/lifecycle_compat_test
 - [ ] 2.3 Copy both protos byte-identical into the twenty consumer paths; run `cmp` against the source as a one-off slice-done check (missing file = failure) and `buf lint` in each proto dir; each consumer slice re-runs the `cmp` check before it is done (covers: Order lifecycle contract: Copies match the source, Order lifecycle contract: Drifted or missing copy is rejected, Order lifecycle contract: Consumer copies lint).
 
 ## 3. E2E track
-- [ ] 3.1 None: no user-facing behaviour. `platform-core/FEATURES.yaml` entries with `status: not-testable` (reason: pure contract, verified by the Go test, `buf breaking` and `cmp`) for every scenario (done by the e2e-author).
+- [x] 3.1 None: no user-facing behaviour. `platform-core/FEATURES.yaml` entries with `status: not-testable` (reason: pure contract, verified by the Go test, `buf breaking` and `cmp`) for every scenario (done by the e2e-author).
