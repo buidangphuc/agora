@@ -44,6 +44,44 @@ service FlashSaleService {
   rpc ListActiveCampaigns(ListActiveCampaignsRequest) returns (ListActiveCampaignsResponse);
   // Live remaining stock for the flash-sale banner/meter (frontend LiveFlashSaleStock).
   rpc GetFlashSaleStock(GetFlashSaleStockRequest) returns (GetFlashSaleStockResponse);
+
+  // SERVICE-ONLY: callable only by internal services holding the scope
+  // promotion.reserve; any other authenticated caller gets PERMISSION_DENIED and
+  // a call without a principal gets UNAUTHENTICATED. The gateway never exposes it.
+  //
+  // Holds `quantity` units of a flash-sale campaign for one order line.
+  // Idempotent on reservation_id. A replay returns the stored outcome and
+  // ignores the other request fields. A replay of a hold that was released or
+  // expired returns reserved=false, reason=not_active; every checkout attempt
+  // uses fresh order ids, so a reservation_id is never reused after release.
+  // An uncommitted hold expires 15 minutes after it is reserved.
+  //
+  // Checks run in the order not_active, price_changed, insufficient_stock and
+  // the first failure wins: the campaign must be active (not_active);
+  // expected_sale_price must equal the campaign sale price (price_changed);
+  // and insufficient_stock means cap - sold - holds < quantity. The reason set
+  // is closed: only these three values are ever returned.
+  //
+  // Invalid input is an INVALID_ARGUMENT error, not a reason: empty
+  // reservation_id, campaign_id or listing_id, an id over 200 bytes, or
+  // quantity <= 0. An empty variant_id is valid.
+  rpc ReserveFlashSaleStock(ReserveFlashSaleStockRequest) returns (ReserveFlashSaleStockResponse);
+  // SERVICE-ONLY: requires the scope promotion.reserve; other callers get
+  // PERMISSION_DENIED, no principal gets UNAUTHENTICATED; not exposed by the gateway.
+  //
+  // Converts a hold into sold stock. Called in checkout Phase B, next to the
+  // team-domain CommitReservation. Idempotent: committing an already committed
+  // hold returns committed=true. A hold that was released or expired, or an
+  // unknown reservation_id, returns committed=false and changes nothing.
+  rpc CommitFlashSaleStock(CommitFlashSaleStockRequest) returns (CommitFlashSaleStockResponse);
+  // SERVICE-ONLY: requires the scope promotion.reserve; other callers get
+  // PERMISSION_DENIED, no principal gets UNAUTHENTICATED; not exposed by the gateway.
+  //
+  // Release returns committed units too: for a committed hold it does
+  // stock_sold -= quantity. Idempotent: an already released or expired hold
+  // returns released=true and changes no counter. Only an unknown
+  // reservation_id returns released=false. CancelOrder calls this.
+  rpc ReleaseFlashSaleStock(ReleaseFlashSaleStockRequest) returns (ReleaseFlashSaleStockResponse);
 }
 
 // Seller subscription tiers (shop upgrade plans). Discounts/limits are pure
@@ -236,8 +274,44 @@ message GetFlashSaleStockRequest {
 }
 
 message GetFlashSaleStockResponse {
+  // stock_cap - stock_sold - active (unexpired, uncommitted) holds.
   int64 remaining = 1;
   int64 stock_cap = 2;
+}
+
+message ReserveFlashSaleStockRequest {
+  // Shape: <order_id>:<listing_id>:<variant_id>, or <order_id>:<listing_id>:
+  // when the variant is empty. At most 200 bytes.
+  string reservation_id = 1;
+  string campaign_id = 2;
+  string listing_id = 3;
+  string variant_id = 4;
+  int64 quantity = 5;
+  // The sale price the buyer was shown; compared with the campaign sale price.
+  int64 expected_sale_price = 6;
+}
+
+message ReserveFlashSaleStockResponse {
+  bool reserved = 1;
+  // Empty when reserved=true. Otherwise one of the closed set: not_active,
+  // price_changed, insufficient_stock.
+  string reason = 2;
+}
+
+message CommitFlashSaleStockRequest {
+  string reservation_id = 1;
+}
+
+message CommitFlashSaleStockResponse {
+  bool committed = 1;
+}
+
+message ReleaseFlashSaleStockRequest {
+  string reservation_id = 1;
+}
+
+message ReleaseFlashSaleStockResponse {
+  bool released = 1;
 }
 
 // Sponsored placements / pay-per-slot ad campaigns. Budget/bid are pure
