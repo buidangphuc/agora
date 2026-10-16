@@ -215,3 +215,91 @@ describe("applyConsent debug_mode (staging only)", () => {
     },
   );
 });
+
+describe("applyConsent page_location (returnUrl stripping)", () => {
+  const pageLocations = () =>
+    ((window.dataLayer ?? []) as unknown[])
+      .map((e) => (e as { page_location?: unknown } | null)?.page_location)
+      .filter((v): v is string => typeof v === "string");
+
+  beforeEach(() => {
+    document.head.innerHTML = "";
+    delete (window as { dataLayer?: unknown }).dataLayer;
+    vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("[page_location has no returnUrl] strips returnUrl from page_location", () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/login?returnUrl=%2Faccount%2Forders%2Fo-9",
+    );
+    applyConsent(ALL);
+    expect(pageLocations()).toEqual([`${window.location.origin}/login`]);
+    const dump = JSON.stringify(window.dataLayer);
+    expect(dump).not.toContain("returnUrl");
+    expect(dump).not.toContain("o-9");
+  });
+
+  it("[Other query parameters are not removed] keeps other params", () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/search?q=ao&returnUrl=%2Fx&page=2",
+    );
+    applyConsent(ALL);
+    expect(pageLocations()).toEqual([
+      `${window.location.origin}/search?q=ao&page=2`,
+    ]);
+  });
+
+  it("[Other query parameters are not removed] a URL without returnUrl is not changed", () => {
+    window.history.replaceState(null, "", "/search?q=ao&page=2");
+    applyConsent(ALL);
+    expect(pageLocations()).toEqual([
+      `${window.location.origin}/search?q=ao&page=2`,
+    ]);
+  });
+});
+
+describe("trackPageLocation (client-side navigation; NEW export of ./gtm)", () => {
+  const latestPageLocation = () => {
+    const vals = ((window.dataLayer ?? []) as unknown[])
+      .map((e) => (e as { page_location?: unknown } | null)?.page_location)
+      .filter((v): v is string => typeof v === "string");
+    return vals[vals.length - 1];
+  };
+
+  beforeEach(() => {
+    document.head.innerHTML = "";
+    delete (window as { dataLayer?: unknown }).dataLayer;
+    vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("[page_location has no returnUrl] client navigation to /login?returnUrl pushes a page_location without returnUrl", async () => {
+    const { trackPageLocation } = await import("./gtm");
+    applyConsent(ALL);
+    window.history.pushState(null, "", "/login?returnUrl=%2Fx");
+    trackPageLocation();
+    expect(latestPageLocation()).toBe(`${window.location.origin}/login`);
+    expect(JSON.stringify(window.dataLayer)).not.toContain("returnUrl");
+  });
+
+  it("[Other query parameters are not removed] client navigation keeps other params", async () => {
+    const { trackPageLocation } = await import("./gtm");
+    applyConsent(ALL);
+    window.history.pushState(null, "", "/search?q=ao&returnUrl=%2Fx&page=2");
+    trackPageLocation();
+    expect(latestPageLocation()).toBe(
+      `${window.location.origin}/search?q=ao&page=2`,
+    );
+  });
+});

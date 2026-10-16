@@ -1,5 +1,6 @@
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -25,7 +26,8 @@ export default async function MockPaymentPage(props: {
 }) {
   const params = await props.params;
   const me = getPrincipal();
-  if (!me) redirect("/login");
+  if (!me)
+    redirectGuestToLogin(`/checkout/pay/${encodeURIComponent(params.id)}`);
 
   const order = await loadOrder(params.id);
   if (!order) notFound();

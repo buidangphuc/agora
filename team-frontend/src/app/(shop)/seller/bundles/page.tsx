@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { BundleManager } from "@/features/seller/BundleManager";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
@@ -12,7 +12,8 @@ export const metadata = { title: "Combo sản phẩm | Kênh người bán" };
 
 export default async function SellerBundlesPage() {
   const principal = getPrincipal();
-  if (!principal || !hasScope("listing.write")) redirect("/login");
+  if (!principal || !hasScope("listing.write"))
+    redirectGuestToLogin("/seller/bundles");
 
   const [listings, bundles] = await Promise.all([
     getAllListings().catch(() => []),

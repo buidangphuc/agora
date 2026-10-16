@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isCheckoutEnabled } from "@/lib/flags";
 import type { ViewCart, ViewCartItem } from "@/lib/gateway/cart";
 import { getCartWithShopNames } from "@/lib/gateway/cart";
+import { getPrincipal } from "@/lib/gateway/session";
+import { redirect } from "next/navigation";
 import { listVouchers, previewVoucher } from "@/lib/gateway/promotion";
 
 import CartPage from "./page";
@@ -22,7 +24,11 @@ vi.mock("@/features/cart/actions", () => ({
 vi.mock("@/features/voucher/actions", () => ({
   previewVoucherAction: vi.fn(),
 }));
+vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
 vi.mock("next/navigation", () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
   useRouter: () => ({ replace: vi.fn() }),
   usePathname: () => "/cart",
   useSearchParams: () => new URLSearchParams(),
@@ -54,6 +60,7 @@ function cartOf(items: ViewCartItem[]): ViewCart {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(getPrincipal).mockReturnValue({ id: "u1" } as never);
   vi.mocked(isCheckoutEnabled).mockResolvedValue(true);
   vi.mocked(listVouchers).mockResolvedValue([]);
   vi.mocked(previewVoucher).mockResolvedValue({
@@ -67,6 +74,31 @@ beforeEach(() => {
 async function renderPage(searchParams = {}) {
   render(await CartPage({ searchParams: Promise.resolve(searchParams) }));
 }
+
+describe("/cart page guard", () => {
+  it("[Cart page guard covers update and remove] cart page redirects with returnUrl", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    await expect(renderPage()).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith("/login?returnUrl=%2Fcart");
+    expect(getCartWithShopNames).not.toHaveBeenCalled();
+  });
+
+  it("[Cart page guard covers update and remove] keeps the voucher query", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    await expect(renderPage({ voucher: "A1" })).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Fcart%3Fvoucher%3DA1",
+    );
+  });
+
+  it("[Cart page guard covers update and remove] a signed-in shopper is not redirected", async () => {
+    vi.mocked(getCartWithShopNames).mockResolvedValue(cartOf([]));
+    await renderPage();
+    expect(redirect).not.toHaveBeenCalled();
+  });
+});
 
 describe("/cart page", () => {
   it("renders the Empty state with a continue-shopping link and no summary or buy button", async () => {

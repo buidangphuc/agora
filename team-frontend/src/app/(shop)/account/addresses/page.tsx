@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { AccountShell } from "@/features/account/AccountShell";
 import { AddressManager } from "@/features/address/AddressManager";
@@ -13,7 +13,7 @@ export const metadata = {
 
 export default async function AccountAddressesPage() {
   const me = getPrincipal();
-  if (!me) redirect("/login");
+  if (!me) redirectGuestToLogin("/account/addresses");
 
   const addresses = await listAddresses();
 

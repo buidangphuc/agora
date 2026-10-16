@@ -57,6 +57,28 @@
             "value": "debug_mode"
           }
         ]
+      },
+      {
+        "variableId": "4",
+        "name": "DLV - page_location",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "page_location"
+          }
+        ]
       }
     ],
     "tag": [
@@ -101,6 +123,21 @@
                     "type": "TEMPLATE",
                     "key": "value",
                     "value": "{{DLV - debug_mode}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "fieldName",
+                    "value": "page_location"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV - page_location}}"
                   }
                 ]
               }

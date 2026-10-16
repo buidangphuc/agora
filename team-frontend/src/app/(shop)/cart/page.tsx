@@ -4,6 +4,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { CartGroups } from "@/features/cart/CartGroups";
 import { ClearCartButton } from "@/features/cart/ClearCartButton";
 import { groupByShop } from "@/features/cart/groupByShop";
@@ -16,6 +17,7 @@ import { VoucherModal } from "@/features/voucher/VoucherModal";
 import { isCheckoutEnabled } from "@/lib/flags";
 import { getCartWithShopNames } from "@/lib/gateway/cart";
 import { listVouchers, previewVoucher } from "@/lib/gateway/promotion";
+import { getPrincipal } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,7 @@ export default async function CartPage(props: {
   searchParams: Promise<SearchParams>;
 }) {
   const searchParams = await props.searchParams;
+  if (!getPrincipal()) redirectGuestToLogin("/cart", searchParams);
   // Evaluate the checkout kill-switch server-side; the browser only receives the
   // resolved boolean, never the flag SDK or the Flipt endpoint.
   const [cart, checkoutEnabled] = await Promise.all([

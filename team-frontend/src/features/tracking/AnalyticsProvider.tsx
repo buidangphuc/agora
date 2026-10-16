@@ -1,12 +1,35 @@
 "use client";
 
-import { applyConsent } from "@/lib/analytics/destinations/gtm";
+import {
+  applyConsent,
+  trackPageLocation,
+} from "@/lib/analytics/destinations/gtm";
 import { type ConsentGroups, readConsent } from "@/lib/consent/consent";
 import { type ReactNode, useEffect } from "react";
 
 const CHANGE_EVENT = "agora:consent:change";
 
 export function AnalyticsProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    // Client-side navigations go through history.pushState/replaceState;
+    // the initial load is covered by applyConsent.
+    const { pushState, replaceState } = window.history;
+    const wrap =
+      (orig: History["pushState"]): History["pushState"] =>
+      (...args) => {
+        orig.apply(window.history, args);
+        trackPageLocation();
+      };
+    window.history.pushState = wrap(pushState);
+    window.history.replaceState = wrap(replaceState);
+    window.addEventListener("popstate", trackPageLocation);
+    return () => {
+      window.history.pushState = pushState;
+      window.history.replaceState = replaceState;
+      window.removeEventListener("popstate", trackPageLocation);
+    };
+  }, []);
+
   useEffect(() => {
     // generation bumps on withdrawal so late identity responses are discarded
     let generation = 0;
