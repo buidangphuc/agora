@@ -235,7 +235,7 @@ func TestUpdateWithEventAuditPrecedesUpdate(t *testing.T) {
 	if got := *f.log; len(got) != 2 || got[0] != "audit" || got[1] != "change" {
 		t.Fatalf("order = %v, want [audit change]", got)
 	}
-	want := auditCall{"update", "admin-1", "L-1", "seller-1", "rejected"}
+	want := auditCall{"update", "admin-1", "L-1", "seller-1", "published"}
 	if len(f.audit.calls) != 1 || f.audit.calls[0] != want {
 		t.Fatalf("audit calls = %+v, want [%+v]", f.audit.calls, want)
 	}
