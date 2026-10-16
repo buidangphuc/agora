@@ -25,6 +25,7 @@ Implement OpenSpec change `engagement-listing-reports` test-first per its tasks.
 - team-engagement/internal/config/config_test.go
 - team-engagement/internal/bootstrap/resources.go
 - team-engagement/internal/bootstrap/lifecycle.go
+- team-engagement/internal/bootstrap/report_sweep_test.go (# widened at build: task 5)
 - team-engagement/cmd/**
 - team-engagement/proto/**
 - team-engagement/generated/**
