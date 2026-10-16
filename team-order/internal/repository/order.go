@@ -87,6 +87,19 @@ type Order struct {
 	// PaymentReminderSentAt is stamped once by MarkReminderSent when the payment
 	// reminder is emitted; nil until then.
 	PaymentReminderSentAt *time.Time
+	// ShippedAt is stamped by the move to Shipped; AutoCompleteAt is ShippedAt plus
+	// the auto-complete duration and is cleared by the move to Completed.
+	ShippedAt      *time.Time
+	AutoCompleteAt *time.Time
+	// CompletedAt and ReturnWindowEndsAt are stamped by the move to Completed.
+	CompletedAt        *time.Time
+	ReturnWindowEndsAt *time.Time
+	// ShipBy is the seller's ship-by deadline: stamped at payment (online) or at
+	// placement (COD) and never moved afterwards.
+	ShipBy *time.Time
+	// CompletedBy is the orderv1.CompletedBy of the write that won the move to
+	// Completed; it is set on the row that write returns and is not persisted.
+	CompletedBy int32
 }
 
 type OrderRepository interface {
@@ -125,7 +138,13 @@ func WithReminderOutbox(b ReminderOutboxBuilder) OrderRepoOption {
 // StatusOption tunes one UpdateOrderStatusFrom write.
 type StatusOption func(*statusConfig)
 
-type statusConfig struct{ cancelReason int32 }
+type statusConfig struct{ cancelReason, completedBy int32 }
+
+// WithCompletedBy records who completed the order (an orderv1.CompletedBy) when the
+// write wins a move to Completed; it is ignored for every other move.
+func WithCompletedBy(by int32) StatusOption {
+	return func(c *statusConfig) { c.completedBy = by }
+}
 
 // WithCancelReason stores reason on the order when the write wins a move to
 // Cancelled; it is ignored for every other move.
@@ -166,12 +185,57 @@ func WithPlacedOutbox(b PlacedOutboxBuilder) OrderRepoOption {
 
 type OrderRepoOption func(*orderRepoConfig)
 
+// CompletedOutboxBuilder turns an order that has just won the move to Completed
+// into the OrderCompleted outbox row written in the same transaction.
+type CompletedOutboxBuilder func(order Order) (OutboxRow, error)
+
+// WithCompletedOutbox makes every won move to Completed write the row built by b in
+// the SAME transaction as the status change.
+func WithCompletedOutbox(b CompletedOutboxBuilder) OrderRepoOption {
+	return func(c *orderRepoConfig) { c.completedOutbox = b }
+}
+
+// WithAutoCompleteAfter sets how long after shipping auto_complete_at is stamped.
+func WithAutoCompleteAfter(d time.Duration) OrderRepoOption {
+	return func(c *orderRepoConfig) { c.autoCompleteAfter = d }
+}
+
+// WithReturnWindow sets how long after completion the return window stays open.
+func WithReturnWindow(d time.Duration) OrderRepoOption {
+	return func(c *orderRepoConfig) { c.returnWindow = d }
+}
+
+// WithShipByAfter sets how long after payment (or COD placement) ship_by is stamped.
+func WithShipByAfter(d time.Duration) OrderRepoOption {
+	return func(c *orderRepoConfig) { c.shipByAfter = d }
+}
+
+// durSecs returns d in seconds, or nil (SQL NULL) when d is not configured.
+func durSecs(d time.Duration) *float64 {
+	if d <= 0 {
+		return nil
+	}
+	s := d.Seconds()
+	return &s
+}
+
+func stampAfter(t time.Time, d time.Duration) *time.Time {
+	if d <= 0 {
+		return nil
+	}
+	v := t.Add(d)
+	return &v
+}
+
 type orderRepoConfig struct {
 	paidOutbox      PaidOutboxBuilder
 	cancelledOutbox CancelledOutboxBuilder
 	placedOutbox    PlacedOutboxBuilder
 	reminderOutbox  ReminderOutboxBuilder
+	completedOutbox CompletedOutboxBuilder
 	outbox          OutboxRepository // in-memory repo only
+
+	autoCompleteAfter, returnWindow, shipByAfter time.Duration
 }
 
 // WithPaidOutbox makes every first transition to PAID write an outbox row built
@@ -209,21 +273,25 @@ type PostgresOrderRepository struct {
 	cancelledOutbox CancelledOutboxBuilder
 	placedOutbox    PlacedOutboxBuilder
 	reminderOutbox  ReminderOutboxBuilder
+	completedOutbox CompletedOutboxBuilder
+
+	autoCompleteAfter, returnWindow, shipByAfter time.Duration
 }
 
 func NewPostgresOrderRepository(pool *pgxpool.Pool, opts ...OrderRepoOption) *PostgresOrderRepository {
 	cfg := newOrderRepoConfig(opts)
-	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, reminderOutbox: cfg.reminderOutbox}
+	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, reminderOutbox: cfg.reminderOutbox,
+		completedOutbox: cfg.completedOutbox, autoCompleteAfter: cfg.autoCompleteAfter, returnWindow: cfg.returnWindow, shipByAfter: cfg.shipByAfter}
 }
 
-const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at, cancel_reason, payment_reminder_sent_at`
+const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at, cancel_reason, payment_reminder_sent_at, shipped_at, auto_complete_at, completed_at, return_window_ends_at, ship_by`
 const orderItemColumns = `id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url`
 
 func scanOrder(row pgx.Row, o *Order) error {
 	var addrRaw []byte
 	var statusInt int32
 	var paidAt, dueAt, remindedAt *time.Time
-	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt, &dueAt, &o.CancelReason, &remindedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt, &dueAt, &o.CancelReason, &remindedAt, &o.ShippedAt, &o.AutoCompleteAt, &o.CompletedAt, &o.ReturnWindowEndsAt, &o.ShipBy); err != nil {
 		return err
 	}
 	o.PaidAt = paidAt
@@ -271,9 +339,9 @@ func insertOrderTx(ctx context.Context, tx pgx.Tx, order *Order) error {
 	if err != nil {
 		return fmt.Errorf("marshal address: %w", err)
 	}
-	const qOrder = `INSERT INTO orders (id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, payment_due_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
-	if _, err := tx.Exec(ctx, qOrder, order.ID, order.BuyerID, order.SellerID, int32(order.Status), order.TotalAmount, order.Currency, addrBytes, order.TrackingNumber, order.CreatedAt, order.UpdatedAt, order.ShippingFee, order.ItemsSubtotal, order.PaymentMethod, order.VoucherCode, order.DiscountAmount, order.PaymentDueAt); err != nil {
+	const qOrder = `INSERT INTO orders (id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, payment_due_at, ship_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
+	if _, err := tx.Exec(ctx, qOrder, order.ID, order.BuyerID, order.SellerID, int32(order.Status), order.TotalAmount, order.Currency, addrBytes, order.TrackingNumber, order.CreatedAt, order.UpdatedAt, order.ShippingFee, order.ItemsSubtotal, order.PaymentMethod, order.VoucherCode, order.DiscountAmount, order.PaymentDueAt, order.ShipBy); err != nil {
 		return fmt.Errorf("insert order: %w", err)
 	}
 	for i := range order.Items {
@@ -435,11 +503,17 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 	const q = `UPDATE orders SET status = $2, updated_at = now(),
 			tracking_number = CASE WHEN $4 <> '' THEN $4 ELSE tracking_number END,
 			paid_at = CASE WHEN $2 = 2 THEN now() ELSE paid_at END,
-			cancel_reason = CASE WHEN $2 = 5 THEN $5::int ELSE cancel_reason END
+			cancel_reason = CASE WHEN $2 = 5 THEN $5::int ELSE cancel_reason END,
+			ship_by = CASE WHEN $2 = 2 THEN now() + make_interval(secs => $6::float8) ELSE ship_by END,
+			shipped_at = CASE WHEN $2 = 3 THEN now() ELSE shipped_at END,
+			auto_complete_at = CASE WHEN $2 = 3 THEN now() + make_interval(secs => $7::float8)
+			                        WHEN $2 = 4 THEN NULL ELSE auto_complete_at END,
+			completed_at = CASE WHEN $2 = 4 THEN now() ELSE completed_at END,
+			return_window_ends_at = CASE WHEN $2 = 4 THEN now() + make_interval(secs => $8::float8) ELSE return_window_ends_at END
 		WHERE id = $1 AND status = ANY($3)
 		RETURNING ` + orderColumns
 	var o Order
-	if err := scanOrder(tx.QueryRow(ctx, q, id, int32(to), statusInts(allowedFrom), trackingNumber, cfg.cancelReason), &o); err != nil {
+	if err := scanOrder(tx.QueryRow(ctx, q, id, int32(to), statusInts(allowedFrom), trackingNumber, cfg.cancelReason, durSecs(r.shipByAfter), durSecs(r.autoCompleteAfter), durSecs(r.returnWindow)), &o); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 			var exists bool
 			if qerr := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orders WHERE id = $1)`, id).Scan(&exists); qerr != nil {
@@ -481,6 +555,18 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 			return Order{}, err
 		}
 	}
+	if to == OrderStatusCompleted {
+		o.CompletedBy = cfg.completedBy
+		if r.completedOutbox != nil {
+			row, err := r.completedOutbox(o)
+			if err != nil {
+				return Order{}, fmt.Errorf("build order completed outbox row: %w", err)
+			}
+			if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+				return Order{}, err
+			}
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Order{}, fmt.Errorf("commit tx: %w", err)
 	}
@@ -495,13 +581,17 @@ type InMemoryOrderRepository struct {
 	cancelledOutbox CancelledOutboxBuilder
 	placedOutbox    PlacedOutboxBuilder
 	reminderOutbox  ReminderOutboxBuilder
+	completedOutbox CompletedOutboxBuilder
 	outbox          OutboxRepository
+
+	autoCompleteAfter, returnWindow, shipByAfter time.Duration
 }
 
 func NewInMemoryOrderRepository(opts ...OrderRepoOption) *InMemoryOrderRepository {
 	cfg := newOrderRepoConfig(opts)
 	return &InMemoryOrderRepository{orders: make(map[string]Order), paidOutbox: cfg.paidOutbox,
-		cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, reminderOutbox: cfg.reminderOutbox, outbox: cfg.outbox}
+		cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, reminderOutbox: cfg.reminderOutbox, outbox: cfg.outbox,
+		completedOutbox: cfg.completedOutbox, autoCompleteAfter: cfg.autoCompleteAfter, returnWindow: cfg.returnWindow, shipByAfter: cfg.shipByAfter}
 }
 
 func (r *InMemoryOrderRepository) CreateOrder(_ context.Context, order Order) (Order, error) {
@@ -595,6 +685,19 @@ func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 	if to == OrderStatusPaid {
 		paidAt := o.UpdatedAt
 		o.PaidAt = &paidAt
+		o.ShipBy = stampAfter(paidAt, r.shipByAfter)
+	}
+	if to == OrderStatusShipped {
+		shippedAt := o.UpdatedAt
+		o.ShippedAt = &shippedAt
+		o.AutoCompleteAt = stampAfter(shippedAt, r.autoCompleteAfter)
+	}
+	if to == OrderStatusCompleted {
+		completedAt := o.UpdatedAt
+		o.CompletedAt = &completedAt
+		o.AutoCompleteAt = nil
+		o.ReturnWindowEndsAt = stampAfter(completedAt, r.returnWindow)
+		o.CompletedBy = cfg.completedBy
 	}
 	// Mirror the Postgres repo: the outbox row and the status change are one unit;
 	// the order is stored only after the row is enqueued.
@@ -611,6 +714,15 @@ func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 		row, err := r.cancelledOutbox(o)
 		if err != nil {
 			return Order{}, fmt.Errorf("build order cancelled outbox row: %w", err)
+		}
+		if err := r.outbox.Enqueue(ctx, row); err != nil {
+			return Order{}, err
+		}
+	}
+	if to == OrderStatusCompleted && r.completedOutbox != nil && r.outbox != nil {
+		row, err := r.completedOutbox(o)
+		if err != nil {
+			return Order{}, fmt.Errorf("build order completed outbox row: %w", err)
 		}
 		if err := r.outbox.Enqueue(ctx, row); err != nil {
 			return Order{}, err
