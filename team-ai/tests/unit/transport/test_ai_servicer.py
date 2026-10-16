@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 
 import grpc
 import pytest
-
 from loguru import logger
 
 from app.core.errors import ServiceUnavailableError
@@ -19,7 +18,6 @@ from app.transport.grpc._pb.platform.ai.v1 import ai_pb2, ai_pb2_grpc
 from app.transport.grpc.server import build_grpc_server
 from app.transport.grpc.servicers.ai import ai_service_registration
 from tests.factories import allow_all_limiter
-
 
 _MARKER = "screen-review-marker"
 _MARKER_SCREEN = MockScreenService(_MARKER)
