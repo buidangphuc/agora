@@ -1,0 +1,39 @@
+# plans/q3-audit-log/slices.yaml — one slice = one OpenSpec change.
+initiative: q3-audit-log
+slices:
+  - id: q3-audit-log-contract
+    owner: platform-core
+    depends_on: []
+    provides: [AuditService.QueryAuditLog]
+  - id: audit-query-filters
+    owner: team-audit
+    depends_on: [q3-audit-log-contract]
+    uses: [AuditService.QueryAuditLog, AuditService.WriteAuditEvent]
+  - id: verification-kyc-audit
+    owner: team-verification
+    depends_on: [audit-query-filters]
+    uses: [AuditService.WriteAuditEvent, VerificationService.ReviewKyc]
+  - id: engagement-dispute-audit
+    owner: team-engagement
+    depends_on: [audit-query-filters]
+    uses: [AuditService.WriteAuditEvent, EngagementService.ResolveDispute]
+  - id: domain-admin-listing-audit
+    owner: team-domain
+    depends_on: [audit-query-filters]
+    uses: [AuditService.WriteAuditEvent, ListingService.UpdateListing, ListingService.DeleteListing]
+  - id: order-admin-audit
+    owner: team-order
+    depends_on: [audit-query-filters]
+    uses: [AuditService.WriteAuditEvent, OrderService.ForceFailSaga, OrderService.UpdateOrderStatus, OrderService.UpdateReturnStatus, OrderService.CreateShipment]
+  - id: payment-admin-refund-audit
+    owner: team-payment
+    depends_on: [audit-query-filters]
+    uses: [AuditService.WriteAuditEvent, PaymentService.RefundPayment]
+  - id: promotion-admin-audit
+    owner: team-promotion
+    depends_on: [audit-query-filters]
+    uses: [AuditService.WriteAuditEvent, VoucherService.CreateVoucher, FlashSaleService.CreateCampaign, SponsoredService.CreateAdCampaign]
+  - id: frontend-audit-viewer
+    owner: team-frontend
+    depends_on: [audit-query-filters]
+    uses: [AuditService.QueryAuditLog]
