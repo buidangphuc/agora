@@ -318,3 +318,59 @@ func TestEnvExampleDocumentsAIUpstream(t *testing.T) {
 		}
 	}
 }
+
+// Seller hold: Consumer disabled does nothing -- the identity consumer is opt-in.
+func TestIdentityConsumerDefaults_SellerHoldConsumerDisabledDoesNothing(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if s.Events.IdentityConsumerEnabled {
+		t.Error("default IDENTITY_CONSUMER_ENABLED should be false")
+	}
+	if s.Events.IdentityTopic != "identity.events" {
+		t.Errorf("default KAFKA_IDENTITY_TOPIC = %q, want identity.events", s.Events.IdentityTopic)
+	}
+	if s.Events.IdentityGroup != "team-domain-identity" {
+		t.Errorf("default KAFKA_IDENTITY_GROUP = %q, want team-domain-identity", s.Events.IdentityGroup)
+	}
+}
+
+// Seller hold: Consumer disabled does nothing -- env overrides are honoured.
+func TestIdentityConsumerEnvOverrides_SellerHoldConsumerDisabledDoesNothing(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("IDENTITY_CONSUMER_ENABLED", "true")
+	t.Setenv("KAFKA_IDENTITY_TOPIC", "custom.identity")
+	t.Setenv("KAFKA_IDENTITY_GROUP", "custom-group")
+	s, err := LoadSettings()
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if !s.Events.IdentityConsumerEnabled || s.Events.IdentityTopic != "custom.identity" || s.Events.IdentityGroup != "custom-group" {
+		t.Errorf("overrides not applied: %+v", s.Events)
+	}
+}
+
+// Seller hold: Consumer disabled does nothing -- keys are declared (and so must be
+// documented in .env.example by TestEnvExampleInSync).
+func TestIdentityConsumerKeysDeclared_SellerHoldConsumerDisabledDoesNothing(t *testing.T) {
+	declared := map[string]bool{}
+	for _, k := range DeclaredEnvKeys() {
+		declared[k] = true
+	}
+	for _, k := range []string{"IDENTITY_CONSUMER_ENABLED", "KAFKA_IDENTITY_TOPIC", "KAFKA_IDENTITY_GROUP"} {
+		if !declared[k] {
+			t.Errorf("%s not declared", k)
+		}
+	}
+	b, err := os.ReadFile("../../.env.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"IDENTITY_CONSUMER_ENABLED=", "KAFKA_IDENTITY_TOPIC=", "KAFKA_IDENTITY_GROUP="} {
+		if !strings.Contains(string(b), "\n"+k) && !strings.HasPrefix(string(b), k) {
+			t.Errorf(".env.example missing %s", k)
+		}
+	}
+}
