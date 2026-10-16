@@ -2,6 +2,12 @@ package edge_test
 
 import (
 	"context"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,6 +17,7 @@ import (
 
 	listingv1 "github.com/buidangphuc/team-gateway/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-gateway/internal/edge"
+	"github.com/buidangphuc/team-gateway/internal/upstream"
 )
 
 // fakeListingClient records what reaches the upstream.
@@ -58,5 +65,60 @@ func TestBatchGetStorefrontsForwardsUnchanged(t *testing.T) {
 	}
 	if len(res.Msg.GetShops()) != 1 || res.Msg.GetShops()[0].GetDisplayName() != "Shop Alpha" {
 		t.Errorf("response not passed through: %v", res.Msg)
+	}
+}
+
+const (
+	moderateListingPath     = "/platform.listing.v1.ListingService/ModerateListing"
+	listModerationQueuePath = "/platform.listing.v1.ListingService/ListModerationQueue"
+)
+
+type moderationUpstream struct {
+	listingv1.ListingServiceClient
+	moderate atomic.Int64
+	queue    atomic.Int64
+}
+
+func (m *moderationUpstream) ModerateListing(context.Context, *listingv1.ModerateListingRequest, ...grpc.CallOption) (*listingv1.ModerateListingResponse, error) {
+	m.moderate.Add(1)
+	return &listingv1.ModerateListingResponse{}, nil
+}
+
+func (m *moderationUpstream) ListModerationQueue(context.Context, *listingv1.ListModerationQueueRequest, ...grpc.CallOption) (*listingv1.ListModerationQueueResponse, error) {
+	m.queue.Add(1)
+	return &listingv1.ListModerationQueueResponse{}, nil
+}
+
+func callModeration(t *testing.T, up *moderationUpstream, path func(f *cockpitFixture) string, auth func(f *cockpitFixture) string) (int, string) {
+	t.Helper()
+	f := newCockpitFixture(t)
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Listing: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	t.Cleanup(srv.Close)
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+path(f), strings.NewReader(`{"listing_id":"l-1","decision":"MODERATION_DECISION_APPROVE"}`))
+	req.Header.Set("Content-Type", "application/json")
+	if a := auth(f); a != "" {
+		req.Header.Set("Authorization", a)
+	}
+	res, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	b, _ := io.ReadAll(res.Body)
+	return res.StatusCode, string(b)
+}
+
+// Scenario: Edge: Admin token reaches team-domain.
+func TestListingForwarderModerationForwards(t *testing.T) {
+	up := &moderationUpstream{}
+	admin := func(f *cockpitFixture) string { return "Bearer " + f.token(t, "admin") }
+	if code, body := callModeration(t, up, func(*cockpitFixture) string { return listModerationQueuePath }, admin); code != http.StatusOK {
+		t.Fatalf("admin ListModerationQueue = %d %s, want 200", code, body)
+	}
+	if code, body := callModeration(t, up, func(*cockpitFixture) string { return moderateListingPath }, admin); code != http.StatusOK {
+		t.Fatalf("admin ModerateListing = %d %s, want 200", code, body)
+	}
+	if up.queue.Load() != 1 || up.moderate.Load() != 1 {
+		t.Fatalf("upstream calls queue=%d moderate=%d, want 1 and 1", up.queue.Load(), up.moderate.Load())
 	}
 }

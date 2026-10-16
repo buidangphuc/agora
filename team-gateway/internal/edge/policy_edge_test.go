@@ -96,3 +96,31 @@ func TestOnlyAdminsCanReadTheChannelFunnel_EdgeRejects(t *testing.T) {
 		})
 	}
 }
+
+// Scenario: Edge: Seller token gets 403 on moderation RPCs.
+func TestPolicyEdgeModerationAdminOnly(t *testing.T) {
+	for _, path := range []string{moderateListingPath, listModerationQueuePath} {
+		up := &moderationUpstream{}
+		code, body := callModeration(t, up, func(*cockpitFixture) string { return path }, func(f *cockpitFixture) string {
+			return "Bearer " + f.token(t, "listing:write")
+		})
+		if code != http.StatusForbidden || !strings.Contains(body, "permission_denied") {
+			t.Fatalf("seller %s = %d %s, want 403 permission_denied", path, code, body)
+		}
+		if n := up.moderate.Load() + up.queue.Load(); n != 0 {
+			t.Fatalf("seller %s reached upstream %d times, want 0", path, n)
+		}
+	}
+}
+
+// Scenario: Edge: Anonymous gets 401 on moderation RPCs.
+func TestPolicyEdgeModerationAnonymousUnauthenticated(t *testing.T) {
+	up := &moderationUpstream{}
+	code, body := callModeration(t, up, func(*cockpitFixture) string { return moderateListingPath }, func(*cockpitFixture) string { return "" })
+	if code != http.StatusUnauthorized || !strings.Contains(body, "unauthenticated") {
+		t.Fatalf("anonymous ModerateListing = %d %s, want 401 unauthenticated", code, body)
+	}
+	if n := up.moderate.Load(); n != 0 {
+		t.Fatalf("upstream calls = %d, want 0", n)
+	}
+}
