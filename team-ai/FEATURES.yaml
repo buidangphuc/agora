@@ -1484,18 +1484,370 @@ features:
     acceptance:
       - "ai-listing-screen: The edge does not route ScreenListing"
     tags: [ai, trust]
-    status: planned
+    status: automated
     covered_by: "ai/listing_screen_edge.feature::The edge does not route ScreenListing"
 
-  - id: ai.listing-screen-verdict
-    title: "ScreenListing verdict, fail-safe and published-only RAG index"
+  - id: ai.listing-screen-unit.mock-backend-flags-a-listing-containing-the-marker
+    title: "Mock backend flags a listing containing the marker"
     persona: seller
-    priority: P1
-    summary: "Service-only screen verdict (mock default) and PUBLISHED-only RAG indexing."
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
     entry_route: /
     services: [team-ai]
     acceptance:
-      - "ai-listing-screen: all scenarios other than the edge scenario"
+      - "ai-listing-screen: Mock backend flags a listing containing the marker"
     tags: [ai, trust]
     status: not-testable
-    notes: "ai-listing-screen: service-only RPC and RAG_ENABLED off in the e2e stack; each scenario is VERIFIED BY a team-ai unit test named in the spec. Mock marker flow end to end is covered by domain-listing-moderation."
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/transport/test_ai_servicer.py` `test_screen_listing_mock_marker_in_title_is_review`"
+
+  - id: ai.listing-screen-unit.mock-backend-allows-a-listing-without-the-marker
+    title: "Mock backend allows a listing without the marker"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Mock backend allows a listing without the marker"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/transport/test_ai_servicer.py` `test_screen_listing_mock_clean_text_is_allow`"
+
+  - id: ai.listing-screen-unit.default-mock-settings-allow-ordinary-seed-listing-text
+    title: "Default mock settings allow ordinary seed listing text"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Default mock settings allow ordinary seed listing text"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/screen/test_mock_screen.py` `test_default_settings_allow_clean_seed_text`"
+
+  - id: ai.listing-screen-unit.marker-in-the-description-is-matched-case-insensitively-at-a
+    title: "Marker in the description is matched case-insensitively at any position"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Marker in the description is matched case-insensitively at any position"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/screen/test_mock_screen.py` `test_marker_matches_case_insensitively_past_8000_chars`"
+
+  - id: ai.listing-screen-unit.mock-verdict-is-deterministic-and-makes-no-outbound-call
+    title: "Mock verdict is deterministic and makes no outbound call"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Mock verdict is deterministic and makes no outbound call"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/screen/test_mock_screen.py` `test_mock_is_deterministic_and_offline`"
+
+  - id: ai.listing-screen-unit.blank-title-is-refused
+    title: "Blank title is refused"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Blank title is refused"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/transport/test_ai_servicer.py` `test_screen_listing_blank_title_is_invalid_argument`"
+
+  - id: ai.listing-screen-unit.default-backend-is-mock-and-an-unknown-backend-fails-startup
+    title: "Default backend is mock and an unknown backend fails startup"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Default backend is mock and an unknown backend fails startup"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/core/test_screen_settings.py` `test_screen_backend_defaults_to_mock_and_rejects_unknown`"
+
+  - id: ai.listing-screen-unit.llm-review-verdict-is-returned-with-its-labels
+    title: "LLM review verdict is returned with its labels"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: LLM review verdict is returned with its labels"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/screen/test_llm_screen.py` `test_llm_review_verdict_carries_labels`"
+
+  - id: ai.listing-screen-unit.llm-allow-verdict-is-returned
+    title: "LLM allow verdict is returned"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: LLM allow verdict is returned"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/screen/test_llm_screen.py` `test_llm_allow_verdict`"
+
+  - id: ai.listing-screen-unit.unparseable-model-output-becomes-review
+    title: "Unparseable model output becomes REVIEW"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Unparseable model output becomes REVIEW"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/screen/test_llm_screen.py` `test_unparseable_output_is_review`"
+
+  - id: ai.listing-screen-unit.labels-outside-the-closed-set-are-dropped
+    title: "Labels outside the closed set are dropped"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Labels outside the closed set are dropped"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/screen/test_llm_screen.py` `test_unknown_labels_are_dropped`"
+
+  - id: ai.listing-screen-unit.provider-error-is-unavailable-never-allow
+    title: "Provider error is UNAVAILABLE, never ALLOW"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Provider error is UNAVAILABLE, never ALLOW"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/transport/test_ai_servicer.py` `test_screen_listing_provider_error_is_unavailable`"
+
+  - id: ai.listing-screen-unit.a-call-slower-than-the-timeout-is-unavailable
+    title: "A call slower than the timeout is UNAVAILABLE"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: A call slower than the timeout is UNAVAILABLE"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/screen/test_llm_screen.py` `test_slow_llm_times_out_as_unavailable`"
+
+  - id: ai.listing-screen-unit.listing-text-is-truncated-and-passed-as-data
+    title: "Listing text is truncated and passed as data"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Listing text is truncated and passed as data"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/screen/test_llm_screen.py` `test_text_is_truncated_and_delimited`"
+
+  - id: ai.listing-screen-unit.llm-router-without-the-ai-extra-fails-at-boot
+    title: "llm_router without the ai extra fails at boot"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: llm_router without the ai extra fails at boot"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/screen/test_factory.py` `test_llm_router_without_extra_fails_at_boot`"
+
+  - id: ai.listing-screen-unit.caller-without-the-scope-is-refused
+    title: "Caller without the scope is refused"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Caller without the scope is refused"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/transport/test_ai_servicer.py` `test_screen_listing_requires_the_scope`"
+
+  - id: ai.listing-screen-unit.user-principal-holding-the-scope-is-refused
+    title: "User principal holding the scope is refused"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: User principal holding the scope is refused"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/transport/test_ai_servicer.py` `test_screen_listing_user_principal_is_refused`"
+
+  - id: ai.listing-screen-unit.call-without-a-principal-is-refused
+    title: "Call without a principal is refused"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Call without a principal is refused"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/transport/test_ai_servicer.py` `test_screen_listing_without_principal_is_unauthenticated`"
+
+  - id: ai.listing-screen-unit.every-aiservice-rpc-except-shoppingassistant-has-a-scope-ent
+    title: "Every AIService RPC except ShoppingAssistant has a scope entry"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Every AIService RPC except ShoppingAssistant has a scope entry"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/transport/test_grpc_scopes.py` `test_every_ai_rpc_is_gated_or_explicitly_open` (existing) and `test_screen_listing_scope_is_ai_classify` (new)"
+
+  - id: ai.listing-screen-unit.screening-does-not-log-listing-text
+    title: "Screening does not log listing text"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-screen; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-screen: Screening does not log listing text"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-screen: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/transport/test_ai_servicer.py` `test_screen_listing_does_not_log_listing_text`"
+
+  - id: ai.listing-screen-unit.statuses-that-hide-a-listing-delete-it-from-the-index
+    title: "Statuses that hide a listing delete it from the index"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-index; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-index: Statuses that hide a listing delete it from the index"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-index: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/listing_indexer/test_handler.py` `test_non_published_statuses_delete_from_index`"
+
+  - id: ai.listing-screen-unit.a-held-listing-is-indexed-again-when-it-returns-to-published
+    title: "A held listing is indexed again when it returns to PUBLISHED"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-index; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-index: A held listing is indexed again when it returns to PUBLISHED"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-index: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/listing_indexer/test_handler.py` `test_held_then_published_is_reindexed`"
+
+  - id: ai.listing-screen-unit.a-status-the-decoder-does-not-know-is-not-indexed
+    title: "A status the decoder does not know is not indexed"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-index; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-index: A status the decoder does not know is not indexed"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-index: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/listing_indexer/test_decode.py` `test_unknown_status_number_decodes_to_unknown` and `tests/unit/modules/listing_indexer/test_handler.py` `test_unknown_status_deletes`"
+
+  - id: ai.listing-screen-unit.decoder-maps-the-new-statuses
+    title: "Decoder maps the new statuses"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-index; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-index: Decoder maps the new statuses"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-index: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/listing_indexer/test_decode.py` `test_new_statuses_are_decoded`"
+
+  - id: ai.listing-screen-unit.status-0-decodes-to-empty-and-is-indexed
+    title: "Status 0 decodes to empty and is indexed"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-index; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-index: Status 0 decodes to empty and is indexed"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-index: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/listing_indexer/test_decode.py` `test_unspecified_status_decodes_to_empty` and `tests/unit/modules/listing_indexer/test_handler.py` `test_unspecified_envelope_is_indexed`"
+
+  - id: ai.listing-screen-unit.a-published-listing-is-still-indexed-once
+    title: "A PUBLISHED listing is still indexed once"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-index; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-index: A PUBLISHED listing is still indexed once"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-index: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/listing_indexer/test_handler.py` `test_repeated_event_id_is_duplicate`"
+
+  - id: ai.listing-screen-unit.legacy-unspecified-status-is-still-indexed
+    title: "Legacy UNSPECIFIED status is still indexed"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-index; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-index: Legacy UNSPECIFIED status is still indexed"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-index: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/listing_indexer/test_handler.py` `test_unknown_status_defaults_to_published_metadata`"
+
+  - id: ai.listing-screen-unit.an-older-held-event-does-not-unpublish-a-newer-published-lis
+    title: "An older HELD event does not unpublish a newer PUBLISHED listing"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of ai-listing-index; service-only, no edge path."
+    entry_route: /
+    services: [team-ai]
+    acceptance:
+      - "ai-listing-index: An older HELD event does not unpublish a newer PUBLISHED listing"
+    tags: [ai, trust]
+    status: not-testable
+    notes: "ai-listing-index: service-only behaviour, no edge path. VERIFIED BY team-ai `tests/unit/modules/listing_indexer/test_handler.py` `test_older_event_is_stale`"
+
