@@ -5,9 +5,9 @@ Feature: Admin listing edits are audited
 
   Scenario: Listing audit: Admin update and delete are audited end to end
     Given a seller owns a listing for the admin audit check
-    When the seeded admin rejects the listing through the gateway
-    Then the update succeeded and the listing has status "LISTING_STATUS_REJECTED"
-    And the audit log holds exactly one "listing.admin_update" event for the listing by the admin with the seller id and status "rejected"
+    When the seeded admin sends status rejected through UpdateListing
+    Then the update succeeded and the listing keeps its stored status
+    And the audit log holds exactly one "listing.admin_update" event for the listing by the admin with the seller id and the stored status
     When the seeded admin deletes the listing through the gateway
     Then the delete succeeded and the listing is gone
     And the audit log holds exactly one "listing.admin_delete" event for the listing by the admin with the seller id

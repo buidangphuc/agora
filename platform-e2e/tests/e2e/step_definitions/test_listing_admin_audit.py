@@ -81,6 +81,7 @@ def seller_listing(world: World) -> None:
     assert resp.status_code == 200, f"CreateListing failed: {resp.status_code} {resp.text}"
     listing_id = resp.json()["listing"]["id"]
     st = _x(world)
+    st["la_before"] = (_get(aud.admin_token(world), listing_id).json().get("listing") or {}).get("status")
     st.update(la_owner=token, la_owner_id=_sub(token), la_listing=listing_id, la_admin=aud.admin_token(world))
     st["la_admin_id"] = _sub(st["la_admin"])
     world.add_cleanup(lambda: _call(token, "DeleteListing", {"id": listing_id}))
@@ -107,6 +108,12 @@ def admin_rejects(world: World) -> None:
 def admin_deletes(world: World) -> None:
     st = _x(world)
     st["la_resp"] = _call(st["la_admin"], "DeleteListing", {"id": st["la_listing"]})
+
+
+@when("the seeded admin sends status rejected through UpdateListing")
+def admin_sends_rejected(world: World) -> None:
+    st = _x(world)
+    st["la_resp"] = _update(st["la_admin"], st["la_listing"], status="LISTING_STATUS_REJECTED")
 
 
 @when(parsers.parse('the owner renames the listing to "{title}"'))
@@ -143,6 +150,15 @@ def update_title(world: World, title: str) -> None:
     assert got == title, f"title={got!r}, want {title!r}"
 
 
+@then("the update succeeded and the listing keeps its stored status")
+def update_keeps_status(world: World) -> None:
+    st = _x(world)
+    assert st["la_resp"].status_code == 200, f"{st['la_resp'].status_code} {st['la_resp'].text}"
+    got = (_get(st["la_admin"], st["la_listing"]).json().get("listing") or {}).get("status")
+    assert got == st["la_before"], f"status={got!r}, want unchanged {st['la_before']!r} (status is server-owned)"
+    assert got != "LISTING_STATUS_REJECTED", "admin UpdateListing set the status"
+
+
 @then("the delete succeeded and the listing is gone")
 def delete_ok(world: World) -> None:
     st = _x(world)
@@ -166,6 +182,25 @@ def one_event_status(world: World, action: str, status: str) -> None:
         action=action,
         actor_id=st["la_admin_id"],
         metadata={"seller_id": st["la_owner_id"], "status": status},
+    )
+
+
+@then(
+    parsers.parse(
+        'the audit log holds exactly one "{action}" event for the listing by the admin '
+        "with the seller id and the stored status"
+    )
+)
+def one_event_stored_status(world: World, action: str) -> None:
+    st = _x(world)
+    stored = st["la_before"].removeprefix("LISTING_STATUS_").lower()
+    aud.assert_one_event(
+        world,
+        target_type=TARGET_TYPE,
+        target_id=st["la_listing"],
+        action=action,
+        actor_id=st["la_admin_id"],
+        metadata={"seller_id": st["la_owner_id"], "status": stored},
     )
 
 
