@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from app.modules.business.ai_assistant.factory import AIAssistantServices
     from app.modules.business.chat.ports import ChatService
     from app.modules.business.completions.service import CompletionService
+    from app.modules.business.listing_screen.ports import ScreenService
     from app.modules.business.recommendation.factory import RecommendationClients
     from app.modules.business.recommendation.service import RecommendationService
     from app.modules.business.tag_classifier.service import TagClassifierService
@@ -45,6 +46,7 @@ class ApplicationResources:
     ai_assistant: AIAssistantServices = field(init=False)
     chat: ChatService = field(init=False)
     tag_classifier: TagClassifierService = field(init=False)
+    screen: ScreenService = field(init=False)
     recommendation: RecommendationService = field(init=False)
     # Core infrastructure
     redis: Redis | None = None

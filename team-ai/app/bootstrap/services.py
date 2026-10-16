@@ -24,6 +24,7 @@ from app.modules.business.completions.service import (
     CompletionService,
     StreamPolicy,
 )
+from app.modules.business.listing_screen.factory import build_screen_service
 from app.modules.business.recommendation.factory import (
     build_candidate_source,
     build_recommendation_service,
@@ -84,6 +85,7 @@ def compose_business_services(
     resources.tag_classifier = TagClassifierService(
         store=opened(resources.taxonomy_store, "taxonomy store")
     )
+    resources.screen = build_screen_service(settings)
     clients = opened(resources.recommendation_clients, "recommendation clients")
     resources.recommendation = build_recommendation_service(
         settings,
