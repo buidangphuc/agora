@@ -1,4 +1,5 @@
-import { notFound, redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
+import { notFound } from "next/navigation";
 
 import { Result } from "@/components/ui/Result";
 import { ListingForm } from "@/features/listing/ListingForm";
@@ -17,7 +18,8 @@ export default async function SellerEditPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
-  if (!hasScope("listing.write")) redirect("/login");
+  if (!hasScope("listing.write"))
+    redirectGuestToLogin(`/seller/${encodeURIComponent(params.id)}/edit`);
 
   const [listing, categories] = await Promise.all([
     loadListing(params.id),

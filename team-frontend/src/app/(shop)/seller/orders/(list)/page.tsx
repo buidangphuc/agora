@@ -1,3 +1,4 @@
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { redirect } from "next/navigation";
 
 import { Alert } from "@/components/ui/Alert";
@@ -38,7 +39,7 @@ export default async function SellerOrdersPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const me = getPrincipal();
-  if (!me) redirect("/login");
+  if (!me) redirectGuestToLogin("/seller/orders", searchParams);
   if (!hasScope("listing.write")) redirect("/");
 
   const params = parseListParams(searchParams, ORDER_TABS);

@@ -1,0 +1,18 @@
+# plans/q1-session-continuity/slices.yaml — one slice = one OpenSpec change.
+initiative: q1-session-continuity
+slices:
+  - id: q1-session-refresh-contract
+    owner: platform-core
+    depends_on: []
+    provides: [AuthService.RefreshSession]
+  - id: identity-session-refresh
+    owner: team-identity
+    depends_on: [q1-session-refresh-contract]
+    uses: [AuthService.RefreshSession, identity.events/SessionRevoked]
+  - id: frontend-session-continuity
+    owner: team-frontend
+    depends_on: [identity-session-refresh]
+    uses: [AuthService.RefreshSession, SessionService.RevokeSession]
+  - id: frontend-login-return
+    owner: team-frontend
+    depends_on: [frontend-session-continuity]   # consumes the x-pathname header set by its middleware

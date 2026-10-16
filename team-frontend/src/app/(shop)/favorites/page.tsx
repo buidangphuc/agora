@@ -1,5 +1,5 @@
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
@@ -60,7 +60,7 @@ export default async function FavoritesPage(props: {
   searchParams?: Promise<{ collection?: string; page?: string }>;
 }) {
   const searchParams = await props.searchParams;
-  if (!getPrincipal()) redirect("/login");
+  if (!getPrincipal()) redirectGuestToLogin("/favorites", searchParams);
 
   const collections = await listCollections();
   const activeCollectionId = searchParams?.collection ?? "";

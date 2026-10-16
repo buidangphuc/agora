@@ -526,3 +526,619 @@ features:
     status: automated
     covered_by: "security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"
     notes: "green after rebuild: security/ar2_order_admin.feature::Buyer and seller tokens carry no order.admin"
+
+  # identity-session-refresh
+  - id: auth.session-refresh-login-returns-a-refresh-token
+    title: "Login returns a refresh token"
+    persona: buyer
+    priority: P1
+    summary: "Login returns a refresh token (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Login returns a refresh token"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Login returns a refresh token"
+
+  - id: auth.session-refresh-register-returns-a-refresh-token
+    title: "Register returns a refresh token"
+    persona: buyer
+    priority: P1
+    summary: "Register returns a refresh token (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Register returns a refresh token"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Register returns a refresh token"
+
+  - id: auth.session-refresh-unit-only-the-hash-is-persisted
+    title: "Only the hash is persisted"
+    persona: buyer
+    priority: P2
+    summary: "Only the hash is persisted"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Only the hash is persisted (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: reads the sessions table, which e2e must not access."
+
+  - id: auth.session-refresh-unit-token-and-hash-never-reach-logs-spans-or-outbox
+    title: "Token and hash never reach logs, spans or outbox"
+    persona: buyer
+    priority: P2
+    summary: "Token and hash never reach logs, spans or outbox"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Token and hash never reach logs, spans or outbox (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs log, span and outbox capture inside the service."
+
+  - id: auth.session-refresh-unit-sessions-disabled-yields-no-refresh-token
+    title: "Sessions disabled yields no refresh token"
+    persona: buyer
+    priority: P2
+    summary: "Sessions disabled yields no refresh token"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Sessions disabled yields no refresh token (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs identity started without a session repository."
+
+  - id: auth.session-refresh-unit-failed-login-issues-nothing
+    title: "Failed login issues nothing"
+    persona: buyer
+    priority: P2
+    summary: "Failed login issues nothing"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Failed login issues nothing (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: session row count is not visible through the gateway."
+
+  - id: auth.session-refresh-successful-rotation
+    title: "Successful rotation"
+    persona: buyer
+    priority: P1
+    summary: "Successful rotation (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Successful rotation"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Successful rotation keeps the session id"
+
+  - id: auth.session-refresh-unit-expiry-slides-on-use
+    title: "Expiry slides on use"
+    persona: buyer
+    priority: P2
+    summary: "Expiry slides on use"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Expiry slides on use (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs a session whose refresh expiry is 1 day away; time cannot be moved through the gateway."
+
+  - id: auth.session-refresh-the-rotated-token-is-the-only-live-one
+    title: "The rotated token is the only live one"
+    persona: buyer
+    priority: P1
+    summary: "The rotated token is the only live one (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: The rotated token is the only live one"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::The rotated token is the only live one"
+
+  - id: auth.session-refresh-unit-scopes-follow-current-roles
+    title: "Scopes follow current roles"
+    persona: buyer
+    priority: P2
+    summary: "Scopes follow current roles"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Scopes follow current roles (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: no gateway RPC changes a user's roles."
+
+  - id: auth.session-refresh-unit-a-token-resolves-only-to-its-owning-session
+    title: "A token resolves only to its owning session"
+    persona: buyer
+    priority: P2
+    summary: "A token resolves only to its owning session"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A token resolves only to its owning session (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: asserts untouched row columns that the gateway does not expose."
+
+  - id: auth.session-refresh-missing-or-oversized-token-is-unauthenticated
+    title: "Missing or oversized token is Unauthenticated"
+    persona: buyer
+    priority: P1
+    summary: "Missing or oversized token is Unauthenticated (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Missing or oversized token is Unauthenticated"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Missing or oversized token is Unauthenticated"
+
+  - id: auth.session-refresh-maximum-length-token-is-accepted-for-lookup
+    title: "Maximum-length token is accepted for lookup"
+    persona: buyer
+    priority: P1
+    summary: "Maximum-length token is accepted for lookup (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Maximum-length token is accepted for lookup"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Maximum-length token is accepted for lookup"
+
+  - id: auth.session-refresh-unit-refresh-is-callable-without-a-principal
+    title: "Refresh is callable without a Principal"
+    persona: buyer
+    priority: P2
+    summary: "Refresh is callable without a Principal"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Refresh is callable without a Principal (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: authz classification is checked by the coverage unit test; the public call itself is e2e-covered by Anonymous caller reaches identity."
+
+  - id: auth.session-refresh-unit-identity-database-down-is-not-a-logout
+    title: "Identity database down is not a logout"
+    persona: buyer
+    priority: P2
+    summary: "Identity database down is not a logout"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Identity database down is not a logout (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs stopping the identity database, which breaks the shared stack."
+
+  - id: auth.session-refresh-unknown-token
+    title: "Unknown token"
+    persona: buyer
+    priority: P1
+    summary: "Unknown token (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Unknown token"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Unknown token"
+
+  - id: auth.session-refresh-unit-expired-token
+    title: "Expired token"
+    persona: buyer
+    priority: P2
+    summary: "Expired token"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Expired token (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs a session past its refresh expiry; time cannot be moved through the gateway."
+
+  - id: auth.session-refresh-revoked-session
+    title: "Revoked session"
+    persona: buyer
+    priority: P1
+    summary: "Revoked session (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Revoked session"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Logout then refresh, end to end"
+
+  - id: auth.session-refresh-unit-owning-user-deleted
+    title: "Owning user deleted"
+    persona: buyer
+    priority: P2
+    summary: "Owning user deleted"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Owning user deleted (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: no gateway RPC deletes a user."
+
+  - id: auth.session-refresh-unit-owning-user-deleted-grace-replay
+    title: "Owning user deleted, grace replay"
+    persona: buyer
+    priority: P2
+    summary: "Owning user deleted, grace replay"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Owning user deleted, grace replay (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: no gateway RPC deletes a user."
+
+  - id: auth.session-refresh-unit-grace-replay-re-derives-scopes
+    title: "Grace replay re-derives scopes"
+    persona: buyer
+    priority: P2
+    summary: "Grace replay re-derives scopes"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Grace replay re-derives scopes (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: no gateway RPC changes a user's roles."
+
+  - id: auth.session-refresh-unit-absolute-lifetime-exceeded
+    title: "Absolute lifetime exceeded"
+    persona: buyer
+    priority: P2
+    summary: "Absolute lifetime exceeded"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Absolute lifetime exceeded (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs a session created 90 days ago; time cannot be moved through the gateway."
+
+  - id: auth.session-refresh-unit-absolute-lifetime-boundary
+    title: "Absolute lifetime boundary"
+    persona: buyer
+    priority: P2
+    summary: "Absolute lifetime boundary"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Absolute lifetime boundary (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs a session created exactly 90 days ago; time cannot be moved through the gateway."
+
+  - id: auth.session-refresh-failure-messages-do-not-leak-the-cause
+    title: "Failure messages do not leak the cause"
+    persona: buyer
+    priority: P1
+    summary: "Failure messages do not leak the cause (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Failure messages do not leak the cause"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Failure messages do not leak the cause"
+
+  - id: auth.session-refresh-reuse-after-the-grace-window-revokes
+    title: "Reuse after the grace window revokes"
+    persona: buyer
+    priority: P1
+    summary: "Reuse after the grace window revokes (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Reuse after the grace window revokes"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Reuse after the grace window revokes the session"
+
+  - id: auth.session-refresh-unit-sessionrevoked-is-published-on-reuse
+    title: "SessionRevoked is published on reuse"
+    persona: buyer
+    priority: P2
+    summary: "SessionRevoked is published on reuse"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "SessionRevoked is published on reuse (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: reads the identity outbox row, which is not visible through the gateway."
+
+  - id: auth.session-refresh-unit-revoke-and-event-are-atomic
+    title: "Revoke and event are atomic"
+    persona: buyer
+    priority: P2
+    summary: "Revoke and event are atomic"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Revoke and event are atomic (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs an injected outbox write failure."
+
+  - id: auth.session-refresh-unit-grace-window-boundary
+    title: "Grace window boundary"
+    persona: buyer
+    priority: P2
+    summary: "Grace window boundary"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Grace window boundary (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: asserts 10 s and 10 s plus 1 ms to the millisecond; wall-clock jitter makes it flaky end to end."
+
+  - id: auth.session-refresh-grace-replay-returns-an-access-token-only
+    title: "Grace replay returns an access token only"
+    persona: buyer
+    priority: P1
+    summary: "Grace replay returns an access token only (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Grace replay returns an access token only"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Grace replay returns an access token only"
+
+  - id: auth.session-refresh-parallel-tabs-do-not-trip-reuse-detection
+    title: "Parallel tabs do not trip reuse detection"
+    persona: buyer
+    priority: P1
+    summary: "Parallel tabs do not trip reuse detection (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Parallel tabs do not trip reuse detection"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Parallel tabs do not trip reuse detection"
+
+  - id: auth.session-refresh-token-older-than-one-rotation-is-rejected-without-revoke
+    title: "Token older than one rotation is rejected without revoke"
+    persona: buyer
+    priority: P1
+    summary: "Token older than one rotation is rejected without revoke (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Token older than one rotation is rejected without revoke"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Token older than one rotation is rejected without revoke"
+
+  - id: auth.session-refresh-prev-token-replay-within-grace-after-logout
+    title: "Prev-token replay within grace after logout"
+    persona: buyer
+    priority: P1
+    summary: "Prev-token replay within grace after logout (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Prev-token replay within grace after logout"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Prev-token replay within grace after logout"
+
+  - id: auth.session-refresh-unit-lost-response-retried-after-the-grace-window-counts-as-reuse
+    title: "Lost response retried after the grace window counts as reuse"
+    persona: buyer
+    priority: P2
+    summary: "Lost response retried after the grace window counts as reuse"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Lost response retried after the grace window counts as reuse (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: same observable behaviour as Reuse after the grace window revokes, which is e2e-covered."
+
+  - id: auth.session-refresh-unit-revocation-outlives-the-denylist
+    title: "Revocation outlives the denylist"
+    persona: buyer
+    priority: P2
+    summary: "Revocation outlives the denylist"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Revocation outlives the denylist (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs the access-token TTL (3600 s) to elapse."
+
+  - id: auth.session-refresh-unit-revokesession-denylist-expiry-is-now-plus-access-ttl
+    title: "RevokeSession denylist expiry is now plus access TTL"
+    persona: buyer
+    priority: P2
+    summary: "RevokeSession denylist expiry is now plus access TTL"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "RevokeSession denylist expiry is now plus access TTL (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: reads the identity outbox row, which is not visible through the gateway."
+
+  - id: identity-session-refresh.logout-then-refresh
+    title: "Logout then refresh, end to end"
+    persona: buyer
+    priority: P1
+    summary: "Logout then refresh, end to end (change identity-session-refresh)"
+    entry_route: /
+    services: [team-identity, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [identity.v1.RefreshSession]
+    acceptance:
+      - "See spec scenario: Logout then refresh, end to end"
+    tags: [auth, buyer]
+    status: automated
+    covered_by: "auth/session_refresh.feature::Logout then refresh, end to end"
+
+  - id: auth.session-refresh-unit-legacy-session-without-a-refresh-hash
+    title: "Legacy session without a refresh hash"
+    persona: buyer
+    priority: P2
+    summary: "Legacy session without a refresh hash"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Legacy session without a refresh hash (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs a pre-migration row, which requires direct database access."
+
+  - id: auth.session-refresh-unit-down-migration-restores-the-old-schema
+    title: "Down migration restores the old schema"
+    persona: buyer
+    priority: P2
+    summary: "Down migration restores the old schema"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Down migration restores the old schema (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs running the down migration against the database."
+
+  - id: auth.session-refresh-unit-duplicate-hash-is-refused
+    title: "Duplicate hash is refused"
+    persona: buyer
+    priority: P2
+    summary: "Duplicate hash is refused"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Duplicate hash is refused (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-refresh: unit-verified, see the VERIFIED BY line in the spec. Not producible end to end: needs direct inserts into the sessions table."

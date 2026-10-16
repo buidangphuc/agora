@@ -6,6 +6,12 @@ import { listAddresses } from "@/lib/gateway/addresses";
 import { getPrincipal } from "@/lib/gateway/session";
 
 vi.mock("@/lib/gateway/addresses", () => ({ listAddresses: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  }),
+  notFound: vi.fn(),
+}));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
 vi.mock("@/features/address/actions", () => ({
   createAddressAction: vi.fn(),
@@ -22,8 +28,10 @@ describe("/account/addresses", () => {
   it("redirects an anonymous visitor to /login", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
     vi.mocked(listAddresses).mockResolvedValue([]);
-    await AccountAddressesPage();
-    expect(redirect).toHaveBeenCalledWith("/login");
+    await expect(AccountAddressesPage()).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Faccount%2Faddresses",
+    );
   });
 
   it("renders inside the AccountShell with the address list", async () => {

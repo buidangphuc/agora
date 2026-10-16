@@ -15,7 +15,11 @@
 #   changed only to follow a dependency/tooling bump (no new behaviour). Matching files skip the base run
 #   but must still be green at head; they are reported EXEMPT with the reason. A reason is required.
 # generated code: gitignored proto output is rebuilt with `buf generate` in both worktrees for each
-#   module (nearest buf.gen.yaml) owning a changed go/ts test; needs buf on PATH.
+#   module (nearest buf.gen.yaml) owning a changed go/ts test; needs buf on PATH. Remote BSR plugins
+#   (buf.build/{protocolbuffers,grpc,connectrpc}/go, buf.build/{bufbuild,connectrpc}/es) are rewritten
+#   to local protoc-gen-* binaries found on PATH (plus <module>/node_modules/.bin), so runs do not hit
+#   BSR rate limits. A buf generate failure fails that module's tests as "buf generate failed", never
+#   as "red at head".
 # env: REDFIRST_PYTHON (default platform-e2e/.venv/bin/python, else python3), REDFIRST_TMP (scratch dir)
 set -uo pipefail
 
@@ -28,7 +32,7 @@ while [ $# -gt 0 ]; do
     --only) ONLY="$2"; shift 2 ;;
     --allow-empty) ALLOW_EMPTY=1; shift ;;
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
-    -h|--help) sed -n 2,20p "$0"; exit 0 ;;
+    -h|--help) awk 'NR>1 && /^#/ {print; next} NR>1 {exit}' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -145,18 +149,29 @@ exempt_reason() { # exempt_reason <relfile> -> prints reason, exit 0 if exempt
   done <<< "$EXEMPT"
   return 1
 }
-gen_proto() { # gen_proto <worktree> <moddir>: `buf generate`; buf.gen.local.yaml when its local plugins exist
-  local wt="$1" mod="$2" tmpl=buf.gen.yaml p ok=1
+GEN_FAIL=()
+gen_proto() { # gen_proto <worktree> <moddir>: `buf generate` from buf.gen.yaml with remote BSR plugins
+  # rewritten to local protoc-gen-* binaries when they are on PATH (unauthenticated BSR is rate-limited).
+  # A failure is recorded in GEN_FAIL: tests of that module are then reported as a generate error.
+  local wt="$1" mod="$2" tmpl="$SCRATCH/buf.gen.$(basename "$1").yaml" path="$PATH"
   [ -f "$wt/$mod/buf.gen.yaml" ] || return 0
-  command -v buf >/dev/null || { echo "red_first: WARN buf not installed; $mod has no generated code"; return 0; }
-  if [ -f "$wt/$mod/buf.gen.local.yaml" ]; then
-    for p in $(sed -nE 's/^[[:space:]]*-?[[:space:]]*local:[[:space:]]*([^[:space:]]+).*/\1/p' "$wt/$mod/buf.gen.local.yaml"); do
-      command -v "$p" >/dev/null || ok=0
-    done
-    [ $ok = 1 ] && tmpl=buf.gen.local.yaml
+  command -v buf >/dev/null || { echo "red_first: ERROR buf not installed; cannot generate proto code for $mod" >&2; GEN_FAIL+=("$mod"); return 1; }
+  # node-based plugins (protoc-gen-es, protoc-gen-connect-es) come from the checkout's node_modules
+  [ -d "$ROOT/$mod/node_modules/.bin" ] && path="$ROOT/$mod/node_modules/.bin:$path"
+  cp "$wt/$mod/buf.gen.yaml" "$tmpl"
+  local remote plugin
+  for remote in buf.build/protocolbuffers/go=protoc-gen-go buf.build/grpc/go=protoc-gen-go-grpc \
+                buf.build/connectrpc/go=protoc-gen-connect-go buf.build/bufbuild/es=protoc-gen-es \
+                buf.build/connectrpc/es=protoc-gen-connect-es; do
+    plugin="${remote#*=}"; remote="${remote%%=*}"
+    PATH="$path" command -v "$plugin" >/dev/null || continue
+    # `remote: buf.build/x/y[:version]  # comment` -> `local: protoc-gen-y` (version pinned by the installed binary)
+    sed -E "s#remote:[[:space:]]*${remote}(:[^[:space:]]*)?([[:space:]].*)?\$#local: ${plugin}#" "$tmpl" > "$tmpl.new" && mv "$tmpl.new" "$tmpl"
+  done
+  if ! (cd "$wt/$mod" && PATH="$path" buf generate --template "$tmpl" >"$SCRATCH/buf.log" 2>&1); then
+    echo "red_first: ERROR buf generate failed in $mod ($(basename "$wt")): $(tail -3 "$SCRATCH/buf.log" | tr '\n' ' ')" >&2
+    GEN_FAIL+=("$mod"); return 1
   fi
-  (cd "$wt/$mod" && buf generate --template "$tmpl" >"$SCRATCH/buf.log" 2>&1) ||
-    echo "red_first: WARN buf generate failed in $mod ($(basename "$wt")): $(tail -1 "$SCRATCH/buf.log")"
 }
 GEN_MODS=()
 if [ $(( ${#GO_T[@]} + ${#PY_T[@]} + ${#TS_T[@]} )) -gt 0 ]; then
@@ -208,7 +223,10 @@ run_test() { # run_test <worktree> <kind> <relfile> -> exit status of the test c
 }
 
 check_file() { # check_file <kind> <relfile>
-  local kind="$1" f="$2" rb rh red green verdict why
+  local kind="$1" f="$2" rb rh red green verdict why mod
+  if [ "$kind" != py ] && mod=$(nearest_up "$WT_HEAD" "$f" buf.gen.yaml) && [[ " ${GEN_FAIL[*]-} " == *" $mod "* ]]; then
+    RESULTS+=("$f|n/a|n/a|FAIL: buf generate failed in $mod (see ERROR above; not a test result)"); FAIL=1; return
+  fi
   if why=$(exempt_reason "$f"); then
     run_test "$WT_HEAD" "$kind" "$f"; rh=$?
     if [ $rh -eq 0 ]; then verdict="EXEMPT ($why)"; green=yes; else verdict="FAIL: red at head"; green=no; FAIL=1; fi

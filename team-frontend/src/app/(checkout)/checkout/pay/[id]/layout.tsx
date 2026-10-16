@@ -1,4 +1,5 @@
-import { notFound, redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { getPrincipal } from "@/lib/gateway/session";
@@ -17,7 +18,8 @@ export default async function PayLayout(props: {
 
   const { children } = props;
 
-  if (!getPrincipal()) redirect("/login");
+  if (!getPrincipal())
+    redirectGuestToLogin(`/checkout/pay/${encodeURIComponent(params.id)}`);
   if (!(await loadOrder(params.id))) notFound();
   return children;
 }

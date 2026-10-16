@@ -1,3 +1,4 @@
+import { loginPath } from "@/features/auth/returnUrlShared";
 import Link from "next/link";
 
 import { Avatar } from "@/components/ui/Avatar";
@@ -66,7 +67,7 @@ export async function QuestionList({
               </a>
             ) : (
               <Link
-                href={`/login?returnUrl=/listing/${listingId}`}
+                href={loginPath(`/listing/${listingId}`)}
                 className={linkButton}
               >
                 Đăng nhập để hỏi

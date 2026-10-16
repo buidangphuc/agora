@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Tabs } from "@/components/ui/Tabs";
 import { AnalyticsView } from "@/features/seller/AnalyticsView";
@@ -23,7 +23,8 @@ export default async function SellerAnalyticsPage(props: {
 }) {
   const searchParams = (await props.searchParams) ?? {};
   const me = getPrincipal();
-  if (!me || !hasScope("listing.write")) redirect("/login");
+  if (!me || !hasScope("listing.write"))
+    redirectGuestToLogin("/seller/analytics", searchParams);
 
   const range = parseRange(searchParams.range);
   const [funnel, revenue] = await Promise.allSettled([

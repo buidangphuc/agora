@@ -152,3 +152,23 @@ func TestInternalRPCsAreNotRoutedAtTheEdge(t *testing.T) {
 		t.Fatalf("ValidateAndReserve upstream calls = %d, want 1", n)
 	}
 }
+
+// Scenario: Procedure is covered by the unrouted guard.
+func TestUnroutedGuardIncludesRefreshSession(t *testing.T) {
+	id := &fakeRefreshIdentity{}
+	e := edge.NewEdge(token.NewVerifier("http://127.0.0.1:1/jwks", time.Minute), []string{"listing.read"}, time.Second, 0, 1000, 1000)
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Identity: id}, e, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	t.Cleanup(srv.Close)
+	res, err := srv.Client().Post(srv.URL+"/platform.identity.v1.AuthService/RefreshSession", "application/json", strings.NewReader(`{"refreshToken":"rt-1"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	b, _ := io.ReadAll(res.Body)
+	if res.StatusCode == http.StatusNotImplemented || strings.Contains(string(b), "unimplemented") {
+		t.Fatalf("RefreshSession = %d %s, want routed (not unimplemented)", res.StatusCode, b)
+	}
+	if id.calls.Load() != 1 {
+		t.Fatalf("identity calls = %d, want 1", id.calls.Load())
+	}
+}
