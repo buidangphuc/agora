@@ -31,6 +31,9 @@ const ReturnRefundedEventType = "platform.order.v1.ReturnRefunded"
 // OrderPlacedEventType is the fully-qualified proto type for OrderPlaced.
 const OrderPlacedEventType = "platform.order.v1.OrderPlaced"
 
+// OrderPaymentReminderEventType is the fully-qualified proto type for OrderPaymentReminder.
+const OrderPaymentReminderEventType = "platform.order.v1.OrderPaymentReminder"
+
 // OrderEventsTopic is the Kafka topic for order lifecycle events.
 const OrderEventsTopic = "order.events"
 
@@ -220,6 +223,57 @@ func BuildPlacedOutboxRow(order repository.Order) (repository.OutboxRow, error) 
 		AggregateType: "Order",
 		AggregateID:   order.ID,
 		EventType:     OrderPlacedEventType,
+		Payload:       value,
+	}, nil
+}
+
+// orderPaymentReminderNamespace seeds deterministic OrderPaymentReminder event ids
+// (one per order: the reminder is emitted at most once).
+var orderPaymentReminderNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("agora/team-order/order.events/OrderPaymentReminder"))
+
+// OrderPaymentReminderEventID is the stable EventEnvelope.event_id for an order's reminder.
+func OrderPaymentReminderEventID(orderID string) string {
+	return uuid.NewSHA1(orderPaymentReminderNamespace, []byte(orderID)).String()
+}
+
+// BuildPaymentReminderOutboxRow is the repository.ReminderOutboxBuilder for
+// team-order: it wraps OrderPaymentReminder in an EventEnvelope keyed by order_id,
+// committed in the same transaction as the payment_reminder_sent_at stamp.
+// order.PaymentReminderSentAt is occurred_at; payment_due_at is the order's own.
+func BuildPaymentReminderOutboxRow(order repository.Order) (repository.OutboxRow, error) {
+	occurredAt := time.Now()
+	if order.PaymentReminderSentAt != nil {
+		occurredAt = *order.PaymentReminderSentAt
+	}
+	occurredAt = occurredAt.UTC()
+	ev := &orderv1.OrderPaymentReminder{
+		OrderId:     order.ID,
+		BuyerId:     order.BuyerID,
+		TotalAmount: order.TotalAmount,
+		Currency:    order.Currency,
+	}
+	if order.PaymentDueAt != nil {
+		ev.PaymentDueAt = timestamppb.New(order.PaymentDueAt.UTC())
+	}
+	eventID := OrderPaymentReminderEventID(order.ID)
+	payload, err := proto.Marshal(ev)
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal OrderPaymentReminder: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       OrderPaymentReminderEventType,
+		OccurredAt: timestamppb.New(occurredAt),
+		Payload:    payload,
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "Order",
+		AggregateID:   order.ID,
+		EventType:     OrderPaymentReminderEventType,
 		Payload:       value,
 	}, nil
 }

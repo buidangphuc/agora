@@ -57,6 +57,9 @@ type OrderService struct {
 	// paymentDeadline is how long an online-pay order may stay unpaid; snapshotted
 	// into each order at placement. Zero disables the deadline.
 	paymentDeadline time.Duration
+
+	// paymentReminderBefore is how long before the deadline the reminder is emitted.
+	paymentReminderBefore time.Duration
 }
 
 // WithPaymentDeadline sets the unpaid-order deadline applied to every non-COD

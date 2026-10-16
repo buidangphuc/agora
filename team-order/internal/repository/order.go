@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 )
 
 var ErrOrderNotFound = errors.New("order not found")
@@ -81,6 +84,9 @@ type Order struct {
 	// CancelReason is the closed orderv1.CancelReason code stored by the claim that
 	// won the move to Cancelled; 0 = unspecified.
 	CancelReason int32
+	// PaymentReminderSentAt is stamped once by MarkReminderSent when the payment
+	// reminder is emitted; nil until then.
+	PaymentReminderSentAt *time.Time
 }
 
 type OrderRepository interface {
@@ -95,6 +101,25 @@ type OrderRepository interface {
 	// transaction; a won move to Cancelled writes the OrderCancelled outbox row in
 	// the same transaction. trackingNumber, when non-empty, is stored with the change.
 	UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string, opts ...StatusOption) (Order, error)
+	// FindReminderDue returns up to limit Pending online-pay orders with a deadline,
+	// not yet reminded, whose reminder window is open: deadline-before <= now <
+	// deadline (inclusive start, exclusive deadline), earliest deadline first.
+	FindReminderDue(ctx context.Context, now time.Time, before time.Duration, limit int) ([]Order, error)
+	// MarkReminderSent is the once-only compare-and-set: it stamps
+	// payment_reminder_sent_at = now and writes the OrderPaymentReminder outbox row
+	// in the same transaction, only if the order is still Pending and unstamped.
+	// Otherwise it returns ErrOrderNotFound or ErrStatusConflict and writes nothing.
+	MarkReminderSent(ctx context.Context, id string, now time.Time) (Order, error)
+}
+
+// ReminderOutboxBuilder turns an order that has just been stamped as reminded
+// into the OrderPaymentReminder outbox row written in the same transaction.
+type ReminderOutboxBuilder func(order Order) (OutboxRow, error)
+
+// WithReminderOutbox makes every won MarkReminderSent write the reminder outbox
+// row built by b in the SAME transaction as the stamp.
+func WithReminderOutbox(b ReminderOutboxBuilder) OrderRepoOption {
+	return func(c *orderRepoConfig) { c.reminderOutbox = b }
 }
 
 // StatusOption tunes one UpdateOrderStatusFrom write.
@@ -145,6 +170,7 @@ type orderRepoConfig struct {
 	paidOutbox      PaidOutboxBuilder
 	cancelledOutbox CancelledOutboxBuilder
 	placedOutbox    PlacedOutboxBuilder
+	reminderOutbox  ReminderOutboxBuilder
 	outbox          OutboxRepository // in-memory repo only
 }
 
@@ -182,25 +208,27 @@ type PostgresOrderRepository struct {
 	paidOutbox      PaidOutboxBuilder
 	cancelledOutbox CancelledOutboxBuilder
 	placedOutbox    PlacedOutboxBuilder
+	reminderOutbox  ReminderOutboxBuilder
 }
 
 func NewPostgresOrderRepository(pool *pgxpool.Pool, opts ...OrderRepoOption) *PostgresOrderRepository {
 	cfg := newOrderRepoConfig(opts)
-	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox}
+	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, reminderOutbox: cfg.reminderOutbox}
 }
 
-const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at, cancel_reason`
+const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at, cancel_reason, payment_reminder_sent_at`
 const orderItemColumns = `id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url`
 
 func scanOrder(row pgx.Row, o *Order) error {
 	var addrRaw []byte
 	var statusInt int32
-	var paidAt, dueAt *time.Time
-	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt, &dueAt, &o.CancelReason); err != nil {
+	var paidAt, dueAt, remindedAt *time.Time
+	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt, &dueAt, &o.CancelReason, &remindedAt); err != nil {
 		return err
 	}
 	o.PaidAt = paidAt
 	o.PaymentDueAt = dueAt
+	o.PaymentReminderSentAt = remindedAt
 	o.Status = OrderStatus(statusInt)
 	if len(addrRaw) > 0 {
 		_ = json.Unmarshal(addrRaw, &o.ShippingAddress)
@@ -466,13 +494,14 @@ type InMemoryOrderRepository struct {
 	paidOutbox      PaidOutboxBuilder
 	cancelledOutbox CancelledOutboxBuilder
 	placedOutbox    PlacedOutboxBuilder
+	reminderOutbox  ReminderOutboxBuilder
 	outbox          OutboxRepository
 }
 
 func NewInMemoryOrderRepository(opts ...OrderRepoOption) *InMemoryOrderRepository {
 	cfg := newOrderRepoConfig(opts)
 	return &InMemoryOrderRepository{orders: make(map[string]Order), paidOutbox: cfg.paidOutbox,
-		cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, outbox: cfg.outbox}
+		cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, reminderOutbox: cfg.reminderOutbox, outbox: cfg.outbox}
 }
 
 func (r *InMemoryOrderRepository) CreateOrder(_ context.Context, order Order) (Order, error) {
@@ -582,6 +611,127 @@ func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 		row, err := r.cancelledOutbox(o)
 		if err != nil {
 			return Order{}, fmt.Errorf("build order cancelled outbox row: %w", err)
+		}
+		if err := r.outbox.Enqueue(ctx, row); err != nil {
+			return Order{}, err
+		}
+	}
+	r.orders[id] = o
+	return o, nil
+}
+
+// codPaymentMethod is paymentv1.PaymentMethod_PAYMENT_METHOD_COD; COD orders have
+// no payment deadline and are never reminded.
+const codPaymentMethod = int32(paymentv1.PaymentMethod_PAYMENT_METHOD_COD)
+
+func (r *PostgresOrderRepository) FindReminderDue(ctx context.Context, now time.Time, before time.Duration, limit int) ([]Order, error) {
+	const q = `SELECT ` + orderColumns + ` FROM orders
+		WHERE status = $1 AND payment_method <> $2 AND payment_due_at IS NOT NULL
+		  AND payment_reminder_sent_at IS NULL
+		  AND payment_due_at - make_interval(secs => $3) <= $4 AND payment_due_at > $4
+		ORDER BY payment_due_at, id LIMIT $5`
+	rows, err := r.pool.Query(ctx, q, int32(OrderStatusPending), codPaymentMethod, before.Seconds(), now, limit)
+	if err != nil {
+		return nil, fmt.Errorf("find reminder due: %w", err)
+	}
+	defer rows.Close()
+	var res []Order
+	for rows.Next() {
+		var o Order
+		if err := scanOrder(rows, &o); err != nil {
+			return nil, fmt.Errorf("scan order: %w", err)
+		}
+		res = append(res, o)
+	}
+	return res, rows.Err()
+}
+
+func (r *PostgresOrderRepository) MarkReminderSent(ctx context.Context, id string, now time.Time) (Order, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return Order{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	const q = `UPDATE orders SET payment_reminder_sent_at = $2
+		WHERE id = $1 AND status = $3 AND payment_reminder_sent_at IS NULL
+		RETURNING ` + orderColumns
+	var o Order
+	if err := scanOrder(tx.QueryRow(ctx, q, id, now, int32(OrderStatusPending)), &o); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			var exists bool
+			if qerr := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orders WHERE id = $1)`, id).Scan(&exists); qerr != nil {
+				return Order{}, fmt.Errorf("check order %q: %w", id, qerr)
+			}
+			if !exists {
+				return Order{}, ErrOrderNotFound
+			}
+			return Order{}, ErrStatusConflict
+		}
+		return Order{}, fmt.Errorf("mark reminder sent: %w", err)
+	}
+	items, err := loadOrderItems(ctx, tx, o.ID)
+	if err != nil {
+		return Order{}, err
+	}
+	o.Items = items
+	if r.reminderOutbox != nil {
+		row, err := r.reminderOutbox(o)
+		if err != nil {
+			return Order{}, fmt.Errorf("build payment reminder outbox row: %w", err)
+		}
+		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+			return Order{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Order{}, fmt.Errorf("commit tx: %w", err)
+	}
+	return o, nil
+}
+
+func (r *InMemoryOrderRepository) FindReminderDue(_ context.Context, now time.Time, before time.Duration, limit int) ([]Order, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var res []Order
+	for _, o := range r.orders {
+		if o.Status != OrderStatusPending || o.PaymentMethod == codPaymentMethod || o.PaymentDueAt == nil ||
+			o.PaymentReminderSentAt != nil {
+			continue
+		}
+		due := *o.PaymentDueAt
+		if due.Add(-before).After(now) || !due.After(now) {
+			continue
+		}
+		res = append(res, o)
+	}
+	sort.Slice(res, func(i, j int) bool {
+		if !res[i].PaymentDueAt.Equal(*res[j].PaymentDueAt) {
+			return res[i].PaymentDueAt.Before(*res[j].PaymentDueAt)
+		}
+		return res[i].ID < res[j].ID
+	})
+	if limit > 0 && len(res) > limit {
+		res = res[:limit]
+	}
+	return res, nil
+}
+
+func (r *InMemoryOrderRepository) MarkReminderSent(ctx context.Context, id string, now time.Time) (Order, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	o, ok := r.orders[id]
+	if !ok {
+		return Order{}, ErrOrderNotFound
+	}
+	if o.Status != OrderStatusPending || o.PaymentReminderSentAt != nil {
+		return Order{}, ErrStatusConflict
+	}
+	sent := now
+	o.PaymentReminderSentAt = &sent
+	if r.reminderOutbox != nil && r.outbox != nil {
+		row, err := r.reminderOutbox(o)
+		if err != nil {
+			return Order{}, fmt.Errorf("build payment reminder outbox row: %w", err)
 		}
 		if err := r.outbox.Enqueue(ctx, row); err != nil {
 			return Order{}, err
