@@ -769,3 +769,70 @@ describe("auth event cookie (loop events)", () => {
     expect(redirect).not.toHaveBeenCalled();
   });
 });
+
+describe("login enforcement refusals (frontend-user-enforcement)", () => {
+  const REFUSAL =
+    "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ bộ phận hỗ trợ.";
+
+  async function loginWith(err: unknown) {
+    const jar = await cookies();
+    vi.mocked(jar.set).mockClear();
+    stubAuth({ login: vi.fn().mockRejectedValue(err) });
+    const res = await loginAction(
+      initial,
+      form({ username: "x", password: "y" }),
+    );
+    return { res, jar };
+  }
+
+  it.each([
+    ["suspended", "user suspended until 2026-10-20"],
+    ["banned", "user banned"],
+  ])(
+    "Users UI: Suspended user sees the fixed refusal - maps permission denied to the fixed refusal (%s)",
+    async (_n, raw) => {
+      const { res, jar } = await loginWith(
+        new ConnectError(raw, Code.PermissionDenied),
+      );
+      expect(res).toEqual({ ok: false, error: REFUSAL, username: "x" });
+      expect(res.error).not.toContain("2026");
+      expect(res.error).not.toContain(raw);
+      expect(jar.set).not.toHaveBeenCalledWith(
+        "session",
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(redirect).not.toHaveBeenCalled();
+    },
+  );
+
+  it("Users UI: Wrong password keeps the credentials message - wrong password keeps the credentials message", async () => {
+    const { res, jar } = await loginWith(
+      new ConnectError("no", Code.Unauthenticated),
+    );
+    expect(res).toEqual({
+      ok: false,
+      error: "Tên đăng nhập hoặc mật khẩu không chính xác.",
+      username: "x",
+    });
+    expect(jar.set).not.toHaveBeenCalledWith(
+      "session",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("Users UI: Other login failures are unchanged - other failures keep the generic message", async () => {
+    const { res, jar } = await loginWith(
+      new ConnectError("down", Code.Unavailable),
+    );
+    expect(res.ok).toBe(false);
+    expect(res.error?.startsWith("Đăng nhập không thành công:")).toBe(true);
+    expect(res.error).not.toBe(REFUSAL);
+    expect(jar.set).not.toHaveBeenCalledWith(
+      "session",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+});
