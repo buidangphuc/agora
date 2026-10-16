@@ -27,7 +27,9 @@ var (
 	ErrInvalidRefundAmount   = errors.New("invalid refund amount")
 	ErrUnauthorizedReturn    = errors.New("only buyer can request return for this order")
 	ErrOrderCannotBeReturned = errors.New("order cannot be returned in current status")
-	ErrInvalidReturnStatus   = errors.New("invalid return status transition")
+	// ErrReturnWindowClosed: the completed order's return window has closed.
+	ErrReturnWindowClosed  = errors.New("return window closed")
+	ErrInvalidReturnStatus = errors.New("invalid return status transition")
 	// ErrNothingToReturn: the order's non-rejected returns already cover its total.
 	ErrNothingToReturn = errors.New("order has no returnable amount left")
 	// ErrNotPaidOnline: a return of an order with no paid_at (never paid through
@@ -60,6 +62,14 @@ type OrderService struct {
 
 	// paymentReminderBefore is how long before the deadline the reminder is emitted.
 	paymentReminderBefore time.Duration
+
+	// now is the wall clock used by the return-window gate.
+	now func() time.Time
+}
+
+// WithClock replaces the service's wall clock (used by the return-window gate).
+func WithClock(now func() time.Time) OrderServiceOption {
+	return func(s *OrderService) { s.now = now }
 }
 
 // WithPaymentDeadline sets the unpaid-order deadline applied to every non-COD
@@ -98,6 +108,7 @@ func NewOrderService(
 		logger:         logger,
 		reservationTTL: defaultReservationTTL,
 		releaseCfg:     releaseRetryConfig{}.withDefaults(),
+		now:            time.Now,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -632,8 +643,12 @@ func (s *OrderService) CreateReturnRequest(ctx context.Context, buyerID, orderID
 		return repository.OrderReturn{}, ErrUnauthorizedReturn
 	}
 
-	if order.Status == repository.OrderStatusCancelled || order.Status == repository.OrderStatusPending {
+	if order.Status != repository.OrderStatusShipped && order.Status != repository.OrderStatusCompleted {
 		return repository.OrderReturn{}, fmt.Errorf("%w: status %v", ErrOrderCannotBeReturned, order.Status)
+	}
+	if order.Status == repository.OrderStatusCompleted && order.ReturnWindowEndsAt != nil &&
+		!s.now().Before(*order.ReturnWindowEndsAt) {
+		return repository.OrderReturn{}, ErrReturnWindowClosed
 	}
 
 	req := repository.OrderReturn{

@@ -87,9 +87,10 @@ type ReturnOutboxBuilder func(ret OrderReturn, currency string) (OutboxRow, erro
 type ReturnRepoOption func(*returnRepoConfig)
 
 type returnRepoConfig struct {
-	refundedOutbox ReturnOutboxBuilder
-	outbox         OutboxRepository // in-memory repo only
-	orders         OrderReader      // in-memory repo only: the order currency
+	refundedOutbox  ReturnOutboxBuilder
+	requestedOutbox ReturnOutboxBuilder
+	outbox          OutboxRepository // in-memory repo only
+	orders          OrderReader      // in-memory repo only: the order currency
 }
 
 // WithReturnOutbox makes every won APPROVED -> REFUNDED transition write an
@@ -98,6 +99,12 @@ type returnRepoConfig struct {
 // enqueueing the row fails, the transition is rolled back too.
 func WithReturnOutbox(b ReturnOutboxBuilder) ReturnRepoOption {
 	return func(c *returnRepoConfig) { c.refundedOutbox = b }
+}
+
+// WithReturnRequestedOutbox makes every created return write the row built by b in
+// the same transaction as the insert.
+func WithReturnRequestedOutbox(b ReturnOutboxBuilder) ReturnRepoOption {
+	return func(c *returnRepoConfig) { c.requestedOutbox = b }
 }
 
 // WithInMemoryReturnOutbox sets the outbox store the in-memory repository writes
@@ -137,13 +144,14 @@ func returnRemainder(requested, orderTotal, taken int64) (int64, error) {
 }
 
 type PostgresReturnRepository struct {
-	pool           *pgxpool.Pool
-	refundedOutbox ReturnOutboxBuilder
+	pool            *pgxpool.Pool
+	refundedOutbox  ReturnOutboxBuilder
+	requestedOutbox ReturnOutboxBuilder
 }
 
 func NewPostgresReturnRepository(pool *pgxpool.Pool, opts ...ReturnRepoOption) *PostgresReturnRepository {
 	cfg := newReturnRepoConfig(opts)
-	return &PostgresReturnRepository{pool: pool, refundedOutbox: cfg.refundedOutbox}
+	return &PostgresReturnRepository{pool: pool, refundedOutbox: cfg.refundedOutbox, requestedOutbox: cfg.requestedOutbox}
 }
 
 const returnColumns = `id, order_id, buyer_id, seller_id, reason, refund_amount, status, created_at, updated_at`
@@ -189,8 +197,8 @@ func (r *PostgresReturnRepository) CreateReturnCapped(ctx context.Context, ret O
 
 	// The order row lock serialises every capped create of this order, so the sum
 	// below always sees the returns committed before it.
-	var locked string
-	if err := tx.QueryRow(ctx, `SELECT id FROM orders WHERE id = $1 FOR UPDATE`, ret.OrderID).Scan(&locked); err != nil {
+	var locked, currency string
+	if err := tx.QueryRow(ctx, `SELECT id, currency FROM orders WHERE id = $1 FOR UPDATE`, ret.OrderID).Scan(&locked, &currency); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return OrderReturn{}, ErrOrderNotFound
 		}
@@ -208,6 +216,15 @@ func (r *PostgresReturnRepository) CreateReturnCapped(ctx context.Context, ret O
 	ret.RefundAmount = amount
 	if _, err := tx.Exec(ctx, insertReturnSQL, ret.ID, ret.OrderID, ret.BuyerID, ret.SellerID, ret.Reason, ret.RefundAmount, int32(ret.Status), ret.CreatedAt, ret.UpdatedAt); err != nil {
 		return OrderReturn{}, fmt.Errorf("insert return request: %w", err)
+	}
+	if r.requestedOutbox != nil {
+		row, err := r.requestedOutbox(ret, currency)
+		if err != nil {
+			return OrderReturn{}, fmt.Errorf("build return requested outbox row: %w", err)
+		}
+		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+			return OrderReturn{}, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return OrderReturn{}, fmt.Errorf("commit tx: %w", err)
@@ -318,20 +335,22 @@ func (r *PostgresReturnRepository) TransitionReturn(ctx context.Context, id stri
 
 // InMemoryReturnRepository
 type InMemoryReturnRepository struct {
-	mu             sync.RWMutex
-	returns        map[string]OrderReturn
-	refundedOutbox ReturnOutboxBuilder
-	outbox         OutboxRepository
-	orders         OrderReader
+	mu              sync.RWMutex
+	returns         map[string]OrderReturn
+	refundedOutbox  ReturnOutboxBuilder
+	requestedOutbox ReturnOutboxBuilder
+	outbox          OutboxRepository
+	orders          OrderReader
 }
 
 func NewInMemoryReturnRepository(opts ...ReturnRepoOption) *InMemoryReturnRepository {
 	cfg := newReturnRepoConfig(opts)
 	return &InMemoryReturnRepository{
-		returns:        make(map[string]OrderReturn),
-		refundedOutbox: cfg.refundedOutbox,
-		outbox:         cfg.outbox,
-		orders:         cfg.orders,
+		returns:         make(map[string]OrderReturn),
+		refundedOutbox:  cfg.refundedOutbox,
+		requestedOutbox: cfg.requestedOutbox,
+		outbox:          cfg.outbox,
+		orders:          cfg.orders,
 	}
 }
 
@@ -343,7 +362,7 @@ func (r *InMemoryReturnRepository) CreateReturn(_ context.Context, ret OrderRetu
 	return ret, nil
 }
 
-func (r *InMemoryReturnRepository) CreateReturnCapped(_ context.Context, ret OrderReturn, orderTotal int64) (OrderReturn, error) {
+func (r *InMemoryReturnRepository) CreateReturnCapped(ctx context.Context, ret OrderReturn, orderTotal int64) (OrderReturn, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var taken int64
@@ -358,6 +377,23 @@ func (r *InMemoryReturnRepository) CreateReturnCapped(_ context.Context, ret Ord
 	}
 	ret.RefundAmount = amount
 	prepareReturn(&ret)
+	if r.requestedOutbox != nil && r.outbox != nil {
+		currency := ""
+		if r.orders != nil {
+			o, err := r.orders.GetOrder(ctx, ret.OrderID)
+			if err != nil {
+				return OrderReturn{}, fmt.Errorf("read currency of order %q: %w", ret.OrderID, err)
+			}
+			currency = o.Currency
+		}
+		row, err := r.requestedOutbox(ret, currency)
+		if err != nil {
+			return OrderReturn{}, fmt.Errorf("build return requested outbox row: %w", err)
+		}
+		if err := r.outbox.Enqueue(ctx, row); err != nil {
+			return OrderReturn{}, err
+		}
+	}
 	r.returns[ret.ID] = ret
 	return ret, nil
 }

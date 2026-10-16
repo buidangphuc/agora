@@ -178,7 +178,7 @@ func run() error {
 			repository.WithReminderOutbox(events.BuildPaymentReminderOutboxRow))
 		// A won APPROVED -> REFUNDED writes ReturnRefunded to the outbox in the
 		// transition's own transaction (team-payment applies it).
-		returnRepo = repository.NewPostgresReturnRepository(res.Pool, repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow))
+		returnRepo = repository.NewPostgresReturnRepository(res.Pool, repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow), repository.WithReturnRequestedOutbox(events.BuildReturnRequestedOutboxRow))
 		// OrderShipped is written to the outbox in the shipment's own transaction.
 		shipmentRepo = repository.NewPostgresShipmentRepository(res.Pool, repository.WithShipmentOutbox(events.BuildShippedOutboxRow))
 	} else {

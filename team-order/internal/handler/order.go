@@ -513,6 +513,9 @@ func (h *OrderHandler) CreateReturnRequest(ctx context.Context, req *orderv1.Cre
 		if errors.Is(err, service.ErrInvalidRefundAmount) {
 			return nil, clientErr(h.logger, codes.InvalidArgument, "invalid refund amount", err)
 		}
+		if errors.Is(err, service.ErrReturnWindowClosed) {
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "return window closed", err)
+		}
 		if errors.Is(err, service.ErrOrderCannotBeReturned) {
 			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be returned in its current status", err)
 		}

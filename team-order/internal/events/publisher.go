@@ -28,6 +28,9 @@ const OrderCancelledEventType = "platform.order.v1.OrderCancelled"
 // ReturnRefundedEventType is the fully-qualified proto type for ReturnRefunded.
 const ReturnRefundedEventType = "platform.order.v1.ReturnRefunded"
 
+// ReturnRequestedEventType is the fully-qualified proto type for ReturnRequested.
+const ReturnRequestedEventType = "platform.order.v1.ReturnRequested"
+
 // OrderPlacedEventType is the fully-qualified proto type for OrderPlaced.
 const OrderPlacedEventType = "platform.order.v1.OrderPlaced"
 
@@ -438,6 +441,48 @@ func BuildReturnRefundedOutboxRow(ret repository.OrderReturn, currency string) (
 		AggregateType: "Order",
 		AggregateID:   ret.OrderID,
 		EventType:     ReturnRefundedEventType,
+		Payload:       value,
+	}, nil
+}
+
+// ReturnRequestedEventID is the stable event_id of a return's ReturnRequested fact.
+func ReturnRequestedEventID(returnID string) string { return "return-requested:" + returnID }
+
+// BuildReturnRequestedOutboxRow is the repository.ReturnOutboxBuilder for a
+// created return: ReturnRequested in an EventEnvelope keyed by order_id.
+func BuildReturnRequestedOutboxRow(ret repository.OrderReturn, currency string) (repository.OutboxRow, error) {
+	requestedAt := ret.CreatedAt
+	if requestedAt.IsZero() {
+		requestedAt = time.Now()
+	}
+	requestedAt = requestedAt.UTC()
+	eventID := ReturnRequestedEventID(ret.ID)
+	payload, err := proto.Marshal(&orderv1.ReturnRequested{
+		ReturnId:     ret.ID,
+		OrderId:      ret.OrderID,
+		BuyerId:      ret.BuyerID,
+		SellerId:     ret.SellerID,
+		RefundAmount: ret.RefundAmount,
+		Currency:     currency,
+		RequestedAt:  timestamppb.New(requestedAt),
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal ReturnRequested: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       ReturnRequestedEventType,
+		OccurredAt: timestamppb.New(requestedAt),
+		Payload:    payload,
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "Order",
+		AggregateID:   ret.OrderID,
+		EventType:     ReturnRequestedEventType,
 		Payload:       value,
 	}, nil
 }
