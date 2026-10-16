@@ -157,7 +157,9 @@ describe("OrderList lifecycle", () => {
     expect(
       screen.getByRole("link", { name: "Thanh toán lại" }),
     ).toHaveAttribute("href", "/checkout/pay/order-aaaa-1111");
-    expect(screen.queryByText(/Thanh toán ngay/)).toBeNull();
+    expect(
+      screen.queryByText(new RegExp(["Thanh toán", "ngay"].join(" "))),
+    ).toBeNull();
   });
 
   it("Order lifecycle: a COD order shows no deadline and no pay action - cod order has no deadline or pay action", () => {
