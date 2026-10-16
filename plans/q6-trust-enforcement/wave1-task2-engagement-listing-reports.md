@@ -20,6 +20,7 @@ Implement OpenSpec change `engagement-listing-reports` test-first per its tasks.
 - team-engagement/internal/upstream/audit_test.go
 - team-engagement/internal/handler/reports.go
 - team-engagement/internal/handler/reports_test.go
+- team-engagement/internal/handler/report_roundtrip_test.go (# widened at build: task 6)
 - team-engagement/internal/handler/engagement.go
 - team-engagement/internal/config/config.go
 - team-engagement/internal/config/config_test.go
