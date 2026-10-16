@@ -81,7 +81,7 @@ func run() error {
 	addrRepo := repository.NewPostgresAddressRepository(res.Pool)
 	sessionRepo := repository.NewPostgresSessionRepository(res.Pool)
 
-	authSvc := service.NewAuthService(repo, signer, time.Duration(settings.JWT.TTLSeconds)*time.Second).WithSessions(sessionRepo)
+	authSvc := service.NewAuthService(repo, signer, time.Duration(settings.JWT.TTLSeconds)*time.Second).WithSessions(sessionRepo).WithAudit(res.Audit)
 
 	// Seed the first admin only when explicitly enabled; the password comes from
 	// SEED_ADMIN_PASSWORD (validated in config) and is never logged.
