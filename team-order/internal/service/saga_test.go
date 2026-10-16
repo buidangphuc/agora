@@ -287,3 +287,5 @@ func TestCompensation_RunsOnBackgroundCtx_WhenRequestCancelled(t *testing.T) {
 		t.Fatal("expected the reserved listing to be released")
 	}
 }
+
+func (c *fakeCartRepo) UpdateItemPrice(_ context.Context, _, _ string, _ int64) error { return nil }
