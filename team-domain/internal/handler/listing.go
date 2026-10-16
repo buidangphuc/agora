@@ -223,6 +223,8 @@ func (h *ListingHandler) UpdateListing(
 			return nil, status.Error(codes.PermissionDenied, "not the listing owner")
 		case errors.Is(err, service.ErrAuditUnavailable):
 			return nil, status.Error(codes.Unavailable, "audit unavailable")
+		case errors.Is(err, service.ErrStatusLocked), errors.Is(err, repository.ErrStatusChanged):
+			return nil, status.Error(codes.FailedPrecondition, "listing status does not allow this change")
 		default:
 			return nil, status.Error(codes.Internal, "internal error")
 		}
@@ -252,6 +254,8 @@ func (h *ListingHandler) DeleteListing(
 			return nil, status.Error(codes.PermissionDenied, "not the listing owner")
 		case errors.Is(err, service.ErrAuditUnavailable):
 			return nil, status.Error(codes.Unavailable, "audit unavailable")
+		case errors.Is(err, service.ErrStatusLocked), errors.Is(err, repository.ErrStatusChanged):
+			return nil, status.Error(codes.FailedPrecondition, "listing status does not allow this change")
 		default:
 			return nil, status.Error(codes.Internal, "internal error")
 		}

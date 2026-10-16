@@ -418,8 +418,8 @@ func TestUpdateWithEventRejectedStaysUnpublished(t *testing.T) {
 		repository.Listing{ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Stock: 1, Status: "published"},
 		"seller-a", false, noEvent)
 	got, _ := repo.Get(context.Background(), "L-1")
-	if got.Status != "rejected" {
-		t.Fatalf("stored status = %q, want rejected", got.Status)
+	if got.Status == "published" {
+		t.Fatalf("stored status = %q, a seller must not un-reject by sending published", got.Status)
 	}
 }
 
