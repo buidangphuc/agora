@@ -111,7 +111,12 @@ func run() error {
 	collectionRepo := repository.NewPostgresCollectionRepository(res.Pool)
 	collectionSvc := service.NewCollectionService(collectionRepo, logger)
 	engagementRepo := repository.NewPostgresRepository(res.Pool)
+	reportSvc := service.NewReportService(repository.NewPostgresReportRepository(res.Pool), logger)
+	if auditClient != nil {
+		reportSvc.WithAudit(auditClient)
+	}
 	var handlerOpts []handler.Option
+	handlerOpts = append(handlerOpts, handler.WithReportService(reportSvc))
 	if orderClient != nil {
 		handlerOpts = append(handlerOpts, handler.WithOrderParties(orderClient))
 	}
@@ -171,6 +176,12 @@ func run() error {
 	} else {
 		logger.Info("KAFKA_ENABLED=false; follow feed is not fed from listing.events and engagement facts stay in the outbox")
 	}
+
+	// Report retention: pseudonymise closed reports past REPORT_RETENTION_DAYS.
+	sweepTicker := time.NewTicker(settings.Reports.SweepInterval)
+	defer sweepTicker.Stop()
+	go bootstrap.RunReportSweepLoop(ctx, repository.NewPostgresReportRepository(res.Pool),
+		time.Duration(settings.Reports.RetentionDays)*24*time.Hour, sweepTicker.C, time.Now, logger)
 
 	select {
 	case err := <-consumerErr:

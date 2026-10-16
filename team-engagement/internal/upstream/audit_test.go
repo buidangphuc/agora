@@ -232,3 +232,68 @@ func TestAuditClientWriteEventNilReceiverFailsClosed(t *testing.T) {
 		t.Fatal("nil audit client must return an error")
 	}
 }
+
+// Scenario: Listing reports: Audit is called as the service principal
+// (also: Audit event carries the required fields, client half).
+func TestAuditClientUsesServicePrincipalForReports(t *testing.T) {
+	rec := &recordingAudit{}
+	c, err := NewAuditClient(startAudit(t, rec), time.Second)
+	if err != nil || c == nil {
+		t.Fatalf("NewAuditClient: %v, %v", c, err)
+	}
+	defer func() { _ = c.Close() }()
+
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+		"x-principal-id", "adm-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
+	if err := c.WriteReportResolveEvent(ctx, "adm-1", "rp-1", "L-1", "ACTIONED", "đã gỡ tin"); err != nil {
+		t.Fatalf("WriteReportResolveEvent: %v", err)
+	}
+	if len(rec.reqs) != 1 {
+		t.Fatalf("want exactly 1 WriteAuditEvent call, got %d", len(rec.reqs))
+	}
+	req := rec.reqs[0]
+	if req.GetActorId() != "adm-1" || req.GetAction() != "report.resolve" ||
+		req.GetTargetType() != "report" || req.GetTargetId() != "rp-1" {
+		t.Errorf("unexpected event: %+v", req)
+	}
+	m := req.GetMetadata()
+	if len(m) != 3 || m["status"] != "ACTIONED" || m["listing_id"] != "L-1" || m["resolution_note"] != "đã gỡ tin" {
+		t.Errorf("metadata = %v, want exactly status+listing_id+resolution_note", m)
+	}
+	for k := range m {
+		if k == "reporter_id" || k == "note" {
+			t.Errorf("metadata must never carry %q", k)
+		}
+	}
+	want := map[string]string{
+		"x-principal-id":     "service-team-engagement",
+		"x-principal-type":   "service",
+		"x-principal-scopes": "audit.write",
+	}
+	for k, v := range want {
+		if vals := rec.mds[0].Get(k); len(vals) != 1 || vals[0] != v {
+			t.Errorf("%s = %v, want [%s] (admin principal must be replaced)", k, vals, v)
+		}
+	}
+}
+
+// Scenario: Listing reports: Audit failure leaves the report open (client half: error returned).
+func TestAuditClientReportResolveUpstreamErrorReturned_AuditFailureLeavesReportOpen(t *testing.T) {
+	rec := &recordingAudit{err: status.Error(codes.Internal, "audit db down")}
+	c, err := NewAuditClient(startAudit(t, rec), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.Close() }()
+	if err := c.WriteReportResolveEvent(context.Background(), "adm-1", "rp-1", "L-1", "DISMISSED", "n"); err == nil {
+		t.Fatal("an audit failure must be returned, not swallowed")
+	}
+}
+
+// Scenario: Listing reports: No audit upstream configured (nil client fails closed).
+func TestAuditClientReportResolveNilReceiverFailsClosed_NoAuditUpstreamConfigured(t *testing.T) {
+	var c *AuditClient
+	if err := c.WriteReportResolveEvent(context.Background(), "adm-1", "rp-1", "L-1", "ACTIONED", "n"); err == nil {
+		t.Fatal("nil audit client must return an error")
+	}
+}
