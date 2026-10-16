@@ -167,8 +167,12 @@ func (h *ListingHandler) ListMyListings(
 	if err != nil {
 		return nil, status.Error(codes.Internal, "internal error")
 	}
+	mine := make([]*listingv1.Listing, 0, len(page.Items))
+	for _, l := range page.Items {
+		mine = append(mine, toWireFor(ctx, l))
+	}
 	return &listingv1.ListMyListingsResponse{
-		Listings: toWireList(page.Items),
+		Listings: mine,
 		Page:     &commonv1.PageResponse{NextCursor: page.NextCursor, Total: page.Total},
 	}, nil
 }

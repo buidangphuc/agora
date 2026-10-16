@@ -233,6 +233,7 @@ services:
         condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
+      - UPSTREAM_AI_ADDR=team-ai-svc:50060
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
       - KAFKA_ENABLED=true
