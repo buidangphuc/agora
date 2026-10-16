@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { ListUsersRequest, SetUserStatusRequest, UserStatus } from "@/generated/platform/identity/v1/identity_pb.js";
+import {
+  ListUsersRequest,
+  SetUserStatusRequest,
+  UserStatus,
+} from "@/generated/platform/identity/v1/identity_pb.js";
 
 import { makeClients } from "./client.js";
 
@@ -11,7 +15,10 @@ import { makeClients } from "./client.js";
 
 describe("makeClients accountAdmin (Users UI: Search is forwarded as typed fields)", () => {
   it("exposes an accountAdmin client with listUsers and setUserStatus", () => {
-    const clients = makeClients("token") as unknown as Record<string, Record<string, unknown>>;
+    const clients = makeClients("token") as unknown as Record<
+      string,
+      Record<string, unknown>
+    >;
     expect(clients.accountAdmin).toBeDefined();
     expect(typeof clients.accountAdmin.listUsers).toBe("function");
     expect(typeof clients.accountAdmin.setUserStatus).toBe("function");
@@ -23,10 +30,16 @@ describe("makeClients accountAdmin (Users UI: Search is forwarded as typed field
   });
 
   it("generated request types carry typed fields (Users UI: Search is forwarded as typed fields)", () => {
-    const list = new ListUsersRequest({ query: "ann", status: UserStatus.SUSPENDED });
+    const list = new ListUsersRequest({
+      query: "ann",
+      status: UserStatus.SUSPENDED,
+    });
     expect(list.query).toBe("ann");
     expect(list.status).toBe(UserStatus.SUSPENDED);
-    const set = new SetUserStatusRequest({ userId: "u1", status: UserStatus.BANNED });
+    const set = new SetUserStatusRequest({
+      userId: "u1",
+      status: UserStatus.BANNED,
+    });
     expect(set.userId).toBe("u1");
     expect(set.status).toBe(UserStatus.BANNED);
   });
