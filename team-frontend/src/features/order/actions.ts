@@ -10,6 +10,7 @@ import { reorder } from "@/lib/gateway/cart";
 import {
   type ViewOrderReturn,
   cancelOrder,
+  confirmReceipt,
   createOrder,
   createReturnRequest,
   updateOrderStatus,
@@ -131,6 +132,26 @@ export async function cancelOrderAction(
     return ok();
   } catch (err: unknown) {
     return fail(err instanceof Error ? err.message : "Hủy đơn hàng thất bại.");
+  }
+}
+
+const ORDER_ALREADY_COMPLETED = "Đơn hàng đã được hoàn thành.";
+
+/** Buyer confirms a shipped order arrived; the order completes. */
+export async function confirmReceiptAction(
+  orderId: string,
+): Promise<ActionResult> {
+  try {
+    await confirmReceipt(orderId);
+    revalidateBuyerOrder(orderId);
+    return ok();
+  } catch (err: unknown) {
+    // Auto-complete won the race: the order is no longer shipped.
+    if (err instanceof ConnectError && err.code === Code.FailedPrecondition) {
+      revalidateBuyerOrder(orderId);
+      return fail(ORDER_ALREADY_COMPLETED);
+    }
+    return fail(err instanceof Error ? err.message : "Xác nhận thất bại.");
   }
 }
 

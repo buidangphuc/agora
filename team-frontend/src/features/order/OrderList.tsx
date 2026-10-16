@@ -8,6 +8,7 @@ import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import type { ViewOrder } from "@/lib/gateway/orders";
 import { shopLabel } from "@/lib/gateway/shops";
+import { ConfirmReceiptButton } from "./ConfirmReceiptButton";
 import { OrderActions, ReviewButton } from "./OrderActions";
 import { OrderItemThumb } from "./OrderItemThumb";
 import { OrderStatusBadge } from "./OrderStatusBadge";
@@ -153,6 +154,9 @@ function OrderRow({
             >
               Thanh toán lại
             </Link>
+          )}
+          {order.status === OrderStatus.SHIPPED && (
+            <ConfirmReceiptButton orderId={order.id} />
           )}
           <OrderActions
             orderId={order.id}

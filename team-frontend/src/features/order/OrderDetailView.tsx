@@ -14,6 +14,7 @@ import {
 } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import type { ViewOrder, ViewOrderItem } from "@/lib/gateway/orders";
+import { ConfirmReceiptButton } from "./ConfirmReceiptButton";
 import { OrderActions, ReviewButton } from "./OrderActions";
 import { OrderDetailTabs } from "./OrderDetailTabs";
 import { OrderItemThumb } from "./OrderItemThumb";
@@ -281,9 +282,7 @@ export function OrderDetailView({
               </Link>
             )}
             {order.status === OrderStatus.SHIPPED && (
-              <button type="button" className={linkButton.outline}>
-                Đã nhận được hàng
-              </button>
+              <ConfirmReceiptButton orderId={order.id} size="md" />
             )}
             <OrderActions
               orderId={order.id}
