@@ -58,6 +58,8 @@ type InMemoryTxWriter struct {
 
 	mu   sync.Mutex
 	rows []OutboxRow
+
+	heldPrior map[string]string // listing id -> status before the seller hold
 }
 
 // NewInMemoryTxWriter wraps repo so reads observe the writes it commits.

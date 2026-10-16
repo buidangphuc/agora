@@ -383,6 +383,10 @@ func (r *PostgresListingRepository) ReserveStockIdempotent(ctx context.Context, 
 		}
 		return nil // active or committed: idempotent success for an identical retry
 	}
+	var listingStatus string
+	if err := tx.QueryRow(ctx, `SELECT status FROM listings WHERE id = $1`, listingID).Scan(&listingStatus); err == nil && listingStatus == "held" {
+		return ErrListingNotReservable // rolls the inserted reservation back
+	}
 	// New reservation: take the stock. A failure here (out of stock, unknown
 	// listing) rolls the inserted row back with the tx.
 	if err := decrementStock(ctx, tx, listingID, variantID, quantity); err != nil {
