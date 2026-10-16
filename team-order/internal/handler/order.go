@@ -710,8 +710,14 @@ func toWireOrder(o repository.Order) *orderv1.Order {
 		paidAt = timestamppb.New(*o.PaidAt) // unset = never paid online
 	}
 
+	var due *timestamppb.Timestamp
+	if o.PaymentDueAt != nil {
+		due = timestamppb.New(*o.PaymentDueAt)
+	}
+
 	return &orderv1.Order{
 		PaidAt:        paidAt,
+		PaymentDueAt:  due,
 		Id:            o.ID,
 		BuyerId:       o.BuyerID,
 		SellerId:      o.SellerID,
