@@ -9754,7 +9754,8 @@ features:
     acceptance:
       - "Advertised price: PDP never exposes another buyer's city"
     tags: [buyer, pricing, shipping]
-    status: planned
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: PDP never exposes another buyer's city"
     notes: "Feature scenario: Advertised price: PDP never exposes another buyer's city (frontend/advertised_price_ui.feature)."
 
   - id: frontend.adv-displayed-shipping-figures-match-the-server-rule
@@ -9772,7 +9773,8 @@ features:
     acceptance:
       - "Advertised price: displayed shipping figures match the server rule"
     tags: [buyer, pricing, shipping]
-    status: planned
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: displayed shipping figures match the server rule"
     notes: "Feature scenario: Advertised price: displayed shipping figures match the server rule (frontend/advertised_price_ui.feature)."
 
   - id: frontend.adv-shown-checkout-total-equals-the-placed-order-total
@@ -9790,7 +9792,8 @@ features:
     acceptance:
       - "Advertised price: shown checkout total equals the placed order total"
     tags: [buyer, pricing, shipping]
-    status: planned
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: shown checkout total equals the placed order total"
     notes: "Feature scenario: Advertised price: shown checkout total equals the placed order total (frontend/advertised_price_ui.feature)."
 
   - id: frontend.adv-the-buyer-sees-the-new-total-and-places-again
@@ -9808,7 +9811,8 @@ features:
     acceptance:
       - "Advertised price: the buyer sees the new total and places again"
     tags: [buyer, pricing, shipping]
-    status: planned
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: the buyer sees the new total and places again"
     notes: "Feature scenario: Advertised price: the buyer sees the new total and places again (frontend/advertised_price_ui.feature)."
 
   - id: frontend.adv-a-sale-that-started-after-add-is-also-explained
@@ -9826,7 +9830,8 @@ features:
     acceptance:
       - "Advertised price: a sale that started after add is also explained"
     tags: [buyer, pricing, shipping]
-    status: planned
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: a sale that started after add is also explained"
     notes: "Feature scenario: Advertised price: a sale that started after add is also explained (frontend/advertised_price_ui.feature)."
 
   - id: frontend.adv-an-anonymous-visitor-is-redirected-from-checkout
@@ -9844,7 +9849,8 @@ features:
     acceptance:
       - "Advertised price: an anonymous visitor is redirected from checkout"
     tags: [buyer, pricing, shipping]
-    status: planned
+    status: automated
+    covered_by: "frontend/advertised_price_ui.feature::Advertised price: an anonymous visitor is redirected from checkout"
     notes: "Feature scenario: Advertised price: an anonymous visitor is redirected from checkout (frontend/advertised_price_ui.feature)."
 
   - id: frontend.adv-pdp-shows-the-buyers-city-fee
@@ -10028,3 +10034,42 @@ features:
     tags: [buyer, pricing, unit]
     status: not-testable
     notes: "VERIFIED BY team-frontend/src/features/order/actions.test.ts `unavailable keeps the generic error and leaves the cart`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-gw-forwards-the-shipping-fee-quote
+    title: "Advertised price: the gateway forwards the shipping fee quote"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified gateway scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Advertised price: the gateway forwards the shipping fee quote"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway/internal/edge/order_test.go TestOrderForwarderCalculateShippingFee. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-gw-fee-quote-error-is-passed-through
+    title: "Advertised price: an order-service error on the fee quote is passed through"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified gateway scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Advertised price: an order-service error on the fee quote is passed through"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway/internal/edge/order_test.go TestOrderForwarderCalculateShippingFeeError. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.adv-gw-the-fee-quote-needs-no-buyer-scope
+    title: "Advertised price: the fee quote needs no buyer scope"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified gateway scenario of change frontend-advertised-price."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Advertised price: the fee quote needs no buyer scope"
+    tags: [buyer, pricing, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway/internal/edge/order_test.go TestOrderForwarderCalculateShippingFeeAnonymous. Not producible end to end through the browser (unit level)."
