@@ -203,6 +203,8 @@ func (s *ListingService) UpdateWithEvent(ctx context.Context, l repository.Listi
 		}
 	}
 	if isAdmin {
+		// Admin cannot set status here: the stored status is kept and audited.
+		l.Status = existing.Status
 		if s.audit == nil {
 			return repository.Listing{}, ErrAuditUnavailable
 		}

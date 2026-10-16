@@ -207,12 +207,6 @@ func (h *ListingHandler) UpdateListing(
 	}
 	ownerID, isAdmin := principalOwner(ctx)
 	l := fromWire(req.GetListing())
-	if isAdmin && req.GetListing().GetStatus() == listingv1.ListingStatus_LISTING_STATUS_UNSPECIFIED {
-		// No status in the request: the audited (and applied) status is the stored one.
-		if existing, gerr := h.svc.Get(ctx, l.ID); gerr == nil {
-			l.Status = existing.Status
-		}
-	}
 	updated, err := h.svc.UpdateWithEvent(ctx, l, ownerID, isAdmin,
 		h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_UPDATED))
 	if err != nil {
