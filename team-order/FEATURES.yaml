@@ -3294,3 +3294,870 @@ features:
     tags: [buyer, order, unit]
     status: not-testable
     notes: "VERIFIED BY team-order `internal/service` `TestUpdateOrderStatusCancelledStillForbidden`. Not producible end to end through the gateway (unit level)."
+
+  # ---- order-receipt-completion (initiative q10-order-lifecycle; written from the spec, planned until the code lands).
+  - id: order.receipt-buyer-confirms-a-shipped-order
+    title: "Order receipt: Buyer confirms a shipped order"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Buyer confirms a shipped order"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Buyer confirms a shipped order."
+
+  - id: order.receipt-another-user-cannot-confirm-receipt
+    title: "Order receipt: Another user cannot confirm receipt"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Another user cannot confirm receipt"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Another user cannot confirm receipt."
+
+  - id: order.receipt-confirming-an-order-that-is-not-shipped-is-refused
+    title: "Order receipt: Confirming an order that is not shipped is refused"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Confirming an order that is not shipped is refused"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Confirming an order that is not shipped is refused."
+
+  - id: order.receipt-buyer-may-confirm-while-their-return-is-open
+    title: "Order receipt: Buyer may confirm while their return is open"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Buyer may confirm while their return is open"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestConfirmReceiptAllowedWithOpenReturn`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-confirming-an-unknown-order-is-not-found
+    title: "Order receipt: Confirming an unknown order is not found"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Confirming an unknown order is not found"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestConfirmReceiptUnknownOrderNotFound`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-buyer-cannot-complete-through-updateorderstatus
+    title: "Order receipt: A buyer cannot complete through UpdateOrderStatus"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: A buyer cannot complete through UpdateOrderStatus"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A buyer cannot complete through UpdateOrderStatus."
+
+  - id: order.receipt-shipping-stamps-the-auto-complete-deadline
+    title: "Order receipt: Shipping stamps the auto-complete deadline"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Shipping stamps the auto-complete deadline"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Shipping stamps the auto-complete deadline."
+
+  - id: order.receipt-unconfirmed-shipped-order-completes-after-the-window
+    title: "Order receipt: Unconfirmed shipped order completes after the window"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Unconfirmed shipped order completes after the window"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Unconfirmed shipped order completes after the window."
+
+  - id: order.receipt-a-shipped-order-inside-its-window-is-not-completed
+    title: "Order receipt: A shipped order inside its window is not completed"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A shipped order inside its window is not completed"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestSweepDoesNotCompleteBeforeDeadline`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-an-open-return-blocks-auto-complete
+    title: "Order receipt: An open return blocks auto-complete"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: An open return blocks auto-complete"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: An open return blocks auto-complete."
+
+  - id: order.receipt-an-approved-unrefunded-return-blocks-auto-complete
+    title: "Order receipt: An approved unrefunded return blocks auto-complete"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: An approved unrefunded return blocks auto-complete"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestSweepSkipsOrderWithApprovedReturn`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-an-approved-return-on-a-cash-on-delivery-order-does-not-block-auto-complete
+    title: "Order receipt: An approved return on a cash-on-delivery order does not block auto-complete"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: An approved return on a cash-on-delivery order does not block auto-complete"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestSweepCompletesCODOrderWithApprovedReturn`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-seller-completion-clears-the-auto-complete-deadline
+    title: "Order receipt: Seller completion clears the auto-complete deadline"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Seller completion clears the auto-complete deadline"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestCompletionClearsAutoCompleteAt`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-rejected-return-does-not-block-auto-complete
+    title: "Order receipt: A rejected return does not block auto-complete"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A rejected return does not block auto-complete"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestSweepCompletesOrderWithRejectedReturn`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-confirm-racing-the-sweep-completes-once
+    title: "Order receipt: Confirm racing the sweep completes once"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Confirm racing the sweep completes once"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestConfirmReceiptRacesSweepOneCompletion`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-the-sweep-handles-at-most-one-batch-per-run
+    title: "Order receipt: The sweep handles at most one batch per run"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: The sweep handles at most one batch per run"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestSweepAutoCompleteBatchBound`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-repeated-sweep-changes-nothing
+    title: "Order receipt: A repeated sweep changes nothing"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A repeated sweep changes nothing"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestSweepAutoCompleteIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-buyer-confirm-emits-ordercompleted-with-completed-by-buyer
+    title: "Order receipt: Buyer confirm emits OrderCompleted with completed_by BUYER"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Buyer confirm emits OrderCompleted with completed_by BUYER"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Buyer confirm emits OrderCompleted with completed_by BUYER."
+
+  - id: order.receipt-seller-completion-still-works-and-emits-ordercompleted
+    title: "Order receipt: Seller completion still works and emits OrderCompleted"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Seller completion still works and emits OrderCompleted"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Seller completion still works and emits OrderCompleted."
+
+  - id: order.receipt-a-cash-on-delivery-completion-is-marked-not-paid-online
+    title: "Order receipt: A cash-on-delivery completion is marked not paid online"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A cash-on-delivery completion is marked not paid online"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestOrderCompletedPaidOnlineFalseForCOD`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-refused-completion-emits-nothing
+    title: "Order receipt: A refused completion emits nothing"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: A refused completion emits nothing"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A refused completion emits nothing."
+
+  - id: order.receipt-concurrent-confirms-emit-one-ordercompleted
+    title: "Order receipt: Concurrent confirms emit one OrderCompleted"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Concurrent confirms emit one OrderCompleted"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Concurrent confirms emit one OrderCompleted."
+
+  - id: order.receipt-outbox-failure-rolls-the-completion-back
+    title: "Order receipt: Outbox failure rolls the completion back"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Outbox failure rolls the completion back"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestCompletionRollsBackWhenOutboxFails`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-return-on-a-shipped-order-is-accepted-and-announced
+    title: "Order receipt: Return on a shipped order is accepted and announced"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Return on a shipped order is accepted and announced"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Return on a shipped order is accepted and announced."
+
+  - id: order.receipt-return-inside-the-window-after-completion-is-accepted
+    title: "Order receipt: Return inside the window after completion is accepted"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Return inside the window after completion is accepted"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Return inside the window after completion is accepted."
+
+  - id: order.receipt-return-after-the-window-closes-is-refused
+    title: "Order receipt: Return after the window closes is refused"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Return after the window closes is refused"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Return after the window closes is refused."
+
+  - id: order.receipt-return-at-the-exact-window-end-is-refused
+    title: "Order receipt: Return at the exact window end is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Return at the exact window end is refused"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCreateReturnAtWindowEndRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-return-on-a-paid-unshipped-order-is-refused
+    title: "Order receipt: Return on a paid unshipped order is refused"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Return on a paid unshipped order is refused"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Return on a paid unshipped order is refused."
+
+  - id: order.receipt-return-on-a-pending-or-cancelled-order-is-refused
+    title: "Order receipt: Return on a pending or cancelled order is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Return on a pending or cancelled order is refused"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCreateReturnPendingOrCancelledRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-another-buyer-cannot-return-the-order
+    title: "Order receipt: Another buyer cannot return the order"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Another buyer cannot return the order"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCreateReturnOtherBuyerDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-return-above-the-cap-is-still-refused
+    title: "Order receipt: Return above the cap is still refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Return above the cap is still refused"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCreateReturnCapStillEnforced`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-unanswered-return-is-approved-after-the-window
+    title: "Order receipt: Unanswered return is approved after the window"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Unanswered return is approved after the window"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Unanswered return is approved after the window."
+
+  - id: order.receipt-a-return-inside-its-answer-window-is-not-approved
+    title: "Order receipt: A return inside its answer window is not approved"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A return inside its answer window is not approved"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestAutoApproveBeforeDeadlineNoOp`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-rejected-return-is-never-auto-approved
+    title: "Order receipt: Rejected return is never auto-approved"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Rejected return is never auto-approved"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Rejected return is never auto-approved."
+
+  - id: order.receipt-approved-return-is-not-touched-by-the-sweep
+    title: "Order receipt: Approved return is not touched by the sweep"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Approved return is not touched by the sweep"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestAutoApproveSkipsApproved`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-seller-answer-racing-the-auto-approve-produces-one-transition
+    title: "Order receipt: Seller answer racing the auto-approve produces one transition"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Seller answer racing the auto-approve produces one transition"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestAutoApproveRacesSellerAnswerOneTransition`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-auto-approved-return-is-refunded-through-the-existing-path
+    title: "Order receipt: Auto-approved return is refunded through the existing path"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Auto-approved return is refunded through the existing path"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Auto-approved return is refunded through the existing path."
+
+  - id: order.receipt-a-caller-cannot-request-the-system-approve
+    title: "Order receipt: A caller cannot request the system approve"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: A caller cannot request the system approve"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A caller cannot request the system approve."
+
+  - id: order.receipt-the-auto-approve-pass-handles-at-most-one-batch-per-run
+    title: "Order receipt: The auto-approve pass handles at most one batch per run"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: The auto-approve pass handles at most one batch per run"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestAutoApproveBatchBound`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-rejected-return-on-a-shipped-order-can-escalate
+    title: "Order receipt: A rejected return on a shipped order can escalate"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: A rejected return on a shipped order can escalate"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A rejected return on a shipped order can escalate."
+
+  - id: order.receipt-a-rejected-return-inside-the-window-after-completion-can-escalate
+    title: "Order receipt: A rejected return inside the window after completion can escalate"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A rejected return inside the window after completion can escalate"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCanEscalateRejectedInsideWindow`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-rejected-return-cannot-escalate-after-the-window-closes
+    title: "Order receipt: A rejected return cannot escalate after the window closes"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: A rejected return cannot escalate after the window closes"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A rejected return cannot escalate after the window closes."
+
+  - id: order.receipt-a-return-that-is-not-rejected-cannot-escalate
+    title: "Order receipt: A return that is not rejected cannot escalate"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A return that is not rejected cannot escalate"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCanEscalateFalseUnlessRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-listorderreturns-computes-can-escalate-per-return
+    title: "Order receipt: ListOrderReturns computes can_escalate per return"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: ListOrderReturns computes can_escalate per return"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestListOrderReturnsCanEscalatePerReturn`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-client-sent-can-escalate-is-ignored
+    title: "Order receipt: A client-sent can_escalate is ignored"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A client-sent can_escalate is ignored"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateReturnIgnoresClientCanEscalate`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-payment-stamps-ship-by-and-the-paid-event-carries-it
+    title: "Order receipt: Payment stamps ship_by and the paid event carries it"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: Payment stamps ship_by and the paid event carries it"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: Payment stamps ship_by and the paid event carries it."
+
+  - id: order.receipt-a-cash-on-delivery-order-gets-ship-by-at-placement
+    title: "Order receipt: A cash-on-delivery order gets ship_by at placement"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: A cash-on-delivery order gets ship_by at placement"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A cash-on-delivery order gets ship_by at placement."
+
+  - id: order.receipt-an-unpaid-online-order-has-no-ship-by
+    title: "Order receipt: An unpaid online order has no ship_by"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: An unpaid online order has no ship_by"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: An unpaid online order has no ship_by."
+
+  - id: order.receipt-a-passed-ship-by-changes-nothing
+    title: "Order receipt: A passed ship_by changes nothing"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A passed ship_by changes nothing"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPassedShipByDoesNotChangeOrder`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-changed-config-does-not-move-an-existing-ship-by
+    title: "Order receipt: A changed config does not move an existing ship_by"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A changed config does not move an existing ship_by"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestShipByIsSnapshottedAtPayment`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-defaults-apply-when-nothing-is-set
+    title: "Order receipt: Defaults apply when nothing is set"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Defaults apply when nothing is set"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestLifecycleDurationDefaults`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-malformed-duration-stops-startup
+    title: "Order receipt: A malformed duration stops startup"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A malformed duration stops startup"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestLifecycleDurationMalformedRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-zero-or-negative-duration-stops-startup
+    title: "Order receipt: A zero or negative duration stops startup"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: A zero or negative duration stops startup"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestLifecycleDurationNonPositiveRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-the-table-allows-buyer-and-system-to-complete-only-from-shipped
+    title: "Order receipt: The table allows buyer and system to complete only from shipped"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: The table allows buyer and system to complete only from shipped"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestTransitionsCompletedActors`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-a-completed-order-cannot-be-reopened-or-cancelled
+    title: "Order receipt: A completed order cannot be reopened or cancelled"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change order-receipt-completion (initiative q10-order-lifecycle)."
+    entry_route: /orders
+    services: [team-gateway, team-order]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyers through the gateway; needs the order-inventory overlay timers (auto-complete 12s, return window 20s, return auto-approve 30s, ship-by 60s, sweep 2s)."
+    api:
+      exercised: [order.v1.CreateOrder, order.v1.GetOrder, order.v1.ConfirmReceipt, order.v1.CreateReturnRequest, order.v1.UpdateReturnStatus]
+    acceptance:
+      - "Order receipt: A completed order cannot be reopened or cancelled"
+    tags: [buyer, order, lifecycle]
+    status: planned
+    notes: "Red-first: platform-e2e features/order/order_receipt_completion.feature::Order receipt: A completed order cannot be reopened or cancelled."
+
+  - id: order.receipt-migration-backfills-deadlines-without-completing-anything
+    title: "Order receipt: Migration backfills deadlines without completing anything"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: Migration backfills deadlines without completing anything"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestMigrationBackfillsLifecycleDeadlines`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.receipt-the-down-migration-restores-the-old-schema
+    title: "Order receipt: The down migration restores the old schema"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Order receipt: The down migration restores the old schema"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestMigrationDownDropsLifecycleColumns`. Not producible end to end through the gateway (unit level)."

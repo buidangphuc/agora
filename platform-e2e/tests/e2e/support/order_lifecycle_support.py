@@ -115,3 +115,104 @@ def events_for(order_id: str, etype: str, *, wait_s: float, settle_s: float = 3.
     finally:
         c.close()
     return matched
+
+
+# ── order-receipt-completion (initiative q10-order-lifecycle) ────────────
+# Overlay timers (compose/order-inventory.override.yaml): AUTO_COMPLETE_AFTER=12s,
+# RETURN_WINDOW=20s, RETURN_AUTO_APPROVE_AFTER=30s, SHIP_BY_AFTER=60s, sweep every 2s.
+AUTO_COMPLETE_S = 12.0
+RETURN_WINDOW_S = 20.0
+AUTO_APPROVE_S = 30.0
+SHIP_BY_S = 60.0
+COMPLETED_TYPE = "platform.order.v1.OrderCompleted"
+RETURN_REQUESTED_TYPE = "platform.order.v1.ReturnRequested"
+PAID_TYPE = "platform.order.v1.OrderPaidEvent"
+PLACED_TYPE = "platform.order.v1.OrderPlaced"
+RETURN_REFUNDED_TYPE = "platform.order.v1.ReturnRefunded"
+COMPLETED_BY = {"BUYER": 1, "SELLER": 2, "SYSTEM": 3}
+STATUS_WAIT_S = AUTO_COMPLETE_S + AUTO_APPROVE_S + 6 * SWEEP_S + 15
+
+
+def ts(value: str | None) -> float:
+    """Epoch seconds of a protojson Timestamp ('' / None -> 0)."""
+    import re
+    from datetime import datetime
+
+    if not value:
+        return 0.0
+    v = re.sub(r"(\.\d{6})\d+", r"\1", value.replace("Z", "+00:00"))
+    return datetime.fromisoformat(v).timestamp()
+
+
+def payloads_for(needle: str, etype: str, *, wait_s: float, settle_s: float = 3.0) -> list[bytes]:
+    """Payload bytes of every ``etype`` envelope on order.events whose record mentions ``needle``.
+
+    Same polling contract as ``events_for``: wait up to ``wait_s`` for the first match, then
+    drain ``settle_s`` so a duplicate is seen by an "exactly one" assertion.
+    """
+    from confluent_kafka import OFFSET_BEGINNING, Consumer, TopicPartition
+
+    c = Consumer(
+        {
+            "bootstrap.servers": get_settings().kafka_brokers,
+            "group.id": f"e2e-order-receipt-{time.time()}",
+            "auto.offset.reset": "earliest",
+            "enable.auto.commit": False,
+        }
+    )
+    c.assign([TopicPartition("order.events", 0, OFFSET_BEGINNING)])
+    out: list[bytes] = []
+    deadline = time.time() + wait_s
+    last = 0.0
+    try:
+        while time.time() < deadline:
+            if out and time.time() - last >= settle_s:
+                break
+            msg = c.poll(0.5)
+            if msg is None or msg.error():
+                continue
+            raw = msg.value() or b""
+            if needle.encode() not in raw:
+                continue
+            kind, payload = b"", b""
+            for n, wire, v in _fields(raw):
+                if n == 2 and wire == 2:
+                    kind = bytes(v)  # type: ignore[arg-type]
+                elif n == 7 and wire == 2:
+                    payload = bytes(v)  # type: ignore[arg-type]
+            if kind.decode() == etype:
+                out.append(payload)
+                last = time.time()
+    finally:
+        c.close()
+    return out
+
+
+def pb(payload: bytes) -> dict[int, Any]:
+    """Top-level fields of a payload: number -> int (varint) | str-able bytes; Timestamps via ``pb_ts``."""
+    return {n: v for n, _w, v in _fields(payload)}
+
+
+def pb_str(payload: bytes, number: int) -> str:
+    v = pb(payload).get(number, b"")
+    return bytes(v).decode() if isinstance(v, (bytes, bytearray)) else ""
+
+
+def pb_ts(payload: bytes, number: int) -> int:
+    """Seconds of a Timestamp field (0 when unset)."""
+    v = pb(payload).get(number)
+    return _ts_seconds(bytes(v)) if isinstance(v, (bytes, bytearray)) else 0
+
+
+def pb_int(payload: bytes, number: int) -> int:
+    v = pb(payload).get(number, 0)
+    return int(v) if isinstance(v, int) else 0
+
+
+def ship(w: s.OicWorld, order_id: str, seller: s.Actor) -> None:
+    s.ok(s.post(w, seller, s.ORDER, "UpdateOrderStatus", {"id": order_id, "status": s.SHIPPED}))
+
+
+def sleep_until(epoch_s: float) -> None:
+    while time.time() < epoch_s:
+        time.sleep(0.5)
