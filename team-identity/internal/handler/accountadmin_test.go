@@ -96,9 +96,7 @@ func (e *accEnv) seller(name string) string {
 	if _, err := e.svc.Register(ctx, name, "password123", "seller"); err != nil {
 		e.t.Fatal(err)
 	}
-	if _, err := e.svc.Login(ctx, name, "password123"); err != nil {
-		e.t.Fatal(err)
-	}
+	// Register already issues exactly one live session; no Login here.
 	u, err := e.users.GetByUsername(ctx, name)
 	if err != nil {
 		e.t.Fatal(err)
