@@ -47,14 +47,14 @@ type transition struct {
 //	Pending -> Paid       system (payment settlement only)
 //	Pending -> Shipped    seller (cash-on-delivery hand-over)
 //	Paid    -> Shipped    seller
-//	Shipped -> Completed  seller
+//	Shipped -> Completed  seller, buyer (receipt), system
 //	Pending, Paid -> Cancelled  buyer (CancelOrder; ForceFailSaga for admin)
 //	Pending -> Cancelled        system (payment-window expiry)
 var orderTransitions = []transition{
 	{repository.OrderStatusPending, repository.OrderStatusPaid, []Actor{ActorSystem}},
 	{repository.OrderStatusPending, repository.OrderStatusShipped, []Actor{ActorSeller}},
 	{repository.OrderStatusPaid, repository.OrderStatusShipped, []Actor{ActorSeller}},
-	{repository.OrderStatusShipped, repository.OrderStatusCompleted, []Actor{ActorSeller}},
+	{repository.OrderStatusShipped, repository.OrderStatusCompleted, []Actor{ActorSeller, ActorBuyer, ActorSystem}},
 	{repository.OrderStatusPending, repository.OrderStatusCancelled, []Actor{ActorBuyer}},
 	{repository.OrderStatusPaid, repository.OrderStatusCancelled, []Actor{ActorBuyer}},
 	{repository.OrderStatusPending, repository.OrderStatusCancelled, []Actor{ActorSystem}},
