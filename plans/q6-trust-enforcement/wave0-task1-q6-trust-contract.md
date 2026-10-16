@@ -57,6 +57,8 @@ Implement OpenSpec change `q6-trust-contract` test-first per its tasks.md (scena
 - team-promotion/proto/platform/audit/v1/audit.proto
 - team-verification/proto/platform/audit/v1/audit.proto
 - openspec/changes/q6-trust-contract/**
+- team-ai/tests/unit/transport/test_grpc_scopes.py # widened at build: task 3.1-3.2
+- team-ai/tests/unit/transport/test_proto_stubs.py # widened at build: task 3.1-3.2
 
 ## Read-only dependencies
 - openspec/changes/q6-trust-contract/** is frozen by the LOCK.md digest (only task ticks change)
