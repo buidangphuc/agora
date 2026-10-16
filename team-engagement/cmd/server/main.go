@@ -172,6 +172,12 @@ func run() error {
 		logger.Info("KAFKA_ENABLED=false; follow feed is not fed from listing.events and engagement facts stay in the outbox")
 	}
 
+	// Report retention: pseudonymise closed reports past REPORT_RETENTION_DAYS.
+	sweepTicker := time.NewTicker(settings.Reports.SweepInterval)
+	defer sweepTicker.Stop()
+	go bootstrap.RunReportSweepLoop(ctx, repository.NewPostgresReportRepository(res.Pool),
+		time.Duration(settings.Reports.RetentionDays)*24*time.Hour, sweepTicker.C, time.Now, logger)
+
 	select {
 	case err := <-consumerErr:
 		if err == nil {
