@@ -526,7 +526,7 @@ func (h *OrderHandler) CreateReturnRequest(ctx context.Context, req *orderv1.Cre
 	}
 
 	return &orderv1.CreateReturnRequestResponse{
-		ReturnRequest: toWireOrderReturn(ret),
+		ReturnRequest: h.wireReturn(ctx, ret),
 	}, nil
 }
 
@@ -552,7 +552,7 @@ func (h *OrderHandler) GetReturnRequest(ctx context.Context, req *orderv1.GetRet
 	}
 
 	return &orderv1.GetReturnRequestResponse{
-		ReturnRequest: toWireOrderReturn(ret),
+		ReturnRequest: h.wireReturn(ctx, ret),
 	}, nil
 }
 
@@ -603,7 +603,7 @@ func (h *OrderHandler) UpdateReturnStatus(ctx context.Context, req *orderv1.Upda
 	}
 
 	return &orderv1.UpdateReturnStatusResponse{
-		ReturnRequest: toWireOrderReturn(updated),
+		ReturnRequest: h.wireReturn(ctx, updated),
 	}, nil
 }
 
@@ -633,7 +633,9 @@ func (h *OrderHandler) ListOrderReturns(ctx context.Context, req *orderv1.ListOr
 	}
 	out := make([]*orderv1.OrderReturn, 0, len(returns))
 	for _, r := range returns {
-		out = append(out, toWireOrderReturn(r))
+		w := toWireOrderReturn(r)
+		w.CanEscalate = h.svc.CanEscalate(r, o)
+		out = append(out, w)
 	}
 	return &orderv1.ListOrderReturnsResponse{Returns: out}, nil
 }
@@ -794,6 +796,19 @@ func toWireOrder(o repository.Order) *orderv1.Order {
 		VoucherCode:    o.VoucherCode,
 		DiscountAmount: o.DiscountAmount,
 	}
+}
+
+// wireReturn converts a return and computes can_escalate from its order; a
+// failed order lookup leaves can_escalate false.
+func (h *OrderHandler) wireReturn(ctx context.Context, r repository.OrderReturn) *orderv1.OrderReturn {
+	w := toWireOrderReturn(r)
+	if r.Status != repository.ReturnStatusRejected {
+		return w
+	}
+	if o, err := h.svc.GetOrder(ctx, r.OrderID); err == nil {
+		w.CanEscalate = h.svc.CanEscalate(r, o)
+	}
+	return w
 }
 
 func toWireOrderReturn(r repository.OrderReturn) *orderv1.OrderReturn {

@@ -838,3 +838,23 @@ func (s *OrderService) AddShipmentCheckpoint(ctx context.Context, shipmentID, lo
 	}
 	return s.shipmentRepo.AddShipmentCheckpoint(ctx, cp)
 }
+
+// CanEscalate reports whether a return can be escalated: it was rejected and its
+// order is either shipped, or completed with the return window still open.
+func CanEscalate(ret repository.OrderReturn, o repository.Order, now time.Time) bool {
+	if ret.Status != repository.ReturnStatusRejected {
+		return false
+	}
+	switch o.Status {
+	case repository.OrderStatusShipped:
+		return true
+	case repository.OrderStatusCompleted:
+		return o.ReturnWindowEndsAt != nil && now.Before(*o.ReturnWindowEndsAt)
+	}
+	return false
+}
+
+// CanEscalate evaluates CanEscalate against the service clock.
+func (s *OrderService) CanEscalate(ret repository.OrderReturn, o repository.Order) bool {
+	return CanEscalate(ret, o, s.now())
+}
