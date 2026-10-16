@@ -1,8 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 
 import { OrderList } from "./OrderList";
 import { makeOrder } from "./orderFixtures";
@@ -12,6 +13,7 @@ vi.mock("./actions", () => ({
   reorderAction: vi.fn(),
   cancelOrderAction: vi.fn(),
   createReturnRequestAction: vi.fn(),
+  confirmReceiptAction: vi.fn(),
 }));
 vi.mock("@/features/review/ReviewModal", () => ({ ReviewModal: () => null }));
 
@@ -122,5 +124,79 @@ describe("OrderList", () => {
     expect(
       screen.getByRole("link", { name: "Xem tất cả đơn hàng" }),
     ).toHaveAttribute("href", "/account/orders");
+  });
+});
+
+const NOW = new Date("2026-10-17T10:00:00.000Z");
+const iso = (ms: number) => new Date(ms).toISOString();
+const HOUR = 3_600_000;
+
+function list(orders: ReturnType<typeof makeOrder>[]) {
+  return <OrderList orders={orders} status="all" shopNames={new Map()} />;
+}
+
+describe("OrderList lifecycle", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("Order lifecycle: an unpaid online order shows its deadline and the retry link - unpaid online order shows deadline and retry link", () => {
+    render(
+      list([
+        makeOrder("order-aaaa-1111", OrderStatus.PENDING, {
+          paymentMethod: PaymentMethod.MOCK_MOMO,
+          paymentDueAt: iso(NOW.getTime() + HOUR),
+        }),
+      ]),
+    );
+    expect(screen.getByText(/Hạn thanh toán:.*2026/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Thanh toán lại" }),
+    ).toHaveAttribute("href", "/checkout/pay/order-aaaa-1111");
+    expect(screen.queryByText(/Thanh toán ngay/)).toBeNull();
+  });
+
+  it("Order lifecycle: a COD order shows no deadline and no pay action - cod order has no deadline or pay action", () => {
+    render(list([makeOrder("o1", OrderStatus.PENDING)]));
+    expect(screen.queryByText(/Hạn thanh toán/)).toBeNull();
+    expect(screen.queryByText(/Thanh toán lại/)).toBeNull();
+    expect(screen.queryByText(/Đã hết hạn thanh toán/)).toBeNull();
+  });
+
+  it("Order lifecycle: the pay action disappears at the deadline instant - pay link becomes expiry text at the deadline instant", () => {
+    const due = NOW.getTime() + HOUR;
+    const order = makeOrder("o1", OrderStatus.PENDING, {
+      paymentMethod: PaymentMethod.MOCK_MOMO,
+      paymentDueAt: iso(due),
+    });
+    vi.setSystemTime(due - 1);
+    const first = render(list([order]));
+    expect(
+      screen.getByRole("link", { name: "Thanh toán lại" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Đã hết hạn thanh toán/)).toBeNull();
+    first.unmount();
+
+    vi.setSystemTime(due);
+    render(list([order]));
+    expect(screen.getByText(/Đã hết hạn thanh toán/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Thanh toán lại" })).toBeNull();
+  });
+
+  it("Order lifecycle: an order with no deadline keeps its pay action - legacy order without deadline shows no deadline text", () => {
+    render(
+      list([
+        makeOrder("o1", OrderStatus.PENDING, {
+          paymentMethod: PaymentMethod.MOCK_MOMO,
+          paymentDueAt: "",
+        }),
+      ]),
+    );
+    expect(screen.queryByText(/Hạn thanh toán/)).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Thanh toán lại" }),
+    ).toBeInTheDocument();
   });
 });
