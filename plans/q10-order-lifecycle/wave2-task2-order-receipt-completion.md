@@ -35,6 +35,7 @@ Implement OpenSpec change `order-receipt-completion` test-first per its tasks.md
 - team-order/internal/grpcserver/server.go
 - team-order/cmd/server/main.go
 - team-order/README.md
+- team-order/tests/readme_docs_test.sh (widened at build: task 11)
 - team-order/FEATURES.yaml
 - team-gateway/internal/edge/order.go
 - team-gateway/internal/edge/order_test.go
