@@ -588,8 +588,14 @@ func domainStatus(s listingv1.ListingStatus) string {
 		return "published"
 	case listingv1.ListingStatus_LISTING_STATUS_REJECTED:
 		return "rejected"
+	case listingv1.ListingStatus_LISTING_STATUS_BANNED:
+		return "banned"
+	case listingv1.ListingStatus_LISTING_STATUS_PENDING_REVIEW:
+		return "pending_review"
+	case listingv1.ListingStatus_LISTING_STATUS_HELD:
+		return "held"
 	default:
-		return "draft"
+		return ""
 	}
 }
 

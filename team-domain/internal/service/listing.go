@@ -109,6 +109,7 @@ func (s *ListingService) Create(ctx context.Context, l repository.Listing, owner
 		l.ID = uuid.NewString()
 	}
 	l.SellerID = ownerID
+	l.Status = createStatus(l.Status)
 	return s.repo.Create(ctx, l)
 }
 
@@ -149,6 +150,7 @@ func (s *ListingService) CreateWithEvent(ctx context.Context, l repository.Listi
 		l.ID = uuid.NewString()
 	}
 	l.SellerID = ownerID
+	l.Status = createStatus(l.Status)
 	if s.tx == nil {
 		return s.repo.Create(ctx, l)
 	}
@@ -164,6 +166,9 @@ func (s *ListingService) UpdateWithEvent(ctx context.Context, l repository.Listi
 	}
 	if existing.SellerID != ownerID && !isAdmin {
 		return repository.Listing{}, ErrForbidden
+	}
+	if !isAdmin {
+		l.Status = sellerUpdateStatus(existing.Status, l.Status)
 	}
 	if isAdmin {
 		if s.audit == nil {
@@ -248,4 +253,25 @@ func (s *ListingService) SweepExpiredReservations(ctx context.Context, now time.
 // them to FAILED_PRECONDITION / NOT_FOUND.
 func (s *ListingService) CommitReservation(ctx context.Context, reservationID string) error {
 	return s.repo.CommitReservation(ctx, reservationID)
+}
+
+func isSellerStatus(s string) bool { return s == "draft" || s == "published" }
+
+// createStatus lets a seller create only DRAFT or PUBLISHED; anything else is DRAFT.
+func createStatus(requested string) string {
+	if r := strings.ToLower(requested); isSellerStatus(r) {
+		return r
+	}
+	return "draft"
+}
+
+// sellerUpdateStatus applies a seller-requested status: only DRAFT/PUBLISHED are
+// honored, and only while the stored status is itself DRAFT/PUBLISHED (server-only
+// statuses such as rejected are sticky). Omitted keeps the stored status.
+func sellerUpdateStatus(stored, requested string) string {
+	r := strings.ToLower(requested)
+	if isSellerStatus(strings.ToLower(stored)) && isSellerStatus(r) {
+		return r
+	}
+	return stored
 }
