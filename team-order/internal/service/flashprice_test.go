@@ -83,6 +83,9 @@ type holdFake struct {
 	reserved  []*promotionv1.ReserveFlashSaleStockRequest
 	committed []string
 	released  []string
+	// releaseCtx records, per ReleaseFlashSaleStock call, the ctx error and whether a
+	// deadline was set at the moment of the call.
+	releaseCtxErrs []error
 	events    *[]string
 }
 
@@ -127,10 +130,11 @@ func (f *holdFake) CommitFlashSaleStock(_ context.Context, req *promotionv1.Comm
 	return &promotionv1.CommitFlashSaleStockResponse{Committed: true}, nil
 }
 
-func (f *holdFake) ReleaseFlashSaleStock(_ context.Context, req *promotionv1.ReleaseFlashSaleStockRequest, _ ...grpc.CallOption) (*promotionv1.ReleaseFlashSaleStockResponse, error) {
+func (f *holdFake) ReleaseFlashSaleStock(ctx context.Context, req *promotionv1.ReleaseFlashSaleStockRequest, _ ...grpc.CallOption) (*promotionv1.ReleaseFlashSaleStockResponse, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.released = append(f.released, req.GetReservationId())
+	f.releaseCtxErrs = append(f.releaseCtxErrs, ctx.Err())
 	f.log("flash-release")
 	if f.releaseFn != nil {
 		if err := f.releaseFn(req); err != nil {
@@ -893,5 +897,51 @@ func TestCancelPaidOrderReleasesCommittedFlashHold(t *testing.T) {
 	}
 	if got := r.flash.releasedIDs(); len(got) != 1 || got[0] != hold {
 		t.Errorf("released = %v, want [%s]", got, hold)
+	}
+}
+
+// Fail closed: a listing the domain cannot describe (nil Listing, no error) means
+// the regular price is unknown, so the checkout is refused with a plain error.
+func TestCheckoutNilListingFailsClosed(t *testing.T) {
+	r := newFlashRig(t, true)
+	r.domain.listings["lst_nil"] = nil
+	r.addLine(t, "b1", "lst_nil", 1, 350000)
+
+	_, err := r.checkout("b1", "")
+	if err == nil {
+		t.Fatal("checkout must fail when the listing is nil")
+	}
+	if errors.Is(err, service.ErrPriceChanged) || errors.Is(err, service.ErrPromotionUnavailable) {
+		t.Fatalf("err = %v, want a plain error (not price changed / promotion unavailable)", err)
+	}
+	if got := r.cartPrice(t, "b1", "lst_nil"); got != 350000 {
+		t.Errorf("cart line = %d, want unchanged 350000", got)
+	}
+	r.assertNothingHeld(t)
+	if r.orderCount(t, "b1") != 0 {
+		t.Error("no order may exist")
+	}
+}
+
+// The flash release gets its own live context: when the stock release consumes the
+// shared inline deadline (a stopped team-domain), every item's flash release is
+// still made, on a context that has not expired. Takes about the 2s inline budget.
+func TestCancelOrderFlashReleaseHasOwnTimeout(t *testing.T) {
+	r, o := placeFlashOrder(t, true)
+	r.domain.ReleaseHang = true // set after checkout: blocks until the inline deadline
+
+	res, err := r.svc.CancelOrder(context.Background(), o.ID)
+	if err != nil || res.Status != repository.OrderStatusCancelled {
+		t.Fatalf("cancel: %v %+v", err, res)
+	}
+	r.flash.mu.Lock()
+	defer r.flash.mu.Unlock()
+	if len(r.flash.released) != 2 {
+		t.Fatalf("flash releases = %v, want one per item", r.flash.released)
+	}
+	for i, cerr := range r.flash.releaseCtxErrs {
+		if cerr != nil {
+			t.Errorf("flash release %d ran on an expired context: %v", i, cerr)
+		}
 	}
 }
