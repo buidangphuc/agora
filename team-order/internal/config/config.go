@@ -20,6 +20,7 @@ type Settings struct {
 	Kafka         Kafka
 	Outbox        Outbox
 	Reservation   Reservation
+	Lifecycle     Lifecycle
 }
 
 type Runtime struct {
@@ -95,6 +96,36 @@ type Outbox struct {
 type Reservation struct {
 	TTL           string `env:"RESERVATION_TTL" default:"15m"`
 	SweepInterval string `env:"RESERVATION_SWEEP_INTERVAL" default:"1m"`
+}
+
+// Lifecycle tunes unpaid-order expiry. All are Go duration strings read through
+// PaymentDeadline, PaymentReminderBefore and LifecycleSweepInterval, which never
+// fail: an unusable value falls back to the default with a warning.
+type Lifecycle struct {
+	PaymentDeadline       string `env:"PAYMENT_DEADLINE" default:"24h"`
+	PaymentReminderBefore string `env:"PAYMENT_REMINDER_BEFORE" default:"2h"`
+	SweepInterval         string `env:"LIFECYCLE_SWEEP_INTERVAL" default:"1m"`
+}
+
+const (
+	DefaultPaymentDeadline        = 24 * time.Hour
+	DefaultPaymentReminderBefore  = 2 * time.Hour
+	DefaultLifecycleSweepInterval = time.Minute
+)
+
+// PaymentDeadline parses PAYMENT_DEADLINE (fallback rules as ReservationTTL).
+func (s *Settings) PaymentDeadline() (time.Duration, string) {
+	return positiveDuration("PAYMENT_DEADLINE", s.Lifecycle.PaymentDeadline, DefaultPaymentDeadline)
+}
+
+// PaymentReminderBefore parses PAYMENT_REMINDER_BEFORE.
+func (s *Settings) PaymentReminderBefore() (time.Duration, string) {
+	return positiveDuration("PAYMENT_REMINDER_BEFORE", s.Lifecycle.PaymentReminderBefore, DefaultPaymentReminderBefore)
+}
+
+// LifecycleSweepInterval parses LIFECYCLE_SWEEP_INTERVAL.
+func (s *Settings) LifecycleSweepInterval() (time.Duration, string) {
+	return positiveDuration("LIFECYCLE_SWEEP_INTERVAL", s.Lifecycle.SweepInterval, DefaultLifecycleSweepInterval)
 }
 
 // DefaultReservationTTL is used when RESERVATION_TTL is empty or unusable. It

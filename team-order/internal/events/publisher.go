@@ -12,6 +12,7 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
+	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 )
 
@@ -26,6 +27,12 @@ const OrderCancelledEventType = "platform.order.v1.OrderCancelled"
 
 // ReturnRefundedEventType is the fully-qualified proto type for ReturnRefunded.
 const ReturnRefundedEventType = "platform.order.v1.ReturnRefunded"
+
+// OrderPlacedEventType is the fully-qualified proto type for OrderPlaced.
+const OrderPlacedEventType = "platform.order.v1.OrderPlaced"
+
+// OrderPaymentReminderEventType is the fully-qualified proto type for OrderPaymentReminder.
+const OrderPaymentReminderEventType = "platform.order.v1.OrderPaymentReminder"
 
 // OrderEventsTopic is the Kafka topic for order lifecycle events.
 const OrderEventsTopic = "order.events"
@@ -144,6 +151,7 @@ func BuildCancelledOutboxRow(order repository.Order) (repository.OutboxRow, erro
 		TotalAmount:    order.TotalAmount,
 		Currency:       order.Currency,
 		CancelledAt:    timestamppb.New(cancelledAt),
+		ReasonCode:     orderv1.CancelReason(order.CancelReason),
 	})
 	if err != nil {
 		return repository.OutboxRow{}, fmt.Errorf("marshal OrderCancelled: %w", err)
@@ -162,6 +170,110 @@ func BuildCancelledOutboxRow(order repository.Order) (repository.OutboxRow, erro
 		AggregateType: "Order",
 		AggregateID:   order.ID,
 		EventType:     OrderCancelledEventType,
+		Payload:       value,
+	}, nil
+}
+
+// orderPlacedNamespace seeds deterministic OrderPlaced event ids (one per order).
+var orderPlacedNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("agora/team-order/order.events/OrderPlaced"))
+
+// OrderPlacedEventID is the stable EventEnvelope.event_id for an order's PLACED fact.
+func OrderPlacedEventID(orderID string) string {
+	return uuid.NewSHA1(orderPlacedNamespace, []byte(orderID)).String()
+}
+
+// BuildPlacedOutboxRow is the repository.PlacedOutboxBuilder for team-order: it
+// wraps OrderPlaced in an EventEnvelope keyed by order_id, ready to commit in the
+// placement transaction. order.CreatedAt is placed_at; payment_due_at is the
+// order's own (unset for COD); ship_by is left unset.
+func BuildPlacedOutboxRow(order repository.Order) (repository.OutboxRow, error) {
+	placedAt := order.CreatedAt
+	if placedAt.IsZero() {
+		placedAt = time.Now()
+	}
+	placedAt = placedAt.UTC()
+	ev := &orderv1.OrderPlaced{
+		OrderId:       order.ID,
+		BuyerId:       order.BuyerID,
+		SellerId:      order.SellerID,
+		TotalAmount:   order.TotalAmount,
+		Currency:      order.Currency,
+		PaymentMethod: paymentv1.PaymentMethod(order.PaymentMethod),
+		PlacedAt:      timestamppb.New(placedAt),
+	}
+	if order.PaymentDueAt != nil {
+		ev.PaymentDueAt = timestamppb.New(order.PaymentDueAt.UTC())
+	}
+	eventID := OrderPlacedEventID(order.ID)
+	payload, err := proto.Marshal(ev)
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal OrderPlaced: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       OrderPlacedEventType,
+		OccurredAt: timestamppb.New(placedAt),
+		Payload:    payload,
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "Order",
+		AggregateID:   order.ID,
+		EventType:     OrderPlacedEventType,
+		Payload:       value,
+	}, nil
+}
+
+// orderPaymentReminderNamespace seeds deterministic OrderPaymentReminder event ids
+// (one per order: the reminder is emitted at most once).
+var orderPaymentReminderNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("agora/team-order/order.events/OrderPaymentReminder"))
+
+// OrderPaymentReminderEventID is the stable EventEnvelope.event_id for an order's reminder.
+func OrderPaymentReminderEventID(orderID string) string {
+	return uuid.NewSHA1(orderPaymentReminderNamespace, []byte(orderID)).String()
+}
+
+// BuildPaymentReminderOutboxRow is the repository.ReminderOutboxBuilder for
+// team-order: it wraps OrderPaymentReminder in an EventEnvelope keyed by order_id,
+// committed in the same transaction as the payment_reminder_sent_at stamp.
+// order.PaymentReminderSentAt is occurred_at; payment_due_at is the order's own.
+func BuildPaymentReminderOutboxRow(order repository.Order) (repository.OutboxRow, error) {
+	occurredAt := time.Now()
+	if order.PaymentReminderSentAt != nil {
+		occurredAt = *order.PaymentReminderSentAt
+	}
+	occurredAt = occurredAt.UTC()
+	ev := &orderv1.OrderPaymentReminder{
+		OrderId:     order.ID,
+		BuyerId:     order.BuyerID,
+		TotalAmount: order.TotalAmount,
+		Currency:    order.Currency,
+	}
+	if order.PaymentDueAt != nil {
+		ev.PaymentDueAt = timestamppb.New(order.PaymentDueAt.UTC())
+	}
+	eventID := OrderPaymentReminderEventID(order.ID)
+	payload, err := proto.Marshal(ev)
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal OrderPaymentReminder: %w", err)
+	}
+	value, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId:    eventID,
+		Type:       OrderPaymentReminderEventType,
+		OccurredAt: timestamppb.New(occurredAt),
+		Payload:    payload,
+	})
+	if err != nil {
+		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+	}
+	return repository.OutboxRow{
+		EventID:       eventID,
+		AggregateType: "Order",
+		AggregateID:   order.ID,
+		EventType:     OrderPaymentReminderEventType,
 		Payload:       value,
 	}, nil
 }

@@ -91,6 +91,8 @@ An admin acts as the seller on `UpdateOrderStatus`. A target the caller may neve
 | produce | `order.events` | `platform.order.v1.OrderShipped` | `order_id` | Outbox row written in the same transaction as `CreateShipment` |
 | produce | `order.events` | `platform.order.v1.OrderCancelled` | `order_id` | Outbox row written in the same transaction as the compare-and-set claim to CANCELLED (`CancelOrder`, `ForceFailSaga`), only when the claim wins. `previous_status` is `ORDER_STATUS_PAID` when the order was cancelled from Paid (it has `paid_at`), else `ORDER_STATUS_PENDING` |
 | produce | `order.events` | `platform.order.v1.ReturnRefunded` | `order_id` | Outbox row written in the same transaction as the won APPROVED -> REFUNDED compare-and-set of a return (`UpdateReturnStatus`); never for an order without `paid_at`. Carries the return, order, buyer and seller ids, the stored `refund_amount` (never a client value), the order currency and `refunded_at`. Consumed by team-payment, which refunds the order's payment once under refund id `return:<return_id>` (clamped to what the payment still has) |
+| produce | `order.events` | `platform.order.v1.OrderPlaced` | `order_id` | Outbox row written in the same transaction as order placement (`PlaceOrders`) |
+| produce | `order.events` | `platform.order.v1.OrderPaymentReminder` | `order_id` | Outbox row written in the same transaction as the once-only reminder stamp, when a Pending order enters its reminder window (`PAYMENT_REMINDER_BEFORE` before its deadline). The lifecycle sweeper also cancels Pending orders past their payment deadline with reason code `PAYMENT_EXPIRED` (emits `OrderCancelled`) and releases their stock |
 | produce | `payment.events.dlq` (`PAYMENT_EVENTS_DLQ_TOPIC`) | original record | original key | Poison records, or records that exhausted retries |
 
 - The payment consumer commits offsets only after a record is applied or dead-lettered (auto-commit disabled), retries up to 5 times in process, dedupes on `processed_events` (consumer `team-order.payment`), and runs only with Postgres and `KAFKA_ENABLED=true`.
@@ -156,6 +158,9 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `OUTBOX_MAX_ATTEMPTS` | `10` | |
 | `RESERVATION_TTL` | `15m` | Go duration: stock-hold lifetime before the sweep releases it; also how long an unfinished checkout attempt may stay pending. Empty, invalid or non-positive falls back to the default with a WARN; boot never fails |
 | `RESERVATION_SWEEP_INTERVAL` | `1m` | Go duration: sweep cadence. Same fallback rule |
+| `PAYMENT_DEADLINE` | `24h` | Go duration: how long a non-COD order may stay unpaid before the lifecycle sweeper cancels it with `PAYMENT_EXPIRED`. Invalid or non-positive falls back with a WARN |
+| `PAYMENT_REMINDER_BEFORE` | `2h` | Go duration: how long before the deadline the `OrderPaymentReminder` is emitted. Same fallback rule |
+| `LIFECYCLE_SWEEP_INTERVAL` | `1m` | Go duration: lifecycle sweep cadence (needs Postgres). Same fallback rule |
 
 Drift gate: `TestEnvExampleInSync` (`internal/config/config_test.go`) fails if `.env.example` and the declared env keys differ in either direction. `.env.example` points `DATABASE_URL` at `localhost:5437`; compose uses `postgres:5432`.
 

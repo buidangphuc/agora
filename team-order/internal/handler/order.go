@@ -325,7 +325,12 @@ func (h *OrderHandler) CancelOrder(ctx context.Context, req *orderv1.CancelOrder
 		return nil, status.Error(codes.PermissionDenied, "only buyer can cancel pending order")
 	}
 
-	cancelled, err := h.svc.CancelOrder(ctx, req.GetId())
+	// PAYMENT_EXPIRED and ADMIN_FORCE_FAIL belong to the system and admins.
+	if rc := req.GetReasonCode(); rc == orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED || rc == orderv1.CancelReason_CANCEL_REASON_ADMIN_FORCE_FAIL {
+		return nil, status.Error(codes.PermissionDenied, "reason code is reserved for system use")
+	}
+
+	cancelled, err := h.svc.CancelOrderWithReason(ctx, req.GetId(), req.GetReasonCode())
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidStatus) {
 			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be cancelled in its current status", err)
@@ -419,7 +424,7 @@ func (h *OrderHandler) ForceFailSaga(ctx context.Context, req *orderv1.ForceFail
 		map[string]string{"fail_step": auditStep}); err != nil {
 		return nil, err
 	}
-	cancelled, err := h.svc.CancelOrder(ctx, req.GetOrderId())
+	cancelled, err := h.svc.CancelOrderWithReason(ctx, req.GetOrderId(), orderv1.CancelReason_CANCEL_REASON_ADMIN_FORCE_FAIL)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidStatus) {
 			return nil, clientErr(h.logger, codes.FailedPrecondition, "order cannot be cancelled in its current status", err)
@@ -705,12 +710,19 @@ func toWireOrder(o repository.Order) *orderv1.Order {
 		paidAt = timestamppb.New(*o.PaidAt) // unset = never paid online
 	}
 
+	var due *timestamppb.Timestamp
+	if o.PaymentDueAt != nil {
+		due = timestamppb.New(*o.PaymentDueAt)
+	}
+
 	return &orderv1.Order{
 		PaidAt:        paidAt,
+		PaymentDueAt:  due,
 		Id:            o.ID,
 		BuyerId:       o.BuyerID,
 		SellerId:      o.SellerID,
 		Status:        orderv1.OrderStatus(o.Status),
+		CancelReason:  orderv1.CancelReason(o.CancelReason),
 		TotalAmount:   o.TotalAmount,
 		ItemsSubtotal: o.ItemsSubtotal,
 		ShippingFee:   o.ShippingFee,

@@ -28,6 +28,8 @@ func legal(from, to repository.OrderStatus, actor service.Actor) bool {
 		{repository.OrderStatusShipped, repository.OrderStatusCompleted, service.ActorSeller}: true,
 		{repository.OrderStatusPending, repository.OrderStatusCancelled, service.ActorBuyer}:  true,
 		{repository.OrderStatusPaid, repository.OrderStatusCancelled, service.ActorBuyer}:     true,
+		// Order expiry: System may cancel only from Pending
+		{repository.OrderStatusPending, repository.OrderStatusCancelled, service.ActorSystem}: true,
 	}
 	return table[k{from, to, actor}]
 }

@@ -7,6 +7,9 @@
 #
 # Uncommitted holds expire after 20s and the sweeper runs every 2s. Placed orders are
 # committed and immune to the sweep, so the whole suite is safe with this overlay.
+# team-order also runs the order lifecycle on short timers (change order-unpaid-expiry):
+# PAYMENT_DEADLINE=45s, PAYMENT_REMINDER_BEFORE=30s (reminder due 15s after placement),
+# LIFECYCLE_SWEEP_INTERVAL=2s. Online-pay orders left Pending longer than 45s are cancelled.
 # Keys by service name only (no container_name), so it works under any project.
 services:
   team-domain:
@@ -17,3 +20,6 @@ services:
     environment:
       RESERVATION_TTL: 20s
       RESERVATION_SWEEP_INTERVAL: 2s
+      PAYMENT_DEADLINE: 45s
+      PAYMENT_REMINDER_BEFORE: 30s
+      LIFECYCLE_SWEEP_INTERVAL: 2s

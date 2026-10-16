@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
+	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
+	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 	"github.com/buidangphuc/team-order/internal/upstream"
 )
@@ -51,6 +53,19 @@ type OrderService struct {
 	// placer places a checkout's orders and binds their reservations atomically
 	// (design D6). Resolved in NewOrderService.
 	placer repository.OrderPlacer
+
+	// paymentDeadline is how long an online-pay order may stay unpaid; snapshotted
+	// into each order at placement. Zero disables the deadline.
+	paymentDeadline time.Duration
+
+	// paymentReminderBefore is how long before the deadline the reminder is emitted.
+	paymentReminderBefore time.Duration
+}
+
+// WithPaymentDeadline sets the unpaid-order deadline applied to every non-COD
+// order at placement.
+func WithPaymentDeadline(d time.Duration) OrderServiceOption {
+	return func(s *OrderService) { s.paymentDeadline = d }
 }
 
 func NewOrderService(
@@ -340,7 +355,12 @@ func (s *OrderService) runCheckout(
 		for _, r := range g.reservations {
 			resIDs = append(resIDs, r.ID)
 		}
+		var deadline time.Duration
+		if paymentMethod != int32(paymentv1.PaymentMethod_PAYMENT_METHOD_COD) {
+			deadline = s.paymentDeadline
+		}
 		placed = append(placed, repository.PlacedOrder{
+			PaymentDeadline: deadline,
 			Order: repository.Order{
 				ID:              g.orderID,
 				BuyerID:         buyerID,
@@ -496,7 +516,19 @@ type CancelResult struct {
 // held by a Cancelled order (a crash between claim and release). A voucher release
 // failure is logged and never fails the cancel.
 func (s *OrderService) CancelOrder(ctx context.Context, id string) (CancelResult, error) {
-	claimed, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, cancelFrom, "")
+	return s.CancelOrderWithReason(ctx, id, orderv1.CancelReason_CANCEL_REASON_UNSPECIFIED)
+}
+
+// CancelOrderWithReason is CancelOrder storing reason on the claimed row (and so on
+// the OrderCancelled fact). PAYMENT_EXPIRED is the system's reason and may claim
+// only from Pending; every other reason uses the buyer/admin set.
+func (s *OrderService) CancelOrderWithReason(ctx context.Context, id string, reason orderv1.CancelReason) (CancelResult, error) {
+	from := cancelFrom
+	if reason == orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED {
+		from = systemCancelFrom
+	}
+	claimed, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, from, "",
+		repository.WithCancelReason(int32(reason)))
 	if err != nil {
 		if errors.Is(err, repository.ErrStatusConflict) {
 			msg := "order is not in a cancellable status"
