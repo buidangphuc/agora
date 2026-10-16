@@ -40,13 +40,14 @@ type Clients struct {
 	Address  identityv1.AddressServiceClient
 	// Session is team-identity's SessionService (active sessions + login history),
 	// reached at the same gRPC endpoint as AuthService/AddressService.
-	Session    identityv1.SessionServiceClient
-	Engagement engagementv1.EngagementServiceClient
-	Cart       orderv1.CartServiceClient
-	Order      orderv1.OrderServiceClient
-	Payment    paymentv1.PaymentServiceClient
-	Chat       chatv1.ChatServiceClient
-	AI         aiv1.AIServiceClient
+	Session      identityv1.SessionServiceClient
+	AccountAdmin identityv1.AccountAdminServiceClient // TEST-STUB field: implementer constructs it from the identity conn
+	Engagement   engagementv1.EngagementServiceClient
+	Cart         orderv1.CartServiceClient
+	Order        orderv1.OrderServiceClient
+	Payment      paymentv1.PaymentServiceClient
+	Chat         chatv1.ChatServiceClient
+	AI           aiv1.AIServiceClient
 	// AIChat is team-ai's ChatService (StreamChat token streaming), distinct from
 	// Chat (team-chat's buyer↔seller messaging on the same contract).
 	AIChat chatv1.ChatServiceClient
