@@ -10968,3 +10968,690 @@ features:
     tags: [buyer, pricing, unit]
     status: not-testable
     notes: "VERIFIED BY team-gateway/internal/edge/order_test.go TestOrderForwarderCalculateShippingFeeAnonymous. Not producible end to end through the browser (unit level)."
+
+  # ---- frontend-order-lifecycle (initiative q10-order-lifecycle)
+  - id: frontend.olc-cancel-is-offered-only-for-pending-and-paid-orders
+    title: "Order lifecycle: cancel is offered only for pending and paid orders"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: cancel is offered only for pending and paid orders"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/OrderDetailView.test.tsx` `cancel only for pending and paid`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-shipped-order-offers-receipt-and-return-instead-of-cancel
+    title: "Order lifecycle: a shipped order offers receipt and return instead of cancel"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a shipped order offers receipt and return instead of cancel"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/OrderDetailView.test.tsx` `shipped offers receipt and return`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-cancel-sends-the-reason-code-with-the-label
+    title: "Order lifecycle: cancel sends the reason code with the label"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: cancel sends the reason code with the label"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/actions.test.ts` `cancel sends the reason code`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-an-unknown-cancel-reason-is-refused-before-any-call
+    title: "Order lifecycle: an unknown cancel reason is refused before any call"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: an unknown cancel reason is refused before any call"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/actions.test.ts` `unknown cancel reason is refused`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-refused-cancel-keeps-the-dialog-open-with-the-server-error
+    title: "Order lifecycle: a refused cancel keeps the dialog open with the server error"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a refused cancel keeps the dialog open with the server error"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/OrderActions.test.tsx` `a refused cancel keeps the dialog open`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-cancelling-an-order-that-is-not-the-buyer-s-is-refused
+    title: "Order lifecycle: cancelling an order that is not the buyer's is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: cancelling an order that is not the buyer's is refused"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/actions.test.ts` `cancel of a foreign order is refused`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-the-buyer-cancels-a-paid-order-with-a-reason
+    title: "Order lifecycle: the buyer cancels a paid order with a reason"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/account/orders/{order_id}"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyer through the gateway."
+    acceptance:
+      - "Order lifecycle: the buyer cancels a paid order with a reason"
+    tags: [buyer, order]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the buyer cancels a paid order with a reason"
+
+  - id: frontend.olc-an-unpaid-online-order-shows-its-deadline-and-the-retry-link
+    title: "Order lifecycle: an unpaid online order shows its deadline and the retry link"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: an unpaid online order shows its deadline and the retry link"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/OrderList.test.tsx` `unpaid online order shows deadline and retry link`; `team-frontend/src/features/order/OrderDetailView.test.tsx` `unpaid online order shows deadline and retry link`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-cod-order-shows-no-deadline-and-no-pay-action
+    title: "Order lifecycle: a COD order shows no deadline and no pay action"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a COD order shows no deadline and no pay action"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/OrderList.test.tsx` `cod order has no deadline or pay action`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-the-pay-action-disappears-at-the-deadline-instant
+    title: "Order lifecycle: the pay action disappears at the deadline instant"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: the pay action disappears at the deadline instant"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/lifecycle.test.ts` `canPayAgain flips at the deadline instant`; `team-frontend/src/features/order/OrderList.test.tsx` `pay link becomes expiry text at the deadline instant`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-an-order-with-no-deadline-keeps-its-pay-action
+    title: "Order lifecycle: an order with no deadline keeps its pay action"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: an order with no deadline keeps its pay action"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/lifecycle.test.ts` `legacy order without deadline can still be paid`; `team-frontend/src/features/order/OrderList.test.tsx` `legacy order without deadline shows no deadline text`; `team-frontend/src/features/order/OrderDetailView.test.tsx` `legacy order without deadline shows no deadline text`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-the-pay-page-opens-a-transaction-when-none-exists
+    title: "Order lifecycle: the pay page opens a transaction when none exists"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: the pay page opens a transaction when none exists"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `creates a transaction when none exists`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-the-pay-page-reuses-a-failed-transaction
+    title: "Order lifecycle: the pay page reuses a failed transaction"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: the pay page reuses a failed transaction"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `failed transaction is reused and the order is kept`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-an-expired-order-shows-the-expiry-message-and-no-pay-action
+    title: "Order lifecycle: an expired order shows the expiry message and no pay action"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: an expired order shows the expiry message and no pay action"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `expired order shows the expiry message`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-cod-order-on-the-pay-page-offers-no-payment
+    title: "Order lifecycle: a COD order on the pay page offers no payment"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a COD order on the pay page offers no payment"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `cod order offers no online payment`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-the-pay-page-makes-no-call-for-another-buyer-s-order
+    title: "Order lifecycle: the pay page makes no call for another buyer's order"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: the pay page makes no call for another buyer's order"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `unreadable order makes no payment call`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-the-pay-page-of-a-non-pending-order-makes-no-payment-call
+    title: "Order lifecycle: the pay page of a non-pending order makes no payment call"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: the pay page of a non-pending order makes no payment call"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `non-pending order renders its state without payment calls`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-payment-refused-after-expiry-refreshes-the-page
+    title: "Order lifecycle: a payment refused after expiry refreshes the page"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a payment refused after expiry refreshes the page"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/payment/PaymentSimulator.test.tsx` `a failed payment refreshes the page`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-failed-payment-does-not-claim-the-order-was-cancelled
+    title: "Order lifecycle: a failed payment does not claim the order was cancelled"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a failed payment does not claim the order was cancelled"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `no false cancellation claim`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-an-expired-order-detail-names-the-expiry
+    title: "Order lifecycle: an expired order detail names the expiry"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: an expired order detail names the expiry"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/OrderDetailView.test.tsx` `expired cancel names the expiry`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-failed-payment-can-be-retried-from-the-order-list
+    title: "Order lifecycle: a failed payment can be retried from the order list"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/account/orders/{order_id}"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyer through the gateway."
+    acceptance:
+      - "Order lifecycle: a failed payment can be retried from the order list"
+    tags: [buyer, order]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: a failed payment can be retried from the order list"
+
+  - id: frontend.olc-the-pay-page-opens-for-an-order-that-has-no-transaction
+    title: "Order lifecycle: the pay page opens for an order that has no transaction"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyer through the gateway."
+    acceptance:
+      - "Order lifecycle: the pay page opens for an order that has no transaction"
+    tags: [buyer, order]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the pay page opens for an order that has no transaction"
+
+  - id: frontend.olc-an-unpaid-order-expires-and-the-pay-page-says-so
+    title: "Order lifecycle: an unpaid order expires and the pay page says so"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyer through the gateway; timer scenarios run with compose/order-inventory.override.yaml."
+    acceptance:
+      - "Order lifecycle: an unpaid order expires and the pay page says so"
+    tags: [buyer, order, lifecycle_timers]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: an unpaid order expires and the pay page says so"
+
+  - id: frontend.olc-a-shipped-order-row-offers-receipt-on-the-buyer-list
+    title: "Order lifecycle: a shipped order row offers receipt on the buyer list"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a shipped order row offers receipt on the buyer list"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/OrderList.test.tsx` `shipped row offers receipt`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-shipped-order-with-an-open-return-still-offers-receipt
+    title: "Order lifecycle: a shipped order with an open return still offers receipt"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a shipped order with an open return still offers receipt"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/OrderDetailView.test.tsx` `receipt offered while a return is open`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-confirming-receipt-calls-the-server-and-completes-the-order
+    title: "Order lifecycle: confirming receipt calls the server and completes the order"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: confirming receipt calls the server and completes the order"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/ConfirmReceiptButton.test.tsx` `confirm calls ConfirmReceipt and revalidates`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-leaving-the-dialog-sends-nothing
+    title: "Order lifecycle: leaving the dialog sends nothing"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: leaving the dialog sends nothing"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/ConfirmReceiptButton.test.tsx` `cancelling the dialog sends nothing`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-confirm-that-lost-to-auto-complete-is-explained
+    title: "Order lifecycle: a confirm that lost to auto-complete is explained"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a confirm that lost to auto-complete is explained"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/actions.test.ts` `confirm after auto-complete is explained`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-refused-confirm-shows-the-server-error
+    title: "Order lifecycle: a refused confirm shows the server error"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a refused confirm shows the server error"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/actions.test.ts` `refused confirm returns the server error`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-only-the-buyer-view-offers-the-receipt-button
+    title: "Order lifecycle: only the buyer view offers the receipt button"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: only the buyer view offers the receipt button"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/seller/orders/[id]/page.test.tsx` `seller view has no receipt button`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-shipped-order-states-its-automatic-completion-time
+    title: "Order lifecycle: a shipped order states its automatic completion time"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a shipped order states its automatic completion time"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/OrderDetailView.test.tsx` `shipped shows the auto-complete time when set`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-the-buyer-confirms-receipt-and-the-review-prompt-opens
+    title: "Order lifecycle: the buyer confirms receipt and the review prompt opens"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/account/orders/{order_id}"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyer through the gateway."
+    acceptance:
+      - "Order lifecycle: the buyer confirms receipt and the review prompt opens"
+    tags: [buyer, order]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the buyer confirms receipt and the review prompt opens"
+
+  - id: frontend.olc-the-system-completes-a-shipped-order-when-the-buyer-does-not
+    title: "Order lifecycle: the system completes a shipped order when the buyer does not"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/account/orders/{order_id}"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyer through the gateway; timer scenarios run with compose/order-inventory.override.yaml."
+    acceptance:
+      - "Order lifecycle: the system completes a shipped order when the buyer does not"
+    tags: [buyer, order, lifecycle_timers]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the system completes a shipped order when the buyer does not"
+
+  - id: frontend.olc-a-return-is-offered-for-shipped-orders-and-inside-the-window
+    title: "Order lifecycle: a return is offered for shipped orders and inside the window"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a return is offered for shipped orders and inside the window"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/lifecycle.test.ts` `return offered when shipped or inside the window`; `team-frontend/src/features/order/OrderDetailView.test.tsx` `return action and window text inside the window`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-return-is-not-offered-on-a-paid-order
+    title: "Order lifecycle: a return is not offered on a paid order"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a return is not offered on a paid order"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/lifecycle.test.ts` `no return before shipping`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-the-return-window-closes-at-its-end-instant
+    title: "Order lifecycle: the return window closes at its end instant"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: the return window closes at its end instant"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/lifecycle.test.ts` `return window closes at its end instant`; `team-frontend/src/features/order/OrderDetailView.test.tsx` `window closed text replaces the return action`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-completed-order-without-a-window-leaves-the-decision-to-the-server
+    title: "Order lifecycle: a completed order without a window leaves the decision to the server"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a completed order without a window leaves the decision to the server"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/lifecycle.test.ts` `completed order without window is offered`; `team-frontend/src/features/order/OrderDetailView.test.tsx` `completed order without window shows no return deadline`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-window-closed-refusal-is-explained
+    title: "Order lifecycle: a window-closed refusal is explained"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a window-closed refusal is explained"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/returns.actions.test.ts` `window closed refusal is explained`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-return-on-an-order-that-is-not-the-buyer-s-is-refused
+    title: "Order lifecycle: a return on an order that is not the buyer's is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a return on an order that is not the buyer's is refused"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/returns.actions.test.ts` `foreign order return is refused`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-return-is-accepted-on-a-shipped-order
+    title: "Order lifecycle: a return is accepted on a shipped order"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/account/orders/{order_id}"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyer through the gateway."
+    acceptance:
+      - "Order lifecycle: a return is accepted on a shipped order"
+    tags: [buyer, order]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: a return is accepted on a shipped order"
+
+  - id: frontend.olc-after-the-return-window-no-return-is-offered
+    title: "Order lifecycle: after the return window no return is offered"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/account/orders/{order_id}"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyer through the gateway; timer scenarios run with compose/order-inventory.override.yaml."
+    acceptance:
+      - "Order lifecycle: after the return window no return is offered"
+    tags: [buyer, order, lifecycle_timers]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: after the return window no return is offered"
+
+  - id: frontend.olc-the-to-ship-count-is-paid-plus-cod-pending
+    title: "Order lifecycle: the to-ship count is paid plus COD pending"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: the to-ship count is paid plus COD pending"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/seller/kpi.test.ts` `to-ship counts paid and cod pending`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-overdue-shipments-are-highlighted
+    title: "Order lifecycle: overdue shipments are highlighted"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: overdue shipments are highlighted"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/seller/kpi.test.ts` `overdue is strictly past ship-by`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-the-to-ship-kpi-is-omitted-when-orders-fail-to-load
+    title: "Order lifecycle: the to-ship KPI is omitted when orders fail to load"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: the to-ship KPI is omitted when orders fail to load"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/seller/(dashboard)/page.test.tsx` `to-ship KPI is omitted when orders fail`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-seller-orders-show-the-ship-by-deadline
+    title: "Order lifecycle: seller orders show the ship-by deadline"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: seller orders show the ship-by deadline"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/seller/shipBy.test.tsx` `ship-by shown with overdue tag`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-a-session-without-seller-scope-sees-no-seller-orders
+    title: "Order lifecycle: a session without seller scope sees no seller orders"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-order-lifecycle."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order lifecycle: a session without seller scope sees no seller orders"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/seller/layout.test.tsx` `no seller orders without listing scope`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.olc-the-seller-dashboard-flags-an-overdue-order
+    title: "Order lifecycle: the seller dashboard flags an overdue order"
+    persona: seller
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/seller"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: seller
+      data: "Registers its own seller, listing and buyer through the gateway; timer scenarios run with compose/order-inventory.override.yaml."
+    acceptance:
+      - "Order lifecycle: the seller dashboard flags an overdue order"
+    tags: [seller, order, lifecycle_timers]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the seller dashboard flags an overdue order"
+
+  - id: frontend.olc-the-new-order-notification-opens-the-seller-order
+    title: "Order lifecycle: the new-order notification opens the seller order"
+    persona: seller
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/notifications"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: seller
+      data: "Registers its own seller, listing and buyer through the gateway."
+    acceptance:
+      - "Order lifecycle: the new-order notification opens the seller order"
+    tags: [seller, order]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the new-order notification opens the seller order"
+
+  - id: frontend.olc-another-seller-cannot-open-the-new-order-link
+    title: "Order lifecycle: another seller cannot open the new-order link"
+    persona: seller
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/seller"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: seller
+      data: "Registers its own seller, listing and buyer through the gateway."
+    acceptance:
+      - "Order lifecycle: another seller cannot open the new-order link"
+    tags: [seller, order]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: another seller cannot open the new-order link"
+
+  - id: frontend.olc-the-payment-reminder-opens-the-pay-page
+    title: "Order lifecycle: the payment reminder opens the pay page"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-order-lifecycle (initiative q10-order-lifecycle)."
+    entry_route: "/notifications"
+    services: [team-frontend, team-gateway, team-order, team-payment, team-notification]
+    preconditions:
+      login: buyer
+      data: "Registers its own seller, listing and buyer through the gateway; timer scenarios run with compose/order-inventory.override.yaml."
+    acceptance:
+      - "Order lifecycle: the payment reminder opens the pay page"
+    tags: [buyer, order, lifecycle_timers]
+    status: planned
+    covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the payment reminder opens the pay page"
