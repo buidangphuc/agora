@@ -148,6 +148,7 @@ func BuildCancelledOutboxRow(order repository.Order) (repository.OutboxRow, erro
 		TotalAmount:    order.TotalAmount,
 		Currency:       order.Currency,
 		CancelledAt:    timestamppb.New(cancelledAt),
+		ReasonCode:     orderv1.CancelReason(order.CancelReason),
 	})
 	if err != nil {
 		return repository.OutboxRow{}, fmt.Errorf("marshal OrderCancelled: %w", err)

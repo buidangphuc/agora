@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
+	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 	"github.com/buidangphuc/team-order/internal/upstream"
@@ -512,7 +513,19 @@ type CancelResult struct {
 // held by a Cancelled order (a crash between claim and release). A voucher release
 // failure is logged and never fails the cancel.
 func (s *OrderService) CancelOrder(ctx context.Context, id string) (CancelResult, error) {
-	claimed, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, cancelFrom, "")
+	return s.CancelOrderWithReason(ctx, id, orderv1.CancelReason_CANCEL_REASON_UNSPECIFIED)
+}
+
+// CancelOrderWithReason is CancelOrder storing reason on the claimed row (and so on
+// the OrderCancelled fact). PAYMENT_EXPIRED is the system's reason and may claim
+// only from Pending; every other reason uses the buyer/admin set.
+func (s *OrderService) CancelOrderWithReason(ctx context.Context, id string, reason orderv1.CancelReason) (CancelResult, error) {
+	from := cancelFrom
+	if reason == orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED {
+		from = systemCancelFrom
+	}
+	claimed, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, from, "",
+		repository.WithCancelReason(int32(reason)))
 	if err != nil {
 		if errors.Is(err, repository.ErrStatusConflict) {
 			msg := "order is not in a cancellable status"

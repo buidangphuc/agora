@@ -78,6 +78,9 @@ type Order struct {
 	// PaymentDueAt is the deadline of an unpaid online-pay order, snapshotted at
 	// placement; nil for COD and for orders placed before migration 0008.
 	PaymentDueAt *time.Time
+	// CancelReason is the closed orderv1.CancelReason code stored by the claim that
+	// won the move to Cancelled; 0 = unspecified.
+	CancelReason int32
 }
 
 type OrderRepository interface {
@@ -91,7 +94,26 @@ type OrderRepository interface {
 	// to Paid records paid_at and writes the OrderPaid outbox row in the same
 	// transaction; a won move to Cancelled writes the OrderCancelled outbox row in
 	// the same transaction. trackingNumber, when non-empty, is stored with the change.
-	UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string) (Order, error)
+	UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string, opts ...StatusOption) (Order, error)
+}
+
+// StatusOption tunes one UpdateOrderStatusFrom write.
+type StatusOption func(*statusConfig)
+
+type statusConfig struct{ cancelReason int32 }
+
+// WithCancelReason stores reason on the order when the write wins a move to
+// Cancelled; it is ignored for every other move.
+func WithCancelReason(reason int32) StatusOption {
+	return func(c *statusConfig) { c.cancelReason = reason }
+}
+
+func newStatusConfig(opts []StatusOption) statusConfig {
+	var c statusConfig
+	for _, o := range opts {
+		o(&c)
+	}
+	return c
 }
 
 // PaidOutboxBuilder turns an order that has just transitioned to PAID into the
@@ -167,14 +189,14 @@ func NewPostgresOrderRepository(pool *pgxpool.Pool, opts ...OrderRepoOption) *Po
 	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox}
 }
 
-const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at`
+const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at, cancel_reason`
 const orderItemColumns = `id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url`
 
 func scanOrder(row pgx.Row, o *Order) error {
 	var addrRaw []byte
 	var statusInt int32
 	var paidAt, dueAt *time.Time
-	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt, &dueAt); err != nil {
+	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt, &dueAt, &o.CancelReason); err != nil {
 		return err
 	}
 	o.PaidAt = paidAt
@@ -372,7 +394,8 @@ func statusInts(st []OrderStatus) []int32 {
 	return out
 }
 
-func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string) (Order, error) {
+func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string, opts ...StatusOption) (Order, error) {
+	cfg := newStatusConfig(opts)
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return Order{}, fmt.Errorf("begin tx: %w", err)
@@ -383,11 +406,12 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 	// an earlier read. paid_at is recorded by the move to Paid and nothing else.
 	const q = `UPDATE orders SET status = $2, updated_at = now(),
 			tracking_number = CASE WHEN $4 <> '' THEN $4 ELSE tracking_number END,
-			paid_at = CASE WHEN $2 = 2 THEN now() ELSE paid_at END
+			paid_at = CASE WHEN $2 = 2 THEN now() ELSE paid_at END,
+			cancel_reason = CASE WHEN $2 = 5 THEN $5::int ELSE cancel_reason END
 		WHERE id = $1 AND status = ANY($3)
 		RETURNING ` + orderColumns
 	var o Order
-	if err := scanOrder(tx.QueryRow(ctx, q, id, int32(to), statusInts(allowedFrom), trackingNumber), &o); err != nil {
+	if err := scanOrder(tx.QueryRow(ctx, q, id, int32(to), statusInts(allowedFrom), trackingNumber, cfg.cancelReason), &o); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 			var exists bool
 			if qerr := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orders WHERE id = $1)`, id).Scan(&exists); qerr != nil {
@@ -513,7 +537,8 @@ func (r *InMemoryOrderRepository) ListSellerOrders(_ context.Context, sellerID s
 	return res, nil
 }
 
-func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string) (Order, error) {
+func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string, opts ...StatusOption) (Order, error) {
+	cfg := newStatusConfig(opts)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	o, ok := r.orders[id]
@@ -535,6 +560,9 @@ func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 		o.TrackingNumber = trackingNumber
 	}
 	o.UpdatedAt = time.Now()
+	if to == OrderStatusCancelled {
+		o.CancelReason = cfg.cancelReason
+	}
 	if to == OrderStatusPaid {
 		paidAt := o.UpdatedAt
 		o.PaidAt = &paidAt
