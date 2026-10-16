@@ -3,14 +3,15 @@ import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { AdCampaignForm } from "@/features/seller/AdCampaignForm";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { getAllListings } from "@/features/seller/listingsPage";
-import { hasScope } from "@/lib/gateway/session";
+import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Quảng cáo | Kênh người bán" };
 
 export default async function SellerAdsPage() {
-  if (!hasScope("listing.write")) redirectGuestToLogin("/seller/ads");
+  if (!getPrincipal()) redirectGuestToLogin("/seller/ads");
+  if (!hasScope("listing.write")) return null;
 
   const listings = await getAllListings().catch(() => []);
 

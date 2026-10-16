@@ -22,7 +22,15 @@ export default async function SellerLayout({
         status="error"
         title="Cần tài khoản Người Bán"
         subTitle="Tài khoản của bạn chưa có quyền Người Bán (listing.write). Hãy kích hoạt kênh người bán để đăng bán sản phẩm."
-        extra={<LinkButton href="/">Quay lại trang chủ</LinkButton>}
+        extra={
+          <div className="space-y-3">
+            <p>
+              Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh
+              người bán cho đến khi tài khoản được khôi phục.
+            </p>
+            <LinkButton href="/">Quay lại trang chủ</LinkButton>
+          </div>
+        }
       />
     );
   }

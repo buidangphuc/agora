@@ -18,8 +18,9 @@ export default async function SellerEditPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
-  if (!hasScope("listing.write"))
+  if (!getPrincipal())
     redirectGuestToLogin(`/seller/${encodeURIComponent(params.id)}/edit`);
+  if (!hasScope("listing.write")) return null;
 
   const [listing, categories] = await Promise.all([
     loadListing(params.id),

@@ -20,7 +20,7 @@ import {
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { type ListingPage, listMyListings } from "@/lib/gateway/listings";
 import { type ViewOrder, listSellerOrders } from "@/lib/gateway/orders";
-import { hasScope } from "@/lib/gateway/session";
+import { getPrincipal, hasScope } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,8 @@ export default async function SellerPage(props: {
   searchParams?: Promise<SearchParams>;
 }) {
   const searchParams = await props.searchParams;
-  if (!hasScope("listing.write")) redirectGuestToLogin("/seller", searchParams);
+  if (!getPrincipal()) redirectGuestToLogin("/seller", searchParams);
+  if (!hasScope("listing.write")) return null;
 
   const params = parseListParams(searchParams, LISTING_STATUSES);
 
