@@ -1635,3 +1635,216 @@ features:
     tags: [admin, moderation, unit]
     status: not-testable
     notes: "VERIFIED BY team-gateway `internal/edge` `TestUnroutedScreenListing`. Not producible end to end through the gateway (unit level)."
+
+  - id: engagement-listing-reports.listing-reports-anonymous-caller-cannot-list-reports-at-the-edge
+    title: "Listing reports: Anonymous caller cannot list reports at the edge"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: Anonymous caller cannot list reports at the edge"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestListReportsAnonymousUnauthenticated`"
+
+  - id: engagement-listing-reports.listing-reports-non-admin-is-refused-at-the-edge
+    title: "Listing reports: Non-admin is refused at the edge"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: Non-admin is refused at the edge"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestReportAdminProceduresNonAdminPermissionDenied`"
+
+  - id: engagement-listing-reports.listing-reports-admin-close-is-forwarded-once
+    title: "Listing reports: Admin close is forwarded once"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: Admin close is forwarded once"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestResolveReportForwardedOnceNoRetry`"
+
+  - id: engagement-listing-reports.listing-reports-createreport-is-forwarded-once-with-the-caller-identity
+    title: "Listing reports: CreateReport is forwarded once with the caller identity"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: CreateReport is forwarded once with the caller identity"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestCreateReportForwardedOnceWithPrincipal`"
+
+  - id: engagement-listing-reports.listing-reports-anonymous-createreport-is-not-rejected-by-the-edge-policy
+    title: "Listing reports: Anonymous CreateReport is not rejected by the edge policy"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: Anonymous CreateReport is not rejected by the edge policy"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestCreateReportAnonymousAnsweredByService`"
+
+  - id: engagement-listing-reports.listing-reports-the-admin-procedure-set-is-pinned
+    title: "Listing reports: The admin procedure set is pinned"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: The admin procedure set is pinned"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestAdminProceduresPinnedSet`"
+
+  - id: engagement-listing-reports.listing-reports-report-rpcs-are-not-left-unrouted
+    title: "Listing reports: Report RPCs are not left unrouted"
+    persona: guest
+    priority: P1
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Listing reports: Report RPCs are not left unrouted"
+    tags: [listing-reports, unit]
+    status: not-testable
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestUnroutedGuardCoversReportRPCs`"
+
+  # ---- identity-user-enforcement (e2e-author; planned until the feature scenarios run green)
+  - id: user-enforcement.user-enforcement-edge-admin-reaches-setuserstatus
+    title: "User enforcement edge: Admin reaches SetUserStatus"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Admin reaches SetUserStatus"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement edge: Admin reaches SetUserStatus (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-gateway `internal/edge` `TestAccountAdminSetUserStatusForwarded`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-edge-anonymous-caller-is-rejected-at-the-edge
+    title: "User enforcement edge: Anonymous caller is rejected at the edge"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Anonymous caller is rejected at the edge"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When an anonymous caller calls `ListUsers` or `SetUserStatus`"
+      - "Then each call returns `unauthenticated` and team-identity receives 0 requests"
+    tags: [admin, audit, auth]
+    status: automated
+    covered_by: "admin/user_enforcement.feature::User enforcement edge: Anonymous caller is rejected at the edge"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-gateway `internal/edge` `TestAccountAdminAnonymousUnauthenticated`"
+
+  - id: user-enforcement.user-enforcement-edge-seller-without-admin-scope-is-denied
+    title: "User enforcement edge: Seller without admin scope is denied"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Seller without admin scope is denied"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a signed-in seller calls `ListUsers` or `SetUserStatus`"
+      - "Then each call returns `permission_denied` and team-identity receives 0 requests"
+    tags: [admin, audit, auth]
+    status: automated
+    covered_by: "admin/user_enforcement.feature::User enforcement edge: Seller without admin scope is denied"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-gateway `internal/edge` `TestAccountAdminNonAdminPermissionDenied`"
+
+  - id: user-enforcement.user-enforcement-edge-setuserstatus-is-not-retried
+    title: "User enforcement edge: SetUserStatus is not retried"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: SetUserStatus is not retried"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement edge: SetUserStatus is not retried (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-gateway `internal/edge` `TestAccountAdminSetUserStatusNotRetried`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-edge-admin-policy-set-is-pinned
+    title: "User enforcement edge: Admin policy set is pinned"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Admin policy set is pinned"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement edge: Admin policy set is pinned (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-gateway `internal/edge` `TestAdminProceduresPinned`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-edge-procedures-are-covered-by-the-unrouted-guard
+    title: "User enforcement edge: Procedures are covered by the unrouted guard"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Procedures are covered by the unrouted guard"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "User enforcement edge: Procedures are covered by the unrouted guard (unit-verified)"
+    tags: [admin, unit]
+    status: not-testable
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-gateway `internal/edge` `TestUnroutedGuardAccountAdmin`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: user-enforcement.user-enforcement-edge-banned-user-s-token-is-rejected-within-a-minute
+    title: "User enforcement edge: Banned user's token is rejected within a minute"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Banned user's token is rejected within a minute"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a logged-in buyer is banned by an admin and the buyer then calls an authenticated RPC with the old access token"
+      - "Then within 60 s the call returns `unauthenticated`"
+    tags: [admin, audit, auth]
+    status: automated
+    covered_by: "admin/user_enforcement.feature::User enforcement edge: Banned user's token is rejected within a minute"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: platform-e2e `features/admin/user_enforcement.feature` \"Banned user loses access within a minute\""
+
+  - id: user-enforcement.user-enforcement-edge-banned-user-s-open-stream-ends
+    title: "User enforcement edge: Banned user's open stream ends"
+    persona: admin
+    priority: P1
+    summary: "User enforcement edge: Banned user's open stream ends"
+    entry_route: /
+    services: [team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - "When a buyer holds an open notification SSE stream and an admin bans them"
+      - "Then the stream ends within 60 s"
+    tags: [admin, audit, auth]
+    status: automated
+    covered_by: "admin/user_enforcement.feature::User enforcement edge: Banned user's open stream ends"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: platform-e2e `features/admin/user_enforcement.feature` \"Banned user's open stream ends\""

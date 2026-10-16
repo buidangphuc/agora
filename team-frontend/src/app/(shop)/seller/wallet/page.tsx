@@ -47,8 +47,8 @@ export default async function SellerWalletPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const me = getPrincipal();
-  if (!me || !hasScope("listing.write"))
-    redirectGuestToLogin("/seller/wallet", searchParams);
+  if (!me) redirectGuestToLogin("/seller/wallet", searchParams);
+  if (!hasScope("listing.write")) return null;
 
   const { page } = parseListParams(searchParams);
   const [balance, entries] = await Promise.allSettled([

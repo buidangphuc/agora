@@ -17,7 +17,8 @@ export const metadata = { title: "Gói đăng ký | Kênh người bán" };
 /** Plan Card grid; the current plan carries a "Gói hiện tại" Tag and a disabled button. */
 export default async function SellerPlansPage() {
   const me = getPrincipal();
-  if (!me || !hasScope("listing.write")) redirectGuestToLogin("/seller/plans");
+  if (!me) redirectGuestToLogin("/seller/plans");
+  if (!hasScope("listing.write")) return null;
 
   const [plans, entitlements] = await Promise.all([
     listPlans(),

@@ -183,6 +183,12 @@ export function CockpitView({ initial }: { initial: CockpitData | null }) {
           >
             Nhật ký kiểm toán
           </Link>
+          <Link
+            href="/admin/users"
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5"
+          >
+            Quản lý người dùng
+          </Link>
           <a
             href={JAEGER_URL}
             target="_blank"

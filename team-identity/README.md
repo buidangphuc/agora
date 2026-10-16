@@ -109,6 +109,8 @@ drifts from the config structs. The service refuses to start without `DATABASE_E
 | `SEED_ADMIN_USERNAME` | `admin` | |
 | `SEED_ADMIN_PASSWORD` | empty | Required, >= 12 chars, when seeding is enabled |
 | `PASSWORD_RESET_EXPOSE_TOKEN` | `false` | Return the raw reset token from `RequestPasswordReset`. Dev/e2e only; config load fails when `ENV=prod` |
+| `UPSTREAM_AUDIT_ADDR` | empty | team-audit gRPC address; empty disables the audit client and user-status changes fail closed |
+| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Per-call timeout for upstream calls; must be > 0 |
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | `.env.example` sets `http://localhost:4317` |
 | `OTEL_SERVICE_NAME` | `team-identity` | |

@@ -45,6 +45,7 @@ type EngagementHandler struct {
 	disputeSvc    *service.DisputeService
 	collectionSvc *service.CollectionService
 	orders        OrderPartiesReader
+	reportSvc     *service.ReportService
 }
 
 func NewEngagementHandler(

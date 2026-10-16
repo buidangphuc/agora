@@ -45,6 +45,9 @@ func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublis
 	sessionPath, sessionHandler := identityv1connect.NewSessionServiceHandler(NewSessionForwarder(clients.Session, e), opts)
 	mux.Handle(sessionPath, sessionHandler)
 
+	accountAdminPath, accountAdminHandler := identityv1connect.NewAccountAdminServiceHandler(NewAccountAdminForwarder(clients.AccountAdmin, e), opts)
+	mux.Handle(accountAdminPath, accountAdminHandler)
+
 	searchPath, searchHandler := searchv1connect.NewSearchServiceHandler(NewSearchForwarder(clients.Search, e), opts)
 	mux.Handle(searchPath, searchHandler)
 
@@ -115,6 +118,7 @@ func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublis
 			identityv1connect.AuthServiceName,
 			identityv1connect.AddressServiceName,
 			identityv1connect.SessionServiceName,
+			identityv1connect.AccountAdminServiceName,
 			searchv1connect.SearchServiceName,
 			listingv1connect.ListingServiceName,
 			engagementv1connect.EngagementServiceName,

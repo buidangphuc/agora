@@ -14,7 +14,14 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
   notFound: vi.fn(),
 }));
-vi.mock("@/lib/gateway/session", () => ({ hasScope: vi.fn() }));
+vi.mock("@/lib/gateway/session", () => ({
+  getPrincipal: vi.fn(() => ({
+    id: "s",
+    name: "s",
+    scopes: ["listing.write"],
+  })),
+  hasScope: vi.fn(),
+}));
 vi.mock("@/lib/gateway/listings", () => ({ listMyListings: vi.fn() }));
 vi.mock("@/lib/gateway/orders", () => ({ listSellerOrders: vi.fn() }));
 vi.mock("@/features/listing/actions", () => ({ deleteListingAction: vi.fn() }));
