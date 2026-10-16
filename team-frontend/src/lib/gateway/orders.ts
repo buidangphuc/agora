@@ -3,6 +3,7 @@ import "server-only";
 import { Code, ConnectError } from "@connectrpc/connect";
 
 import {
+  CancelReason,
   type Order,
   type OrderItem,
   type OrderReturn,
@@ -55,6 +56,18 @@ export interface ViewOrder {
   createdAt: string;
   /** Empty = never paid online (e.g. cash on delivery). */
   paidAt: string;
+  /** ISO-8601 deadlines/timestamps; empty = unset. */
+  paymentDueAt: string;
+  shipBy: string;
+  shippedAt: string;
+  completedAt: string;
+  returnWindowEndsAt: string;
+  autoCompleteAt: string;
+  cancelReason: CancelReason;
+}
+
+function isoTs(ts?: { seconds: bigint }): string {
+  return ts ? new Date(Number(ts.seconds) * 1000).toISOString() : "";
 }
 
 function getStatusText(s: OrderStatus): string {
@@ -130,6 +143,13 @@ function mapOrder(o: Order): ViewOrder {
     paidAt: o.paidAt
       ? new Date(Number(o.paidAt.seconds) * 1000).toLocaleString("vi-VN")
       : "",
+    paymentDueAt: isoTs(o.paymentDueAt),
+    shipBy: isoTs(o.shipBy),
+    shippedAt: isoTs(o.shippedAt),
+    completedAt: isoTs(o.completedAt),
+    returnWindowEndsAt: isoTs(o.returnWindowEndsAt),
+    autoCompleteAt: isoTs(o.autoCompleteAt),
+    cancelReason: o.cancelReason ?? CancelReason.UNSPECIFIED,
   };
 }
 
@@ -269,12 +289,21 @@ export async function updateOrderStatus(
 export async function cancelOrder(
   id: string,
   reason?: string,
+  reasonCode?: CancelReason,
 ): Promise<ViewOrder> {
   const res = await gateway().order.cancelOrder({
     id,
     reason: reason ?? "",
+    reasonCode: reasonCode ?? CancelReason.UNSPECIFIED,
   });
   if (!res.order) throw new Error("cancel order failed");
+  return mapOrder(res.order);
+}
+
+/** Buyer confirms receipt of a SHIPPED order; the server completes it. */
+export async function confirmReceipt(id: string): Promise<ViewOrder> {
+  const res = await gateway().order.confirmReceipt({ id });
+  if (!res.order) throw new Error("confirm receipt failed");
   return mapOrder(res.order);
 }
 
