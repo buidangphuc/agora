@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -302,6 +303,38 @@ func (h *OrderHandler) UpdateOrderStatus(ctx context.Context, req *orderv1.Updat
 		return nil, internalErr(h.logger, "update order status", err)
 	}
 	return &orderv1.UpdateOrderStatusResponse{Order: toWireOrder(updated)}, nil
+}
+
+// ConfirmReceipt lets the order's buyer (only) complete a Shipped order.
+func (h *OrderHandler) ConfirmReceipt(ctx context.Context, req *orderv1.ConfirmReceiptRequest) (*orderv1.ConfirmReceiptResponse, error) {
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.GetId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "order id is required")
+	}
+	existing, err := h.svc.GetOrder(ctx, req.GetId())
+	if err != nil {
+		if errors.Is(err, repository.ErrOrderNotFound) {
+			return nil, status.Error(codes.NotFound, "order not found")
+		}
+		return nil, internalErr(h.logger, "get order", err)
+	}
+	if existing.BuyerID != principal.GetId() {
+		return nil, status.Error(codes.PermissionDenied, "only the buyer can confirm receipt")
+	}
+	done, err := h.svc.ConfirmReceipt(ctx, req.GetId())
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrOrderNotFound):
+			return nil, status.Error(codes.NotFound, "order not found")
+		case errors.Is(err, service.ErrInvalidStatus):
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "order is not shipped", err)
+		}
+		return nil, internalErr(h.logger, "confirm receipt", err)
+	}
+	return &orderv1.ConfirmReceiptResponse{Order: toWireOrder(done)}, nil
 }
 
 func (h *OrderHandler) CancelOrder(ctx context.Context, req *orderv1.CancelOrderRequest) (*orderv1.CancelOrderResponse, error) {
@@ -715,19 +748,31 @@ func toWireOrder(o repository.Order) *orderv1.Order {
 		due = timestamppb.New(*o.PaymentDueAt)
 	}
 
+	ts := func(t *time.Time) *timestamppb.Timestamp {
+		if t == nil {
+			return nil
+		}
+		return timestamppb.New(*t)
+	}
+
 	return &orderv1.Order{
-		PaidAt:        paidAt,
-		PaymentDueAt:  due,
-		Id:            o.ID,
-		BuyerId:       o.BuyerID,
-		SellerId:      o.SellerID,
-		Status:        orderv1.OrderStatus(o.Status),
-		CancelReason:  orderv1.CancelReason(o.CancelReason),
-		TotalAmount:   o.TotalAmount,
-		ItemsSubtotal: o.ItemsSubtotal,
-		ShippingFee:   o.ShippingFee,
-		PaymentMethod: paymentv1.PaymentMethod(o.PaymentMethod),
-		Currency:      o.Currency,
+		ShipBy:             ts(o.ShipBy),
+		ShippedAt:          ts(o.ShippedAt),
+		CompletedAt:        ts(o.CompletedAt),
+		ReturnWindowEndsAt: ts(o.ReturnWindowEndsAt),
+		AutoCompleteAt:     ts(o.AutoCompleteAt),
+		PaidAt:             paidAt,
+		PaymentDueAt:       due,
+		Id:                 o.ID,
+		BuyerId:            o.BuyerID,
+		SellerId:           o.SellerID,
+		Status:             orderv1.OrderStatus(o.Status),
+		CancelReason:       orderv1.CancelReason(o.CancelReason),
+		TotalAmount:        o.TotalAmount,
+		ItemsSubtotal:      o.ItemsSubtotal,
+		ShippingFee:        o.ShippingFee,
+		PaymentMethod:      paymentv1.PaymentMethod(o.PaymentMethod),
+		Currency:           o.Currency,
 		ShippingAddress: &identityv1.Address{
 			Id:            o.ShippingAddress.ID,
 			UserId:        o.ShippingAddress.UserID,

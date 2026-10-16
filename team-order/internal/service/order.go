@@ -497,9 +497,28 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, actor A
 	if len(from) == 0 {
 		return repository.Order{}, ErrActorForbidden
 	}
-	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, to, from, trackingNumber)
+	var opts []repository.StatusOption
+	if to == repository.OrderStatusCompleted {
+		opts = append(opts, repository.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_SELLER)))
+	}
+	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, to, from, trackingNumber, opts...)
 	if errors.Is(err, repository.ErrStatusConflict) {
 		return repository.Order{}, fmt.Errorf("%w: order cannot move to %v from its current status", ErrInvalidStatus, to)
+	}
+	return updated, err
+}
+
+// ConfirmReceipt completes a Shipped order on the buyer's behalf. The caller
+// (handler) has already checked the principal is the order's buyer. The
+// compare-and-set from Shipped is the single winner, so concurrent confirms emit
+// one OrderCompleted; every loser gets ErrInvalidStatus. An open return does not
+// block completion.
+func (s *OrderService) ConfirmReceipt(ctx context.Context, id string) (repository.Order, error) {
+	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCompleted,
+		AllowedFrom(repository.OrderStatusCompleted, ActorBuyer), "",
+		repository.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_BUYER)))
+	if errors.Is(err, repository.ErrStatusConflict) {
+		return repository.Order{}, fmt.Errorf("%w: order is not shipped", ErrInvalidStatus)
 	}
 	return updated, err
 }
