@@ -213,8 +213,12 @@ func runFindReminderDueBatchBound(t *testing.T, repo repository.OrderRepository,
 		}
 	}
 	rest, err := repo.FindReminderDue(ctx, now, reminderOffset, 100)
-	if err != nil || len(rest) != total-100 {
-		t.Fatalf("remaining after a stamped batch: want %d, got %d (%v)", total-100, len(rest), err)
+	wantRest := total - 100
+	if wantRest > 100 {
+		wantRest = 100 // the limit caps the page
+	}
+	if err != nil || len(rest) != wantRest {
+		t.Fatalf("remaining after a stamped batch: want %d, got %d (%v)", wantRest, len(rest), err)
 	}
 }
 

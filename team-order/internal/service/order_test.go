@@ -374,3 +374,12 @@ func TestOrderService_RejectsBuyingOwnListing(t *testing.T) {
 		t.Fatalf("no order may be created, got %d", len(got))
 	}
 }
+
+// Stubs so the fake satisfies repository.OrderRepository (order-unpaid-expiry reminder pass).
+func (m *mockOrderServiceRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]repository.Order, error) {
+	return nil, nil
+}
+
+func (m *mockOrderServiceRepo) MarkReminderSent(context.Context, string, time.Time) (repository.Order, error) {
+	return repository.Order{}, nil
+}

@@ -289,3 +289,12 @@ func TestCompensation_RunsOnBackgroundCtx_WhenRequestCancelled(t *testing.T) {
 }
 
 func (c *fakeCartRepo) UpdateItemPrice(_ context.Context, _, _ string, _ int64) error { return nil }
+
+// Stubs so the fake satisfies repository.OrderRepository (order-unpaid-expiry reminder pass).
+func (f *fakeOrderRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]repository.Order, error) {
+	return nil, nil
+}
+
+func (f *fakeOrderRepo) MarkReminderSent(context.Context, string, time.Time) (repository.Order, error) {
+	return repository.Order{}, nil
+}
