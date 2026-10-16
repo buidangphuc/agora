@@ -117,6 +117,13 @@ func (s *OrderService) precheckPrices(ctx context.Context, buyerID string, items
 		if err != nil {
 			return nil, fmt.Errorf("get listing %q from domain: %w", it.ListingID, err)
 		}
+		if resp.GetListing() == nil && s.orderFlash != nil {
+			// Fail closed when flash pricing is wired: with no listing there is no
+			// price to verify the cart against. Without a flash client a nil listing
+			// is treated as an unknown price (see below), which keeps the legacy
+			// fakeDomainClient fixture (empty GetListing response) working.
+			return nil, fmt.Errorf("listing %q not found in domain", it.ListingID)
+		}
 		listings[it.ListingID] = resp.GetListing()
 		if s.orderFlash != nil && regularPriceKnown(resp.GetListing(), items, it.ListingID) {
 			r, ferr := s.orderFlash.GetActiveFlashSale(ctx, &promotionv1.GetActiveFlashSaleRequest{ListingId: it.ListingID})
@@ -250,10 +257,14 @@ func (s *OrderService) releaseFlashHolds(groups []*sellerGroup) {
 // releaseOrderFlashHolds releases the flash hold of every item of a cancelled
 // order (best effort: a failure is logged and never fails the cancel; releasing a
 // hold that never existed is a no-op in team-promotion).
-func (s *OrderService) releaseOrderFlashHolds(ctx context.Context, order repository.Order) {
+func (s *OrderService) releaseOrderFlashHolds(order repository.Order) {
 	if s.orderFlash == nil {
 		return
 	}
+	// Its own deadline, like releaseFlashHolds: a stock release that used up the
+	// shared inline budget must not starve these calls.
+	ctx, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+	defer cancel()
 	items := order.Items
 	if len(items) == 0 {
 		full, err := s.orderRepo.GetOrder(ctx, order.ID)

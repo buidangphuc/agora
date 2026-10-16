@@ -526,7 +526,7 @@ func (s *OrderService) CancelOrder(ctx context.Context, id string) (CancelResult
 	if claimed.VoucherCode != "" {
 		s.releaseVoucher(bg, claimed.ID) // the hold id is the order id
 	}
-	s.releaseOrderFlashHolds(bg, claimed)
+	s.releaseOrderFlashHolds(claimed)
 	return CancelResult{Order: claimed, ReleasePending: pending}, nil
 }
 

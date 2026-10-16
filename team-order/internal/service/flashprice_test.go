@@ -86,7 +86,7 @@ type holdFake struct {
 	// releaseCtx records, per ReleaseFlashSaleStock call, the ctx error and whether a
 	// deadline was set at the moment of the call.
 	releaseCtxErrs []error
-	events    *[]string
+	events         *[]string
 }
 
 func (f *holdFake) log(e string) {
