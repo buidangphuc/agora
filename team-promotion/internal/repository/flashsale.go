@@ -58,7 +58,19 @@ func NewPostgresFlashSaleRepository(pool *pgxpool.Pool) *PostgresFlashSaleReposi
 const campaignColumns = `id, listing_id, variant_id, sale_price, stock_cap, stock_sold, starts_at, ends_at`
 
 func scanCampaign(row pgx.Row, c *FlashSaleCampaign) error {
-	return row.Scan(&c.ID, &c.ListingID, &c.VariantID, &c.SalePrice, &c.StockCap, &c.StockSold, &c.StartsAt, &c.EndsAt)
+	// starts_at / ends_at are nullable (NULL = open-ended, stored as the zero time).
+	var starts, ends *time.Time
+	if err := row.Scan(&c.ID, &c.ListingID, &c.VariantID, &c.SalePrice, &c.StockCap, &c.StockSold, &starts, &ends); err != nil {
+		return err
+	}
+	c.StartsAt, c.EndsAt = time.Time{}, time.Time{}
+	if starts != nil {
+		c.StartsAt = *starts
+	}
+	if ends != nil {
+		c.EndsAt = *ends
+	}
+	return nil
 }
 
 func (r *PostgresFlashSaleRepository) Create(ctx context.Context, c FlashSaleCampaign) (FlashSaleCampaign, error) {

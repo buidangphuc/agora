@@ -175,11 +175,24 @@ Postgres repository tests (`internal/repository/postgres_test.go`) skip unless
 - The Dockerfile sets `GRPC_PORT=50060` and `EXPOSE 50060`, while the code default and compose use
   `50061`. Compose overrides it, so a bare `docker run` listens on 50060.
 
+## Flash stock holds
+
+`FlashSaleService` exposes `ReserveFlashSaleStock`, `CommitFlashSaleStock` and
+`ReleaseFlashSaleStock` for the order saga. They are service-only: the caller must be a
+`service` principal with the `promotion.reserve` scope (users, even with the scope, are
+`PERMISSION_DENIED`).
+
+- Reserve holds units under a lock on the campaign row; a hold expires 15 minutes after reserve.
+  It is idempotent on `reservation_id` and refuses with `not_active`, `price_changed` or
+  `insufficient_stock` (checked in that order).
+- Commit adds the held quantity to `stock_sold` (idempotent; refused once released or expired).
+- Release returns the units, also after commit (it then decrements `stock_sold` once).
+- `GetFlashSaleStock` reports `remaining = stock_cap - stock_sold - active holds`, floored at 0.
+- Released and expired holds older than 30 days are purged daily; committed holds are kept.
+
 ## Known gaps
 
 - **`ListVouchers` and `GetVoucher` are public**, including by arbitrary `seller_id`.
-- **`flash_sale_campaigns.stock_sold` is never incremented.** No code path updates it, so
-  `GetFlashSaleStock` always reports `remaining == stock_cap`.
 - **Quota counts commits only.** Outstanding (`reserved`) holds are not counted against `quota`, so
   concurrent reservations can exceed it before commits land.
 - **No event on redemption or release.** `VoucherChanged` fires only on create, not when `used` changes.

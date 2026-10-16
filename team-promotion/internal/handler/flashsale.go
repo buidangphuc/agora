@@ -109,6 +109,71 @@ func (h *FlashSaleHandler) GetFlashSaleStock(ctx context.Context, req *promotion
 	return &promotionv1.GetFlashSaleStockResponse{Remaining: remaining, StockCap: stockCap}, nil
 }
 
+// maxReservationIDLen bounds the caller-chosen reservation id.
+const maxReservationIDLen = 200
+
+func (h *FlashSaleHandler) ReserveFlashSaleStock(ctx context.Context, req *promotionv1.ReserveFlashSaleStockRequest) (*promotionv1.ReserveFlashSaleStockResponse, error) {
+	if _, err := interceptor.RequireService(ctx, interceptor.ScopePromoReserve); err != nil {
+		return nil, err
+	}
+	if err := validReservationID(req.GetReservationId()); err != nil {
+		return nil, err
+	}
+	if req.GetCampaignId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "campaign_id is required")
+	}
+	if req.GetListingId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
+	}
+	if req.GetQuantity() <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "quantity must be positive")
+	}
+	reserved, reason, err := h.svc.ReserveFlashSaleStock(ctx, req.GetReservationId(), req.GetCampaignId(),
+		req.GetListingId(), req.GetVariantId(), req.GetQuantity(), req.GetExpectedSalePrice())
+	if err != nil {
+		return nil, internalError(ctx, h.logger, "reserve flash sale stock", err)
+	}
+	return &promotionv1.ReserveFlashSaleStockResponse{Reserved: reserved, Reason: reason}, nil
+}
+
+func (h *FlashSaleHandler) CommitFlashSaleStock(ctx context.Context, req *promotionv1.CommitFlashSaleStockRequest) (*promotionv1.CommitFlashSaleStockResponse, error) {
+	if _, err := interceptor.RequireService(ctx, interceptor.ScopePromoReserve); err != nil {
+		return nil, err
+	}
+	if err := validReservationID(req.GetReservationId()); err != nil {
+		return nil, err
+	}
+	ok, err := h.svc.CommitFlashSaleStock(ctx, req.GetReservationId())
+	if err != nil {
+		return nil, internalError(ctx, h.logger, "commit flash sale stock", err)
+	}
+	return &promotionv1.CommitFlashSaleStockResponse{Committed: ok}, nil
+}
+
+func (h *FlashSaleHandler) ReleaseFlashSaleStock(ctx context.Context, req *promotionv1.ReleaseFlashSaleStockRequest) (*promotionv1.ReleaseFlashSaleStockResponse, error) {
+	if _, err := interceptor.RequireService(ctx, interceptor.ScopePromoReserve); err != nil {
+		return nil, err
+	}
+	if err := validReservationID(req.GetReservationId()); err != nil {
+		return nil, err
+	}
+	ok, err := h.svc.ReleaseFlashSaleStock(ctx, req.GetReservationId())
+	if err != nil {
+		return nil, internalError(ctx, h.logger, "release flash sale stock", err)
+	}
+	return &promotionv1.ReleaseFlashSaleStockResponse{Released: ok}, nil
+}
+
+func validReservationID(id string) error {
+	if id == "" {
+		return status.Error(codes.InvalidArgument, "reservation_id is required")
+	}
+	if len(id) > maxReservationIDLen {
+		return status.Error(codes.InvalidArgument, "reservation_id too long")
+	}
+	return nil
+}
+
 // pageResponse builds a PageResponse carrying the next cursor. Total is left as 0
 // (best-effort/unknown) since the repositories do not compute an exact count.
 func pageResponse(next string) *commonv1.PageResponse {
