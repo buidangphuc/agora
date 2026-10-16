@@ -24,6 +24,7 @@ AI_SERVICE_SCOPES: Final[dict[str, tuple[str, ...]]] = {
     "ChatCopilot": (LISTING_WRITE_SCOPE,),
     "SummarizeReviews": (LISTING_READ_SCOPE,),
     "ClassifyTags": (AI_CLASSIFY_SCOPE,),
+    "ScreenListing": (AI_CLASSIFY_SCOPE,),
 }
 
 

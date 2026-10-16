@@ -69,7 +69,12 @@ def test_switches_are_the_four_that_remain():
         if re.search(r"_ENABLED$|_BACKEND$", name)
     }
 
-    assert switches == {"RAG_ENABLED", "DOCS_ENABLED", "CHAT_BACKEND"}
+    assert switches == {
+        "RAG_ENABLED",
+        "DOCS_ENABLED",
+        "CHAT_BACKEND",
+        "SCREEN_BACKEND",  # ai-listing-screen: mock|llm_router selector
+    }
     assert "AI_USE_SCOPE_REQUIRED" in Settings.model_fields
 
 

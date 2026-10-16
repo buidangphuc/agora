@@ -17,6 +17,7 @@ import (
 	"github.com/buidangphuc/team-identity/internal/config"
 	"github.com/buidangphuc/team-identity/internal/events"
 	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/upstream"
 )
 
 func OpenResources(ctx context.Context, s *config.Settings, logger *slog.Logger) (*Resources, error) {
@@ -31,6 +32,13 @@ func OpenResources(ctx context.Context, s *config.Settings, logger *slog.Logger)
 	}
 	res.Pool = pool
 	res.Outbox = repository.NewOutboxStore(pool)
+
+	audit, err := upstream.NewAuditClient(s.Upstream.AuditAddr, time.Duration(s.Upstream.CallTimeoutSeconds*float64(time.Second)))
+	if err != nil {
+		_ = CloseResources(context.Background(), res)
+		return nil, err
+	}
+	res.Audit = audit
 
 	// Event publisher (ADR-0002): real Kafka when enabled, else a no-op. The
 	// relayer only runs with both a real producer and OUTBOX_ENABLED; with Kafka
@@ -71,6 +79,10 @@ func CloseResources(_ context.Context, res *Resources) error {
 	if res.stopHealth != nil {
 		res.stopHealth()
 		res.stopHealth = nil
+	}
+	if res.Audit != nil {
+		_ = res.Audit.Close()
+		res.Audit = nil
 	}
 	if res.Publisher != nil {
 		res.Publisher.Close()

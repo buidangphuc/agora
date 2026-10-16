@@ -9,6 +9,7 @@ import (
 	"github.com/buidangphuc/team-gateway/generated/platform/analytics/v1/analyticsv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/audit/v1/auditv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/engagement/v1/engagementv1connect"
+	"github.com/buidangphuc/team-gateway/generated/platform/identity/v1/identityv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/listing/v1/listingv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/order/v1/orderv1connect"
 	"github.com/buidangphuc/team-gateway/generated/platform/verification/v1/verificationv1connect"
@@ -21,7 +22,8 @@ func TestOnlyAdminsCanReadTheChannelFunnel_PolicyEntry(t *testing.T) {
 }
 
 // The admin policy set is pinned: changing it is a spec change.
-func TestAdminProceduresPinnedSet(t *testing.T) {
+// Scenario: User enforcement edge: Admin policy set is pinned.
+func TestAdminProceduresPinned(t *testing.T) {
 	want := []string{
 		analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure,
 		analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure,
@@ -33,6 +35,8 @@ func TestAdminProceduresPinnedSet(t *testing.T) {
 		engagementv1connect.EngagementServiceResolveReportProcedure, // listing reports
 		orderv1connect.OrderServiceForceFailSagaProcedure,
 		verificationv1connect.VerificationServiceReviewKycProcedure,
+		identityv1connect.AccountAdminServiceListUsersProcedure,
+		identityv1connect.AccountAdminServiceSetUserStatusProcedure,
 	}
 	var got []string
 	for k := range adminProcedures {
@@ -80,5 +84,27 @@ func TestRequireProcedureScope(t *testing.T) {
 	// Ungated procedures never fail the policy.
 	if err := requireProcedureScope(listingv1connect.ListingServiceGetListingProcedure, anon); err != nil {
 		t.Errorf("ungated procedure rejected: %v", err)
+	}
+}
+
+// Scenarios: User enforcement edge: Anonymous caller is rejected at the edge /
+// Seller without admin scope is denied (policy level, both AccountAdmin procedures).
+func TestAccountAdminProceduresPolicyGate(t *testing.T) {
+	anon := resolvedPrincipal{id: "anonymous", ptype: "anonymous"}
+	seller := resolvedPrincipal{id: "u-3", ptype: "user", scopes: []string{"listing.read", "listing.write"}}
+	admin := resolvedPrincipal{id: "u-2", ptype: "user", scopes: []string{"admin"}}
+	for _, proc := range []string{
+		identityv1connect.AccountAdminServiceListUsersProcedure,
+		identityv1connect.AccountAdminServiceSetUserStatusProcedure,
+	} {
+		if c := connect.CodeOf(requireProcedureScope(proc, anon)); c != connect.CodeUnauthenticated {
+			t.Errorf("%s anonymous = %v, want unauthenticated", proc, c)
+		}
+		if c := connect.CodeOf(requireProcedureScope(proc, seller)); c != connect.CodePermissionDenied {
+			t.Errorf("%s seller = %v, want permission_denied", proc, c)
+		}
+		if err := requireProcedureScope(proc, admin); err != nil {
+			t.Errorf("%s admin: %v", proc, err)
+		}
 	}
 }

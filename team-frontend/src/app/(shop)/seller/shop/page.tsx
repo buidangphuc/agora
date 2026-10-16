@@ -13,7 +13,8 @@ export const metadata = { title: "Hồ sơ gian hàng | Kênh người bán" };
 /** Form > Basic Form: the shop display name (UpsertStorefront.display_name). */
 export default async function SellerShopPage() {
   const me = getPrincipal();
-  if (!me || !hasScope("listing.write")) redirectGuestToLogin("/seller/shop");
+  if (!me) redirectGuestToLogin("/seller/shop");
+  if (!hasScope("listing.write")) return null;
 
   const storefront = await getStorefront(me.id);
 

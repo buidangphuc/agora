@@ -34,6 +34,9 @@ type Session struct {
 	PrevRefreshHash  string
 	RefreshExpiresAt time.Time
 	RotatedAt        time.Time
+
+	// UserStatus is the owning user's status read under lock by CreateSession; not persisted.
+	UserStatus string
 }
 
 // RefreshTTL is the sliding lifetime of a refresh token, extended on each rotation.
@@ -158,11 +161,29 @@ func (r *PostgresSessionRepository) CreateSession(ctx context.Context, s Session
 	const q = `INSERT INTO sessions (id, user_id, device, ip, created_at, last_seen, revoked, refresh_hash, refresh_expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), $9)
 		RETURNING ` + sessionColumns
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return Session{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// Share-lock the user row so a concurrent SetStatus (FOR UPDATE) either
+	// finishes first (and this insert is refused) or sees and revokes this session.
+	var status string
+	if err := tx.QueryRow(ctx, `SELECT status FROM users WHERE id = $1 FOR SHARE`, s.UserID).Scan(&status); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return Session{}, fmt.Errorf("lock user for session: %w", err)
+	}
+	if status == StatusSuspended || status == StatusBanned {
+		return Session{}, ErrAccountLocked
+	}
 	var out Session
-	if err := scanSession(r.pool.QueryRow(ctx, q, s.ID, s.UserID, s.Device, s.IP, s.CreatedAt, s.LastSeen, s.Revoked,
+	if err := scanSession(tx.QueryRow(ctx, q, s.ID, s.UserID, s.Device, s.IP, s.CreatedAt, s.LastSeen, s.Revoked,
 		s.RefreshHash, nullTime(s.RefreshExpiresAt)), &out); err != nil {
 		return Session{}, fmt.Errorf("create session: %w", err)
 	}
+	if err := tx.Commit(ctx); err != nil {
+		return Session{}, fmt.Errorf("commit tx: %w", err)
+	}
+	out.UserStatus = status
 	return out, nil
 }
 
@@ -344,6 +365,7 @@ type InMemorySessionRepository struct {
 	logins   []LoginEvent
 	seq      int64
 	outbox   []OutboxRow
+	users    *InMemoryUserRepository // set by AttachSessions
 
 	// FailOutbox makes the outbox write of a revoke fail, exercising the
 	// rollback path (the session must stay un-revoked and no row is recorded).
@@ -355,6 +377,17 @@ func NewInMemorySessionRepository() *InMemorySessionRepository {
 }
 
 func (r *InMemorySessionRepository) CreateSession(_ context.Context, s Session) (Session, error) {
+	if r.users != nil {
+		// Lock order: users then sessions (same as SetStatus).
+		r.users.mu.RLock()
+		defer r.users.mu.RUnlock()
+		if u, ok := r.users.byID[s.UserID]; ok {
+			if u.Status == StatusSuspended || u.Status == StatusBanned {
+				return Session{}, ErrAccountLocked
+			}
+			s.UserStatus = u.Status
+		}
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if s.ID == "" {

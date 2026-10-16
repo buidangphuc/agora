@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 ChatBackend = Literal["mock", "llm_router"]
+ScreenBackend = Literal["mock", "llm_router"]
 
 
 class AISettingsMixin(BaseModel):
@@ -52,6 +53,12 @@ class AISettingsMixin(BaseModel):
     CHAT_HISTORY_TTL_SECONDS: int = Field(default=1800, gt=0)
     QUOTA_CHAT_REPLIES_PER_WINDOW: int = Field(default=200, gt=0)
     QUOTA_CHAT_WINDOW_SECONDS: int = Field(default=86400, gt=0)
+
+    # Listing screen: ``mock`` flags content containing SCREEN_MOCK_MARKER
+    # offline, ``llm_router`` asks the LLM chain; bounded by the timeout.
+    SCREEN_BACKEND: ScreenBackend = "mock"
+    SCREEN_MOCK_MARKER: str = "screen-review-marker"
+    SCREEN_TIMEOUT_SECONDS: float = Field(default=1.5, gt=0)
 
     # Langfuse observability: on exactly when both keys are set.
     LANGFUSE_PUBLIC_KEY: str = ""

@@ -46,6 +46,7 @@ Implement OpenSpec change `frontend-user-enforcement` test-first per its tasks.m
 - platform-e2e/tests/e2e/step_definitions/test_user_enforcement_ui.py
 - platform-e2e/tests/e2e/pages/admin_users_page.py
 - openspec/changes/frontend-user-enforcement/**
+- team-frontend/src/lib/gateway/client-account-admin.test.ts (# widened at build: task 1.1)
 
 ## Read-only dependencies
 - openspec/changes/frontend-user-enforcement/** is frozen by the LOCK.md digest (only task ticks change)

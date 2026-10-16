@@ -1,4 +1,4 @@
-"""AIService gRPC servicer (ShoppingAssistant, MagicListing, ChatCopilot, SummarizeReviews, ClassifyTags).
+"""AIService gRPC servicer (ShoppingAssistant, MagicListing, ChatCopilot, SummarizeReviews, ClassifyTags, ScreenListing).
 
 Access control: every RPC calls ``ensure_scopes`` first, with the scopes from
 ``app.transport.grpc.scopes``. ChatCopilot also rejects a ``seller_id`` that is not
@@ -10,6 +10,7 @@ never re-mapped.
 from __future__ import annotations
 
 import grpc
+from loguru import logger
 
 from app.modules.business.ai_assistant.factory import AIAssistantServices
 from app.modules.business.ai_assistant.schemas import (
@@ -19,6 +20,7 @@ from app.modules.business.ai_assistant.schemas import (
     ShoppingAssistantRequest,
     SummarizeReviewsRequest,
 )
+from app.modules.business.listing_screen.ports import ScreenService, ScreenVerdict
 from app.modules.business.tag_classifier.schemas import (
     ClassifySkuHierarchyRequest,
     ClassifyTagsRequest,
@@ -40,11 +42,13 @@ class AIServicer(ai_pb2_grpc.AIServiceServicer):
         self,
         services: AIAssistantServices,
         tags: TagClassifierService,
+        screen: ScreenService,
         *,
         require_ai_use: bool,
     ) -> None:
         self._services = services
         self._tags = tags
+        self._screen = screen
         self._shopper_scopes = ai_use_scopes(require_ai_use)
 
     async def ShoppingAssistant(
@@ -247,6 +251,54 @@ class AIServicer(ai_pb2_grpc.AIServiceServicer):
             ],
         )
 
+    async def ScreenListing(
+        self,
+        request: ai_pb2.ScreenListingRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> ai_pb2.ScreenListingResponse:
+        principal = await ensure_scopes(context, *AI_SERVICE_SCOPES["ScreenListing"])
+        # Internal RPC: a user token that somehow carries the scope is still refused.
+        if principal.type != "service":
+            await context.abort(
+                grpc.StatusCode.PERMISSION_DENIED,
+                "insufficient_scope: ScreenListing is for service principals only",
+            )
+            raise AssertionError("unreachable")  # abort raises
+        if not request.title.strip():
+            await context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "invalid argument: title"
+            )
+            raise AssertionError("unreachable")  # abort raises
+        return await self._screen_listing(request, context)
+
+    @map_errors("ScreenListing")
+    async def _screen_listing(
+        self,
+        request: ai_pb2.ScreenListingRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> ai_pb2.ScreenListingResponse:
+        result = await self._screen.screen(
+            title=request.title,
+            description=request.description,
+            listing_id=request.listing_id,
+            category_id=request.category_id,
+        )
+        # Never log listing text: id, verdict and backend only.
+        logger.info(
+            "screen_listing listing_id={} verdict={} backend={}",
+            request.listing_id,
+            result.verdict.value,
+            result.backend,
+        )
+        verdict = (
+            ai_pb2.SCREEN_VERDICT_REVIEW
+            if result.verdict is ScreenVerdict.REVIEW
+            else ai_pb2.SCREEN_VERDICT_ALLOW
+        )
+        return ai_pb2.ScreenListingResponse(
+            verdict=verdict, labels=list(result.labels), backend=result.backend
+        )
+
 
 def _classified(tag: TagItem) -> ai_pb2.ClassifiedTag:
     return ai_pb2.ClassifiedTag(
@@ -260,10 +312,11 @@ def _classified(tag: TagItem) -> ai_pb2.ClassifiedTag:
 def ai_service_registration(
     services: AIAssistantServices,
     tags: TagClassifierService,
+    screen: ScreenService,
     *,
     require_ai_use: bool,
 ) -> GrpcServiceRegistration:
-    servicer = AIServicer(services, tags, require_ai_use=require_ai_use)
+    servicer = AIServicer(services, tags, screen, require_ai_use=require_ai_use)
     return GrpcServiceRegistration(
         _SERVICE_NAME,
         lambda server: ai_pb2_grpc.add_AIServiceServicer_to_server(servicer, server),

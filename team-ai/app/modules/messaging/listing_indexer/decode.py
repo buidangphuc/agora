@@ -21,6 +21,10 @@ _STATUSES = {
     listing_pb2.LISTING_STATUS_DRAFT: "DRAFT",
     listing_pb2.LISTING_STATUS_PUBLISHED: "PUBLISHED",
     listing_pb2.LISTING_STATUS_REJECTED: "REJECTED",
+    listing_pb2.LISTING_STATUS_PENDING_REVIEW: "PENDING_REVIEW",
+    listing_pb2.LISTING_STATUS_BANNED: "BANNED",
+    listing_pb2.LISTING_STATUS_HELD: "HELD",
+    listing_pb2.LISTING_STATUS_UNSPECIFIED: "",
 }
 
 
@@ -36,7 +40,7 @@ class ListingEventPayload:
     description: str
     category: str
     price: float
-    status: str  # DRAFT | PUBLISHED | REJECTED | "" (unknown)
+    status: str  # DRAFT | PUBLISHED | REJECTED | PENDING_REVIEW | BANNED | HELD | "" | UNKNOWN
     seller_id: str
     currency: str
     # Envelope identity: a redelivered event repeats event_id; occurred_ns orders
@@ -72,7 +76,7 @@ def decode_listing_event(value: bytes) -> ListingEventPayload | None:
         description=listing.description,
         category=listing.category_id,
         price=float(listing.price),
-        status=_STATUSES.get(listing.status, ""),
+        status=_STATUSES.get(listing.status, "UNKNOWN"),
         seller_id=listing.seller_id,
         currency=listing.currency,
         event_id=envelope.event_id,

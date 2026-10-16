@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -19,7 +21,22 @@ func NewPostgresUserRepository(pool *pgxpool.Pool) *PostgresUserRepository {
 	return &PostgresUserRepository{pool: pool}
 }
 
-const userColumns = `id, username, password_hash, roles`
+const userColumns = `id, username, password_hash, roles, status, COALESCE(status_reason, ''), status_until, status_changed_at, created_at`
+
+func scanUser(row pgx.Row, u *User) error {
+	var until, changed *time.Time
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Roles, &u.Status, &u.StatusReason, &until, &changed, &u.CreatedAt); err != nil {
+		return err
+	}
+	u.StatusUntil, u.StatusChangedAt = time.Time{}, time.Time{}
+	if until != nil {
+		u.StatusUntil = *until
+	}
+	if changed != nil {
+		u.StatusChangedAt = *changed
+	}
+	return nil
+}
 
 // Create inserts a user, mapping a unique-violation to ErrConflict.
 func (r *PostgresUserRepository) Create(ctx context.Context, u User) (User, error) {
@@ -27,9 +44,7 @@ func (r *PostgresUserRepository) Create(ctx context.Context, u User) (User, erro
 		VALUES ($1, $2, $3, $4)
 		RETURNING ` + userColumns
 	var out User
-	err := r.pool.QueryRow(ctx, q, u.ID, u.Username, u.PasswordHash, u.Roles).Scan(
-		&out.ID, &out.Username, &out.PasswordHash, &out.Roles,
-	)
+	err := scanUser(r.pool.QueryRow(ctx, q, u.ID, u.Username, u.PasswordHash, u.Roles), &out)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
@@ -44,9 +59,7 @@ func (r *PostgresUserRepository) Create(ctx context.Context, u User) (User, erro
 func (r *PostgresUserRepository) GetByUsername(ctx context.Context, username string) (User, error) {
 	const q = `SELECT ` + userColumns + ` FROM users WHERE username = $1`
 	var out User
-	err := r.pool.QueryRow(ctx, q, username).Scan(
-		&out.ID, &out.Username, &out.PasswordHash, &out.Roles,
-	)
+	err := scanUser(r.pool.QueryRow(ctx, q, username), &out)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return User{}, ErrNotFound
@@ -60,9 +73,7 @@ func (r *PostgresUserRepository) GetByUsername(ctx context.Context, username str
 func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (User, error) {
 	const q = `SELECT ` + userColumns + ` FROM users WHERE id = $1`
 	var out User
-	err := r.pool.QueryRow(ctx, q, id).Scan(
-		&out.ID, &out.Username, &out.PasswordHash, &out.Roles,
-	)
+	err := scanUser(r.pool.QueryRow(ctx, q, id), &out)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return User{}, ErrNotFound
@@ -147,6 +158,146 @@ func (r *PostgresUserRepository) MarkResetTokenUsed(ctx context.Context, tokenHa
 		return ErrTokenNotFound
 	}
 	return nil
+}
+
+// ListUsers matches id exactly or username by literal prefix (starts_with, so LIKE
+// wildcards in the query are inert), ordered by username in byte order. The
+// cursor is the last username of the previous page.
+func (r *PostgresUserRepository) ListUsers(ctx context.Context, query, status, cursor string, limit int) ([]User, string, error) {
+	limit = clampListLimit(limit)
+	const q = `SELECT ` + userColumns + ` FROM users
+		WHERE ($1 = '' OR id = $1 OR starts_with(username, $1))
+		  AND ($2 = '' OR status = $2)
+		  AND ($3 = '' OR username COLLATE "C" > $3 COLLATE "C")
+		ORDER BY username COLLATE "C"
+		LIMIT $4`
+	rows, err := r.pool.Query(ctx, q, query, status, cursor, limit+1)
+	if err != nil {
+		return nil, "", fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+	var out []User
+	for rows.Next() {
+		var u User
+		if err := scanUser(rows, &u); err != nil {
+			return nil, "", fmt.Errorf("scan user: %w", err)
+		}
+		out = append(out, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+	if len(out) > limit {
+		return out[:limit], out[limit-1].Username, nil
+	}
+	return out, "", nil
+}
+
+// SetStatus changes the user's status in one transaction: lock the user row, revoke
+// every live session (non-active targets) with one revoke event each, update the
+// user, then enqueue the status event last.
+func (r *PostgresUserRepository) SetStatus(ctx context.Context, userID, status, reason string, until, now time.Time, revoke EnqueueFn, changed StatusEnqueueFn) (StatusResult, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return StatusResult{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var prev string
+	if err := tx.QueryRow(ctx, `SELECT status FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&prev); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return StatusResult{}, ErrNotFound
+		}
+		return StatusResult{}, fmt.Errorf("lock user %q: %w", userID, err)
+	}
+
+	revoked := 0
+	if status != StatusActive {
+		const rev = `UPDATE sessions SET revoked = true, refresh_hash = NULL, prev_refresh_hash = NULL
+			WHERE user_id = $1 AND NOT revoked RETURNING ` + sessionColumns
+		rows, err := tx.Query(ctx, rev, userID)
+		if err != nil {
+			return StatusResult{}, fmt.Errorf("revoke sessions: %w", err)
+		}
+		var sessions []Session
+		for rows.Next() {
+			var s Session
+			if err := scanSession(rows, &s); err != nil {
+				rows.Close()
+				return StatusResult{}, fmt.Errorf("scan session: %w", err)
+			}
+			sessions = append(sessions, s)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return StatusResult{}, fmt.Errorf("revoke sessions: %w", err)
+		}
+		sort.Slice(sessions, func(i, j int) bool {
+			if !sessions[i].CreatedAt.Equal(sessions[j].CreatedAt) {
+				return sessions[i].CreatedAt.Before(sessions[j].CreatedAt)
+			}
+			return sessions[i].ID < sessions[j].ID
+		})
+		for _, s := range sessions {
+			row, err := revoke(s)
+			if err != nil {
+				return StatusResult{}, fmt.Errorf("build revoke event: %w", err)
+			}
+			if err := enqueueTx(ctx, tx, row); err != nil {
+				return StatusResult{}, err
+			}
+			revoked++
+		}
+	}
+
+	const upd = `UPDATE users SET status = $2, status_reason = NULLIF($3, ''), status_until = $4, status_changed_at = $5
+		WHERE id = $1 RETURNING ` + userColumns
+	var u User
+	if err := scanUser(tx.QueryRow(ctx, upd, userID, status, reason, nullTime(until), now), &u); err != nil {
+		return StatusResult{}, fmt.Errorf("update user status: %w", err)
+	}
+	row, err := changed(StatusChange{UserID: userID, PreviousStatus: prev, Status: status, Reason: reason, Until: until, ChangedAt: now})
+	if err != nil {
+		return StatusResult{}, fmt.Errorf("build status event: %w", err)
+	}
+	if err := enqueueTx(ctx, tx, row); err != nil {
+		return StatusResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return StatusResult{}, fmt.Errorf("commit tx: %w", err)
+	}
+	return StatusResult{User: u, SessionsRevoked: revoked}, nil
+}
+
+// LiftExpiredSuspension atomically returns an expired suspension to active. The
+// conditional UPDATE serialises concurrent callers: only one sees the row.
+func (r *PostgresUserRepository) LiftExpiredSuspension(ctx context.Context, userID string, now time.Time, changed StatusEnqueueFn) (bool, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	const upd = `UPDATE users SET status = 'active', status_reason = NULL, status_until = NULL, status_changed_at = $2
+		WHERE id = $1 AND status = 'suspended' AND status_until IS NOT NULL AND status_until <= $2
+		RETURNING id`
+	var id string
+	if err := tx.QueryRow(ctx, upd, userID, now).Scan(&id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("lift suspension: %w", err)
+	}
+	row, err := changed(StatusChange{UserID: userID, PreviousStatus: StatusSuspended, Status: StatusActive, ChangedAt: now})
+	if err != nil {
+		return false, fmt.Errorf("build status event: %w", err)
+	}
+	if err := enqueueTx(ctx, tx, row); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit tx: %w", err)
+	}
+	return true, nil
 }
 
 var _ UserRepository = (*PostgresUserRepository)(nil)

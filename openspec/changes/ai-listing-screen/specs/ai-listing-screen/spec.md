@@ -115,4 +115,4 @@ With `SCREEN_BACKEND=llm_router` the RPC SHALL ask the LLM chain for a strict JS
 #### Scenario: The edge does not route ScreenListing
 - **WHEN** an anonymous caller and a signed-in buyer call `/platform.ai.v1.AIService/ScreenListing` through the gateway
 - **THEN** both calls fail with unimplemented (HTTP 501) and no verdict is returned
-- **VERIFIED BY**: platform-e2e `features/ai/listing_screen_edge.feature` "Listing screening is not reachable at the edge"
+- **VERIFIED BY**: platform-e2e `features/ai/listing_screen_edge.feature` "The edge does not route ScreenListing"

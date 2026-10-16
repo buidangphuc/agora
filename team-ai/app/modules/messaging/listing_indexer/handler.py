@@ -11,9 +11,9 @@ from app.modules.messaging.listing_indexer.decode import ListingEventPayload
 if TYPE_CHECKING:
     from llama_index.core import Document
 
-# A draft is not live yet and a rejected listing was taken down: neither may be
-# retrievable. An unknown status ("") is indexed (the producer is not unpublishing).
-_NOT_ACTIVE_STATUSES = frozenset({"DRAFT", "REJECTED"})
+# Only a published listing is retrievable. An unspecified status ("") is indexed
+# (legacy producer); any other status, including an unknown one, is not.
+_INDEXABLE_STATUSES = frozenset({"PUBLISHED", ""})
 
 _DEDUPE_CAPACITY = 10_000
 _VERSION_CAPACITY = 50_000
@@ -73,7 +73,7 @@ class ListingEventIndexer:
             logger.warning("indexer.unspecified_action listing_id={}", listing_id)
             return "ignored"
 
-        if payload.action == "DELETED" or payload.status in _NOT_ACTIVE_STATUSES:
+        if payload.action == "DELETED" or payload.status not in _INDEXABLE_STATUSES:
             await self._rag.delete(listing_id)
             self._applied(payload)
             return "deleted"
