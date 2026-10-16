@@ -2,7 +2,8 @@ package auditv1_test
 
 // Tests for change q6-trust-contract, tasks 1.6 and 2.3 (wire-compat gate and
 // generation). Runs the real buf CLI; no network beyond the local git repo.
-// Base ref defaults to "main" (override with Q6_BASE_REF).
+// Verify-only gate: it holds as soon as tasks 1.1-1.5 land and gen is built, so it
+// is red-first exempt (see commit trailer). Base ref defaults to "main" (override with Q6_BASE_REF).
 //
 // The generated-symbol test reads platform-core/gen, which is produced by
 // `make -C platform-core proto`. It fails until generation has run.
