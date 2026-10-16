@@ -75,6 +75,9 @@ type Order struct {
 	// PaidAt is when the Pending -> Paid compare-and-set succeeded; nil when the
 	// order was never paid or was paid before migration 0007.
 	PaidAt *time.Time
+	// PaymentDueAt is the deadline of an unpaid online-pay order, snapshotted at
+	// placement; nil for COD and for orders placed before migration 0008.
+	PaymentDueAt *time.Time
 }
 
 type OrderRepository interface {
@@ -104,11 +107,22 @@ type PaidOutboxBuilder func(order Order) (OutboxRow, error)
 type CancelledOutboxBuilder func(order Order) (OutboxRow, error)
 
 // OrderRepoOption customizes an order repository.
+// PlacedOutboxBuilder turns an order that has just been placed into the OrderPlaced
+// outbox row written in the placement transaction.
+type PlacedOutboxBuilder func(order Order) (OutboxRow, error)
+
+// WithPlacedOutbox makes PlaceOrders write one OrderPlaced outbox row per order in
+// the same transaction as the placement.
+func WithPlacedOutbox(b PlacedOutboxBuilder) OrderRepoOption {
+	return func(c *orderRepoConfig) { c.placedOutbox = b }
+}
+
 type OrderRepoOption func(*orderRepoConfig)
 
 type orderRepoConfig struct {
 	paidOutbox      PaidOutboxBuilder
 	cancelledOutbox CancelledOutboxBuilder
+	placedOutbox    PlacedOutboxBuilder
 	outbox          OutboxRepository // in-memory repo only
 }
 
@@ -145,24 +159,26 @@ type PostgresOrderRepository struct {
 	pool            *pgxpool.Pool
 	paidOutbox      PaidOutboxBuilder
 	cancelledOutbox CancelledOutboxBuilder
+	placedOutbox    PlacedOutboxBuilder
 }
 
 func NewPostgresOrderRepository(pool *pgxpool.Pool, opts ...OrderRepoOption) *PostgresOrderRepository {
 	cfg := newOrderRepoConfig(opts)
-	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox}
+	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox}
 }
 
-const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at`
+const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at`
 const orderItemColumns = `id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url`
 
 func scanOrder(row pgx.Row, o *Order) error {
 	var addrRaw []byte
 	var statusInt int32
-	var paidAt *time.Time
-	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt); err != nil {
+	var paidAt, dueAt *time.Time
+	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt, &dueAt); err != nil {
 		return err
 	}
 	o.PaidAt = paidAt
+	o.PaymentDueAt = dueAt
 	o.Status = OrderStatus(statusInt)
 	if len(addrRaw) > 0 {
 		_ = json.Unmarshal(addrRaw, &o.ShippingAddress)
@@ -205,9 +221,9 @@ func insertOrderTx(ctx context.Context, tx pgx.Tx, order *Order) error {
 	if err != nil {
 		return fmt.Errorf("marshal address: %w", err)
 	}
-	const qOrder = `INSERT INTO orders (id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
-	if _, err := tx.Exec(ctx, qOrder, order.ID, order.BuyerID, order.SellerID, int32(order.Status), order.TotalAmount, order.Currency, addrBytes, order.TrackingNumber, order.CreatedAt, order.UpdatedAt, order.ShippingFee, order.ItemsSubtotal, order.PaymentMethod, order.VoucherCode, order.DiscountAmount); err != nil {
+	const qOrder = `INSERT INTO orders (id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, payment_due_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
+	if _, err := tx.Exec(ctx, qOrder, order.ID, order.BuyerID, order.SellerID, int32(order.Status), order.TotalAmount, order.Currency, addrBytes, order.TrackingNumber, order.CreatedAt, order.UpdatedAt, order.ShippingFee, order.ItemsSubtotal, order.PaymentMethod, order.VoucherCode, order.DiscountAmount, order.PaymentDueAt); err != nil {
 		return fmt.Errorf("insert order: %w", err)
 	}
 	for i := range order.Items {
@@ -425,13 +441,14 @@ type InMemoryOrderRepository struct {
 	orders          map[string]Order
 	paidOutbox      PaidOutboxBuilder
 	cancelledOutbox CancelledOutboxBuilder
+	placedOutbox    PlacedOutboxBuilder
 	outbox          OutboxRepository
 }
 
 func NewInMemoryOrderRepository(opts ...OrderRepoOption) *InMemoryOrderRepository {
 	cfg := newOrderRepoConfig(opts)
 	return &InMemoryOrderRepository{orders: make(map[string]Order), paidOutbox: cfg.paidOutbox,
-		cancelledOutbox: cfg.cancelledOutbox, outbox: cfg.outbox}
+		cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, outbox: cfg.outbox}
 }
 
 func (r *InMemoryOrderRepository) CreateOrder(_ context.Context, order Order) (Order, error) {

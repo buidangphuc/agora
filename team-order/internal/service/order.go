@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
+	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 	"github.com/buidangphuc/team-order/internal/upstream"
 )
@@ -51,6 +52,16 @@ type OrderService struct {
 	// placer places a checkout's orders and binds their reservations atomically
 	// (design D6). Resolved in NewOrderService.
 	placer repository.OrderPlacer
+
+	// paymentDeadline is how long an online-pay order may stay unpaid; snapshotted
+	// into each order at placement. Zero disables the deadline.
+	paymentDeadline time.Duration
+}
+
+// WithPaymentDeadline sets the unpaid-order deadline applied to every non-COD
+// order at placement.
+func WithPaymentDeadline(d time.Duration) OrderServiceOption {
+	return func(s *OrderService) { s.paymentDeadline = d }
 }
 
 func NewOrderService(
@@ -340,7 +351,12 @@ func (s *OrderService) runCheckout(
 		for _, r := range g.reservations {
 			resIDs = append(resIDs, r.ID)
 		}
+		var deadline time.Duration
+		if paymentMethod != int32(paymentv1.PaymentMethod_PAYMENT_METHOD_COD) {
+			deadline = s.paymentDeadline
+		}
 		placed = append(placed, repository.PlacedOrder{
+			PaymentDeadline: deadline,
 			Order: repository.Order{
 				ID:              g.orderID,
 				BuyerID:         buyerID,
