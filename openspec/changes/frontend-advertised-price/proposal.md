@@ -4,7 +4,7 @@ The PDP shipping row promises "Miễn phí vận chuyển cho đơn hàng từ 0
 
 initiative: q5-advertised-price
 
-depends_on: order-advertised-price (team-order refuses CreateOrder with `FAILED_PRECONDITION` and the reason "price changed" and re-prices the cart line; cart unit prices carry flash prices). `OrderService.CalculateShippingFee` and `CreateOrder` are consumed unchanged; no proto, gateway or new dependency.
+depends_on: order-advertised-price (team-order refuses CreateOrder with `FAILED_PRECONDITION` and the reason "price changed" and re-prices the cart line; cart unit prices carry flash prices). `OrderService.CalculateShippingFee` and `CreateOrder` are consumed unchanged; no proto or new dependency. team-gateway gains the missing `OrderService.CalculateShippingFee` forwarder (it answered 501 Unimplemented; Clarifications Round 2).
 
 ## What Changes
 

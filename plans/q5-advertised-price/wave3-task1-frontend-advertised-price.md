@@ -18,6 +18,8 @@ Implement OpenSpec change `frontend-advertised-price` test-first per its tasks.m
 - team-frontend/src/app/(shop)/listing/[id]/page.test.tsx
 - team-frontend/src/app/(checkout)/checkout/**
 - team-frontend/FEATURES.yaml
+- team-gateway/internal/edge/order.go
+- team-gateway/internal/edge/order_test.go
 - platform-e2e/tests/e2e/support/advertised_price_ui_support.py
 - platform-e2e/tests/e2e/features/frontend/advertised_price_ui.feature
 - platform-e2e/tests/e2e/step_definitions/advertised_price_ui_steps.py
