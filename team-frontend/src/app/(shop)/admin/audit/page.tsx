@@ -1,5 +1,5 @@
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 
 import { Result } from "@/components/ui/Result";
 import { AuditLogView } from "@/features/admin/AuditLogView";
@@ -40,7 +40,7 @@ export default async function AuditPage({
   const principal = getPrincipal();
   const token = getToken();
   if (!principal || !token) {
-    redirect("/login");
+    redirectGuestToLogin("/admin/audit");
     return null;
   }
 
@@ -61,7 +61,7 @@ export default async function AuditPage({
 
   const result = await queryAuditLog(filters, cursor);
   if (result.status === "unauthenticated") {
-    redirect("/login");
+    redirectGuestToLogin("/admin/audit");
     return null;
   }
   if (result.status === "forbidden") {

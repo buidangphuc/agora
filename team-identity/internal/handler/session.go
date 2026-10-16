@@ -45,8 +45,8 @@ func NewSessionHandler(repo repository.SessionRepository, logger *slog.Logger) *
 }
 
 // WithTokenTTL makes RevokeSession publish a SessionRevoked event (in the same
-// transaction as the revoke) whose expiry is the session's creation time plus ttl —
-// the latest instant a token bound to that session can still be valid.
+// transaction as the revoke) whose expiry is now plus ttl —
+// the latest instant an access token bound to that session can still be valid.
 func (h *SessionHandler) WithTokenTTL(ttl time.Duration) *SessionHandler {
 	h.tokenTTL = ttl
 	return h
@@ -88,7 +88,7 @@ func (h *SessionHandler) RevokeSession(
 		enqueue = func(revoked repository.Session) (repository.OutboxRow, error) {
 			eventID := uuid.NewString()
 			payload, err := events.BuildSessionRevokedEnvelope(eventID, revoked.ID, revoked.UserID,
-				revoked.CreatedAt.Add(h.tokenTTL), principal, requestID)
+				time.Now().Add(h.tokenTTL), principal, requestID)
 			if err != nil {
 				return repository.OutboxRow{}, err
 			}

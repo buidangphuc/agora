@@ -68,7 +68,9 @@ beforeEach(() => {
 describe("/checkout/pay/[id]", () => {
   it("redirects a signed-out visitor to /login", async () => {
     vi.mocked(getPrincipal).mockReturnValue(null);
-    expect(await outcome()).toBe("redirect:/login");
+    expect(await outcome()).toBe(
+      "redirect:/login?returnUrl=%2Fcheckout%2Fpay%2Forder-12345678",
+    );
   });
 
   it("calls notFound for an unknown order", async () => {

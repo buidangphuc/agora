@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirectGuestToLogin } from "@/features/auth/guardPath";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Descriptions } from "@/components/ui/Descriptions";
@@ -27,7 +27,7 @@ function SectionTitle({ children }: { children: string }) {
 }
 
 export default async function ReferralPage() {
-  if (!getPrincipal()) redirect("/login");
+  if (!getPrincipal()) redirectGuestToLogin("/account/referral");
 
   const [referral, rewards] = await Promise.all([
     getMyReferral(),
