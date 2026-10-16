@@ -360,3 +360,489 @@ features:
     covered_by: "notification/c1_shipment_event.feature::Order analytics ignores the new event"
     notes: "green after the fix and rebuild: notification/c1_shipment_event.feature::Order analytics ignores the new event"
 
+
+  - id: notification.order-work.cod-seller
+    title: "Order work: A COD order reaches the seller feed end to end"
+    persona: seller
+    priority: P1
+    summary: "Order work: A COD order reaches the seller feed end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: seller
+    api:
+      exercised: [order.v1.CreateOrder, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: A COD order reaches the seller feed end to end"
+    tags: [seller]
+    status: automated
+    covered_by: "notification/order_work.feature::Order work: A COD order reaches the seller feed end to end"
+
+  - id: notification.order-work.paid-seller
+    title: "Order work: A paid online order reaches the seller feed once end to end"
+    persona: seller
+    priority: P1
+    summary: "Order work: A paid online order reaches the seller feed once end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: seller
+    api:
+      exercised: [order.v1.CreateOrder, payment.v1.ProcessMockPayment, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: A paid online order reaches the seller feed once end to end"
+    tags: [seller]
+    status: automated
+    covered_by: "notification/order_work.feature::Order work: A paid online order reaches the seller feed once end to end"
+
+  - id: notification.order-work.unpaid-buyer
+    title: "Order work: An unpaid order reminds and then expires its buyer end to end"
+    persona: buyer
+    priority: P1
+    summary: "Order work: An unpaid order reminds and then expires its buyer end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [order.v1.CreateOrder, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: An unpaid order reminds and then expires its buyer end to end"
+    tags: [buyer]
+    status: automated
+    covered_by: "notification/order_work.feature::Order work: An unpaid order reminds and then expires its buyer end to end"
+
+  - id: notification.order-work.return-seller
+    title: "Order work: A return request reaches the seller feed end to end"
+    persona: seller
+    priority: P1
+    summary: "Order work: A return request reaches the seller feed end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: seller
+    api:
+      exercised: [order.v1.CreateReturnRequest, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: A return request reaches the seller feed end to end"
+    tags: [seller]
+    status: automated
+    covered_by: "notification/order_work.feature::Order work: A return request reaches the seller feed end to end"
+
+  - id: notification.order-work.completed-buyer
+    title: "Order work: A completed order reaches the buyer feed end to end"
+    persona: buyer
+    priority: P1
+    summary: "Order work: A completed order reaches the buyer feed end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [order.v1.ConfirmReceipt, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: A completed order reaches the buyer feed end to end"
+    tags: [buyer]
+    status: automated
+    covered_by: "notification/order_work.feature::Order work: A completed order reaches the buyer feed end to end"
+
+  - id: notification.order-work.low-stock-seller
+    title: "Order work: Selling stock down notifies the seller once end to end"
+    persona: seller
+    priority: P1
+    summary: "Order work: Selling stock down notifies the seller once end to end (notification-order-work, initiative q10-order-lifecycle)."
+    entry_route: /notifications
+    services: [team-order, team-notification]
+    preconditions:
+      login: seller
+    api:
+      exercised: [order.v1.CreateOrder, notification.v1.ListNotifications]
+    acceptance:
+      - "Order work: Selling stock down notifies the seller once end to end"
+    tags: [seller]
+    status: automated
+    covered_by: "notification/order_work.feature::Order work: Selling stock down notifies the seller once end to end"
+  - id: notification.ow-a-cod-order-notifies-its-seller-at-placement
+    title: "Order work: A COD order notifies its seller at placement"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A COD order notifies its seller at placement"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderPlacedCODNotifiesSeller. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-an-online-order-notifies-its-seller-at-payment
+    title: "Order work: An online order notifies its seller at payment"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: An online order notifies its seller at payment"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderPaidNotifiesSeller. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-another-seller-receives-no-order-notification
+    title: "Order work: Another seller receives no order notification"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: Another seller receives no order notification"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderPlacedOtherSellerNotNotified. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-an-online-order-is-not-notified-at-placement
+    title: "Order work: An online order is not notified at placement"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: An online order is not notified at placement"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderPlacedOnlineCreatesNothing. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-redelivered-order-event-does-not-notify-twice
+    title: "Order work: A redelivered order event does not notify twice"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A redelivered order event does not notify twice"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderPaidRedeliveryNotifiesOnce. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-paid-event-without-seller-id-is-skipped
+    title: "Order work: A paid event without seller_id is skipped"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A paid event without seller_id is skipped"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderPaidWithoutSellerSkipped. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-malformed-order-payload-is-a-permanent-error
+    title: "Order work: A malformed order payload is a permanent error"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A malformed order payload is a permanent error"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderPlacedMalformedIsPermanent. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-seller-disabling-order-notifications-receives-none
+    title: "Order work: A seller disabling ORDER notifications receives none"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A seller disabling ORDER notifications receives none"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderPaidRespectsTypePreference. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-payment-reminder-notifies-the-buyer-with-a-pay-link
+    title: "Order work: A payment reminder notifies the buyer with a pay link"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A payment reminder notifies the buyer with a pay link"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestPaymentReminderNotifiesBuyer. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-an-expiry-cancel-notifies-the-buyer
+    title: "Order work: An expiry cancel notifies the buyer"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: An expiry cancel notifies the buyer"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestCancelExpiredNotifiesBuyer. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-buyer-s-own-cancel-creates-no-notification
+    title: "Order work: A buyer's own cancel creates no notification"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A buyer's own cancel creates no notification"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestCancelOtherReasonCreatesNothing. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-reminder-without-buyer-id-is-skipped
+    title: "Order work: A reminder without buyer_id is skipped"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A reminder without buyer_id is skipped"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestPaymentReminderMissingBuyerSkipped. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-reminder-is-created-for-the-buyer-only
+    title: "Order work: A reminder is created for the buyer only"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A reminder is created for the buyer only"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestPaymentReminderOnlyRecipientIsBuyer. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-completed-order-prompts-the-buyer-to-review
+    title: "Order work: A completed order prompts the buyer to review"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A completed order prompts the buyer to review"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderCompletedNotifiesBuyer. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-completion-by-the-buyer-or-the-seller-notifies-the-buyer-too
+    title: "Order work: Completion by the buyer or the seller notifies the buyer too"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: Completion by the buyer or the seller notifies the buyer too"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderCompletedAnyActorNotifiesBuyerOnly. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-return-request-notifies-the-seller-with-the-returns-link
+    title: "Order work: A return request notifies the seller with the returns link"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A return request notifies the seller with the returns link"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestReturnRequestedNotifiesSeller. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-refunded-return-notifies-the-buyer
+    title: "Order work: A refunded return notifies the buyer"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A refunded return notifies the buyer"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestReturnRefundedNotifiesBuyer. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-redelivered-return-request-does-not-notify-twice
+    title: "Order work: A redelivered return request does not notify twice"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A redelivered return request does not notify twice"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestReturnRequestedRedeliveryNotifiesOnce. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-notification-failure-leaves-the-event-unrecorded
+    title: "Order work: A notification failure leaves the event unrecorded"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A notification failure leaves the event unrecorded"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestOrderCompletedTransientFailureRetries. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-stock-falling-to-the-threshold-notifies-the-seller-once
+    title: "Order work: Stock falling to the threshold notifies the seller once"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: Stock falling to the threshold notifies the seller once"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockCrossingNotifiesSeller. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-stock-staying-at-or-below-the-threshold-does-not-repeat
+    title: "Order work: Stock staying at or below the threshold does not repeat"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: Stock staying at or below the threshold does not repeat"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockNoRepeatWhileLow. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-fall-after-a-rise-above-the-threshold-notifies-again
+    title: "Order work: A fall after a rise above the threshold notifies again"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A fall after a rise above the threshold notifies again"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockRearmsAfterRiseAboveThreshold. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-stock-above-the-threshold-creates-nothing
+    title: "Order work: Stock above the threshold creates nothing"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: Stock above the threshold creates nothing"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockAboveThresholdCreatesNothing. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-listing-seen-first-with-low-stock-does-not-notify
+    title: "Order work: A listing seen first with low stock does not notify"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A listing seen first with low stock does not notify"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockSeedLowDoesNotNotify. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-restock-through-a-listing-edit-re-arms-low-stock
+    title: "Order work: A restock through a listing edit re-arms low stock"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A restock through a listing edit re-arms low stock"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockRearmsOnListingChangedRestock. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-deleted-listing-drops-its-low-stock-state
+    title: "Order work: A deleted listing drops its low-stock state"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A deleted listing drops its low-stock state"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockDeletedListingDropsState; team-notification internal/repository TestPostgresLowStockStoreDelete. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-stock-event-for-an-unknown-listing-is-ignored
+    title: "Order work: A stock event for an unknown listing is ignored"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A stock event for an unknown listing is ignored"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockUnknownListingIgnored. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-a-failed-low-stock-notification-re-detects-on-redelivery
+    title: "Order work: A failed low-stock notification re-detects on redelivery"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: A failed low-stock notification re-detects on redelivery"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockFailureRedetectsOnRedelivery. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-the-notification-goes-to-the-listing-s-owner-only
+    title: "Order work: The notification goes to the listing's owner only"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: The notification goes to the listing's owner only"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockOnlyOwnerNotified. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-the-threshold-is-configurable
+    title: "Order work: The threshold is configurable"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: The threshold is configurable"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockConfiguredThreshold; team-notification internal/config TestLoadLowStockThreshold. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-an-invalid-threshold-value-fails-startup
+    title: "Order work: An invalid threshold value fails startup"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: An invalid threshold value fails startup"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/config TestLoadLowStockThresholdInvalid. Not producible end to end through the gateway (unit level)."
+  - id: notification.ow-low-stock-state-survives-a-restart
+    title: "Order work: Low-stock state survives a restart"
+    persona: seller
+    priority: P2
+    summary: "Unit-verified scenario of change notification-order-work."
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Order work: Low-stock state survives a restart"
+    tags: [unit]
+    status: not-testable
+    notes: "VERIFIED BY team-notification internal/consumer TestLowStockStateDurableAcrossRestart. Not producible end to end through the gateway (unit level)."

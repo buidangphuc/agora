@@ -45,7 +45,8 @@ import (
 // Fully-qualified proto names the EventEnvelope carries for the listing events we
 // react to. Consumers switch on EventEnvelope.type (ADR-0005).
 const (
-	listingChangedType = "platform.listing.v1.ListingChanged"
+	listingChangedType      = "platform.listing.v1.ListingChanged"
+	listingStockChangedType = "platform.listing.v1.ListingStockChanged"
 )
 
 // consumerName namespaces this consumer's rows in the dedupe ledger.
@@ -105,7 +106,86 @@ type ListingConsumer struct {
 	dedupe Deduper
 	stock  StockStateStore
 	price  PriceStateStore
+	low    LowStockStateStore
+	lowThr int32
 	logger *slog.Logger
+}
+
+// defaultLowStockThreshold is the stock level at or below which the seller is warned.
+const defaultLowStockThreshold int32 = 5
+
+// LowStockStateStore is the per-listing durable low-stock state: owner, title and
+// whether the listing is currently at/below the threshold. known is false when no
+// state exists. Errors are transient.
+type LowStockStateStore interface {
+	Get(ctx context.Context, listingID string) (sellerID, title string, low, known bool, err error)
+	Upsert(ctx context.Context, listingID, sellerID, title string, low bool) error
+	SetLow(ctx context.Context, listingID string, low bool) error
+	Delete(ctx context.Context, listingID string) error
+}
+
+// WithLowStockStore injects a durable low-stock state store (default: in-memory).
+func WithLowStockStore(s LowStockStateStore) Option {
+	return func(c *ListingConsumer) {
+		if s != nil {
+			c.low = s
+		}
+	}
+}
+
+// WithLowStockThreshold sets the low-stock threshold (default 5); non-positive is ignored.
+func WithLowStockThreshold(n int32) Option {
+	return func(c *ListingConsumer) {
+		if n > 0 {
+			c.lowThr = n
+		}
+	}
+}
+
+// InMemoryLowStockStore is the process-local default LowStockStateStore.
+type InMemoryLowStockStore struct {
+	mu sync.Mutex
+	m  map[string]lowStockRow
+}
+
+type lowStockRow struct {
+	seller, title string
+	low           bool
+}
+
+func NewInMemoryLowStockStore() LowStockStateStore {
+	return &InMemoryLowStockStore{m: make(map[string]lowStockRow)}
+}
+
+func (s *InMemoryLowStockStore) Get(_ context.Context, id string) (string, string, bool, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.m[id]
+	return r.seller, r.title, r.low, ok, nil
+}
+
+func (s *InMemoryLowStockStore) Upsert(_ context.Context, id, seller, title string, low bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.m[id] = lowStockRow{seller, title, low}
+	return nil
+}
+
+func (s *InMemoryLowStockStore) SetLow(_ context.Context, id string, low bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if r, ok := s.m[id]; ok {
+		r.low = low
+		s.m[id] = r
+	}
+	return nil
+}
+
+func (s *InMemoryLowStockStore) Delete(_ context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.m, id)
+	return nil
 }
 
 // Option customizes a ListingConsumer without breaking the positional constructor.
@@ -151,6 +231,8 @@ func NewListingConsumer(notif NotificationCreator, subs SubscriptionStore, logge
 		dedupe: NewInMemoryDeduper(),
 		stock:  NewInMemoryStockStateStore(),
 		price:  NewInMemoryPriceStateStore(),
+		low:    NewInMemoryLowStockStore(),
+		lowThr: defaultLowStockThreshold,
 		logger: logger,
 	}
 	for _, opt := range opts {
@@ -176,7 +258,7 @@ func (c *ListingConsumer) HandleRaw(ctx context.Context, value []byte) error {
 // short-circuits a redelivered event_id; the effect is recorded only AFTER it is
 // applied, so a crash in between simply redelivers.
 func (c *ListingConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.EventEnvelope) error {
-	if env.GetType() != listingChangedType {
+	if env.GetType() != listingChangedType && env.GetType() != listingStockChangedType {
 		return nil // not ours; ignore
 	}
 
@@ -192,8 +274,14 @@ func (c *ListingConsumer) HandleEnvelope(ctx context.Context, env *eventsv1.Even
 		return nil // duplicate delivery — idempotent no-op
 	}
 
-	if err := c.handleListingChanged(ctx, env.GetPayload()); err != nil {
-		return err
+	var herr error
+	if env.GetType() == listingStockChangedType {
+		herr = c.handleStockChanged(ctx, env.GetPayload())
+	} else {
+		herr = c.handleListingChanged(ctx, env.GetPayload())
+	}
+	if herr != nil {
+		return herr
 	}
 
 	// Record the event only AFTER the effect is applied. A crash between apply and
@@ -225,6 +313,9 @@ func (c *ListingConsumer) handleListingChanged(ctx context.Context, payload []by
 	}
 	if e.GetChangeType() == listingv1.ChangeType_CHANGE_TYPE_DELETED {
 		// A delete carries a zeroed snapshot; never treat it as a drop / stock event.
+		if err := c.low.Delete(ctx, l.GetId()); err != nil {
+			return fmt.Errorf("drop low-stock state for %q: %w", l.GetId(), err)
+		}
 		return nil
 	}
 
@@ -272,6 +363,53 @@ func (c *ListingConsumer) handleListingChanged(ctx context.Context, payload []by
 	// Record the current level (fired or not, first-seen included) for future diffs.
 	if err := c.stock.Set(ctx, listingID, curStock); err != nil {
 		return fmt.Errorf("record last-seen stock for %q: %w", listingID, err)
+	}
+	// Low-stock baseline: a snapshot (re)seeds owner/title and the low flag without
+	// ever notifying, so a restock re-arms and a low first sighting stays silent.
+	if err := c.low.Upsert(ctx, listingID, l.GetSellerId(), l.GetTitle(), curStock <= c.lowThr); err != nil {
+		return fmt.Errorf("record low-stock state for %q: %w", listingID, err)
+	}
+	return nil
+}
+
+// handleStockChanged notifies the listing's owner once when stock falls to the
+// threshold, and re-arms when it rises above it. Unknown listings are ignored.
+func (c *ListingConsumer) handleStockChanged(ctx context.Context, payload []byte) error {
+	var e listingv1.ListingStockChanged
+	if err := proto.Unmarshal(payload, &e); err != nil {
+		return fmt.Errorf("%w: unmarshal ListingStockChanged: %v", ErrPermanent, err)
+	}
+	id := e.GetListingId()
+	if id == "" {
+		return fmt.Errorf("%w: ListingStockChanged missing listing_id", ErrPermanent)
+	}
+	seller, title, low, known, err := c.low.Get(ctx, id)
+	if err != nil {
+		return fmt.Errorf("read low-stock state for %q: %w", id, err)
+	}
+	if !known {
+		return nil
+	}
+	stock := e.GetStock()
+	switch {
+	case stock <= c.lowThr && !low:
+		n := &notificationv1.Notification{
+			UserId:  seller,
+			Title:   "Sắp hết hàng",
+			Body:    fmt.Sprintf("Sản phẩm %q chỉ còn %d trong kho.", title, stock),
+			Type:    notificationv1.NotificationType_NOTIFICATION_TYPE_SYSTEM,
+			LinkUrl: "/seller/" + id + "/edit",
+		}
+		if _, err := c.notif.CreateNotification(ctx, n); err != nil {
+			return fmt.Errorf("create low-stock notification for %q: %w", seller, err)
+		}
+		if err := c.low.SetLow(ctx, id, true); err != nil {
+			return fmt.Errorf("set low-stock flag for %q: %w", id, err)
+		}
+	case stock > c.lowThr && low:
+		if err := c.low.SetLow(ctx, id, false); err != nil {
+			return fmt.Errorf("clear low-stock flag for %q: %w", id, err)
+		}
 	}
 	return nil
 }

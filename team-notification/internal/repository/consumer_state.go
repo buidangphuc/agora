@@ -116,3 +116,59 @@ func (s *PostgresListingStockStore) Set(ctx context.Context, listingID string, s
 	}
 	return nil
 }
+
+// PostgresLowStockStore keeps per-listing low-stock state in
+// listing_low_stock_state. It satisfies consumer.LowStockStateStore.
+type PostgresLowStockStore struct {
+	pool *pgxpool.Pool
+}
+
+func NewPostgresLowStockStore(pool *pgxpool.Pool) *PostgresLowStockStore {
+	return &PostgresLowStockStore{pool: pool}
+}
+
+// Get returns the owner, title and low flag; known is false when no row exists.
+func (s *PostgresLowStockStore) Get(ctx context.Context, listingID string) (sellerID, title string, low, known bool, err error) {
+	err = s.pool.QueryRow(ctx,
+		`SELECT seller_id, title, low FROM listing_low_stock_state WHERE listing_id = $1`, listingID).
+		Scan(&sellerID, &title, &low)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", false, false, nil
+	}
+	if err != nil {
+		return "", "", false, false, fmt.Errorf("read low-stock state: %w", err)
+	}
+	return sellerID, title, low, true, nil
+}
+
+// Upsert records owner, title and low flag for a listing.
+func (s *PostgresLowStockStore) Upsert(ctx context.Context, listingID, sellerID, title string, low bool) error {
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO listing_low_stock_state (listing_id, seller_id, title, low) VALUES ($1, $2, $3, $4)
+		ON CONFLICT (listing_id) DO UPDATE
+		SET seller_id = EXCLUDED.seller_id, title = EXCLUDED.title, low = EXCLUDED.low, updated_at = NOW()`,
+		listingID, sellerID, title, low)
+	if err != nil {
+		return fmt.Errorf("record low-stock state: %w", err)
+	}
+	return nil
+}
+
+// SetLow flips the low flag of an existing row (no-op when absent).
+func (s *PostgresLowStockStore) SetLow(ctx context.Context, listingID string, low bool) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE listing_low_stock_state SET low = $2, updated_at = NOW() WHERE listing_id = $1`, listingID, low)
+	if err != nil {
+		return fmt.Errorf("set low-stock flag: %w", err)
+	}
+	return nil
+}
+
+// Delete drops a listing's state; deleting an absent row is not an error.
+func (s *PostgresLowStockStore) Delete(ctx context.Context, listingID string) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM listing_low_stock_state WHERE listing_id = $1`, listingID)
+	if err != nil {
+		return fmt.Errorf("delete low-stock state: %w", err)
+	}
+	return nil
+}
