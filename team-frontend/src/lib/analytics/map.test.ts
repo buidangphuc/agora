@@ -36,10 +36,40 @@ describe("internalToGa4 other events", () => {
     ["add_payment_info", "add_payment_info"],
     ["apply_promotion", "apply_promotion"],
     ["search_filter", "search_filter"],
-    ["favorite", "favorite"],
+    ["favorite", "add_to_wishlist"],
     ["share", "share"],
   ];
   it.each(cases)("[Other events unchanged] %s maps to %s", (internal, ga4) => {
     expect(internalToGa4(internal)).toBe(ga4);
+  });
+});
+
+describe("loop events vocabulary", () => {
+  it("maps loop events", () => {
+    const cases: Array<[Parameters<typeof ga4ToInternal>[0], string]> = [
+      ["sign_up", "sign_up"],
+      ["login", "login"],
+      ["add_to_wishlist", "favorite"],
+      ["follow_seller", "follow_seller"],
+      ["referral_redeem", "referral_redeem"],
+      ["daily_check_in", "daily_check_in"],
+      ["alert_subscribe", "alert_subscribe"],
+      ["share", "share"],
+    ];
+    for (const [ga4, internal] of cases)
+      expect(ga4ToInternal(ga4)).toBe(internal);
+    expect(internalToGa4("favorite")).toBe("add_to_wishlist");
+  });
+
+  it("maps loop events: the unused GA4 name favorite is gone", () => {
+    // @ts-expect-error "favorite" is no longer a GA4EventName
+    ga4ToInternal("favorite");
+  });
+});
+
+describe("ai_interaction vocabulary", () => {
+  it("maps ai_interaction both ways", () => {
+    expect(ga4ToInternal("ai_interaction")).toBe("ai_interaction");
+    expect(internalToGa4("ai_interaction")).toBe("ai_interaction");
   });
 });

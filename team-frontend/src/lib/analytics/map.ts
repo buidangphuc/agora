@@ -14,8 +14,15 @@ const GA4_TO_INTERNAL: Record<GA4EventName, InternalEventType> = {
   purchase: "purchase",
   apply_promotion: "apply_promotion",
   search_filter: "search_filter",
-  favorite: "favorite",
+  add_to_wishlist: "favorite",
   share: "share",
+  sign_up: "sign_up",
+  login: "login",
+  follow_seller: "follow_seller",
+  referral_redeem: "referral_redeem",
+  daily_check_in: "daily_check_in",
+  alert_subscribe: "alert_subscribe",
+  ai_interaction: "ai_interaction",
 };
 
 const INTERNAL_TO_GA4: Record<InternalEventType, GA4EventName | undefined> = {
@@ -32,8 +39,15 @@ const INTERNAL_TO_GA4: Record<InternalEventType, GA4EventName | undefined> = {
   purchase: undefined,
   apply_promotion: "apply_promotion",
   search_filter: "search_filter",
-  favorite: "favorite",
+  favorite: "add_to_wishlist",
   share: "share",
+  sign_up: "sign_up",
+  login: "login",
+  follow_seller: "follow_seller",
+  referral_redeem: "referral_redeem",
+  daily_check_in: "daily_check_in",
+  alert_subscribe: "alert_subscribe",
+  ai_interaction: "ai_interaction",
 };
 
 export function ga4ToInternal(name: GA4EventName): InternalEventType {

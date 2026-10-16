@@ -32,7 +32,7 @@ The consumer SHALL persist the `properties` map, `listing_id`, session and anony
 - **WHEN** an `ai_interaction` event with properties `surface=assistant`, `action=accepted` and listing id "l-1", and an `alert_subscribe` event with `alert_type=price_drop`, are mapped
 - **THEN** each record carries exactly those properties and listing id, and the principal id of the envelope
 - **VERIFIED BY**: team-analytics `internal/consumer` `TestNewLoopEventsPreservePropertiesAndPrincipal`
-- **VERIFIED BY**: platform-e2e `features/tracking/loop_event_storage.feature` "Loop storage: properties and principal survive the warehouse"
+- **VERIFIED BY**: platform-e2e `features/tracking/loop_event_storage.feature` "Loop storage: properties and listing id are preserved"
 
 #### Scenario: Loop storage: an event with no properties is stored with empty properties
 - **WHEN** a `referral_redeem` event with no properties is consumed
@@ -43,7 +43,7 @@ The consumer SHALL persist the `properties` map, `listing_id`, session and anony
 - **WHEN** a `sign_up` event carries a ga_client_id and a consent snapshot with analytics false
 - **THEN** the stored `ga_client_id` is empty
 - **VERIFIED BY**: team-analytics `internal/consumer` `TestNewLoopEventClientIdBlankedWithoutConsent`
-- **VERIFIED BY**: platform-e2e `features/tracking/loop_event_storage.feature` "Loop storage: no analytics consent blanks the client id"
+- **VERIFIED BY**: platform-e2e `features/tracking/loop_event_storage.feature` "Loop storage: the client id is blanked without analytics consent"
 
 #### Scenario: Loop storage: a replayed event is stored once
 - **WHEN** the same `login` envelope (same event id) is produced to analytics.events twice

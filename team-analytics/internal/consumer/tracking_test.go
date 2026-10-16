@@ -173,3 +173,168 @@ func TestLegacyPayloadWithoutConsentIsStoredAsNoConsent(t *testing.T) {
 		t.Errorf("GaClientID = %q, want empty", rec.GaClientID)
 	}
 }
+
+// recordForType maps a TrackingEvent of the given raw enum number.
+func recordForType(t *testing.T, et analyticsv1.EventType, mut func(*analyticsv1.TrackingEvent)) *warehouse.TrackingRecord {
+	t.Helper()
+	te := &analyticsv1.TrackingEvent{EventType: et, SessionId: "s-1"}
+	if mut != nil {
+		mut(te)
+	}
+	return consentRecord(t, te)
+}
+
+// Scenario: Loop storage: each new type is stored under its name
+func TestNewLoopEventTypesMapToNames(t *testing.T) {
+	cases := []struct {
+		et   analyticsv1.EventType
+		want string
+	}{
+		{analyticsv1.EventType_EVENT_TYPE_SIGN_UP, "sign_up"},
+		{analyticsv1.EventType_EVENT_TYPE_LOGIN, "login"},
+		{analyticsv1.EventType_EVENT_TYPE_FOLLOW_SELLER, "follow_seller"},
+		{analyticsv1.EventType_EVENT_TYPE_REFERRAL_REDEEM, "referral_redeem"},
+		{analyticsv1.EventType_EVENT_TYPE_DAILY_CHECK_IN, "daily_check_in"},
+		{analyticsv1.EventType_EVENT_TYPE_ALERT_SUBSCRIBE, "alert_subscribe"},
+		{analyticsv1.EventType_EVENT_TYPE_AI_INTERACTION, "ai_interaction"},
+	}
+	for _, c := range cases {
+		t.Run(c.want, func(t *testing.T) {
+			rec := recordForType(t, c.et, nil)
+			if rec.EventType != c.want {
+				t.Errorf("EventType = %q, want %q", rec.EventType, c.want)
+			}
+			if rec.EventType == "unspecified" {
+				t.Error("EventType must not be unspecified")
+			}
+		})
+	}
+}
+
+// Scenario: Loop storage: existing types keep their names
+func TestExistingEventTypeNamesUnchanged(t *testing.T) {
+	cases := []struct {
+		et   analyticsv1.EventType
+		want string
+	}{
+		{analyticsv1.EventType_EVENT_TYPE_VIEW, "view"},
+		{analyticsv1.EventType_EVENT_TYPE_CLICK, "click"},
+		{analyticsv1.EventType_EVENT_TYPE_ADD_TO_CART, "add_to_cart"},
+		{analyticsv1.EventType_EVENT_TYPE_IMPRESSION, "impression"},
+		{analyticsv1.EventType_EVENT_TYPE_REMOVE_FROM_CART, "remove_from_cart"},
+		{analyticsv1.EventType_EVENT_TYPE_BEGIN_CHECKOUT, "begin_checkout"},
+		{analyticsv1.EventType_EVENT_TYPE_APPLY_PROMOTION, "apply_promotion"},
+		{analyticsv1.EventType_EVENT_TYPE_SEARCH_FILTER, "search_filter"},
+		{analyticsv1.EventType_EVENT_TYPE_FAVORITE, "favorite"},
+		{analyticsv1.EventType_EVENT_TYPE_SHARE, "share"},
+		{analyticsv1.EventType_EVENT_TYPE_VIEW_CART, "view_cart"},
+		{analyticsv1.EventType_EVENT_TYPE_ADD_SHIPPING_INFO, "add_shipping_info"},
+		{analyticsv1.EventType_EVENT_TYPE_ADD_PAYMENT_INFO, "add_payment_info"},
+		{analyticsv1.EventType_EVENT_TYPE_PURCHASE, "purchase"},
+	}
+	for _, c := range cases {
+		t.Run(c.want, func(t *testing.T) {
+			if got := recordForType(t, c.et, nil).EventType; got != c.want {
+				t.Errorf("EventType = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// Scenario: Loop storage: an unrecognised enum value is stored as unspecified without failing
+func TestUnrecognisedEventTypeIsUnspecified(t *testing.T) {
+	for _, n := range []int32{0, 22, 99, -1} {
+		te := &analyticsv1.TrackingEvent{EventType: analyticsv1.EventType(n), SessionId: "s-1"}
+		value := wrap(t, consumer.TrackingEventType, te, nil, time.Date(2026, 9, 2, 10, 30, 0, 0, time.UTC))
+		rec, ok, err := consumer.RecordFromEnvelope(value)
+		if err != nil || !ok || rec == nil {
+			t.Fatalf("enum %d: rec=%v ok=%v err=%v", n, rec, ok, err)
+		}
+		if rec.EventType != "unspecified" {
+			t.Errorf("enum %d: EventType = %q, want unspecified", n, rec.EventType)
+		}
+	}
+}
+
+// Scenario: Loop storage: properties and listing id are preserved
+func TestNewLoopEventsPreservePropertiesAndPrincipal(t *testing.T) {
+	at := time.Date(2026, 9, 2, 10, 30, 0, 0, time.UTC)
+	principal := &commonv1.Principal{Id: "user-7", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER}
+	cases := []struct {
+		name    string
+		te      *analyticsv1.TrackingEvent
+		want    string
+		props   map[string]string
+		listing string
+	}{
+		{"ai_interaction", &analyticsv1.TrackingEvent{
+			EventType: analyticsv1.EventType_EVENT_TYPE_AI_INTERACTION, ListingId: "l-1",
+			SessionId: "s-1", AnonymousId: "a-1",
+			Properties: map[string]string{"surface": "assistant", "action": "accepted"},
+		}, "ai_interaction", map[string]string{"surface": "assistant", "action": "accepted"}, "l-1"},
+		{"alert_subscribe", &analyticsv1.TrackingEvent{
+			EventType: analyticsv1.EventType_EVENT_TYPE_ALERT_SUBSCRIBE, SessionId: "s-2",
+			Properties: map[string]string{"alert_type": "price_drop"},
+		}, "alert_subscribe", map[string]string{"alert_type": "price_drop"}, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rec, ok, err := consumer.RecordFromEnvelope(wrap(t, consumer.TrackingEventType, c.te, principal, at))
+			if err != nil || !ok || rec == nil {
+				t.Fatalf("rec=%v ok=%v err=%v", rec, ok, err)
+			}
+			if rec.EventType != c.want {
+				t.Errorf("EventType = %q, want %q", rec.EventType, c.want)
+			}
+			if len(rec.Properties) != len(c.props) {
+				t.Errorf("Properties = %v, want %v", rec.Properties, c.props)
+			}
+			for k, v := range c.props {
+				if rec.Properties[k] != v {
+					t.Errorf("Properties[%q] = %q, want %q", k, rec.Properties[k], v)
+				}
+			}
+			if rec.ListingID != c.listing {
+				t.Errorf("ListingID = %q, want %q", rec.ListingID, c.listing)
+			}
+			if rec.SessionID != c.te.SessionId || rec.AnonymousID != c.te.AnonymousId {
+				t.Errorf("session/anon = %q/%q", rec.SessionID, rec.AnonymousID)
+			}
+			if rec.PrincipalID != "user-7" {
+				t.Errorf("PrincipalID = %q, want user-7", rec.PrincipalID)
+			}
+		})
+	}
+}
+
+// Scenario: Loop storage: an event with no properties is stored with empty properties
+func TestReferralRedeemWithoutPropertiesIsStored(t *testing.T) {
+	te := &analyticsv1.TrackingEvent{EventType: analyticsv1.EventType_EVENT_TYPE_REFERRAL_REDEEM, SessionId: "s-1"}
+	rec, ok, err := consumer.RecordFromEnvelope(wrap(t, consumer.TrackingEventType, te, nil, time.Date(2026, 9, 2, 10, 30, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok || rec == nil {
+		t.Fatal("expected a record, got skip")
+	}
+	if rec.EventType != "referral_redeem" {
+		t.Errorf("EventType = %q, want referral_redeem", rec.EventType)
+	}
+	if len(rec.Properties) != 0 {
+		t.Errorf("Properties = %v, want empty", rec.Properties)
+	}
+}
+
+// Scenario: Loop storage: the client id is blanked without analytics consent
+func TestNewLoopEventClientIdBlankedWithoutConsent(t *testing.T) {
+	rec := recordForType(t, analyticsv1.EventType_EVENT_TYPE_SIGN_UP, func(te *analyticsv1.TrackingEvent) {
+		te.GaClientId = "111.222"
+		te.Consent = &analyticsv1.ConsentState{Version: 1, Analytics: false}
+	})
+	if rec.EventType != "sign_up" {
+		t.Errorf("EventType = %q, want sign_up", rec.EventType)
+	}
+	if rec.GaClientID != "" {
+		t.Errorf("GaClientID = %q, want empty", rec.GaClientID)
+	}
+}

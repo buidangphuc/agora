@@ -81,6 +81,20 @@ func RecordFromEnvelope(value []byte) (rec *warehouse.TrackingRecord, ok bool, e
 // is stable across DuckDB and BigQuery (stored as a STRING column).
 func eventTypeName(t analyticsv1.EventType) string {
 	switch t {
+	case analyticsv1.EventType_EVENT_TYPE_SIGN_UP:
+		return "sign_up"
+	case analyticsv1.EventType_EVENT_TYPE_LOGIN:
+		return "login"
+	case analyticsv1.EventType_EVENT_TYPE_FOLLOW_SELLER:
+		return "follow_seller"
+	case analyticsv1.EventType_EVENT_TYPE_REFERRAL_REDEEM:
+		return "referral_redeem"
+	case analyticsv1.EventType_EVENT_TYPE_DAILY_CHECK_IN:
+		return "daily_check_in"
+	case analyticsv1.EventType_EVENT_TYPE_ALERT_SUBSCRIBE:
+		return "alert_subscribe"
+	case analyticsv1.EventType_EVENT_TYPE_AI_INTERACTION:
+		return "ai_interaction"
 	case analyticsv1.EventType_EVENT_TYPE_VIEW:
 		return "view"
 	case analyticsv1.EventType_EVENT_TYPE_CLICK:

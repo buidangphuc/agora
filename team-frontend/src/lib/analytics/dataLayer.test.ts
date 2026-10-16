@@ -147,3 +147,49 @@ describe("dataLayer consent gating", () => {
     ]);
   });
 });
+
+describe("dataLayer loop properties", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    Reflect.deleteProperty(window, "dataLayer");
+    document.cookie = `agora_consent=v=1&a=1&m=0&p=0&ts=${Math.floor(Date.now() / 1000)}; Path=/`;
+  });
+  afterEach(() => {
+    document.cookie = "agora_consent=; Max-Age=0; Path=/";
+    vi.unstubAllGlobals();
+  });
+
+  it("passes loop properties and drops others", async () => {
+    const { trackEcommerce } = await import("./dispatcher");
+    trackEcommerce("sign_up", {
+      properties: { method: "password", secret: "x" },
+    });
+    const entries = (window.dataLayer ?? []).filter(
+      (e) => e.event === "sign_up",
+    );
+    expect(entries).toHaveLength(1);
+    expect(entries[0].properties).toEqual({ method: "password" });
+    expect(JSON.stringify(entries[0])).not.toContain("secret");
+  });
+
+  it("passes loop properties and drops others: every allowlisted key passes", async () => {
+    const { pushDataLayer } = await import("./dataLayer");
+    pushDataLayer("share", {
+      properties: {
+        method: "copy_link",
+        content_type: "listing",
+        seller_id: "S1",
+        streak: "3",
+        alert_type: "price_drop",
+      },
+    });
+    const e = (window.dataLayer ?? []).find((x) => x.event === "share");
+    expect(e?.properties).toEqual({
+      method: "copy_link",
+      content_type: "listing",
+      seller_id: "S1",
+      streak: "3",
+      alert_type: "price_drop",
+    });
+  });
+});

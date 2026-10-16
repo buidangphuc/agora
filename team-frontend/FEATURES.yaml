@@ -9887,3 +9887,748 @@ features:
     status: not-testable
     notes: "frontend-audit-viewer: unit-verified, not producible end to end (mocked gateway codes / pure parsing / component props). Verified by: `team-frontend/src/app/(shop)/admin/cockpit/page.test.tsx` `403 has no audit link`"
 
+
+  - id: frontend-loop-events.ga4-names-map-to-beacon-types
+    title: "Loop events: GA4 names map to beacon types"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: GA4 names map to beacon types"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/lib/analytics/map.test.ts` `maps loop events`"
+
+  - id: frontend-loop-events.datalayer-carries-the-allowlisted-properties
+    title: "Loop events: dataLayer carries the allowlisted properties"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: dataLayer carries the allowlisted properties"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/lib/analytics/dataLayer.test.ts` `passes loop properties and drops others`"
+
+  - id: frontend-loop-events.datalayer-stays-empty-without-consent
+    title: "Loop events: dataLayer stays empty without consent"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: dataLayer stays empty without consent"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/lib/analytics/dataLayer.privacy.test.ts` `loop events respect consent`"
+
+  - id: frontend-loop-events.registration-sets-the-sign-up-cookie-only-on-success
+    title: "Loop events: registration sets the sign_up cookie only on success"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: registration sets the sign_up cookie only on success"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/auth/actions.test.ts` `register success sets the sign_up event cookie`"
+
+  - id: frontend-loop-events.login-sets-the-login-cookie-only-on-success
+    title: "Loop events: login sets the login cookie only on success"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: login sets the login cookie only on success"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/auth/actions.test.ts` `login success sets the login event cookie`"
+
+  - id: frontend-loop-events.failed-auth-attempts-set-no-event-cookie
+    title: "Loop events: failed auth attempts set no event cookie"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: failed auth attempts set no event cookie"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/auth/actions.test.ts` `failures never set the event cookie`"
+
+  - id: frontend-loop-events.the-auth-beacon-fires-once-and-consumes-the-cookie
+    title: "Loop events: the auth beacon fires once and consumes the cookie"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: the auth beacon fires once and consumes the cookie"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/auth/AuthEventBeacon.test.tsx` `fires once and deletes the cookie`"
+
+  - id: frontend-loop-events.an-unknown-or-absent-auth-cookie-fires-nothing
+    title: "Loop events: an unknown or absent auth cookie fires nothing"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: an unknown or absent auth cookie fires nothing"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/auth/AuthEventBeacon.test.tsx` `ignores unknown values`"
+
+  - id: frontend-loop-events.registering-emits-one-sign-up-event-with-the-new-principal
+    title: "Loop events: registering emits one sign_up event with the new principal"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop events: registering emits one sign_up event with the new principal"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: registering emits one sign_up event with the new principal"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: registering emits one sign_up event with the new principal"
+
+  - id: frontend-loop-events.logging-in-emits-one-login-event-and-a-reload-does-not-repeat-it
+    title: "Loop events: logging in emits one login event and a reload does not repeat it"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Loop events: logging in emits one login event and a reload does not repeat it"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: logging in emits one login event and a reload does not repeat it"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: logging in emits one login event and a reload does not repeat it"
+
+  - id: frontend-loop-events.failed-login-and-duplicate-registration-emit-nothing
+    title: "Loop events: failed login and duplicate registration emit nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Loop events: failed login and duplicate registration emit nothing"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: failed login and duplicate registration emit nothing"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: failed login and duplicate registration emit nothing"
+
+  - id: frontend-loop-events.favorite-tracked-after-add-succeeds
+    title: "Loop events: favorite tracked after add succeeds"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: favorite tracked after add succeeds"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/engagement/FavoriteButton.test.tsx` `tracks add_to_wishlist after success`"
+
+  - id: frontend-loop-events.favorite-failure-or-removal-tracks-nothing
+    title: "Loop events: favorite failure or removal tracks nothing"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: favorite failure or removal tracks nothing"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/engagement/FavoriteButton.test.tsx` `tracks nothing on failure or removal`"
+
+  - id: frontend-loop-events.share-tracked-on-create-and-on-every-re-copy
+    title: "Loop events: share tracked on create and on every re-copy"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: share tracked on create and on every re-copy"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/listing/ShareButton.test.tsx` `tracks create and each copy`"
+
+  - id: frontend-loop-events.failed-share-link-creation-tracks-nothing
+    title: "Loop events: failed share link creation tracks nothing"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: failed share link creation tracks nothing"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/listing/ShareButton.test.tsx` `tracks nothing when creation fails`"
+
+  - id: frontend-loop-events.follow-tracked-only-on-follow-success
+    title: "Loop events: follow tracked only on follow success"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: follow tracked only on follow success"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/engagement/FollowSellerButton.test.tsx` `tracks follow_seller on success`"
+
+  - id: frontend-loop-events.unfollow-or-failed-follow-tracks-nothing
+    title: "Loop events: unfollow or failed follow tracks nothing"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: unfollow or failed follow tracks nothing"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/engagement/FollowSellerButton.test.tsx` `tracks nothing on unfollow or failure`"
+
+  - id: frontend-loop-events.favoriting-emits-one-favorite-event-and-the-add-to-wishlist-datalayer
+    title: "Loop events: favoriting emits one favorite event and the add_to_wishlist dataLayer entry"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Loop events: favoriting emits one favorite event and the add_to_wishlist dataLayer entry"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: favoriting emits one favorite event and the add_to_wishlist dataLayer entry"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: favoriting emits one favorite event and the add_to_wishlist dataLayer entry"
+
+  - id: frontend-loop-events.un-favoriting-emits-nothing
+    title: "Loop events: un-favoriting emits nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Loop events: un-favoriting emits nothing"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: un-favoriting emits nothing"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: un-favoriting emits nothing"
+
+  - id: frontend-loop-events.sharing-emits-one-share-event-per-copy
+    title: "Loop events: sharing emits one share event per copy"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Loop events: sharing emits one share event per copy"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: sharing emits one share event per copy"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: sharing emits one share event per copy"
+
+  - id: frontend-loop-events.following-a-shop-emits-follow-seller-and-unfollowing-emits-nothing
+    title: "Loop events: following a shop emits follow_seller and unfollowing emits nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Loop events: following a shop emits follow_seller and unfollowing emits nothing"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: following a shop emits follow_seller and unfollowing emits nothing"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: following a shop emits follow_seller and unfollowing emits nothing"
+
+  - id: frontend-loop-events.a-guest-cannot-produce-loop-events
+    title: "Loop events: a guest cannot produce loop events"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Loop events: a guest cannot produce loop events"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: a guest cannot produce loop events"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: a guest cannot produce loop events"
+
+  - id: frontend-loop-events.referral-redeem-tracked-without-the-code
+    title: "Loop events: referral redeem tracked without the code"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: referral redeem tracked without the code"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/account/referral/RedeemReferralForm.test.tsx` `tracks referral_redeem without the code`"
+
+  - id: frontend-loop-events.rejected-referral-code-tracks-nothing
+    title: "Loop events: rejected referral code tracks nothing"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: rejected referral code tracks nothing"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/account/referral/RedeemReferralForm.test.tsx` `tracks nothing on a rejected code`"
+
+  - id: frontend-loop-events.check-in-tracked-with-the-streak
+    title: "Loop events: check-in tracked with the streak"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: check-in tracked with the streak"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/engagement/LoyaltyWidget.test.tsx` `tracks daily_check_in with streak`"
+
+  - id: frontend-loop-events.check-in-without-a-streak-omits-the-property
+    title: "Loop events: check-in without a streak omits the property"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: check-in without a streak omits the property"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/engagement/LoyaltyWidget.test.tsx` `omits streak when absent`"
+
+  - id: frontend-loop-events.failed-or-repeated-check-in-tracks-nothing
+    title: "Loop events: failed or repeated check-in tracks nothing"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: failed or repeated check-in tracks nothing"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/features/engagement/LoyaltyWidget.test.tsx` `tracks nothing on failure`"
+
+  - id: frontend-loop-events.alert-subscribe-tracked-with-its-type
+    title: "Loop events: alert subscribe tracked with its type"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: alert subscribe tracked with its type"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/components/alerts/AlertToggle.test.tsx` `tracks alert_subscribe with the type`"
+
+  - id: frontend-loop-events.unsubscribe-failure-and-guest-tracking-is-empty
+    title: "Loop events: unsubscribe, failure and guest tracking is empty"
+    persona: guest
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Loop events: unsubscribe, failure and guest tracking is empty"
+    tags: [tracking, loop-events, unit]
+    status: not-testable
+    notes: "frontend-loop-events: unit-verified, not producible end to end (client-side call argument / cookie attributes / mocked actions). Verified by: `team-frontend/src/components/alerts/AlertToggle.test.tsx` `tracks nothing off failure or guest`"
+
+  - id: frontend-loop-events.redeeming-a-referral-code-emits-referral-redeem-without-the-code
+    title: "Loop events: redeeming a referral code emits referral_redeem without the code"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Loop events: redeeming a referral code emits referral_redeem without the code"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: redeeming a referral code emits referral_redeem without the code"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: redeeming a referral code emits referral_redeem without the code"
+
+  - id: frontend-loop-events.an-invalid-referral-code-emits-nothing
+    title: "Loop events: an invalid referral code emits nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Loop events: an invalid referral code emits nothing"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: an invalid referral code emits nothing"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: an invalid referral code emits nothing"
+
+  - id: frontend-loop-events.daily-check-in-emits-daily-check-in-with-the-streak
+    title: "Loop events: daily check-in emits daily_check_in with the streak"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Loop events: daily check-in emits daily_check_in with the streak"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: daily check-in emits daily_check_in with the streak"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: daily check-in emits daily_check_in with the streak"
+
+  - id: frontend-loop-events.subscribing-to-an-alert-emits-alert-subscribe-and-unsubscribing-emits
+    title: "Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend, team-gateway, team-analytics]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
+    tags: [tracking, loop-events]
+    status: automated
+    covered_by: "tracking/loop_events.feature::Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
+    notes: "frontend-loop-events: e2e tracking/loop_events.feature::Loop events: subscribing to an alert emits alert_subscribe and unsubscribing emits nothing"
+
+  # ---- frontend-ai-interaction-events (ai_interaction beacons from the AI surfaces)
+  - id: frontend-ai-interaction-events.the-helper-sends-only-allowlisted-keys
+    title: "The helper sends only allowlisted keys"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "The helper sends only allowlisted keys"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/lib/analytics/ai.test.ts` `sends only surface and action`"
+
+  - id: frontend-ai-interaction-events.a-failing-tracker-never-breaks-the-ai-action
+    title: "A failing tracker never breaks the AI action"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "A failing tracker never breaks the AI action"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/lib/analytics/ai.test.ts` `swallows tracker failure`"
+
+  - id: frontend-ai-interaction-events.ai-events-are-accepted-by-the-collector-and-carry-no-free-text
+    title: "AI events are accepted by the collector and carry no free text"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "AI events are accepted by the collector and carry no free text"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::AI events are accepted by the collector and carry no free text"
+
+  - id: frontend-ai-interaction-events.a-reply-with-product-cards-reports-shown-once
+    title: "A reply with product cards reports shown once"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "A reply with product cards reports shown once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A reply with product cards reports shown once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A reply with product cards reports shown once"
+
+  - id: frontend-ai-interaction-events.a-reply-without-cards-reports-nothing
+    title: "A reply without cards reports nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "A reply without cards reports nothing"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `reports nothing without cards`"
+
+  - id: frontend-ai-interaction-events.clicking-a-product-card-reports-accepted-with-the-listing
+    title: "Clicking a product card reports accepted with the listing"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Clicking a product card reports accepted with the listing"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Clicking a product card reports accepted with the listing"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Clicking a product card reports accepted with the listing"
+
+  - id: frontend-ai-interaction-events.two-replies-report-two-shown-events
+    title: "Two replies report two shown events"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Two replies report two shown events"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Two replies report two shown events"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Two replies report two shown events"
+
+  - id: frontend-ai-interaction-events.streamed-text-whose-final-message-has-no-cards-reports-nothing
+    title: "Streamed text whose final message has no cards reports nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Streamed text whose final message has no cards reports nothing"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/features/assistant/AssistantChatView.test.tsx` `streamed text without cards reports nothing`"
+
+  - id: frontend-ai-interaction-events.suggestions-render-and-are-reported-once
+    title: "Suggestions render and are reported once"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Suggestions render and are reported once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Suggestions render and are reported once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Suggestions render and are reported once"
+
+  - id: frontend-ai-interaction-events.inserting-a-suggestion-reports-accepted
+    title: "Inserting a suggestion reports accepted"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Inserting a suggestion reports accepted"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Inserting a suggestion reports accepted"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Inserting a suggestion reports accepted"
+
+  - id: frontend-ai-interaction-events.inserting-a-second-suggestion-reports-a-second-accepted-and-re-arms-edited
+    title: "Inserting a second suggestion reports a second accepted and re-arms edited"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Inserting a second suggestion reports a second accepted and re-arms edited"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Inserting a second suggestion reports a second accepted and re-arms edited"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Inserting a second suggestion reports a second accepted and re-arms edited"
+
+  - id: frontend-ai-interaction-events.changing-the-inserted-suggestion-reports-edited-once
+    title: "Changing the inserted suggestion reports edited once"
+    persona: seller
+    priority: P2
+    entry_route: "/chat"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Changing the inserted suggestion reports edited once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Changing the inserted suggestion reports edited once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Changing the inserted suggestion reports edited once"
+
+  - id: frontend-ai-interaction-events.no-suggestions-or-a-failed-load-reports-nothing
+    title: "No suggestions or a failed load reports nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "No suggestions or a failed load reports nothing"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/features/chat/ChatView.test.tsx` `reports nothing for empty or failed copilot`"
+
+  - id: frontend-ai-interaction-events.not-the-owner-of-the-thread-no-copilot-and-no-copilot-events
+    title: "Not the owner of the thread, no copilot and no copilot events"
+    persona: buyer
+    priority: P2
+    entry_route: "/assistant"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Not the owner of the thread, no copilot and no copilot events"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Not the owner of the thread, no copilot and no copilot events"
+
+  - id: frontend-ai-interaction-events.a-generated-draft-reports-shown-once
+    title: "A generated draft reports shown once"
+    persona: seller
+    priority: P2
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "A generated draft reports shown once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A generated draft reports shown once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A generated draft reports shown once"
+
+  - id: frontend-ai-interaction-events.applying-reports-accepted
+    title: "Applying reports accepted"
+    persona: seller
+    priority: P2
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Applying reports accepted"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Applying reports accepted"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Applying reports accepted"
+
+  - id: frontend-ai-interaction-events.changing-an-applied-field-reports-edited-once
+    title: "Changing an applied field reports edited once"
+    persona: seller
+    priority: P2
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "Changing an applied field reports edited once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::Changing an applied field reports edited once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::Changing an applied field reports edited once"
+
+  - id: frontend-ai-interaction-events.a-failed-or-empty-generation-reports-nothing
+    title: "A failed or empty generation reports nothing"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "A failed or empty generation reports nothing"
+    tags: [tracking, ai-interaction, unit]
+    status: not-testable
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/features/listing/MagicListingAssist.test.tsx` `reports nothing on failed generation`"
+
+  - id: frontend-ai-interaction-events.a-guest-cannot-reach-magic-listing-and-emits-nothing
+    title: "A guest cannot reach Magic Listing and emits nothing"
+    persona: guest
+    priority: P2
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: guest
+    acceptance:
+      - "A guest cannot reach Magic Listing and emits nothing"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A guest cannot reach Magic Listing and emits nothing"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A guest cannot reach Magic Listing and emits nothing"
+
+  - id: frontend-ai-interaction-events.a-new-draft-starts-a-new-cycle
+    title: "A new draft starts a new cycle"
+    persona: seller
+    priority: P2
+    entry_route: "/seller/new"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: seller
+    acceptance:
+      - "A new draft starts a new cycle"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::A new draft starts a new cycle"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::A new draft starts a new cycle"
+
+  - id: frontend-ai-interaction-events.the-summary-card-reports-shown-once
+    title: "The summary card reports shown once"
+    persona: buyer
+    priority: P2
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "The summary card reports shown once"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::The summary card reports shown once"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::The summary card reports shown once"
+
+  - id: frontend-ai-interaction-events.no-summary-no-event
+    title: "No summary, no event"
+    persona: buyer
+    priority: P2
+    entry_route: "/listing/{id}"
+    services: [team-frontend, team-gateway, team-ai]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "No summary, no event"
+    tags: [tracking, ai-interaction]
+    status: automated
+    covered_by: "tracking/ai_interaction_events.feature::No summary, no event"
+    notes: "frontend-ai-interaction-events: e2e tracking/ai_interaction_events.feature::No summary, no event"

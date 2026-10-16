@@ -75,11 +75,26 @@ var beaconEventTypes = map[string]analyticsv1.EventType{
 	"add_payment_info":  analyticsv1.EventType_EVENT_TYPE_ADD_PAYMENT_INFO,
 	"purchase":          analyticsv1.EventType_EVENT_TYPE_PURCHASE,
 
+	// Activation and loop events.
+	"sign_up":         analyticsv1.EventType_EVENT_TYPE_SIGN_UP,
+	"login":           analyticsv1.EventType_EVENT_TYPE_LOGIN,
+	"follow_seller":   analyticsv1.EventType_EVENT_TYPE_FOLLOW_SELLER,
+	"referral_redeem": analyticsv1.EventType_EVENT_TYPE_REFERRAL_REDEEM,
+	"daily_check_in":  analyticsv1.EventType_EVENT_TYPE_DAILY_CHECK_IN,
+	"alert_subscribe": analyticsv1.EventType_EVENT_TYPE_ALERT_SUBSCRIBE,
+	"ai_interaction":  analyticsv1.EventType_EVENT_TYPE_AI_INTERACTION,
+
 	// GA4 Standard Event Aliases
 	"view_item":      analyticsv1.EventType_EVENT_TYPE_VIEW,
 	"select_item":    analyticsv1.EventType_EVENT_TYPE_CLICK,
 	"view_item_list": analyticsv1.EventType_EVENT_TYPE_IMPRESSION,
 }
+
+// ai_interaction properties: exactly {surface, action}, each from a closed set.
+var (
+	aiSurfaces = map[string]bool{"assistant": true, "chat_copilot": true, "magic_listing": true, "review_summary": true}
+	aiActions  = map[string]bool{"shown": true, "accepted": true, "edited": true, "dismissed": true}
+)
 
 // Per-field bounds (characters). An event breaking any of them is dropped.
 const (
@@ -123,8 +138,14 @@ func scrubReferrer(ref string) string {
 
 // validateBeacon applies the per-event type and bounds rules.
 func validateBeacon(b *trackBeacon) error {
-	if _, ok := beaconEventTypes[strings.ToLower(strings.TrimSpace(b.Type))]; !ok {
+	et, ok := beaconEventTypes[strings.ToLower(strings.TrimSpace(b.Type))]
+	if !ok {
 		return jsonError("unknown event type")
+	}
+	if et == analyticsv1.EventType_EVENT_TYPE_AI_INTERACTION {
+		if len(b.Properties) != 2 || !aiSurfaces[b.Properties["surface"]] || !aiActions[b.Properties["action"]] {
+			return jsonError("invalid ai_interaction properties")
+		}
 	}
 	for _, f := range []string{b.ListingID, b.SessionID, b.AnonymousID, b.PlacementID, b.ImpressionID,
 		b.ModelVersion, b.EventGroupID, b.TransactionID} {

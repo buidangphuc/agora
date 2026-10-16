@@ -3,7 +3,14 @@ import { EcommerceParams, GA4EventName } from "./schema";
 import { scrubReferrer, scrubText } from "./scrub";
 
 /** Non-personal caller property keys allowed into the data layer. */
-const ALLOWED_PROPERTIES = ["valid"] as const;
+const ALLOWED_PROPERTIES = [
+  "valid",
+  "method",
+  "content_type",
+  "seller_id",
+  "streak",
+  "alert_type",
+] as const;
 
 declare global {
   interface Window {

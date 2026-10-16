@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { useToast } from "@/components/ui/ToastProvider";
+import { trackEcommerce } from "@/lib/analytics";
 import { addFavoriteAction, removeFavoriteAction } from "./actions";
 
 // Subtle heart toggle matching Shopee aesthetics
@@ -26,8 +27,10 @@ export function FavoriteButton({
     }
     start(async () => {
       try {
-        if (next) await addFavoriteAction(id);
-        else await removeFavoriteAction(id);
+        if (next) {
+          await addFavoriteAction(id);
+          trackEcommerce("add_to_wishlist", { items: [{ itemId: id }] });
+        } else await removeFavoriteAction(id);
       } catch {
         setFav(!next);
         toast.error("Có lỗi xảy ra khi cập nhật yêu thích.");
