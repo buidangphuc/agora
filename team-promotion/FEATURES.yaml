@@ -658,10 +658,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A service reserve holds units and the meter drops"
+      - "Reserve holds the units of an active campaign"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A service reserve holds units and the meter drops (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockHoldsUnits`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Reserve holds the units of an active campaign"
+    notes: "Feature scenario: Reserve holds the units of an active campaign (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockHoldsUnits`"
   - id: promotion.flash-stock-hold-reserve-is-idempotent-on-the-reservation-id
     title: "Reserve is idempotent on the reservation id"
     persona: admin
@@ -672,10 +673,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A repeated reserve holds only once"
+      - "Reserve is idempotent on the reservation id"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A repeated reserve holds only once (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockIdempotent`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Reserve is idempotent on the reservation id"
+    notes: "Feature scenario: Reserve is idempotent on the reservation id (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockIdempotent`"
   - id: promotion.flash-stock-hold-reserve-replay-with-different-fields-returns-the-stored-outcome
     title: "Reserve replay with different fields returns the stored outcome"
     persona: admin
@@ -698,10 +700,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A reserve on an ended campaign is refused"
+      - "Reserve refuses an ended campaign"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A reserve on an ended campaign is refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInactiveWindow`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Reserve refuses an ended campaign"
+    notes: "Feature scenario: Reserve refuses an ended campaign (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInactiveWindow`"
   - id: promotion.flash-stock-hold-reserve-refuses-a-campaign-that-has-not-started
     title: "Reserve refuses a campaign that has not started"
     persona: admin
@@ -736,10 +739,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A reserve with a different price is refused"
+      - "Reserve refuses a price that differs from the campaign"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A reserve with a different price is refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesPriceMismatch`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Reserve refuses a price that differs from the campaign"
+    notes: "Feature scenario: Reserve refuses a price that differs from the campaign (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesPriceMismatch`"
   - id: promotion.flash-stock-hold-reserve-refuses-more-units-than-remain
     title: "Reserve refuses more units than remain"
     persona: admin
@@ -750,10 +754,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A reserve beyond the remaining stock is refused"
+      - "Reserve refuses more units than remain"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A reserve beyond the remaining stock is refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInsufficientStock`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Reserve refuses more units than remain"
+    notes: "Feature scenario: Reserve refuses more units than remain (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInsufficientStock`"
   - id: promotion.flash-stock-hold-reserve-accepts-exactly-the-remaining-units
     title: "Reserve accepts exactly the remaining units"
     persona: admin
@@ -896,10 +901,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "Concurrent reserves never exceed the cap"
+      - "Concurrent reserves are capped"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: Concurrent reserves never exceed the cap (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockConcurrentCap` (in-memory) and `internal/repository` `TestPostgresFlashHoldConcurrentCap` (skipped without a database)"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Concurrent reserves are capped"
+    notes: "Feature scenario: Concurrent reserves are capped (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockConcurrentCap` (in-memory) and `internal/repository` `TestPostgresFlashHoldConcurrentCap` (skipped without a database)"
   - id: promotion.flash-stock-hold-concurrent-reserves-of-one-reservation-id-hold-once
     title: "Concurrent reserves of one reservation id hold once"
     persona: admin
@@ -934,10 +940,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A commit keeps the units sold"
+      - "Commit adds the quantity to stock_sold"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A commit keeps the units sold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestCommitFlashSaleStockAddsToSold`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Commit adds the quantity to stock_sold"
+    notes: "Feature scenario: Commit adds the quantity to stock_sold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestCommitFlashSaleStockAddsToSold`"
   - id: promotion.flash-stock-hold-commit-is-idempotent
     title: "Commit is idempotent"
     persona: admin
@@ -984,10 +991,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "An expired hold cannot be committed"
+      - "Commit of an expired hold is refused"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: An expired hold cannot be committed (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestCommitFlashSaleStockAfterExpiry`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Commit of an expired hold is refused"
+    notes: "Feature scenario: Commit of an expired hold is refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestCommitFlashSaleStockAfterExpiry`"
   - id: promotion.flash-stock-hold-commit-still-works-after-the-sale-window-ended
     title: "Commit still works after the sale window ended"
     persona: admin
@@ -1022,10 +1030,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A release returns the held units"
+      - "Release returns the units of an active hold"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A release returns the held units (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReleaseFlashSaleStockReturnsUnits`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Release returns the units of an active hold"
+    notes: "Feature scenario: Release returns the units of an active hold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReleaseFlashSaleStockReturnsUnits`"
   - id: promotion.flash-stock-hold-release-returns-the-units-of-a-committed-hold
     title: "Release returns the units of a committed hold"
     persona: admin
@@ -1036,10 +1045,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A release after commit returns the sold units"
+      - "Release returns the units of a committed hold"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A release after commit returns the sold units (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReleaseFlashSaleStockAfterCommit`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Release returns the units of a committed hold"
+    notes: "Feature scenario: Release returns the units of a committed hold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReleaseFlashSaleStockAfterCommit`"
   - id: promotion.flash-stock-hold-release-is-idempotent
     title: "Release is idempotent"
     persona: admin
@@ -1098,10 +1108,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A service reserve holds units and the meter drops"
+      - "Remaining reflects holds and sold units"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A service reserve holds units and the meter drops (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestGetFlashSaleStockCountsHolds`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::Remaining reflects holds and sold units"
+    notes: "Feature scenario: Remaining reflects holds and sold units (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestGetFlashSaleStockCountsHolds`"
   - id: promotion.flash-stock-hold-remaining-is-floored-at-zero
     title: "Remaining is floored at zero"
     persona: admin
@@ -1136,10 +1147,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A user cannot hold flash stock"
+      - "A buyer cannot reserve flash stock"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A user cannot hold flash stock (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::A buyer cannot reserve flash stock"
+    notes: "Feature scenario: A buyer cannot reserve flash stock (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`"
   - id: promotion.flash-stock-hold-a-user-carrying-the-service-scope-is-still-refused
     title: "A user carrying the service scope is still refused"
     persona: admin
@@ -1150,10 +1162,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A user cannot hold flash stock"
+      - "A user carrying the service scope is still refused"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A user cannot hold flash stock (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`"
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::A user carrying the service scope is still refused"
+    notes: "Feature scenario: A user carrying the service scope is still refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`"
   - id: promotion.flash-stock-hold-a-service-without-the-scope-is-refused
     title: "A service without the scope is refused"
     persona: admin
@@ -1188,10 +1201,11 @@ features:
     api:
       exercised: [promotion.v1.ReserveFlashSaleStock, promotion.v1.CommitFlashSaleStock, promotion.v1.ReleaseFlashSaleStock, promotion.v1.GetFlashSaleStock]
     acceptance:
-      - "A service reserve holds units and the meter drops"
+      - "The order service principal is served"
     tags: [promotion, flash-stock-hold]
-    status: planned
-    notes: "Feature scenario: A service reserve holds units and the meter drops (promo/flash_sale_stock_hold.feature)."
+    status: automated
+    covered_by: "promo/flash_sale_stock_hold.feature::The order service principal is served"
+    notes: "Feature scenario: The order service principal is served (promo/flash_sale_stock_hold.feature)."
   - id: promotion.flash-stock-hold-migration-applies-and-rolls-back
     title: "Migration applies and rolls back"
     persona: admin

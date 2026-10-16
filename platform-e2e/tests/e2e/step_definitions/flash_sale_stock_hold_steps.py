@@ -64,10 +64,14 @@ def _seed(world: World, cap: int, price: int, starts: str | None = None, ends: s
     )
 
 
-def _do_reserve(world: World, quantity: int, price: int) -> None:
+def _do_reserve(world: World, quantity: int, price: int, fresh: bool = False) -> None:
     st = _x(world)
+    # A second reserve with the same reservation id is a replay (stored outcome), so a reserve that
+    # is meant to compete for stock with an earlier hold uses a fresh id; fh_reservation stays the
+    # first hold's id for commit/release.
+    rid = f"e2e-{uuid.uuid4().hex[:12]}:{st['fh_listing']}:" if fresh else st["fh_reservation"]
     code, body = fh.reserve(
-        st["fh_reservation"], st["fh_campaign"], st["fh_listing"], quantity, price
+        rid, st["fh_campaign"], st["fh_listing"], quantity, price
     )
     st.setdefault("fh_reserves", []).append((code, body))
     st["fh_last"] = (code, body)
@@ -103,6 +107,32 @@ def order_service_has_reserved(world: World, qty: int) -> None:
     assert _ok_body(_x(world)["fh_last"]).get("reserved") is True, _x(world)["fh_last"]
 
 
+def _labelled(world: World, label: str) -> str:
+    st = _x(world)
+    return st.setdefault("fh_labels", {}).setdefault(
+        label, f"e2e-{label}-{uuid.uuid4().hex[:8]}:{st['fh_listing']}:"
+    )
+
+
+@given(parsers.parse('the order service holds {qty:d} units under reservation "{label}"'))
+def holds_labelled(world: World, qty: int, label: str) -> None:
+    st = _x(world)
+    body = _ok_body(
+        fh.reserve(_labelled(world, label), st["fh_campaign"], st["fh_listing"], qty, st["fh_price"])
+    )
+    assert body.get("reserved") is True, body
+
+
+@given(parsers.parse('the order service commits reservation "{label}"'))
+def commits_labelled(world: World, label: str) -> None:
+    assert _ok_body(fh.commit(_labelled(world, label))).get("committed") is True
+
+
+@given(parsers.parse('the order service releases reservation "{label}"'))
+def releases_labelled(world: World, label: str) -> None:
+    assert _ok_body(fh.release(_labelled(world, label))).get("released") is True
+
+
 @given("the order service has committed the reservation")
 def order_service_has_committed(world: World) -> None:
     body = _ok_body(fh.commit(_x(world)["fh_reservation"]))
@@ -127,7 +157,7 @@ def flash_buyer(world: World) -> None:
 # ── When ─────────────────────────────────────────────────────────────────
 @when(parsers.parse("the order service reserves {qty:d} units at the sale price"))
 def reserve_at_price(world: World, qty: int) -> None:
-    _do_reserve(world, qty, _x(world)["fh_price"])
+    _do_reserve(world, qty, _x(world)["fh_price"], fresh=bool(_x(world).get("fh_reserves")))
 
 
 @when(parsers.parse("the order service reserves {qty:d} units at a price {delta:d} below the sale price"))
