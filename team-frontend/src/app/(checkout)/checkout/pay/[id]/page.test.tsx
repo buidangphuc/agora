@@ -21,6 +21,7 @@ import MockPaymentPage from "./page";
 
 class Signal extends Error {}
 vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
   redirect: (url: string) => {
     throw new Signal(`redirect:${url}`);
   },
