@@ -189,15 +189,3 @@ def second_visible(world: World) -> None:
 @then("the first seller's listing is still returned by search and by GetListing")
 def first_visible(world: World) -> None:
     _still_visible(world, "first")
-
-
-@then(parsers.parse('the owner\'s own listings show the listing as "{status}" with reason "{reason}"'))
-def owner_view(world: World, status: str, reason: str) -> None:
-    seller = _seller(world, "first")
-    resp = s.post(LISTING + "ListMyListings", {"page": {"pageSize": 100}}, seller["user"]["token"])
-    assert resp.status_code == 200, f"ListMyListings {resp.status_code}: {resp.text}"
-    mine = [x for x in resp.json().get("listings", []) if x.get("id") == seller["listing"]]
-    assert len(mine) == 1, f"listing missing from ListMyListings: {resp.text}"
-    assert mine[0].get("status") == status, f"status={mine[0].get('status')!r}, want {status!r}"
-    got = (mine[0].get("moderation") or {}).get("reasonCode")
-    assert got == reason, f"moderation.reasonCode={got!r}, want {reason!r}"

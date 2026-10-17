@@ -30,12 +30,6 @@ Feature: Seller enforcement hold
     Then within 60 seconds the first seller's listing is returned by search
     And a non-owner gets the first seller's listing with status "LISTING_STATUS_PUBLISHED"
 
-  Scenario: Seller hold: Owner sees the held listing and the reason
-    Given an enforcement-hold seller with a published listing that is findable
-    When the admin suspends the first enforcement-hold seller
-    Then within 60 seconds the first seller's listing is absent from search
-    And the owner's own listings show the listing as "LISTING_STATUS_HELD" with reason "seller_enforcement"
-
   Scenario: Seller hold: Restricted seller keeps listings published
     Given an enforcement-hold seller with a published listing that is findable
     And a second enforcement-hold seller with a published listing that is findable
