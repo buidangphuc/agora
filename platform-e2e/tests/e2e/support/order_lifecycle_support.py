@@ -78,6 +78,21 @@ def _decode(raw: bytes) -> dict[str, Any]:
     return out
 
 
+def _require_broker(c: Any) -> None:
+    """Fail loudly when order.events is unreachable: an empty read must mean "no event".
+
+    Without this an unreachable broker (e.g. KAFKA_BROKERS unset -> localhost:9092) makes
+    every poll return None, so positive steps report "got []" and negative ones pass.
+    """
+    from confluent_kafka import KafkaException, TopicPartition
+
+    brokers = get_settings().kafka_brokers
+    try:
+        c.get_watermark_offsets(TopicPartition("order.events", 0), timeout=10)
+    except KafkaException as err:
+        raise AssertionError(f"order.events unreachable at {brokers!r}: {err}") from err
+
+
 def events_for(order_id: str, etype: str, *, wait_s: float, settle_s: float = 3.0) -> list[dict]:
     """Envelopes of ``etype`` for ``order_id`` on order.events.
 
@@ -95,6 +110,7 @@ def events_for(order_id: str, etype: str, *, wait_s: float, settle_s: float = 3.
         }
     )
     c.assign([TopicPartition("order.events", 0, OFFSET_BEGINNING)])
+    _require_broker(c)
     matched: list[dict] = []
     deadline = time.time() + wait_s
     last = 0.0
@@ -161,6 +177,7 @@ def payloads_for(needle: str, etype: str, *, wait_s: float, settle_s: float = 3.
         }
     )
     c.assign([TopicPartition("order.events", 0, OFFSET_BEGINNING)])
+    _require_broker(c)
     out: list[bytes] = []
     deadline = time.time() + wait_s
     last = 0.0
