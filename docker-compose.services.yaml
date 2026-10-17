@@ -242,7 +242,8 @@ services:
       - KAFKA_BROKERS=redpanda:9092
       - OUTBOX_ENABLED=true
       - GRPC_PORT=50051
-      - ENV=local
+      - GRPC_PORT=50051
+      - IDENTITY_CONSUMER_ENABLED=true
 
   team-search:
     build:
