@@ -11061,7 +11061,7 @@ features:
     acceptance:
       - "Order lifecycle: the buyer cancels a paid order with a reason"
     tags: [buyer, order]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the buyer cancels a paid order with a reason"
 
   - id: frontend.olc-an-unpaid-online-order-shows-its-deadline-and-the-retry-link
@@ -11246,7 +11246,7 @@ features:
     acceptance:
       - "Order lifecycle: a failed payment can be retried from the order list"
     tags: [buyer, order]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: a failed payment can be retried from the order list"
 
   - id: frontend.olc-the-pay-page-opens-for-an-order-that-has-no-transaction
@@ -11262,7 +11262,7 @@ features:
     acceptance:
       - "Order lifecycle: the pay page opens for an order that has no transaction"
     tags: [buyer, order]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the pay page opens for an order that has no transaction"
 
   - id: frontend.olc-an-unpaid-order-expires-and-the-pay-page-says-so
@@ -11278,7 +11278,7 @@ features:
     acceptance:
       - "Order lifecycle: an unpaid order expires and the pay page says so"
     tags: [buyer, order, lifecycle_timers]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: an unpaid order expires and the pay page says so"
 
   - id: frontend.olc-a-shipped-order-row-offers-receipt-on-the-buyer-list
@@ -11398,7 +11398,7 @@ features:
     acceptance:
       - "Order lifecycle: the buyer confirms receipt and the review prompt opens"
     tags: [buyer, order]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the buyer confirms receipt and the review prompt opens"
 
   - id: frontend.olc-the-system-completes-a-shipped-order-when-the-buyer-does-not
@@ -11414,7 +11414,7 @@ features:
     acceptance:
       - "Order lifecycle: the system completes a shipped order when the buyer does not"
     tags: [buyer, order, lifecycle_timers]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the system completes a shipped order when the buyer does not"
 
   - id: frontend.olc-a-return-is-offered-for-shipped-orders-and-inside-the-window
@@ -11508,7 +11508,7 @@ features:
     acceptance:
       - "Order lifecycle: a return is accepted on a shipped order"
     tags: [buyer, order]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: a return is accepted on a shipped order"
 
   - id: frontend.olc-after-the-return-window-no-return-is-offered
@@ -11524,7 +11524,7 @@ features:
     acceptance:
       - "Order lifecycle: after the return window no return is offered"
     tags: [buyer, order, lifecycle_timers]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: after the return window no return is offered"
 
   - id: frontend.olc-the-to-ship-count-is-paid-plus-cod-pending
@@ -11605,7 +11605,7 @@ features:
     acceptance:
       - "Order lifecycle: the seller dashboard flags an overdue order"
     tags: [seller, order, lifecycle_timers]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the seller dashboard flags an overdue order"
 
   - id: frontend.olc-the-new-order-notification-opens-the-seller-order
@@ -11621,7 +11621,7 @@ features:
     acceptance:
       - "Order lifecycle: the new-order notification opens the seller order"
     tags: [seller, order]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the new-order notification opens the seller order"
 
   - id: frontend.olc-another-seller-cannot-open-the-new-order-link
@@ -11637,7 +11637,7 @@ features:
     acceptance:
       - "Order lifecycle: another seller cannot open the new-order link"
     tags: [seller, order]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: another seller cannot open the new-order link"
 
   - id: frontend.olc-the-payment-reminder-opens-the-pay-page
@@ -11653,5 +11653,5 @@ features:
     acceptance:
       - "Order lifecycle: the payment reminder opens the pay page"
     tags: [buyer, order, lifecycle_timers]
-    status: planned
+    status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the payment reminder opens the pay page"
