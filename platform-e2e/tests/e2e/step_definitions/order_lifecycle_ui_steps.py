@@ -357,7 +357,7 @@ def confirm_receipt(world: World) -> None:
     button.click()
     dialog = page.get_by_role("dialog")
     expect(dialog).to_be_visible(timeout=timeouts.DEFAULT)
-    dialog.get_by_role("button").filter(has_not_text=re.compile("Chưa|Đóng|Close")).first.click()
+    dialog.get_by_test_id("receipt-confirm").click()
     expect(dialog).to_have_count(0, timeout=timeouts.NAVIGATION)
 
 
@@ -368,7 +368,7 @@ def offers_button(world: World, label: str) -> None:
     )
 
 
-@then(parsers.parse('the lifecycle order detail offers "{label}"'))
+@then(parsers.re(r'the lifecycle order detail offers "(?P<label>[^"]+)"$'))
 def offers_text(world: World, label: str) -> None:
     expect(world.page.get_by_text(label).first).to_be_visible(timeout=timeouts.NAVIGATION)
 
