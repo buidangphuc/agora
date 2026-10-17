@@ -1777,3 +1777,439 @@ features:
     tags: [admin, moderation]
     status: automated
     covered_by: "seller/listing_moderation.feature::Auto-screen: Publish end to end, clean and flagged"
+
+  - id: listing.seller-hold-suspension-holds-published-and-pending-listings
+    title: "Seller hold: Suspension holds published and pending listings"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Suspension holds published and pending listings"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsHoldsPublishedAndPending`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-ban-holds-the-same-way
+    title: "Seller hold: Ban holds the same way"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Ban holds the same way"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedBannedHolds`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-suspension-to-ban-keeps-the-original-prior-status
+    title: "Seller hold: Suspension to ban keeps the original prior status"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Suspension to ban keeps the original prior status"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsKeepsOriginalPriorStatus`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-admin-banned-listing-is-not-touched
+    title: "Seller hold: Admin-banned listing is not touched"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Admin-banned listing is not touched"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsSkipsBannedListing`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-hold-event-carries-the-status-for-de-indexing
+    title: "Seller hold: Hold event carries the status for de-indexing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Hold event carries the status for de-indexing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestHoldEventCarriesHeldStatus`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-seller-with-no-listings-is-a-no-op
+    title: "Seller hold: Seller with no listings is a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Seller with no listings is a no-op"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedUnknownSellerNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-held-listings-leave-the-store
+    title: "Seller hold: Held listings leave the store"
+    persona: admin
+    priority: P1
+    summary: Seller enforcement hold through the gateway (change domain-seller-enforcement-hold, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-identity, team-gateway, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.SetUserStatus, listing.v1.CreateListing, listing.v1.GetListing, listing.v1.ListMyListings, search.v1.SearchListings]
+    acceptance:
+      - "Seller hold: Held listings leave the store"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "seller/seller_enforcement_hold.feature::Seller hold: Held listings leave the store"
+
+  - id: listing.seller-hold-other-sellers-listings-are-not-touched
+    title: "Seller hold: Other sellers' listings are not touched"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Other sellers' listings are not touched"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsOnlyTargetsUser`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-reinstatement-restores-prior-statuses
+    title: "Seller hold: Reinstatement restores prior statuses"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Reinstatement restores prior statuses"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsReturnsPriorStatus`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-restricted-also-restores
+    title: "Seller hold: Restricted also restores"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Restricted also restores"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedRestrictedRestores`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-restored-listing-is-visible-again
+    title: "Seller hold: Restored listing is visible again"
+    persona: admin
+    priority: P1
+    summary: Seller enforcement hold through the gateway (change domain-seller-enforcement-hold, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-identity, team-gateway, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.SetUserStatus, listing.v1.CreateListing, listing.v1.GetListing, listing.v1.ListMyListings, search.v1.SearchListings]
+    acceptance:
+      - "Seller hold: Restored listing is visible again"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "seller/seller_enforcement_hold.feature::Seller hold: Restored listing is visible again"
+
+  - id: listing.seller-hold-admin-banned-listing-is-not-resurrected
+    title: "Seller hold: Admin-banned listing is not resurrected"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Admin-banned listing is not resurrected"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsLeavesBannedListing`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-restore-with-nothing-held-is-a-no-op
+    title: "Seller hold: Restore with nothing held is a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Restore with nothing held is a no-op"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsNothingHeldNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-restored-pending-listing-is-back-in-the-moderation-queue
+    title: "Seller hold: Restored pending listing is back in the moderation queue"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Restored pending listing is back in the moderation queue"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestRestoreSellerListingsPendingReturnsToQueueWithoutScreen`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-suspension-lifted-at-login-restores-listings
+    title: "Seller hold: Suspension lifted at login restores listings"
+    persona: admin
+    priority: P1
+    summary: Seller enforcement hold through the gateway (change domain-seller-enforcement-hold, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-identity, team-gateway, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.SetUserStatus, listing.v1.CreateListing, listing.v1.GetListing, listing.v1.ListMyListings, search.v1.SearchListings]
+    acceptance:
+      - "Seller hold: Suspension lifted at login restores listings"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "seller/seller_enforcement_hold.feature::Seller hold: Suspension lifted at login restores listings"
+
+  - id: listing.seller-hold-restore-does-not-touch-other-sellers-listings
+    title: "Seller hold: Restore does not touch other sellers' listings"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Restore does not touch other sellers' listings"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsOnlyTargetsUser`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-restricted-seller-keeps-listings-published
+    title: "Seller hold: Restricted seller keeps listings published"
+    persona: admin
+    priority: P1
+    summary: Seller enforcement hold through the gateway (change domain-seller-enforcement-hold, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-identity, team-gateway, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.SetUserStatus, listing.v1.CreateListing, listing.v1.GetListing, listing.v1.ListMyListings, search.v1.SearchListings]
+    acceptance:
+      - "Seller hold: Restricted seller keeps listings published"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "seller/seller_enforcement_hold.feature::Seller hold: Restricted seller keeps listings published"
+
+  - id: listing.seller-hold-restriction-of-a-held-seller-is-not-a-new-hold
+    title: "Seller hold: Restriction of a held seller is not a new hold"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Restriction of a held seller is not a new hold"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedRestrictedFromSuspendedRestores`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-redelivered-event-changes-nothing-twice
+    title: "Seller hold: Redelivered event changes nothing twice"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Redelivered event changes nothing twice"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedRedeliveryIsIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-re-driven-older-suspension-does-not-re-hold-a-reinstated-seller
+    title: "Seller hold: Re-driven older suspension does not re-hold a reinstated seller"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Re-driven older suspension does not re-hold a reinstated seller"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestSellerStatusStaleEventSkipped`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-event-with-the-same-changed-at-is-stale
+    title: "Seller hold: Event with the same changed_at is stale"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Event with the same changed_at is stale"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestSellerStatusEqualChangedAtSkipped`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-other-event-types-are-ignored
+    title: "Seller hold: Other event types are ignored"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Other event types are ignored"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestIdentityConsumerIgnoresOtherTypes`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-malformed-event-is-parked-not-applied
+    title: "Seller hold: Malformed event is parked, not applied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Malformed event is parked, not applied"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedMalformedGoesToDLQ`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-database-failure-retries-then-parks
+    title: "Seller hold: Database failure retries then parks"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Database failure retries then parks"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedDBFailureRetriesThenDLQ`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-consumer-disabled-does-nothing
+    title: "Seller hold: Consumer disabled does nothing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Consumer disabled does nothing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/bootstrap` `TestIdentityConsumerAddonDisabled`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-non-owner-cannot-read-a-held-listing
+    title: "Seller hold: Non-owner cannot read a held listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Non-owner cannot read a held listing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingHeldHiddenFromNonOwner`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-owner-sees-the-held-listing-and-the-reason
+    title: "Seller hold: Owner sees the held listing and the reason"
+    persona: admin
+    priority: P1
+    summary: Seller enforcement hold through the gateway (change domain-seller-enforcement-hold, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-identity, team-gateway, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.SetUserStatus, listing.v1.CreateListing, listing.v1.GetListing, listing.v1.ListMyListings, search.v1.SearchListings]
+    acceptance:
+      - "Seller hold: Owner sees the held listing and the reason"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestListMyListingsShowsHeldWithReason`. Not producible end to end: SetUserStatus(suspended) revokes all sessions, so the suspended owner cannot call ListMyListings through the gateway."
+
+  - id: listing.seller-hold-owner-cannot-edit-a-held-listing
+    title: "Seller hold: Owner cannot edit a held listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Owner cannot edit a held listing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingHeldRefusedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-another-seller-cannot-edit-a-held-listing
+    title: "Seller hold: Another seller cannot edit a held listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Another seller cannot edit a held listing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingHeldNonOwnerDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-owner-cannot-delete-a-held-listing
+    title: "Seller hold: Owner cannot delete a held listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Owner cannot delete a held listing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestDeleteListingHeldRefusedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-stock-cannot-be-reserved-on-a-held-listing
+    title: "Seller hold: Stock cannot be reserved on a held listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Stock cannot be reserved on a held listing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/grpcserver` `TestReserveStock_HeldListingFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-reservation-retry-on-a-held-listing-stays-a-no-op
+    title: "Seller hold: Reservation retry on a held listing stays a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Reservation retry on a held listing stays a no-op"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/grpcserver` `TestReserveStock_HeldListingExistingReservationNoop`. Not producible end to end through the gateway (unit level)."

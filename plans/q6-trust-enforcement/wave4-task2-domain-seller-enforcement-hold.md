@@ -35,6 +35,9 @@ Implement OpenSpec change `domain-seller-enforcement-hold` test-first per its ta
 - platform-e2e/tests/e2e/features/seller/seller_enforcement_hold.feature
 - platform-e2e/tests/e2e/step_definitions/test_seller_enforcement_hold.py
 - openspec/changes/domain-seller-enforcement-hold/**
+- team-domain/internal/service/sweeper.go  (# widened at build: task 3)
+- team-domain/internal/bootstrap/identity_consumer_test.go  (# widened at build: task 3)
+- team-domain/internal/service/processed_events_purge_test.go  (# widened at build: task 3)
 
 ## Read-only dependencies
 - openspec/changes/domain-seller-enforcement-hold/** is frozen by the LOCK.md digest (only task ticks change)

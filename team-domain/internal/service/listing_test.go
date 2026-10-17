@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	aiv1 "github.com/buidangphuc/team-domain/generated/platform/ai/v1"
 	"github.com/buidangphuc/team-domain/internal/repository"
@@ -867,5 +868,70 @@ func TestUpdateWithEventAdminCannotSetStatus(t *testing.T) {
 				t.Fatalf("event statuses = %v, want [rejected]", c.statuses)
 			}
 		})
+	}
+}
+
+// Scenario: Seller hold: Stock cannot be reserved on a held listing (service/repository contract).
+func TestReserveStockIdempotentHeldListingNotReservable(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Status: "held", Stock: 5, SellerID: "seller-a"})
+	svc := service.NewListingService(repo)
+	err := svc.ReserveStockIdempotent(ctx, "r-new", "L1", "", 2)
+	if !errors.Is(err, repository.ErrListingNotReservable) {
+		t.Fatalf("err = %v, want ErrListingNotReservable", err)
+	}
+	if got, _ := repo.Get(ctx, "L1"); got.Stock != 5 {
+		t.Fatalf("stock = %d, want 5", got.Stock)
+	}
+}
+
+// restorer is the hold/restore capability the in-memory writer must expose (mirrors PgTxWriter).
+type restorer interface {
+	HoldSellerListings(ctx context.Context, userID, eventID string, changedAt time.Time, enqueue repository.EnqueueFn) (int, error)
+	RestoreSellerListings(ctx context.Context, userID, eventID string, changedAt time.Time, enqueue repository.EnqueueFn) (int, error)
+}
+
+// queueRepo adds the pending_review queue read the Postgres repository provides.
+type queueRepo struct{ *repository.InMemoryListingRepository }
+
+func (r queueRepo) ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (repository.Page, error) {
+	return r.List(ctx, cursor, pageSize, "pending_review")
+}
+
+// Scenario: Seller hold: Restored pending listing is back in the moderation queue
+func TestRestoreSellerListingsPendingReturnsToQueueWithoutScreen(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewInMemoryListingRepository(repository.Listing{
+		ID: "L-1", Title: "orig", Description: "desc", CategoryID: "c1", Currency: "VND", Price: 100,
+		Status: "pending_review", SellerID: "seller-a", Stock: 1,
+	})
+	txw := repository.NewInMemoryTxWriter(repo)
+	ai := allowAI()
+	svc := service.NewListingServiceWithOutbox(queueRepo{repo}, txw).WithScreener(termsFile(t), ai)
+
+	rs, ok := any(txw).(restorer)
+	if !ok {
+		t.Fatalf("InMemoryTxWriter must implement RestoreSellerListings like PgTxWriter")
+	}
+	t0 := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+	if n, err := rs.HoldSellerListings(ctx, "seller-a", "ev-1", t0, noEvent); err != nil || n != 1 {
+		t.Fatalf("HoldSellerListings: n=%d err=%v", n, err)
+	}
+	if held, _ := repo.Get(ctx, "L-1"); held.Status != "held" {
+		t.Fatalf("status after hold = %q, want held", held.Status)
+	}
+	if _, err := rs.RestoreSellerListings(ctx, "seller-a", "ev-2", t0.Add(time.Hour), noEvent); err != nil {
+		t.Fatalf("RestoreSellerListings: %v", err)
+	}
+	got, _ := repo.Get(ctx, "L-1")
+	if got.Status != "pending_review" {
+		t.Fatalf("status = %q, want pending_review", got.Status)
+	}
+	page, err := svc.ListModerationQueue(ctx, "", 10)
+	if err != nil || len(page.Items) != 1 || page.Items[0].ID != "L-1" {
+		t.Fatalf("queue = %+v err=%v, want [L-1]", page.Items, err)
+	}
+	if ai.calls != 0 {
+		t.Fatalf("screen calls = %d, want 0 during restore", ai.calls)
 	}
 }

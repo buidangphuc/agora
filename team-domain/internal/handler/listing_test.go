@@ -286,3 +286,85 @@ func TestUpdateListingAdminCannotSetStatus(t *testing.T) {
 		t.Fatalf("audit calls = %+v, want 1 with status rejected", fa.calls)
 	}
 }
+
+// ---- domain-seller-enforcement-hold task 4: HELD visibility and write lock ----
+
+func heldHandler(t *testing.T) (*handler.ListingHandler, *repository.InMemoryListingRepository, *repository.InMemoryTxWriter) {
+	t.Helper()
+	repo := repository.NewInMemoryListingRepository(repository.Listing{
+		ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Status: "held", SellerID: "seller-a", Stock: 1,
+		ModerationReasonCode: "seller_enforcement",
+	})
+	txw := repository.NewInMemoryTxWriter(repo)
+	return handler.NewListingHandler(service.NewListingServiceWithOutbox(repo, txw), nil, nil), repo, txw
+}
+
+// Scenario: Seller hold: Non-owner cannot read a held listing
+func TestGetListingHeldHiddenFromNonOwner(t *testing.T) {
+	h, _, _ := heldHandler(t)
+	for name, ctx := range map[string]context.Context{
+		"buyer":        typedCtx("buyer-1", "user", "listing.read"),
+		"anonymous":    typedCtx("anonymous", "anonymous", "listing.read"),
+		"other seller": typedCtx("seller-b", "user", "listing.read", "listing.write"),
+	} {
+		_, err := h.GetListing(ctx, &listingv1.GetListingRequest{Id: "L-1"})
+		if status.Code(err) != codes.NotFound {
+			t.Errorf("%s: code = %v, want NotFound", name, status.Code(err))
+		}
+	}
+}
+
+// Scenario: Seller hold: Owner sees the held listing and the reason
+func TestListMyListingsShowsHeldWithReason(t *testing.T) {
+	h, _, _ := heldHandler(t)
+	res, err := h.ListMyListings(typedCtx("seller-a", "user", "listing.read", "listing.write"), &listingv1.ListMyListingsRequest{})
+	if err != nil || len(res.GetListings()) != 1 {
+		t.Fatalf("ListMyListings: err=%v n=%d, want 1", err, len(res.GetListings()))
+	}
+	l := res.GetListings()[0]
+	if l.GetStatus() != listingv1.ListingStatus_LISTING_STATUS_HELD {
+		t.Errorf("status = %v, want HELD", l.GetStatus())
+	}
+	if got := l.GetModeration().GetReasonCode(); got != "seller_enforcement" {
+		t.Errorf("reason = %q, want seller_enforcement", got)
+	}
+}
+
+// Scenario: Seller hold: Owner cannot edit a held listing
+func TestUpdateListingHeldRefusedFailedPrecondition(t *testing.T) {
+	h, repo, txw := heldHandler(t)
+	_, err := h.UpdateListing(ownerCtx(), lockedUpdateReq())
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("code = %v, want FailedPrecondition (%v)", status.Code(err), err)
+	}
+	got, _ := repo.Get(context.Background(), "L-1")
+	if got.Status != "held" || got.Title != "orig" || len(txw.Rows()) != 0 {
+		t.Fatalf("row changed: %+v rows=%d", got, len(txw.Rows()))
+	}
+}
+
+// Scenario: Seller hold: Another seller cannot edit a held listing
+func TestUpdateListingHeldNonOwnerDenied(t *testing.T) {
+	h, repo, txw := heldHandler(t)
+	_, err := h.UpdateListing(otherCtx(), lockedUpdateReq())
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("code = %v, want PermissionDenied (%v)", status.Code(err), err)
+	}
+	got, _ := repo.Get(context.Background(), "L-1")
+	if got.Status != "held" || got.Title != "orig" || len(txw.Rows()) != 0 {
+		t.Fatalf("row changed: %+v rows=%d", got, len(txw.Rows()))
+	}
+}
+
+// Scenario: Seller hold: Owner cannot delete a held listing
+func TestDeleteListingHeldRefusedFailedPrecondition(t *testing.T) {
+	h, repo, txw := heldHandler(t)
+	_, err := h.DeleteListing(ownerCtx(), &listingv1.DeleteListingRequest{Id: "L-1"})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("code = %v, want FailedPrecondition (%v)", status.Code(err), err)
+	}
+	got, gerr := repo.Get(context.Background(), "L-1")
+	if gerr != nil || got.Status != "held" || len(txw.Rows()) != 0 {
+		t.Fatalf("listing must remain held with no outbox row: %+v err=%v rows=%d", got, gerr, len(txw.Rows()))
+	}
+}

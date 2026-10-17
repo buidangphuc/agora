@@ -243,6 +243,7 @@ services:
       - OUTBOX_ENABLED=true
       - GRPC_PORT=50051
       - ENV=local
+      - IDENTITY_CONSUMER_ENABLED=true
 
   team-search:
     build:

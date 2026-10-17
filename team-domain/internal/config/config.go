@@ -72,6 +72,11 @@ type Events struct {
 	KafkaEnabled bool   `env:"KAFKA_ENABLED" default:"false"`
 	Brokers      string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
 	ListingTopic string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+
+	// Identity consumer: applies UserStatusChanged to seller listings (opt-in).
+	IdentityConsumerEnabled bool   `env:"IDENTITY_CONSUMER_ENABLED" default:"false"`
+	IdentityTopic           string `env:"KAFKA_IDENTITY_TOPIC" default:"identity.events"`
+	IdentityGroup           string `env:"KAFKA_IDENTITY_GROUP" default:"team-domain-identity"`
 }
 
 // Outbox configures the transactional-outbox relayer (ADR-0002). Listing writes

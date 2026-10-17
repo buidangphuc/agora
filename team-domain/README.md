@@ -87,6 +87,9 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `KAFKA_ENABLED` | `false` (no-op producer) |
 | `KAFKA_BROKERS` | `localhost:9092`, comma-separated |
 | `KAFKA_LISTING_TOPIC` | `listing.events` |
+| `IDENTITY_CONSUMER_ENABLED` | `false`; when true, consumes identity `UserStatusChanged` and holds/restores the seller's listings |
+| `KAFKA_IDENTITY_TOPIC` | `identity.events` |
+| `KAFKA_IDENTITY_GROUP` | `team-domain-identity` |
 | `OUTBOX_ENABLED` | `true` |
 | `OUTBOX_POLL_INTERVAL` | `1s` (Go duration) |
 | `OUTBOX_BATCH_SIZE` | `100` |

@@ -25,4 +25,4 @@ type Addon interface {
 // defaultAddons is the ordered set of optional addons. Empty today; new
 // capabilities register here and are opened in order / closed in reverse — the
 // same shape as team-ai's default_resource_addons().
-func defaultAddons() []Addon { return nil }
+func defaultAddons() []Addon { return []Addon{&identityConsumerAddon{}} }

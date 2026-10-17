@@ -29,6 +29,8 @@ var (
 	// ErrReservationIDRequired: ReserveStockIdempotent was called without a
 	// reservation id. There is no ledger-less reserve path.
 	ErrReservationIDRequired = errors.New("reservation id required")
+	// ErrListingNotReservable: a new reservation targeted a held listing.
+	ErrListingNotReservable = errors.New("listing not reservable")
 )
 
 // Reservation lifecycle (owned by team-domain): active -> committed | released,
@@ -373,6 +375,9 @@ func (r *InMemoryListingRepository) ReserveStockIdempotent(ctx context.Context, 
 			return ErrReservationMismatch
 		}
 		return nil // active/committed: already applied, no stock change, no event
+	}
+	if l, ok := r.byID[listingID]; ok && l.Status == "held" {
+		return ErrListingNotReservable
 	}
 	return r.txLocked(ctx, func(changes stockChanges) error {
 		if err := r.reserveLocked(listingID, variantID, quantity); err != nil {
