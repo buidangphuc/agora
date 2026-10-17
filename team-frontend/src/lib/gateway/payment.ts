@@ -67,6 +67,8 @@ export function getPaymentStatusText(status: PaymentStatus): string {
       return "Đã hoàn một phần";
     case PaymentStatus.REFUNDED:
       return "Đã hoàn tiền";
+    case PaymentStatus.CANCELLED:
+      return "Đã hủy";
     default:
       return "Chưa xác định";
   }

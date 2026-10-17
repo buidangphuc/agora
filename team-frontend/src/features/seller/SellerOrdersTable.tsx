@@ -4,6 +4,7 @@ import { PriceTag } from "@/components/ui/PriceTag";
 import { Table, type TableColumn } from "@/components/ui/Table";
 import type { ViewOrder } from "@/lib/gateway/orders";
 import { ShipOrderButton } from "./ShipOrderButton";
+import { ShipByLabel } from "./shipBy";
 import { OrderStatusTag, isShippable } from "./status";
 
 function itemsSummary(o: ViewOrder): string {
@@ -26,6 +27,9 @@ const columns: TableColumn<ViewOrder>[] = [
           #{o.id.slice(0, 8)}
         </Link>
         <p className="text-xs text-text-disabled">{o.createdAt}</p>
+        <p className="text-xs text-text-disabled">
+          Hạn gửi: <ShipByLabel order={o} />
+        </p>
       </div>
     ),
   },

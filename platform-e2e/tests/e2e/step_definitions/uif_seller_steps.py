@@ -36,10 +36,10 @@ def kpi_hidden(world: World) -> None:
     for title in ("Tổng sản phẩm", "Đang bán"):
         expect(row.get_by_text(title)).to_be_visible()
     expect(row.get_by_text(re.compile(r"Sắp hết hàng"))).to_be_visible()
-    expect(row.get_by_text("Đơn chờ xử lý")).to_have_count(0)
+    expect(row.get_by_text("Cần gửi")).to_have_count(0)
     # three cells only, and none of them is a stand-in zero for the missing source
     expect(row.locator("> *")).to_have_count(3)
-    assert "Đơn chờ xử lý" not in row.inner_text()
+    assert "Cần gửi" not in row.inner_text()
 
 
 @when("the uif seller asks for an AI suggestion for a typed title")

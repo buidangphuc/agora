@@ -18,6 +18,7 @@ import type {
   ViewShipment,
 } from "@/lib/gateway/orders";
 import { getImageUrl } from "@/lib/media";
+import { ShipByLabel } from "./shipBy";
 import { OrderStatusTag } from "./status";
 
 const FLOW: { status: OrderStatus; title: string }[] = [
@@ -188,6 +189,11 @@ export function OrderDetailView({
                   key: "created",
                   label: "Ngày tạo",
                   children: order.createdAt || "—",
+                },
+                {
+                  key: "shipBy",
+                  label: "Hạn gửi",
+                  children: <ShipByLabel order={order} />,
                 },
                 {
                   key: "payment",

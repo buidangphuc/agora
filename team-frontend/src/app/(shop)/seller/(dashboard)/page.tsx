@@ -75,6 +75,8 @@ export default async function SellerPage(props: {
               key: k.key,
               title: k.title,
               value: k.value.toLocaleString("vi-VN"),
+              note: k.note,
+              tone: k.tone,
             }))}
           />
           {partial && (

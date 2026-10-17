@@ -119,10 +119,7 @@ describe("OrderActions cancel", () => {
     d.resolve({ ok: true });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(cancelOrderAction).toHaveBeenCalledTimes(1);
-    expect(cancelOrderAction).toHaveBeenCalledWith(
-      "o1",
-      "Tôi muốn thay đổi địa chỉ hoặc đổi ý",
-    );
+    expect(cancelOrderAction).toHaveBeenCalledWith("o1", "changed_mind");
     expect(toast.success).toHaveBeenCalled();
   });
 
@@ -133,6 +130,54 @@ describe("OrderActions cancel", () => {
     await openCancel(user);
     await user.click(screen.getByTestId("cancel-confirm"));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("no"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("cancel-confirm")).toBeEnabled();
+  });
+
+  it("the dialog sends the chosen option value, not the label (Order lifecycle: cancel sends the reason code with the label)", async () => {
+    vi.mocked(cancelOrderAction).mockResolvedValue({ ok: true });
+    renderActions();
+    const user = setupUser();
+    await openCancel(user);
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Lý do hủy đơn" }),
+      "damaged",
+    );
+    await user.click(screen.getByTestId("cancel-confirm"));
+    await waitFor(() =>
+      expect(cancelOrderAction).toHaveBeenCalledWith("o1", "damaged"),
+    );
+  });
+
+  it("offers exactly the four buyer reasons (Order lifecycle: an unknown cancel reason is refused before any call)", async () => {
+    renderActions();
+    const user = setupUser();
+    await openCancel(user);
+    const select = screen.getByRole("combobox", { name: "Lý do hủy đơn" });
+    const values = Array.from(select.querySelectorAll("option")).map(
+      (o) => (o as HTMLOptionElement).value,
+    );
+    expect(values).toEqual([
+      "changed_mind",
+      "wrong_item",
+      "damaged",
+      "delivery_delay",
+    ]);
+  });
+
+  it("a refused cancel keeps the dialog open with the server error (Order lifecycle: a refused cancel keeps the dialog open with the server error)", async () => {
+    vi.mocked(cancelOrderAction).mockResolvedValue({
+      ok: false,
+      error: "đơn hàng đã được giao",
+    });
+    renderActions();
+    const user = setupUser();
+    await openCancel(user);
+    await user.click(screen.getByTestId("cancel-confirm"));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("đơn hàng đã được giao"),
+    );
+    expect(toast.success).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByTestId("cancel-confirm")).toBeEnabled();
   });

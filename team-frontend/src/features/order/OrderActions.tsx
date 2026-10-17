@@ -11,14 +11,8 @@ import { ReviewModal } from "@/features/review/ReviewModal";
 import { ReturnRequestModal } from "./ReturnRequestModal";
 import { useReturnState } from "./ReturnState";
 import { cancelOrderAction, reorderAction } from "./actions";
+import { CANCEL_REASONS } from "./cancelReasons";
 import { usePendingAction } from "./usePendingAction";
-
-export const CANCEL_REASONS = [
-  { value: "changed_mind", label: "Tôi muốn thay đổi địa chỉ hoặc đổi ý" },
-  { value: "wrong_item", label: "Shop tư vấn hoặc giao sai phân loại" },
-  { value: "damaged", label: "Sản phẩm bị lỗi / hư hỏng" },
-  { value: "delivery_delay", label: "Thời gian giao hàng quá lâu" },
-];
 
 const fullOnMobile = "w-full sm:w-auto";
 
@@ -125,9 +119,8 @@ export function OrderActions({
 
   function confirmCancel() {
     if (cancelling) return;
-    const label = CANCEL_REASONS.find((r) => r.value === reason)?.label;
     void runCancel(async () => {
-      const res = await cancelOrderAction(orderId, label ?? reason);
+      const res = await cancelOrderAction(orderId, reason);
       if (res.ok) {
         toast.success("Đã hủy đơn hàng thành công.");
         setCancelOpen(false);
@@ -204,7 +197,7 @@ export function OrderActions({
           aria-label="Lý do hủy đơn"
           value={reason}
           disabled={cancelling}
-          options={CANCEL_REASONS}
+          options={CANCEL_REASONS.map(({ value, label }) => ({ value, label }))}
           onChange={(e) => setReason(e.target.value)}
         />
       </Modal>

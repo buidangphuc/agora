@@ -2,11 +2,15 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import {
+  CancelReason,
+  OrderStatus,
+} from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { reorder } from "@/lib/gateway/cart";
 import {
   cancelOrder,
+  confirmReceipt,
   createOrder,
   updateOrderStatus,
 } from "@/lib/gateway/orders";
@@ -15,6 +19,7 @@ import { createPayment, processMockPayment } from "@/lib/gateway/payment";
 import {
   cancelOrderAction,
   checkoutAction,
+  confirmReceiptAction,
   createPaymentAction,
   processMockPaymentAction,
   reorderAction,
@@ -27,6 +32,7 @@ vi.mock("@/lib/gateway/orders", () => ({
   createOrder: vi.fn(),
   updateOrderStatus: vi.fn(),
   cancelOrder: vi.fn(),
+  confirmReceipt: vi.fn(),
 }));
 vi.mock("@/lib/gateway/payment", () => ({
   createPayment: vi.fn(),
@@ -181,18 +187,78 @@ describe("updateOrderStatusAction", () => {
 });
 
 describe("cancelOrderAction", () => {
-  it("cancels with a reason and revalidates the list and the detail", async () => {
+  it("cancel sends the reason code (Order lifecycle: cancel sends the reason code with the label)", async () => {
     vi.mocked(cancelOrder).mockResolvedValue({} as never);
-    const res = await cancelOrderAction("o1", "changed mind");
-    expect(cancelOrder).toHaveBeenCalledWith("o1", "changed mind");
+    const res = await cancelOrderAction("o1", "wrong_item");
+    expect(cancelOrder).toHaveBeenCalledTimes(1);
+    expect(cancelOrder).toHaveBeenCalledWith(
+      "o1",
+      "Shop tư vấn hoặc giao sai phân loại",
+      CancelReason.WRONG_ITEM,
+    );
     expect(res).toEqual({ ok: true });
     expect(revalidatePath).toHaveBeenCalledWith("/account/orders");
     expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
   });
 
-  it("returns the error shape without throwing or revalidating", async () => {
-    vi.mocked(cancelOrder).mockRejectedValue(new Error("invalid status"));
+  it.each([
+    [
+      "changed_mind",
+      "Tôi muốn thay đổi địa chỉ hoặc đổi ý",
+      CancelReason.CHANGED_MIND,
+    ],
+    ["damaged", "Sản phẩm bị lỗi / hư hỏng", CancelReason.DAMAGED],
+    [
+      "delivery_delay",
+      "Thời gian giao hàng quá lâu",
+      CancelReason.DELIVERY_DELAY,
+    ],
+  ])(
+    "cancel sends the reason code for %s (Order lifecycle: cancel sends the reason code with the label)",
+    async (value, label, code) => {
+      vi.mocked(cancelOrder).mockResolvedValue({} as never);
+      await cancelOrderAction("o1", value);
+      expect(cancelOrder).toHaveBeenCalledWith("o1", label, code);
+    },
+  );
+
+  it.each([
+    "payment_expired",
+    "admin_force_fail",
+    "",
+    "CHANGED_MIND",
+    "Tôi muốn thay đổi địa chỉ hoặc đổi ý",
+    "toString",
+    "__proto__",
+  ])(
+    "unknown cancel reason %j is refused before any call (Order lifecycle: an unknown cancel reason is refused before any call)",
+    async (value) => {
+      const res = await cancelOrderAction("o1", value);
+      expect(res).toEqual({ ok: false, error: "Lý do hủy không hợp lệ." });
+      expect(cancelOrder).not.toHaveBeenCalled();
+      expect(revalidatePath).not.toHaveBeenCalled();
+    },
+  );
+
+  it("a missing reason is refused before any call (Order lifecycle: an unknown cancel reason is refused before any call)", async () => {
     const res = await cancelOrderAction("o1");
+    expect(res).toEqual({ ok: false, error: "Lý do hủy không hợp lệ." });
+    expect(cancelOrder).not.toHaveBeenCalled();
+  });
+
+  it("cancel of a foreign order is refused (Order lifecycle: cancelling an order that is not the buyer's is refused)", async () => {
+    vi.mocked(cancelOrder).mockRejectedValue(
+      new ConnectError("order not found", Code.PermissionDenied),
+    );
+    const res = await cancelOrderAction("o2", "changed_mind");
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toContain("order not found");
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("returns the error shape without throwing or revalidating (Order lifecycle: cancelling an order that is not the buyer's is refused)", async () => {
+    vi.mocked(cancelOrder).mockRejectedValue(new Error("invalid status"));
+    const res = await cancelOrderAction("o1", "changed_mind");
     expect(res).toEqual({ ok: false, error: "invalid status" });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
@@ -252,5 +318,46 @@ describe("payment actions", () => {
     });
     const res = await processMockPaymentAction("tx1", false);
     expect(res).toEqual({ ok: false, error: "card declined" });
+  });
+});
+
+describe("confirmReceiptAction", () => {
+  it("Order lifecycle: confirming receipt calls the server and completes the order - action calls confirmReceipt and revalidates list and detail", async () => {
+    vi.mocked(confirmReceipt).mockResolvedValue({ id: "o1" } as never);
+    const res = await confirmReceiptAction("o1");
+    expect(res.ok).toBe(true);
+    expect(confirmReceipt).toHaveBeenCalledTimes(1);
+    expect(confirmReceipt).toHaveBeenCalledWith("o1");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
+  });
+
+  it("Order lifecycle: a confirm that lost to auto-complete is explained - confirm after auto-complete is explained", async () => {
+    vi.mocked(confirmReceipt).mockRejectedValue(
+      new ConnectError("order is not shipped", Code.FailedPrecondition),
+    );
+    const res = await confirmReceiptAction("o1");
+    expect(res).toEqual({ ok: false, error: "Đơn hàng đã được hoàn thành." });
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders");
+    expect(revalidatePath).toHaveBeenCalledWith("/account/orders/o1");
+  });
+
+  it("Order lifecycle: a refused confirm shows the server error - refused confirm returns the server error", async () => {
+    vi.mocked(confirmReceipt).mockRejectedValue(new Error("forbidden"));
+    const res = await confirmReceiptAction("o1");
+    expect(res).toEqual({ ok: false, error: "forbidden" });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("Order lifecycle: a refused confirm shows the server error - permission denied is not mapped to completed", async () => {
+    vi.mocked(confirmReceipt).mockRejectedValue(
+      new ConnectError("not your order", Code.PermissionDenied),
+    );
+    const res = await confirmReceiptAction("o1");
+    expect(res.ok).toBe(false);
+    expect(res.ok === false && res.error).not.toBe(
+      "Đơn hàng đã được hoàn thành.",
+    );
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
