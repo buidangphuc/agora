@@ -462,10 +462,18 @@ def seller_detail_ship_by(world: World, deadline: str, tag: str) -> None:
 
 # ── Notifications ────────────────────────────────────────────────────────
 def find_link(world: World, title: str, href: str | None, timeout: float = 75.0):
-    """Reload the notifications page until a link titled `title` shows (feed is async)."""
+    """Reload the notifications page until a link titled `title` shows (feed is async).
+
+    The route streams behind loading.tsx: at domcontentloaded the list can still sit in
+    React's hidden Suspense segment, where get_by_role finds nothing. Wait for the page
+    heading to be revealed before each count so a poll never reads the fallback.
+    """
     page = world.page
     deadline = time.monotonic() + timeout
     while True:
+        expect(page.get_by_role("heading", name="Trung tâm thông báo")).to_be_visible(
+            timeout=timeouts.NAVIGATION
+        )
         links = page.get_by_role("link").filter(has_text=title)
         if href:
             links = links.and_(page.locator(f'a[href="{href}"]'))
