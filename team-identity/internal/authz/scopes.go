@@ -22,7 +22,8 @@ const (
 //     a SERVICE principal with listing.write; authz-hardening-wave2 moves them here)
 //   - order.read        team-order GetOrder, held by the service principals of team-payment
 //     and team-engagement
-//   - promotion.reserve team-promotion voucher saga RPCs, held by service-team-order
+//   - promotion.reserve team-promotion voucher saga RPCs and flash-sale stock holds
+//     (Reserve/Commit/ReleaseFlashSaleStock), held by service-team-order
 //   - audit.write       team-audit WriteAuditEvent, held by audit-producing services
 //   - identity.read     team-identity GetPublicProfiles, held by team-notification
 //   - features.read     FeatureService online serving, held by service-team-ai
