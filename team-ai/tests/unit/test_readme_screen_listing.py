@@ -1,4 +1,5 @@
 """Task 5 docs checks: team-ai/README.md documents the listing screen."""
+
 from pathlib import Path
 
 README = (Path(__file__).resolve().parents[2] / "README.md").read_text()

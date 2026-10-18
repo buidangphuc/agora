@@ -18,7 +18,9 @@ def test_default_backend_is_mock_and_defaults_hold_scenario_default_backend_is_m
 
 
 def test_llm_router_backend_is_accepted_scenario_default_backend_is_mock():
-    assert build_test_settings(SCREEN_BACKEND="llm_router").SCREEN_BACKEND == "llm_router"
+    assert (
+        build_test_settings(SCREEN_BACKEND="llm_router").SCREEN_BACKEND == "llm_router"
+    )
 
 
 @pytest.mark.parametrize("value", ["other", "", "MOCK"])
