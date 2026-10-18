@@ -32,6 +32,18 @@ views:
       review_count: int
       avg_rating: float
       ctr_7d: float
+  - name: item_popularity
+    version: 2
+    entity: listing_id
+    sql: sql/item_popularity_v2.sql
+    features:
+      views_7d: int
+      clicks_7d: int
+      add_to_cart_7d: int
+      favorites_current: int
+      review_count: int
+      avg_rating: float
+      ctr_7d: float
   - name: item_attributes
     version: 1
     entity: listing_id
