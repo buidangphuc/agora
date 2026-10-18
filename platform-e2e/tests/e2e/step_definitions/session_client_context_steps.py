@@ -137,7 +137,8 @@ def page_lists_new_device(world: World, device: str) -> None:
 
 @then(parsers.parse('the Active sessions page has no entry with device "{device}"'))
 def page_lacks_device(world: World, device: str) -> None:
-    expect(world.page.get_by_text(device)).to_have_count(0)
+    sessions_table = world.page.get_by_role("table", name="Phiên đăng nhập", exact=True)
+    expect(sessions_table.get_by_text(device)).to_have_count(0)
 
 
 @then(

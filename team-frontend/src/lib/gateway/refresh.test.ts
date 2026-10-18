@@ -17,7 +17,9 @@ const seen = vi.hoisted(() => ({
 
 vi.mock("@connectrpc/connect-node", () => ({
   createConnectTransport: (opts: {
-    interceptors?: ((next: (r: unknown) => Promise<unknown>) => (r: unknown) => Promise<unknown>)[];
+    interceptors?: ((
+      next: (r: unknown) => Promise<unknown>,
+    ) => (r: unknown) => Promise<unknown>)[];
     defaultTimeoutMs?: number;
   }) => {
     seen.transportOpts = opts;
@@ -37,8 +39,12 @@ vi.mock("@connectrpc/connect-node", () => ({
             message,
             method: method.name,
           });
-          const out = seen.reply!();
-          return { message: out, header: new Headers(), trailer: new Headers() };
+          const out = seen.reply?.();
+          return {
+            message: out,
+            header: new Headers(),
+            trailer: new Headers(),
+          };
         };
         let fn = terminal as (r: never) => Promise<unknown>;
         for (const i of [...(opts.interceptors ?? [])].reverse()) {
@@ -72,11 +78,11 @@ describe("refreshSession", () => {
     await refreshSession("old-refresh");
 
     expect(seen.calls).toHaveLength(1);
-    expect(seen.calls[0]!.method).toBe("RefreshSession");
-    expect(seen.calls[0]!.message).toEqual(
+    expect(seen.calls[0]?.method).toBe("RefreshSession");
+    expect(seen.calls[0]?.message).toEqual(
       expect.objectContaining({ refreshToken: "old-refresh" }),
     );
-    expect(seen.calls[0]!.headers.has("authorization")).toBe(false);
+    expect(seen.calls[0]?.headers.has("authorization")).toBe(false);
   });
 
   it("S5: returns the new access and rotated refresh token", async () => {
@@ -98,7 +104,7 @@ describe("refreshSession", () => {
 
   it("S10: applies a 3 s timeout", async () => {
     await refreshSession("old-refresh");
-    expect(seen.calls[0]!.timeoutMs).toBe(3000);
+    expect(seen.calls[0]?.timeoutMs).toBe(3000);
   });
 
   it("S10: rejects with the ConnectError on a gateway failure and does not retry", async () => {
@@ -127,11 +133,11 @@ describe("refreshSession", () => {
     });
 
     expect(seen.calls).toHaveLength(1);
-    const h = seen.calls[0]!.headers;
+    const h = seen.calls[0]?.headers;
     expect(h.get("x-forwarded-for")).toBe("203.0.113.9");
     expect(h.get("user-agent")).toBe("AgoraTest/2");
     expect(h.has("authorization")).toBe(false);
-    expect(seen.calls[0]!.message).toEqual(
+    expect(seen.calls[0]?.message).toEqual(
       expect.objectContaining({ refreshToken: "old-refresh" }),
     );
   });
@@ -140,7 +146,7 @@ describe("refreshSession", () => {
     const res = await refreshSession("old-refresh", {});
 
     expect(seen.calls).toHaveLength(1);
-    const h = seen.calls[0]!.headers;
+    const h = seen.calls[0]?.headers;
     expect(h.has("x-forwarded-for")).toBe(false);
     expect(h.has("user-agent")).toBe(false);
     expect(h.has("authorization")).toBe(false);
@@ -149,14 +155,14 @@ describe("refreshSession", () => {
 
   it("Session client context: missing headers (boundary) - omitted client sets neither header", async () => {
     await refreshSession("old-refresh");
-    const h = seen.calls[0]!.headers;
+    const h = seen.calls[0]?.headers;
     expect(h.has("x-forwarded-for")).toBe(false);
     expect(h.has("user-agent")).toBe(false);
   });
 
   it("Session client context: only one field present forwards only that header", async () => {
     await refreshSession("old-refresh", { userAgent: "AgoraTest/2" });
-    const h = seen.calls[0]!.headers;
+    const h = seen.calls[0]?.headers;
     expect(h.get("user-agent")).toBe("AgoraTest/2");
     expect(h.has("x-forwarded-for")).toBe(false);
   });
@@ -169,6 +175,6 @@ describe("refreshSession", () => {
       refreshSession("old-refresh", { ip: "203.0.113.9", userAgent: "A/1" }),
     ).rejects.toMatchObject({ code: Code.Unauthenticated });
     expect(seen.calls).toHaveLength(1);
-    expect(seen.calls[0]!.timeoutMs).toBe(3000);
+    expect(seen.calls[0]?.timeoutMs).toBe(3000);
   });
 });

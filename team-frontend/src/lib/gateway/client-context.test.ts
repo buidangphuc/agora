@@ -51,10 +51,9 @@ describe("clientContextFrom", () => {
 describe("Session client context: spoofed leftmost X-Forwarded-For is ignored (permission)", () => {
   it("Session client context: spoofed leftmost X-Forwarded-For is ignored - forwards the proxy-appended peer", () => {
     expect(
-      clientContextFrom(
-        hdr({ "x-forwarded-for": "6.6.6.6, 198.51.100.4" }),
-        { TRUSTED_PROXY_HOPS: "1" },
-      ).ip,
+      clientContextFrom(hdr({ "x-forwarded-for": "6.6.6.6, 198.51.100.4" }), {
+        TRUSTED_PROXY_HOPS: "1",
+      }).ip,
     ).toBe("198.51.100.4");
   });
 

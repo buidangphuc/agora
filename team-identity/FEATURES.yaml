@@ -2353,7 +2353,8 @@ features:
     acceptance:
       - "Session client context: rotation updates device and IP"
     tags: [auth, session]
-    status: planned
+    status: automated
+    covered_by: "auth/session_client_context.feature::Session client context: rotation updates device and IP"
     notes: "frontend-session-client-context: e2e in auth/session_client_context.feature"
 
   - id: auth.session-client-context-unit-rotation-records-ip-via-repository

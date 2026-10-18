@@ -9,7 +9,9 @@ const seen = vi.hoisted(() => ({
 
 vi.mock("@connectrpc/connect-node", () => ({
   createConnectTransport: (opts: {
-    interceptors?: ((next: (r: unknown) => Promise<unknown>) => (r: unknown) => Promise<unknown>)[];
+    interceptors?: ((
+      next: (r: unknown) => Promise<unknown>,
+    ) => (r: unknown) => Promise<unknown>)[];
   }) => ({
     async unary(
       service: unknown,
@@ -21,13 +23,22 @@ vi.mock("@connectrpc/connect-node", () => ({
     ) {
       const terminal = async (req: { header: Headers }) => {
         seen.calls.push({ headers: req.header, message, method: method.name });
-        return { message: { sessions: [], events: [] }, header: new Headers(), trailer: new Headers() };
+        return {
+          message: { sessions: [], events: [] },
+          header: new Headers(),
+          trailer: new Headers(),
+        };
       };
       let fn = terminal as (r: never) => Promise<unknown>;
       for (const i of [...(opts.interceptors ?? [])].reverse()) {
         fn = i(fn as never) as never;
       }
-      return (await fn({ header: new Headers(header), service, method, message } as never)) as { message: unknown };
+      return (await fn({
+        header: new Headers(header),
+        service,
+        method,
+        message,
+      } as never)) as { message: unknown };
     },
     stream: vi.fn(),
   }),
@@ -48,7 +59,8 @@ describe("sessions gateway module", () => {
     await revokeSession("sid-9", CLIENT);
 
     expect(seen.calls).toHaveLength(1);
-    const c = seen.calls[0]!;
+    const c = seen.calls[0];
+    if (!c) throw new Error("no gateway call recorded");
     expect(c.method).toBe("RevokeSession");
     expect(c.message).toEqual(expect.objectContaining({ sessionId: "sid-9" }));
     expect(c.headers.get("authorization")).toBe("bearer user-access");
@@ -59,7 +71,8 @@ describe("sessions gateway module", () => {
   it("Session client context: revoke another device forwards IP and UA - ListSessions carries neither header", async () => {
     await listSessions();
 
-    const c = seen.calls[0]!;
+    const c = seen.calls[0];
+    if (!c) throw new Error("no gateway call recorded");
     expect(c.method).toBe("ListSessions");
     expect(c.headers.get("authorization")).toBe("bearer user-access");
     expect(c.headers.has("x-forwarded-for")).toBe(false);
@@ -69,7 +82,8 @@ describe("sessions gateway module", () => {
   it("Session client context: revoke another device forwards IP and UA - ListLoginHistory carries neither header", async () => {
     await listLoginHistory();
 
-    const c = seen.calls[0]!;
+    const c = seen.calls[0];
+    if (!c) throw new Error("no gateway call recorded");
     expect(c.method).toBe("ListLoginHistory");
     expect(c.headers.has("x-forwarded-for")).toBe(false);
     expect(c.headers.has("user-agent")).toBe(false);
@@ -78,7 +92,8 @@ describe("sessions gateway module", () => {
   it("Session client context: missing headers (boundary) - revokeSession without client context sends neither header", async () => {
     await revokeSession("sid-9");
 
-    const c = seen.calls[0]!;
+    const c = seen.calls[0];
+    if (!c) throw new Error("no gateway call recorded");
     expect(c.headers.get("authorization")).toBe("bearer user-access");
     expect(c.headers.has("x-forwarded-for")).toBe(false);
     expect(c.headers.has("user-agent")).toBe(false);
