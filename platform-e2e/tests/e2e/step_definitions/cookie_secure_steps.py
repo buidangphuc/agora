@@ -63,6 +63,7 @@ def _lines(world: World, names: tuple[str, ...]) -> dict[str, list[str]]:
 
 
 def _assert_secure(world: World, names: tuple[str, ...], secure: bool) -> None:
+    world.page.wait_for_load_state("networkidle")  # deliver pending response events
     got = _lines(world, names)
     for name in names:
         assert got[name], f"no Set-Cookie with a value for {name}; saw {[n for n, _ in _capture(world)]}"
@@ -101,13 +102,16 @@ def relogin_with_header(world: World, proto: str) -> None:
 )
 def expire_again_with_header(world: World, proto: str) -> None:
     ex = _ex(world)
-    ex["set_cookies"].clear()
     refresh = _cookies(world)["agora_refresh"]["value"]
     ex["refresh"] = refresh
     ex["session_cookie"] = _forged_token(ex["sid"], int(time.time()) - 60)
     world.context.clear_cookies(name="session")
     _put(world, "session", ex["session_cookie"])
     _set_header(world, proto)
+    # Drain response events still pending from the first load, then drop them so only
+    # Set-Cookie lines from the next navigation are asserted.
+    world.page.wait_for_load_state("networkidle")
+    ex["set_cookies"].clear()
 
 
 @then(

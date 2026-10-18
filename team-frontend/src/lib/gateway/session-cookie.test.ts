@@ -63,11 +63,11 @@ describe("isSecureRequest", () => {
 describe("isSecureRequest COOKIE_SECURE", () => {
   const original = process.env.COOKIE_SECURE;
   const restore = () => {
-    if (original === undefined) delete process.env.COOKIE_SECURE;
+    if (original === undefined) Reflect.deleteProperty(process.env, "COOKIE_SECURE");
     else process.env.COOKIE_SECURE = original;
   };
   beforeEach(() => {
-    delete process.env.COOKIE_SECURE;
+    Reflect.deleteProperty(process.env, "COOKIE_SECURE");
   });
   afterEach(restore);
 

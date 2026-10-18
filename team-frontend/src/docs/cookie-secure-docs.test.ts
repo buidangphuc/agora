@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
 
 const root = resolve(__dirname, "../..");
 const envExample = readFileSync(resolve(root, ".env.example"), "utf8");

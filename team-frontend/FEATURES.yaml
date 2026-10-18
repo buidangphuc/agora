@@ -13707,7 +13707,7 @@ features:
     acceptance:
       - "Cookie secure: unset keeps the proxy rule"
     tags: [auth, session]
-    status: planned
+    status: automated
     covered_by: "auth/cookie_secure.feature::Cookie secure: unset keeps the proxy rule"
 
   - id: auth.cookie-secure-unset-and-plain-http-boundary
@@ -13722,7 +13722,7 @@ features:
     acceptance:
       - "Cookie secure: unset and plain http (boundary)"
     tags: [auth, session]
-    status: planned
+    status: automated
     covered_by: "auth/cookie_secure.feature::Cookie secure: unset and plain http (boundary)"
 
   - id: auth.cookie-secure-middleware-refresh-unset-over-https
@@ -13737,5 +13737,137 @@ features:
     acceptance:
       - "Cookie secure: middleware refresh unset over https"
     tags: [auth, session]
-    status: planned
+    status: automated
     covered_by: "auth/cookie_secure.feature::Cookie secure: middleware refresh unset over https"
+
+  - id: auth.cookie-secure-forced-on-without-proxy-header
+    title: "Cookie secure: forced on without proxy header"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: forced on without proxy header"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `src/lib/gateway/session-cookie.test.ts and src/features/auth/actions.test.ts`"
+
+  - id: auth.cookie-secure-forced-on-beats-a-client-header-permission
+    title: "Cookie secure: forced on beats a client header (permission)"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: forced on beats a client header (permission)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `src/lib/gateway/session-cookie.test.ts`"
+
+  - id: auth.cookie-secure-non-true-values-are-ignored-boundary
+    title: "Cookie secure: non-true values are ignored (boundary)"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: non-true values are ignored (boundary)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `src/lib/gateway/session-cookie.test.ts`"
+
+  - id: auth.cookie-secure-value-is-case-and-space-tolerant-boundary
+    title: "Cookie secure: value is case and space tolerant (boundary)"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: value is case and space tolerant (boundary)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `src/lib/gateway/session-cookie.test.ts`"
+
+  - id: auth.cookie-secure-flag-read-at-request-time
+    title: "Cookie secure: flag read at request time"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: flag read at request time"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `src/lib/gateway/session-cookie.test.ts`"
+
+  - id: auth.cookie-secure-middleware-refresh-forced-secure
+    title: "Cookie secure: middleware refresh forced Secure"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: middleware refresh forced Secure"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `src/middleware.test.ts`"
+
+  - id: auth.cookie-secure-failed-refresh-sets-nothing-error
+    title: "Cookie secure: failed refresh sets nothing (error)"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: failed refresh sets nothing (error)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `src/middleware.test.ts`"
+
+  - id: auth.cookie-secure-auth-event-attributes-unchanged
+    title: "Cookie secure: auth event attributes unchanged"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: auth event attributes unchanged"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `src/features/auth/actions.test.ts`"
+
+  - id: auth.cookie-secure-failed-login-sets-no-auth-event-error
+    title: "Cookie secure: failed login sets no auth event (error)"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: failed login sets no auth event (error)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `src/features/auth/actions.test.ts`"
+
+  - id: auth.cookie-secure-staging-and-prod-set-it
+    title: "Cookie secure: staging and prod set it"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: staging and prod set it"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `platform-gitops/tests/test_frontend_cookie_secure_manifests.py`"
+
+  - id: auth.cookie-secure-local-compose-leaves-it-unset-boundary
+    title: "Cookie secure: local compose leaves it unset (boundary)"
+    persona: buyer
+    priority: P1
+    entry_route: "/login"
+    services: [team-frontend]
+    acceptance:
+      - "Cookie secure: local compose leaves it unset (boundary)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `platform-gitops/tests/test_frontend_cookie_secure_manifests.py`"
