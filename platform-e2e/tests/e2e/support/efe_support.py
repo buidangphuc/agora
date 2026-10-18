@@ -34,6 +34,7 @@ TYPES = {
     "SellerFollowed": {"user_id": 1, "seller_id": 2},
     "SellerUnfollowed": {"user_id": 1, "seller_id": 2},
     "ReviewCreated": {"review_id": 1, "user_id": 2, "listing_id": 3, "seller_id": 4, "rating": 5},
+    "ReviewHidden": {"review_id": 1, "listing_id": 2},
 }
 DEFAULT_WRAPPER = os.path.expanduser("~/Library/Caches/ai-first-runs/agora-stack/dc-agora-ov.sh")
 
