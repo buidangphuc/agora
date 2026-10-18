@@ -10,6 +10,7 @@ import { getPrincipal, getToken } from "@/lib/gateway/session";
 export const metadata: Metadata = {
   title: "Hàng chờ kiểm duyệt | Sàn Thương Mại Điện Tử",
   description: "Duyệt, từ chối hoặc khóa các tin đăng đang chờ kiểm duyệt.",
+  referrer: "no-referrer",
 };
 
 export const dynamic = "force-dynamic";

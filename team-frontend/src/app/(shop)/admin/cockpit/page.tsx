@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   title: "Admin Operations Cockpit | Sàn Thương Mại Điện Tử",
   description:
     "Bản đồ vận hành thời gian thực, telemetry, Golden Signals và Jaeger Distributed Tracing.",
+  referrer: "no-referrer",
 };
 
 export const dynamic = "force-dynamic";
