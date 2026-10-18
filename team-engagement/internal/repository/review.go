@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 )
@@ -271,23 +272,36 @@ func (r *PostgresReviewRepository) GetReview(ctx context.Context, id string) (Re
 }
 
 func (r *PostgresReviewRepository) HideReview(ctx context.Context, id, adminID, reason string) (bool, error) {
-	tag, err := r.pool.Exec(ctx,
-		`UPDATE reviews SET hidden_at = now(), hidden_by = $2, hide_reason = $3 WHERE id = $1 AND hidden_at IS NULL`,
-		id, adminID, reason)
+	changed := false
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		var listingID string
+		var hiddenAt time.Time
+		err := tx.QueryRow(ctx,
+			`UPDATE reviews SET hidden_at = now(), hidden_by = $2, hide_reason = $3 WHERE id = $1 AND hidden_at IS NULL RETURNING listing_id, hidden_at`,
+			id, adminID, reason).Scan(&listingID, &hiddenAt)
+		if err == nil {
+			changed = true
+			// Moderator identity and reason stay out of the fact.
+			return enqueueFact(ctx, tx, listingID, &engagementv1.ReviewHidden{
+				ReviewId: id, ListingId: listingID, HiddenAt: timestamppb.New(hiddenAt),
+			})
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("hide review: %w", err)
+		}
+		var exists bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM reviews WHERE id = $1)`, id).Scan(&exists); err != nil {
+			return fmt.Errorf("hide review: %w", err)
+		}
+		if !exists {
+			return ErrReviewNotFound
+		}
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("hide review: %w", err)
+		return false, err
 	}
-	if tag.RowsAffected() == 1 {
-		return true, nil
-	}
-	var exists bool
-	if err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM reviews WHERE id = $1)`, id).Scan(&exists); err != nil {
-		return false, fmt.Errorf("hide review: %w", err)
-	}
-	if !exists {
-		return false, ErrReviewNotFound
-	}
-	return false, nil
+	return changed, nil
 }
 
 var _ ReviewRepository = (*PostgresReviewRepository)(nil)
