@@ -1706,7 +1706,7 @@ features:
       - "Listing reports: The admin procedure set is pinned"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestAdminProceduresPinnedSet`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestAdminProceduresPinned`"
 
   - id: engagement-listing-reports.listing-reports-report-rpcs-are-not-left-unrouted
     title: "Listing reports: Report RPCs are not left unrouted"
