@@ -51,10 +51,10 @@ autoscaling:
           serverAddress: http://prometheus.marketplace.svc:9090
           query: sum(rate(teamai_grpc_requests_total[30s]))
           threshold: "5"     # ~5 rps per replica → scale up
-# gRPC callers: the gateway, and team-search-indexer for the internal ClassifyTags (scope ai.classify).
-# Prometheus is the KEDA metric source.
+# gRPC callers: the gateway, team-search-indexer for the internal ClassifyTags and
+# team-domain for ScreenListing (both scope ai.classify). Prometheus is the KEDA metric source.
 networkPolicy:
   enabled: true
-  allowFrom: [team-gateway, team-search-indexer, prometheus]
+  allowFrom: [team-gateway, team-search-indexer, team-domain, prometheus]
 secrets:
   enabled: true

@@ -32,6 +32,8 @@ env:
   OUTBOX_BATCH_SIZE: "100"
   OUTBOX_CLAIM_LOCK_SECONDS: "60"
   OUTBOX_MAX_ATTEMPTS: "10"
+  # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
+  UPSTREAM_AUDIT_ADDR: "team-audit:50066"
   # First-admin seed is intentionally NOT configured here (default off; enforced by
   # scripts/check_identity_seed.py). Create the first admin out of band.
 secrets:

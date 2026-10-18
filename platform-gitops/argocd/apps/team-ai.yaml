@@ -72,10 +72,11 @@ spec:
                     serverAddress: http://prometheus.marketplace.svc:9090
                     query: sum(rate(teamai_grpc_requests_total[30s]))
                     threshold: "5"     # ~5 rps per replica → scale up
-          # Only the gateway (sole gRPC caller) and Prometheus (KEDA metric source) may reach team-ai.
+          # gRPC callers: the gateway, team-search-indexer (ClassifyTags) and team-domain
+          # (ScreenListing); Prometheus is the KEDA metric source.
           networkPolicy:
             enabled: true
-            allowFrom: [team-gateway, team-search-indexer, prometheus]   # same as envs/services/team-ai.yaml
+            allowFrom: [team-gateway, team-search-indexer, team-domain, prometheus]   # same as envs/services/team-ai.yaml
           secrets:
             enabled: true
   syncPolicy:

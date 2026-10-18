@@ -37,6 +37,8 @@ spec:
               cpu: 250m
               memory: 256Mi
           env:
+            # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
+            UPSTREAM_AUDIT_ADDR: "team-audit:50066"   # same as envs/services
             UPSTREAM_PROMOTION_ADDR: "team-promotion:50061"
             UPSTREAM_DOMAIN_ADDR: "team-domain:50051"
             UPSTREAM_IDENTITY_ADDR: "team-identity:50053"

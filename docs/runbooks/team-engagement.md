@@ -11,6 +11,7 @@
 | Logs | `kubectl -n marketplace logs deploy/team-engagement --tail=200` |
 
 ## Dependencies
+- upstream `team-audit` (`UPSTREAM_AUDIT_ADDR=team-audit:50066`)
 - upstream `team-order` (`UPSTREAM_ORDER_ADDR=team-order:50055`)
 - Kafka/Redpanda `redpanda.marketplace.svc:9092`
 - Postgres (own database, `platform/postgres`; `DATABASE_URL` from Vault)
