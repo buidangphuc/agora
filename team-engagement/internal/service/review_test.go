@@ -3,10 +3,18 @@ package service_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
+	"github.com/buidangphuc/team-engagement/internal/interceptor"
 	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
@@ -511,5 +519,102 @@ func TestGetShopRatingSummaryAcrossListings(t *testing.T) {
 	// Validation
 	if _, err := svc.GetShopRatingSummary(ctx, ""); !errors.Is(err, service.ErrEmptySeller) {
 		t.Fatalf("expected ErrEmptySeller, got %v", err)
+	}
+}
+
+// pgSchemaPool returns a pool on a private, freshly migrated schema of the
+// throwaway TEST_DATABASE_URL database (skipped when unset). A private schema
+// keeps parallel package test binaries from dropping each other's tables.
+func pgSchemaPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	admin, err := pgxpool.New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := fmt.Sprintf("hide_%s_%d", "svc", time.Now().UnixNano())
+	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
+		admin.Close()
+		t.Fatal(err)
+	}
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ConnConfig.RuntimeParams["search_path"] = schema
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		pool.Close()
+		_, _ = admin.Exec(ctx, "DROP SCHEMA "+schema+" CASCADE")
+		admin.Close()
+	})
+	files, _ := filepath.Glob("../../migrations/*.up.sql")
+	sort.Strings(files)
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, string(b)); err != nil {
+			t.Fatalf("migrate %s: %v", filepath.Base(f), err)
+		}
+	}
+	return pool
+}
+
+func reviewHiddenCount(t *testing.T, pool *pgxpool.Pool) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM outbox WHERE type = 'platform.engagement.v1.ReviewHidden'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// Scenario: Review hidden event: audit failure emits nothing
+func TestHideReviewAuditFailureNoFact(t *testing.T) {
+	pool := pgSchemaPool(t)
+	ctx := interceptor.ContextWithPrincipal(context.Background(),
+		&commonv1.Principal{Id: "adm-1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin"}})
+	repo := repository.NewPostgresReviewRepository(pool)
+	rev, err := repo.CreateReview(ctx, repository.Review{ID: "r1", ListingID: "L1", UserID: "u1", OrderID: "O1", Rating: 2, VerifiedPurchase: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]*service.ReviewService{
+		"audit write fails": service.NewReviewService(repo, nil, nil).WithAudit(&spyAudit{log: &callLog{}, err: errors.New("audit down")}),
+		"no audit upstream": service.NewReviewService(repo, nil, nil),
+	}
+	for name, svc := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := svc.HideReview(ctx, "adm-1", rev.ID, "spam")
+			if !errors.Is(err, service.ErrAuditUnavailable) {
+				t.Fatalf("want ErrAuditUnavailable, got %v", err)
+			}
+			got, err := repo.GetReview(ctx, rev.ID)
+			if err != nil || got.HiddenAt != nil {
+				t.Fatalf("review must stay visible: %+v %v", got, err)
+			}
+			if n := reviewHiddenCount(t, pool); n != 0 {
+				t.Fatalf("ReviewHidden outbox rows = %d, want 0", n)
+			}
+		})
+	}
+	// Control: with a working audit the same review hides and emits exactly one fact,
+	// so the zero counts above are not a vacuous result of a broken outbox query.
+	ok := service.NewReviewService(repo, nil, nil).WithAudit(&spyAudit{log: &callLog{}})
+	if err := ok.HideReview(ctx, "adm-1", rev.ID, "spam"); err != nil {
+		t.Fatal(err)
+	}
+	if n := reviewHiddenCount(t, pool); n != 1 {
+		t.Fatalf("control: ReviewHidden outbox rows = %d, want 1", n)
 	}
 }
