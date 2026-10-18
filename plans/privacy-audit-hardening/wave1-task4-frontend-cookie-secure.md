@@ -24,6 +24,7 @@ Implement OpenSpec change `frontend-cookie-secure` test-first per its tasks.md (
 - platform-e2e/tests/e2e/features/auth/cookie_secure.feature
 - platform-e2e/tests/e2e/step_definitions/test_cookie_secure.py
 - openspec/changes/frontend-cookie-secure/**
+- team-frontend/src/docs/cookie-secure-docs.test.ts # widened at build: task 1.5
 
 ## Read-only dependencies
 - openspec/changes/frontend-cookie-secure/** is frozen by the LOCK.md digest (only task ticks change)
