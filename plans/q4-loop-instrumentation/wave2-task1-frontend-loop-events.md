@@ -1,7 +1,7 @@
 # [W2-T1] frontend-loop-events
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-loop-events`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-frontend-loop-events`)
 
 ## Objective
 Implement OpenSpec change `frontend-loop-events` test-first per its tasks.md (scenario ids there); context in plans/q4-loop-instrumentation/00-spec.md and the change's design.md Clarifications.
@@ -38,7 +38,7 @@ Implement OpenSpec change `frontend-loop-events` test-first per its tasks.md (sc
 - platform-e2e/tests/e2e/step_definitions/test_loop_events.py
 
 ## Read-only dependencies
-- openspec/changes/frontend-loop-events/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-frontend-loop-events/** (frozen by LOCK.md digest)
 - team-frontend/src/lib/analytics/dispatcher.ts (unchanged)
 - plans/q4-loop-instrumentation/00-spec.md, slices.yaml, LOCK.md
 

@@ -1,7 +1,7 @@
 # [W1-T1] analytics-loop-event-storage
 
 ## Role
-feature-run worker (change `openspec/changes/analytics-loop-event-storage`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-analytics-loop-event-storage`)
 
 ## Objective
 Implement OpenSpec change `analytics-loop-event-storage` test-first per its tasks.md (scenario ids there); context in plans/q4-loop-instrumentation/00-spec.md and the change's design.md Clarifications.
@@ -16,7 +16,7 @@ Implement OpenSpec change `analytics-loop-event-storage` test-first per its task
 - platform-e2e/tests/e2e/step_definitions/test_loop_event_storage.py
 
 ## Read-only dependencies
-- openspec/changes/analytics-loop-event-storage/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-analytics-loop-event-storage/** (frozen by LOCK.md digest)
 - platform-e2e/tests/e2e/support/ga4_relay_support.py, tii_support.py (reuse, never edit)
 - plans/q4-loop-instrumentation/00-spec.md, slices.yaml, LOCK.md
 
