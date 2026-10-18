@@ -2141,3 +2141,81 @@ features:
     tags: [listing-reports, unit]
     status: not-testable
     notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestReportRepositoryParity`"
+
+  - id: engagement-consumer-key-redaction.handler-failure-logs-fingerprint
+    title: "Engagement key redaction: handler failure logs fingerprint"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: handler failure logs fingerprint."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: handler failure logs fingerprint"
+    tags: [privacy, audit, async]
+    status: planned
+    covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: handler failure logs fingerprint"
+
+  - id: engagement-consumer-key-redaction.dlq-parking-logs-fingerprint
+    title: "Engagement key redaction: DLQ parking logs fingerprint"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: DLQ parking logs fingerprint."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: DLQ parking logs fingerprint"
+    tags: [privacy, audit, async]
+    status: planned
+    covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: DLQ parking logs fingerprint"
+
+  - id: engagement-consumer-key-redaction.empty-key
+    title: "Engagement key redaction: empty key"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: empty key."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: empty key"
+    tags: [privacy, audit, async]
+    status: planned
+    covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: empty key"
+
+  - id: engagement-consumer-key-redaction.fingerprint-is-exactly-12-hex-and-stable
+    title: "Engagement key redaction: fingerprint is exactly 12 hex and stable"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: fingerprint is exactly 12 hex and stable."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: fingerprint is exactly 12 hex and stable"
+    tags: [privacy, audit, async]
+    status: planned
+    covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: fingerprint is exactly 12 hex and stable"
+
+  - id: engagement-consumer-key-redaction.dlq-produce-failure-logs-fingerprint
+    title: "Engagement key redaction: DLQ produce failure logs fingerprint"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: DLQ produce failure logs fingerprint."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: DLQ produce failure logs fingerprint"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-engagement `internal/consumer` `TestDLQProduceFailureLogsFingerprintOffsetHeld`. Not producible end to end (needs a broker fault / handler-internal view of the key); unit level."
+
+  - id: engagement-consumer-key-redaction.successful-records-and-key-unchanged
+    title: "Engagement key redaction: successful records and key unchanged"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: successful records and key unchanged."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: successful records and key unchanged"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-engagement `internal/consumer` `TestSuccessPassesRawKeyToHandler`. Not producible end to end (needs a broker fault / handler-internal view of the key); unit level."
