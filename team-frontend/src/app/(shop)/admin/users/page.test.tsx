@@ -29,7 +29,7 @@ vi.mock("@/features/admin/userActions", () => ({
 const admin = { id: "u-admin", name: "Admin", scopes: ["admin"] };
 const buyer = { id: "u-buyer", name: "Buyer", scopes: ["order.read"] };
 const FORBIDDEN_TITLE = "Cần tài khoản Quản trị";
-const LOGIN_WITH_QUERY = `/login?returnUrl=${encodeURIComponent("/admin/users?query=an")}`;
+const LOGIN_WITH_QUERY = `/login?returnUrl=${encodeURIComponent("/admin/users")}`;
 
 const user = {
   id: "u-1",
@@ -62,7 +62,7 @@ describe("UsersPage", () => {
     expect(listUsers).not.toHaveBeenCalled();
   });
 
-  it("renders 403 for a non-admin (Users UI: Non-admin sees the 403 result)", async () => {
+  it("non-admin sees 403 (Referrer hygiene: signed-in non-admin still sees the 403 view) (Users UI: Non-admin sees the 403 result)", async () => {
     vi.mocked(getPrincipal).mockReturnValue(buyer);
     render(await UsersPage({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText(FORBIDDEN_TITLE)).toBeInTheDocument();
@@ -164,5 +164,26 @@ describe("UsersPage", () => {
     expect(
       container.querySelector('[data-testid="users-search"]'),
     ).not.toBeNull();
+  });
+
+  it("403 view keeps no-referrer (Referrer hygiene: non-admin 403 view on an admin URL also sends no referrer)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(buyer);
+    render(
+      await UsersPage({ searchParams: Promise.resolve({ query: "x" }) }),
+    );
+    expect(screen.getByText(FORBIDDEN_TITLE)).toBeInTheDocument();
+    expect(redirect).not.toHaveBeenCalled();
+    expect(metadata.referrer).toBe("no-referrer");
+  });
+
+  it("guest redirect on a searched users page is path only (Referrer hygiene: guest on admin users search gets path-only returnUrl)", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    vi.mocked(getToken).mockReturnValue(undefined);
+    await UsersPage({
+      searchParams: Promise.resolve({ query: "a@b.vn", state: "banned" }),
+    });
+    const target = String(vi.mocked(redirect).mock.calls[0][0]);
+    expect(target).toBe("/login?returnUrl=%2Fadmin%2Fusers");
+    expect(target).not.toContain("query");
   });
 });

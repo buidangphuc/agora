@@ -71,7 +71,7 @@ describe("CasesPage", () => {
       await CasesPage({ searchParams: Promise.resolve({ tab: "reports" }) }),
     ).toBeNull();
     expect(redirect).toHaveBeenCalledWith(
-      "/login?returnUrl=%2Fadmin%2Fcases%3Ftab%3Dreports",
+      "/login?returnUrl=%2Fadmin%2Fcases",
     );
     expect(listReports).not.toHaveBeenCalled();
     expect(listModerationQueue).not.toHaveBeenCalled();
@@ -113,7 +113,7 @@ describe("CasesPage", () => {
     expect(await CasesPage({ searchParams: Promise.resolve({}) })).toBeNull();
     expect(redirect).toHaveBeenCalledTimes(1);
     expect(vi.mocked(redirect).mock.calls[0][0]).toMatch(
-      /^\/login\?returnUrl=%2Fadmin%2Fcases/,
+      /^\/login\?returnUrl=%2Fadmin%2Fcases$/,
     );
   });
 
