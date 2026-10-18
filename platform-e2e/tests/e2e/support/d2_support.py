@@ -125,10 +125,15 @@ def add_to_cart(world: World, shop: dict[str, Any], quantity: int = 1) -> None:
     buyer_cart(world).add_to_cart(shop["listing_id"], quantity)
 
 
-def place_order(world: World, shop: dict[str, Any], quantity: int = 1) -> str:
-    """Create a COD order for the logged-in d2 buyer from `shop`; returns the order id."""
+def place_order(
+    world: World,
+    shop: dict[str, Any],
+    quantity: int = 1,
+    payment_method: str = "PAYMENT_METHOD_COD",
+) -> str:
+    """Create an order (COD by default) for the logged-in d2 buyer from `shop`; returns its id."""
     add_to_cart(world, shop, quantity)
-    res = buyer_orders(world).create_order({"paymentMethod": "PAYMENT_METHOD_COD"})
+    res = buyer_orders(world).create_order({"paymentMethod": payment_method})
     orders = res.get("orders", [])
     order_id = orders[0]["id"] if orders else res["order"]["id"]
     world.state.extra["d2_order_id"] = order_id

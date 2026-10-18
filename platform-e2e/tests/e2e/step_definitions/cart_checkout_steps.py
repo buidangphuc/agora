@@ -257,7 +257,9 @@ def buyer_order_awaiting_payment(world: World) -> None:
     buyer = scenario_buyer(world)
     login_via_api(world, buyer)
     listing_id = world.state.listing.listing_id if world.state.listing else "listing_001"
-    create_order_via_api(world, buyer, listing_id)
+    # The pay page offers the simulator only to an online-pay order; a COD order shows
+    # its COD result (frontend-order-lifecycle, "Payment deadline and retry").
+    create_order_via_api(world, buyer, listing_id, payment_method="PAYMENT_METHOD_MOCK_MOMO")
     res = world.service_factory.payment.create_payment(world.state.order_id)
     assert (res.get("transaction") or {}).get("id"), res
 

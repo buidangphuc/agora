@@ -20,7 +20,9 @@ from tests.e2e.support.world import World
 def order_awaiting_payment(world: World) -> None:
     d2.seed_buyer(world)
     shop = d2.seed_shop(price=300000)
-    order_id = d2.place_order(world, shop)
+    # The pay page offers the simulator only to an online-pay order; a COD order shows
+    # its COD result (frontend-order-lifecycle, "Payment deadline and retry").
+    order_id = d2.place_order(world, shop, payment_method="PAYMENT_METHOD_MOCK_MOMO")
     res = PaymentService(token=world.state.extra["d2_buyer"].token).create_payment(order_id)
     assert (res.get("transaction") or {}).get("id"), res
 
