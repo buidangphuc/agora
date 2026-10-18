@@ -275,3 +275,50 @@ def test_als_v3_keeps_consent_filter(dirs, env):
     rows, _ = _als_v3(dirs, env)
     assert {k[0] for k in rows} == {"u1"}
     assert rows[("u1", "L1")]["weight"] == 2.0
+
+
+# ---- Task 4: lock ----
+
+
+def test_new_versions_locked_old_hashes_unchanged():
+    """Scenario: Hidden review exclusion: new versions are registered and locked."""
+    from conftest import ROOT
+
+    reg = ROOT / "registry"
+    views = registry.load_registry(reg)
+    keys = {v.key for v in views} | {x.key for x in registry.load_datasets(reg)}
+    assert {"item_popularity@v2", "als_interactions@v3"} <= keys
+    registry.check_lock(reg, views, registry.load_datasets(reg))
+    lock = registry.read_lock(reg)
+    assert {"item_popularity@v2", "als_interactions@v3"} <= set(lock)
+    assert lock["item_popularity@v1"].startswith("82c25539")
+    assert lock["als_interactions@v1"].startswith("9fb41c13")
+    assert lock["als_interactions@v2"].startswith("b8edcca4")
+
+
+def test_editing_locked_view_exits_4(dirs, env, redis, registry_copy, monkeypatch):
+    """Scenario: Hidden review exclusion: editing a locked file fails with drift."""
+    import dataclasses
+
+    from featurestore.settings import Settings
+
+    write_inputs(dirs[0], facts=[_rev("f1", "R1", 5, h(10))])
+    sql = registry_copy / "sql/item_popularity.sql"
+    sql.write_text(sql.read_text() + "\n-- edited without a version bump\n")
+    orig = Settings.from_env.__func__
+    monkeypatch.setattr(
+        Settings,
+        "from_env",
+        classmethod(lambda cls, e=None: dataclasses.replace(orig(cls, e), registry_dir=registry_copy)),
+    )
+    assert cli.main(["materialize"], env, redis) == 4
+    assert not list(dirs[1].glob("runs/*"))
+
+
+def test_popularity_v1_unchanged(dirs, settings, redis):
+    """Scenario: Hidden review exclusion: old versions still count hidden reviews."""
+    facts = [_rev("f1", "R1", 5, h(10)), _rev("f2", "R2", 1, h(9)), _hide("f3", "R2", h(5))]
+    write_inputs(dirs[0], facts=facts)
+    row = _view(settings, redis, "item_popularity@v1")["L1"]
+    assert row["review_count"] == 2
+    assert row["avg_rating"] == 3.0
