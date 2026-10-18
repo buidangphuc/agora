@@ -1,7 +1,7 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeClients } from "@/lib/gateway/client";
 import { refreshSession } from "@/lib/gateway/refresh";
@@ -834,5 +834,127 @@ describe("login enforcement refusals (frontend-user-enforcement)", () => {
       expect.anything(),
       expect.anything(),
     );
+  });
+});
+
+describe("auth event cookie Secure (frontend-cookie-secure)", () => {
+  const EVT = "agora_auth_evt";
+  const hdrs = (h: Record<string, string> = {}) =>
+    vi.mocked(headers).mockReturnValue(new Headers(h) as never);
+  const evt = async () => {
+    const calls = vi
+      .mocked((await cookies()).set)
+      .mock.calls.filter((c) => c[0] === EVT);
+    expect(calls).toHaveLength(1);
+    return calls[0] as unknown as [string, string, Record<string, unknown>];
+  };
+  const doLogin = async () => {
+    stubAuth({
+      login: vi
+        .fn()
+        .mockResolvedValue({ result: { token: "jwt", refreshToken: "rt" } }),
+    });
+    await loginAction(initial, form({ username: "alice", password: "pw" }));
+  };
+  const doRegister = async () => {
+    stubAuth({
+      register: vi
+        .fn()
+        .mockResolvedValue({ result: { token: "jwt", refreshToken: "rt" } }),
+    });
+    await registerAction(
+      initial,
+      form({ username: "alice", password: "pass1234", role: "buyer" }),
+    );
+  };
+  const sets = async (name: string) =>
+    vi
+      .mocked((await cookies()).set)
+      .mock.calls.filter((c) => c[0] === name) as unknown as [
+      string,
+      string,
+      Record<string, unknown>,
+    ][];
+
+  beforeEach(async () => {
+    vi.mocked((await cookies()).set).mockClear();
+    hdrs();
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("Cookie secure: forced on without proxy header - login sets all three cookies Secure", async () => {
+    vi.stubEnv("COOKIE_SECURE", "true");
+    await doLogin();
+    for (const name of ["session", "agora_refresh", EVT]) {
+      const c = await sets(name);
+      expect(c, name).toHaveLength(1);
+      expect(c[0][2].secure, name).toBe(true);
+    }
+  });
+
+  it("Cookie secure: forced on without proxy header - sign_up sets the event cookie Secure", async () => {
+    vi.stubEnv("COOKIE_SECURE", "true");
+    await doRegister();
+    expect((await evt())[2].secure).toBe(true);
+  });
+
+  it("Cookie secure: forced on beats a client header - event cookie Secure on http header", async () => {
+    vi.stubEnv("COOKIE_SECURE", "true");
+    hdrs({ "x-forwarded-proto": "http" });
+    await doLogin();
+    expect((await evt())[2].secure).toBe(true);
+  });
+
+  it("Cookie secure: unset keeps the proxy rule - https header makes event cookie Secure", async () => {
+    vi.stubEnv("COOKIE_SECURE", "");
+    hdrs({ "x-forwarded-proto": "https" });
+    await doLogin();
+    expect((await evt())[2].secure).toBe(true);
+  });
+
+  it("Cookie secure: unset and plain http - event cookie not Secure (login and sign_up)", async () => {
+    vi.stubEnv("COOKIE_SECURE", "");
+    await doLogin();
+    expect((await evt())[2].secure).toBeFalsy();
+    vi.mocked((await cookies()).set).mockClear();
+    await doRegister();
+    expect((await evt())[2].secure).toBeFalsy();
+  });
+
+  it.each([
+    ["true", "login", {}],
+    ["", "login", {}],
+    ["true", "sign_up", {}],
+    ["", "sign_up", { "x-forwarded-proto": "https" }],
+  ])(
+    "Cookie secure: auth event attributes unchanged (COOKIE_SECURE=%j, %s)",
+    async (env, kind, h) => {
+      vi.stubEnv("COOKIE_SECURE", env);
+      hdrs(h);
+      await (kind === "login" ? doLogin() : doRegister());
+      const [, value, opts] = await evt();
+      expect(value).toBe(kind);
+      expect(opts).toEqual(
+        expect.objectContaining({
+          maxAge: 60,
+          sameSite: "lax",
+          path: "/",
+          httpOnly: false,
+        }),
+      );
+      expect(opts.httpOnly).not.toBe(true);
+    },
+  );
+
+  it("Cookie secure: failed login sets no auth event (error) even when forced on", async () => {
+    vi.stubEnv("COOKIE_SECURE", "true");
+    stubAuth({
+      login: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("no", Code.Unauthenticated)),
+    });
+    await loginAction(initial, form({ username: "x", password: "y" }));
+    expect(await sets(EVT)).toHaveLength(0);
+    expect(redirect).not.toHaveBeenCalled();
   });
 });
