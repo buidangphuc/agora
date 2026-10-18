@@ -2,7 +2,7 @@
 Feature: Seller sees the moderation status of their listings (frontend-listing-moderation)
   A flagged publish waits in review, a clean one sells, a rejected one returns to review after an
   edit, and the seller never reads the screen flags. Scenario names echo the spec scenarios of
-  openspec/changes/frontend-listing-moderation. Each flagged case is paired with a clean listing of
+  openspec/changes/archive/2026-10-18-frontend-listing-moderation. Each flagged case is paired with a clean listing of
   the same seller so the status tags cannot pass vacuously.
 
   Scenario: Moderation UI: Seller sees the pending status after publishing a flagged listing

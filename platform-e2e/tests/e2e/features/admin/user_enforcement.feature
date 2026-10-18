@@ -3,7 +3,7 @@ Feature: User enforcement
   An admin restricts, suspends or bans a user through AccountAdminService. The change is
   audited first, revokes the user's sessions, ends their access within a minute, and is
   enforced again at login and refresh. Scenario names echo the spec scenarios of
-  openspec/changes/identity-user-enforcement. Every refusal is paired with a positive
+  openspec/changes/archive/2026-10-18-identity-user-enforcement. Every refusal is paired with a positive
   control so it cannot pass vacuously.
 
   Scenario: User enforcement: Ban writes one audit event and revokes sessions

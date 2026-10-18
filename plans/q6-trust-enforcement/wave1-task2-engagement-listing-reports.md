@@ -1,7 +1,7 @@
 # [W1-T2] engagement-listing-reports
 
 ## Role
-feature-run worker (change `openspec/changes/engagement-listing-reports`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-engagement-listing-reports`)
 
 ## Objective
 Implement OpenSpec change `engagement-listing-reports` test-first per its tasks.md (scenario ids there); context in plans/q6-trust-enforcement/00-spec.md and the change's design.md Clarifications.
@@ -45,10 +45,10 @@ Implement OpenSpec change `engagement-listing-reports` test-first per its tasks.
 - platform-e2e/src/api/services/engagement_service.py
 - platform-e2e/tests/e2e/features/engagement/listing_reports.feature
 - platform-e2e/tests/e2e/step_definitions/test_listing_reports.py
-- openspec/changes/engagement-listing-reports/**
+- openspec/changes/archive/2026-10-18-engagement-listing-reports/**
 
 ## Read-only dependencies
-- openspec/changes/engagement-listing-reports/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-18-engagement-listing-reports/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/support/audit_support.py (reuse, do not edit)
 - team-engagement hidereview_roundtrip_test.go (pattern)
 - plans/q6-trust-enforcement/00-spec.md, slices.yaml, LOCK.md

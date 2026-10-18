@@ -2,7 +2,7 @@
 Feature: Seller enforcement hold
   When an admin suspends or bans a seller, the seller's listings leave the store, and they come
   back when the seller is reinstated. team-domain reacts to UserStatusChanged on identity.events.
-  Scenario names echo the spec scenarios of openspec/changes/domain-seller-enforcement-hold.
+  Scenario names echo the spec scenarios of openspec/changes/archive/2026-10-18-domain-seller-enforcement-hold.
   Every "gone" assertion is paired with a positive control (visible before, other seller
   untouched) so it cannot pass vacuously.
 

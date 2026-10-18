@@ -1,7 +1,7 @@
 # [W4-T3] frontend-user-enforcement
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-user-enforcement`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-frontend-user-enforcement`)
 
 ## Objective
 Implement OpenSpec change `frontend-user-enforcement` test-first per its tasks.md (scenario ids there); context in plans/q6-trust-enforcement/00-spec.md and the change's design.md Clarifications.
@@ -45,11 +45,11 @@ Implement OpenSpec change `frontend-user-enforcement` test-first per its tasks.m
 - platform-e2e/tests/e2e/step_definitions/user_enforcement_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_user_enforcement_ui.py
 - platform-e2e/tests/e2e/pages/admin_users_page.py
-- openspec/changes/frontend-user-enforcement/**
+- openspec/changes/archive/2026-10-18-frontend-user-enforcement/**
 - team-frontend/src/lib/gateway/client-account-admin.test.ts (# widened at build: task 1.1)
 
 ## Read-only dependencies
-- openspec/changes/frontend-user-enforcement/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-18-frontend-user-enforcement/** is frozen by the LOCK.md digest (only task ticks change)
 - team-frontend/proto/** (copied by q6-trust-contract; never edit)
 - platform-e2e/tests/e2e/support/audit_support.py (never edit)
 - platform-e2e/tests/e2e/features/auth/login_return.feature (must stay green)

@@ -2,7 +2,7 @@
 Feature: Admin users page and login enforcement in the browser (frontend-user-enforcement)
   /admin/users lets an admin find a user and set a status; a suspended or banned user is refused
   at /login with one fixed text; a restricted seller sees a notice instead of a login loop.
-  Scenario names echo the spec scenarios of openspec/changes/frontend-user-enforcement. Every
+  Scenario names echo the spec scenarios of openspec/changes/archive/2026-10-18-frontend-user-enforcement. Every
   refusal is paired with a positive control (the admin sees the page, the reinstated user logs in,
   the stored status is read back through the gateway) so it cannot pass vacuously.
 
