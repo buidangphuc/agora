@@ -61,7 +61,13 @@ const nextConfig = {
     return [
       {
         source: "/:path*",
-        headers: [{ key: "Content-Security-Policy", value: buildCsp() }],
+        headers: [
+          { key: "Content-Security-Policy", value: buildCsp() },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+        ],
       },
     ];
   },
