@@ -1,15 +1,4 @@
-// Package store owns Postgres access. Here it only embeds the migrations:
-// hello keeps no data, but a real service puts its queries next to them.
+// Package store owns Postgres access. hello keeps no data, so it holds no
+// queries; a real service puts them here. Its migrations live outside, in the
+// root migrations package, and are applied by a migrate job, not at boot.
 package store
-
-import (
-	"embed"
-	"io/fs"
-)
-
-//go:embed migrations/*.sql
-var files embed.FS
-
-// Migrations returns the migration files at the root of the returned FS, the
-// shape migrate.Up expects.
-func Migrations() (fs.FS, error) { return fs.Sub(files, "migrations") }
