@@ -389,6 +389,7 @@ func TestRefreshSecretsNeverLogged(t *testing.T) {
 
 // Scenarios: Session client context: rotation records IP via repository; refresh needs no
 // principal and grants nothing (permission). The ClientInfo in ctx is the only caller input.
+// Regression guards: behaviour delivered by 1.1/1.2, so green at base by design.
 func TestSessionClientContext_HandlerRefreshNoPrincipalRecordsClient_Permission(t *testing.T) {
 	e := newREnv(t)
 	reg, err := e.h.Register(gwCtx("203.0.113.1", "AgoraTest/1"),
