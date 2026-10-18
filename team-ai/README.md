@@ -4,9 +4,10 @@ The AI service of the agora platform. It serves the platform-core gRPC contract 
 
 ## Scope
 
-- **gRPC** (always on once the app opens its resources): `AIService` (shopping assistant, magic listing, chat copilot, `ClassifyTags`), `ChatService` (`StreamChat`), `RecommendationService` (`Recommend`) and `SearchService` (`SearchListings` only).
+- **gRPC** (always on once the app opens its resources): `AIService` (shopping assistant, magic listing, chat copilot, `ClassifyTags`, `ScreenListing`), `ChatService` (`StreamChat`), `RecommendationService` (`Recommend`) and `SearchService` (`SearchListings` only).
 - **HTTP**: `/api/v1/ai/*` (assistant and tag routes), `/api/v1/completions` (sync and SSE), `/healthz`, `/readyz` and `/metrics` (`teamai_grpc_requests_total`, which KEDA scales on).
 - **Always on**: Redis, recommendations (Qdrant), the per-principal rate limit (Redis), the chat reply quota (Redis), taxonomy persistence (Redis database `TAXONOMY_REDIS_DATABASE`), gRPC reflection, graceful drain and the request timeout. Settings fail fast without `REDIS_HOST`.
+- **Listing screen**: the `ScreenListing` RPC screens a listing for trust enforcement. `SCREEN_BACKEND` selects the backend (`mock` by default, or `llm_router`). The Kafka listing indexer indexes only listings in the `PUBLISHED` state.
 - **Four switches**: `CHAT_BACKEND` (`mock` or `llm_router`), `RAG_ENABLED` (Qdrant, model_server embeddings and the Kafka listing indexer), `AI_USE_SCOPE_REQUIRED` and `DOCS_ENABLED`. OpenTelemetry starts when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, Langfuse when both Langfuse keys are set.
 - API-key Bearer auth for HTTP, gateway-forwarded principal metadata for gRPC, and the app shell: request IDs, error envelope, graceful drain.
 

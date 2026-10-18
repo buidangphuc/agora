@@ -10,6 +10,7 @@ import {
   getListing,
   getStorefront,
   listListings,
+  listMyListings,
   suggest,
   upsertStorefront,
 } from "./listings.js";
@@ -151,5 +152,110 @@ describe("storefront display name", () => {
       "Tiem Hoa Nho",
     );
     expect(sf.displayName).toBe("Tiem Hoa Nho");
+  });
+});
+
+describe("listings moderation mapping", () => {
+  it.each([
+    [ListingStatus.PENDING_REVIEW, "pending_review"],
+    [ListingStatus.BANNED, "banned"],
+    [ListingStatus.HELD, "held"],
+  ])(
+    "Moderation UI: Screen flags never reach a seller surface - status %s maps to %s",
+    async (status, label) => {
+      stub({
+        listing: {
+          getListing: vi
+            .fn()
+            .mockResolvedValue({ listing: { ...protoListing, status } }),
+        },
+      });
+      const l = await getListing("l1");
+      expect(l?.status).toBe(label);
+    },
+  );
+
+  it("Moderation UI: Screen flags never reach a seller surface - seller mapping drops screen flags", async () => {
+    const moderation = {
+      reasonCode: "prohibited_item",
+      note: "Vi pham chinh sach",
+      screenFlags: ["keyword:thuoc la"],
+      decidedAt: { seconds: 1700000000n, nanos: 0 },
+    };
+    const withFlags = {
+      ...protoListing,
+      status: ListingStatus.BANNED,
+      moderation,
+    };
+    stub({
+      listing: {
+        listMyListings: vi.fn().mockResolvedValue({
+          listings: [withFlags],
+          page: { nextCursor: "", total: 1n },
+        }),
+        getListing: vi.fn().mockResolvedValue({ listing: withFlags }),
+        listListings: vi.fn().mockResolvedValue({
+          listings: [withFlags],
+          page: { nextCursor: "", total: 1n },
+        }),
+      },
+    });
+    const mine = await listMyListings();
+    const one = await getListing("l1");
+    const browse = await listListings();
+    for (const l of [mine.items[0], one, browse.items[0]]) {
+      expect(l?.moderation).toMatchObject({
+        reasonCode: "prohibited_item",
+        note: "Vi pham chinh sach",
+      });
+      expect(typeof l?.moderation?.decidedAt).toBe("string");
+      expect(l?.moderation?.decidedAt).not.toBe("");
+      expect(l?.moderation).not.toHaveProperty("screenFlags");
+      expect(JSON.stringify(l)).not.toContain("keyword:");
+      expect(l).not.toHaveProperty("screenFlags");
+    }
+  });
+
+  it("Moderation UI: Screen flags never reach a seller surface - listing without moderation has none", async () => {
+    stub({
+      listing: {
+        getListing: vi.fn().mockResolvedValue({ listing: protoListing }),
+      },
+    });
+    const l = await getListing("l1");
+    expect(l?.moderation).toBeUndefined();
+  });
+
+  it.each(["pending_review", "banned", "held"])(
+    "Moderation UI: Screen flags never reach a seller surface - statusFromLabel never emits a moderation state for %s",
+    async (label) => {
+      const create = vi.fn().mockResolvedValue({ listing: protoListing });
+      stub({ listing: { createListing: create } });
+      await createListing({
+        title: "t",
+        description: "d",
+        price: 1,
+        currency: "VND",
+        status: label,
+      });
+      expect(create.mock.calls[0]?.[0].listing.status).toBe(
+        ListingStatus.DRAFT,
+      );
+    },
+  );
+
+  it("Moderation UI: Screen flags never reach a seller surface - published still emits PUBLISHED", async () => {
+    const create = vi.fn().mockResolvedValue({ listing: protoListing });
+    stub({ listing: { createListing: create } });
+    await createListing({
+      title: "t",
+      description: "d",
+      price: 1,
+      currency: "VND",
+      status: "published",
+    });
+    expect(create.mock.calls[0]?.[0].listing.status).toBe(
+      ListingStatus.PUBLISHED,
+    );
   });
 });

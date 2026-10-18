@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Result } from "@/components/ui/Result";
 import { ListingForm } from "@/features/listing/ListingForm";
+import { ModerationBanner } from "@/features/listing/ModerationBanner";
 import { LinkButton } from "@/features/seller/LinkButton";
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { listCategories } from "@/lib/gateway/listings";
@@ -18,8 +19,9 @@ export default async function SellerEditPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
-  if (!hasScope("listing.write"))
+  if (!getPrincipal())
     redirectGuestToLogin(`/seller/${encodeURIComponent(params.id)}/edit`);
+  if (!hasScope("listing.write")) return null;
 
   const [listing, categories] = await Promise.all([
     loadListing(params.id),
@@ -51,7 +53,12 @@ export default async function SellerEditPage(props: {
         description={`Cập nhật thông tin, giá bán và tồn kho cho mã ${listing.id.slice(0, 8)}.`}
         action={<LinkButton href="/seller">Quay lại danh sách</LinkButton>}
       />
+      <ModerationBanner
+        status={listing.status}
+        moderation={listing.moderation}
+      />
       <ListingForm
+        readOnly={listing.status === "banned" || listing.status === "held"}
         listingId={listing.id}
         categories={categories}
         submitLabel="Lưu thay đổi"

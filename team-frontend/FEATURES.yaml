@@ -10968,3 +10968,2041 @@ features:
     tags: [buyer, pricing, unit]
     status: not-testable
     notes: "VERIFIED BY team-gateway/internal/edge/order_test.go TestOrderForwarderCalculateShippingFeeAnonymous. Not producible end to end through the browser (unit level)."
+
+  # --- change frontend-user-enforcement ---
+
+  - id: frontend.user-enforcement-anonymous-visitor-is-redirected-to-login
+    title: "Users UI: Anonymous visitor is redirected to login"
+    persona: guest
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When a request with no session cookie opens `/admin/users?query=an`"
+      - "Then the page calls `redirectGuestToLogin` with path `/admin/users` and search params `query=an`, and `ListUsers` is called zero times"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/admin/users/page.test.tsx` `redirects an anonymous visitor to login`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-anonymous-browser-visit
+    title: "Users UI: Anonymous browser visit"
+    persona: guest
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When a visitor with no session opens `/admin/users` in the browser"
+      - "Then the browser lands on `/login` with a `returnUrl` for `/admin/users`"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Anonymous browser visit"
+
+  - id: frontend.user-enforcement-non-admin-sees-the-403-result
+    title: "Users UI: Non-admin sees the 403 result"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When a signed-in buyer without the `admin` scope opens `/admin/users`"
+      - "Then the page renders status 403 with the title \"Cần tài khoản Quản trị\" and a \"Quay lại trang chủ\" link, and `ListUsers` is called zero times"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/admin/users/page.test.tsx` `renders 403 for a non-admin`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-a-buyer-opening-the-page-in-the-browser-is-refused
+    title: "Users UI: A buyer opening the page in the browser is refused"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When a signed-in buyer opens `/admin/users` in the browser"
+      - "Then the page shows \"Cần tài khoản Quản trị\" and no user table"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: A buyer opening the page in the browser is refused"
+
+  - id: frontend.user-enforcement-gateway-refusal-is-shown-as-the-same-403
+    title: "Users UI: Gateway refusal is shown as the same 403"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the principal carries the `admin` scope but the gateway answers `PermissionDenied`"
+      - "Then the page renders the 403 result with the sub-text \"Gateway từ chối quyền admin cho phiên đăng nhập này.\" and no table"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/admin/users/page.test.tsx` `renders 403 when the gateway denies`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-expired-session-is-sent-to-login
+    title: "Users UI: Expired session is sent to login"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the gateway answers `Unauthenticated` for an admin principal"
+      - "Then the page calls `redirectGuestToLogin(\"/admin/users\", ...)`"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/admin/users/page.test.tsx` `redirects on gateway unauthenticated`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-login-guard-test-still-passes
+    title: "Users UI: Login guard test still passes"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the Q1 guard test scans `src/app` after this change"
+      - "Then it reports zero bare `redirect(\"/login...\")` calls"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/guards.test.ts` `no bare redirect to login`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-the-users-page-sends-no-referrer
+    title: "Users UI: The users page sends no referrer"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the page module's `metadata` is read"
+      - "Then `metadata.referrer` equals `no-referrer`"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/admin/users/page.test.tsx` `metadata sets no-referrer`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-rows-show-the-user-columns
+    title: "Users UI: Rows show the user columns"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the gateway returns one user \"an01\" with roles seller and buyer, status SUSPENDED, reason `fraud`, until 2026-10-20T10:00:00Z"
+      - "Then the page renders one row with \"an01\", the id, \"seller, buyer\", \"Tạm khóa\", \"fraud\" and \"2026-10-20 17:00\""
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/UsersView.test.tsx` `renders one row with status and local until`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-search-is-forwarded-as-typed-fields
+    title: "Users UI: Search is forwarded as typed fields"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin opens `/admin/users?query=an01&status=suspended&cursor=c2`"
+      - "Then `ListUsers` receives `query = \"an01\"`, `status = USER_STATUS_SUSPENDED`, `page.cursor = \"c2\"` and `page.pageSize = 20`"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/lib/gateway/users.test.ts` `forwards query, status, cursor and page size 20`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-oversized-or-unknown-filter-values-are-bounded
+    title: "Users UI: Oversized or unknown filter values are bounded"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the URL carries, in turn, a 300-character ASCII `query`, a `query` of 40 \"ư\" (2 bytes each in UTF-8), an array-valued `query`, and `status=banana`"
+      - "Then the ASCII query is cut to 64 characters, the \"ư\" query is cut to 32 characters (64 bytes, no split character), the first array value is used, and the status filter is not sent"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userFilters.test.ts` `caps query at 64 UTF-8 bytes, takes first array value, drops unknown status`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-next-page-link-carries-cursor-and-filters
+    title: "Users UI: Next page link carries cursor and filters"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the response has `next_cursor` \"c3\" and the URL has `query=an`"
+      - "Then the \"Trang sau\" link href contains `cursor=c3` and `query=an`"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/UsersView.test.tsx` `next link keeps filters`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-last-page-has-no-next-link
+    title: "Users UI: Last page has no next link"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the response `next_cursor` is empty"
+      - "Then the page renders no \"Trang sau\" link"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/UsersView.test.tsx` `no next link on the last page`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-markup-in-a-username-is-shown-as-text
+    title: "Users UI: Markup in a username is shown as text"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When a returned username is `<img src=x onerror=alert(1)>`"
+      - "Then the cell contains that literal text and the rendered tree contains zero `img` elements"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/UsersView.test.tsx` `renders markup as text`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-no-matching-user
+    title: "Users UI: No matching user"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `ListUsers` returns zero users"
+      - "Then the page shows \"Không tìm thấy người dùng nào\" and no table rows"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/UsersView.test.tsx` `shows the empty state`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-search-by-a-principal-that-lost-the-admin-scope-is-denied
+    title: "Users UI: Search by a principal that lost the admin scope is denied"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the cookie still carries the `admin` scope but the gateway answers `PermissionDenied` to a `ListUsers` search"
+      - "Then the page renders the 403 result and zero user rows"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/admin/users/page.test.tsx` `renders 403 and no rows on a denied search`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-identity-unavailable
+    title: "Users UI: Identity unavailable"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `ListUsers` fails with `Unavailable` or times out after 5 s"
+      - "Then the page shows \"Không tải được danh sách người dùng. Vui lòng thử lại sau.\" and keeps the search form usable"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/lib/gateway/users.test.ts` `maps unavailable and timeout`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-admin-finds-a-user-by-username-in-the-browser
+    title: "Users UI: Admin finds a user by username in the browser"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin searches `/admin/users` for the username of a freshly registered buyer"
+      - "Then the table shows that buyer with status \"Hoạt động\""
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Admin finds a user by username in the browser"
+
+  - id: frontend.user-enforcement-suspend-with-an-end-time
+    title: "Users UI: Suspend with an end time"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin submits SUSPENDED, reason `fraud`, note \"bán hàng giả\", end time 2026-10-20 17:00 for a buyer"
+      - "Then `SetUserStatus` is called once with `status = USER_STATUS_SUSPENDED`, `reason_code = \"fraud\"`, `until = 2026-10-20T10:00:00Z`, and `revalidatePath(\"/admin/users\")` is called once"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userActions.test.ts` `suspend sends until in UTC+7`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-ban-and-restrict-send-no-end-time
+    title: "Users UI: Ban and restrict send no end time"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin submits BANNED, then RESTRICTED, each with a reason and a leftover end-time value in the form"
+      - "Then both `SetUserStatus` calls carry no `until`"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userActions.test.ts` `until is sent only for suspended`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-success-shows-how-many-sessions-ended
+    title: "Users UI: Success shows how many sessions ended"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `SetUserStatus` answers `sessions_revoked = 2`"
+      - "Then the page shows \"Đã cập nhật trạng thái; đã đăng xuất 2 phiên.\""
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userActions.test.ts` `reports sessions revoked`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-reinstating-shows-zero-sessions-ended
+    title: "Users UI: Reinstating shows zero sessions ended"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin sets a banned user to ACTIVE with a reason and `SetUserStatus` answers `sessions_revoked = 0`"
+      - "Then the action result message is \"Đã cập nhật trạng thái; đã đăng xuất 0 phiên.\" and no `until` is sent"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userActions.test.ts` `reinstating reports zero sessions`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-invalid-input-or-unknown-user-from-the-server-is-reported
+    title: "Users UI: Invalid input or unknown user from the server is reported"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `SetUserStatus` answers `InvalidArgument` with the raw message \"reason_code too long\", then `NotFound`"
+      - "Then the action returns the error \"Dữ liệu không hợp lệ; trạng thái không thay đổi.\", then \"Không tìm thấy người dùng này; trạng thái không thay đổi.\", neither contains the raw message, and neither returns the success message"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userActions.test.ts` `maps invalid and not found to fixed messages`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-missing-reason-is-refused-locally
+    title: "Users UI: Missing reason is refused locally"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin submits a status change with no reason code"
+      - "Then the form shows \"Vui lòng chọn mã lý do.\" and `SetUserStatus` is called zero times"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userActions.test.ts` `refuses an empty reason`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-suspension-without-a-future-end-time-is-refused-locally
+    title: "Users UI: Suspension without a future end time is refused locally"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin submits SUSPENDED with no end time, then with an end time one minute in the past"
+      - "Then both attempts show \"Chọn thời điểm kết thúc tạm khóa trong tương lai.\" and `SetUserStatus` is called zero times"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userActions.test.ts` `refuses missing or past until`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-note-of-501-characters-is-refused-locally
+    title: "Users UI: Note of 501 characters is refused locally"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin submits a note of 501 characters"
+      - "Then the form shows \"Ghi chú tối đa 500 ký tự.\" and `SetUserStatus` is called zero times; a note of exactly 500 characters is sent"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userActions.test.ts` `note boundary 500`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-non-admin-cannot-run-the-action
+    title: "Users UI: Non-admin cannot run the action"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the server action runs with a session whose scopes lack `admin`, or with no session"
+      - "Then it returns an error result (no session: a login redirect) and `SetUserStatus` is called zero times"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userActions.test.ts` `rechecks admin and session`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-own-row-and-admin-rows-have-no-action-form
+    title: "Users UI: Own row and admin rows have no action form"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the list contains the signed-in admin and another user with the `admin` role"
+      - "Then neither row renders a status form, and other rows do"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/UsersView.test.tsx` `hides actions for self and admins`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-server-refuses-a-self-or-admin-target
+    title: "Users UI: Server refuses a self or admin target"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `SetUserStatus` answers `FAILED_PRECONDITION`"
+      - "Then the page shows \"Không thể thay đổi trạng thái của chính bạn hoặc của một quản trị viên khác.\" and the row is unchanged"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/lib/gateway/users.test.ts` `maps failed precondition`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-audit-service-down-leaves-the-user-unchanged
+    title: "Users UI: Audit service down leaves the user unchanged"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `SetUserStatus` answers `Unavailable` because team-audit is down"
+      - "Then the page shows \"Hệ thống chưa ghi nhận được thao tác; trạng thái không thay đổi. Vui lòng thử lại sau.\" and never shows the success message"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/lib/gateway/users.test.ts` `maps unavailable on set status`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-expired-session-during-the-action-is-sent-to-login
+    title: "Users UI: Expired session during the action is sent to login"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `SetUserStatus` answers `Unauthenticated`"
+      - "Then the action calls `redirectGuestToLogin(\"/admin/users\")`"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/userActions.test.ts` `redirects on unauthenticated`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-admin-suspends-a-buyer-from-the-users-page
+    title: "Users UI: Admin suspends a buyer from the users page"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin finds a fresh buyer and submits SUSPENDED with reason `fraud` and an end time one hour ahead"
+      - "Then the page shows the success message and the buyer's row reads \"Tạm khóa\" with that end time"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Admin suspends a buyer from the users page"
+
+  - id: frontend.user-enforcement-admin-bans-then-reinstates-a-buyer
+    title: "Users UI: Admin bans then reinstates a buyer"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin bans a fresh buyer with reason `abuse`, then sets the same buyer to \"Hoạt động\" with a reason"
+      - "Then the row reads \"Cấm\" after the first change and \"Hoạt động\" after the second"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Admin bans then reinstates a buyer"
+
+  - id: frontend.user-enforcement-admin-has-no-controls-on-their-own-row
+    title: "Users UI: Admin has no controls on their own row"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the admin searches for their own username"
+      - "Then the row has no status form"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Admin has no controls on their own row"
+
+  - id: frontend.user-enforcement-audit-down-in-the-browser-leaves-the-user-active
+    title: "Users UI: Audit down in the browser leaves the user active"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When team-audit is stopped and an admin suspends a fresh buyer"
+      - "Then the page shows \"Hệ thống chưa ghi nhận được thao tác; trạng thái không thay đổi. Vui lòng thử lại sau.\" and the buyer can still log in"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Audit down in the browser leaves the user active"
+
+  - id: frontend.user-enforcement-cockpit-shows-the-users-link
+    title: "Users UI: Cockpit shows the users link"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin opens `/admin/cockpit`"
+      - "Then the page contains one link \"Quản lý người dùng\" with href `/admin/users`"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/admin/CockpitView.test.tsx` `shows the users link`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-non-admin-cockpit-visitor-sees-no-users-link
+    title: "Users UI: Non-admin cockpit visitor sees no users link"
+    persona: admin
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability admin-user-enforcement-ui."
+    entry_route: /admin/users
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When a signed-in buyer opens `/admin/cockpit`"
+      - "Then the page does not contain a \"Quản lý người dùng\" link and the 403 result is shown"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/admin/cockpit/page.test.tsx` `non-admin sees no users link`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-suspended-user-sees-the-fixed-refusal
+    title: "Users UI: Suspended user sees the fixed refusal"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `Login` answers `PermissionDenied` with the raw message \"user suspended until 2026-10-20\""
+      - "Then the form error is exactly \"Tài khoản của bạn đã bị khóa. Vui lòng liên hệ bộ phận hỗ trợ.\", contains no part of the raw message (no date), and no session cookie is set; a raw message \"user banned\" gives the same text"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/auth/actions.test.ts` `maps permission denied to the fixed refusal`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-wrong-password-keeps-the-credentials-message
+    title: "Users UI: Wrong password keeps the credentials message"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `Login` answers `Unauthenticated`"
+      - "Then the form error is \"Tên đăng nhập hoặc mật khẩu không chính xác.\" and no session cookie is set"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/auth/actions.test.ts` `wrong password keeps the credentials message`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-other-login-failures-are-unchanged
+    title: "Users UI: Other login failures are unchanged"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `Login` answers `Unavailable`"
+      - "Then the form error starts with \"Đăng nhập không thành công:\" and no session cookie is set"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/auth/actions.test.ts` `other failures keep the generic message`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-refresh-of-a-suspended-user-clears-both-cookies
+    title: "Users UI: Refresh of a suspended user clears both cookies"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When a request carries an expired access cookie and a refresh cookie and `RefreshSession` answers `PermissionDenied`"
+      - "Then the response deletes both `session` and the refresh cookie, and the page renders as a guest"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/middleware.test.ts` `permission denied on refresh clears both cookies`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-transient-refresh-failure-keeps-the-refresh-cookie
+    title: "Users UI: Transient refresh failure keeps the refresh cookie"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When `RefreshSession` answers `Unavailable`"
+      - "Then only the access cookie is deleted and the refresh cookie is kept for a retry"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/middleware.test.ts` `transient refresh failure keeps the refresh cookie`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-suspended-buyer-cannot-log-in
+    title: "Users UI: Suspended buyer cannot log in"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin has suspended a fresh buyer and that buyer submits the correct password on `/login`"
+      - "Then the page shows the fixed refusal text and the browser stays on `/login`"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Suspended buyer cannot log in"
+
+  - id: frontend.user-enforcement-reinstated-user-can-log-in-again
+    title: "Users UI: Reinstated user can log in again"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin has set a banned buyer back to \"Hoạt động\" and the buyer logs in with the correct password"
+      - "Then the browser leaves `/login` and the header shows the signed-in state"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Reinstated user can log in again"
+
+  - id: frontend.user-enforcement-wrong-password-for-a-suspended-buyer-shows-the-credentials-message
+    title: "Users UI: Wrong password for a suspended buyer shows the credentials message"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When a suspended buyer submits a wrong password on `/login`"
+      - "Then the page shows \"Tên đăng nhập hoặc mật khẩu không chính xác.\" and not the refusal text"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Wrong password for a suspended buyer shows the credentials message"
+
+  - id: frontend.user-enforcement-seller-layout-shows-the-restricted-notice
+    title: "Users UI: Seller layout shows the restricted notice"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When the seller layout renders for a signed-in principal whose scopes lack `listing.write`"
+      - "Then it shows \"Cần tài khoản Người Bán\" and the line \"Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục.\", renders no children, and `redirect` is called zero times"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/seller/layout.test.tsx` `shows the restricted notice without listing.write`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-seller-pages-do-not-send-a-principal-without-the-listing-write-scope-to-login
+    title: "Users UI: Seller pages do not send a principal without the listing.write scope to login"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When each seller page (`/seller`, `/seller/new`, `/seller/ads`, `/seller/plans`, `/seller/shop`, `/seller/wallet`, `/seller/bundles`, `/seller/analytics`, `/seller/orders`, `/seller/{id}/edit`) runs its guard for a signed-in principal without `listing.write`, and again with no principal"
+      - "Then with the principal `redirect` is called zero times for every page; with no principal every page calls `redirectGuestToLogin` with its own path"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/seller/restrictedGuard.test.tsx` `signed-in principal without listing.write is never redirected`. Unit level; not producible end to end."
+
+  - id: frontend.user-enforcement-restricted-seller-sees-the-notice-in-the-browser
+    title: "Users UI: Restricted seller sees the notice in the browser"
+    persona: buyer
+    priority: P1
+    summary: "Change frontend-user-enforcement, capability login-enforcement-ui."
+    entry_route: /login
+    services: [team-frontend, team-identity, team-gateway]
+    acceptance:
+      - "When an admin has restricted a freshly registered seller, and that seller logs in and opens `/seller/new`"
+      - "Then the browser stays on `/seller/new` and the page shows \"Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục.\""
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "frontend/user_enforcement_ui.feature::Users UI: Restricted seller sees the notice in the browser"
+
+  - id: frontend.listing-moderation-anonymous-visitor-is-redirected-to-login
+    title: 'Moderation UI: Anonymous visitor is redirected to login'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Anonymous visitor is redirected to login'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/app/(shop)/admin/listings/page.test.tsx` `redirects an anonymous visitor to login`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-anonymous-browser-visit
+    title: 'Moderation UI: Anonymous browser visit'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a visitor with no session opens `/admin/listings` in the browser
+    - Then the browser lands on `/login`
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_listing_moderation_ui.feature::Moderation UI: Anonymous browser visit'
+
+  - id: frontend.listing-moderation-non-admin-sees-the-403-result
+    title: 'Moderation UI: Non-admin sees the 403 result'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Non-admin sees the 403 result'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/app/(shop)/admin/cases/page.test.tsx` `renders 403 for a non-admin`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-a-buyer-opening-the-pages-in-the-browser-is-refused
+    title: 'Moderation UI: A buyer opening the pages in the browser is refused'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a signed-in buyer opens `/admin/listings` in the browser
+    - Then the page shows "Cần tài khoản Quản trị" and no queue table
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_listing_moderation_ui.feature::Moderation UI: A buyer opening the pages in the browser is refused'
+
+  - id: frontend.listing-moderation-gateway-refusal-is-shown-as-the-same-403
+    title: 'Moderation UI: Gateway refusal is shown as the same 403'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Gateway refusal is shown as the same 403'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/app/(shop)/admin/listings/page.test.tsx` `renders 403 when the gateway denies`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-expired-session-is-sent-to-login
+    title: 'Moderation UI: Expired session is sent to login'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Expired session is sent to login'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/app/(shop)/admin/listings/page.test.tsx` `redirects on gateway unauthenticated`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-rows-show-title-seller-price-submission-time-and-flags
+    title: 'Moderation UI: Rows show title, seller, price, submission time and flags'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Rows show title, seller, price, submission time and flags'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ModerationQueueView.test.tsx` `renders one row with flags and UTC+7 time`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-server-order-is-kept-and-page-size-is-20
+    title: 'Moderation UI: Server order is kept and page size is 20'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Server order is kept and page size is 20'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/lib/gateway/moderation.test.ts` `sends page size 20 and keeps order`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-next-link-carries-the-cursor
+    title: 'Moderation UI: Next link carries the cursor'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Next link carries the cursor'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ModerationQueueView.test.tsx` `next link keeps the tab and hides on the last page`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-empty-queue
+    title: 'Moderation UI: Empty queue'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Empty queue'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ModerationQueueView.test.tsx` `shows the empty state`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-markup-in-a-title-or-flag-is-shown-as-text
+    title: 'Moderation UI: Markup in a title or flag is shown as text'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Markup in a title or flag is shown as text'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ModerationQueueView.test.tsx` `escapes titles and flags`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-queue-backend-unavailable
+    title: 'Moderation UI: Queue backend unavailable'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Queue backend unavailable'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/app/(shop)/admin/listings/page.test.tsx` `shows the unavailable state`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-a-flagged-listing-appears-in-the-queue-end-to-end
+    title: 'Moderation UI: A flagged listing appears in the queue end to end'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a seller publishes a listing whose title contains the mock marker term and an admin opens `/admin/listings`
+    - Then the queue lists that listing with a screen flag, and a clean listing published at the same time is not listed
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_listing_moderation_ui.feature::Moderation UI: A flagged listing appears in the queue end to end'
+
+  - id: frontend.listing-moderation-approve-publishes-and-removes-the-row
+    title: 'Moderation UI: Approve publishes and removes the row'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Approve publishes and removes the row'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/moderationActions.test.ts` `approve sends one call and revalidates`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-reject-needs-a-reason-code
+    title: 'Moderation UI: Reject needs a reason code'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Reject needs a reason code'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ModerateDialog.test.tsx` `blocks submit without a reason code`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-reject-sends-reason-and-note
+    title: 'Moderation UI: Reject sends reason and note'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Reject sends reason and note'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/moderationActions.test.ts` `reject sends reason and note`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-moderation-note-length-boundary
+    title: 'Moderation UI: Moderation note length boundary'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Moderation note length boundary'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ModerateDialog.test.tsx` `caps the note at 500 characters`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-ban-removes-the-listing-from-the-queue
+    title: 'Moderation UI: Ban removes the listing from the queue'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Ban removes the listing from the queue'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/moderationActions.test.ts` `ban sends one call`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-moderation-double-submit-is-blocked
+    title: 'Moderation UI: Moderation double submit is blocked'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Moderation double submit is blocked'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ModerateDialog.test.tsx` `pending state blocks a double submit`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-audit-unavailable-leaves-the-row
+    title: 'Moderation UI: Audit unavailable leaves the row'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Audit unavailable leaves the row'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/moderationActions.test.ts` `maps unavailable to the audit message`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-not-allowed-transition-is-explained
+    title: 'Moderation UI: Not-allowed transition is explained'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Not-allowed transition is explained'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/moderationActions.test.ts` `maps failed precondition`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-listing-is-gone
+    title: 'Moderation UI: Listing is gone'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Listing is gone'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/moderationActions.test.ts` `maps not found`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-a-forged-action-by-a-non-admin-is-refused
+    title: 'Moderation UI: A forged action by a non-admin is refused'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: A forged action by a non-admin is refused'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/moderationActions.test.ts` `maps permission denied`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-admin-approves-a-flagged-listing-end-to-end
+    title: 'Moderation UI: Admin approves a flagged listing end to end'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When an admin clicks "Duyệt" on a flagged listing in `/admin/listings`
+    - Then the row disappears and the listing opens on its product page for an anonymous visitor
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_listing_moderation_ui.feature::Moderation UI: Admin approves a flagged listing end to end'
+
+  - id: frontend.listing-moderation-admin-rejects-a-flagged-listing-and-the-seller-sees-the-reason
+    title: 'Moderation UI: Admin rejects a flagged listing and the seller sees the reason'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When an admin rejects a flagged listing with reason `counterfeit` and a note
+    - Then the row disappears, the listing is NOT_FOUND for an anonymous visitor, and the seller center shows the status "Bị từ chối" with the reason label and the note
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_listing_moderation_ui.feature::Moderation UI: Admin rejects a flagged listing and the seller sees the reason'
+
+  - id: frontend.listing-moderation-moderation-fails-closed-when-audit-is-down
+    title: 'Moderation UI: Moderation fails closed when audit is down'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When team-audit is stopped and an admin approves a flagged listing in the browser
+    - Then the dialog or banner shows the audit message and, after team-audit restarts, the listing is still in the queue
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_listing_moderation_ui.feature::Moderation UI: Moderation fails closed when audit is down'
+
+  - id: frontend.listing-moderation-default-tab-is-reports-with-status-open
+    title: 'Moderation UI: Default tab is reports with status OPEN'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Default tab is reports with status OPEN'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/app/(shop)/admin/cases/page.test.tsx` `defaults to the reports tab with OPEN`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-unknown-tab-or-status-falls-back
+    title: 'Moderation UI: Unknown tab or status falls back'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Unknown tab or status falls back'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/app/(shop)/admin/cases/page.test.tsx` `falls back on unknown tab and status`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-status-filter-reloads-the-list
+    title: 'Moderation UI: Status filter reloads the list'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Status filter reloads the list'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ReportsView.test.tsx` `status filter links keep the tab`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-report-row-shows-reporter-to-the-admin
+    title: 'Moderation UI: Report row shows reporter to the admin'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Report row shows reporter to the admin'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ReportsView.test.tsx` `renders one report row`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-report-note-markup-is-shown-as-text
+    title: 'Moderation UI: Report note markup is shown as text'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Report note markup is shown as text'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ReportsView.test.tsx` `escapes report notes`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-empty-report-list
+    title: 'Moderation UI: Empty report list'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Empty report list'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ReportsView.test.tsx` `shows the empty state`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-reports-backend-unavailable
+    title: 'Moderation UI: Reports backend unavailable'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Reports backend unavailable'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/app/(shop)/admin/cases/page.test.tsx` `shows the reports unavailable state`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-removed-listing-is-labelled
+    title: 'Moderation UI: Removed listing is labelled'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Removed listing is labelled'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/ReportsView.test.tsx` `labels a removed listing`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-close-a-report-as-actioned
+    title: 'Moderation UI: Close a report as actioned'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Close a report as actioned'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/reportActions.test.ts` `close sends one call and revalidates`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-close-needs-a-note
+    title: 'Moderation UI: Close needs a note'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Close needs a note'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/CloseReportDialog.test.tsx` `blocks an empty note`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-close-note-length-boundary
+    title: 'Moderation UI: Close note length boundary'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Close note length boundary'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/reportActions.test.ts` `validates note length 1 to 500`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-dismiss-a-report
+    title: 'Moderation UI: Dismiss a report'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Dismiss a report'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/reportActions.test.ts` `dismiss sends DISMISSED`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-close-fails-closed-when-audit-is-down
+    title: 'Moderation UI: Close fails closed when audit is down'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Close fails closed when audit is down'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/reportActions.test.ts` `maps unavailable to the audit message`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-already-closed-report
+    title: 'Moderation UI: Already-closed report'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Already-closed report'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/reportActions.test.ts` `maps failed precondition`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-a-forged-close-by-a-non-admin-is-refused
+    title: 'Moderation UI: A forged close by a non-admin is refused'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: A forged close by a non-admin is refused'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/reportActions.test.ts` `maps permission denied`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-admin-bans-a-reported-listing-and-closes-the-report
+    title: 'Moderation UI: Admin bans a reported listing and closes the report'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a buyer reports a published listing, an admin opens `/admin/cases`, uses "Xử lý tin đăng" with decision "Khóa" and then closes the report as "Đã xử lý" with a note
+    - Then the listing is NOT_FOUND for an anonymous visitor and the report is listed under "Đã xử lý" and no longer under "Đang mở"
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_cases_ui.feature::Moderation UI: Admin bans a reported listing and closes the report'
+
+  - id: frontend.listing-moderation-admin-dismisses-a-report
+    title: 'Moderation UI: Admin dismisses a report'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When an admin closes an open report as "Bác bỏ" with a note
+    - Then the report moves from "Đang mở" to "Đã bác bỏ" and the listing stays visible to an anonymous visitor
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_cases_ui.feature::Moderation UI: Admin dismisses a report'
+
+  - id: frontend.listing-moderation-closing-a-report-fails-closed-when-audit-is-down
+    title: 'Moderation UI: Closing a report fails closed when audit is down'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When team-audit is stopped and an admin closes a report in the browser
+    - Then the dialog shows the audit message and the report is still OPEN after team-audit restarts
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_cases_ui.feature::Moderation UI: Closing a report fails closed when audit is down'
+
+  - id: frontend.listing-moderation-admin-reaches-the-pages-from-the-cockpit
+    title: 'Moderation UI: Admin reaches the pages from the cockpit'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When an admin opens `/admin/cockpit` and clicks "Hộp thư vụ việc"
+    - Then the browser lands on `/admin/cases` and the "Báo cáo" tab is selected
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_cases_ui.feature::Moderation UI: Admin reaches the pages from the cockpit'
+
+  - id: frontend.listing-moderation-cockpit-shows-both-links
+    title: 'Moderation UI: Cockpit shows both links'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Cockpit shows both links'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/admin/CockpitView.test.tsx` `shows the moderation links`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-a-non-admin-following-an-admin-link-is-refused
+    title: 'Moderation UI: A non-admin following an admin link is refused'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability admin-moderation-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a signed-in buyer follows the footer link "Hộp thư vụ việc" to `/admin/cases`
+    - Then the page shows "Cần tài khoản Quản trị" and no report row, and `ListReports` is called zero times
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/admin_cases_ui.feature::Moderation UI: A non-admin following an admin link is refused'
+
+  - id: frontend.listing-moderation-signed-in-buyer-sees-the-report-control
+    title: 'Moderation UI: Signed-in buyer sees the report control'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Signed-in buyer sees the report control'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/ReportListingButton.test.tsx` `renders for a signed-in non-owner`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-seller-does-not-see-the-control-on-their-own-listing
+    title: 'Moderation UI: Seller does not see the control on their own listing'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Seller does not see the control on their own listing'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/app/(shop)/listing/[id]/page.test.tsx` `hides the report control from the owner`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-guest-is-sent-to-login-and-back
+    title: 'Moderation UI: Guest is sent to login and back'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a guest clicks "Báo cáo tin đăng" on a product page
+    - Then the browser goes to `/login` with the return URL `/listing/<id>`, and after login lands on the product page
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/listing_report_ui.feature::Moderation UI: Guest is sent to login and back'
+
+  - id: frontend.listing-moderation-submit-a-report-with-reason-and-note
+    title: 'Moderation UI: Submit a report with reason and note'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Submit a report with reason and note'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/reportActions.test.ts` `sends one CreateReport call`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-reason-is-required
+    title: 'Moderation UI: Reason is required'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Reason is required'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/ReportListingButton.test.tsx` `blocks submit without a reason`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-report-note-length-boundary
+    title: 'Moderation UI: Report note length boundary'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Report note length boundary'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/reportActions.test.ts` `validates note length up to 500`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-report-double-submit-is-blocked
+    title: 'Moderation UI: Report double submit is blocked'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Report double submit is blocked'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/ReportListingButton.test.tsx` `pending state blocks a double submit`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-reporting-twice-is-quietly-accepted
+    title: 'Moderation UI: Reporting twice is quietly accepted'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Reporting twice is quietly accepted'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/reportActions.test.ts` `an existing open report is a success`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-seller-reporting-their-own-listing-is-refused
+    title: 'Moderation UI: Seller reporting their own listing is refused'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Seller reporting their own listing is refused'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/reportActions.test.ts` `maps own-listing refusal`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-reporter-without-permission-is-refused
+    title: 'Moderation UI: Reporter without permission is refused'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Reporter without permission is refused'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/reportActions.test.ts` `maps permission denied apart from own listing`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-open-report-cap-is-explained
+    title: 'Moderation UI: Open report cap is explained'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Open report cap is explained'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/reportActions.test.ts` `maps resource exhausted to the cap message`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-expired-session-while-reporting
+    title: 'Moderation UI: Expired session while reporting'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Expired session while reporting'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/reportActions.test.ts` `maps unauthenticated`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-report-backend-unavailable
+    title: 'Moderation UI: Report backend unavailable'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Report backend unavailable'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/reportActions.test.ts` `maps unavailable and unknown errors`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-a-buyer-s-report-reaches-the-admin-inbox
+    title: 'Moderation UI: A buyer''s report reaches the admin inbox'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a buyer reports a published listing with reason `scam` and a note in the browser, and an admin opens `/admin/cases`
+    - Then the report is listed under "Đang mở" for that listing with the buyer as reporter
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/listing_report_ui.feature::Moderation UI: A buyer''s report reaches the admin inbox'
+
+  - id: frontend.listing-moderation-the-seller-never-sees-the-reporter
+    title: 'Moderation UI: The seller never sees the reporter'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability listing-report-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a buyer has reported a listing and its seller opens the seller center and the listing edit page
+    - Then neither page contains the reporter's id or username or the report note
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/listing_report_ui.feature::Moderation UI: The seller never sees the reporter'
+
+  - id: frontend.listing-moderation-new-status-tags
+    title: 'Moderation UI: New status tags'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: New status tags'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/seller/status.test.tsx` `maps the new listing statuses`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-unknown-status-stays-neutral
+    title: 'Moderation UI: Unknown status stays neutral'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Unknown status stays neutral'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/seller/status.test.tsx` `falls back for an unknown status`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-rejected-listing-shows-reason-and-note
+    title: 'Moderation UI: Rejected listing shows reason and note'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Rejected listing shows reason and note'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/ModerationBanner.test.tsx` `shows the rejected reason and note`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-banned-listing-is-read-only
+    title: 'Moderation UI: Banned listing is read-only'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Banned listing is read-only'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/ModerationBanner.test.tsx` `banned renders the form read-only`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-held-listing-is-explained
+    title: 'Moderation UI: Held listing is explained'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Held listing is explained'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/ModerationBanner.test.tsx` `held renders the explanation`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-pending-listing-is-explained
+    title: 'Moderation UI: Pending listing is explained'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Pending listing is explained'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/ModerationBanner.test.tsx` `pending shows the waiting banner`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-unknown-reason-code-is-shown-raw
+    title: 'Moderation UI: Unknown reason code is shown raw'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Unknown reason code is shown raw'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/ModerationBanner.test.tsx` `falls back to the raw reason code`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-screen-flags-never-reach-a-seller-surface
+    title: 'Moderation UI: Screen flags never reach a seller surface'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Screen flags never reach a seller surface'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/lib/gateway/listings.test.ts` `seller mapping drops screen flags`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-a-save-that-ends-pending-is-explained
+    title: 'Moderation UI: A save that ends pending is explained'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: A save that ends pending is explained'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/actions.test.ts` `a pending result is reported as waiting for review`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-write-to-a-banned-or-held-listing-is-refused
+    title: 'Moderation UI: Write to a banned or held listing is refused'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Write to a banned or held listing is refused'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/actions.test.ts` `maps failed precondition on update`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-delete-of-a-banned-or-held-listing-is-refused
+    title: 'Moderation UI: Delete of a banned or held listing is refused'
+    persona: admin
+    priority: P2
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    acceptance:
+    - 'Moderation UI: Delete of a banned or held listing is refused'
+    tags:
+    - admin
+    - moderation
+    - unit
+    status: not-testable
+    notes: VERIFIED BY `team-frontend/src/features/listing/actions.test.ts` `maps failed precondition on delete`. Unit level; not producible end to end.
+
+  - id: frontend.listing-moderation-seller-sees-the-pending-status-after-publishing-a-flagged-listing
+    title: 'Moderation UI: Seller sees the pending status after publishing a flagged listing'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a seller publishes a listing whose title contains the mock marker term
+    - Then the seller list shows the tag "Chờ duyệt" and the edit page shows "Tin đăng đang chờ kiểm duyệt."
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/seller_listing_status_ui.feature::Moderation UI: Seller sees the pending status after publishing a flagged listing'
+
+  - id: frontend.listing-moderation-seller-sees-a-clean-listing-as-selling
+    title: 'Moderation UI: Seller sees a clean listing as selling'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a seller publishes a clean listing
+    - Then the seller list shows the tag "Đang bán" and the listing opens for an anonymous visitor
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/seller_listing_status_ui.feature::Moderation UI: Seller sees a clean listing as selling'
+
+  - id: frontend.listing-moderation-seller-edits-a-rejected-listing-and-it-returns-to-review
+    title: 'Moderation UI: Seller edits a rejected listing and it returns to review'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When an admin has rejected a listing and its seller saves an edit
+    - Then the seller list shows "Chờ duyệt" and the listing is still NOT_FOUND for an anonymous visitor
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/seller_listing_status_ui.feature::Moderation UI: Seller edits a rejected listing and it returns to review'
+
+  - id: frontend.listing-moderation-the-seller-never-sees-the-screen-flags
+    title: 'Moderation UI: The seller never sees the screen flags'
+    persona: admin
+    priority: P1
+    summary: Change frontend-listing-moderation, capability seller-listing-status-ui.
+    entry_route: /admin/moderation
+    services:
+    - team-frontend
+    - team-gateway
+    - team-domain
+    - team-engagement
+    acceptance:
+    - When a seller opens the edit page of a flagged pending listing in the browser
+    - Then the page text does not contain "keyword:" or "ai:"
+    tags:
+    - admin
+    - moderation
+    status: automated
+    covered_by: 'frontend/seller_listing_status_ui.feature::Moderation UI: The seller never sees the screen flags'
+

@@ -33,21 +33,15 @@ func typedCtx(id, typ string, scopes ...string) context.Context {
 
 func visFixture(t *testing.T) (h *handler.ListingHandler, draftID, rejectedID, pubID string) {
 	t.Helper()
-	repo := repository.NewInMemoryListingRepository()
-	h = handler.NewListingHandler(service.NewListingService(repo), nil, nil)
-	seller := typedCtx("seller-a", "user", "listing.read", "listing.write")
-	mk := func(st listingv1.ListingStatus) string {
-		res, err := h.CreateListing(seller, &listingv1.CreateListingRequest{Listing: &listingv1.Listing{
-			Title: "t", Price: 1, Currency: "VND", Status: st, Stock: 1,
-		}})
-		if err != nil {
-			t.Fatalf("create: %v", err)
-		}
-		return res.Listing.Id
+	// Seeded directly: seller-supplied REJECTED is ignored on create (status ownership),
+	// so a rejected row can only come from the server side.
+	mk := func(id, st string) repository.Listing {
+		return repository.Listing{ID: id, Title: "t", Price: 1, Currency: "VND", Status: st, Stock: 1, SellerID: "seller-a"}
 	}
-	draftID = mk(listingv1.ListingStatus_LISTING_STATUS_DRAFT)
-	rejectedID = mk(listingv1.ListingStatus_LISTING_STATUS_REJECTED)
-	pubID = mk(listingv1.ListingStatus_LISTING_STATUS_PUBLISHED)
+	repo := repository.NewInMemoryListingRepository(
+		mk("vis-draft", "draft"), mk("vis-rejected", "rejected"), mk("vis-pub", "published"))
+	h = handler.NewListingHandler(service.NewListingService(repo), nil, nil)
+	draftID, rejectedID, pubID = "vis-draft", "vis-rejected", "vis-pub"
 	return
 }
 

@@ -272,3 +272,37 @@ func (f *ListingForwarder) ListBundlesBySeller(
 	}
 	return connect.NewResponse(out), nil
 }
+
+// ── Moderation (admin scope enforced by adminProcedures) ──
+
+func (f *ListingForwarder) ModerateListing(
+	ctx context.Context,
+	req *connect.Request[listingv1.ModerateListingRequest],
+) (*connect.Response[listingv1.ModerateListingResponse], error) {
+	var out *listingv1.ModerateListingResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ModerateListing(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *ListingForwarder) ListModerationQueue(
+	ctx context.Context,
+	req *connect.Request[listingv1.ListModerationQueueRequest],
+) (*connect.Response[listingv1.ListModerationQueueResponse], error) {
+	var out *listingv1.ListModerationQueueResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListModerationQueue(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}

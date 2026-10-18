@@ -299,3 +299,45 @@ func TestPG_ReserveStockIdempotent_MismatchedRetryIsRefused(t *testing.T) {
 		t.Fatalf("stock L1=%d L2=%d, want 7 and 10", a, b)
 	}
 }
+
+// Scenario: Seller hold: Stock cannot be reserved on a held listing (Postgres)
+func TestPG_ReserveStockIdempotent_HeldListingRefused(t *testing.T) {
+	repo, pool := newPGRepo(t)
+	ctx := context.Background()
+	seedPGListing(t, repo, "L1", 5)
+	if _, err := pool.Exec(ctx, `UPDATE listings SET status = 'held' WHERE id = 'L1'`); err != nil {
+		t.Fatalf("hold: %v", err)
+	}
+	if err := repo.ReserveStockIdempotent(ctx, "r-new", "L1", "", 2, farFuture); !errors.Is(err, repository.ErrListingNotReservable) {
+		t.Fatalf("err = %v, want ErrListingNotReservable", err)
+	}
+	if got := pgStock(t, repo, "L1"); got != 5 {
+		t.Fatalf("stock = %d, want 5", got)
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM reservations WHERE reservation_id = 'r-new'`).Scan(&n); err != nil {
+		t.Fatalf("count reservations: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("reservation rows = %d, want 0", n)
+	}
+}
+
+// Scenario: Seller hold: Reservation retry on a held listing stays a no-op (Postgres)
+func TestPG_ReserveStockIdempotent_HeldListingExistingIDNoop(t *testing.T) {
+	repo, pool := newPGRepo(t)
+	ctx := context.Background()
+	seedPGListing(t, repo, "L1", 5)
+	if err := repo.ReserveStockIdempotent(ctx, "R", "L1", "", 2, farFuture); err != nil {
+		t.Fatalf("reserve: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE listings SET status = 'held' WHERE id = 'L1'`); err != nil {
+		t.Fatalf("hold: %v", err)
+	}
+	if err := repo.ReserveStockIdempotent(ctx, "R", "L1", "", 2, farFuture); err != nil {
+		t.Fatalf("retry on held listing: %v, want nil", err)
+	}
+	if got := pgStock(t, repo, "L1"); got != 3 {
+		t.Fatalf("stock = %d, want 3", got)
+	}
+}

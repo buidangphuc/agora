@@ -1,0 +1,8 @@
+# Prohibited listing terms (one per line). Matching ignores case and diacritics.
+thuốc lá
+ma túy
+vũ khí
+súng đạn
+thuốc nổ
+pháo nổ
+chất cấm

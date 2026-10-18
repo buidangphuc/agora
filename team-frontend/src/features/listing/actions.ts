@@ -25,6 +25,8 @@ export interface SellState {
   id?: string;
 }
 
+const PENDING_MESSAGE = "Tin đăng đã được gửi và đang chờ kiểm duyệt.";
+
 function failState(
   message: string,
   fieldErrors?: SellState["fieldErrors"],
@@ -125,6 +127,9 @@ export async function saveListingAction(
       revalidatePath("/");
       revalidatePath("/seller");
       revalidatePath(`/listing/${id}`);
+      if (listing.status === "pending_review") {
+        return { ok: true, message: PENDING_MESSAGE, id: listing.id };
+      }
       return {
         ok: true,
         message: `✓ Đã cập nhật thành công "${listing.title}"!`,
@@ -135,6 +140,9 @@ export async function saveListingAction(
     const listing = await createListing(input);
     revalidatePath("/");
     revalidatePath("/seller");
+    if (listing.status === "pending_review") {
+      return { ok: true, message: PENDING_MESSAGE, id: listing.id };
+    }
     return {
       ok: true,
       message: `✓ Đã đăng bán thành công "${listing.title}"!`,
@@ -143,6 +151,11 @@ export async function saveListingAction(
   } catch (err) {
     if (err instanceof ConnectError && err.code === Code.PermissionDenied) {
       return failState("Bạn không có quyền chỉnh sửa sản phẩm này.");
+    }
+    if (err instanceof ConnectError && err.code === Code.FailedPrecondition) {
+      return failState(
+        "Tin đăng đang bị khóa hoặc tạm ẩn nên không thể chỉnh sửa.",
+      );
     }
     return failState(`Lỗi: ${String(err)}`);
   }
@@ -153,11 +166,10 @@ export async function deleteListingAction(id: string): Promise<ActionResult> {
   try {
     await deleteListing(id);
   } catch (err) {
-    return fail(
-      err instanceof Error && err.message
-        ? err.message
-        : "Xoá sản phẩm thất bại.",
-    );
+    if (err instanceof ConnectError && err.code === Code.FailedPrecondition) {
+      return fail("Tin đăng đang bị khóa hoặc tạm ẩn nên không thể xoá.");
+    }
+    return fail("Xoá sản phẩm thất bại.");
   }
   revalidatePath("/");
   revalidatePath("/seller");

@@ -89,6 +89,8 @@ Read by `internal/config/config.go`; `.env.example` is the template.
 | `KAFKA_LISTING_TOPIC` | `listing.events` | Topic; the DLQ is `<topic>.dlq` |
 | `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Topic the outbox relayer publishes facts to (needs `KAFKA_ENABLED=true`) |
 | `ENGAGEMENT_OUTBOX_RELAY_INTERVAL` | `500ms` | Outbox relay poll interval (Go duration) |
+| `REPORT_RETENTION_DAYS` | `730` | Closed reports older than this many days are pseudonymised (must be > 0) |
+| `REPORT_SWEEP_INTERVAL` | `24h` | How often the retention sweep runs, also once at startup (Go duration, must be > 0) |
 | `OTEL_ENABLED` | `false` | Tracing |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty (`.env.example` sets `http://localhost:4317`) | OTLP endpoint |
 | `OTEL_SERVICE_NAME` | `team-engagement` | Service name in traces |

@@ -23,8 +23,8 @@ export default async function SellerAnalyticsPage(props: {
 }) {
   const searchParams = (await props.searchParams) ?? {};
   const me = getPrincipal();
-  if (!me || !hasScope("listing.write"))
-    redirectGuestToLogin("/seller/analytics", searchParams);
+  if (!me) redirectGuestToLogin("/seller/analytics", searchParams);
+  if (!hasScope("listing.write")) return null;
 
   const range = parseRange(searchParams.range);
   const [funnel, revenue] = await Promise.allSettled([

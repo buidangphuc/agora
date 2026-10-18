@@ -497,3 +497,50 @@ func (f *EngagementForwarder) GetLoyalty(
 	}
 	return connect.NewResponse(out), nil
 }
+
+// ── Listing reports ──
+
+func (f *EngagementForwarder) CreateReport(
+	ctx context.Context, req *connect.Request[engagementv1.CreateReportRequest],
+) (*connect.Response[engagementv1.CreateReportResponse], error) {
+	var out *engagementv1.CreateReportResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.CreateReport(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *EngagementForwarder) ListReports(
+	ctx context.Context, req *connect.Request[engagementv1.ListReportsRequest],
+) (*connect.Response[engagementv1.ListReportsResponse], error) {
+	var out *engagementv1.ListReportsResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListReports(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *EngagementForwarder) ResolveReport(
+	ctx context.Context, req *connect.Request[engagementv1.ResolveReportRequest],
+) (*connect.Response[engagementv1.ResolveReportResponse], error) {
+	var out *engagementv1.ResolveReportResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ResolveReport(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}

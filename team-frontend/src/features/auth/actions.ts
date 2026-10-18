@@ -102,6 +102,12 @@ export async function loginAction(
           "Tên đăng nhập hoặc mật khẩu không chính xác.",
         );
       }
+      if (err.code === Code.PermissionDenied) {
+        return failure(
+          username,
+          "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ bộ phận hỗ trợ.",
+        );
+      }
       return failure(
         username,
         `Đăng nhập không thành công: ${err.rawMessage || "Lỗi dịch vụ xác thực"}`,

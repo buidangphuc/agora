@@ -125,7 +125,12 @@ async def test_older_event_is_stale() -> None:
     indexer = ListingEventIndexer(rag)
     await indexer.handle(payload(event_id="new", seconds=2_000))
     result = await indexer.handle(
-        payload(change=listing_pb2.CHANGE_TYPE_DELETED, event_id="old", seconds=1_000)
+        payload(
+            change=listing_pb2.CHANGE_TYPE_UPDATED,
+            status=listing_pb2.LISTING_STATUS_HELD,
+            event_id="old",
+            seconds=1_000,
+        )
     )
     assert result == "stale"
     assert rag.calls == [("delete", "l-1"), ("index", "l-1")]
@@ -146,3 +151,65 @@ async def test_failed_event_is_not_recorded_so_retry_runs() -> None:
     with pytest.raises(ConnectionError):
         await indexer.handle(payload())
     assert await indexer.handle(payload()) == "indexed"
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        listing_pb2.LISTING_STATUS_PENDING_REVIEW,
+        listing_pb2.LISTING_STATUS_BANNED,
+        listing_pb2.LISTING_STATUS_HELD,
+    ],
+)
+async def test_non_published_statuses_delete_from_index(status: int) -> None:
+    rag = FakeRag()
+    result = await ListingEventIndexer(rag).handle(
+        payload(change=listing_pb2.CHANGE_TYPE_UPDATED, status=status)
+    )
+    assert result == "deleted"
+    assert rag.calls == [("delete", "l-1")]
+    assert rag.documents == []
+
+
+async def test_held_then_published_is_reindexed() -> None:
+    rag = FakeRag()
+    indexer = ListingEventIndexer(rag)
+    first = await indexer.handle(
+        payload(
+            change=listing_pb2.CHANGE_TYPE_UPDATED,
+            status=listing_pb2.LISTING_STATUS_HELD,
+            event_id="e1",
+            seconds=1_000,
+        )
+    )
+    assert first == "deleted"
+    second = await indexer.handle(
+        payload(
+            change=listing_pb2.CHANGE_TYPE_UPDATED,
+            status=listing_pb2.LISTING_STATUS_PUBLISHED,
+            event_id="e2",
+            seconds=2_000,
+        )
+    )
+    assert second == "indexed"
+    (document,) = rag.documents
+    assert document.metadata["status"] == "PUBLISHED"
+
+
+async def test_unknown_status_deletes() -> None:
+    rag = FakeRag()
+    result = await ListingEventIndexer(rag).handle(
+        payload(change=listing_pb2.CHANGE_TYPE_UPDATED, status=99)
+    )
+    assert result == "deleted"
+    assert rag.calls == [("delete", "l-1")]
+    assert rag.documents == []
+
+
+async def test_unspecified_envelope_is_indexed() -> None:
+    rag = FakeRag()
+    decoded = payload(status=0)
+    assert decoded.status == ""
+    assert await ListingEventIndexer(rag).handle(decoded) == "indexed"
+    (document,) = rag.documents
+    assert document.metadata["status"] == "PUBLISHED"

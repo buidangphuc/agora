@@ -12,8 +12,8 @@ export const metadata = { title: "Combo sản phẩm | Kênh người bán" };
 
 export default async function SellerBundlesPage() {
   const principal = getPrincipal();
-  if (!principal || !hasScope("listing.write"))
-    redirectGuestToLogin("/seller/bundles");
+  if (!principal) redirectGuestToLogin("/seller/bundles");
+  if (!hasScope("listing.write")) return null;
 
   const [listings, bundles] = await Promise.all([
     getAllListings().catch(() => []),

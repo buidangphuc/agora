@@ -20,6 +20,7 @@ type Settings struct {
 	Observability Observability
 	Upstream      Upstream
 	Kafka         Kafka
+	Reports       Reports
 }
 
 type Runtime struct {
@@ -75,6 +76,12 @@ type Kafka struct {
 	OutboxRelayInterval time.Duration `env:"ENGAGEMENT_OUTBOX_RELAY_INTERVAL" default:"500ms"`
 }
 
+// Reports configures the retention sweep that pseudonymises closed reports.
+type Reports struct {
+	RetentionDays int           `env:"REPORT_RETENTION_DAYS" default:"730"`
+	SweepInterval time.Duration `env:"REPORT_SWEEP_INTERVAL" default:"24h"`
+}
+
 // KafkaBrokers splits KAFKA_BROKERS into seed addresses.
 func (s *Settings) KafkaBrokers() []string {
 	var out []string
@@ -109,6 +116,12 @@ func (s *Settings) Validate() error {
 	}
 	if s.Kafka.OutboxRelayInterval <= 0 {
 		return errors.New("ENGAGEMENT_OUTBOX_RELAY_INTERVAL must be > 0")
+	}
+	if s.Reports.RetentionDays <= 0 {
+		return errors.New("REPORT_RETENTION_DAYS must be > 0")
+	}
+	if s.Reports.SweepInterval <= 0 {
+		return errors.New("REPORT_SWEEP_INTERVAL must be > 0")
 	}
 	if s.Upstream.CallTimeoutSeconds <= 0 {
 		return errors.New("UPSTREAM_CALL_TIMEOUT_SECONDS must be > 0")

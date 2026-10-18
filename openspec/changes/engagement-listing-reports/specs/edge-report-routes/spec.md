@@ -32,7 +32,7 @@ The gateway SHALL forward `EngagementService.CreateReport`, `ListReports` and `R
 #### Scenario: Listing reports: The admin procedure set is pinned
 - **WHEN** the pinned-set test compares `adminProcedures` with the expected list
 - **THEN** the list is the entries present before this slice plus `EngagementServiceListReportsProcedure` and `EngagementServiceResolveReportProcedure` and nothing else
-- **VERIFIED BY**: team-gateway `internal/edge` `TestAdminProceduresPinnedSet`
+- **VERIFIED BY**: team-gateway `internal/edge` `TestAdminProceduresPinned`
 
 #### Scenario: Listing reports: Report RPCs are not left unrouted
 - **WHEN** the unrouted guard enumerates EngagementService procedures

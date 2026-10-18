@@ -289,3 +289,31 @@ describe("middleware config", () => {
     expect(config.matcher).toEqual(["/((?!_next/static|_next/image|favicon.ico).*)"]);
   });
 });
+
+describe("middleware refresh enforcement (frontend-user-enforcement)", () => {
+  it("Users UI: Refresh of a suspended user clears both cookies - permission denied on refresh clears both cookies", async () => {
+    refreshSession.mockRejectedValue(
+      new ConnectError("user suspended", Code.PermissionDenied),
+    );
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(isDeleted(res, "session")).toBe(true);
+    expect(isDeleted(res, "agora_refresh")).toBe(true);
+    const cookie = forwarded(res, "cookie") ?? "";
+    expect(cookie).not.toContain("session=");
+    expect(cookie).not.toContain("agora_refresh=");
+  });
+
+  it("Users UI: Transient refresh failure keeps the refresh cookie - transient refresh failure keeps the refresh cookie", async () => {
+    refreshSession.mockRejectedValue(new ConnectError("down", Code.Unavailable));
+    const stale = jwt(nowSec() - 60);
+    const res = await middleware(req({ session: stale, refresh: "R1" }));
+    expect(res.cookies.get("agora_refresh")).toBeUndefined();
+    expect(res.headers.get("set-cookie")).toBeNull();
+    const cookie = forwarded(res, "cookie") ?? "";
+    expect(cookie).not.toContain(`session=${stale}`);
+    expect(cookie).toContain("agora_refresh=R1");
+  });
+});

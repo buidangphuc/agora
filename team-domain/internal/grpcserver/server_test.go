@@ -793,3 +793,48 @@ func TestReserveStock_MismatchedRetryIsFailedPrecondition(t *testing.T) {
 		t.Fatalf("stock = %d, want 8", got.Stock)
 	}
 }
+
+// Scenario: Seller hold: Stock cannot be reserved on a held listing
+func TestReserveStock_HeldListingFailedPrecondition(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Status: "held", Stock: 5, SellerID: "seller-a"})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	_, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 2, ReservationId: "r-new"})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("reserve on held listing: %v, want FailedPrecondition", err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 5 {
+		t.Fatalf("stock = %d, want 5", got.Stock)
+	}
+	// No reservation row was created: committing the id finds nothing.
+	if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "r-new"}); status.Code(err) != codes.NotFound {
+		t.Fatalf("commit of never-created reservation: %v, want NotFound", err)
+	}
+}
+
+// Scenario: Seller hold: Reservation retry on a held listing stays a no-op
+func TestReserveStock_HeldListingExistingReservationNoop(t *testing.T) {
+	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Status: "published", Stock: 5, SellerID: "seller-a"})
+	client := startServer(t, repo)
+	ctx, cancel := serviceCtx(t)
+	defer cancel()
+
+	req := &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 2, ReservationId: "R"}
+	if _, err := client.ReserveStock(ctx, req); err != nil {
+		t.Fatalf("reserve: %v", err)
+	}
+	l, _ := repo.Get(ctx, "prod-1")
+	l.Status = "held"
+	if _, err := repo.Update(ctx, l); err != nil {
+		t.Fatalf("hold listing: %v", err)
+	}
+	resp, err := client.ReserveStock(ctx, req)
+	if err != nil || !resp.GetSuccess() {
+		t.Fatalf("retry on held listing: resp=%v err=%v, want success", resp, err)
+	}
+	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 3 {
+		t.Fatalf("stock = %d, want 3 (retry must not decrement)", got.Stock)
+	}
+}

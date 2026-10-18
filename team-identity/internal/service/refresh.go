@@ -88,18 +88,20 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	u, err := s.repo.GetByID(ctx, res.Session.UserID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			if rerr := s.sessions.RevokeSession(ctx, res.Session.ID, res.Session.UserID, ev); rerr != nil &&
-				!errors.Is(rerr, repository.ErrSessionNotFound) {
-				if errors.Is(rerr, repository.ErrRotateFault) {
-					return AuthResult{}, ErrRefreshInternal
-				}
-				return AuthResult{}, ErrRefreshUnavailable
+			if err := s.revokeRefreshed(ctx, res.Session, ev); err != nil {
+				return AuthResult{}, err
 			}
 			return AuthResult{}, ErrInvalidRefreshToken
 		}
 		return AuthResult{}, fmt.Errorf("%w: user lookup", ErrRefreshUnavailable)
 	}
-	scopes := authz.ScopesForRoles(u.Roles)
+	if u.Status == repository.StatusSuspended || u.Status == repository.StatusBanned {
+		if err := s.revokeRefreshed(ctx, res.Session, ev); err != nil {
+			return AuthResult{}, err
+		}
+		return AuthResult{}, ErrAccountLocked
+	}
+	scopes := authz.ScopesForUser(u.Roles, u.Status)
 	signed, err := s.signer.SignWithSession(u.ID, u.Username, "user", scopes, res.Session.ID, s.ttl)
 	if err != nil {
 		return AuthResult{}, ErrRefreshInternal
@@ -109,6 +111,18 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 		out.RefreshToken, out.RefreshExpiresAt = newRaw, res.Session.RefreshExpiresAt
 	}
 	return out, nil
+}
+
+// revokeRefreshed revokes the session a refresh just resolved; an already-gone session is fine.
+func (s *AuthService) revokeRefreshed(ctx context.Context, sess repository.Session, ev repository.EnqueueFn) error {
+	if rerr := s.sessions.RevokeSession(ctx, sess.ID, sess.UserID, ev); rerr != nil &&
+		!errors.Is(rerr, repository.ErrSessionNotFound) {
+		if errors.Is(rerr, repository.ErrRotateFault) {
+			return ErrRefreshInternal
+		}
+		return ErrRefreshUnavailable
+	}
+	return nil
 }
 
 // mapRotateErr turns repository errors into non-leaking service errors. Database

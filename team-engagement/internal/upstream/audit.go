@@ -105,3 +105,15 @@ func (c *AuditClient) WriteEvent(ctx context.Context, ev AuditEvent) error {
 	}
 	return nil
 }
+
+// WriteReportResolveEvent records that actorID closed reportID (on listingID) with
+// status. It never carries complainant data.
+func (c *AuditClient) WriteReportResolveEvent(ctx context.Context, actorID, reportID, listingID, status, resolutionNote string) error {
+	return c.WriteEvent(ctx, AuditEvent{
+		ActorID:    actorID,
+		Action:     "report.resolve",
+		TargetType: "report",
+		TargetID:   reportID,
+		Metadata:   map[string]string{"status": status, "listing_id": listingID, "resolution_note": resolutionNote},
+	})
+}

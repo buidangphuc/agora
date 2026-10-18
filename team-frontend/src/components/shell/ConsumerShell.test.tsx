@@ -19,3 +19,28 @@ describe("buy-bar space", () => {
     expect(footer).not.toContain("buy-bar");
   });
 });
+
+// Moderation UI: Cockpit shows both links (footer half of the admin entry links)
+describe("admin footer links", () => {
+  const shell = readFileSync(join(__dirname, "ConsumerShell.tsx"), "utf8");
+  const footer = shell.slice(shell.indexOf("<footer"));
+
+  function linkFor(href: string) {
+    const re = new RegExp(
+      `<Link\\s+href="${href}"[^>]*>\\s*([^<]*?)\\s*</Link>`,
+    );
+    return footer.match(re)?.[1];
+  }
+
+  it("links Kiểm duyệt tin đăng to /admin/listings (Moderation UI: Cockpit shows both links)", () => {
+    expect(linkFor("/admin/listings")).toBe("Kiểm duyệt tin đăng");
+  });
+
+  it("links Hộp thư vụ việc to /admin/cases (Moderation UI: Cockpit shows both links)", () => {
+    expect(linkFor("/admin/cases")).toBe("Hộp thư vụ việc");
+  });
+
+  it("keeps the cockpit link (Moderation UI: Cockpit shows both links)", () => {
+    expect(linkFor("/admin/cockpit")).toBeTruthy();
+  });
+});
