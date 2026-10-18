@@ -12,7 +12,7 @@ When an admin calls `PaymentService.RefundPayment`, the `payment.admin_refund` a
 #### Scenario: Refund audit id: Audit client puts refund_id in metadata
 - **WHEN** `AuditClient.WriteAdminRefund` is called with refund id "rf-1"
 - **THEN** the outgoing request metadata has exactly the keys `refund_id`, `order_id`, `amount` and the principal is still the service principal with scope `audit.write`
-- **VERIFIED BY**: team-payment `internal/upstream` `TestWriteAdminRefundMetadataIncludesRefundID`
+- **VERIFIED BY**: team-payment `internal/upstream` `TestAuditClientRefundIDDistinctAndVerbatim`
 
 #### Scenario: Refund audit id: Retry with the same refund_id is distinguishable
 - **WHEN** an admin refund with refund_id "rf-1" fails after the audit write and the admin retries with the same refund_id "rf-1"
