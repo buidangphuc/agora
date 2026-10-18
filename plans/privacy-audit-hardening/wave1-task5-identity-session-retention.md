@@ -18,7 +18,7 @@ Implement OpenSpec change `identity-session-retention` test-first per its tasks.
 - team-identity/internal/service/session_sweeper_test.go
 - team-identity/internal/config/config.go
 - team-identity/internal/config/config_test.go
-- team-identity/internal/config/session_retention_test.go # widened at build: task 4
+- team-identity/internal/config/session_retention_test.go (widened at build: task 4)
 - team-identity/internal/bootstrap/lifecycle.go
 - team-identity/internal/bootstrap/*_test.go
 - team-identity/.env.example
