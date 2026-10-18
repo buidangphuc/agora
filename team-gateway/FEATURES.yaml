@@ -1288,7 +1288,7 @@ features:
       - "The admin procedure set is pinned"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestAdminProceduresPinnedSet`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-gateway `internal/edge` `TestAdminProceduresPinned`"
 
   - id: engagement-review-integrity.hidereview-is-not-left-unrouted
     title: "HideReview is not left unrouted"
