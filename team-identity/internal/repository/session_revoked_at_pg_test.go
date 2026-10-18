@@ -226,3 +226,21 @@ func TestMigration0008Down_Postgres(t *testing.T) {
 		t.Fatal("column missing after re-up")
 	}
 }
+
+func TestSetStatusBulkRevokeSetsRevokedAt_Postgres(t *testing.T) {
+	// Scenario: Session retention: revoke records revoked_at (admin suspend/ban bulk revoke path)
+	pool, repo := revokedAtPG(t)
+	ctx := context.Background()
+	s := liveSession(t, repo, "u-ra2", "ra-setstatus", time.Now().Add(-time.Hour))
+	revoke := func(s Session) (OutboxRow, error) {
+		return OutboxRow{EventID: "ra-ss-rev-" + s.ID, AggregateType: "Session", AggregateID: s.UserID, EventType: evRevoked, Payload: []byte(s.ID)}, nil
+	}
+	changed := func(c StatusChange) (OutboxRow, error) {
+		return OutboxRow{EventID: "ra-ss-status", AggregateType: "User", AggregateID: c.UserID, EventType: evStatus, Payload: []byte("x")}, nil
+	}
+	if _, err := NewPostgresUserRepository(pool).SetStatus(ctx, "u-ra2", StatusBanned, "scam", time.Time{}, time.Now(), revoke, changed); err != nil {
+		t.Fatalf("SetStatus: %v", err)
+	}
+	ts, rv := revokedAt(t, pool, s.ID)
+	wantRecent(t, "setstatus bulk revoke", ts, rv)
+}
