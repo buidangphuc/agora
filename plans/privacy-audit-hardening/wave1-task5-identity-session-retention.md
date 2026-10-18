@@ -12,11 +12,13 @@ Implement OpenSpec change `identity-session-retention` test-first per its tasks.
 - team-identity/migrations/0008_session_revoked_at.up.sql
 - team-identity/migrations/0008_session_revoked_at.down.sql
 - team-identity/internal/repository/session.go
+- team-identity/internal/repository/users_pg.go (widened at build: task 1)
 - team-identity/internal/repository/*_test.go
 - team-identity/internal/service/session_sweeper.go
 - team-identity/internal/service/session_sweeper_test.go
 - team-identity/internal/config/config.go
 - team-identity/internal/config/config_test.go
+- team-identity/internal/config/session_retention_test.go (widened at build: task 4)
 - team-identity/internal/bootstrap/lifecycle.go
 - team-identity/internal/bootstrap/*_test.go
 - team-identity/.env.example

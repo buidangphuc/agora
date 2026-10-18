@@ -27,4 +27,7 @@ type Resources struct {
 	// has drained and returned.
 	stopRelayer context.CancelFunc
 	relayerDone chan struct{}
+	// stopSweeper cancels the session retention sweeper; sweeperDone signals it returned.
+	stopSweeper context.CancelFunc
+	sweeperDone chan struct{}
 }
