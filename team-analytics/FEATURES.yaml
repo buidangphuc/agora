@@ -2224,6 +2224,171 @@ features:
     acceptance:
       - "Analytics review hidden: a produced ReviewHidden reaches the warehouse"
     tags: [analytics, integration]
-    status: planned
+    status: automated
     covered_by: "analytics/review_hidden.feature::Analytics review hidden: a produced ReviewHidden reaches the warehouse"
     notes: "analytics-review-hidden"
+
+  - id: analytics.unit-review-hidden-a-reviewhidden-envelope-maps-to-a-review-hidden-fact
+    title: "Analytics review hidden: a ReviewHidden envelope maps to a review_hidden fact"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: a ReviewHidden envelope maps to a review_hidden fact"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: a ReviewHidden envelope maps to a review_hidden fact"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelopeReviewHidden. Not producible end to end."
+
+  - id: analytics.unit-review-hidden-hidden-at-missing-falls-back-to-the-envelope-time
+    title: "Analytics review hidden: hidden_at missing falls back to the envelope time"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: hidden_at missing falls back to the envelope time"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: hidden_at missing falls back to the envelope time"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelopeReviewHidden. Not producible end to end."
+
+  - id: analytics.unit-review-hidden-a-corrupt-payload-is-dead-lettered
+    title: "Analytics review hidden: a corrupt payload is dead-lettered"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: a corrupt payload is dead-lettered"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: a corrupt payload is dead-lettered"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelopeRejects, TestProcessEngagementRecordsDeadLettersAndContinues. Not producible end to end."
+
+  - id: analytics.unit-review-hidden-existing-engagement-types-are-unchanged
+    title: "Analytics review hidden: existing engagement types are unchanged"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: existing engagement types are unchanged"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: existing engagement types are unchanged"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelope. Not producible end to end."
+
+  - id: analytics.unit-review-hidden-a-review-created-row-stores-its-review-id
+    title: "Analytics review hidden: a review_created row stores its review id"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: a review_created row stores its review id"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: a review_created row stores its review id"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/warehouse/duckdb/duckdb_test.go TestReviewIDStoredForCreatedAndHidden. Not producible end to end."
+
+  - id: analytics.unit-review-hidden-a-legacy-review-created-row-is-not-given-a-review-id-without-a-backfill
+    title: "Analytics review hidden: a legacy review_created row is not given a review id without a backfill"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: a legacy review_created row is not given a review id without a backfill"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: a legacy review_created row is not given a review id without a backfill"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/warehouse/duckdb/duckdb_test.go TestOpenAddsReviewIDColumnIdempotently. Not producible end to end."
+
+  - id: analytics.unit-review-hidden-the-review-created-row-is-kept
+    title: "Analytics review hidden: the review_created row is kept"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: the review_created row is kept"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: the review_created row is kept"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/warehouse/duckdb/duckdb_test.go TestReviewHiddenKeepsReviewCreated. Not producible end to end."
+
+  - id: analytics.unit-review-hidden-a-replayed-event-is-stored-once
+    title: "Analytics review hidden: a replayed event is stored once"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: a replayed event is stored once"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: a replayed event is stored once"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/warehouse/duckdb/duckdb_test.go TestReviewHiddenIdempotent. Not producible end to end."
+
+  - id: analytics.unit-review-hidden-opening-an-existing-database-adds-review-id-once
+    title: "Analytics review hidden: opening an existing database adds review_id once"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: opening an existing database adds review_id once"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: opening an existing database adds review_id once"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/warehouse/duckdb/duckdb_test.go TestOpenAddsReviewIDColumnIdempotently. Not producible end to end."
+
+  - id: analytics.unit-review-hidden-the-parquet-export-includes-hidden-rows
+    title: "Analytics review hidden: the Parquet export includes hidden rows"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: the Parquet export includes hidden rows"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: the Parquet export includes hidden rows"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/warehouse/duckdb/duckdb_test.go TestExportRelationWritesReadableParquetForTablesAndViews. Not producible end to end."
+
+  - id: analytics.unit-review-hidden-the-favorites-and-follows-views-ignore-review-hidden
+    title: "Analytics review hidden: the favorites and follows views ignore review_hidden"
+    persona: guest
+    priority: P2
+    summary: "Analytics review hidden: the favorites and follows views ignore review_hidden"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: the favorites and follows views ignore review_hidden"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/warehouse/duckdb/duckdb_test.go TestReviewHiddenDoesNotAffectCurrentViews. Not producible end to end."
