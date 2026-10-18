@@ -213,7 +213,7 @@ func (r *PostgresUserRepository) SetStatus(ctx context.Context, userID, status, 
 
 	revoked := 0
 	if status != StatusActive {
-		const rev = `UPDATE sessions SET revoked = true, refresh_hash = NULL, prev_refresh_hash = NULL
+		const rev = `UPDATE sessions SET revoked = true, revoked_at = now(), refresh_hash = NULL, prev_refresh_hash = NULL
 			WHERE user_id = $1 AND NOT revoked RETURNING ` + sessionColumns
 		rows, err := tx.Query(ctx, rev, userID)
 		if err != nil {
