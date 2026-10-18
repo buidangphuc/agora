@@ -104,7 +104,7 @@ type SessionRepository interface {
 	// both hashes and insert the outbox row built by ev in the same transaction (any error
 	// leaves the session unchanged). ev must be non-nil. A token past refresh_expires_at
 	// yields RotateExpired with no write.
-	RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ev EnqueueFn) (RotateResult, error)
+	RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ip, device string, ev EnqueueFn) (RotateResult, error)
 	// RecordLogin appends a login attempt to the user's history.
 	RecordLogin(ctx context.Context, e LoginEvent) (LoginEvent, error)
 	// ListLoginHistory returns a page of the user's login history (newest first)
@@ -244,7 +244,7 @@ func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID
 	return nil
 }
 
-func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ev EnqueueFn) (RotateResult, error) {
+func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ip, device string, ev EnqueueFn) (RotateResult, error) {
 	if ev == nil {
 		return RotateResult{}, errEnqueueRequired
 	}
@@ -297,9 +297,11 @@ func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presented
 	switch {
 	case s.RefreshHash == presentedHash:
 		const upd = `UPDATE sessions SET prev_refresh_hash = refresh_hash, refresh_hash = $2,
-			rotated_at = $3, last_seen = $3, refresh_expires_at = $4 WHERE id = $1 RETURNING ` + sessionColumns
+			rotated_at = $3, last_seen = $3, refresh_expires_at = $4,
+			ip = COALESCE(NULLIF($5, ''), ip), device = COALESCE(NULLIF($6, ''), device)
+			WHERE id = $1 RETURNING ` + sessionColumns
 		var out Session
-		if err := scanSession(tx.QueryRow(ctx, upd, s.ID, newHash, now, now.Add(RefreshTTL)), &out); err != nil {
+		if err := scanSession(tx.QueryRow(ctx, upd, s.ID, newHash, now, now.Add(RefreshTTL), ip, device), &out); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				return RotateResult{}, fmt.Errorf("%w: %w", errRefreshHashConflict, ErrRotateFault)
@@ -480,7 +482,7 @@ func (r *InMemorySessionRepository) RevokeSession(_ context.Context, sessionID, 
 	return nil
 }
 
-func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ev EnqueueFn) (RotateResult, error) {
+func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ip, device string, ev EnqueueFn) (RotateResult, error) {
 	if ev == nil {
 		return RotateResult{}, errEnqueueRequired
 	}
@@ -531,6 +533,12 @@ func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHa
 		s.RefreshHash = newHash
 		s.RotatedAt = now
 		s.LastSeen = now
+		if ip != "" {
+			s.IP = ip
+		}
+		if device != "" {
+			s.Device = device
+		}
 		s.RefreshExpiresAt = now.Add(RefreshTTL)
 		r.sessions[s.ID] = s
 		return RotateResult{Outcome: RotateRotated, Session: s}, nil
