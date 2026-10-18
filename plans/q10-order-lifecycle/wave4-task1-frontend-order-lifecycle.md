@@ -1,7 +1,7 @@
 # [W4-T1] frontend-order-lifecycle
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-order-lifecycle`, owner team-frontend)
+feature-run worker (change `openspec/changes/archive/2026-10-18-frontend-order-lifecycle`, owner team-frontend)
 
 ## Objective
 Implement OpenSpec change `frontend-order-lifecycle` test-first per its tasks.md (scenario ids there); context in plans/q10-order-lifecycle/00-spec.md and the change's design.md Clarifications.
@@ -53,11 +53,11 @@ Implement OpenSpec change `frontend-order-lifecycle` test-first per its tasks.md
 - platform-e2e/compose/order-inventory.override.yaml
 - platform-e2e/tests/e2e/step_definitions/d2_seller_steps.py
 - platform-e2e/tests/e2e/step_definitions/uif_seller_steps.py
-- openspec/changes/frontend-order-lifecycle/**
+- openspec/changes/archive/2026-10-18-frontend-order-lifecycle/**
 - team-frontend/src/features/order/orderFixtures.ts (# widened at build: task 1.10)
 
 ## Read-only dependencies
-- openspec/changes/frontend-order-lifecycle/** is frozen by its LOCK.md digest except tasks.md ticks
+- openspec/changes/archive/2026-10-18-frontend-order-lifecycle/** is frozen by its LOCK.md digest except tasks.md ticks
 - team-gateway/internal/edge (ConfirmReceipt forwarder owned by order-receipt-completion)
 - platform-e2e/tests/e2e/support/** order helpers from backend slices (reuse, do not copy)
 - plans/q10-order-lifecycle/00-spec.md, slices.yaml, LOCK.md

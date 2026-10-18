@@ -1,7 +1,7 @@
 # [W4-T2] domain-seller-enforcement-hold
 
 ## Role
-feature-run worker (change `openspec/changes/domain-seller-enforcement-hold`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-domain-seller-enforcement-hold`)
 
 ## Objective
 Implement OpenSpec change `domain-seller-enforcement-hold` test-first per its tasks.md (scenario ids there); context in plans/q6-trust-enforcement/00-spec.md and the change's design.md Clarifications.
@@ -34,13 +34,13 @@ Implement OpenSpec change `domain-seller-enforcement-hold` test-first per its ta
 - team-domain/FEATURES.yaml
 - platform-e2e/tests/e2e/features/seller/seller_enforcement_hold.feature
 - platform-e2e/tests/e2e/step_definitions/test_seller_enforcement_hold.py
-- openspec/changes/domain-seller-enforcement-hold/**
+- openspec/changes/archive/2026-10-18-domain-seller-enforcement-hold/**
 - team-domain/internal/service/sweeper.go  (# widened at build: task 3)
 - team-domain/internal/bootstrap/identity_consumer_test.go  (# widened at build: task 3)
 - team-domain/internal/service/processed_events_purge_test.go  (# widened at build: task 3)
 
 ## Read-only dependencies
-- openspec/changes/domain-seller-enforcement-hold/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-18-domain-seller-enforcement-hold/** is frozen by the LOCK.md digest (only task ticks change)
 - team-domain/proto/platform/identity/v1/identity.proto (copied by q6-trust-contract)
 - platform-e2e/tests/e2e/support/audit_support.py, user_enforcement_support.py (reuse)
 - team-search/internal/consumer/consumer.go (pattern)

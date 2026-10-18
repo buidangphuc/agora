@@ -2,7 +2,7 @@
 Feature: Reporting a listing from its page (frontend-listing-moderation)
   A guest is sent to login and back, a buyer's report reaches the admin inbox, and the seller never
   sees who reported. Scenario names echo the spec scenarios of
-  openspec/changes/frontend-listing-moderation. Every negative check is paired with a positive one
+  openspec/changes/archive/2026-10-18-frontend-listing-moderation. Every negative check is paired with a positive one
   (the control is shown after login, the report exists at the gateway).
 
   Scenario: Moderation UI: Guest is sent to login and back

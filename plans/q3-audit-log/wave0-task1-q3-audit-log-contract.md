@@ -1,7 +1,7 @@
 # [W0-T1] q3-audit-log-contract
 
 ## Role
-feature-run worker (change `openspec/changes/q3-audit-log-contract`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-q3-audit-log-contract`)
 
 ## Objective
 Implement OpenSpec change `q3-audit-log-contract` test-first per its tasks.md (scenario ids there); context in plans/q3-audit-log/00-spec.md and the change's design.md Clarifications.
@@ -27,7 +27,7 @@ Implement OpenSpec change `q3-audit-log-contract` test-first per its tasks.md (s
 - .claude/agents/auth-scope-reviewer.md
 
 ## Read-only dependencies
-- openspec/changes/q3-audit-log-contract/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-q3-audit-log-contract/** (frozen by LOCK.md digest)
 - platform-core/packages/proto/platform/engagement/v1/hidereview_roundtrip_test.go (pattern to mirror)
 - plans/q3-audit-log/00-spec.md, plans/q3-audit-log/slices.yaml, plans/q3-audit-log/LOCK.md
 

@@ -1,7 +1,7 @@
 # [W3-T1] frontend-ai-interaction-events
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-ai-interaction-events`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-frontend-ai-interaction-events`)
 
 ## Objective
 Implement OpenSpec change `frontend-ai-interaction-events` test-first per its tasks.md (scenario ids there); context in plans/q4-loop-instrumentation/00-spec.md and the change's design.md Clarifications.
@@ -31,7 +31,7 @@ Implement OpenSpec change `frontend-ai-interaction-events` test-first per its ta
 - platform-e2e/tests/e2e/step_definitions/test_ai_interaction_events.py
 
 ## Read-only dependencies
-- openspec/changes/frontend-ai-interaction-events/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-frontend-ai-interaction-events/** (frozen by LOCK.md digest)
 - team-frontend/src/lib/analytics/schema.ts, map.ts: only the ai_interaction addition (Clarifications Round 2)
 - platform-e2e/tests/e2e/support/loop_events_support.py, review_order_support.py (import, never edit)
 - plans/q4-loop-instrumentation/00-spec.md, slices.yaml, LOCK.md

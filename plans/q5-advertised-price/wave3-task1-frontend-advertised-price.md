@@ -1,7 +1,7 @@
 # [W3-T1] frontend-advertised-price
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-advertised-price`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-frontend-advertised-price`)
 
 ## Objective
 Implement OpenSpec change `frontend-advertised-price` test-first per its tasks.md; context in plans/q5-advertised-price/00-spec.md and design.md Clarifications.
@@ -27,7 +27,7 @@ Implement OpenSpec change `frontend-advertised-price` test-first per its tasks.m
 - platform-e2e/tests/e2e/step_definitions/test_advertised_price_ui.py
 
 ## Read-only dependencies
-- openspec/changes/frontend-advertised-price/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-frontend-advertised-price/** (frozen by LOCK.md digest)
 - platform-e2e/tests/e2e/support/flash_support.py, flash_hold_support.py (reuse)
 - plans/q5-advertised-price/00-spec.md, LOCK.md
 

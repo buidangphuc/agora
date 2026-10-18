@@ -1,7 +1,7 @@
 # [W1-T1] engagement-review-integrity
 
 ## Role
-feature-run worker (change `openspec/changes/engagement-review-integrity`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-engagement-review-integrity`)
 
 ## Objective
 Implement OpenSpec change `engagement-review-integrity` test-first per its tasks.md (scenario ids there); context in plans/q2-review-integrity/00-spec.md and the change's design.md Clarifications. Includes the team-gateway forwarder + admin policy, the shared e2e fixture, migration of API-level review e2e, platform-core seed tools and the compose env.
@@ -53,7 +53,7 @@ Implement OpenSpec change `engagement-review-integrity` test-first per its tasks
 - docker-compose.services.yaml
 
 ## Read-only dependencies
-- openspec/changes/engagement-review-integrity/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-engagement-review-integrity/** (frozen by LOCK.md digest)
 - q2-review-integrity-contract output (proto copies in team-engagement/proto, team-gateway/proto)
 - plans/q2-review-integrity/00-spec.md, slices.yaml, LOCK.md
 

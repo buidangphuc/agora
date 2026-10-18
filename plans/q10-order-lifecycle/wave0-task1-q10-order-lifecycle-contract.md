@@ -1,7 +1,7 @@
 # [W0-T1] q10-order-lifecycle-contract
 
 ## Role
-feature-run worker (change `openspec/changes/q10-order-lifecycle-contract`, owner platform-core)
+feature-run worker (change `openspec/changes/archive/2026-10-18-q10-order-lifecycle-contract`, owner platform-core)
 
 ## Objective
 Implement OpenSpec change `q10-order-lifecycle-contract` test-first per its tasks.md (scenario ids there); context in plans/q10-order-lifecycle/00-spec.md and the change's design.md Clarifications.
@@ -32,12 +32,12 @@ Implement OpenSpec change `q10-order-lifecycle-contract` test-first per its task
 - team-domain/proto/platform/payment/v1/payment.proto
 - team-engagement/proto/platform/payment/v1/payment.proto
 - platform-core/FEATURES.yaml
-- openspec/changes/q10-order-lifecycle-contract/**
+- openspec/changes/archive/2026-10-18-q10-order-lifecycle-contract/**
 - platform-core/packages/proto/gen_lifecycle_contract_test.sh (widened at build: task 2.2)
 - platform-core/packages/proto/consumer_copies_test.sh (widened at build: task 2.3)
 
 ## Read-only dependencies
-- openspec/changes/q10-order-lifecycle-contract/** is frozen by its LOCK.md digest except tasks.md ticks
+- openspec/changes/archive/2026-10-18-q10-order-lifecycle-contract/** is frozen by its LOCK.md digest except tasks.md ticks
 - platform-core/packages/proto/platform/analytics/v1/loopevents_compat_test.go (pattern to mirror)
 - plans/q10-order-lifecycle/00-spec.md, slices.yaml, LOCK.md
 

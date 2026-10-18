@@ -1,7 +1,7 @@
 # [W2-T2] order-receipt-completion
 
 ## Role
-feature-run worker (change `openspec/changes/order-receipt-completion`, owner team-order)
+feature-run worker (change `openspec/changes/archive/2026-10-18-order-receipt-completion`, owner team-order)
 
 ## Objective
 Implement OpenSpec change `order-receipt-completion` test-first per its tasks.md (scenario ids there); context in plans/q10-order-lifecycle/00-spec.md and the change's design.md Clarifications.
@@ -52,10 +52,10 @@ Implement OpenSpec change `order-receipt-completion` test-first per its tasks.md
 - platform-e2e/tests/e2e/step_definitions/prm_rma_ui_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_prm_rma_return_refund_settlement.py
 - platform-e2e/tests/e2e/step_definitions/test_prm_rma_return_refund_ui.py
-- openspec/changes/order-receipt-completion/**
+- openspec/changes/archive/2026-10-18-order-receipt-completion/**
 
 ## Read-only dependencies
-- openspec/changes/order-receipt-completion/** is frozen by its LOCK.md digest except tasks.md ticks
+- openspec/changes/archive/2026-10-18-order-receipt-completion/** is frozen by its LOCK.md digest except tasks.md ticks
 - order-unpaid-expiry's lifecycle sweep, migration 0008 and OrderPlaced path (merged before this slice)
 - team-gateway/internal/edge CancelOrder forwarder (pattern)
 - plans/q10-order-lifecycle/00-spec.md, slices.yaml, LOCK.md

@@ -1,7 +1,7 @@
 # [W3-T1] frontend-listing-moderation
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-listing-moderation`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-frontend-listing-moderation`)
 
 ## Objective
 Implement OpenSpec change `frontend-listing-moderation` test-first per its tasks.md (scenario ids there); context in plans/q6-trust-enforcement/00-spec.md and the change's design.md Clarifications.
@@ -66,10 +66,10 @@ Implement OpenSpec change `frontend-listing-moderation` test-first per its tasks
 - platform-e2e/tests/e2e/features/frontend/seller_listing_status_ui.feature
 - platform-e2e/tests/e2e/step_definitions/seller_listing_status_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_seller_listing_status_ui.py
-- openspec/changes/frontend-listing-moderation/**
+- openspec/changes/archive/2026-10-18-frontend-listing-moderation/**
 
 ## Read-only dependencies
-- openspec/changes/frontend-listing-moderation/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-18-frontend-listing-moderation/** is frozen by the LOCK.md digest (only task ticks change)
 - team-frontend/proto/** (copied by q6-trust-contract; never edit)
 - platform-e2e/tests/e2e/support/audit_support.py, listing_moderation_support.py, report_support.py (reuse)
 - team-frontend/src/app/guards.test.ts (must stay green)

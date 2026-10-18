@@ -1,7 +1,7 @@
 # [W2-T5] payment-admin-refund-audit
 
 ## Role
-feature-run worker (change `openspec/changes/payment-admin-refund-audit`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-payment-admin-refund-audit`)
 
 ## Objective
 Implement OpenSpec change `payment-admin-refund-audit` test-first per its tasks.md (scenario ids there); context in plans/q3-audit-log/00-spec.md and the change's design.md Clarifications.
@@ -26,7 +26,7 @@ Implement OpenSpec change `payment-admin-refund-audit` test-first per its tasks.
 - platform-e2e/tests/e2e/step_definitions/test_admin_refund_audit.py
 
 ## Read-only dependencies
-- openspec/changes/payment-admin-refund-audit/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-payment-admin-refund-audit/** (frozen by LOCK.md digest)
 - team-payment/proto/platform/audit/v1/audit.proto (vendored by q3-audit-log-contract; regenerate gitignored `generated/` with `make proto`, never hand-edit)
 - platform-e2e/tests/e2e/support/audit_support.py (audit-query-filters output; import only, never edit)
 - team-engagement/internal/upstream/audit.go (client to mirror)

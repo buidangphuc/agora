@@ -1,7 +1,7 @@
 # [W1-T1] audit-query-filters
 
 ## Role
-feature-run worker (change `openspec/changes/audit-query-filters`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-audit-query-filters`)
 
 ## Objective
 Implement OpenSpec change `audit-query-filters` test-first per its tasks.md (scenario ids there); context in plans/q3-audit-log/00-spec.md and the change's design.md Clarifications.
@@ -26,7 +26,7 @@ Implement OpenSpec change `audit-query-filters` test-first per its tasks.md (sce
 - platform-e2e/tests/e2e/step_definitions/test_audit_query_filters.py
 
 ## Read-only dependencies
-- openspec/changes/audit-query-filters/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-audit-query-filters/** (frozen by LOCK.md digest)
 - team-audit/proto/platform/audit/v1/audit.proto (vendored by q3-audit-log-contract; regenerate gitignored `generated/` with `make proto`, never hand-edit)
 - team-gateway/proto/platform/audit/v1/audit.proto (vendored by q3-audit-log-contract; regenerate gitignored `generated/` with `make proto`, never hand-edit)
 - plans/q3-audit-log/00-spec.md, plans/q3-audit-log/slices.yaml, plans/q3-audit-log/LOCK.md
