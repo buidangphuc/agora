@@ -99,7 +99,7 @@ Feature: Order status changes follow one transition table and are compare-and-se
     And "b1" has a Pending order for 2 of "L"
     When "b1" starts an online payment for the order
     And "b1" cancels the order
-    And the payment of "b1" succeeds
+    And a late payment by "b1" is refused as cancelled
     Then the order read by "b1" stays Cancelled after the payment settles
     And the stock of "L" is back to 10
 
@@ -119,7 +119,7 @@ Feature: Order status changes follow one transition table and are compare-and-se
     And "b1" has a Pending order for 2 of "L" placed with the voucher
     When "b1" starts an online payment for the order
     And "b1" cancels the order
-    And the payment of "b1" succeeds
+    And a late payment by "b1" is refused as cancelled
     Then the order read by "b1" stays Cancelled after the payment settles
     And another buyer can still check out with that voucher
 

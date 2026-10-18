@@ -229,6 +229,7 @@ There is no Makefile, no `.github/workflows` and no other CI config in this repo
 - Scopes `order.read` / `order.write` are not enforced here; authorization is only the id and admin-scope checks above. Principal metadata is trusted as forwarded.
 - A failed `PaymentSettled` leaves the order PENDING until the lifecycle sweeper cancels it at `payment_due_at` (`PAYMENT_EXPIRED`); orders placed before migration 0008 have no deadline and are never auto-expired.
 - `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` are inert: only the otelgrpc stats handler is attached, and no tracer provider or exporter is configured in this repo.
+- `openspec/specs/order-lifecycle-guards/spec.md:105` and `:115` (and their `FEATURES.yaml` acceptance lines) still say "the payment then succeeds" after the cancel; since payment-unpaid-cancel team-payment refuses that settle (`FAILED_PRECONDITION` "payment cancelled", `openspec/changes/payment-unpaid-cancel/specs/unpaid-order-payment/spec.md:42`) and the e2e scenarios assert the refusal. The change carries no MODIFIED delta for them yet.
 
 ## Runbook: commit re-sync (after deploying port-order-inventory-correctness)
 

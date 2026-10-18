@@ -38,7 +38,7 @@ from tests.e2e.support.oic_order_support import (
 )
 
 _STATUS = {"Paid": PAID, "Cancelled": CANCELLED, "Shipped": SHIPPED}
-_PAYMENT_STATUS = {"PAID": p.PAID, "REFUNDED": p.REFUNDED}
+_PAYMENT_STATUS = {"PAID": p.PAID, "REFUNDED": p.REFUNDED, "CANCELLED": p.CANCELLED}
 _ORDER_PAID_TYPE = b"platform.order.v1.OrderPaidEvent"
 _ORDER_CANCELLED_TYPE = b"platform.order.v1.OrderCancelled"
 _ORDER_SHIPPED_TYPE = b"OrderShipped"
@@ -188,13 +188,18 @@ def concurrent_payments(plp, b, n):
     plp.data["paid"].append({"listing": "L", "price": 0, "order": plp.orders["order"], "tx": tx_id})
 
 
-@any_step(parsers.parse('the payment of "{b}" succeeds'))
-def payment_succeeds(plp, b):
+@any_step(parsers.parse('a late payment by "{b}" is refused as cancelled'))
+def late_payment_refused(plp, b):
+    # payment-unpaid-cancel, "A cancelled payment cannot be settled": the settle re-reads
+    # the order, so a payment after the cancel is refused and moves no money.
     resp = p.o.settle_payment(plp, _actor(plp, b), plp.data["open_tx"])
-    assert resp.status_code == 200, f"late payment failed: {p.describe(resp)}"
-    plp.data["paid"].append(
-        {"listing": "L", "price": 0, "order": plp.orders["order"], "tx": plp.data["open_tx"]}
-    )
+    assert code_of(resp) == "failed_precondition", f"late payment: {p.describe(resp)}"
+    assert p.message_of(resp) == "payment cancelled", f"late payment: {p.describe(resp)}"
+
+
+@any_step(parsers.parse("the seller refunds {amount:d} of the cancelled order's payment"))
+def seller_refunds_cancelled(plp, amount):
+    plp.responses["last"] = p.refund(plp, _seller(plp), plp.data["open_tx"], amount)
 
 
 @any_step("a sentinel order of the seller is credited")
@@ -245,7 +250,7 @@ def order_is(plp, b, status):
 
 @any_step(
     parsers.re(
-        r'(?:within the settle window )?the payment read by "(?P<b>[^"]+)" is (?P<st>PAID|REFUNDED)'
+        r'(?:within the settle window )?the payment read by "(?P<b>[^"]+)" is (?P<st>PAID|REFUNDED|CANCELLED)'
     )
 )
 def payment_is(plp, b, st):
