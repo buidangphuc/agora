@@ -3987,3 +3987,353 @@ features:
     tags: [q6-trust-contract, unit]
     status: not-testable
     notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: `buf lint` run per consumer, recorded in tasks 3.2"
+  - id: order-lifecycle-contract.confirmreceipt-rpc-exists
+    title: "Order lifecycle contract: ConfirmReceipt RPC exists"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: ConfirmReceipt RPC exists"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/order/v1/lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.enums-have-fixed-names-and-numbers
+    title: "Order lifecycle contract: Enums have fixed names and numbers"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Enums have fixed names and numbers"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.cancelorderrequest-carries-a-reason-code
+    title: "Order lifecycle contract: CancelOrderRequest carries a reason code"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: CancelOrderRequest carries a reason code"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.confirmreceipt-authz-and-preconditions-are-documented
+    title: "Order lifecycle contract: ConfirmReceipt authz and preconditions are documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: ConfirmReceipt authz and preconditions are documented"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.system-only-cancel-reasons-are-documented-as-refused-for-buyers
+    title: "Order lifecycle contract: System-only cancel reasons are documented as refused for buyers"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: System-only cancel reasons are documented as refused for buyers"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.missing-authz-note-is-caught
+    title: "Order lifecycle contract: Missing authz note is caught"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Missing authz note is caught"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.order-lifecycle-fields-have-fixed-numbers
+    title: "Order lifecycle contract: Order lifecycle fields have fixed numbers"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Order lifecycle fields have fixed numbers"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.return-and-event-additions-are-fixed
+    title: "Order lifecycle contract: Return and event additions are fixed"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Return and event additions are fixed"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.order-with-lifecycle-fields-round-trips
+    title: "Order lifecycle contract: Order with lifecycle fields round-trips"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Order with lifecycle fields round-trips"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.old-readers-skip-the-new-order-fields
+    title: "Order lifecycle contract: Old readers skip the new Order fields"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Old readers skip the new Order fields"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.unknown-cancel-reason-value-parses
+    title: "Order lifecycle contract: Unknown cancel reason value parses"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Unknown cancel reason value parses"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.derivation-rules-are-documented
+    title: "Order lifecycle contract: Derivation rules are documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Derivation rules are documented"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.new-event-messages-have-fixed-fields
+    title: "Order lifecycle contract: New event messages have fixed fields"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: New event messages have fixed fields"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.completed-event-round-trips
+    title: "Order lifecycle contract: Completed event round-trips"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Completed event round-trips"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.cod-placed-event-round-trips-without-a-deadline
+    title: "Order lifecycle contract: COD placed event round-trips without a deadline"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: COD placed event round-trips without a deadline"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.reminder-and-return-events-round-trip
+    title: "Order lifecycle contract: Reminder and return events round-trip"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Reminder and return events round-trip"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go round-trip test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.event-semantics-are-documented
+    title: "Order lifecycle contract: Event semantics are documented"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Event semantics are documented"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: comment-text assertion in `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.payment-status-cancelled-exists
+    title: "Order lifecycle contract: PAYMENT_STATUS_CANCELLED exists"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: PAYMENT_STATUS_CANCELLED exists"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: Go descriptor test `lifecycle_compat_test.go` (tasks 2.1)"
+  - id: order-lifecycle-contract.change-is-backward-compatible
+    title: "Order lifecycle contract: Change is backward compatible"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Change is backward compatible"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` (tasks 1.3)"
+  - id: order-lifecycle-contract.lint-passes
+    title: "Order lifecycle contract: Lint passes"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Lint passes"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core lint-proto` (tasks 1.3)"
+  - id: order-lifecycle-contract.wire-breaking-edit-is-rejected
+    title: "Order lifecycle contract: Wire-breaking edit is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Wire-breaking edit is rejected"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core breaking` (compares against HEAD = the slice commit) run on a mutated copy plus `lifecycle_compat_test.go` (tasks 1.3, 2.1)"
+  - id: order-lifecycle-contract.new-contract-in-every-generated-language
+    title: "Order lifecycle contract: New contract in every generated language"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: New contract in every generated language"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2)"
+  - id: order-lifecycle-contract.copies-match-the-source
+    title: "Order lifecycle contract: Copies match the source"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Copies match the source"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the twenty copies against the sources (tasks 2.3)"
+  - id: order-lifecycle-contract.drifted-or-missing-copy-is-rejected
+    title: "Order lifecycle contract: Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Drifted or missing copy is rejected"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: one-off slice-done `cmp` of the twenty copies against the sources (tasks 2.3)"
+  - id: order-lifecycle-contract.consumer-copies-lint
+    title: "Order lifecycle contract: Consumer copies lint"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Order lifecycle contract: Consumer copies lint"
+    tags:
+    - order-lifecycle-contract
+    - unit
+    status: not-testable
+    notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `buf lint` per consumer proto directory (tasks 2.3)"
