@@ -32,13 +32,28 @@ function consentEntries(layer: unknown[]): [string, Signals][] {
   return out;
 }
 
-function currentPageLocation(): string {
-  const loc = new URL(window.location.href);
+/** True for /admin and /admin/... (segment exact, case-insensitive). */
+function isAdminPath(pathname: string): boolean {
+  return /^\/admin(\/|$)/i.test(pathname);
+}
+
+/** page_location for analytics: admin paths lose all query+hash; others lose returnUrl. */
+export function pageLocationFor(href: string): string {
+  const loc = new URL(href);
+  if (isAdminPath(loc.pathname)) {
+    loc.search = "";
+    loc.hash = "";
+    return loc.toString();
+  }
   if (loc.searchParams.has("returnUrl")) {
     loc.searchParams.delete("returnUrl");
     return loc.toString();
   }
   return loc.href;
+}
+
+function currentPageLocation(): string {
+  return pageLocationFor(window.location.href);
 }
 
 /** Pushes the current page_location (without returnUrl) after a client-side navigation. */
