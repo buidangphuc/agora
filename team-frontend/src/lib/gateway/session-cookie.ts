@@ -23,5 +23,6 @@ export function refreshCookieOptions(secure: boolean) {
 }
 
 export function isSecureRequest(headers: Headers): boolean {
+  if (process.env.COOKIE_SECURE?.trim().toLowerCase() === "true") return true;
   return headers.get("x-forwarded-proto") === "https";
 }
