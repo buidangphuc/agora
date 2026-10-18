@@ -41,6 +41,7 @@ Append one JSON line per event to `metrics/runs/<change>.jsonl` (for W5-1):
 carries `rounds_total`, `gate_red` (count per gate) and total `wall_s`.
 
 ## Steps
+Run every test/coverage/gate command below through the `gate-digest` skill (`scripts/asdlc/gate_digest.py`): decide from its JSON verdict; open logs only at a named failure.
 1. **Preflight** (main tree). All must pass, else stop and report:
    ```bash
    openspec validate <change> --strict
