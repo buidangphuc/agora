@@ -333,3 +333,87 @@ func TestSellerPathsIgnoreAuditAvailability(t *testing.T) {
 		t.Errorf("ad campaign: %v", err)
 	}
 }
+
+// Scenario: Shop voucher audit: admin shop voucher is audited by the handler with
+// the admin as actor.
+func TestCreateVoucherShopAdminAudited(t *testing.T) {
+	rec := &recordingAudit{}
+	vc, _, _, _ := startAllAudited(t, owned(), rec)
+	if _, err := vc.CreateVoucher(adminCtx(), platformVoucher("SHOP-ADM10", promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP)); err != nil {
+		t.Fatalf("CreateVoucher: %v", err)
+	}
+	evs := rec.got()
+	if len(evs) != 1 {
+		t.Fatalf("want 1 audit event, got %d: %+v", len(evs), evs)
+	}
+	ev := evs[0]
+	if ev.Action != "voucher.admin_create" || ev.TargetType != "voucher" || ev.TargetID != "SHOP-ADM10" || ev.ActorID != "admin-1" {
+		t.Errorf("event = %+v", ev)
+	}
+	if ev.Metadata["discount_type"] != "DISCOUNT_TYPE_PERCENT" || ev.Metadata["value"] != "10" || ev.Metadata["seller_id"] != "admin-1" {
+		t.Errorf("metadata = %v", ev.Metadata)
+	}
+}
+
+// Scenario: Shop voucher audit: audit down blocks an admin shop voucher (handler
+// passes Unavailable through unchanged; nothing persisted).
+func TestCreateVoucherShopAdminAuditDownUnavailable(t *testing.T) {
+	for name, audit := range map[string]service.AuditWriter{"failing": &recordingAudit{err: errors.New("down")}, "nil": nil} {
+		t.Run(name, func(t *testing.T) {
+			vc, _, _, _ := startAllAudited(t, owned(), audit)
+			_, err := vc.CreateVoucher(adminCtx(), platformVoucher("SHOP-DOWN", promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP))
+			if code(err) != codes.Unavailable {
+				t.Fatalf("got %v, want Unavailable (err=%v)", code(err), err)
+			}
+			if _, err := vc.GetVoucher(adminCtx(), &promotionv1.GetVoucherRequest{Code: "SHOP-DOWN"}); code(err) != codes.NotFound {
+				t.Fatalf("voucher must not exist, GetVoucher = %v", code(err))
+			}
+		})
+	}
+}
+
+// Scenario: Shop voucher audit: seller path needs no audit writer.
+func TestCreateVoucherShopSellerWritesNoAudit(t *testing.T) {
+	shop := promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP
+	rec := &recordingAudit{err: errors.New("audit down")}
+	vc, _, _, _ := startAllAudited(t, owned(), rec)
+	if _, err := vc.CreateVoucher(sellerCtx(), platformVoucher("SHOP-SELL10", shop)); err != nil {
+		t.Fatalf("seller shop voucher: %v", err)
+	}
+	rec.requireNone(t, "seller shop voucher")
+	vc, _, _, _ = startAllAudited(t, owned(), nil)
+	if _, err := vc.CreateVoucher(sellerCtx(), platformVoucher("SHOP-SELL11", shop)); err != nil {
+		t.Fatalf("seller shop voucher with nil audit: %v", err)
+	}
+}
+
+// Scenario: Shop voucher audit: refused callers write nothing.
+func TestCreateVoucherShopRefusedWritesNoAudit(t *testing.T) {
+	rec := &recordingAudit{}
+	vc, _, _, _ := startAllAudited(t, owned(), rec)
+	shop := promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP
+	for _, tc := range []struct {
+		name string
+		ctx  context.Context
+		want codes.Code
+	}{
+		{"buyer", buyerCtx(), codes.PermissionDenied},
+		{"anonymous", anonCtx(), codes.Unauthenticated},
+	} {
+		if _, err := vc.CreateVoucher(tc.ctx, platformVoucher("SHOP-DENY-"+tc.name, shop)); code(err) != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.name, code(err), tc.want)
+		}
+	}
+	rec.requireNone(t, "refused callers")
+}
+
+// Scenario: Shop voucher audit: invalid request writes nothing.
+func TestCreateVoucherShopAdminInvalidWritesNoAudit(t *testing.T) {
+	rec := &recordingAudit{}
+	vc, _, _, _ := startAllAudited(t, owned(), rec)
+	_, err := vc.CreateVoucher(adminCtx(), platformVoucher("", promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP))
+	if code(err) != codes.InvalidArgument {
+		t.Fatalf("got %v, want InvalidArgument", code(err))
+	}
+	rec.requireNone(t, "empty code")
+}
