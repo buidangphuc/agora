@@ -181,3 +181,97 @@ def test_popularity_v2_non_review_columns_equal_v1(dirs, settings, redis):
     for k in v1:
         assert {c: v2[k][c] for c in cols} == {c: v1[k][c] for c in cols}
     assert v1["L1"]["favorites_current"] == 1 and v1["L1"]["ctr_7d"] == 0.5
+
+
+# ---- Task 3: als_interactions@v3 ----
+
+import json
+from pathlib import Path
+
+from test_consent_filter import STAMP, add_consent
+from test_materialize import ev
+
+from featurestore import cli
+
+G = (True, 1)
+
+
+def _als_v3(dirs, env):
+    from conftest import ROOT
+
+    registered = {(x.name, x.version) for x in registry.load_datasets(ROOT / "registry")}
+    assert ("als_interactions", 3) in registered
+    assert cli.main(["dataset"], env=env) == 0
+    base = dirs[1] / "datasets" / "als_interactions" / "v3" / f"as_of={STAMP}"
+    table = pq.read_table(f"{base}.parquet")
+    rows = {(r["user_key"], r["listing_id"]): r for r in table.to_pylist()}
+    return rows, json.loads(Path(f"{base}.manifest.json").read_text())
+
+
+def _anchor(user="u1"):
+    """A consented view on another listing so the user is in the consent set without touching L1."""
+    return ev("anchor-" + user, "view", user, "L9", h(20))
+
+
+def test_als_v3_hidden_review_adds_no_weight(dirs, env):
+    """Scenario: Hidden review exclusion: a hidden positive review adds no ALS weight."""
+    facts = [_rev("f1", "R1", 5, h(10), user="u1"), _hide("f2", "R1", h(5))]
+    write_inputs(dirs[0], [_anchor()], facts)
+    add_consent(dirs[0], {"anchor-u1": G})
+    rows, _ = _als_v3(dirs, env)
+    assert ("u1", "L1") not in rows
+
+
+def test_als_v3_hidden_negative_review_not_subtracted(dirs, env):
+    """Scenario: Hidden review exclusion: a hidden negative review no longer lowers a weight."""
+    events = [ev("e1", "view", "u1", "L1", h(12)), ev("e2", "view", "u1", "L1", h(11))]
+    facts = [_rev("f1", "R1", 1, h(10), user="u1"), _hide("f2", "R1", h(5))]
+    write_inputs(dirs[0], events, facts)
+    add_consent(dirs[0], {"e1": G, "e2": G})
+    rows, _ = _als_v3(dirs, env)
+    assert (rows[("u1", "L1")]["weight"], rows[("u1", "L1")]["interactions"]) == (2.0, 2)
+
+
+def test_als_v3_visible_sibling_review_counts(dirs, env):
+    """Scenario: Hidden review exclusion: a visible earlier review of the same listing still counts."""
+    facts = [
+        _rev("f1", "R1", 5, h(10), user="u1"),
+        _rev("f2", "R2", 1, h(8), user="u1"),
+        _hide("f3", "R2", h(5)),
+    ]
+    write_inputs(dirs[0], [_anchor()], facts)
+    add_consent(dirs[0], {"anchor-u1": G})
+    rows, _ = _als_v3(dirs, env)
+    assert (rows[("u1", "L1")]["weight"], rows[("u1", "L1")]["interactions"]) == (2.0, 1)
+
+
+def test_als_v3_hide_after_as_of_not_applied(dirs, env):
+    """Scenario: Hidden review exclusion: a hide recorded after AS_OF is not applied to a dataset."""
+    late = AS_OF + timedelta(hours=3)
+    facts = [_rev("f1", "R1", 5, h(10), user="u1"), _hide("f2", "R1", h(5), ing=late)]
+    write_inputs(dirs[0], [_anchor()], facts)
+    add_consent(dirs[0], {"anchor-u1": G})
+    rows, manifest = _als_v3(dirs, env)
+    assert rows[("u1", "L1")]["weight"] == 2.0
+    ds = {(x.name, x.version): x for x in registry.load_datasets(settings_registry())}
+    assert manifest["definition_sha256"] == ds[("als_interactions", 3)].sha256
+
+
+def settings_registry():
+    from conftest import ROOT
+
+    return ROOT / "registry"
+
+
+def test_als_v3_keeps_consent_filter(dirs, env):
+    """Scenario: Hidden review exclusion: v3 keeps the consent filter."""
+    events = [_anchor("u1"), ev("anchor-u2", "view", "u2", "L9", h(20))]
+    facts = [
+        _rev("f1", "R1", 5, h(10), user="u1"),
+        _rev("f2", "R2", 5, h(10), user="u2"),
+    ]
+    write_inputs(dirs[0], events, facts)
+    add_consent(dirs[0], {"anchor-u1": G})  # u2 has no consent
+    rows, _ = _als_v3(dirs, env)
+    assert {k[0] for k in rows} == {"u1"}
+    assert rows[("u1", "L1")]["weight"] == 2.0
