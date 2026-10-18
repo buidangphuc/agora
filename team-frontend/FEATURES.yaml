@@ -13945,3 +13945,344 @@ features:
     tags: [auth, session, unit]
     status: not-testable
     notes: "frontend-session-client-context: unit-verified, not producible end to end (covered end to end by frontend-session-continuity S9/S10; the new header attachment is unit-verified). Verified by: `team-frontend/src/middleware.test.ts`"
+
+  # ---- frontend-referrer-hygiene (e2e-author, initiative privacy-audit-hardening). e2e-covered entries stay `planned` until green;
+  # ---- unit-verified scenarios are `not-testable` with their VERIFIED BY.
+
+  - id: auth.referrer-hygiene.every-response-carries-the-policy-header
+    title: "Referrer hygiene: every response carries the policy header"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: every response carries the policy header"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When any page (`/`, `/login`, `/admin/audit`) is requested"
+      - "Then the response contains the header `Referrer-Policy` with the value `strict-origin-when-cross-origin`"
+      - "And the `Content-Security-Policy` header is still present"
+    tags: [auth, referrer-hygiene, privacy]
+    status: automated
+    covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: every response carries the policy header"
+
+  - id: auth.referrer-hygiene.a-weaker-referrer-policy-value-is-not-configured
+    title: "Referrer hygiene: a weaker Referrer-Policy value is not configured"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: a weaker Referrer-Policy value is not configured"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When the `headers()` result is inspected for all sources"
+      - "Then exactly one `Referrer-Policy` entry exists, and the configuration does not contain a weaker value such as `unsafe-url`, `no-referrer-when-downgrade` or `origin-when-cross-origin`"
+    tags: [auth, referrer-hygiene, privacy]
+    status: automated
+    covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: a weaker Referrer-Policy value is not configured"
+
+  - id: auth.referrer-hygiene.admin-audit-page-declares-no-referrer
+    title: "Referrer hygiene: admin audit page declares no-referrer"
+    persona: admin
+    priority: P2
+    summary: "Referrer hygiene: admin audit page declares no-referrer"
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "When `/admin/audit?target_id=u-1` is rendered for an admin"
+      - "Then the document head contains `<meta name=\"referrer\" content=\"no-referrer\">`"
+    tags: [auth, referrer-hygiene, privacy]
+    status: automated
+    covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: admin audit page declares no-referrer"
+
+  - id: auth.referrer-hygiene.every-admin-page-and-login-declare-no-referrer
+    title: "Referrer hygiene: every admin page and login declare no-referrer"
+    persona: admin
+    priority: P2
+    summary: "Referrer hygiene: every admin page and login declare no-referrer"
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "When the metadata export of `/login` and of `admin/cockpit`, `admin/users`, `admin/audit`, `admin/listings`, `admin/cases` is read"
+      - "Then each has `referrer` equal to `no-referrer`"
+    tags: [auth, referrer-hygiene, privacy]
+    status: automated
+    covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: every admin page and login declare no-referrer"
+
+  - id: auth.referrer-hygiene.a-new-admin-page-without-the-metadata-fails-the-build
+    title: "Referrer hygiene: a new admin page without the metadata fails the build"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: a new admin page without the metadata fails the build"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When a `page.tsx` exists under `src/app/(shop)/admin/` whose metadata lacks `referrer: \"no-referrer\"`"
+      - "Then the test `every admin page sets no-referrer` fails and names the file"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `referrerMetadata.test.ts` `every admin page sets no-referrer` (static scan, not producible end to end)"
+
+  - id: auth.referrer-hygiene.non-admin-403-view-on-an-admin-url-also-sends-no-referrer
+    title: "Referrer hygiene: non-admin 403 view on an admin URL also sends no referrer"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: non-admin 403 view on an admin URL also sends no referrer"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When a signed-in buyer opens `/admin/users?query=x`"
+      - "Then the 403 view is rendered and the document head contains `<meta name=\"referrer\" content=\"no-referrer\">`"
+    tags: [auth, referrer-hygiene, privacy]
+    status: automated
+    covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: non-admin 403 view on an admin URL also sends no referrer"
+
+  - id: auth.referrer-hygiene.no-admin-query-reaches-a-cross-origin-request-header
+    title: "Referrer hygiene: no admin query reaches a cross-origin request header"
+    persona: admin
+    priority: P2
+    summary: "Referrer hygiene: no admin query reaches a cross-origin request header"
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "When an admin opens `/admin/audit?target_id=u-1` in a browser and the page issues a cross-origin request"
+      - "Then that request carries no `Referer` header"
+    tags: [auth, referrer-hygiene, privacy]
+    status: automated
+    covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: no admin query reaches a cross-origin request header"
+
+  - id: auth.referrer-hygiene.admin-page-location-is-path-only
+    title: "Referrer hygiene: admin page_location is path only"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: admin page_location is path only"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When consent is granted and the browser is at `https://shop.example/admin/audit?target_id=u-1&actor_id=u-2#x`"
+      - "Then the pushed `page_location` equals `https://shop.example/admin/audit`"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `team-frontend/src/lib/analytics/destinations/gtm.test.ts` `admin page_location drops all query and fragment`"
+
+  - id: auth.referrer-hygiene.look-alike-path-is-not-treated-as-admin
+    title: "Referrer hygiene: look-alike path is not treated as admin"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: look-alike path is not treated as admin"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When the browser is at `/administrator?q=1` and at `/adminx?q=1`"
+      - "Then the pushed `page_location` keeps `?q=1` in both cases"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `gtm.test.ts` `admin match is segment exact`"
+
+  - id: auth.referrer-hygiene.the-admin-root-is-stripped-too
+    title: "Referrer hygiene: the admin root is stripped too"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: the admin root is stripped too"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When the browser is at `/admin?x=1`, at `/ADMIN/users?x=1` and at `/admin/users/?x=1`"
+      - "Then the pushed `page_location` has no query in each case"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `gtm.test.ts` `admin root and case variants stripped`"
+
+  - id: auth.referrer-hygiene.non-admin-pages-keep-other-params
+    title: "Referrer hygiene: non-admin pages keep other params"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: non-admin pages keep other params"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When the browser is at `/listing/abc?variant=v2&returnUrl=%2Fx`"
+      - "Then the pushed `page_location` is `/listing/abc?variant=v2`"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `gtm.test.ts` `keeps other params` (existing, must stay green)"
+
+  - id: auth.referrer-hygiene.login-page-location-still-has-no-returnurl
+    title: "Referrer hygiene: login page_location still has no returnUrl"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: login page_location still has no returnUrl"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When the login page is viewed at `/login?returnUrl=%2Faccount%2Forders%2Fo-9`"
+      - "Then the pushed `page_location` equals origin plus `/login` with no `returnUrl` and no `o-9`"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `gtm.test.ts` `strips returnUrl from page_location` (existing, FEATURES id `auth.login-return.page-location-has-no-returnurl`)"
+
+  - id: auth.referrer-hygiene.non-admin-signed-in-user-on-an-admin-url-gets-the-stripped-location-to
+    title: "Referrer hygiene: non-admin signed-in user on an admin URL gets the stripped location too"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: non-admin signed-in user on an admin URL gets the stripped location too"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When a signed-in buyer with consent is at `/admin/users?query=x` (403 view shown)"
+      - "Then the pushed `page_location` equals the origin plus `/admin/users`"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `gtm.test.ts` `admin page_location drops all query and fragment` (path rule is independent of the principal)"
+
+  - id: auth.referrer-hygiene.no-push-without-analytics-consent
+    title: "Referrer hygiene: no push without analytics consent"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: no push without analytics consent"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When the latest consent update does not grant `analytics_storage` and a navigation occurs"
+      - "Then no `page_location` and no `page_referrer` entry is pushed"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `gtm.test.ts` `no push without consent`"
+
+  - id: auth.referrer-hygiene.login-url-referrer-loses-returnurl
+    title: "Referrer hygiene: login URL referrer loses returnUrl"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: login URL referrer loses returnUrl"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When a user lands on `/` after login and `document.referrer` is `https://shop.example/login?returnUrl=%2Fadmin%2Fusers%3Fquery%3Da%40b.vn`"
+      - "Then the pushed `page_referrer` equals `https://shop.example/login`"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `gtm.test.ts` `page_referrer drops login returnUrl`"
+
+  - id: auth.referrer-hygiene.admin-referrer-loses-its-query
+    title: "Referrer hygiene: admin referrer loses its query"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: admin referrer loses its query"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When `document.referrer` is `https://shop.example/admin/audit?target_id=u-1`"
+      - "Then the pushed `page_referrer` equals `https://shop.example/admin/audit`"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `gtm.test.ts` `page_referrer drops admin query`"
+
+  - id: auth.referrer-hygiene.empty-or-invalid-referrer-becomes-empty-string
+    title: "Referrer hygiene: empty or invalid referrer becomes empty string"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: empty or invalid referrer becomes empty string"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When `document.referrer` is `\"\"` and, in another run, `not a url`"
+      - "Then the pushed `page_referrer` equals `\"\"` in both runs and no exception is thrown"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `gtm.test.ts` `page_referrer empty on invalid input`"
+
+  - id: auth.referrer-hygiene.datalayer-after-an-admin-visit-has-no-admin-query
+    title: "Referrer hygiene: dataLayer after an admin visit has no admin query"
+    persona: admin
+    priority: P2
+    summary: "Referrer hygiene: dataLayer after an admin visit has no admin query"
+    entry_route: /admin/audit
+    services: [team-frontend]
+    acceptance:
+      - "When a consenting admin opens `/admin/audit?target_id=u-1` in a browser and navigates to `/admin/users?query=a%40b.vn`"
+      - "Then no `dataLayer` entry contains `target_id`, `query=` or `a@b.vn` in `page_location` or `page_referrer`"
+    tags: [auth, referrer-hygiene, privacy]
+    status: automated
+    covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: dataLayer after an admin visit has no admin query"
+
+  - id: auth.referrer-hygiene.guest-on-admin-users-search-gets-path-only-returnurl
+    title: "Referrer hygiene: guest on admin users search gets path-only returnUrl"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: guest on admin users search gets path-only returnUrl"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When a guest opens `/admin/users?query=a%40b.vn&state=banned`"
+      - "Then the browser is redirected to `/login?returnUrl=%2Fadmin%2Fusers`"
+      - "And the location contains no `query` and no `a%40b.vn`"
+    tags: [auth, referrer-hygiene, privacy]
+    status: automated
+    covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: guest on admin users search gets path-only returnUrl"
+
+  - id: auth.referrer-hygiene.buildreturnpath-drops-admin-searchparams
+    title: "Referrer hygiene: buildReturnPath drops admin searchParams"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: buildReturnPath drops admin searchParams"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When `buildReturnPath(\"/admin/audit\", { target_id: \"u-1\", actor_id: [\"a\", \"b\"] })` is called"
+      - "Then it returns `/admin/audit`"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `team-frontend/src/features/auth/guardPath.test.ts` `admin returnUrl is path only`"
+
+  - id: auth.referrer-hygiene.header-based-guard-drops-the-admin-query
+    title: "Referrer hygiene: header-based guard drops the admin query"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: header-based guard drops the admin query"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When the `x-pathname` header is `/admin/cases?status=open` and a param-less guard runs"
+      - "Then `redirectToLogin` is called with `/admin/cases`"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `guardPath.test.ts` `header guard strips admin query`"
+
+  - id: auth.referrer-hygiene.non-admin-guard-still-preserves-the-query
+    title: "Referrer hygiene: non-admin guard still preserves the query"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: non-admin guard still preserves the query"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When `buildReturnPath(\"/chat\", { thread: \"t1\", tag: [\"a\", \"b\"] })` is called"
+      - "Then it returns `/chat?thread=t1&tag=a&tag=b`"
+    tags: [auth, referrer-hygiene, privacy]
+    status: automated
+    covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: non-admin guard still preserves the query"
+
+  - id: auth.referrer-hygiene.look-alike-admin-prefix-keeps-its-query
+    title: "Referrer hygiene: look-alike admin prefix keeps its query"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: look-alike admin prefix keeps its query"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When `buildReturnPath(\"/administrator\", { q: \"1\" })` is called"
+      - "Then it returns `/administrator?q=1`"
+    tags: [auth, referrer-hygiene, privacy, unit]
+    status: not-testable
+    notes: "frontend-referrer-hygiene: unit-verified, not producible end to end. Verified by: `guardPath.test.ts` `admin match is segment exact`"
+
+  - id: auth.referrer-hygiene.signed-in-non-admin-still-sees-the-403-view
+    title: "Referrer hygiene: signed-in non-admin still sees the 403 view"
+    persona: guest
+    priority: P2
+    summary: "Referrer hygiene: signed-in non-admin still sees the 403 view"
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "When a signed-in buyer opens `/admin/users?query=x`"
+      - "Then the response renders \"Cần tài khoản Quản trị\" with no redirect to login"
+    tags: [auth, referrer-hygiene, privacy]
+    status: automated
+    covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: signed-in non-admin still sees the 403 view"

@@ -14,6 +14,7 @@ import { getPrincipal, getToken } from "@/lib/gateway/session";
 export const metadata: Metadata = {
   title: "Hồ sơ cần xử lý | Sàn Thương Mại Điện Tử",
   description: "Báo cáo vi phạm và hàng chờ kiểm duyệt tin đăng.",
+  referrer: "no-referrer",
 };
 
 export const dynamic = "force-dynamic";
