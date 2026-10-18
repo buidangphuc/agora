@@ -173,16 +173,17 @@ export async function registerAction(
 export async function logoutAction() {
   const jar = await cookies();
   try {
+    const client = clientContextFrom(await headers());
     let bearer: string | undefined;
     const access = jar.get(SESSION_COOKIE)?.value;
     const refresh = jar.get(REFRESH_COOKIE)?.value;
     if (access && isUsableToken(access)) {
       bearer = access;
     } else if (refresh) {
-      bearer = (await refreshSession(refresh)).token || undefined;
+      bearer = (await refreshSession(refresh, client)).token || undefined;
     }
     const sid = bearer ? sessionIdOf(bearer) : undefined;
-    if (bearer && sid) await revokeOwnSession(sid, bearer);
+    if (bearer && sid) await revokeOwnSession(sid, bearer, client);
   } catch {
     // Best effort: logout must always clear the cookies.
   }

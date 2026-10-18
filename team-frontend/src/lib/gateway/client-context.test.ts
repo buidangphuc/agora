@@ -47,3 +47,33 @@ describe("clientContextFrom", () => {
     expect(clientContextFrom(hdr({}), {})).toEqual({});
   });
 });
+
+describe("Session client context: spoofed leftmost X-Forwarded-For is ignored (permission)", () => {
+  it("Session client context: spoofed leftmost X-Forwarded-For is ignored - forwards the proxy-appended peer", () => {
+    expect(
+      clientContextFrom(hdr({ "x-forwarded-for": "6.6.6.6, 198.51.100.4" }), {
+        TRUSTED_PROXY_HOPS: "1",
+      }).ip,
+    ).toBe("198.51.100.4");
+  });
+
+  it("Session client context: spoofed leftmost X-Forwarded-For is ignored - fewer entries than hops forwards no IP", () => {
+    expect(
+      clientContextFrom(hdr({ "x-forwarded-for": "198.51.100.4" }), {
+        TRUSTED_PROXY_HOPS: "2",
+      }).ip,
+    ).toBeUndefined();
+  });
+
+  it("Session client context: spoofed leftmost X-Forwarded-For is ignored - selected entry not an IP forwards no IP", () => {
+    expect(
+      clientContextFrom(hdr({ "x-forwarded-for": "198.51.100.4, not-an-ip" }), {
+        TRUSTED_PROXY_HOPS: "1",
+      }).ip,
+    ).toBeUndefined();
+  });
+
+  it("Session client context: missing headers (boundary) - no headers yields an empty context", () => {
+    expect(clientContextFrom(hdr({}), { TRUSTED_PROXY_HOPS: "1" })).toEqual({});
+  });
+});

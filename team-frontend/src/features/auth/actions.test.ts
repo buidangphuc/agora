@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeClients } from "@/lib/gateway/client";
 import { refreshSession } from "@/lib/gateway/refresh";
+import { revokeOwnSession } from "@/lib/gateway/revoke";
 
 import {
   type AuthState,
@@ -15,6 +16,11 @@ import {
 
 vi.mock("@/lib/gateway/client", () => ({ makeClients: vi.fn() }));
 vi.mock("@/lib/gateway/refresh", () => ({ refreshSession: vi.fn() }));
+// Pass-through spy: real revoke behaviour (transport fake below), observable args.
+vi.mock("@/lib/gateway/revoke", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("@/lib/gateway/revoke")>();
+  return { ...orig, revokeOwnSession: vi.fn(orig.revokeOwnSession) };
+});
 
 // Fake the connect-node transport at the true boundary: it runs the configured
 // interceptors so the bearer that would reach the gateway is observable.
@@ -274,8 +280,10 @@ describe("refresh cookie (frontend-session-continuity)", () => {
     await loginAction(initial, form({ username: "alice", password: "pw" }));
 
     const calls = setCalls(jar);
-    const session = find(calls, "session")!;
-    const refresh = find(calls, "agora_refresh")!;
+    const session = find(calls, "session");
+    if (!session) throw new Error("cookie session not set");
+    const refresh = find(calls, "agora_refresh");
+    if (!refresh) throw new Error("cookie agora_refresh not set");
     expect(session[1]).toBe("jwt-1");
     expect(session[2]).toEqual(expect.objectContaining({ maxAge: 3600 }));
     expect(refresh[1]).toBe("rt-1");
@@ -305,8 +313,10 @@ describe("refresh cookie (frontend-session-continuity)", () => {
     );
 
     const calls = setCalls(jar);
-    const session = find(calls, "session")!;
-    const refresh = find(calls, "agora_refresh")!;
+    const session = find(calls, "session");
+    if (!session) throw new Error("cookie session not set");
+    const refresh = find(calls, "agora_refresh");
+    if (!refresh) throw new Error("cookie agora_refresh not set");
     expect(session[1]).toBe("jwt-2");
     expect(session[2]).toEqual(expect.objectContaining({ maxAge: 3600 }));
     expect(refresh[1]).toBe("rt-2");
@@ -333,7 +343,7 @@ describe("refresh cookie (frontend-session-continuity)", () => {
     await loginAction(initial, form({ username: "alice", password: "pw" }));
 
     const calls = setCalls(jar);
-    expect(find(calls, "session")![1]).toBe("jwt-3");
+    expect(find(calls, "session")?.[1]).toBe("jwt-3");
     expect(find(calls, "agora_refresh")).toBeUndefined();
     expect(redirect).toHaveBeenCalledWith("/");
   });
@@ -352,7 +362,7 @@ describe("refresh cookie (frontend-session-continuity)", () => {
     );
 
     const calls = setCalls(jar);
-    expect(find(calls, "session")![1]).toBe("jwt-4");
+    expect(find(calls, "session")?.[1]).toBe("jwt-4");
     expect(find(calls, "agora_refresh")).toBeUndefined();
     expect(redirect).toHaveBeenCalledWith("/");
   });
@@ -411,12 +421,12 @@ describe("logoutAction revokes the server session (frontend-session-continuity)"
     await logoutAction();
 
     expect(seen.calls).toHaveLength(1);
-    expect(seen.calls[0]!.method).toBe("RevokeSession");
-    expect(seen.calls[0]!.message).toEqual(
+    expect(seen.calls[0]?.method).toBe("RevokeSession");
+    expect(seen.calls[0]?.message).toEqual(
       expect.objectContaining({ sessionId: "sess-X" }),
     );
-    expect(seen.calls[0]!.headers.get("authorization")).toBe(`bearer ${tok}`);
-    expect(seen.calls[0]!.timeoutMs).toBe(3000);
+    expect(seen.calls[0]?.headers.get("authorization")).toBe(`bearer ${tok}`);
+    expect(seen.calls[0]?.timeoutMs).toBe(3000);
     expect(refreshSession).not.toHaveBeenCalled();
     expectCleared(jar);
   });
@@ -449,14 +459,14 @@ describe("logoutAction revokes the server session (frontend-session-continuity)"
 
     await logoutAction();
 
-    expect(refreshSession).toHaveBeenCalledWith("rt-1");
+    expect(refreshSession).toHaveBeenCalledWith("rt-1", expect.anything());
     expect(seen.calls).toHaveLength(1);
-    expect(seen.calls[0]!.method).toBe("RevokeSession");
-    expect(seen.calls[0]!.message).toEqual(
+    expect(seen.calls[0]?.method).toBe("RevokeSession");
+    expect(seen.calls[0]?.message).toEqual(
       expect.objectContaining({ sessionId: "sess-F" }),
     );
-    expect(seen.calls[0]!.headers.get("authorization")).toBe(`bearer ${fresh}`);
-    expect(seen.calls[0]!.timeoutMs).toBe(3000);
+    expect(seen.calls[0]?.headers.get("authorization")).toBe(`bearer ${fresh}`);
+    expect(seen.calls[0]?.timeoutMs).toBe(3000);
     expectCleared(jar);
   });
 
@@ -467,7 +477,7 @@ describe("logoutAction revokes the server session (frontend-session-continuity)"
 
     await logoutAction();
 
-    expect(refreshSession).toHaveBeenCalledWith("rt-1");
+    expect(refreshSession).toHaveBeenCalledWith("rt-1", expect.anything());
     expect(seen.calls.map((c) => c.method)).toEqual(["RevokeSession"]);
     expectCleared(jar);
   });
@@ -553,7 +563,7 @@ describe("logoutAction revokes the server session (frontend-session-continuity)"
     );
 
     expect(seen.calls).toHaveLength(1);
-    expect(seen.calls[0]!.message).toEqual(
+    expect(seen.calls[0]?.message).toEqual(
       expect.objectContaining({ sessionId: "alice-sess" }),
     );
   });
@@ -956,5 +966,108 @@ describe("auth event cookie Secure (frontend-cookie-secure)", () => {
     await loginAction(initial, form({ username: "x", password: "y" }));
     expect(await sets(EVT)).toHaveLength(0);
     expect(redirect).not.toHaveBeenCalled();
+  });
+});
+
+describe("logoutAction client context (frontend-session-client-context)", () => {
+  const b64 = (o: object) =>
+    Buffer.from(JSON.stringify(o)).toString("base64url");
+  const jwt = (claims: object) => `h.${b64(claims)}.s`;
+  const future = () => Math.floor(Date.now() / 1000) + 3600;
+  const past = () => Math.floor(Date.now() / 1000) - 3600;
+
+  async function seed(c: Record<string, string>) {
+    const jar = await cookies();
+    for (const n of ["session", "agora_refresh"]) jar.delete(n);
+    for (const [k, v] of Object.entries(c)) jar.set(k, v);
+  }
+
+  beforeEach(() => {
+    seen.calls.length = 0;
+    seen.reply = () => ({});
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("Session client context: logout refresh and revoke forward IP and UA", async () => {
+    vi.mocked(headers).mockReturnValue(
+      new Headers({
+        "x-forwarded-for": "203.0.113.9",
+        "user-agent": "AgoraTest/2",
+      }) as never,
+    );
+    const fresh = jwt({ sub: "u1", sid: "sess-F", exp: future() });
+    vi.mocked(refreshSession).mockResolvedValue({ token: fresh } as never);
+    await seed({
+      session: jwt({ sid: "sess-OLD", exp: past() }),
+      agora_refresh: "rt-1",
+    });
+
+    await logoutAction();
+
+    const ctx = { ip: "203.0.113.9", userAgent: "AgoraTest/2" };
+    expect(refreshSession).toHaveBeenCalledWith("rt-1", ctx);
+    expect(revokeOwnSession).toHaveBeenCalledWith("sess-F", fresh, ctx);
+    expect(seen.calls[0]?.headers.get("authorization")).toBe(`bearer ${fresh}`);
+  });
+
+  it("Session client context: logout with a usable token forwards context to revoke only", async () => {
+    vi.mocked(headers).mockReturnValue(
+      new Headers({
+        "x-forwarded-for": "6.6.6.6, 198.51.100.4",
+        "user-agent": "AgoraTest/2",
+      }) as never,
+    );
+    const tok = jwt({ sub: "u1", sid: "sess-X", exp: future() });
+    await seed({ session: tok, agora_refresh: "rt" });
+
+    await logoutAction();
+
+    expect(refreshSession).not.toHaveBeenCalled();
+    expect(revokeOwnSession).toHaveBeenCalledWith("sess-X", tok, {
+      ip: "198.51.100.4",
+      userAgent: "AgoraTest/2",
+    });
+  });
+
+  it("Session client context: missing headers still refresh and revoke with an empty context (boundary)", async () => {
+    vi.mocked(headers).mockReturnValue(new Headers() as never);
+    const fresh = jwt({ sid: "sess-F", exp: future() });
+    vi.mocked(refreshSession).mockResolvedValue({ token: fresh } as never);
+    await seed({ agora_refresh: "rt-1" });
+
+    await logoutAction();
+
+    expect(refreshSession).toHaveBeenCalledWith("rt-1", {});
+    expect(revokeOwnSession).toHaveBeenCalledWith("sess-F", fresh, {});
+  });
+
+  it("Session client context: refresh failure behaviour unchanged (error) - logout still clears cookies", async () => {
+    vi.mocked(headers).mockReturnValue(
+      new Headers({
+        "x-forwarded-for": "203.0.113.9",
+        "user-agent": "AgoraTest/2",
+      }) as never,
+    );
+    vi.mocked(refreshSession).mockRejectedValue(
+      new ConnectError("bad", Code.Unauthenticated),
+    );
+    await seed({
+      session: jwt({ sid: "s", exp: past() }),
+      agora_refresh: "rt-1",
+    });
+    const jar = await cookies();
+
+    await expect(logoutAction()).resolves.toBeUndefined();
+
+    expect(refreshSession).toHaveBeenCalledWith("rt-1", {
+      ip: "203.0.113.9",
+      userAgent: "AgoraTest/2",
+    });
+    expect(revokeOwnSession).not.toHaveBeenCalled();
+    expect(jar.delete).toHaveBeenCalledWith("session");
+    expect(jar.delete).toHaveBeenCalledWith("agora_refresh");
   });
 });

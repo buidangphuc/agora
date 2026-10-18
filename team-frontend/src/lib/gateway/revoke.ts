@@ -12,6 +12,7 @@ import { createConnectTransport } from "@connectrpc/connect-node";
 import { SessionService } from "@/generated/platform/identity/v1/identity_connect.js";
 
 import { authInterceptor } from "./auth.js";
+import type { ClientContext } from "./client-context.js";
 import { gatewayConfig } from "./config.js";
 
 const REVOKE_TIMEOUT_MS = 3000;
@@ -35,12 +36,13 @@ export function sessionIdOf(token: string): string | undefined {
 export async function revokeOwnSession(
   sessionId: string,
   token: string,
+  client?: ClientContext,
 ): Promise<void> {
   const transport = createConnectTransport({
     baseUrl: gatewayConfig.gatewayUrl,
     httpVersion: "1.1",
     defaultTimeoutMs: REVOKE_TIMEOUT_MS,
-    interceptors: [authInterceptor({ token })],
+    interceptors: [authInterceptor({ token, client })],
   });
   await createPromiseClient(SessionService, transport).revokeSession({
     sessionId,

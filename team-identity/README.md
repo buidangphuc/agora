@@ -208,7 +208,7 @@ then implement, per the root README's ASDLC. `PublicProfileService` has no `FEAT
 
 ## Known gaps
 
-- `sessions.last_seen` is set at creation and on refresh rotation; no other call updates it.
+- `sessions.last_seen` is set at creation; refresh rotation also updates the session ip, device and last_seen from the request client context. An empty client context on refresh keeps the stored ip and device unchanged; no other call updates last_seen.
 - Identity trusts `x-principal-*` metadata without verification (ADR-0010 interim: NetworkPolicy only).
   Anything that can reach `:50053` directly can impersonate any principal.
 - There is no out-of-band delivery (email/SMS) of the reset token, so with the default
