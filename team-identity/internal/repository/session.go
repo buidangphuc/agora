@@ -213,7 +213,7 @@ func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	const q = `UPDATE sessions SET revoked = true, refresh_hash = NULL, prev_refresh_hash = NULL WHERE id = $1 AND user_id = $2 RETURNING ` + sessionColumns
+	const q = `UPDATE sessions SET revoked = true, revoked_at = now(), refresh_hash = NULL, prev_refresh_hash = NULL WHERE id = $1 AND user_id = $2 RETURNING ` + sessionColumns
 	var s Session
 	if err := scanSession(tx.QueryRow(ctx, q, sessionID, userID), &s); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -260,7 +260,7 @@ func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presented
 	}
 
 	revoke := func(outcome RotateOutcome, msg string) (RotateResult, error) {
-		const rev = `UPDATE sessions SET revoked = true, refresh_hash = NULL, prev_refresh_hash = NULL
+		const rev = `UPDATE sessions SET revoked = true, revoked_at = now(), refresh_hash = NULL, prev_refresh_hash = NULL
 			WHERE id = $1 RETURNING ` + sessionColumns
 		var out Session
 		if err := scanSession(tx.QueryRow(ctx, rev, s.ID), &out); err != nil {
