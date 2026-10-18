@@ -312,7 +312,7 @@ describe("applyConsent page_location (admin paths are path only)", () => {
 
   const locationFor = (url: string): string => {
     document.head.innerHTML = "";
-    delete (window as { dataLayer?: unknown }).dataLayer;
+    Reflect.deleteProperty(window, "dataLayer");
     window.history.replaceState(null, "", url);
     applyConsent(ALL);
     const all = pageLocations();
@@ -389,12 +389,12 @@ describe("page_referrer (scrubbed, pushed with every page_location)", () => {
 
   beforeEach(() => {
     document.head.innerHTML = "";
-    delete (window as { dataLayer?: unknown }).dataLayer;
+    Reflect.deleteProperty(window, "dataLayer");
     vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
   });
   afterEach(() => {
     vi.unstubAllEnvs();
-    delete (document as { referrer?: unknown }).referrer;
+    Reflect.deleteProperty(document, "referrer");
     window.history.replaceState(null, "", "/");
   });
 
