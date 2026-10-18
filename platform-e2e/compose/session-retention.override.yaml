@@ -1,0 +1,10 @@
+# Short retention for the session-retention e2e scenarios (change identity-session-retention).
+#   docker compose -f docker-compose.yaml -f platform-e2e/compose/session-retention.override.yaml up -d team-identity
+# Revoked sessions and login history are purged ~5 s after the fact, swept every 2 s.
+# Keys by service name only (no container_name), so it works under any project.
+services:
+  team-identity:
+    environment:
+      SESSION_RETENTION: 5s
+      LOGIN_HISTORY_RETENTION: 5s
+      SESSION_SWEEP_INTERVAL: 2s
