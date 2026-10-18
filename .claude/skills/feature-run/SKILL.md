@@ -6,7 +6,6 @@ license: MIT
 metadata:
   author: asdlc-v2
   version: "1.0"
-  plan: docs/asdlc/ASDLC-v2-PLAN.md W2-7 (lifecycle phases 4-6, sections 4-6)
 ---
 
 # feature-run — one change, test-first, reviewed
@@ -85,6 +84,7 @@ carries `rounds_total`, `gate_red` (count per gate) and total `wall_s`.
    (cd .claude/worktrees/<change> && $PY platform-e2e/scripts/spec_sync.py <change> --strict)
    ```
    A red here goes back to the task that owns the failing scenario (counts as a round of it).
+   Then run the `docs-sync` skill on `<base>..HEAD` (READMEs match the landed code).
 5. **Feature gate.** Agent `feature-reviewer` (change id, worktree path, optional units file
    `<run>/<change>.feature-units.json` for `decide.py --gate gates/feature.v1.yaml --mode advisory`;
    unit = one scenario `{id, parts:{scenario, test, assertion}, paths}`). Advisory: `WOULD_BLOCK`

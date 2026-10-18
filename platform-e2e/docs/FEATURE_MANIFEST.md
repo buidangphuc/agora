@@ -1,6 +1,6 @@
 # Feature Manifest — proposal & schema
 
-> Status: **proposal (schema only)**. No loader yet, no repo files created yet.
+> Status: **proposal, loader built**. `scripts/features.py` (`make features-check`) validates the per-repo `FEATURES.yaml` files; the auto-generator below is not built yet.
 > This defines the convention so we can review it before rolling out.
 
 ## Why (the problem you raised)
@@ -8,8 +8,7 @@
 Every repo already has a `README.md`, but those are **repo-understanding** docs —
 organized by technical layer (RPC catalog, DB schema, route list). They answer
 "what is this service?" They do **not** give an automation agent a clean,
-feature-by-feature contract it can turn into an E2E test. `MASTER_CAPABILITY_MATRIX.md`
-is closer (10 business phases) but it's prose Markdown for humans, not machine input.
+feature-by-feature contract it can turn into an E2E test.
 
 For **auto E2E generation** to be reliable, the generator needs, per feature: who
 the actor is, where the journey starts, which RPCs/preconditions set it up, the key
@@ -25,7 +24,7 @@ feature-centric layer next to it.
   stays in sync with the code (unlike a central file that drifts).
 - **platform-e2e aggregates** all `*/FEATURES.yaml`, validates each against
   [`schemas/features.schema.json`](../schemas/features.schema.json), and feeds the
-  auto-generator. (Aggregator/loader is a later step — not built in this pass.)
+  auto-generator. (The aggregator/loader is `scripts/features.py`.)
 - A feature is owned by the repo that **owns the capability**, even when the UI
   lives in `team-frontend` (e.g. `order.purchase-saga` → `team-order`). `services:`
   lists every repo the journey touches. Purely presentational UI → `team-frontend`.
@@ -61,9 +60,7 @@ feature-centric layer next to it.
 ```
 
 Coverage report = diff between manifested features and `covered_by` pointers →
-"what's specified but not yet automated". The aggregator can also **regenerate**
-`MASTER_CAPABILITY_MATRIX.md` from the manifests, so humans and machines share one
-source instead of two hand-maintained docs.
+"what's specified but not yet automated".
 
 ## Worked example
 

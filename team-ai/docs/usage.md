@@ -7,7 +7,7 @@ How to run, configure and operate team-ai. For an overview of the repo see the [
 - Python 3.12+
 - uv
 - Redis (mandatory: `REDIS_HOST` has no default)
-- Qdrant for recommendations (mandatory outside dev/local/test)
+- Qdrant for recommendations (always on; `RECS_QDRANT_URL` defaults to `http://localhost:6333`)
 - Docker and Docker Compose for local container checks
 
 ## Quickstart
@@ -27,7 +27,7 @@ Served by the platform-core contract (vendored in `proto/`), always started once
 
 | Service | RPCs served |
 | --- | --- |
-| `platform.ai.v1.AIService` | `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews`, `ClassifyTags` (internal: service principals with `ai.classify`) |
+| `platform.ai.v1.AIService` | `ShoppingAssistant`, `MagicListing`, `ChatCopilot`, `SummarizeReviews`, `ClassifyTags` and `ScreenListing` (internal: service principals with `ai.classify`) |
 | `platform.chat.v1.ChatService` | `StreamChat` (server stream) |
 | `platform.recommendation.v1.RecommendationService` | `Recommend` |
 | `platform.search.v1.SearchService` | `SearchListings` only (scope `search:read`, answers unavailable unless `RAG_ENABLED`); the other search RPCs return unimplemented |
@@ -54,7 +54,8 @@ Four settings switch behaviour: `CHAT_BACKEND`, `RAG_ENABLED`, `AI_USE_SCOPE_REQ
 | --- | --- | --- |
 | RAG | `RAG_ENABLED` | Needs the `ai` and `kafka` extras. On, it uses Qdrant (`RAG_QDRANT_*`), model_server embeddings (`RAG_EMBED_SERVER_URL`) and the listing indexer (`KAFKA_BROKERS`); all three are required. Feeds `ShoppingAssistant` and `SearchListings`. |
 | Chat backend | `CHAT_BACKEND` | `mock` echoes offline; `llm_router` streams from the LLM chain (`CHAT_MODEL`, `CHAT_FALLBACK_MODELS`) and needs the `ai` extra. |
-| Listing indexer | (with `RAG_ENABLED`) | Consumes `listing.events` from `KAFKA_BROKERS` into RAG. |
+| Listing indexer | (with `RAG_ENABLED`) | Consumes `listing.events` from `KAFKA_BROKERS` into RAG. Indexes `PUBLISHED` listings only (and an empty status from legacy producers). |
+| Listing screen | `SCREEN_BACKEND` | `mock` (default) flags text containing `SCREEN_MOCK_MARKER`; `llm_router` runs the LLM chain and needs the `ai` extra. Served as `AIService/ScreenListing`. |
 | Taxonomy persistence | always on | Curated tags survive restarts, in Redis database `TAXONOMY_REDIS_DATABASE` (must differ from `REDIS_DATABASE`). |
 | Quota | always on | Chat reply quota (`QUOTA_CHAT_*`), counted in Redis under `QUOTA_REDIS_PREFIX` so every pod shares it. |
 | Rate limiting | always on | Per-principal limit on HTTP and gRPC, counted in Redis (`RATE_LIMIT_*`). There is no per-IP limit: edge limiting is the gateway's job. |

@@ -15,14 +15,14 @@ and no database of its own.
 
 ## Contract
 
-There are no RPCs served here. This repo defines them: 18 `.proto` files under
+There are no RPCs served here. This repo defines them: 19 `.proto` files under
 `packages/proto/platform/<domain>/v1/`.
 
 | Proto package | Services defined |
 |---|---|
 | `common` | shared messages (incl. `Principal`), no service |
 | `events` | `EventEnvelope` only, no service (see Events) |
-| `identity` | `AuthService`, `AddressService`, `SessionService`, `PublicProfileService` |
+| `identity` | `AuthService`, `AddressService`, `SessionService`, `PublicProfileService`, `AccountAdminService` |
 | `listing` | `ListingService` |
 | `search` | `SearchService` |
 | `engagement` | `EngagementService` |
@@ -83,7 +83,8 @@ defaults are fixed in `infra/docker-compose.yaml`:
 | kafka-ui | `provectuslabs/kafka-ui:v0.7.2` | 8088 |
 | rabbitmq | `rabbitmq:3-management` | 5672, 15672 |
 | opensearch | `opensearchproject/opensearch:2.15.0` | 9200 |
-| minio | `minio/minio:latest` | 9000 (S3), 9001 (console); `minio-init` creates public-read bucket `listing-images`; root `minioadmin`/`minioadmin` |
+| minio | `minio/minio:RELEASE.2024-05-28T17-19-04Z` | 9000 (S3), 9001 (console); `minio-init` creates public-read bucket `listing-images`; root `minioadmin`/`minioadmin` |
+| mlflow | `platform-core/mlflow:3.2.0` (built from `infra/mlflow`) | 5050 |
 | jaeger | `jaegertracing/all-in-one:1.57` | 16686 |
 | prometheus | `prom/prometheus:v2.52.0` | 9090 |
 | grafana | `grafana/grafana:11.0.0` | 3001 |
@@ -128,17 +129,17 @@ Requires `buf` (`brew install bufbuild/buf/buf`) and `docker`; `make tools` chec
 `buf generate` uses **remote BSR plugins** (`buf.build/...` in `buf.gen.yaml`), so it
 needs network. Output goes only to `./gen/{go,python,jvm,ts}`, a verification artifact.
 `packages/go-sdk` (`pkg/auth`, `pkg/config`, `pkg/resilience`) has its own `go.mod`
-(Go 1.22) and unit tests; run `go test ./...` there. `tools/ci/standard-ci.yml` is a
+(Go 1.26) and unit tests; run `go test ./...` there. `tools/ci/standard-ci.yml` is a
 reusable GitHub workflow template (contract, build-and-test, security jobs) that is not
 wired to any remote.
 
 ## Spec and verification
 
-There is **no `FEATURES.yaml`** in this repo: it has no user-facing capabilities.
+This repo has a `FEATURES.yaml` manifest for its contract and SDK capabilities (schema in `platform-e2e/schemas/features.schema.json`).
 Contract changes ride along with the OpenSpec change of the feature that needs them
 (`openspec/changes/<id>` at the monorepo root, per the root README's ASDLC). Behaviour
 is verified in `platform-e2e`: `make -C platform-e2e features-check` and
-`make -C platform-e2e spec-check CHANGE=<id>`. See `docs/asdlc/SPEC_DRIVEN_WORKFLOW.md`.
+`make -C platform-e2e spec-check CHANGE=<id>`. See `docs/asdlc/ASDLC-v2.md`.
 
 Proto change recipe: edit `packages/proto` additively, `make check`, then re-vendor
 `proto/` into each affected consumer and run `buf generate` there.
@@ -186,7 +187,7 @@ tracing interceptors, health, reflection, and an in-memory `ListingService` seed
 
 Rules live in the monorepo root `AGENTS.md`. Start with `docs/ARCHITECTURE.md` (3 rules)
 and `docs/AGENT_GUIDE.md`. Other docs: `ROADMAP`, `DATA_ARCHITECTURE`,
-`INFRASTRUCTURE_ARCHITECTURE`, `SECURITY_AND_RELIABILITY`, `MASTER_CAPABILITY_MATRIX`,
+`INFRASTRUCTURE_ARCHITECTURE`, `SECURITY_AND_RELIABILITY`,
 `CONTRACT_VERSIONING_GUIDE`, `TAG_CLASSIFIER_AND_FILTER_ENRICHMENT`, `UI_SYSTEM_DESIGN`.
 
 | ADR | Title | Status |
@@ -204,4 +205,7 @@ and `docs/AGENT_GUIDE.md`. Other docs: `ROADMAP`, `DATA_ARCHITECTURE`,
 | 0011 | Model serving (platform-modelserve) | Accepted |
 | 0012 | Recommendation placement engine | Accepted |
 | 0013 | Seller demand forecasting (platform-forecast) | Proposed |
-| 0014 | Model registry and promotion gate | Accepted |
+| 0014 | Model registry and promotion gate | Superseded by ADR-0017 |
+| 0015 | Feature store materialization (platform-featurestore as a batch job) | Accepted |
+| 0016 | Go service convention and SDK distribution | Accepted |
+| 0017 | Unified model registry and publish gate | Accepted |

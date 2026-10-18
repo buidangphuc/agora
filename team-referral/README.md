@@ -83,7 +83,7 @@ reachable at `DATABASE_URL` with the migration applied.
 Tests: `internal/handler/referral_test.go`, `internal/service/referral_test.go` and `internal/interceptor/principal_test.go` (anonymous handling), using the in-memory
 repository (no DB needed). There is no lint target and no CI workflow in this repo; `proto/buf.yaml`
 configures buf lint (STANDARD) and breaking (FILE) but nothing runs them here. The Dockerfile builds with
-Go 1.22 (`go.mod` is `go 1.22`).
+Go 1.26 (`go.mod` is `go 1.26.0`).
 
 ## Spec and verification
 

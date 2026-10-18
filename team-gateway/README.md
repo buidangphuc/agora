@@ -14,13 +14,13 @@ domain logic** (AGENTS.md rules 1-3). Status: deployed service, part of the root
 
 ### Connect services (forwarded, one handler per service)
 
-The gateway serves 22 services; each RPC is a thin forward to the upstream below. Registered in
+The gateway serves 23 services; each RPC is a thin forward to the upstream below. Registered in
 `internal/edge/server.go`, dialed in `internal/upstream/clients.go`. Server reflection (v1 and
 v1alpha) is served only when `EDGE_REFLECTION_ENABLED=true` (default off; refused in staging/production).
 
 | Contract service(s) | Upstream (env var) |
 |---|---|
-| identity `AuthService`, `AddressService`, `SessionService` | team-identity (`UPSTREAM_IDENTITY_ADDR`) |
+| identity `AuthService`, `AddressService`, `SessionService`, `AccountAdminService` | team-identity (`UPSTREAM_IDENTITY_ADDR`) |
 | listing `ListingService` | team-domain (`UPSTREAM_LISTING_ADDR`) |
 | search `SearchService` | team-search (`UPSTREAM_SEARCH_ADDR`) |
 | engagement `EngagementService` | team-engagement (`UPSTREAM_ENGAGEMENT_ADDR`) |
@@ -49,13 +49,13 @@ rate limit (`internal/edge/interceptors.go`).
 | Bearer verifies (RS256 signature, `exp`, `kid` in JWKS) and its `sid` is not revoked | Principal from the token (`sub`, `typ`, `scopes`) |
 | Bearer present but malformed, bad signature, unknown `kid`, expired or session revoked | `401 Unauthenticated`, never downgraded to anonymous |
 
-The gateway checks only the token, not per-RPC scopes. **Scope gates live in the services**; the
+The gateway checks only the token against the procedure policy, not per-RPC scopes. **Scope gates live in the services**; the
 gateway forwards `x-principal-id`, `x-principal-type`, `x-principal-scopes` and `x-request-id`,
 built fresh from the verified token so a client cannot spoof them. It also forwards audit-only
 `x-client-ip` / `x-client-user-agent` (see `TRUSTED_PROXIES`). Inbound `x-client-*` headers are
-never copied through. The one edge-level RPC gate is `VerificationService.ReviewKyc`, which needs
-an authenticated principal with the `admin` scope (`requireAdmin`, `verification.go`);
-team-verification enforces the full rule again.
+never copied through. The edge-level RPC gates are the `adminProcedures` map (`policy.go`): each
+listed procedure needs an authenticated principal with the `admin` scope (anonymous gets
+`UNAUTHENTICATED`, otherwise `PERMISSION_DENIED`). The owning services enforce the rule again.
 
 Rate limiting is a per-instance token bucket (`RATE_LIMIT_RPS` / `RATE_LIMIT_BURST`), keyed by
 principal id, or by client IP for anonymous callers. Idle buckets are evicted after 10 minutes.
@@ -205,14 +205,13 @@ make run                 # go run ./cmd/gateway
 | `make check` | **Merge gate**: `check-env`, `gofmt -l .` must be empty, `go vet ./...`, `go test ./...` |
 | `make check-env` | `.env.example` vs `internal/config` drift test |
 
-Go 1.22 (`go.mod`, Dockerfile builder `golang:1.22`); `go.mod` is the source for dependency
+Go 1.26 (`go.mod`, Dockerfile builder `golang:1.26`); `go.mod` is the source for dependency
 versions. This repo has no CI workflow of its own; run `make check` before opening a PR.
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (4 features, all `automated`: three `tracking.*` for
-  `/api/track` and `gateway.client-ip-not-spoofable`). Session revocation and client-IP behaviour
-  are covered by `platform-e2e` (`auth/session_revocation.feature`).
+- Feature manifest: `FEATURES.yaml` (112 features: 63 `automated`, 49 `not-testable`). Session
+  revocation and client-IP behaviour are covered by `platform-e2e` (`auth/session_revocation.feature`).
 - E2E coverage is verified in `platform-e2e`: `make -C platform-e2e features-check` and
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC
@@ -235,12 +234,10 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 
 ## Known gaps
 
-- **`StreamChat` bypasses the interceptor chain.** The chain is built from unary interceptors
-  (`connect.UnaryInterceptorFunc`), whose streaming wrappers are pass-throughs. The server-streaming
-  `ChatService.StreamChat` therefore gets no rate limiting, no request log and no client context
-  (`x-client-ip` is not forwarded), and no call timeout. It still resolves the token through the
-  `outgoing` fallback: an invalid token forwards no scopes, and a valid one is checked against the
-  revocation denylist.
+- **`StreamChat` has no call timeout.** The interceptor chain covers streaming handlers too
+  (`edgeInterceptor` in `interceptors.go`), so streams get the request id, auth, logging and rate
+  limit; `CALL_TIMEOUT_SECONDS` is not applied to `StreamChat`. An open stream ends when its session is
+  revoked or its token expires (`STREAM_REVOCATION_CHECK_SECONDS`).
 - **Nothing publishes into `GlobalBroker`.** `RealtimeBroker.Broadcast` has no caller, so
   `/api/events/live` currently delivers only the `connected` handshake and heartbeats, for every
   room. The room list in the code comments (flash-sale stock, chat, notifications, `ops:orders`)
@@ -248,7 +245,9 @@ versions. This repo has no CI workflow of its own; run `make check` before openi
 - The `session` cookie is honored by `/api/track` and `/api/events/live` but not by Connect RPCs
   or `/api/admin/metrics`, which read only the `Authorization` header.
 - Revocation is fail-open and per replica. Edge-side admin gating is the `adminProcedures` map
-  in `policy.go` (`ReviewKyc`, `ResolveDispute`, `QueryAuditLog`, `ForceFailSaga`).
+  in `policy.go` (14 procedures: `ReviewKyc`, `ResolveDispute`, `HideReview`, `ListReports`,
+  `ResolveReport`, `QueryAuditLog`, `ModerateListing`, `ListModerationQueue`, `ForceFailSaga`,
+  `AccountAdmin` `ListUsers` / `SetUserStatus`, and three analytics reports).
 - The cockpit roster (`cockpitRoster` in `cockpit.go`) hardcodes ten services and their ports; the
   newer services (promotion, analytics, referral, verification, sharing, audit) have no row.
 - Upstream connections use insecure transport credentials (ADR-0010 zero-trust is not applied at

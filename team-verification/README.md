@@ -102,9 +102,10 @@ manually.
 
 ## Spec and verification
 
-- `FEATURES.yaml` (repo root) has 2 features, both `automated`: `verification.buyer-cannot-self-approve`
-  and `verification.admin-approves-seller`.
-- E2E coverage: `platform-e2e/tests/e2e/features/services/verification_access.feature`.
+- `FEATURES.yaml` (repo root) has 28 features: 6 `automated` (the self-approval, approval, rejection and audit
+  scenarios) and 22 `not-testable` unit-level entries.
+- E2E coverage: `platform-e2e/tests/e2e/features/services/verification_access.feature` and
+  `services/verification_kyc_audit.feature`.
   Verify with `make -C platform-e2e features-check`, and for a change
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC.

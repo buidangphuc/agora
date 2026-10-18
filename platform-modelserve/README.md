@@ -74,6 +74,7 @@ check the reverse direction).
 | `REDIS_URL` | `redis://redis:6379/0` | Cache |
 | `EMBED_CACHE_ENABLED` | `true` | Disable to skip Redis entirely |
 | `EMBED_CACHE_TTL_SECONDS` | `86400` (1 day) | Cache TTL |
+| `EMBED_CACHE_TIMEOUT_SECONDS` | `0.5` | Redis connect and per-operation timeout (`modelserve/cache.py`) |
 | `MODEL_VERSION` | `v1` | Cache key namespace |
 | `MAX_QUEUE_DEPTH` | `100` | Max concurrent in-flight requests |
 | `UPSTREAM_TIMEOUT_SECONDS` | `30.0` | httpx client timeout |
@@ -120,7 +121,7 @@ Docker image: `Dockerfile` (python:3.12-slim, `EXPOSE 8100`, `HEALTHCHECK` on `/
 | `make format` | `ruff format .` |
 | `make test` | `pytest -v tests/` |
 
-CI (`.github/workflows/ci.yaml`, path-filtered to `platform-modelserve/**`, Python 3.12) runs
+CI (root `.github/workflows/services-ci.yml`, job `platform-modelserve`, Python 3.12) runs
 `make lint` then `make test`. `pyproject.toml` declares `requires-python >=3.10`. Dependencies are pip
 based; there is no `uv.lock`.
 
@@ -129,14 +130,14 @@ shapes), `test_env_drift`, `test_router` (mock upstreams).
 
 ## 7. Spec and verification
 
-- `FEATURES.yaml` is in this repo: one entry per scenario of `add-platform-modelserve` (8). The static NetworkPolicy
-  scenario is `automated`; the other seven are `planned` until run on a stack with the overlay
-  `platform-e2e/compose/modelserve.override.yaml` (router + a deterministic TEI fake, Redis DB 4; how to bring it up:
+- `FEATURES.yaml` is in this repo: one entry per scenario of `add-platform-modelserve` (8), all `automated`. The e2e
+  runs use the router and a deterministic TEI fake from the root `docker-compose.services.yaml` (Redis DB 4); the
+  overlay `platform-e2e/compose/modelserve.override.yaml` only publishes host ports for the tests (how to bring it up:
   `platform-e2e/compose/README.md`). The e2e features are `platform-e2e/tests/e2e/features/modelserve/`.
   The unit, contract and router tests above remain the fast check.
 - Gates: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec (`openspec/changes/<id>`), per the root README's ASDLC. The original
-  change is `openspec/changes/add-platform-modelserve`. Architecture: ADR-0011.
+  change is `openspec/changes/archive/2026-10-10-add-platform-modelserve`. Architecture: ADR-0011.
 
 ## 8. Gotchas
 
@@ -166,4 +167,4 @@ shapes), `test_env_drift`, `test_router` (mock upstreams).
 
 - Root `AGENTS.md` (rules, port table), root `README.md` (ASDLC).
 - `platform-core/docs/ADR/0011-model-serving.md`.
-- `openspec/changes/add-platform-modelserve`.
+- `openspec/changes/archive/2026-10-10-add-platform-modelserve`.

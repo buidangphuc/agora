@@ -7,6 +7,7 @@ Pipeline: Prometheus rules (`platform-gitops/platform/monitoring/alerts.yaml`) -
 | `HighErrorRate` | edge gRPC non-OK ratio > 5% for 2m and > 0.05 req/s | `marketplace_rpc_client_duration_milliseconds_count` | critical |
 | `HighLatencyP95` | edge p95 > 500 ms for 5m | `marketplace_rpc_client_duration_milliseconds_bucket` | warning |
 | `ServiceDown` | `up{job=~"team-ai\|otel-collector"} == 0` for 1m | scrape `up` | critical |
+| `Ga4ReconcileDivergence` | GA4 vs first-party event count diverges > 35% for 5m (`ga4_reconcile_diff_ratio > 0.35`, team-analytics) | `ga4_reconcile_diff_ratio` | warning |
 
 The gateway RED series only exist while the gateway exports OTLP to `otel-collector` (`OTEL_ENABLED=true`: set in the staging-on-kind overlay, not in the plain local gateway).
 

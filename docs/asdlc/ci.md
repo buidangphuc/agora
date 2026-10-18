@@ -1,6 +1,6 @@
 # CI gates (ASDLC v2)
 
-Workflows live at the repo root (`.github/workflows/`); nested per-repo workflows were dead and are ported into `services-ci.yml`.
+Workflows live at the repo root (`.github/workflows/`); the old nested per-repo workflows were ported into `services-ci.yml` and removed.
 
 ## Jobs (`asdlc-gates.yml`, on `pull_request` and `workflow_dispatch`, `contents: read`)
 
@@ -16,7 +16,7 @@ Workflows live at the repo root (`.github/workflows/`); nested per-repo workflow
 | mutation | advisory (W5-4), only on manual dispatch or PR label `mutation`: mutmut (team-ai), gremlins (Go), Stryker (team-frontend); threshold 40%, score in job summary | never |
 | security-review | `anthropics/claude-code-action` `/security-review`, only when secret `ANTHROPIC_API_KEY` exists | never |
 
-`services-ci.yml`: team-ai (`team-ai-uv`: ruff, pyright, `check_env_example`, pytest with coverage, real-Redis rate-limit test against a redis service container, eval gate; `team-ai-core-only`: `uv sync --frozen --no-dev` + `import main`; the list mirrors `team-ai/docs/agents/project.md`), platform-recsys, platform-modelserve, with `paths:` filters.
+`services-ci.yml`: team-ai (`team-ai-uv`: ruff, pyright, `check_env_example`, pytest with coverage, real-Redis rate-limit test against a redis service container, eval gate; `team-ai-core-only`: `uv sync --frozen --no-dev` + `import main`; the list mirrors `team-ai/docs/agents/project.md`), platform-recsys, platform-finetune, platform-modelserve, py-modelregistry, with `paths:` filters.
 
 ## Run locally
 

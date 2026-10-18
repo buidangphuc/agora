@@ -71,7 +71,7 @@ The batch job produces and consumes none (the dataset reaches it as a file on a 
 `analytics.events` as consumer group `platform-recsys-nearline` and keeps the `recs:nearline:*` Redis keys
 (recents, category affinity, co-views, position-debiased CTR; 24 h TTL, not generation-scoped) fresh for
 team-ai. It is a long-running process, not part of `python -m recsys`; the key layout team-ai reads is in
-`openspec/changes/add-recsys-nearline-signals/design.md`. Offsets are committed after the Redis write; a
+`openspec/changes/archive/2026-10-10-add-recsys-nearline-signals/design.md`. Offsets are committed after the Redis write; a
 Redis failure exits 1 and the restart replays (idempotent by event id). Settings: `KAFKA_BROKERS`,
 `KAFKA_ANALYTICS_TOPIC`, `NEARLINE_CONSUMER_GROUP`, `NEARLINE_START_OFFSET`, `NEARLINE_TTL_SECONDS`,
 `NEARLINE_IDLE_EXIT_SECONDS`.
@@ -109,19 +109,18 @@ the published version).
 | decision | When | Effect |
 |---|---|---|
 | `skipped` | The split yields no test events (no usable holdout) | Nothing registered, gate not consulted, nothing published |
-| `promoted` | Structural gate passed and: no champion yet (first run bootstraps), or protocol mismatch, or the registry gate passes, or `PROMOTION_FORCE=true` | Published as a generation (summary adds `serving`, `previous`), then applied as the registry `champion` (the old one becomes `previous`); optional GBDT and two-tower stages |
+| `promoted` | Structural gate passed and: no champion yet (first run bootstraps), or protocol mismatch, or the registry gate passes | Published as a generation (summary adds `serving`, `previous`), then applied as the registry `champion` (the old one becomes `previous`); optional GBDT and two-tower stages |
 | `rejected` | Structural gate fails (`gate: structural`), or the metric gate fails against the same-protocol champion | Candidate recorded as rejected with the reason; the serving generation is untouched, nothing published |
 
-Gate (`modelregistry` evaluate, called from `registry_client.evaluate`): primary metric `PROMOTION_PRIMARY_METRIC` (`ndcg@10`) must
-improve by at least `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01) and, when both runs report it,
-`coverage@10` must stay at least `PROMOTION_MIN_COVERAGE_RATIO` (0.8) of the champion's. Summary keys:
+Gate (`modelregistry` evaluate, called from `registry_client.evaluate`; thresholds are per model in py-modelregistry
+`policies.yaml`, not env vars): for `recsys-als` the primary metric `ndcg@10` must improve by at least 0.01 relative
+to the champion and, when both runs report it, `coverage@10` must stay at least 0.8 of the champion's. Summary keys:
 `model_version`, `decision`, `reason`, `primary_metric`, `candidate_value`, `incumbent_version`,
 `incumbent_value`, `metrics`, `items`, `users`, `popular`, plus `qdrant`/`cache` counts (and
 `two_tower_items`) when published. See ADR-0014.
 
-**`PROMOTION_FORCE=true`** promotes and publishes the run even if the gate would reject it. Use it to
-repopulate Qdrant/Redis after a reset. Never set it on a schedule. The first run with an empty
-registry bootstraps on its own.
+**`PROMOTION_FORCE` is removed** (RAT-35): nothing promotes or publishes a run that the gate rejects. The first
+run with an empty registry bootstraps on its own; with a champion present, the gate decides.
 
 **Structural gate** (`recsys/structural_gate.py`, spec `recsys-generations`) runs on the candidate's
 own Top-N lists and factors *before* evaluation and the metric gate. The first failing check rejects:
@@ -135,7 +134,7 @@ own Top-N lists and factors *before* evaluation and the metric gate. The first f
 
 A rejection registers the model with status `rejected`, the reason in `metrics.gate_reason` (a string,
 like `eval_protocol`; also mirrored in `parameters.gate_reason`), returns `decision: rejected` with
-`gate: structural`, and publishes nothing. `PROMOTION_FORCE` does not bypass it. A catalogue no larger
+`gate: structural`, and publishes nothing. Nothing bypasses it. A catalogue no larger
 than `TOP_N` gives every user the same list, so it trips the overlap check; lower `TOP_N` or raise
 `GATE_MAX_LIST_OVERLAP` for such toy datasets.
 
@@ -195,7 +194,7 @@ mirrors it. `make check-env` (`tests/test_env_drift.py`) fails if the two drift,
 | GBDT ranker | `ENABLE_GBDT` (false), `RANK_DATASET_DIR` (/features/datasets/rank_training/v1), `RANK_DATASET_PATH`, `GBDT_TREES` (40), `GBDT_MAX_DEPTH` (3), `GBDT_LEARNING_RATE` (0.1), `GBDT_MIN_LEAF` (10), `GBDT_HOLDOUT_FRACTION` (0.2), `GBDT_MAX_LIST` (30), `GBDT_MAX_LISTS` (50000), `GBDT_CTR_MIN_IMPRESSIONS` (3), `GBDT_ROWS_PATH` (empty). Features: every `as_of` snapshot under `ITEM_FEATURES_DIR` and `ITEM_ATTRIBUTES_DIR` |
 | Nearline | `KAFKA_BROKERS` (localhost:19092), `KAFKA_ANALYTICS_TOPIC` (analytics.events), `NEARLINE_CONSUMER_GROUP` (platform-recsys-nearline), `NEARLINE_START_OFFSET` (latest), `NEARLINE_TTL_SECONDS` (86400), `NEARLINE_IDLE_EXIT_SECONDS` (0 = run until stopped) |
 | Drift | `DRIFT_ALERT_THRESHOLD` (0.25), `DRIFT_METRICS_PATH` (empty: no Prometheus file) |
-| Gate | `PROMOTION_PRIMARY_METRIC` (ndcg@10), `PROMOTION_MIN_RELATIVE_IMPROVEMENT` (0.01), `PROMOTION_MIN_COVERAGE_RATIO` (0.8), `PROMOTION_FORCE` (false), `MODEL_VERSION` (empty) |
+| Gate | `MODEL_VERSION` (empty). Promotion thresholds are not env vars: they live in py-modelregistry `policies.yaml` |
 | Structural gate | `GATE_MIN_USER_COVERAGE` (0.5), `GATE_MIN_ITEM_COVERAGE` (0.05), `GATE_MAX_LIST_OVERLAP` (0.9) |
 | Compatibility | `RECS_WRITE_LEGACY_KEYS` (true): also write the unscoped `recs:v1:{user,item,popular}` keys |
 
@@ -245,7 +244,7 @@ make docker-build && make docker-run   # both build from the monorepo root
 | `make test` | full pytest; Spark-gated tests skip without PySpark and run in the image |
 | `make eval` | `python -m recsys.evals` offline evaluation CLI on built-in sample interactions |
 
-CI (`.github/workflows/ci.yaml`, Python 3.10): install `requirements-dev.txt` + `pip install -e .`,
+CI (root `.github/workflows/services-ci.yml`, job `platform-recsys`, Python 3.10): install `requirements-dev.txt` + `pip install -e .`,
 then `make compile`, `make lint`, `make check-env`, `make test-host`, `make eval`. Run those five
 locally before pushing.
 
@@ -254,11 +253,7 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 
 ## 8. Spec and verification
 
-- `FEATURES.yaml` lists 7 features: `recsys.als-training` (status `not-testable`; batch job, verified
-  at the data layer by the platform-e2e job flow) and six `automated` ones (`eval-metrics`,
-  `eval-holdout-gate`, `promotion-gate-reject`, `serving-isolation`, `bootstrap-registry`,
-  `run-summary-observability`), covered by `recommendations/pipeline_eval_registry.feature` in
-  `platform-e2e`.
+- `FEATURES.yaml` has 143 entries: 56 `automated` (each with a `covered_by` e2e scenario) and 87 `not-testable`.
 - Coverage is verified from the workspace root with `make -C platform-e2e features-check` and, for a
   change, `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec in the root `openspec/changes/<id>` (this repo has no `openspec/` of its
@@ -272,9 +267,7 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 - The registry champion is applied after the publish step: a crash mid-publish leaves serving and the registry
   untouched (the versions stay promotable). See the apply-failure gap in Known gaps for the opposite case.
 - Nothing is published unless the run is `promoted`. After resetting Qdrant/Redis while the registry
-  still names a champion, the next run may be rejected or skipped: use `PROMOTION_FORCE=true` once.
-- The `push` path filter in `.github/workflows/ci.yaml` names `.github/workflows/ci-recsys.yaml`,
-  which is not this file's name.
+  still names a champion, the next run may be rejected or skipped, and nothing forces a publish (`PROMOTION_FORCE` is removed).
 
 ## 10. Known gaps
 
@@ -302,8 +295,9 @@ Java is required; the former bitnami/spark base is gone). `pyproject.toml` requi
 - Root rules: [`../AGENTS.md`](../AGENTS.md)
 - [ADR-0014 Model registry and promotion gate](../platform-core/docs/ADR/0014-model-registry-promotion.md),
   [ADR-0011 Model serving](../platform-core/docs/ADR/0011-model-serving.md)
-- OpenSpec: `../openspec/changes/` (`serve-trained-recs-locally`, `add-recsys-offline-eval`; archived
-  `2026-09-20-wire-pipeline-eval-registry`)
+- OpenSpec (archived): `../openspec/changes/archive/2026-10-10-serve-trained-recs-locally` and
+  `../openspec/changes/archive/2026-09-20-wire-pipeline-eval-registry`. `add-recsys-offline-eval` is in neither
+  `openspec/changes/` nor `openspec/changes/archive/`.
 
 ## GBDT ranker (optional, `ENABLE_GBDT=true`)
 
@@ -314,6 +308,6 @@ vector is `contract.RANKING_FEATURES`: the seven `item_popularity@v1` features i
 dropped). The `ctr_7d` slot is replaced by a position-debiased CTR over the TRAIN rows (the row's own outcome removed), recorded per row as
 `ctr_source` `debiased` or `fallback`; `GBDT_ROWS_PATH` writes every row for audit. The latest `GBDT_HOLDOUT_FRACTION` of
 impressions is the holdout: the candidate is evaluated on graded NDCG@10 and gated by the registry against the
-`recsys-gbdt` champion (separate from ALS) by `PROMOTION_MIN_RELATIVE_IMPROVEMENT`; it is no longer compared with the
-fixed-weight ranker. `PROMOTION_FORCE` skips the gate. The stage runs after the ALS promotion decision and before the publish; a rejected candidate does
+`recsys-gbdt` champion (separate from ALS) by the `recsys-gbdt` policy (`min_relative_improvement` 0.005 in `policies.yaml`); it is no longer compared with the
+fixed-weight ranker. The stage runs after the ALS promotion decision and before the publish; a rejected candidate does
 not block the generation. With no dataset or no `item_popularity` snapshot the run exits 2 before Spark starts.

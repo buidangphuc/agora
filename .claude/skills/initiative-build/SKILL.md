@@ -6,7 +6,6 @@ license: MIT
 metadata:
   author: asdlc-v2
   version: "1.0"
-  plan: docs/asdlc/ASDLC-v2-PLAN.md W2-8, section 13 steps 4-5
 ---
 
 # initiative-build — slices in DAG order, then converge
@@ -65,6 +64,7 @@ Events go to `metrics/runs/<id>.build.jsonl`; per-slice metrics stay in `metrics
    $PY scripts/asdlc/cross_change_check.py --slices plans/<id>/slices.yaml
    ```
    Plus the CI checks of every touched repo (read `.github/workflows/*` and the repo Makefiles).
+   Plus the `docs-sync` skill on `main..asdlc/<id>` (READMEs match the landed code).
    Then ONE message: `feature-reviewer` per change (decide.py feature gate, advisory) and
    `privacy-reviewer` for each change routed `pii`. A regression in an older scenario → the slice
    whose diff caused it (bisect by merge commit) goes back into feature-run.

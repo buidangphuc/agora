@@ -1,7 +1,6 @@
 # ASDLC v2 — process source of truth
 
-Agentic SDLC for this polyrepo. Derived from `ASDLC-v2-PLAN.md` (sections 3-8, 13); where a file differs from the plan, this doc
-describes the file and flags it in "Known differences". One-page quick start: [ONBOARDING.md](../ONBOARDING.md). `$PY` =
+Agentic SDLC for this polyrepo. Where a file differs from this doc, the file wins and the difference is listed in "Known differences". One-page quick start: [ONBOARDING.md](../ONBOARDING.md). `$PY` =
 `platform-e2e/.venv/bin/python` (system python lacks PyYAML). Everything runs locally (CI = same commands, see [ci.md](ci.md)).
 
 ## 1. Lifecycle (10 phases)
@@ -124,7 +123,7 @@ Enforced by `platform-e2e/scripts/features.py` (`make -C platform-e2e features-c
 
 | What | Where |
 |---|---|
-| Plan, this doc, onboarding | `ASDLC-v2-PLAN.md`, `docs/ASDLC-v2.md`, `docs/ONBOARDING.md` |
+| This doc, onboarding | `docs/asdlc/ASDLC-v2.md`, `docs/ONBOARDING.md` |
 | Config (profile, thresholds, routing, paths) | `asdlc.config.yaml`, `scripts/asdlc_config.py` |
 | Question sets + rules | `gates/<gate>.v<N>.yaml`, `gates/README.md`, `gates/SCHEMA.md` |
 | Scripts and their tests | `scripts/asdlc/`, `scripts/asdlc/tests/`, `platform-e2e/scripts/{features,spec_sync}.py` |
@@ -132,10 +131,10 @@ Enforced by `platform-e2e/scripts/features.py` (`make -C platform-e2e features-c
 | Agents / skills / hook | `.claude/agents/`, `.claude/skills/`, `.claude/hooks/guard-tests.sh` |
 | Spec template (NFR, Data classification, Threat model) | `openspec/schemas/spec-driven/templates/proposal.md`, `openspec/config.yaml` |
 | Initiatives and run state | `plans/<id>/` (`00-spec.md`, `slices.yaml`, `LOCK.md`, `run/`) |
-| Metrics and baseline | `metrics/`, `metrics/baseline.json`, `docs/baseline.md` |
-| Release, rollback, runbooks | `docs/release.md`, `scripts/rollback.sh`, `docs/runbooks/`, `platform-gitops/`, `deploy/` |
+| Metrics and baseline | `metrics/`, `metrics/baseline.json`, `docs/asdlc/baseline.md` |
+| Release, rollback, runbooks | `docs/asdlc/release.md`, `scripts/rollback.sh`, `docs/runbooks/`, `platform-gitops/`, `deploy/` |
 | Ownership | `CODEOWNERS` (capability -> owning team) |
-| Experiments | `docs/experiments/`, `metrics/kev-eval/` |
+| Experiments | `docs/asdlc/experiments/`, `metrics/kev-eval/` |
 
 ## 9. Human approval points
 
@@ -152,6 +151,6 @@ Enforced by `platform-e2e/scripts/features.py` (`make -C platform-e2e features-c
 ## 10. Known differences (plan vs files)
 
 - `scripts/validate_plan.py` docstring examples say `plan/`; the repo uses `plans/<id>/`.
-- `scripts/asdlc/kev_eval/` has code (`build_set.py`, `run.py`, `seed.py`, ...) but no README yet; plan statuses in section 7 are still all `todo`.
+- `scripts/asdlc/kev_eval/` has code (`build_set.py`, `run.py`, `seed.py`, ...) and a README; plan statuses in section 7 are still all `todo`.
 - Plan step 3a names "Kev (spec.v1)"; in the skills this is `decide.py --gate gates/spec.v1.yaml --mode advisory` run by/for `spec-quality-reviewer`.
 - Superpowers is enabled at project scope; allowed skills are listed in `AGENTS.md` "ASDLC v2".

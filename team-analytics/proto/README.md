@@ -5,7 +5,8 @@ Pinned copy of platform-core's proto module (package `platform.*`), input to
 vendors the proto sources and generates its own Go code; platform-core never
 writes here.
 
-team-analytics OWNS no RPC surface (it is a Kafka-consumer worker). It vendors
+team-analytics OWNS the read-only `platform.analytics.v1.AnalyticsQueryService`
+(served on `:50059`) and otherwise consumes Kafka events. It vendors
 `common`, `events`, and `analytics` so it can consume `analytics.events`:
 unmarshal `platform.events.v1.EventEnvelope`, switch on `type`, and decode the
 `platform.analytics.v1.TrackingEvent` payload. It does NOT edit the contract —

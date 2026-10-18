@@ -1,6 +1,6 @@
 # ASDLC v2 onboarding (one page)
 
-Source of truth: `docs/asdlc/ASDLC-v2-PLAN.md` (sections 3, 4, 13), `asdlc.config.yaml`, `gates/README.md`. Python for every
+Source of truth: `docs/asdlc/ASDLC-v2.md`, `asdlc.config.yaml`, `gates/README.md`. Python for every
 script: `platform-e2e/.venv/bin/python` (`$PY` below). Agents and humans follow the same flow; only strictness differs.
 
 ## The 10 phases and what you run

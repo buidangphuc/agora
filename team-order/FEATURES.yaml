@@ -643,7 +643,7 @@ features:
       login: buyer
       seed_tag: needsListing
     api:
-      exercised: [order.v1.ListOrders]
+      exercised: [order.v1.ListBuyerOrders]
     acceptance:
       - Given a buyer is logged in
       - And the buyer has placed an order via API
@@ -664,7 +664,7 @@ features:
       login: seller
       seed_tag: needsSeller
     api:
-      exercised: [order.v1.ListOrders]
+      exercised: [order.v1.ListSellerOrders]
     acceptance:
       - Given a seeded seller is logged in
       - When the seller navigates to the seller orders page

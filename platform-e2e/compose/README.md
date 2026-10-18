@@ -14,6 +14,7 @@ the overlays you need to its `-f` list.
 | `search-tombstones.override.yaml` | search read-model features | 30 s tombstone TTL |
 | `llm-fake.override.yaml` | `ai/llm_*.feature` | adds the `llm-fake` provider, switches team-ai to `CHAT_BACKEND=llm_router` against it |
 | `modelserve.override.yaml` | `modelserve/*.feature`, `search/hybrid_*.feature` | `tei-fake` and `modelserve-router` now live in the base compose (team-ai's RAG default needs them); this overlay publishes their host ports, names the images `agora-*`, sets `MAX_QUEUE_DEPTH=10` and points team-search and its indexer at the router (`MODEL_SERVER_URL`, `ENABLE_RERANKER=true`) |
+| `llm-fake-breaker.override.yaml` | `ai/llm_breaker.feature` | `LLM_BREAKER_FAILURE_THRESHOLD=2` on team-ai, layered on `llm-fake`; applied by the scenario itself, restored in teardown |
 | `rag-off.override.yaml` | `ai/assistant_grounding.feature` (demo-catalog scenario, `@destructive`) | team-ai with `RAG_ENABLED=false` and the listing indexer off; applied by the scenario itself, never part of the standing stack |
 | `llm-fake-langfuse.override.yaml` | `ai/llm_tracing.feature` only | turns Langfuse on in team-ai, pointed at the fake's ingestion endpoint |
 
@@ -33,7 +34,7 @@ on `127.0.0.1:${LLM_FAKE_HOST_PORT:-18099}` and switches team-ai to:
 | `LLM_BREAKER_FAILURE_THRESHOLD` / `LLM_BREAKER_COOLDOWN_SECONDS` | 1000 standing, 2 with `llm-fake-breaker.override.yaml` / 5 |
 | `CHAT_SYSTEM_PROMPT` / `CHAT_HISTORY_MAX_TURNS` | a fixed e2e prompt / 4 |
 | `QUOTA_CHAT_REPLIES_PER_WINDOW` | 15 (design says 30, see the file header); the quota is always on, counted in Redis |
-| `RATE_LIMIT_PRINCIPAL_PER_MINUTE` | 20; the gRPC and per-principal HTTP rate limits are always on, in Redis |
+| `RATE_LIMIT_PRINCIPAL_PER_MINUTE` | 200; the gRPC and per-principal HTTP rate limits are always on, in Redis |
 
 Bring it up (stack already running, wrapper already carrying the overlay):
 
@@ -61,10 +62,10 @@ It is never part of the standing stack, which is why the scenario is `@destructi
 (dim 384, a hashed bag of concepts, so overlapping texts are closer and `<stem>zalias` equals `<stem>`),
 `POST /rerank` (token overlap), a canned vLLM (`/v1/chat/completions`, `/generate`) and a request log
 (`GET /_requests?contains=&kind=`). `[[fake status=500]]`, `[[fake delay=3000]]`, `[[fake rerank=reverse]]`,
-`[[fake rerank_status=500]]` in a text or query drive the failure scenarios. The overlay builds it as
-`tei-fake` (host port `${TEI_FAKE_HOST_PORT:-18110}`), builds `./platform-modelserve` as `modelserve-router`
-(host port `${MODELSERVE_HOST_PORT:-18100}`, Redis DB 4, `MAX_QUEUE_DEPTH=10`) and sets `MODEL_SERVER_URL`
-on team-search and team-search-indexer. Bring it up:
+`[[fake rerank_status=500]]` in a text or query drive the failure scenarios. The base compose
+(`docker-compose.services.yaml`) builds `tei-fake` and `modelserve-router` (Redis DB 4 is set there). The overlay
+publishes them on host port `${TEI_FAKE_HOST_PORT:-18110}` and `${MODELSERVE_HOST_PORT:-18100}`, sets
+`MAX_QUEUE_DEPTH=10` on the router and sets `MODEL_SERVER_URL` on team-search and team-search-indexer. Bring it up:
 
     DC=~/Library/Caches/ai-first-runs/agora-stack/dc-agora-ov.sh
     $DC -f platform-e2e/compose/modelserve.override.yaml up -d --build tei-fake modelserve-router

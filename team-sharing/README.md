@@ -2,7 +2,7 @@
 
 Go gRPC service that owns the **short shareable links** bounded context: it mints a short code for a `(target_type, target_id)` pair, stores UTM parameters and Open Graph preview metadata with it, and counts every resolve. It is a deployed service (compose: `team-sharing-svc`, gRPC `:50065`, no host port published) with its own Postgres database `sharing_db` (Rule 3, database per service). It calls no other service and produces/consumes no events.
 
-Go 1.22 (`go.mod`; the Dockerfile builds with `golang:1.22`), module `github.com/buidangphuc/team-sharing`.
+Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com/buidangphuc/team-sharing`.
 
 Layout: `cmd/server` (wiring) -> `internal/grpcserver` -> `internal/interceptor` (principal) -> `internal/handler` -> `internal/service` (validation, short-code minting, OG defaults) -> `internal/repository` (Postgres + in-memory). `internal/config` reads env.
 
@@ -92,7 +92,7 @@ There is no lint target and no CI config in this repo. A reasonable local gate: 
 - No authorization on either RPC (no scope checks, no `RequireScopes`). `CreateShareLink` is open to anonymous callers, so anyone can mint unlimited links; there is no rate limit in this service.
 - `target_type`/`target_id` are not validated or checked for existence, and `target_type` is not restricted to known values.
 - No expiry, deletion, or per-creator listing; `created_by` is stored but never read back through the API. There is no lookup-by-target despite the `idx_share_links_target` index.
-- The proto comment mentions "UTM tracking and OG metadata" but the create request has no OG fields (OG is synthesized, see Gotchas). `team-gateway/README.md` lists a `TrackShare` RPC that does not exist in the proto.
+- The proto comment mentions "UTM tracking and OG metadata" but the create request has no OG fields (OG is synthesized, see Gotchas).
 - `repository` has no tests; no `FEATURES.yaml`; no CI config in the repo.
 
 ## Links

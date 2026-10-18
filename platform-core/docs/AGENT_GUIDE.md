@@ -19,7 +19,7 @@ make dev                        # local infra (redis, qdrant, postgres-*)
 ## Contract workflow
 
 ```bash
-make proto      # buf lint + breaking-check + generate ./gen (verify only)
+make proto      # buf lint + breaking-check + generate ./gen (gitignored)
 make check      # the merge-gate: proto lint + breaking. Must pass before push.
 ```
 

@@ -10,11 +10,12 @@ Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 1
 
 | Surface | What | Authorization |
 |---|---|---|
-| 37 pages under `src/app/(shop)` and `src/app/(checkout)` | Buyer, account, seller, admin, chat, assistant, checkout (route groups below) | Per page/layout, from the gateway scopes in the session JWT |
+| 41 pages under `src/app/(shop)` and `src/app/(checkout)` | Buyer, account, seller, admin, chat, assistant, checkout (route groups below) | Per page/layout, from the gateway scopes in the session JWT |
 | `GET /api/suggest?q=` | Search type-ahead, proxies `suggest` | Public; errors return empty suggestions |
 | `GET /api/listings?status=&cursor=` | "Load more" for the consumer feed | Public; errors return an empty page |
 | `POST /api/assistant/stream` | Relays `ChatService.StreamChat` deltas as a plain-text stream | Session cookie forwarded, no local check; the gateway decides. 400 on empty `message` |
 | `GET /api/admin/metrics` | Cockpit refresh, proxies `fetchCockpit` | 401 without a session; the gateway enforces scope `admin` (401/403 passed through) |
+| `GET /api/analytics/identity` | GA4 `user_id` from the verified principal (see GA4 via GTM) | Consent-gated; 204 when `GA4_USER_ID_HMAC_KEY` is unset |
 
 Route groups and page-level gates:
 
@@ -24,17 +25,17 @@ Route groups and page-level gates:
 | `(shop)` signed-in | `/favorites`, `/chat`, `/notifications`, `/account/{orders,orders/[id],addresses,following,referral,security,verification}` | redirect to `/login` without a session |
 | `(shop)` | `/chat/[id]` | redirects to `/chat?thread=<id>` |
 | `(shop)/seller/*` | dashboard, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `seller/layout.tsx`: `/login` if anonymous; "seller account needed" result unless scope `listing.write` |
-| `(shop)/admin/cockpit` | Ops cockpit | `/login` if anonymous, denied view unless scope `admin`; the gateway re-enforces it on the data |
+| `(shop)/admin/*` (`cockpit`, `audit`, `cases`, `listings`, `users`) | Ops cockpit, audit log, cases, listing moderation, user administration | `/login` if anonymous, denied view unless scope `admin`; the gateway re-enforces it on the data |
 | `(shop)/dev/ui` | UI component gallery | `notFound()` when `NODE_ENV=production` |
 | `(checkout)` | `/checkout`, `/checkout/pay/[id]` | `/checkout` redirects to `/login` if anonymous and to `/cart` if the cart is empty |
 
-**Consumes**: only `team-gateway` (`GATEWAY_URL`), through `@connectrpc/connect-node` clients over HTTP/1.1. All RPC code lives in `src/lib/gateway/*` (`server-only`); pages and `src/features/*` import from there. Clients are built per request with the caller's token (`makeClients(token)`), so the bearer is never a process singleton and never reaches the browser. Public reads retry once without the bearer (`anonymousFallback`) so a stale session degrades to anonymous browsing. `src/middleware.ts` removes an expired or malformed `session` cookie before render.
+**Consumes**: only `team-gateway` (`GATEWAY_URL`), through `@connectrpc/connect-node` clients over HTTP/1.1. All RPC code lives in `src/lib/gateway/*` (`server-only`); pages and `src/features/*` import from there. Clients are built per request with the caller's token (`makeClients(token)`), so the bearer is never a process singleton and never reaches the browser. Public reads retry once without the bearer (`anonymousFallback`) so a stale session degrades to anonymous browsing. `src/middleware.ts` refreshes an unusable `session` cookie once via the `agora_refresh` cookie before render; if the refresh fails with `Unauthenticated` or `PermissionDenied` both cookies are cleared, and a transient failure renders anonymous while keeping the refresh cookie.
 
 Generated services in use (`src/generated/platform/*`, from the vendored `proto/platform/*`): search, listing, identity (Auth, Address), engagement, order (Cart, Order), payment, chat, ai, recommendation, promotion (Voucher, FlashSale, Subscription, Sponsored), notification, plus referral, sharing, verification, follow and cockpit/analytics helpers in their own `src/lib/gateway/*.ts` modules. The gateway forwards each RPC to the owning service.
 
 Login/register forward the browser IP and user agent to the gateway (`src/lib/gateway/client-context.ts`): the `X-Forwarded-For` entry `TRUSTED_PROXY_HOPS` places from the right, never the client-controlled leftmost one. The gateway trusts it only from this server (`TRUSTED_PROXIES=team-frontend-svc` in compose).
 
-Session: login stores the JWT in cookie `session` (`httpOnly`, `sameSite=lax`, `path=/`, `maxAge=3600`; `src/features/auth/actions.ts`). The server attaches it as `Authorization: Bearer`.
+Session: login stores the JWT in cookie `session` (`httpOnly`, `sameSite=lax`, `path=/`, `maxAge=3600`) and the rotating refresh token in cookie `agora_refresh` (`maxAge=2592000`, 30 days; `src/features/auth/actions.ts`, `src/lib/gateway/session-cookie.ts`). The server attaches the access token as `Authorization: Bearer`. Both cookies are `secure` only when the request carries `X-Forwarded-Proto: https`.
 
 ## 2. Events
 
@@ -106,7 +107,7 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 
 ## 7. Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (94 features: 85 `automated`, 9 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest.
+- Feature manifest: `FEATURES.yaml` (815 features: 527 `automated`, 281 `not-testable`, 7 `planned`). The frontend owns only presentational and cross-cutting journeys; capability journeys live in the owning repo's manifest.
 - E2E: `platform-e2e` (pytest-bdd + Playwright) drives `team-frontend:3000` through the gateway `:8080`. Gates: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes are specified through OpenSpec (`openspec/changes/<id>`), then `FEATURES.yaml`, then platform-e2e, then `npm run check`, per the root README's ASDLC.
 
@@ -121,10 +122,10 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 
 ## 9. Known gaps
 
-- Session cookie is set without `secure` (`src/features/auth/actions.ts`), so it is sent over plain HTTP if the site is served that way.
+- Cookies are `secure` only when `X-Forwarded-Proto: https` reaches the server (`isSecureRequest`); a TLS-terminating proxy that does not set that header leaves them non-secure.
 - `/api/suggest` and `/api/listings` swallow every error and return empty results, hiding gateway outages from the UI.
 - `.env.example` omits `NEXT_PUBLIC_MEDIA_BASE_URL`, whose default points at a local MinIO URL that is wrong outside local dev.
-- `FEATURES.yaml` has 9 `planned` features with no automated coverage yet.
+- `FEATURES.yaml` has 7 `planned` features with no automated coverage yet.
 
 ## 10. Links
 

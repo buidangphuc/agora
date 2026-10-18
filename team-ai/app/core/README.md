@@ -13,7 +13,7 @@ core/
 ├── health.py         # HealthService — generic check registry
 ├── grpc_metrics.py   # teamai_grpc_requests_total counter, rendered at GET /metrics
 ├── logging.py        # loguru ↔ stdlib bridge + request_id context injection
-├── middleware.py     # 6 ASGI middleware classes
+├── middleware.py     # 4 ASGI middleware classes
 ├── pagination.py     # PaginationParams + ListResponse generic
 ├── redaction.py      # RedactionPolicy for PII / secrets
 ├── redis.py          # build_redis_client + check_redis_connection (Redis is mandatory)
@@ -136,10 +136,8 @@ server) = one `register` call in its opener, no change in `health.py`.
 |---|---|
 | `AccessLogMiddleware` | Logs method/path/status/duration/principal/request_id |
 | `RequestBodyLimitMiddleware` | Reject bodies > `MAX_REQUEST_BODY_BYTES` |
-| `SecurityHeadersMiddleware` | HSTS + standard security headers |
 | `InFlightTracker` + `InFlightTrackerMiddleware` | Drains in-flight requests during graceful shutdown |
 | `RequestTimeoutMiddleware` | Wraps handler in `asyncio.wait_for`. Exclude paths via `REQUEST_TIMEOUT_EXCLUDE_PATTERNS` |
-| `IPRateLimitMiddleware` | Per-IP rate limit; reads `app.state.resources.ip_rate_limiter` lazily (works even before lifespan opens limiters) |
 
 Install order is set by `app/bootstrap/middleware.py::install_core_middlewares()`. Middleware that reads from `app.state.resources` uses lazy lookup at request time — middleware is added during `create_app`, resources are built during lifespan.
 
@@ -215,7 +213,7 @@ The request_id flows through:
 ## redaction.py
 
 ```python
-RedactionPolicy(*, mode: Literal["off", "redacted", "full"] = "redacted")
+RedactionPolicy(*, mode: Literal["off", "redacted", "full"] = "redacted", mask_national_id: bool = False)
 policy.redact_text(text)       # "redacted": strip email/bearer/secret patterns
 policy.redact_mapping(metadata) # redacts dict values, keeps keys
 ```

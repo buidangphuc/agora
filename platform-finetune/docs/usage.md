@@ -72,7 +72,7 @@ endpoint (text in → `{label, score}`); it holds no model internals.
 
 ## Config (`config/`)
 
-- `params.yaml` — the base experiment: data, model, training, metrics, gate, tracking, registry (+ an off-by-default `tuning:` block).
+- `params.yaml` — the base experiment: data, model, training, metrics, gate, tracking, registry (+ an off-by-default `perf.apply_tuned` switch).
 - `experiments.yaml` — the tuning loop: named variants (sparse overrides on `params.yaml`).
 - `serving.yaml` — serving lifecycle: runtime, optimize, triton, sagemaker, analyze.
 - `hardware.yaml` — the train and infer GPU targets (+ SageMaker instance types). Tuned results bind to these.
@@ -110,7 +110,7 @@ for role in ("train", "infer"):        # ADJUST to the fingerprint (perf refuses
 yaml.safe_dump(h, open(p, "w"), sort_keys=False)
 s = open("config/params.yaml").read()
 s = s.replace("sample_size: 3000", "sample_size: 2000").replace("max_steps: -1", "max_steps: 60")
-open("config/params.yaml", "w").write(s.replace("on_fail: error", "on_fail: warn"))
+open("config/params.yaml", "w").write(s)
 EOF
 make test
 ```

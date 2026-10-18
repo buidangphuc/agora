@@ -21,10 +21,7 @@ Tài liệu thiết kế luồng dữ liệu, tính toàn vẹn (Data Consistenc
  │Publisher  │                                         ▼
  └─────┬─────┘                       ┌───────────────────────────────────┐
        │                             │ Kafka Partitioned Topics          │
-       ├────────────────────────────►│ - listing.base.events (Key=ID)    │
-       ├────────────────────────────►│ - listing.pricing.events (Key=ID) │
-       ├────────────────────────────►│ - listing.stock.events (Key=ID)   │
-       └────────────────────────────►│ - listing.status.events (Key=ID)  │
+       └────────────────────────────►│ - listing.events (Key=listing_id) │
                                      └─────────────────┬─────────────────┘
                                                        │
                                                        ▼ (Idempotent Consumer)
@@ -41,7 +38,7 @@ Tài liệu thiết kế luồng dữ liệu, tính toàn vẹn (Data Consistenc
 
 ### Topic sự kiện hành vi (Analytics stream)
 
-Tách hoàn toàn khỏi các DB giao dịch (Postgres) và khỏi các topic `listing.*.events`:
+Tách hoàn toàn khỏi các DB giao dịch (Postgres) và khỏi topic `listing.events`:
 sự kiện hành vi (view/click/add-to-cart/impression) có lưu lượng gấp 500–1000× đơn hàng
 nên đi trên một stream riêng nạp vào data warehouse (DuckDB local / BigQuery prod).
 
@@ -83,7 +80,7 @@ Nếu service vừa ghi vào PostgreSQL vừa gọi Kafka:
 
 ## 🔑 3. CHIẾN LƯỢC PARTITIONING & KEYING CHO KAFKA
 
-- **Keying Strategy**: Luôn gán **`Key = listing_id`** cho mọi record trên tất cả các topic `listing.*.events`.
+- **Keying Strategy**: Luôn gán **`Key = listing_id`** cho mọi record trên topic `listing.events`.
 - **Đảm bảo thứ tự (Per-Entity Ordering)**: Mọi sự kiện của cùng 1 sản phẩm (BaseInfo $\rightarrow$ Pricing $\rightarrow$ Stock) luôn rơi vào **cùng 1 Partition** của Kafka, đảm bảo thứ tự thời gian được bảo toàn tuyệt đối, loại bỏ hoàn toàn race conditions.
 - **Partition Count**: 12 Partitions cho mỗi topic để hỗ trợ scale lên tới 12 Consumer Pods chạy song song.
 
@@ -96,14 +93,14 @@ Nếu service vừa ghi vào PostgreSQL vừa gọi Kafka:
                            │
                            ├──(Thất bại)──► [ Exponential Backoff Retry (Max 3 lần: 1s, 2s, 4s) ]
                            │
-                           └──(Vẫn lỗi)──► [ Dead Letter Queue: listing.events.DLQ ]
+                           └──(Vẫn lỗi)──► [ Dead Letter Queue: listing.events.dlq ]
                                                          │
                                                          ▼
                                             [ Alert SRE + Retry Dashboard ]
 ```
 
 1. **Retry với Exponential Backoff & Jitter**: Tự động thử lại tối đa 3 lần với khoảng cách $1s \pm 20\%$, $2s \pm 20\%$, $4s \pm 20\%$.
-2. **Poison Pill Handling**: Nếu sau 3 lần vẫn lỗi (do parse lỗi hoặc payload hỏng), message sẽ được chuyển vào topic Dead Letter Queue `listing.events.DLQ` kèm header chứa `x-error-reason`, `x-original-topic`, `x-retry-count`.
+2. **Poison Pill Handling**: Nếu sau 3 lần vẫn lỗi (do parse lỗi hoặc payload hỏng), message sẽ được chuyển vào topic Dead Letter Queue `listing.events.dlq` kèm header chứa `x-error-reason`, `x-original-topic`, `x-retry-count`.
 3. **Consumer không bị Block**: Luồng xử lý chính tiếp tục vận hành mà không bị dừng lại bởi 1 message lỗi.
 
 ---

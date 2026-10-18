@@ -50,9 +50,9 @@ Consumed only (it produces no events except dead-letter records). Each record va
 
 | Topic | Envelope `type` | Effect | DLQ |
 |---|---|---|---|
-| `listing.events` | `platform.listing.v1.ListingChanged` | Self-diffs the snapshot against the stored last-seen price and stock. A price decrease notifies `PRICE_DROP` subscribers; a stock move from 0 to positive notifies `BACK_IN_STOCK` subscribers. A first-ever snapshot (no prior) never fires. | `listing.events.dlq` |
+| `listing.events` | `platform.listing.v1.ListingChanged`; `platform.listing.v1.ListingStockChanged` | `ListingChanged` self-diffs the snapshot against the stored last-seen price and stock. A price decrease notifies `PRICE_DROP` subscribers; a stock move from 0 to positive notifies `BACK_IN_STOCK` subscribers. A first-ever snapshot (no prior) never fires. `ListingStockChanged` sends the owner one `SYSTEM` low-stock notification when stock falls to `LOW_STOCK_THRESHOLD` or below, re-armed when stock rises above it (state in `listing_low_stock_state`). | `listing.events.dlq` |
 | `chat.events` | `platform.chat.v1.ChatMessage` | One `CHAT` notification to `recipient_id` (never the sender; skipped if `recipient_id` is empty). Link `/chat/{thread_id}`. | `chat.events.dlq` |
-| `order.events` | `platform.order.v1.OrderShipped` | One `ORDER` notification to `buyer_id` with carrier and tracking code. Link `/account/orders/{order_id}`. Other order event types are ignored. | `order.events.dlq` |
+| `order.events` | `platform.order.v1.OrderShipped` | One `ORDER` notification to `buyer_id` with carrier and tracking code. Link `/account/orders/{order_id}`. The other order types are listed below. | `order.events.dlq` |
 
 Order-work notifications. In addition to `OrderShipped`, the `order.events` consumer turns these envelope
 types (`platform.order.v1.*`) into `ORDER` notifications: `OrderPlaced` (COD orders), `OrderPaidEvent`,
@@ -82,6 +82,7 @@ Database `notification_db` on the shared Postgres (user `notification_svc`). Mig
 | 002 | `alert_subscriptions` | Unique `(user_id, listing_id, type)`; index `(listing_id, type)` used by the listing consumer. |
 | 003 | `notification_prefs` | One row per user: `prefs` JSONB, `digest_freq` int, `updated_at`; index on `digest_freq`. |
 | 004 | `processed_events`, `listing_last_seen` | Durable consumer state: dedupe ledger `(consumer, event_id)`, and last `price` (BIGINT) and `stock` (INT) per listing, each nullable (null means unknown prior). |
+| 005 | `listing_low_stock_state` | Per listing: `seller_id`, `title`, and `low` (whether stock is currently at or below the threshold). |
 
 Consumer state is durable, so a restart neither re-notifies a redelivered event nor loses the price and stock
 baseline. In-memory variants (`InMemoryDeduper`, `InMemoryPriceStateStore`, `InMemoryStockStateStore`) are the
@@ -150,14 +151,12 @@ TEST_DATABASE_URL=postgres://... go test ./internal/consumer/...   # also runs d
 
 Without `TEST_DATABASE_URL` the Postgres consumer-state test is skipped; apply `migrations/*.up.sql` to that
 database first. This repository has no Makefile and no CI config of its own; the commands above are the
-local gate. `Dockerfile` builds `./cmd/server` into a distroless image (`golang:1.22`); it expects `generated/`
+local gate. `Dockerfile` builds `./cmd/server` into a distroless image (`golang:1.26`); it expects `generated/`
 to exist in the build context.
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (11 features: center, alerts, alerts-delivery, unread-badge,
-  per-user-isolation, chat-message, chat-preferences, order-shipped, chat-sender-name, state-survives-restart,
-  chat-outbox-delivery). Each has a `covered_by` scenario in `platform-e2e`.
+- Feature manifest: `FEATURES.yaml` (54 features: 22 `automated`, 32 `not-testable`). Each `automated` feature has a `covered_by` scenario in `platform-e2e`.
 - Verify coverage: `make -C platform-e2e features-check`; verify a change:
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec (`openspec/changes/<id>` at the repo root), per the root README's ASDLC.
@@ -173,9 +172,6 @@ to exist in the build context.
 
 ## Known gaps
 
-- **Wrong default Postgres port.** `DATABASE_URL` defaults and `.env.example` use `localhost:5440`, but
-  `AGENTS.md` assigns `5441` to postgres-notification (`5440` is postgres-promotion). In root compose the
-  service uses `postgres:5432` and is unaffected.
 - **No digest delivery.** `digest_freq` is stored and `PrefsService.BundleDigest` / `ListUsersByDigestFreq`
   exist, but nothing calls them: no scheduler runs and no digest notification is ever produced. The code comment
   says wiring the cron is out of scope.

@@ -23,3 +23,16 @@ def test_env_example_drift() -> None:
     # All keys in .env.example should correspond to known settings
     for key in example_keys:
         assert key in settings_keys, f"Key {key} in .env.example not recognized in Settings"
+
+
+def test_every_setting_is_listed_in_env_example() -> None:
+    env_example_path = Path(__file__).parent.parent / ".env.example"
+    example_keys = {
+        line.split("=", 1)[0].strip()
+        for line in env_example_path.read_text().splitlines()
+        if line.strip() and not line.strip().startswith("#") and "=" in line
+    }
+    settings_keys = {field.alias or name for name, field in Settings.model_fields.items()}
+
+    missing = sorted(settings_keys - example_keys)
+    assert not missing, f".env.example is missing settings: {missing}"

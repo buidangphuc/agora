@@ -11,12 +11,13 @@ team-ai: the AI service of the agora platform. Redis and recommendations are man
 
 ## Checks
 <!-- read by: pre-commit-ci. Mirror CI exactly. -->
-- Source: .github/workflows/test.yml (last read: 2026-10-12)
+- Source: .github/workflows/services-ci.yml, job `team-ai-uv` (last read: 2026-10-18)
 - `uv sync --dev --all-extras`
 - `uv run --all-extras python -m scripts.gen_proto` (generates the git-ignored gRPC stubs; run before pyright/pytest)
 - `uv run ruff format --check app tests scripts`
 - `uv run ruff check app tests scripts`
 - `uv run --all-extras pyright`
+- `uv run --all-extras python -m scripts.check_env_example` (`.env.example` matches Settings)
 - `SKIP=commitizen uv run pre-commit run --all-files --hook-stage pre-commit`
 - `uv run --all-extras pytest -q --cov=app --cov-report=term-missing --cov-fail-under=80`
 - `uv run --env-file .env.example --all-extras python -m scripts.run_eval --min-score 0.8`
@@ -25,8 +26,7 @@ team-ai: the AI service of the agora platform. Redis and recommendations are man
 
 ## Tracker
 <!-- read by: to-tickets -->
-- GitHub `buidangphuc/ai-platform-template`.
-- Changes are planned as OpenSpec changes under `openspec/changes/` (archived to `openspec/changes/archive/`, specs in `openspec/specs/`).
+- None: agora has no tracker. Changes are planned as OpenSpec changes under `../openspec/changes/` (archived to `openspec/changes/archive/`, specs in `../openspec/specs/`).
 
 ## Docs
 <!-- read by: domain-modeling, research -->

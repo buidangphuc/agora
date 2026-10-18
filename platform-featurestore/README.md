@@ -33,7 +33,7 @@ it (order_facts only holds PAID facts). `user_activity@v1` was retired by `order
 `order_facts.parquet` has no `buyer_id` column (upgrade team-analytics first, wait one export cycle).
 
 **Point in time.** Everything is computed as of `AS_OF` (RFC 3339 with offset; empty or unset means now, UTC). The SQL
-only sees the views `events` and `facts` (`ingested_at <= AS_OF`) and `orders` (`occurred_at <= AS_OF`), created by
+only sees the views `events` and `facts` (`ingested_at <= AS_OF`), `orders` (`occurred_at <= AS_OF`) and `listings` (`updated_at <= AS_OF`), created by
 the job. 7-day windows are `(AS_OF - 7d, AS_OF]`. Current favourites/follows use the latest fact per pair
 (`occurred_at`, then `event_id`).
 
@@ -52,7 +52,7 @@ RFC 3339 UTC ending in `Z`. The old `fs:u:` / `fs:i:` keys are gone.
 | --- | --- |
 | `materialize` | compute, write offline + online, parity gate |
 | `parity` | compare Redis with the latest run's snapshots |
-| `dataset` | build governed datasets (`als_interactions@v1`, `rank_training@v1`) as of `AS_OF` into `<offline>/datasets/<name>/v<n>/as_of=<stamp>.parquet` + `.manifest.json`; window `DATASET_WINDOW_DAYS` (default 30) |
+| `dataset` | build every registered governed dataset version (`als_interactions@v1|v2`, `rank_training@v1|v2`) as of `AS_OF` into `<offline>/datasets/<name>/v<n>/as_of=<stamp>.parquet` + `.manifest.json`; window `DATASET_WINDOW_DAYS` (default 30) |
 | `lock` | regenerate `registry/features.lock` after a deliberate definition change |
 
 Exit codes: 0 ok, 2 config/missing input, 3 parity mismatch (`parity mismatch view=.. entity=.. feature=..
@@ -63,6 +63,10 @@ window: `user_key`, `impression_id`, `listing_id`, `position`, `label`, `occurre
 with the same `impression_id` and `listing_id` happened at or after the impression, else 1 for a `click`, else 0. Registry
 datasets may declare `columns:` (name to `string|int|float|timestamp`); without it the `als_interactions` columns apply.
 platform-recsys' GBDT trainer reads it (change `recsys-gbdt-trainer`).
+`rank_training@v2` (`registry/sql/rank_training_v2.sql`) has the same columns and label but counts an event only
+with personalization consent (`consent_personalization` true, `consent_version > 0`, after the user's latest opt-out);
+`als_interactions@v2` applies the same filter. platform-recsys still reads the v1 datasets by default
+(`DATASET_DIR`, `RANK_DATASET_DIR` in `platform-recsys/recsys/config.py`).
 
 ## Configuration
 
@@ -99,4 +103,4 @@ The compose `featurestore-job` service (profile `featurestore`) is owned by the 
 
 ## Links
 
-Root `AGENTS.md`; change `openspec/changes/featurestore-materialization`; ADR-0015 (platform-core, change task 1.3).
+Root `AGENTS.md`; change `openspec/changes/archive/2026-10-09-featurestore-materialization`; ADR-0015 (platform-core, change task 1.3).
