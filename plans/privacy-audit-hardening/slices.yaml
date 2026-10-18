@@ -1,0 +1,45 @@
+# plans/privacy-audit-hardening/slices.yaml — one slice = one OpenSpec change.
+initiative: privacy-audit-hardening
+slices:
+  - id: pah-contract
+    owner: platform-core
+    depends_on: []
+    provides: [engagement.events/ReviewHidden]
+  - id: identity-session-retention
+    owner: team-identity
+    depends_on: []
+  - id: frontend-session-client-context
+    owner: team-frontend
+    depends_on: [frontend-cookie-secure]   # hot files middleware.ts, actions.ts
+    uses: [AuthService.RefreshSession, SessionService.RevokeSession]
+  - id: frontend-cookie-secure
+    owner: team-frontend
+    depends_on: []
+  - id: frontend-referrer-hygiene
+    owner: team-frontend
+    depends_on: [frontend-cookie-secure]
+  - id: domain-consumer-key-redaction
+    owner: team-domain
+    depends_on: []
+  - id: engagement-consumer-key-redaction
+    owner: team-engagement
+    depends_on: []
+  - id: payment-refund-audit-id
+    owner: team-payment
+    depends_on: []
+    uses: [AuditService.WriteAuditEvent]
+  - id: promotion-shop-voucher-audit
+    owner: team-promotion
+    depends_on: [pah-contract]
+    uses: [AuditService.WriteAuditEvent]
+  - id: analytics-review-hidden
+    owner: team-analytics
+    depends_on: [pah-contract]
+    uses: [engagement.events/ReviewHidden]
+  - id: engagement-review-hidden-event
+    owner: team-engagement
+    depends_on: [pah-contract, analytics-review-hidden, engagement-consumer-key-redaction]
+    uses: [engagement.events/ReviewHidden]
+  - id: featurestore-hidden-review-exclusion
+    owner: platform-featurestore
+    depends_on: [analytics-review-hidden]
