@@ -30,6 +30,7 @@ type recordingRepo struct {
 	limits       []int
 	returned     []int
 	failSessions int           // fail this many initial PurgeSessions calls
+	failHistory  bool          // every PurgeLoginHistory call fails
 	calls        int           // PurgeSessions call count
 	called       chan struct{} // signalled after each PurgeSessions call completes
 }
@@ -57,6 +58,13 @@ func (r *recordingRepo) PurgeSessions(ctx context.Context, now time.Time, retent
 		}
 	}
 	return n, err
+}
+
+func (r *recordingRepo) PurgeLoginHistory(ctx context.Context, before time.Time, limit int) (int, error) {
+	if r.failHistory {
+		return 0, errors.New("simulated login history db error")
+	}
+	return r.SessionRepository.PurgeLoginHistory(ctx, before, limit)
 }
 
 func seedDeadSessions(t *testing.T, repo repository.SessionRepository, n int, userID, ip, device string) {
@@ -323,5 +331,36 @@ func TestSweeperLogsCountsOnly(t *testing.T) {
 		if strings.Contains(logs, secret) {
 			t.Fatalf("log output leaks personal data %q:\n%s", secret, logs)
 		}
+	}
+}
+
+// Scenario: Session retention: login history without rows or with a failed purge.
+func TestSweepOnceLoginHistoryErrorIsolated(t *testing.T) {
+	// Empty login history table: nothing purged, no error.
+	empty := repository.NewInMemorySessionRepository()
+	res, err := newSweeper(empty, jsonLogger(&syncBuf{})).SweepOnce(context.Background(), sweepNow)
+	if err != nil {
+		t.Fatalf("empty table SweepOnce: %v", err)
+	}
+	if res.LoginEvents != 0 {
+		t.Fatalf("empty table LoginEvents = %d, want 0", res.LoginEvents)
+	}
+
+	// Failing login history purge: the session purge of the same pass already ran.
+	mem := repository.NewInMemorySessionRepository()
+	rec := &recordingRepo{SessionRepository: mem, failHistory: true}
+	seedDeadSessions(t, mem, 3, "user-hist-err", "10.0.0.1", "dev")
+	res, err = newSweeper(rec, jsonLogger(&syncBuf{})).SweepOnce(context.Background(), sweepNow)
+	if err == nil {
+		t.Fatal("SweepOnce: want the login history purge error, got nil")
+	}
+	if res.Sessions != 3 {
+		t.Fatalf("result Sessions = %d, want 3 (sessions purged in the same pass)", res.Sessions)
+	}
+	if res.LoginEvents != 0 {
+		t.Fatalf("result LoginEvents = %d, want 0", res.LoginEvents)
+	}
+	if n := liveSessionCount(t, mem, "user-hist-err"); n != 0 {
+		t.Fatalf("sessions left = %d, want 0 despite the history failure", n)
 	}
 }

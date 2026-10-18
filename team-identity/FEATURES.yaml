@@ -2305,7 +2305,7 @@ features:
     tags: [auth, slow]
     status: automated
     covered_by: "auth/session_retention.feature::Session retention: revoked session disappears end to end"
-    notes: "identity-session-retention: e2e in auth/session_retention.feature"
+    notes: "identity-session-retention: e2e in auth/session_retention.feature (@retention_override: run with platform-e2e/compose/session-retention.override.yaml on team-identity; verified green 2026-10-18)"
 
   - id: session-retention.old-login-history-disappears-end-to-end
     title: "Session retention: old login history disappears end to end"
@@ -2321,7 +2321,7 @@ features:
     tags: [auth, slow]
     status: automated
     covered_by: "auth/session_retention.feature::Session retention: old login history disappears end to end"
-    notes: "identity-session-retention: e2e in auth/session_retention.feature"
+    notes: "identity-session-retention: e2e in auth/session_retention.feature (@retention_override: run with platform-e2e/compose/session-retention.override.yaml on team-identity; verified green 2026-10-18)"
 
   - id: session-retention.default-stack-keeps-rows
     title: "Session retention: default stack keeps rows"
