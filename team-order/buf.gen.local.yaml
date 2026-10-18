@@ -1,0 +1,17 @@
+# Same as buf.gen.yaml, but with the locally installed protoc plugins instead of remote BSR
+# plugins (no BSR rate limits): buf generate --template buf.gen.local.yaml
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/buidangphuc/team-order/generated
+plugins:
+  - local: /Users/phuc.buidang/go/bin/protoc-gen-go
+    out: generated
+    opt: paths=source_relative
+  - local: /Users/phuc.buidang/go/bin/protoc-gen-go-grpc
+    out: generated
+    opt: paths=source_relative
+inputs:
+  - directory: proto
