@@ -20,6 +20,7 @@ Implement OpenSpec change `analytics-review-hidden` test-first per its tasks.md 
 - platform-e2e/tests/e2e/features/analytics/review_hidden.feature
 - platform-e2e/tests/e2e/step_definitions/test_analytics_review_hidden.py
 - openspec/changes/analytics-review-hidden/**
+- team-analytics/internal/docs/readme_test.go # widened at build: task 3
 
 ## Read-only dependencies
 - openspec/changes/analytics-review-hidden/** is frozen by the LOCK.md digest (only task ticks change)
