@@ -24,6 +24,7 @@ type Settings struct {
 	SeedAdmin     SeedAdmin
 	PasswordReset PasswordReset
 	Upstream      Upstream
+	Retention     Retention
 }
 
 type Runtime struct {
@@ -103,6 +104,16 @@ type Upstream struct {
 	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
 }
 
+// Retention bounds how long identity keeps session and login-history rows and
+// how the background sweeper purges them. Durations are Go durations (720h = 30d).
+type Retention struct {
+	Session        time.Duration `env:"SESSION_RETENTION" default:"720h"`
+	LoginHistory   time.Duration `env:"LOGIN_HISTORY_RETENTION" default:"4320h"`
+	SweepInterval  time.Duration `env:"SESSION_SWEEP_INTERVAL" default:"1h"`
+	SweepBatchSize int           `env:"SESSION_SWEEP_BATCH_SIZE" default:"500"`
+	SweepEnabled   bool          `env:"SESSION_SWEEP_ENABLED" default:"true"`
+}
+
 type Observability struct {
 	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
 	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
@@ -117,6 +128,20 @@ func LoadSettings() (*Settings, error) {
 	// Checked here, not in Validate: a zero-value Settings has no timeout yet.
 	if s.Upstream.CallTimeoutSeconds <= 0 {
 		return nil, fmt.Errorf("UPSTREAM_CALL_TIMEOUT_SECONDS must be > 0: %v", s.Upstream.CallTimeoutSeconds)
+	}
+	// Checked here, not in Validate: a zero-value Settings has no retention yet.
+	for _, c := range []struct {
+		key string
+		ok  bool
+	}{
+		{"SESSION_RETENTION", s.Retention.Session > 0},
+		{"LOGIN_HISTORY_RETENTION", s.Retention.LoginHistory > 0},
+		{"SESSION_SWEEP_INTERVAL", s.Retention.SweepInterval > 0},
+		{"SESSION_SWEEP_BATCH_SIZE", s.Retention.SweepBatchSize > 0},
+	} {
+		if !c.ok {
+			return nil, fmt.Errorf("%s must be > 0", c.key)
+		}
 	}
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -239,6 +264,14 @@ func bindGroups(v reflect.Value) error {
 }
 
 func setField(fv reflect.Value, raw string) error {
+	if fv.Type() == reflect.TypeOf(time.Duration(0)) {
+		d, err := time.ParseDuration(strings.TrimSpace(raw))
+		if err != nil {
+			return err
+		}
+		fv.SetInt(int64(d))
+		return nil
+	}
 	switch fv.Kind() {
 	case reflect.String:
 		fv.SetString(raw)
