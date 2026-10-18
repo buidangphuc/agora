@@ -1,0 +1,31 @@
+# plans/q10-order-lifecycle/slices.yaml — one slice = one OpenSpec change.
+# Validate: platform-e2e/.venv/bin/python scripts/asdlc/cross_change_check.py --slices plans/q10-order-lifecycle/slices.yaml
+# Every openspec/changes/<slice id>/proposal.md must contain a line `initiative: q10-order-lifecycle`.
+# All proto changes live in the contract slice (field additions, enums, PAYMENT_STATUS_CANCELLED);
+# only RPCs and events are listed below, since uses/provides name `Service.Rpc` or `<topic>/<Event>`.
+initiative: q10-order-lifecycle
+slices:
+  - id: q10-order-lifecycle-contract
+    owner: platform-core
+    depends_on: []
+    provides: [OrderService.ConfirmReceipt, order.events/OrderPlaced, order.events/OrderPaymentReminder, order.events/OrderCompleted, order.events/ReturnRequested]
+  - id: order-unpaid-expiry
+    owner: team-order
+    depends_on: [q10-order-lifecycle-contract]
+    uses: [OrderService.CancelOrder, order.events/OrderPlaced, order.events/OrderPaymentReminder, order.events/OrderCancelled, FlashSaleService.ReleaseFlashSaleStock]
+  - id: payment-unpaid-cancel
+    owner: team-payment
+    depends_on: [order-unpaid-expiry]
+    uses: [order.events/OrderCancelled, PaymentService.ProcessMockPayment]
+  - id: order-receipt-completion
+    owner: team-order
+    depends_on: [order-unpaid-expiry]
+    uses: [OrderService.ConfirmReceipt, OrderService.CreateReturnRequest, OrderService.UpdateReturnStatus, OrderService.GetReturnRequest, order.events/OrderCompleted, order.events/ReturnRequested, order.events/OrderPaidEvent, order.events/OrderShipped]
+  - id: notification-order-work
+    owner: team-notification
+    depends_on: [order-receipt-completion]
+    uses: [order.events/OrderPlaced, order.events/OrderPaidEvent, order.events/OrderPaymentReminder, order.events/OrderCancelled, order.events/OrderCompleted, order.events/ReturnRequested, order.events/ReturnRefunded, listing.events/ListingStockChanged, listing.events/ListingChanged]
+  - id: frontend-order-lifecycle
+    owner: team-frontend
+    depends_on: [payment-unpaid-cancel, order-receipt-completion, notification-order-work]
+    uses: [OrderService.ConfirmReceipt, OrderService.CancelOrder, OrderService.CreateReturnRequest, OrderService.GetOrder, PaymentService.CreatePayment, PaymentService.ProcessMockPayment, PaymentService.GetPayment]

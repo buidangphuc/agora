@@ -104,6 +104,11 @@ service OrderService {
   rpc ListSellerOrders(ListSellerOrdersRequest) returns (ListSellerOrdersResponse);
   rpc UpdateOrderStatus(UpdateOrderStatusRequest) returns (UpdateOrderStatusResponse);
   rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+  // ConfirmReceipt completes a SHIPPED order as COMPLETED_BY_BUYER (the buyer of the order only;
+  // any other caller gets PERMISSION_DENIED). The buyer may confirm while the buyer's
+  // return is PENDING or APPROVED (an open return does not block it). FAILED_PRECONDITION
+  // when the order is not SHIPPED (e.g. already COMPLETED or CANCELLED).
+  rpc ConfirmReceipt(ConfirmReceiptRequest) returns (ConfirmReceiptResponse);
   rpc CalculateShippingFee(CalculateShippingFeeRequest) returns (CalculateShippingFeeResponse);
   // Saga Orchestration & Testability (P3 Pillar)
   rpc GetSagaState(GetSagaStateRequest) returns (GetSagaStateResponse);
@@ -118,6 +123,37 @@ service OrderService {
   // Shipment & Logistics Tracking
   rpc CreateShipment(CreateShipmentRequest) returns (CreateShipmentResponse);
   rpc GetShipmentTracking(GetShipmentTrackingRequest) returns (GetShipmentTrackingResponse);
+}
+
+message ConfirmReceiptRequest {
+  string id = 1;
+}
+
+message ConfirmReceiptResponse {
+  Order order = 1;
+}
+
+// Why an order was cancelled. FE strings (changed_mind, wrong_item, damaged,
+// delivery_delay) map to the matching values. Values above 5 are never accepted from buyers.
+enum CancelReason {
+  CANCEL_REASON_UNSPECIFIED = 0;
+  CANCEL_REASON_CHANGED_MIND = 1;
+  CANCEL_REASON_WRONG_ITEM = 2;
+  CANCEL_REASON_DAMAGED = 3;
+  CANCEL_REASON_DELIVERY_DELAY = 4;
+  CANCEL_REASON_OTHER = 5;
+  // Set by the system only; a buyer sending it gets PERMISSION_DENIED.
+  CANCEL_REASON_PAYMENT_EXPIRED = 6;
+  // Set by ForceFailSaga only; a buyer sending it gets PERMISSION_DENIED.
+  CANCEL_REASON_ADMIN_FORCE_FAIL = 7;
+}
+
+// Who completed an order.
+enum CompletedBy {
+  COMPLETED_BY_UNSPECIFIED = 0;
+  COMPLETED_BY_BUYER = 1;
+  COMPLETED_BY_SELLER = 2;
+  COMPLETED_BY_SYSTEM = 3;
 }
 
 enum ReturnStatus {
@@ -149,6 +185,9 @@ message OrderReturn {
   ReturnStatus status = 7;
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp updated_at = 9;
+  // server-computed at read: true when the return is REJECTED and the order is
+  // SHIPPED or still inside its return window; may be escalated again while true.
+  bool can_escalate = 10;
 }
 
 message CreateReturnRequestRequest {
@@ -281,6 +320,18 @@ message Order {
   string voucher_code = 16;
   // When the order was paid online; unset = never paid online (e.g. cash on delivery).
   google.protobuf.Timestamp paid_at = 17;
+  // created_at + 24h for online-pay orders; unset for COD and for orders placed before the deploy
+  // (those are never auto-expired).
+  google.protobuf.Timestamp payment_due_at = 18;
+  // paid_at (or created_at for COD) + 2 days: the seller's ship-by deadline.
+  google.protobuf.Timestamp ship_by = 19;
+  google.protobuf.Timestamp shipped_at = 20;
+  google.protobuf.Timestamp completed_at = 21;
+  // completed_at + 15 days; unset until the order is COMPLETED.
+  google.protobuf.Timestamp return_window_ends_at = 22;
+  CancelReason cancel_reason = 23;
+  // shipped_at + 7 days: the system completes the order then; unset otherwise.
+  google.protobuf.Timestamp auto_complete_at = 24;
 }
 
 message ListOrderReturnsRequest {
@@ -341,6 +392,9 @@ message UpdateOrderStatusResponse {
 message CancelOrderRequest {
   string id = 1;
   string reason = 2;
+  // Structured reason. A buyer sending CANCEL_REASON_PAYMENT_EXPIRED or
+  // CANCEL_REASON_ADMIN_FORCE_FAIL gets PERMISSION_DENIED.
+  CancelReason reason_code = 3;
 }
 
 message CancelOrderResponse {
@@ -376,6 +430,8 @@ message OrderPaidEvent {
   int64 total_amount = 4;
   string currency = 5;
   google.protobuf.Timestamp paid_at = 6;
+  string seller_id = 7;
+  google.protobuf.Timestamp ship_by = 8;
 }
 
 // ReturnRefunded is emitted (via the outbox, to order.events) in the same transaction
@@ -406,6 +462,7 @@ message OrderCancelled {
   int64 total_amount = 5;
   string currency = 6;
   google.protobuf.Timestamp cancelled_at = 7;
+  CancelReason reason_code = 8;
 }
 
 // OrderShipped is emitted (via the outbox, to order.events) when a seller creates
@@ -417,4 +474,56 @@ message OrderShipped {
   string carrier = 4;
   string tracking_code = 5;
   google.protobuf.Timestamp shipped_at = 6;
+}
+
+// OrderPlaced is emitted for every placed order (via the outbox, to order.events);
+// the consumer dispatches on EventEnvelope.type.
+message OrderPlaced {
+  string order_id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  platform.payment.v1.PaymentMethod payment_method = 4;
+  int64 total_amount = 5;
+  string currency = 6;
+  google.protobuf.Timestamp placed_at = 7;
+  // unset for COD.
+  google.protobuf.Timestamp payment_due_at = 8;
+  // COD only: placed_at + 2 days; online-pay orders get ship_by on OrderPaidEvent.
+  google.protobuf.Timestamp ship_by = 9;
+}
+
+// OrderPaymentReminder is emitted once per order (via the outbox, to order.events)
+// 2 hours before payment_due_at; the consumer dispatches on EventEnvelope.type.
+message OrderPaymentReminder {
+  string order_id = 1;
+  string buyer_id = 2;
+  int64 total_amount = 3;
+  string currency = 4;
+  google.protobuf.Timestamp payment_due_at = 5;
+}
+
+// OrderCompleted is emitted once per order (via the outbox, to order.events) in the
+// same transaction that completes it; the consumer dispatches on EventEnvelope.type.
+message OrderCompleted {
+  string order_id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  int64 total_amount = 4;
+  string currency = 5;
+  CompletedBy completed_by = 6;
+  google.protobuf.Timestamp completed_at = 7;
+  google.protobuf.Timestamp return_window_ends_at = 8;
+  bool paid_online = 9;
+}
+
+// ReturnRequested is emitted once per created return (via the outbox, to order.events);
+// the consumer dispatches on EventEnvelope.type.
+message ReturnRequested {
+  string return_id = 1;
+  string order_id = 2;
+  string buyer_id = 3;
+  string seller_id = 4;
+  int64 refund_amount = 5;
+  string currency = 6;
+  google.protobuf.Timestamp requested_at = 7;
 }
