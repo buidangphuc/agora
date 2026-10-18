@@ -76,6 +76,9 @@ datasets:
   - name: als_interactions
     version: 2
     sql: sql/als_interactions_v2.sql
+  - name: als_interactions
+    version: 3
+    sql: sql/als_interactions_v3.sql
   - name: rank_training
     version: 2
     sql: sql/rank_training_v2.sql
