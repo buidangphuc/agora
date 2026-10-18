@@ -1,7 +1,7 @@
 # [W2-T1] frontend-session-continuity
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-session-continuity`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-frontend-session-continuity`)
 
 ## Objective
 Implement OpenSpec change `frontend-session-continuity` test-first per its tasks.md (scenario ids there); context in plans/q1-session-continuity/00-spec.md (incl. Amendments) and the change's design.md Clarifications.
@@ -25,7 +25,7 @@ Implement OpenSpec change `frontend-session-continuity` test-first per its tasks
 - platform-e2e/src/pages/** (new page objects only)
 
 ## Read-only dependencies
-- openspec/changes/frontend-session-continuity/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-frontend-session-continuity/** (frozen by LOCK.md digest)
 - plans/q1-session-continuity/00-spec.md, plans/q1-session-continuity/slices.yaml, plans/q1-session-continuity/LOCK.md (reviewer notes)
 
 ## Verify
