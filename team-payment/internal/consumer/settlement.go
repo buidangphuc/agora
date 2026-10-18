@@ -1,6 +1,7 @@
 // Package consumer holds team-payment's consumer of team-order's order.events. It credits
 // the seller's wallet ledger for every OrderPaidEvent, refunds the remainder of the payment
-// of an order cancelled from Paid on OrderCancelled, and refunds an RMA return on
+// of an order cancelled from Paid on OrderCancelled (voiding the unpaid transaction of one
+// cancelled from Pending), and refunds an RMA return on
 // ReturnRefunded (payment-refund-model D7), durably (at-least-once, bounded
 // retry, dead-letter topic, commit only after apply or DLQ). The credit is idempotent on
 // (ORDER_SETTLEMENT, payment id), so redelivery and replays are no-ops; there is no dedupe
@@ -52,6 +53,13 @@ type Applier interface {
 	// RefundReturn refunds an RMA return of orderID by amount, clamped to the payment's
 	// remainder, keyed by the return (no-op when redelivered).
 	RefundReturn(ctx context.Context, orderID, returnID string, amount int64) error
+}
+
+// Voider voids the unpaid transaction of an order cancelled from Pending (refunding in
+// full if it settled meanwhile); no-op when absent or redelivered. *service.PaymentService
+// satisfies it; an Applier that does not implement it ignores Pending cancels.
+type Voider interface {
+	VoidCancelledOrder(ctx context.Context, orderID string) error
 }
 
 // SettlementConsumer applies order.events records to the seller ledger.
@@ -119,8 +127,9 @@ func (c *SettlementConsumer) handleReturnRefunded(ctx context.Context, env *even
 	return nil
 }
 
-// handleCancelled refunds the payment of an order cancelled from Paid (design D12); a
-// cancel from any other status (Pending) triggers nothing.
+// handleCancelled refunds the payment of an order cancelled from Paid (design D12) and
+// voids the unpaid transaction of one cancelled from Pending; a cancel from any other
+// status triggers nothing.
 func (c *SettlementConsumer) handleCancelled(ctx context.Context, env *eventsv1.EventEnvelope) error {
 	var cancelled orderv1.OrderCancelled
 	if err := proto.Unmarshal(env.GetPayload(), &cancelled); err != nil {
@@ -129,11 +138,19 @@ func (c *SettlementConsumer) handleCancelled(ctx context.Context, env *eventsv1.
 	if cancelled.GetOrderId() == "" {
 		return fmt.Errorf("%w: OrderCancelled missing order_id", ErrPermanent)
 	}
-	if cancelled.GetPreviousStatus() != orderv1.OrderStatus_ORDER_STATUS_PAID {
-		return nil
-	}
-	if err := c.apply.RefundCancelledOrder(ctx, cancelled.GetOrderId()); err != nil {
-		return classify(err, "refund cancelled order "+cancelled.GetOrderId())
+	switch cancelled.GetPreviousStatus() {
+	case orderv1.OrderStatus_ORDER_STATUS_PAID:
+		if err := c.apply.RefundCancelledOrder(ctx, cancelled.GetOrderId()); err != nil {
+			return classify(err, "refund cancelled order "+cancelled.GetOrderId())
+		}
+	case orderv1.OrderStatus_ORDER_STATUS_PENDING:
+		v, ok := c.apply.(Voider)
+		if !ok {
+			return nil
+		}
+		if err := v.VoidCancelledOrder(ctx, cancelled.GetOrderId()); err != nil {
+			return classify(err, "void cancelled order "+cancelled.GetOrderId())
+		}
 	}
 	return nil
 }

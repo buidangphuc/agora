@@ -15,6 +15,7 @@ Implement OpenSpec change `order-receipt-completion` test-first per its tasks.md
 - team-order/internal/config/config.go
 - team-order/internal/config/envcheck.go
 - team-order/internal/config/config_test.go
+- team-order/.env.example (widened at build: task 2)
 - team-order/migrations/*_order_lifecycle_completion.up.sql
 - team-order/migrations/*_order_lifecycle_completion.down.sql
 - team-order/internal/repository/order.go
@@ -25,7 +26,7 @@ Implement OpenSpec change `order-receipt-completion` test-first per its tasks.md
 - team-order/internal/events/publisher.go
 - team-order/internal/events/*_test.go
 - team-order/internal/service/transitions.go
-- team-order/internal/service/order.go
+- team-order/internal/service/order.go (widened at build: task 5)
 - team-order/internal/service/saga.go
 - team-order/internal/service/lifecycle.go
 - team-order/internal/service/*_test.go
@@ -34,6 +35,7 @@ Implement OpenSpec change `order-receipt-completion` test-first per its tasks.md
 - team-order/internal/grpcserver/server.go
 - team-order/cmd/server/main.go
 - team-order/README.md
+- team-order/tests/readme_docs_test.sh (widened at build: task 11)
 - team-order/FEATURES.yaml
 - team-gateway/internal/edge/order.go
 - team-gateway/internal/edge/order_test.go

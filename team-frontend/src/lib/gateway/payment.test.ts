@@ -49,6 +49,10 @@ const protoTx = {
 beforeEach(() => vi.clearAllMocks());
 
 describe("payment label helpers", () => {
+  it("Order lifecycle: CANCELLED payment status reads Đã hủy", () => {
+    expect(getPaymentStatusText(PaymentStatus.CANCELLED)).toBe("Đã hủy");
+  });
+
   it("maps method + status enums to Vietnamese labels", () => {
     expect(getPaymentMethodText(PaymentMethod.COD)).toContain("COD");
     expect(getPaymentStatusText(PaymentStatus.PAID)).toBe("Đã thanh toán");

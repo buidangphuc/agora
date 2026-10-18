@@ -54,6 +54,11 @@ Consumed only (it produces no events except dead-letter records). Each record va
 | `chat.events` | `platform.chat.v1.ChatMessage` | One `CHAT` notification to `recipient_id` (never the sender; skipped if `recipient_id` is empty). Link `/chat/{thread_id}`. | `chat.events.dlq` |
 | `order.events` | `platform.order.v1.OrderShipped` | One `ORDER` notification to `buyer_id` with carrier and tracking code. Link `/account/orders/{order_id}`. Other order event types are ignored. | `order.events.dlq` |
 
+Order-work notifications. In addition to `OrderShipped`, the `order.events` consumer turns these envelope
+types (`platform.order.v1.*`) into `ORDER` notifications: `OrderPlaced` (COD orders), `OrderPaidEvent`,
+`OrderPaymentReminder`, `OrderCancelled` (unpaid-order expiry), `OrderCompleted`, `ReturnRequested` and
+`ReturnRefunded`. Low-stock state is kept durably per listing and compared with `LOW_STOCK_THRESHOLD`.
+
 Delivery discipline (`internal/consumer/`): auto-commit is off, and an offset advances only after the record
 is applied or dead-lettered. A transient error is retried; an `ErrPermanent` error (bad envelope or payload,
 missing ids) goes to the DLQ. Chat and order notifications honour the recipient's `type_enabled` pref (a type
@@ -100,6 +105,7 @@ Read from the environment. Only the variables below are read by code.
 | `NOTIFICATION_CHAT_CONSUMER_GROUP` | `team-notification.chat` | same |
 | `ORDER_EVENTS_TOPIC` / `ORDER_EVENTS_DLQ_TOPIC` | `order.events` / `order.events.dlq` | same |
 | `NOTIFICATION_ORDER_CONSUMER_GROUP` | `team-notification.order` | same |
+| `LOW_STOCK_THRESHOLD` | `5` | `internal/config` |
 
 `.env.example` also lists `ENV`, `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_REFLECTION_ENABLED`,
 `SHUTDOWN_GRACE_SECONDS`, `DATABASE_ENABLED`, `DB_MAX_CONNS`, `OTEL_*`. The code does not read any of these

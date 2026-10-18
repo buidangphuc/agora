@@ -167,3 +167,169 @@ func TestUpstreamAuditConfig(t *testing.T) {
 		t.Fatalf("AuditAddr = %q", got)
 	}
 }
+
+type lifecycleAccessor struct {
+	env string
+	def time.Duration
+	get func(*config.Settings) (time.Duration, string)
+}
+
+func lifecycleAccessors() []lifecycleAccessor {
+	return []lifecycleAccessor{
+		{"PAYMENT_DEADLINE", 24 * time.Hour, (*config.Settings).PaymentDeadline},
+		{"PAYMENT_REMINDER_BEFORE", 2 * time.Hour, (*config.Settings).PaymentReminderBefore},
+		{"LIFECYCLE_SWEEP_INTERVAL", time.Minute, (*config.Settings).LifecycleSweepInterval},
+	}
+}
+
+func loadLifecycle(t *testing.T) *config.Settings {
+	t.Helper()
+	t.Setenv("DATABASE_ENABLED", "false")
+	cfg, err := config.LoadSettings()
+	if err != nil {
+		t.Fatalf("startup must not fail: %v", err)
+	}
+	return cfg
+}
+
+// Scenario: Order expiry: Defaults apply when nothing is configured
+func TestLifecycleDefaults(t *testing.T) {
+	for _, a := range lifecycleAccessors() {
+		os.Unsetenv(a.env)
+	}
+	cfg := loadLifecycle(t)
+	for _, a := range lifecycleAccessors() {
+		d, warn := a.get(cfg)
+		if d != a.def || warn != "" {
+			t.Errorf("%s: got (%s, %q), want (%s, no warning)", a.env, d, warn, a.def)
+		}
+	}
+}
+
+// Scenario: Order expiry: Invalid duration falls back with a warning
+func TestLifecycleUnusableDurationFallsBack(t *testing.T) {
+	for _, a := range lifecycleAccessors() {
+		for _, bad := range []string{"0", "-5m", "soon", "", "0s"} {
+			t.Run(a.env+"="+bad, func(t *testing.T) {
+				t.Setenv(a.env, bad)
+				cfg := loadLifecycle(t)
+				d, warn := a.get(cfg)
+				if d != a.def {
+					t.Errorf("got %s, want default %s", d, a.def)
+				}
+				if !strings.Contains(warn, a.env) {
+					t.Errorf("warning %q must name %s", warn, a.env)
+				}
+			})
+		}
+	}
+}
+
+// Scenario: Order expiry: Invalid duration falls back with a warning (valid values are honoured, no warning)
+func TestLifecycleValidDurationHonoured(t *testing.T) {
+	vals := map[string]time.Duration{"PAYMENT_DEADLINE": 45 * time.Second, "PAYMENT_REMINDER_BEFORE": 30 * time.Second, "LIFECYCLE_SWEEP_INTERVAL": 2 * time.Second}
+	for k, v := range vals {
+		t.Setenv(k, v.String())
+	}
+	cfg := loadLifecycle(t)
+	for _, a := range lifecycleAccessors() {
+		d, warn := a.get(cfg)
+		if d != vals[a.env] || warn != "" {
+			t.Errorf("%s: got (%s, %q), want (%s, no warning)", a.env, d, warn, vals[a.env])
+		}
+	}
+}
+
+func receiptDurationEnvs() []string {
+	return []string{"AUTO_COMPLETE_AFTER", "RETURN_WINDOW", "RETURN_AUTO_APPROVE_AFTER", "SHIP_BY_AFTER"}
+}
+
+// setValidReceiptEnvs pins all four variables to valid values; callers then
+// override the one under test.
+func setValidReceiptEnvs(t *testing.T) {
+	t.Helper()
+	for _, k := range receiptDurationEnvs() {
+		t.Setenv(k, "1h")
+	}
+}
+
+// Scenario: Order receipt: Defaults apply when nothing is set
+func TestLifecycleDurationDefaults(t *testing.T) {
+	for _, k := range receiptDurationEnvs() {
+		t.Setenv(k, "")
+		os.Unsetenv(k)
+	}
+	cfg, err := config.LoadSettings()
+	if err != nil {
+		t.Fatalf("startup must not fail with defaults: %v", err)
+	}
+	cases := []struct {
+		name string
+		got  time.Duration
+		want time.Duration
+	}{
+		{"AUTO_COMPLETE_AFTER", cfg.AutoCompleteAfter(), 168 * time.Hour},
+		{"RETURN_WINDOW", cfg.ReturnWindow(), 360 * time.Hour},
+		{"RETURN_AUTO_APPROVE_AFTER", cfg.ReturnAutoApproveAfter(), 72 * time.Hour},
+		{"SHIP_BY_AFTER", cfg.ShipByAfter(), 48 * time.Hour},
+	}
+	for _, c := range cases {
+		if c.got != c.want {
+			t.Errorf("%s: got %s, want %s", c.name, c.got, c.want)
+		}
+	}
+}
+
+// Scenario: Order receipt: Defaults apply when nothing is set (valid values are honoured)
+func TestLifecycleDurationValidHonoured(t *testing.T) {
+	t.Setenv("AUTO_COMPLETE_AFTER", "12s")
+	t.Setenv("RETURN_WINDOW", "20s")
+	t.Setenv("RETURN_AUTO_APPROVE_AFTER", "30s")
+	t.Setenv("SHIP_BY_AFTER", "60s")
+	cfg, err := config.LoadSettings()
+	if err != nil {
+		t.Fatalf("startup must not fail: %v", err)
+	}
+	if cfg.AutoCompleteAfter() != 12*time.Second || cfg.ReturnWindow() != 20*time.Second ||
+		cfg.ReturnAutoApproveAfter() != 30*time.Second || cfg.ShipByAfter() != 60*time.Second {
+		t.Errorf("values not honoured: %s %s %s %s", cfg.AutoCompleteAfter(), cfg.ReturnWindow(), cfg.ReturnAutoApproveAfter(), cfg.ShipByAfter())
+	}
+}
+
+// Scenario: Order receipt: A malformed duration stops startup
+func TestLifecycleDurationMalformedRejected(t *testing.T) {
+	for _, k := range receiptDurationEnvs() {
+		for _, bad := range []string{"abc", "7", "1 day"} {
+			t.Run(k+"="+bad, func(t *testing.T) {
+				setValidReceiptEnvs(t)
+				t.Setenv(k, bad)
+				_, err := config.LoadSettings()
+				if err == nil {
+					t.Fatalf("startup must fail for %s=%q", k, bad)
+				}
+				if !strings.Contains(err.Error(), k) {
+					t.Errorf("error %q must name %s", err, k)
+				}
+			})
+		}
+	}
+}
+
+// Scenario: Order receipt: A zero or negative duration stops startup
+func TestLifecycleDurationNonPositiveRejected(t *testing.T) {
+	for _, k := range receiptDurationEnvs() {
+		for _, bad := range []string{"0s", "0", "-1h"} {
+			t.Run(k+"="+bad, func(t *testing.T) {
+				setValidReceiptEnvs(t)
+				t.Setenv(k, bad)
+				_, err := config.LoadSettings()
+				if err == nil {
+					t.Fatalf("startup must fail for %s=%q", k, bad)
+				}
+				if !strings.Contains(err.Error(), k) {
+					t.Errorf("error %q must name %s", err, k)
+				}
+			})
+		}
+	}
+}

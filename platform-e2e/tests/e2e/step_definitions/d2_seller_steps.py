@@ -115,7 +115,7 @@ def kpi_zero(world: World) -> None:
     assert kpi_value(world, "Tổng sản phẩm") == 0
     assert kpi_value(world, "Đang bán") == 0
     assert kpi_value(world, "Sắp hết hàng") == 0
-    assert kpi_value(world, "Đơn chờ xử lý") == 0
+    assert kpi_value(world, "Cần gửi") == 0
 
 
 @then("the four KPI cells appear in one row next to the sidebar")

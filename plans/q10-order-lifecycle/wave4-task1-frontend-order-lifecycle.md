@@ -54,6 +54,7 @@ Implement OpenSpec change `frontend-order-lifecycle` test-first per its tasks.md
 - platform-e2e/tests/e2e/step_definitions/d2_seller_steps.py
 - platform-e2e/tests/e2e/step_definitions/uif_seller_steps.py
 - openspec/changes/frontend-order-lifecycle/**
+- team-frontend/src/features/order/orderFixtures.ts (# widened at build: task 1.10)
 
 ## Read-only dependencies
 - openspec/changes/frontend-order-lifecycle/** is frozen by its LOCK.md digest except tasks.md ticks

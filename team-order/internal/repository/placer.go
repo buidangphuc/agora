@@ -20,6 +20,9 @@ var ErrReservationLost = errors.New("item is no longer reserved")
 type PlacedOrder struct {
 	Order          Order
 	ReservationIDs []string
+	// PaymentDeadline, when > 0, sets the order's payment_due_at to its created_at
+	// plus this duration; zero (COD) leaves it unset.
+	PaymentDeadline time.Duration
 }
 
 // OrderPlacer places every order of one checkout attempt as ONE atomic step: it
@@ -36,7 +39,7 @@ const bindReservationsSQL = `UPDATE order_reservations
 
 const completeSagaSQL = `UPDATE order_sagas SET status = $2, updated_at = now() WHERE id = $1 AND status = $3`
 
-func prepareOrder(o *Order, now time.Time) {
+func prepareOrder(o *Order, now time.Time, deadline, shipBy time.Duration) {
 	if o.ID == "" {
 		o.ID = uuid.NewString()
 	}
@@ -48,6 +51,15 @@ func prepareOrder(o *Order, now time.Time) {
 	}
 	o.CreatedAt = now
 	o.UpdatedAt = now
+	o.PaymentDueAt = nil
+	if deadline > 0 {
+		due := now.Add(deadline)
+		o.PaymentDueAt = &due
+	}
+	o.ShipBy = nil
+	if o.PaymentMethod == codPaymentMethod {
+		o.ShipBy = stampAfter(now, shipBy)
+	}
 	items := make([]OrderItem, len(o.Items))
 	copy(items, o.Items)
 	for i := range items {
@@ -76,9 +88,18 @@ func (r *PostgresOrderRepository) PlaceOrders(ctx context.Context, sagaID string
 	out := make([]Order, 0, len(placed))
 	for _, p := range placed {
 		o := p.Order
-		prepareOrder(&o, now)
+		prepareOrder(&o, now, p.PaymentDeadline, r.shipByAfter)
 		if err := insertOrderTx(ctx, tx, &o); err != nil {
 			return nil, err
+		}
+		if r.placedOutbox != nil {
+			row, err := r.placedOutbox(o)
+			if err != nil {
+				return nil, fmt.Errorf("build order placed outbox row: %w", err)
+			}
+			if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+				return nil, err
+			}
 		}
 		if err := bindReservationsTx(ctx, tx, o.ID, p.ReservationIDs); err != nil {
 			return nil, err
@@ -125,7 +146,7 @@ func NewInMemoryOrderPlacer(orders *InMemoryOrderRepository, sagas *InMemorySaga
 	return &InMemoryOrderPlacer{orders: orders, sagas: sagas}
 }
 
-func (p *InMemoryOrderPlacer) PlaceOrders(_ context.Context, sagaID string, placed []PlacedOrder) ([]Order, error) {
+func (p *InMemoryOrderPlacer) PlaceOrders(ctx context.Context, sagaID string, placed []PlacedOrder) ([]Order, error) {
 	if len(placed) == 0 {
 		return nil, nil
 	}
@@ -155,7 +176,7 @@ func (p *InMemoryOrderPlacer) PlaceOrders(_ context.Context, sagaID string, plac
 	out := make([]Order, 0, len(placed))
 	for _, po := range placed {
 		o := po.Order
-		prepareOrder(&o, now)
+		prepareOrder(&o, now, po.PaymentDeadline, p.orders.shipByAfter)
 		for _, id := range po.ReservationIDs {
 			res := st.reservations[id]
 			res.Status = ReservationStatusCommitted
@@ -163,8 +184,25 @@ func (p *InMemoryOrderPlacer) PlaceOrders(_ context.Context, sagaID string, plac
 			res.UpdatedAt = now
 			st.reservations[id] = res
 		}
-		p.orders.orders[o.ID] = o
 		out = append(out, o)
+	}
+	if p.orders.placedOutbox != nil && p.orders.outbox != nil {
+		rows := make([]OutboxRow, 0, len(out))
+		for _, o := range out {
+			row, err := p.orders.placedOutbox(o)
+			if err != nil {
+				return nil, fmt.Errorf("build order placed outbox row: %w", err)
+			}
+			rows = append(rows, row)
+		}
+		for _, row := range rows {
+			if err := p.orders.outbox.Enqueue(ctx, row); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, o := range out {
+		p.orders.orders[o.ID] = o
 	}
 	sg.Status = SagaStatusCompleted
 	sg.UpdatedAt = now

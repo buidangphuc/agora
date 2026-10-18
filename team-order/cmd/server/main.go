@@ -70,6 +70,25 @@ func runReservationSweeper(ctx context.Context, svc *service.OrderService, inter
 	}
 }
 
+// lifecycleSweeper is the order lifecycle tick (reminders and unpaid expiry).
+type lifecycleSweeper interface {
+	SweepLifecycle(ctx context.Context, now time.Time)
+}
+
+// runLifecycleSweeper drives one SweepLifecycle per interval until ctx is cancelled.
+func runLifecycleSweeper(ctx context.Context, svc lifecycleSweeper, interval time.Duration, logger *slog.Logger) {
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-t.C:
+			svc.SweepLifecycle(ctx, now)
+		}
+	}
+}
+
 func run() error {
 	settings, err := config.LoadSettings()
 	if err != nil {
@@ -154,10 +173,17 @@ func run() error {
 		// relayer below publishes it.
 		orderRepo = repository.NewPostgresOrderRepository(res.Pool,
 			repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-			repository.WithCancelledOutbox(events.BuildCancelledOutboxRow))
+			repository.WithCancelledOutbox(events.BuildCancelledOutboxRow),
+			repository.WithPlacedOutbox(events.BuildPlacedOutboxRow),
+			repository.WithReminderOutbox(events.BuildPaymentReminderOutboxRow),
+			repository.WithCompletedOutbox(events.BuildCompletedOutboxRow),
+			repository.WithAutoCompleteAfter(settings.AutoCompleteAfter()),
+			repository.WithReturnWindow(settings.ReturnWindow()),
+			repository.WithShipByAfter(settings.ShipByAfter()))
 		// A won APPROVED -> REFUNDED writes ReturnRefunded to the outbox in the
 		// transition's own transaction (team-payment applies it).
-		returnRepo = repository.NewPostgresReturnRepository(res.Pool, repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow))
+		returnRepo = repository.NewPostgresReturnRepository(res.Pool, repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow), repository.WithReturnRequestedOutbox(events.BuildReturnRequestedOutboxRow),
+			repository.WithReturnAutoApproveAfter(settings.ReturnAutoApproveAfter()))
 		// OrderShipped is written to the outbox in the shipment's own transaction.
 		shipmentRepo = repository.NewPostgresShipmentRepository(res.Pool, repository.WithShipmentOutbox(events.BuildShippedOutboxRow))
 	} else {
@@ -177,7 +203,23 @@ func run() error {
 	// so a crashed checkout's stock is swept and released, and compensation is not
 	// best-effort in-memory. Falls back to the in-memory store when DB is disabled.
 	reservationTTL, sweepInterval := reservationSettings(settings, logger)
-	orderOpts := []service.OrderServiceOption{service.WithReservationTTL(reservationTTL)}
+	paymentDeadline, warn := settings.PaymentDeadline()
+	if warn != "" {
+		logger.Warn(warn)
+	}
+	reminderBefore, warn := settings.PaymentReminderBefore()
+	if warn != "" {
+		logger.Warn(warn)
+	}
+	lifecycleInterval, warn := settings.LifecycleSweepInterval()
+	if warn != "" {
+		logger.Warn(warn)
+	}
+	orderOpts := []service.OrderServiceOption{
+		service.WithReservationTTL(reservationTTL),
+		service.WithPaymentDeadline(paymentDeadline),
+		service.WithPaymentReminderBefore(reminderBefore),
+	}
 	if res.Pool != nil {
 		orderOpts = append(orderOpts, service.WithSagaRepository(repository.NewPostgresSagaRepository(res.Pool)))
 	}
@@ -264,6 +306,16 @@ func run() error {
 			slog.String("reservation_ttl", reservationTTL.String()),
 			slog.String("sweep_interval", sweepInterval.String()))
 		go runReservationSweeper(ctx, orderSvc, sweepInterval, logger)
+	}
+
+	// Lifecycle sweeper: payment reminders and cancellation of unpaid orders past
+	// their deadline. Gated on Postgres like the reservation sweeper.
+	if res.Pool != nil {
+		logger.Info("lifecycle sweeper starting",
+			slog.String("payment_deadline", paymentDeadline.String()),
+			slog.String("reminder_before", reminderBefore.String()),
+			slog.String("sweep_interval", lifecycleInterval.String()))
+		go runLifecycleSweeper(ctx, orderSvc, lifecycleInterval, logger)
 	}
 
 	srv := grpcserver.Build(settings, cartHandler, orderHandler, res.Health, logger)

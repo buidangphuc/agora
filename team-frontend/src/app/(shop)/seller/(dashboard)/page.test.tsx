@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { listMyListings } from "@/lib/gateway/listings";
 import { listSellerOrders } from "@/lib/gateway/orders";
 import { hasScope } from "@/lib/gateway/session";
@@ -33,10 +34,17 @@ function listing(i: number, over: Record<string, unknown> = {}) {
   };
 }
 
-function orderRow(id: string, status: OrderStatus) {
+function orderRow(
+  id: string,
+  status: OrderStatus,
+  extra: Record<string, unknown> = {},
+) {
   return {
     id,
     status,
+    paymentMethod: PaymentMethod.COD,
+    shipBy: "",
+    ...extra,
     statusText: "Chờ xử lý",
     recipientName: "An",
     totalAmount: 250000,
@@ -74,6 +82,9 @@ describe("/seller Workplace", () => {
     vi.mocked(listSellerOrders).mockResolvedValue([
       orderRow("o1", OrderStatus.PENDING),
       orderRow("o2", OrderStatus.COMPLETED),
+      orderRow("o3", OrderStatus.PENDING, {
+        paymentMethod: PaymentMethod.MOCK_BANK,
+      }),
     ] as never);
     await renderPage();
     const row = within(kpiRow());
@@ -82,7 +93,49 @@ describe("/seller Workplace", () => {
     expect(cell("Tổng sản phẩm")).toHaveTextContent("3");
     expect(cell("Đang bán")).toHaveTextContent("3");
     expect(cell(/Sắp hết hàng/ as never)).toHaveTextContent("1");
-    expect(cell("Đơn chờ xử lý")).toHaveTextContent("1");
+    expect(cell("Cần gửi")).toHaveTextContent("1");
+    expect(row.queryByText("Đơn chờ xử lý")).toBeNull();
+  });
+
+  it("[Order lifecycle: overdue shipments are highlighted] shows Quá hạn on the to-ship cell", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-17T10:00:00.000Z"));
+    try {
+      vi.mocked(listSellerOrders).mockResolvedValue([
+        orderRow("o1", OrderStatus.PAID, {
+          shipBy: "2026-10-17T09:00:00.000Z",
+        }),
+        orderRow("o2", OrderStatus.PAID, {
+          shipBy: "2026-10-17T10:00:00.000Z",
+        }),
+      ] as never);
+      await renderPage();
+      const row = within(kpiRow());
+      const cell = row.getByText("Cần gửi").closest("div") as HTMLElement;
+      expect(cell).toHaveTextContent("Quá hạn: 1");
+      expect(row.getAllByText(/Quá hạn: \d+/)).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("[Order lifecycle: overdue shipments are highlighted] no Quá hạn text without overdue orders", async () => {
+    vi.mocked(listSellerOrders).mockResolvedValue([
+      orderRow("o1", OrderStatus.PAID),
+    ] as never);
+    await renderPage();
+    expect(within(kpiRow()).queryByText(/Quá hạn/)).toBeNull();
+  });
+
+  it("[Order lifecycle: the to-ship KPI is omitted when orders fail to load] to-ship KPI is omitted when orders fail", async () => {
+    givenListings([listing(1)]);
+    vi.mocked(listSellerOrders).mockRejectedValue(new Error("down"));
+    await renderPage();
+    expect(within(kpiRow()).queryByText("Cần gửi")).toBeNull();
+    expect(screen.queryByText("Cần gửi")).toBeNull();
+    expect(
+      screen.getByText("Không tải được danh sách đơn hàng."),
+    ).toBeInTheDocument();
   });
 
   it("hides the KPI whose source failed and keeps the others", async () => {
@@ -90,7 +143,7 @@ describe("/seller Workplace", () => {
     vi.mocked(listSellerOrders).mockRejectedValue(new Error("down"));
     await renderPage();
     const row = within(kpiRow());
-    expect(row.queryByText("Đơn chờ xử lý")).toBeNull();
+    expect(row.queryByText("Cần gửi")).toBeNull();
     expect(row.getByText("Tổng sản phẩm")).toBeInTheDocument();
     expect(
       screen.getByText("Không tải được danh sách đơn hàng."),

@@ -126,21 +126,6 @@ func TestCancel_AfterSellerPartialRefundRefundsTheRemainder(t *testing.T) {
 	})
 }
 
-func TestCancel_FromPendingWritesNothing(t *testing.T) {
-	eachBackend(t, func(t *testing.T, f fixture) {
-		// A late payment for an order cancelled while Pending: PAID, but never credited
-		// and not refunded by the cancel.
-		tx := f.paid(t, "o1", 500000)
-		dlq := consume(t, f, cancelledRecord(t, "o1", orderv1.OrderStatus_ORDER_STATUS_PENDING, 500000))
-		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusPaid || got.RefundedAmount != 0 {
-			t.Fatalf("payment changed: %+v", got)
-		}
-		if len(f.entries(t, "s1")) != 0 || len(dlq.parked()) != 0 {
-			t.Fatalf("ledger %+v dlq %v", f.entries(t, "s1"), dlq.parked())
-		}
-	})
-}
-
 func TestCancel_WithoutSettledTransactionIsDeadLettered(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
 		dlq := consume(t, f, cancelledRecord(t, "o-unknown", orderv1.OrderStatus_ORDER_STATUS_PAID, 1))

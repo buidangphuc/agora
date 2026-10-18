@@ -1,6 +1,7 @@
-import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import type { ListingPage } from "@/lib/gateway/listings";
 import type { ViewOrder } from "@/lib/gateway/orders";
+import { isOverdue } from "./shipBy";
+import { isToShip } from "./status";
 
 export const LOW_STOCK_THRESHOLD = 5;
 
@@ -8,6 +9,8 @@ export interface Kpi {
   key: string;
   title: string;
   value: number;
+  note?: string;
+  tone?: "danger";
 }
 
 /**
@@ -35,13 +38,16 @@ export function deriveWorkplaceKpis(sources: {
     });
   }
   if (orders) {
+    const toShip = orders.filter(isToShip);
+    const overdue = toShip.filter((o) => isOverdue(o)).length;
     kpis.push({
-      key: "open-orders",
-      title: "Đơn chờ xử lý",
-      value: orders.filter(
-        (o) =>
-          o.status === OrderStatus.PENDING || o.status === OrderStatus.PAID,
-      ).length,
+      key: "to-ship",
+      title: "Cần gửi",
+      value: toShip.length,
+      ...(overdue > 0 && {
+        note: `Quá hạn: ${overdue}`,
+        tone: "danger" as const,
+      }),
     });
   }
   return kpis;
