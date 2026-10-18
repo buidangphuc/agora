@@ -130,6 +130,8 @@ def connect(input_dir: Path, as_of: datetime) -> duckdb.DuckDBPyConnection:
             f"ingested_at::TIMESTAMP AS ingested_at) FROM read_parquet('{paths['facts']}') "
             f"WHERE ingested_at::TIMESTAMP <= {a}"
         )
+        if "review_id" not in {r[0] for r in con.execute("DESCRIBE facts").fetchall()}:
+            con.execute("ALTER TABLE facts ADD COLUMN review_id VARCHAR")
         con.execute(
             f"CREATE TEMP TABLE orders AS SELECT * REPLACE (occurred_at::TIMESTAMP AS occurred_at) "
             f"FROM read_parquet('{paths['orders']}') WHERE occurred_at::TIMESTAMP <= {a}"
