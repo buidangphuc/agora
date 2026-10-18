@@ -118,10 +118,10 @@ func TestRevokePathsSetRevokedAt_Postgres(t *testing.T) {
 
 	t.Run("reuse detection", func(t *testing.T) {
 		s := liveSession(t, repo, "u-ra1", "ra-reuse-1", time.Now().Add(-time.Hour))
-		if res, err := repo.RotateRefresh(ctx, "ra-reuse-1", "ra-reuse-2", time.Now().Add(-time.Minute), refreshGrace, refreshMaxAge, okEv("ra-ev-rot")); err != nil || res.Outcome != RotateRotated {
+		if res, err := repo.RotateRefresh(ctx, "ra-reuse-1", "ra-reuse-2", time.Now().Add(-time.Minute), refreshGrace, refreshMaxAge, "", "", okEv("ra-ev-rot")); err != nil || res.Outcome != RotateRotated {
 			t.Fatalf("rotate: %+v %v", res, err)
 		}
-		res, err := repo.RotateRefresh(ctx, "ra-reuse-1", "ra-reuse-3", time.Now(), refreshGrace, refreshMaxAge, okEv("ra-ev-reuse"))
+		res, err := repo.RotateRefresh(ctx, "ra-reuse-1", "ra-reuse-3", time.Now(), refreshGrace, refreshMaxAge, "", "", okEv("ra-ev-reuse"))
 		if err != nil || res.Outcome != RotateReuse {
 			t.Fatalf("want RotateReuse, got %+v %v", res, err)
 		}
@@ -131,7 +131,7 @@ func TestRevokePathsSetRevokedAt_Postgres(t *testing.T) {
 
 	t.Run("absolute lifetime", func(t *testing.T) {
 		s := liveSession(t, repo, "u-ra2", "ra-life-1", time.Now().Add(-91*24*time.Hour))
-		res, err := repo.RotateRefresh(ctx, "ra-life-1", "ra-life-2", time.Now(), refreshGrace, refreshMaxAge, okEv("ra-ev-life"))
+		res, err := repo.RotateRefresh(ctx, "ra-life-1", "ra-life-2", time.Now(), refreshGrace, refreshMaxAge, "", "", okEv("ra-ev-life"))
 		if err != nil || res.Outcome != RotateLifetimeExceeded {
 			t.Fatalf("want RotateLifetimeExceeded, got %+v %v", res, err)
 		}
@@ -141,7 +141,7 @@ func TestRevokePathsSetRevokedAt_Postgres(t *testing.T) {
 
 	t.Run("untouched sessions keep NULL", func(t *testing.T) {
 		keep := liveSession(t, repo, "u-ra2", "ra-keep", time.Now().Add(-time.Hour))
-		if res, err := repo.RotateRefresh(ctx, "ra-keep", "ra-keep2", time.Now(), refreshGrace, refreshMaxAge, okEv("ra-ev-keep")); err != nil || res.Outcome != RotateRotated {
+		if res, err := repo.RotateRefresh(ctx, "ra-keep", "ra-keep2", time.Now(), refreshGrace, refreshMaxAge, "", "", okEv("ra-ev-keep")); err != nil || res.Outcome != RotateRotated {
 			t.Fatalf("rotate: %+v %v", res, err)
 		}
 		if ts, rv := revokedAt(t, pool, keep.ID); ts != nil || rv {

@@ -66,7 +66,7 @@ func getSession(t *testing.T, r SessionRepository, user, id string) Session {
 
 func mustRotate(t *testing.T, r SessionRepository, presented, next string, now time.Time, ev EnqueueFn) RotateResult {
 	t.Helper()
-	res, err := r.RotateRefresh(context.Background(), presented, next, now, refreshGrace, refreshMaxAge, ev)
+	res, err := r.RotateRefresh(context.Background(), presented, next, now, refreshGrace, refreshMaxAge, "", "", ev)
 	if err != nil {
 		t.Fatalf("RotateRefresh: %v", err)
 	}
@@ -173,13 +173,13 @@ func TestRotateRefresh_OutboxFailureRollsBack_RevokeAndEventAreAtomic(t *testing
 	mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
 
 	boom := errors.New("boom")
-	_, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge,
+	_, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, "", "",
 		func(Session) (OutboxRow, error) { return OutboxRow{}, boom })
 	if !errors.Is(err, boom) {
 		t.Fatalf("want builder error, got %v", err)
 	}
 	r.FailOutbox = true
-	if _, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, okEv("e")); err == nil {
+	if _, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, "", "", okEv("e")); err == nil {
 		t.Fatal("want error from failing outbox write")
 	}
 	got := getSession(t, r, "u1", s.ID)
@@ -267,7 +267,7 @@ func TestRevokeSessionClearsHashes_EveryPath(t *testing.T) {
 }
 
 // --- round 2: expiry, absolute lifetime, mandatory ev ---
-// Added contract: RotateRefresh(ctx, presented, new, now, grace, maxAge, ev);
+// Added contract: RotateRefresh(ctx, presented, new, now, grace, maxAge, ip, device, ev);
 // new outcomes RotateExpired (refresh_expires_at <= now: no change, ev not
 // called) and RotateLifetimeExceeded (now - created_at > maxAge: revoke, clear
 // hashes, ev called once in the same tx). ev == nil is an error, no change.
@@ -382,12 +382,12 @@ func TestRotateRefresh_LifetimeExceededOutboxFailure_Atomic_AbsoluteLifetimeExce
 		CreatedAt: refreshT0.Add(-refreshMaxAge - time.Second)})
 	before := getSession(t, r, "u1", s.ID)
 	boom := errors.New("boom")
-	if _, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge,
+	if _, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, "", "",
 		func(Session) (OutboxRow, error) { return OutboxRow{}, boom }); !errors.Is(err, boom) {
 		t.Fatalf("want builder error, got %v", err)
 	}
 	r.FailOutbox = true
-	if _, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, okEv("e")); err == nil {
+	if _, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("e")); err == nil {
 		t.Fatal("want error from failing outbox write")
 	}
 	if after := getSession(t, r, "u1", s.ID); after != before || after.Revoked {
@@ -402,7 +402,7 @@ func TestRotateRefresh_NilEvIsRejected_NoChange(t *testing.T) {
 	r := NewInMemorySessionRepository()
 	s := seedRefreshSession(t, r, "u1", "h1")
 	before := getSession(t, r, "u1", s.ID)
-	if _, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, nil); err == nil {
+	if _, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, "", "", nil); err == nil {
 		t.Fatal("want error for nil ev")
 	}
 	if after := getSession(t, r, "u1", s.ID); after != before {
@@ -418,7 +418,7 @@ func TestRotateRefresh_FaultsWrapErrRotateFault_NoHashText(t *testing.T) { // sc
 			r := NewInMemorySessionRepository()
 			seedRefreshSession(t, r, "u1", "h1")
 			mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
-			_, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge,
+			_, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, "", "",
 				func(Session) (OutboxRow, error) { return OutboxRow{}, boom })
 			return err
 		},
@@ -427,7 +427,7 @@ func TestRotateRefresh_FaultsWrapErrRotateFault_NoHashText(t *testing.T) { // sc
 			seedRefreshSession(t, r, "u1", "h1")
 			mustRotate(t, r, "h1", "h2", refreshT0, okEv("n"))
 			r.FailOutbox = true
-			_, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, okEv("e"))
+			_, err := r.RotateRefresh(context.Background(), "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, "", "", okEv("e"))
 			return err
 		},
 		"lifetime exceeded FailOutbox": func(t *testing.T) error {
@@ -435,14 +435,14 @@ func TestRotateRefresh_FaultsWrapErrRotateFault_NoHashText(t *testing.T) { // sc
 			seedRaw(t, r, Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
 				CreatedAt: refreshT0.Add(-refreshMaxAge - time.Second)})
 			r.FailOutbox = true
-			_, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, okEv("e"))
+			_, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("e"))
 			return err
 		},
 		"newHash conflict": func(t *testing.T) error {
 			r := NewInMemorySessionRepository()
 			seedRefreshSession(t, r, "u1", "k1")
 			seedRefreshSession(t, r, "u2", secret)
-			_, err := r.RotateRefresh(context.Background(), "k1", secret, refreshT0, refreshGrace, refreshMaxAge, okEv("e"))
+			_, err := r.RotateRefresh(context.Background(), "k1", secret, refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("e"))
 			return err
 		},
 	}
@@ -462,7 +462,7 @@ func TestRotateRefresh_FaultsWrapErrRotateFault_NoHashText(t *testing.T) { // sc
 func TestRotateRefresh_PlainStaleAndNilEvAreNotRotateFaults(t *testing.T) { // scenario: Identity database down is not a logout (faults are only ev/outbox/conflict)
 	r := NewInMemorySessionRepository()
 	seedRefreshSession(t, r, "u1", "h1")
-	res, err := r.RotateRefresh(context.Background(), "nope", "h2", refreshT0, refreshGrace, refreshMaxAge, okEv("e"))
+	res, err := r.RotateRefresh(context.Background(), "nope", "h2", refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("e"))
 	if err != nil || res.Outcome != RotateStale {
 		t.Fatalf("stale must be nil error: %+v %v", res, err)
 	}
