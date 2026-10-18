@@ -8,6 +8,7 @@ package auditv1_test
 
 import (
 	"bytes"
+	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
@@ -258,6 +259,42 @@ var catalogue = []string{
 	"order.force_fail", "order.admin_status_update", "return.admin_status_update",
 	"shipment.admin_create", "payment.admin_refund", "voucher.platform_create",
 	"flash_sale.admin_create", "ad_campaign.admin_create",
+	"listing.moderate", "user.set_status", "report.resolve", "return.dispute_refund",
+}
+
+// checkCatalogue reports every catalogue action missing from the comment and a wrong heading count.
+func checkCatalogue(c string) error {
+	var missing []string
+	for _, s := range catalogue {
+		if !strings.Contains(c, s) {
+			missing = append(missing, s)
+		}
+	}
+	if !strings.Contains(c, "Action catalogue (17)") {
+		missing = append(missing, "heading 'Action catalogue (17)'")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("catalogue missing %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+// Scenario: Trust contract: Catalogue test rejects a missing action
+func TestWriteAuditEventRequest_Catalogue_Scenario_TrustContractCatalogueTestRejectsAMissingAction(t *testing.T) {
+	if len(catalogue) != 17 {
+		t.Fatalf("catalogue fixture has %d actions, want 17", len(catalogue))
+	}
+	original13 := "Action catalogue (13): " + strings.Join(catalogue[:13], ", ")
+	err := checkCatalogue(original13)
+	if err == nil {
+		t.Fatal("helper accepted a comment listing only the original 13 actions")
+	}
+	if !strings.Contains(err.Error(), "listing.moderate") {
+		t.Errorf("helper error must name listing.moderate, got %v", err)
+	}
+	if err := checkCatalogue("Action catalogue (17): " + strings.Join(catalogue, ", ")); err != nil {
+		t.Errorf("helper rejected a complete catalogue: %v", err)
+	}
 }
 
 func TestWriteAuditEventRequest_Comment_Scenarios_NamingRuleCatalogueAndAdminPathWording(t *testing.T) {
@@ -266,10 +303,12 @@ func TestWriteAuditEventRequest_Comment_Scenarios_NamingRuleCatalogueAndAdminPat
 	if c == "" {
 		t.Fatal("WriteAuditEventRequest has no doc comment")
 	}
-	for _, s := range append([]string{"<entity>.<verb>"}, catalogue...) {
-		if !strings.Contains(c, s) {
-			t.Errorf("WriteAuditEventRequest comment missing %q; got %q", s, c)
-		}
+	if !strings.Contains(c, "<entity>.<verb>") {
+		t.Errorf("WriteAuditEventRequest comment missing naming rule; got %q", c)
+	}
+	// Scenario: Trust contract: Catalogue lists the new actions
+	if err := checkCatalogue(c); err != nil {
+		t.Errorf("WriteAuditEventRequest comment: %v; got %q", err, c)
 	}
 	// Uniform admin-path wording and non-admin exclusion.
 	hasAll(t, "WriteAuditEventRequest", c,

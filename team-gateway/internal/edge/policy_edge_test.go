@@ -96,3 +96,71 @@ func TestOnlyAdminsCanReadTheChannelFunnel_EdgeRejects(t *testing.T) {
 		})
 	}
 }
+
+// Scenario: Edge: Seller token gets 403 on moderation RPCs.
+func TestPolicyEdgeModerationAdminOnly(t *testing.T) {
+	for _, path := range []string{moderateListingPath, listModerationQueuePath} {
+		up := &moderationUpstream{}
+		code, body := callModeration(t, up, func(*cockpitFixture) string { return path }, func(f *cockpitFixture) string {
+			return "Bearer " + f.token(t, "listing:write")
+		})
+		if code != http.StatusForbidden || !strings.Contains(body, "permission_denied") {
+			t.Fatalf("seller %s = %d %s, want 403 permission_denied", path, code, body)
+		}
+		if n := up.moderate.Load() + up.queue.Load(); n != 0 {
+			t.Fatalf("seller %s reached upstream %d times, want 0", path, n)
+		}
+	}
+}
+
+// User-enforcement edge: the AccountAdmin procedures are admin-gated at the edge.
+func accountAdminDenied(t *testing.T, auth func(*cockpitFixture) string, want int) {
+	t.Helper()
+	f := newCockpitFixture(t)
+	for _, path := range []string{listUsersPath, setUserStatusPath} {
+		up := &accountAdminUpstream{}
+		srv := httptest.NewServer(edge.NewMux(&upstream.Clients{AccountAdmin: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+		t.Cleanup(srv.Close)
+		req, _ := http.NewRequest(http.MethodPost, srv.URL+path, strings.NewReader(`{"user_id":"u-9","status":"USER_STATUS_BANNED","reason_code":"fraud"}`))
+		req.Header.Set("Content-Type", "application/json")
+		if a := auth(f); a != "" {
+			req.Header.Set("Authorization", a)
+		}
+		res, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+		if res.StatusCode != want {
+			t.Errorf("%s = %d %s, want %d", path, res.StatusCode, b, want)
+		}
+		if n := up.setCalls.Load() + up.listCalls.Load(); n != 0 {
+			t.Errorf("%s: team-identity received %d requests, want 0", path, n)
+		}
+	}
+}
+
+// Scenario: Edge: Anonymous gets 401 on moderation RPCs.
+func TestPolicyEdgeModerationAnonymousUnauthenticated(t *testing.T) {
+	up := &moderationUpstream{}
+	code, body := callModeration(t, up, func(*cockpitFixture) string { return moderateListingPath }, func(*cockpitFixture) string { return "" })
+	if code != http.StatusUnauthorized || !strings.Contains(body, "unauthenticated") {
+		t.Fatalf("anonymous ModerateListing = %d %s, want 401 unauthenticated", code, body)
+	}
+	if n := up.moderate.Load(); n != 0 {
+		t.Fatalf("upstream calls = %d, want 0", n)
+	}
+}
+
+// Scenario: User enforcement edge: Anonymous caller is rejected at the edge.
+func TestAccountAdminAnonymousUnauthenticated(t *testing.T) {
+	accountAdminDenied(t, func(*cockpitFixture) string { return "" }, http.StatusUnauthorized)
+}
+
+// Scenario: User enforcement edge: Seller without admin scope is denied.
+func TestAccountAdminNonAdminPermissionDenied(t *testing.T) {
+	accountAdminDenied(t, func(f *cockpitFixture) string {
+		return "Bearer " + f.token(t, "listing.read", "listing.write")
+	}, http.StatusForbidden)
+}

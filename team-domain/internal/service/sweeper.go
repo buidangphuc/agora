@@ -33,10 +33,26 @@ func NewReservationSweeper(svc *ListingService, interval time.Duration, logger *
 // Interval returns the effective polling interval.
 func (s *ReservationSweeper) Interval() time.Duration { return s.interval }
 
+// ProcessedEventsRetention is how long processed_events dedupe rows are kept.
+const ProcessedEventsRetention = 14 * 24 * time.Hour
+
+// processedEventsPurger is the optional repository capability the sweeper uses
+// to delete old dedupe rows.
+type processedEventsPurger interface {
+	PurgeProcessedEvents(ctx context.Context, before time.Time) (int, error)
+}
+
 // SweepOnce runs a single sweep as of now, returning the number of reservations
-// released.
+// released. It also purges processed_events older than the retention window
+// when the repository supports it; a purge failure is logged, not returned.
 func (s *ReservationSweeper) SweepOnce(ctx context.Context, now time.Time) (int, error) {
-	return s.svc.SweepExpiredReservations(ctx, now)
+	released, err := s.svc.SweepExpiredReservations(ctx, now)
+	if p, ok := s.svc.repo.(processedEventsPurger); ok {
+		if _, perr := p.PurgeProcessedEvents(ctx, now.Add(-ProcessedEventsRetention)); perr != nil {
+			s.logger.WarnContext(ctx, "processed_events purge failed", slog.Any("err", perr))
+		}
+	}
+	return released, err
 }
 
 // Run sweeps on the configured interval until ctx is cancelled. A sweep error is

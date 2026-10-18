@@ -30,6 +30,7 @@ def default_grpc_services_factory(
         ai_service_registration(
             resources.ai_assistant,
             resources.tag_classifier,
+            resources.screen,
             require_ai_use=settings.AI_USE_SCOPE_REQUIRED,
         ),
         chat_service_registration(

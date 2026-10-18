@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,10 +40,31 @@ func NewPostgresListingRepository(pool *pgxpool.Pool) *PostgresListingRepository
 	return &PostgresListingRepository{pool: pool}
 }
 
-const listingColumns = `id, title, description, price, currency, status, seller_id, image_keys, category_id, stock`
+const listingColumns = `id, title, description, price, currency, status, seller_id, image_keys, category_id, stock,
+	moderation_reason_code, moderation_note, screen_flags, moderation_decided_at, submitted_at, updated_at`
 
 func scanListing(row pgx.Row, l *Listing) error {
-	return row.Scan(&l.ID, &l.Title, &l.Description, &l.Price, &l.Currency, &l.Status, &l.SellerID, &l.ImageKeys, &l.CategoryID, &l.Stock)
+	var decided, submitted *time.Time
+	if err := row.Scan(&l.ID, &l.Title, &l.Description, &l.Price, &l.Currency, &l.Status, &l.SellerID, &l.ImageKeys, &l.CategoryID, &l.Stock,
+		&l.ModerationReasonCode, &l.ModerationNote, &l.ScreenFlags, &decided, &submitted, &l.UpdatedAt); err != nil {
+		return err
+	}
+	l.ModerationDecidedAt, l.SubmittedAt = time.Time{}, time.Time{}
+	if decided != nil {
+		l.ModerationDecidedAt = *decided
+	}
+	if submitted != nil {
+		l.SubmittedAt = *submitted
+	}
+	return nil
+}
+
+// nullTime maps the zero time to NULL.
+func nullTime(t time.Time) any {
+	if t.IsZero() {
+		return nil
+	}
+	return t
 }
 
 // Get loads a single listing by id and its variants, mapping a miss to ErrNotFound.
@@ -157,15 +179,19 @@ func (r *PostgresListingRepository) Create(ctx context.Context, l Listing) (List
 
 // createListing inserts a listing + variants over any DBTX (pool or tx).
 func createListing(ctx context.Context, q DBTX, l Listing) (Listing, error) {
-	const sql = `INSERT INTO listings (id, title, description, price, currency, status, seller_id, image_keys, category_id, stock)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	const sql = `INSERT INTO listings (id, title, description, price, currency, status, seller_id, image_keys, category_id, stock, screen_flags, submitted_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING ` + listingColumns
 	var out Listing
 	imageKeys := l.ImageKeys
 	if imageKeys == nil {
 		imageKeys = []string{}
 	}
-	row := q.QueryRow(ctx, sql, l.ID, l.Title, l.Description, l.Price, l.Currency, l.Status, l.SellerID, imageKeys, l.CategoryID, l.Stock)
+	flags := l.ScreenFlags
+	if flags == nil {
+		flags = []string{}
+	}
+	row := q.QueryRow(ctx, sql, l.ID, l.Title, l.Description, l.Price, l.Currency, l.Status, l.SellerID, imageKeys, l.CategoryID, l.Stock, flags, nullTime(l.SubmittedAt))
 	if err := scanListing(row, &out); err != nil {
 		return Listing{}, fmt.Errorf("create listing %q: %w", l.ID, err)
 	}
@@ -199,18 +225,30 @@ func (r *PostgresListingRepository) Update(ctx context.Context, l Listing) (List
 
 // updateListing replaces a listing + variants over any DBTX (pool or tx).
 func updateListing(ctx context.Context, q DBTX, l Listing) (Listing, error) {
+	// nil flags / zero submitted_at keep the stored values. When LoadedUpdatedAt
+	// is set the write is conditional on the status and updated_at the caller
+	// read, so a racing moderation decision is never overwritten.
 	const sql = `UPDATE listings
-		SET title = $2, description = $3, price = $4, currency = $5, status = $6, seller_id = $7, image_keys = $8, category_id = $9, stock = $10, updated_at = now()
-		WHERE id = $1
+		SET title = $2, description = $3, price = $4, currency = $5, status = $6, seller_id = $7, image_keys = $8, category_id = $9, stock = $10,
+		    screen_flags = COALESCE($11, screen_flags), submitted_at = COALESCE($12, submitted_at), updated_at = now()
+		WHERE id = $1 AND ($13::timestamptz IS NULL OR (status = $14 AND updated_at = $13))
 		RETURNING ` + listingColumns
 	var out Listing
 	imageKeys := l.ImageKeys
 	if imageKeys == nil {
 		imageKeys = []string{}
 	}
-	row := q.QueryRow(ctx, sql, l.ID, l.Title, l.Description, l.Price, l.Currency, l.Status, l.SellerID, imageKeys, l.CategoryID, l.Stock)
+	var flags any
+	if l.ScreenFlags != nil {
+		flags = l.ScreenFlags
+	}
+	row := q.QueryRow(ctx, sql, l.ID, l.Title, l.Description, l.Price, l.Currency, l.Status, l.SellerID, imageKeys, l.CategoryID, l.Stock,
+		flags, nullTime(l.SubmittedAt), nullTime(l.LoadedUpdatedAt), l.LoadedStatus)
 	if err := scanListing(row, &out); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			if !l.LoadedUpdatedAt.IsZero() {
+				return Listing{}, conditionalMiss(ctx, q, l.ID)
+			}
 			return Listing{}, ErrNotFound
 		}
 		return Listing{}, fmt.Errorf("update listing %q: %w", l.ID, err)
@@ -344,6 +382,15 @@ func (r *PostgresListingRepository) ReserveStockIdempotent(ctx context.Context, 
 			return ErrReservationMismatch
 		}
 		return nil // active or committed: idempotent success for an identical retry
+	}
+	var listingStatus string
+	switch err := tx.QueryRow(ctx, `SELECT status FROM listings WHERE id = $1`, listingID).Scan(&listingStatus); {
+	case errors.Is(err, pgx.ErrNoRows):
+		// unknown listing: decrementStock reports it
+	case err != nil:
+		return fmt.Errorf("lookup listing status %q: %w", listingID, err)
+	case listingStatus == "held":
+		return ErrListingNotReservable // rolls the inserted reservation back
 	}
 	// New reservation: take the stock. A failure here (out of stock, unknown
 	// listing) rolls the inserted row back with the tx.
@@ -548,3 +595,99 @@ func (r *PostgresListingRepository) count(ctx context.Context, q, arg string) (i
 
 // compile-time assertion that the Postgres store satisfies the port.
 var _ ListingRepository = (*PostgresListingRepository)(nil)
+
+// conditionalMiss tells a vanished row (ErrNotFound) from a changed one
+// (ErrStatusChanged) after a conditional write matched no row.
+func conditionalMiss(ctx context.Context, q DBTX, id string) error {
+	var one int
+	if err := q.QueryRow(ctx, `SELECT 1 FROM listings WHERE id = $1`, id).Scan(&one); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("check listing %q: %w", id, err)
+	}
+	return ErrStatusChanged
+}
+
+// moderateListing applies an admin decision iff the row is still in fromStatus
+// with the updated_at the caller read; otherwise ErrStatusChanged.
+func moderateListing(ctx context.Context, q DBTX, id, fromStatus string, loadedUpdatedAt time.Time, d ModerationUpdate) (Listing, error) {
+	const sql = `UPDATE listings
+		SET status = $4, moderation_reason_code = $5, moderation_note = $6, moderation_decided_at = $7, updated_at = now()
+		WHERE id = $1 AND status = $2 AND updated_at = $3
+		RETURNING ` + listingColumns
+	var out Listing
+	row := q.QueryRow(ctx, sql, id, fromStatus, loadedUpdatedAt, d.ToStatus, d.ReasonCode, d.Note, d.DecidedAt)
+	if err := scanListing(row, &out); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Listing{}, conditionalMiss(ctx, q, id)
+		}
+		return Listing{}, fmt.Errorf("moderate listing %q: %w", id, err)
+	}
+	variants, err := loadVariants(ctx, q, id)
+	if err != nil {
+		return Listing{}, err
+	}
+	out.Variants = variants
+	return out, nil
+}
+
+// ListModerationQueue returns pending_review listings, oldest submission first,
+// keyset-paginated on (submitted_at, id). The cursor is opaque.
+func (r *PostgresListingRepository) ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (Page, error) {
+	limit := clampPageSize(pageSize)
+	var (
+		rows pgx.Rows
+		err  error
+	)
+	if cursor == "" {
+		rows, err = r.pool.Query(ctx, `SELECT `+listingColumns+`
+			FROM listings WHERE status = 'pending_review'
+			ORDER BY submitted_at, id LIMIT $1`, limit+1)
+	} else {
+		at, id, perr := parseQueueCursor(cursor)
+		if perr != nil {
+			return Page{}, perr
+		}
+		rows, err = r.pool.Query(ctx, `SELECT `+listingColumns+`
+			FROM listings WHERE status = 'pending_review' AND (submitted_at, id) > ($2, $3)
+			ORDER BY submitted_at, id LIMIT $1`, limit+1, at, id)
+	}
+	if err != nil {
+		return Page{}, fmt.Errorf("list moderation queue: %w", err)
+	}
+	defer rows.Close()
+	items := make([]Listing, 0, limit)
+	for rows.Next() {
+		var l Listing
+		if err := scanListing(rows, &l); err != nil {
+			return Page{}, fmt.Errorf("scan listing: %w", err)
+		}
+		items = append(items, l)
+	}
+	if err := rows.Err(); err != nil {
+		return Page{}, fmt.Errorf("iterate moderation queue: %w", err)
+	}
+	var next string
+	if len(items) > limit {
+		items = items[:limit]
+		last := items[len(items)-1]
+		next = last.SubmittedAt.UTC().Format(time.RFC3339Nano) + "|" + last.ID
+	}
+	return Page{Items: items, NextCursor: next, Total: -1}, nil
+}
+
+// ErrInvalidCursor: a moderation-queue cursor that this store did not issue.
+var ErrInvalidCursor = errors.New("invalid cursor")
+
+func parseQueueCursor(c string) (time.Time, string, error) {
+	ts, id, ok := strings.Cut(c, "|")
+	if !ok {
+		return time.Time{}, "", ErrInvalidCursor
+	}
+	at, err := time.Parse(time.RFC3339Nano, ts)
+	if err != nil {
+		return time.Time{}, "", ErrInvalidCursor
+	}
+	return at, id, nil
+}

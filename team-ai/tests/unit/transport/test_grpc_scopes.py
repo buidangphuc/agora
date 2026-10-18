@@ -21,6 +21,7 @@ def test_scope_constants_are_frozen() -> None:
         "ChatCopilot": ("listing.write",),
         "SummarizeReviews": ("listing.read",),
         "ClassifyTags": ("ai.classify",),
+        "ScreenListing": ("ai.classify",),
     }
 
 
@@ -34,3 +35,8 @@ def test_every_ai_rpc_is_gated_or_explicitly_open() -> None:
     rpcs = {m.name for m in service.methods}
     assert rpcs - {"ShoppingAssistant"} == set(AI_SERVICE_SCOPES)
     assert "ShoppingAssistant" not in AI_SERVICE_SCOPES
+
+
+def test_screen_listing_scope_is_ai_classify() -> None:
+    """Scenario: Every AIService RPC except ShoppingAssistant has a scope entry."""
+    assert AI_SERVICE_SCOPES["ScreenListing"] == ("ai.classify",)

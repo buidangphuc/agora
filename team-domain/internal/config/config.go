@@ -30,6 +30,7 @@ type Settings struct {
 	Reservation   Reservation
 	Observability Observability
 	Upstream      Upstream
+	Screen        Screen
 }
 
 // Storage configures the S3/MinIO object store for product media.
@@ -71,6 +72,11 @@ type Events struct {
 	KafkaEnabled bool   `env:"KAFKA_ENABLED" default:"false"`
 	Brokers      string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
 	ListingTopic string `env:"KAFKA_LISTING_TOPIC" default:"listing.events"`
+
+	// Identity consumer: applies UserStatusChanged to seller listings (opt-in).
+	IdentityConsumerEnabled bool   `env:"IDENTITY_CONSUMER_ENABLED" default:"false"`
+	IdentityTopic           string `env:"KAFKA_IDENTITY_TOPIC" default:"identity.events"`
+	IdentityGroup           string `env:"KAFKA_IDENTITY_GROUP" default:"team-domain-identity"`
 }
 
 // Outbox configures the transactional-outbox relayer (ADR-0002). Listing writes
@@ -102,10 +108,18 @@ const (
 	DefaultReservationSweepInterval = time.Minute
 )
 
-// Upstream configures outbound service calls (team-audit).
+// Upstream configures outbound service calls (team-audit, team-ai).
 type Upstream struct {
 	AuditAddr          string  `env:"UPSTREAM_AUDIT_ADDR" default:""`
 	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
+	AIAddr             string  `env:"UPSTREAM_AI_ADDR" default:""`
+	AITimeoutSeconds   float64 `env:"UPSTREAM_AI_TIMEOUT_SECONDS" default:"2"`
+}
+
+// Screen configures the listing keyword screener. An empty TermsFile uses the
+// embedded term list; a set but unreadable file stops start-up.
+type Screen struct {
+	TermsFile string `env:"SCREEN_TERMS_FILE" default:""`
 }
 
 // Observability configures OpenTelemetry (ADR-0004). Exporter is swappable.
@@ -139,6 +153,11 @@ func (s *Settings) Validate() error {
 	}
 	if s.Server.ShutdownGrace < 0 {
 		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.Server.ShutdownGrace)
+	}
+	if f := strings.TrimSpace(s.Screen.TermsFile); f != "" {
+		if _, err := os.Stat(f); err != nil {
+			return fmt.Errorf("SCREEN_TERMS_FILE %s: %w", f, err)
+		}
 	}
 	return s.RequireSafeStrictConfig()
 }

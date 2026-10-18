@@ -31,6 +31,8 @@ var (
 	ErrTokenExpired = errors.New("reset token expired")
 	// ErrTokenAlreadyUsed is an already used reset token.
 	ErrTokenAlreadyUsed = errors.New("reset token already used")
+	// ErrAccountLocked is the login/refresh refusal for suspended and banned users.
+	ErrAccountLocked = repository.ErrAccountLocked
 )
 
 // AuthResult is the domain outcome of register/login: a signed token + the
@@ -64,6 +66,7 @@ func WithClient(ctx context.Context, c ClientInfo) context.Context {
 type AuthService struct {
 	repo     repository.UserRepository
 	sessions repository.SessionRepository // nil: no session is recorded
+	audit    AuditWriter                  // nil: status changes are refused
 	signer   *token.Signer
 	ttl      time.Duration
 	now      func() time.Time
@@ -153,8 +156,19 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Aut
 		s.recordLogin(ctx, u.ID, false)
 		return AuthResult{}, ErrInvalidCredentials
 	}
+	u, err = s.liftIfExpired(ctx, u)
+	if err != nil {
+		return AuthResult{}, err
+	}
+	if u.Status == repository.StatusSuspended || u.Status == repository.StatusBanned {
+		s.recordLogin(ctx, u.ID, false)
+		return AuthResult{}, ErrAccountLocked
+	}
 	res, err := s.issue(ctx, u)
 	if err != nil {
+		if errors.Is(err, repository.ErrAccountLocked) {
+			s.recordLogin(ctx, u.ID, false)
+		}
 		return AuthResult{}, err
 	}
 	s.recordLogin(ctx, u.ID, true)
@@ -162,7 +176,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Aut
 }
 
 func (s *AuthService) issue(ctx context.Context, u repository.User) (AuthResult, error) {
-	scopes := authz.ScopesForRoles(u.Roles)
+	scopes := authz.ScopesForUser(u.Roles, u.Status)
 	sid := ""
 	var refreshToken string
 	var refreshExp time.Time

@@ -890,3 +890,1326 @@ features:
     tags: [admin, audit]
     status: automated
     covered_by: "seller/listing_admin_audit.feature::Listing audit: Seller cannot edit another seller's listing end to end"
+
+  - id: listing.moderation-moderation-approve-publishes-a-pending-listing
+    title: "Moderation: Approve publishes a pending listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Approve publishes a pending listing"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateApprovePublishes`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-reject-records-reason-and-note-for-the-seller
+    title: "Moderation: Reject records reason and note for the seller"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Reject records reason and note for the seller"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateRejectRecordsReason`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-ban-takes-down-a-published-listing
+    title: "Moderation: Ban takes down a published listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Ban takes down a published listing"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateBanPublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-reject-of-a-published-listing-from-a-report
+    title: "Moderation: Reject of a published listing from a report"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Reject of a published listing from a report"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateRejectPublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-audit-event-is-written-first
+    title: "Moderation: Audit event is written first"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Audit event is written first"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateAuditPrecedesChange`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-audit-down-refuses-the-decision
+    title: "Moderation: Audit down refuses the decision"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Audit down refuses the decision"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingAuditDownUnavailableNoChange`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-no-audit-upstream-configured
+    title: "Moderation: No audit upstream configured"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: No audit upstream configured"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateNilAuditUnavailable`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-approve-of-a-held-listing-is-refused
+    title: "Moderation: Approve of a held listing is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Approve of a held listing is refused"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateHeldFailedPreconditionNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-approve-of-a-rejected-listing-is-refused
+    title: "Moderation: Approve of a rejected listing is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Approve of a rejected listing is refused"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateApproveRejectedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-approve-of-a-banned-listing-is-refused
+    title: "Moderation: Approve of a banned listing is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Approve of a banned listing is refused"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateApproveBannedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-concurrent-decision-applies-once
+    title: "Moderation: Concurrent decision applies once"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Concurrent decision applies once"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestModerateTxConditionalOnLoadedStatus`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-seller-edit-between-check-and-decision-is-refused
+    title: "Moderation: Seller edit between check and decision is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Seller edit between check and decision is refused"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateStaleLoadFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-listingchanged-carries-no-note-or-flags
+    title: "Moderation: ListingChanged carries no note or flags"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: ListingChanged carries no note or flags"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingEventStripsNoteAndFlags`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-second-decision-on-a-decided-listing-is-refused
+    title: "Moderation: Second decision on a decided listing is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Second decision on a decided listing is refused"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateTwiceSecondRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-reject-without-a-reason-code-is-invalid
+    title: "Moderation: Reject without a reason code is invalid"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Reject without a reason code is invalid"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingRejectNeedsReason`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-unknown-reason-code-is-invalid
+    title: "Moderation: Unknown reason code is invalid"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Unknown reason code is invalid"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingUnknownReasonCode`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-note-limit-is-500-characters
+    title: "Moderation: Note limit is 500 characters"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Note limit is 500 characters"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingNoteBoundary500`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-unspecified-decision-is-invalid
+    title: "Moderation: Unspecified decision is invalid"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Unspecified decision is invalid"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingUnspecifiedDecision`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-unknown-listing-writes-no-audit-event
+    title: "Moderation: Unknown listing writes no audit event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Unknown listing writes no audit event"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateNotFoundNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-invalid-request-on-an-unknown-listing-is-invalid
+    title: "Moderation: Invalid request on an unknown listing is invalid"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Invalid request on an unknown listing is invalid"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingValidatesBeforeLoad`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-seller-cannot-moderate
+    title: "Moderation: Seller cannot moderate"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Seller cannot moderate"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingNonAdminDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-moderation-admin-who-owns-the-listing-is-audited
+    title: "Moderation: Admin who owns the listing is audited"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Moderation: Admin who owns the listing is audited"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestModerateAdminOwnListingAudited`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-decision-flows-end-to-end-with-audit
+    title: "Moderation: Decision flows end to end with audit"
+    persona: admin
+    priority: P1
+    summary: Listing moderation through the gateway (change domain-listing-moderation, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-gateway, team-ai, team-audit, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [listing.v1.CreateListing, listing.v1.ModerateListing, listing.v1.ListMyListings, audit.v1.QueryAuditLog, search.v1.SearchListings]
+    acceptance:
+      - "Moderation: Decision flows end to end with audit"
+    tags: [admin, moderation]
+    status: automated
+    covered_by: "seller/listing_moderation.feature::Moderation: Decision flows end to end with audit"
+
+  - id: listing.moderation-moderation-is-refused-while-audit-is-down-end-to-end
+    title: "Moderation: Moderation is refused while audit is down end to end"
+    persona: admin
+    priority: P1
+    summary: Listing moderation through the gateway (change domain-listing-moderation, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-gateway, team-ai, team-audit, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [listing.v1.CreateListing, listing.v1.ModerateListing, listing.v1.ListMyListings, audit.v1.QueryAuditLog, search.v1.SearchListings]
+    acceptance:
+      - "Moderation: Moderation is refused while audit is down end to end"
+    tags: [admin, moderation]
+    status: automated
+    covered_by: "seller/listing_moderation.feature::Moderation: Moderation is refused while audit is down end to end"
+
+  - id: listing.moderation-rejected-listing-leaves-search-end-to-end
+    title: "Moderation: Rejected listing leaves search end to end"
+    persona: admin
+    priority: P1
+    summary: Listing moderation through the gateway (change domain-listing-moderation, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-gateway, team-ai, team-audit, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [listing.v1.CreateListing, listing.v1.ModerateListing, listing.v1.ListMyListings, audit.v1.QueryAuditLog, search.v1.SearchListings]
+    acceptance:
+      - "Moderation: Rejected listing leaves search end to end"
+    tags: [admin, moderation]
+    status: automated
+    covered_by: "seller/listing_moderation.feature::Moderation: Rejected listing leaves search end to end"
+
+  - id: listing.moderation-queue-oldest-submission-first
+    title: "Queue: Oldest submission first"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Queue: Oldest submission first"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestListModerationQueueOrderedBySubmission`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-queue-only-pending-listings-appear
+    title: "Queue: Only pending listings appear"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Queue: Only pending listings appear"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestListModerationQueueOnlyPending`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-queue-pagination-boundary
+    title: "Queue: Pagination boundary"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Queue: Pagination boundary"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestListModerationQueueKeysetPages`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-queue-empty-queue
+    title: "Queue: Empty queue"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Queue: Empty queue"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestListModerationQueueEmpty`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-queue-seller-is-denied
+    title: "Queue: Seller is denied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Queue: Seller is denied"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestListModerationQueueNonAdminDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-queue-reading-the-queue-writes-no-audit-event
+    title: "Queue: Reading the queue writes no audit event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Queue: Reading the queue writes no audit event"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestListModerationQueueNotAudited`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-queue-page-latency-at-10k-pending
+    title: "Queue: Page latency at 10k pending"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Queue: Page latency at 10k pending"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestListModerationQueueIndexAndLatency`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-seller-cannot-un-reject-by-sending-published
+    title: "Status ownership: Seller cannot un-reject by sending PUBLISHED"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Seller cannot un-reject by sending PUBLISHED"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventRejectedStaysUnpublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-seller-edit-of-a-rejected-listing-goes-to-manual-review
+    title: "Status ownership: Seller edit of a rejected listing goes to manual review"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Seller edit of a rejected listing goes to manual review"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventRejectedGoesToPendingReview`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-server-only-statuses-sent-on-create-are-ignored
+    title: "Status ownership: Server-only statuses sent on create are ignored"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Server-only statuses sent on create are ignored"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestCreateListingServerOnlyStatusesStoredAsDraft`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-seller-cannot-move-a-published-listing-into-a-server-only-status
+    title: "Status ownership: Seller cannot move a published listing into a server-only status"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Seller cannot move a published listing into a server-only status"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventClientBannedIgnored`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-status-omitted-keeps-a-published-listing-published
+    title: "Status ownership: Status omitted keeps a published listing published"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Status omitted keeps a published listing published"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingOmittedStatusKeepsPublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-seller-can-withdraw-a-published-listing-to-draft
+    title: "Status ownership: Seller can withdraw a published listing to draft"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Seller can withdraw a published listing to draft"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventPublishedToDraft`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-banned-listing-refuses-seller-writes
+    title: "Status ownership: Banned listing refuses seller writes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Banned listing refuses seller writes"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingBannedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-held-listing-refuses-seller-writes
+    title: "Status ownership: Held listing refuses seller writes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Held listing refuses seller writes"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingHeldFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-banned-or-held-listing-refuses-seller-delete
+    title: "Status ownership: Banned or held listing refuses seller delete"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Banned or held listing refuses seller delete"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestDeleteListingBannedOrHeldFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-seller-write-racing-a-moderation-decision-is-refused
+    title: "Status ownership: Seller write racing a moderation decision is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Seller write racing a moderation decision is refused"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestUpdateTxConditionalOnLoadedStatus`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-another-seller-still-cannot-edit-the-listing
+    title: "Status ownership: Another seller still cannot edit the listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Another seller still cannot edit the listing"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingNonOwnerNonAdminDeniedNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-admin-updatelisting-cannot-set-status
+    title: "Status ownership: Admin UpdateListing cannot set status"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Admin UpdateListing cannot set status"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingAdminCannotSetStatus`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-admin-content-edit-does-not-re-screen
+    title: "Status ownership: Admin content edit does not re-screen"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Admin content edit does not re-screen"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventAdminEditNoScreen`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-admin-s-own-listing-goes-through-the-screen
+    title: "Status ownership: Admin's own listing goes through the screen"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Admin's own listing goes through the screen"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestAdminOwnListingFollowsSellerPath`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-pending-listing-is-hidden-from-a-stranger
+    title: "Status ownership: Pending listing is hidden from a stranger"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Pending listing is hidden from a stranger"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingPendingReviewHiddenFromStranger`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-owner-sees-status-and-reason-but-not-flags
+    title: "Status ownership: Owner sees status and reason but not flags"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Owner sees status and reason but not flags"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingOwnerSeesReasonNotFlags`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-admin-sees-screen-flags
+    title: "Status ownership: Admin sees screen flags"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Admin sees screen flags"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingAdminSeesFlags`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-status-ownership-screen-flags-are-hidden-from-non-owners
+    title: "Status ownership: Screen flags are hidden from non-owners"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Status ownership: Screen flags are hidden from non-owners"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingStripsModerationForStranger`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-clean-listing-publishes
+    title: "Auto-screen: Clean listing publishes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Clean listing publishes"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestCreateWithEventCleanPublishes`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-keyword-hit-goes-to-review-without-calling-the-ai
+    title: "Auto-screen: Keyword hit goes to review without calling the AI"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Keyword hit goes to review without calling the AI"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestCreateWithEventKeywordHitPendingReview`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-keyword-match-ignores-case-and-diacritics
+    title: "Auto-screen: Keyword match ignores case and diacritics"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Keyword match ignores case and diacritics"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/screen` `TestKeywordMatchCaseAndDiacriticInsensitive`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-ai-review-verdict-goes-to-review
+    title: "Auto-screen: AI REVIEW verdict goes to review"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: AI REVIEW verdict goes to review"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestCreateWithEventAIReviewPendingReview`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-ai-error-fails-safe
+    title: "Auto-screen: AI error fails safe"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: AI error fails safe"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestCreateWithEventScreenErrorPendingReview`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-ai-timeout-fails-safe-within-the-bound
+    title: "Auto-screen: AI timeout fails safe within the bound"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: AI timeout fails safe within the bound"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/upstream` `TestScreenListingTimeoutBounded` and team-domain `internal/service` `TestCreateWithEventScreenTimeoutPendingReview`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-unconfigured-team-ai-fails-safe
+    title: "Auto-screen: Unconfigured team-ai fails safe"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Unconfigured team-ai fails safe"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/upstream` `TestNewAIClientEmptyAddrIsNil` and team-domain `internal/service` `TestCreateWithEventNilScreenerPendingReview`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-draft-save-is-not-screened
+    title: "Auto-screen: Draft save is not screened"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Draft save is not screened"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestCreateWithEventDraftNotScreened`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-price-and-stock-edits-do-not-re-screen
+    title: "Auto-screen: Price and stock edits do not re-screen"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Price and stock edits do not re-screen"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventNonContentEditNoScreen`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-title-edit-of-a-published-listing-is-re-screened
+    title: "Auto-screen: Title edit of a published listing is re-screened"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Title edit of a published listing is re-screened"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventContentEditRescreens`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-content-edit-sending-a-server-only-status-is-re-screened
+    title: "Auto-screen: Content edit sending a server-only status is re-screened"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Content edit sending a server-only status is re-screened"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventServerOnlyStatusContentEditRescreens`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-draft-published-later-is-screened-at-that-moment
+    title: "Auto-screen: Draft published later is screened at that moment"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Draft published later is screened at that moment"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventDraftToPublishScreens`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-screen-call-uses-the-service-principal
+    title: "Auto-screen: Screen call uses the service principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Screen call uses the service principal"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/upstream` `TestScreenListingUsesServicePrincipal`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-keyword-list-loads-from-the-config-file
+    title: "Auto-screen: Keyword list loads from the config file"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Keyword list loads from the config file"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/screen` `TestLoadTermsSkipsBlankAndComments`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-missing-terms-file-stops-start-up
+    title: "Auto-screen: Missing terms file stops start-up"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Missing terms file stops start-up"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestScreenTermsFileMissingFails`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-auto-screen-embedded-term-list-is-the-default
+    title: "Auto-screen: Embedded term list is the default"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-listing-moderation.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Auto-screen: Embedded term list is the default"
+    tags: [admin, moderation, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/screen` `TestDefaultTermsEmbedded`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.moderation-publish-end-to-end-clean-and-flagged
+    title: "Auto-screen: Publish end to end, clean and flagged"
+    persona: admin
+    priority: P1
+    summary: Listing moderation through the gateway (change domain-listing-moderation, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-gateway, team-ai, team-audit, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [listing.v1.CreateListing, listing.v1.ModerateListing, listing.v1.ListMyListings, audit.v1.QueryAuditLog, search.v1.SearchListings]
+    acceptance:
+      - "Auto-screen: Publish end to end, clean and flagged"
+    tags: [admin, moderation]
+    status: automated
+    covered_by: "seller/listing_moderation.feature::Auto-screen: Publish end to end, clean and flagged"
+
+  - id: listing.seller-hold-suspension-holds-published-and-pending-listings
+    title: "Seller hold: Suspension holds published and pending listings"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Suspension holds published and pending listings"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsHoldsPublishedAndPending`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-ban-holds-the-same-way
+    title: "Seller hold: Ban holds the same way"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Ban holds the same way"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedBannedHolds`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-suspension-to-ban-keeps-the-original-prior-status
+    title: "Seller hold: Suspension to ban keeps the original prior status"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Suspension to ban keeps the original prior status"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsKeepsOriginalPriorStatus`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-admin-banned-listing-is-not-touched
+    title: "Seller hold: Admin-banned listing is not touched"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Admin-banned listing is not touched"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsSkipsBannedListing`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-hold-event-carries-the-status-for-de-indexing
+    title: "Seller hold: Hold event carries the status for de-indexing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Hold event carries the status for de-indexing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestHoldEventCarriesHeldStatus`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-seller-with-no-listings-is-a-no-op
+    title: "Seller hold: Seller with no listings is a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Seller with no listings is a no-op"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedUnknownSellerNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-held-listings-leave-the-store
+    title: "Seller hold: Held listings leave the store"
+    persona: admin
+    priority: P1
+    summary: Seller enforcement hold through the gateway (change domain-seller-enforcement-hold, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-identity, team-gateway, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.SetUserStatus, listing.v1.CreateListing, listing.v1.GetListing, listing.v1.ListMyListings, search.v1.SearchListings]
+    acceptance:
+      - "Seller hold: Held listings leave the store"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "seller/seller_enforcement_hold.feature::Seller hold: Held listings leave the store"
+
+  - id: listing.seller-hold-other-sellers-listings-are-not-touched
+    title: "Seller hold: Other sellers' listings are not touched"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Other sellers' listings are not touched"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsOnlyTargetsUser`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-reinstatement-restores-prior-statuses
+    title: "Seller hold: Reinstatement restores prior statuses"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Reinstatement restores prior statuses"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsReturnsPriorStatus`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-restricted-also-restores
+    title: "Seller hold: Restricted also restores"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Restricted also restores"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedRestrictedRestores`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-restored-listing-is-visible-again
+    title: "Seller hold: Restored listing is visible again"
+    persona: admin
+    priority: P1
+    summary: Seller enforcement hold through the gateway (change domain-seller-enforcement-hold, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-identity, team-gateway, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.SetUserStatus, listing.v1.CreateListing, listing.v1.GetListing, listing.v1.ListMyListings, search.v1.SearchListings]
+    acceptance:
+      - "Seller hold: Restored listing is visible again"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "seller/seller_enforcement_hold.feature::Seller hold: Restored listing is visible again"
+
+  - id: listing.seller-hold-admin-banned-listing-is-not-resurrected
+    title: "Seller hold: Admin-banned listing is not resurrected"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Admin-banned listing is not resurrected"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsLeavesBannedListing`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-restore-with-nothing-held-is-a-no-op
+    title: "Seller hold: Restore with nothing held is a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Restore with nothing held is a no-op"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsNothingHeldNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-restored-pending-listing-is-back-in-the-moderation-queue
+    title: "Seller hold: Restored pending listing is back in the moderation queue"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Restored pending listing is back in the moderation queue"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestRestoreSellerListingsPendingReturnsToQueueWithoutScreen`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-suspension-lifted-at-login-restores-listings
+    title: "Seller hold: Suspension lifted at login restores listings"
+    persona: admin
+    priority: P1
+    summary: Seller enforcement hold through the gateway (change domain-seller-enforcement-hold, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-identity, team-gateway, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.SetUserStatus, listing.v1.CreateListing, listing.v1.GetListing, listing.v1.ListMyListings, search.v1.SearchListings]
+    acceptance:
+      - "Seller hold: Suspension lifted at login restores listings"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "seller/seller_enforcement_hold.feature::Seller hold: Suspension lifted at login restores listings"
+
+  - id: listing.seller-hold-restore-does-not-touch-other-sellers-listings
+    title: "Seller hold: Restore does not touch other sellers' listings"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Restore does not touch other sellers' listings"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsOnlyTargetsUser`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-restricted-seller-keeps-listings-published
+    title: "Seller hold: Restricted seller keeps listings published"
+    persona: admin
+    priority: P1
+    summary: Seller enforcement hold through the gateway (change domain-seller-enforcement-hold, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-identity, team-gateway, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.SetUserStatus, listing.v1.CreateListing, listing.v1.GetListing, listing.v1.ListMyListings, search.v1.SearchListings]
+    acceptance:
+      - "Seller hold: Restricted seller keeps listings published"
+    tags: [admin, enforcement]
+    status: automated
+    covered_by: "seller/seller_enforcement_hold.feature::Seller hold: Restricted seller keeps listings published"
+
+  - id: listing.seller-hold-restriction-of-a-held-seller-is-not-a-new-hold
+    title: "Seller hold: Restriction of a held seller is not a new hold"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Restriction of a held seller is not a new hold"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedRestrictedFromSuspendedRestores`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-redelivered-event-changes-nothing-twice
+    title: "Seller hold: Redelivered event changes nothing twice"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Redelivered event changes nothing twice"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedRedeliveryIsIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-re-driven-older-suspension-does-not-re-hold-a-reinstated-seller
+    title: "Seller hold: Re-driven older suspension does not re-hold a reinstated seller"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Re-driven older suspension does not re-hold a reinstated seller"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestSellerStatusStaleEventSkipped`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-event-with-the-same-changed-at-is-stale
+    title: "Seller hold: Event with the same changed_at is stale"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Event with the same changed_at is stale"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/repository` `TestSellerStatusEqualChangedAtSkipped`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-other-event-types-are-ignored
+    title: "Seller hold: Other event types are ignored"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Other event types are ignored"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestIdentityConsumerIgnoresOtherTypes`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-malformed-event-is-parked-not-applied
+    title: "Seller hold: Malformed event is parked, not applied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Malformed event is parked, not applied"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedMalformedGoesToDLQ`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-database-failure-retries-then-parks
+    title: "Seller hold: Database failure retries then parks"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Database failure retries then parks"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedDBFailureRetriesThenDLQ`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-consumer-disabled-does-nothing
+    title: "Seller hold: Consumer disabled does nothing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Consumer disabled does nothing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/bootstrap` `TestIdentityConsumerAddonDisabled`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-non-owner-cannot-read-a-held-listing
+    title: "Seller hold: Non-owner cannot read a held listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Non-owner cannot read a held listing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingHeldHiddenFromNonOwner`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-owner-sees-the-held-listing-and-the-reason
+    title: "Seller hold: Owner sees the held listing and the reason"
+    persona: admin
+    priority: P1
+    summary: Seller enforcement hold through the gateway (change domain-seller-enforcement-hold, initiative q6-trust-enforcement).
+    entry_route: /
+    services: [team-domain, team-identity, team-gateway, team-search]
+    preconditions:
+      login: admin
+    api:
+      exercised: [identity.v1.SetUserStatus, listing.v1.CreateListing, listing.v1.GetListing, listing.v1.ListMyListings, search.v1.SearchListings]
+    acceptance:
+      - "Seller hold: Owner sees the held listing and the reason"
+    tags: [admin, enforcement]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/service` `TestListMyListingsShowsHeldWithReason`. Not producible end to end: SetUserStatus(suspended) revokes all sessions, so the suspended owner cannot call ListMyListings through the gateway."
+
+  - id: listing.seller-hold-owner-cannot-edit-a-held-listing
+    title: "Seller hold: Owner cannot edit a held listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Owner cannot edit a held listing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingHeldRefusedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-another-seller-cannot-edit-a-held-listing
+    title: "Seller hold: Another seller cannot edit a held listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Another seller cannot edit a held listing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingHeldNonOwnerDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-owner-cannot-delete-a-held-listing
+    title: "Seller hold: Owner cannot delete a held listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Owner cannot delete a held listing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/handler` `TestDeleteListingHeldRefusedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-stock-cannot-be-reserved-on-a-held-listing
+    title: "Seller hold: Stock cannot be reserved on a held listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Stock cannot be reserved on a held listing"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/grpcserver` `TestReserveStock_HeldListingFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+
+  - id: listing.seller-hold-reservation-retry-on-a-held-listing-stays-a-no-op
+    title: "Seller hold: Reservation retry on a held listing stays a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Reservation retry on a held listing stays a no-op"
+    tags: [admin, enforcement, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/grpcserver` `TestReserveStock_HeldListingExistingReservationNoop`. Not producible end to end through the gateway (unit level)."

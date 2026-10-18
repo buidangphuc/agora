@@ -29,6 +29,8 @@ var (
 	// ErrReservationIDRequired: ReserveStockIdempotent was called without a
 	// reservation id. There is no ledger-less reserve path.
 	ErrReservationIDRequired = errors.New("reservation id required")
+	// ErrListingNotReservable: a new reservation targeted a held listing.
+	ErrListingNotReservable = errors.New("listing not reservable")
 )
 
 // Reservation lifecycle (owned by team-domain): active -> committed | released,
@@ -73,6 +75,33 @@ type Listing struct {
 	CategoryID  string    // category ID
 	Stock       int32     // base stock if no variants
 	Variants    []Variant // product variants
+
+	// Moderation state (columns added by migration 0011).
+	ModerationReasonCode string
+	ModerationNote       string
+	ScreenFlags          []string
+	ModerationDecidedAt  time.Time
+	SubmittedAt          time.Time
+
+	// Optimistic-concurrency fields. UpdatedAt is filled by
+	// Get/scan from listings.updated_at. For UpdateTx, LoadedStatus and
+	// LoadedUpdatedAt are the status/updated_at the caller read before deciding;
+	// when LoadedUpdatedAt is non-zero the write is conditional on both.
+	UpdatedAt       time.Time
+	LoadedStatus    string
+	LoadedUpdatedAt time.Time
+}
+
+// ErrStatusChanged: a conditional write (UpdateTx with LoadedUpdatedAt, or
+// ModerateTx) found the row's status/updated_at no longer what the caller read.
+var ErrStatusChanged = errors.New("listing changed, reload and retry")
+
+// ModerationUpdate is the admin decision persisted by ModerateTx.
+type ModerationUpdate struct {
+	ToStatus   string
+	ReasonCode string
+	Note       string
+	DecidedAt  time.Time
 }
 
 // Page is a single page of listings plus keyset-pagination metadata.
@@ -346,6 +375,9 @@ func (r *InMemoryListingRepository) ReserveStockIdempotent(ctx context.Context, 
 			return ErrReservationMismatch
 		}
 		return nil // active/committed: already applied, no stock change, no event
+	}
+	if l, ok := r.byID[listingID]; ok && l.Status == "held" {
+		return ErrListingNotReservable
 	}
 	return r.txLocked(ctx, func(changes stockChanges) error {
 		if err := r.reserveLocked(listingID, variantID, quantity); err != nil {

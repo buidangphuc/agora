@@ -12,6 +12,7 @@ SERVICES = {
             "ChatCopilot",
             "SummarizeReviews",
             "ClassifyTags",
+            "ScreenListing",
         },
     ),
     "chat.v1.chat_pb2": ("platform.chat.v1.ChatService", None),

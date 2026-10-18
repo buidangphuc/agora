@@ -177,6 +177,8 @@ func mapErr(err error) error {
 	switch {
 	case errors.Is(err, service.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, "invalid input")
+	case errors.Is(err, service.ErrAccountLocked):
+		return status.Error(codes.PermissionDenied, "tài khoản bị khóa")
 	case errors.Is(err, service.ErrInvalidCredentials):
 		return status.Error(codes.Unauthenticated, "invalid credentials")
 	case errors.Is(err, service.ErrInvalidToken):

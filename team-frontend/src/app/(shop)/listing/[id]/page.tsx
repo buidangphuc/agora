@@ -14,6 +14,7 @@ import { FavoriteButton } from "@/features/engagement/FavoriteButton";
 import { ImageGallery } from "@/features/listing/ImageGallery";
 import { LiveFlashSaleStock } from "@/features/listing/LiveFlashSaleStock";
 import { PdpAnchorNav } from "@/features/listing/PdpAnchorNav";
+import { ReportListingButton } from "@/features/listing/ReportListingButton";
 import { SelectedPrice } from "@/features/listing/SelectedPrice";
 import { ShareButton } from "@/features/listing/ShareButton";
 import {
@@ -245,6 +246,13 @@ export default async function ProductDetailPage(props: {
                 />
                 {/* Share short link (team-sharing via gateway) */}
                 <ShareButton id={listing.id} />
+                {/* Buyer report; never shown to the listing's own seller */}
+                {me?.id !== listing.sellerId && (
+                  <ReportListingButton
+                    listingId={listing.id}
+                    loggedIn={loggedIn}
+                  />
+                )}
               </div>
 
               <p className="flex flex-wrap gap-x-6 gap-y-1 border-t border-border-subtle pt-3 text-sm text-text-secondary">

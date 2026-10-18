@@ -106,3 +106,23 @@ def test_garbage_bytes_are_undecodable() -> None:
 def test_empty_listing_id_is_undecodable() -> None:
     with pytest.raises(UndecodableEventError):
         decode_listing_event(envelope(""))
+
+
+def test_new_statuses_are_decoded() -> None:
+    for status, name in (
+        (listing_pb2.LISTING_STATUS_PENDING_REVIEW, "PENDING_REVIEW"),
+        (listing_pb2.LISTING_STATUS_BANNED, "BANNED"),
+        (listing_pb2.LISTING_STATUS_HELD, "HELD"),
+    ):
+        payload = decode_listing_event(envelope("l-1", status=status))
+        assert payload is not None and payload.status == name
+
+
+def test_unknown_status_number_decodes_to_unknown() -> None:
+    payload = decode_listing_event(envelope("l-1", status=99))
+    assert payload is not None and payload.status == "UNKNOWN"
+
+
+def test_unspecified_status_decodes_to_empty() -> None:
+    payload = decode_listing_event(envelope("l-1", status=0))
+    assert payload is not None and payload.status == ""

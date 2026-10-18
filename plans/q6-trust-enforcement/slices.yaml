@@ -1,0 +1,65 @@
+# plans/q6-trust-enforcement/slices.yaml — one slice = one OpenSpec change (plan section 13).
+# Validate: platform-e2e/.venv/bin/python scripts/asdlc/cross_change_check.py --slices plans/q6-trust-enforcement/slices.yaml
+# Every openspec/changes/<slice id>/proposal.md must contain a line `initiative: q6-trust-enforcement`.
+# Cross-initiative: engagement-dispute-escalation and order-dispute-refund (and frontend-dispute-cases,
+# transitively) build only after q10-order-lifecycle has merged to main (order-receipt-completion:
+# return window, OrderReturn.can_escalate, ReturnRequested, GetReturnRequest for order.read).
+# All other slices build in parallel with q10.
+initiative: q6-trust-enforcement
+slices:
+  - id: q6-trust-contract
+    owner: platform-core
+    depends_on: []
+    provides:
+      - ListingService.ModerateListing
+      - ListingService.ListModerationQueue
+      - AIService.ScreenListing
+      - AccountAdminService.ListUsers
+      - AccountAdminService.SetUserStatus
+      - identity.events/UserStatusChanged
+      - EngagementService.CreateReport
+      - EngagementService.ListReports
+      - EngagementService.ResolveReport
+      - EngagementService.ListOrderDisputes
+      - EngagementService.ListDisputes
+      - engagement.events/DisputeResolved
+  - id: ai-listing-screen
+    owner: team-ai
+    depends_on: [q6-trust-contract]
+    uses: [AIService.ScreenListing]
+  - id: domain-listing-moderation      # task 1: X3 quick fix (ignore client status, REJECTED sticky)
+    owner: team-domain
+    depends_on: [ai-listing-screen]
+    uses: [AIService.ScreenListing, AuditService.WriteAuditEvent, ListingService.ModerateListing, ListingService.ListModerationQueue]
+  - id: identity-user-enforcement
+    owner: team-identity
+    depends_on: [q6-trust-contract]
+    uses: [AuditService.WriteAuditEvent, AccountAdminService.ListUsers, AccountAdminService.SetUserStatus, identity.events/UserStatusChanged]
+  - id: domain-seller-enforcement-hold
+    owner: team-domain
+    depends_on: [domain-listing-moderation, identity-user-enforcement]
+    uses: [identity.events/UserStatusChanged]
+  - id: engagement-listing-reports
+    owner: team-engagement
+    depends_on: [q6-trust-contract]
+    uses: [AuditService.WriteAuditEvent, EngagementService.CreateReport, EngagementService.ListReports, EngagementService.ResolveReport]
+  - id: engagement-dispute-escalation  # after q10-order-lifecycle merges
+    owner: team-engagement
+    depends_on: [engagement-listing-reports]
+    uses: [OrderService.GetReturnRequest, OrderService.GetOrder, EngagementService.ResolveDispute, EngagementService.ListOrderDisputes, EngagementService.ListDisputes, engagement.events/DisputeResolved]
+  - id: order-dispute-refund           # after q10-order-lifecycle merges
+    owner: team-order
+    depends_on: [engagement-dispute-escalation]
+    uses: [engagement.events/DisputeResolved, AuditService.WriteAuditEvent, OrderService.UpdateReturnStatus, order.events/ReturnRefunded]
+  - id: frontend-listing-moderation
+    owner: team-frontend
+    depends_on: [domain-listing-moderation, engagement-listing-reports]
+    uses: [ListingService.ModerateListing, ListingService.ListModerationQueue, EngagementService.CreateReport, EngagementService.ListReports, EngagementService.ResolveReport]
+  - id: frontend-user-enforcement
+    owner: team-frontend
+    depends_on: [identity-user-enforcement]
+    uses: [AccountAdminService.ListUsers, AccountAdminService.SetUserStatus, AuthService.Login]
+  - id: frontend-dispute-cases         # extends /admin/cases from frontend-listing-moderation
+    owner: team-frontend
+    depends_on: [frontend-listing-moderation, order-dispute-refund]
+    uses: [EngagementService.CreateDispute, EngagementService.GetDispute, EngagementService.ResolveDispute, EngagementService.ListOrderDisputes, EngagementService.ListDisputes]

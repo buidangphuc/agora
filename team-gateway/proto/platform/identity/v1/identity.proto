@@ -13,6 +13,10 @@ import "platform/common/v1/common.proto";
 // how a caller obtains one).
 service AuthService {
   rpc Register(RegisterRequest) returns (RegisterResponse);
+  // Login verifies credentials and opens a session. An account that is
+  // SUSPENDED or BANNED is refused with PERMISSION_DENIED and one generic
+  // message: it does not tell suspended from banned and does not reveal an end
+  // time. An expired suspension is lifted to ACTIVE at that login.
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
   rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
@@ -30,6 +34,9 @@ service AuthService {
   // Grace: replaying the token that was just rotated within 10 s (inclusive) of
   // the rotation is not reuse; it returns a fresh access token and an empty
   // refresh_token.
+  // An account that is SUSPENDED or BANNED is refused with PERMISSION_DENIED and
+  // one generic message: it does not tell suspended from banned and does not
+  // reveal an end time. Refresh never lifts an expired suspension; only Login does.
   rpc RefreshSession(RefreshSessionRequest) returns (RefreshSessionResponse);
 }
 
@@ -263,4 +270,80 @@ message PublicProfile {
 
 message GetPublicProfilesResponse {
   repeated PublicProfile profiles = 1;
+}
+
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_RESTRICTED = 2;
+  USER_STATUS_SUSPENDED = 3;
+  USER_STATUS_BANNED = 4;
+}
+
+// AccountAdminService is user administration for admins. A caller without scope
+// admin gets PERMISSION_DENIED and a caller without a principal gets
+// UNAUTHENTICATED; this holds for both RPCs.
+service AccountAdminService {
+  // ListUsers is admin-only. query matches a username prefix or an exact id;
+  // an UNSPECIFIED status means all. It is a read and not audited.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  // SetUserStatus is admin-only (scope admin; UNAUTHENTICATED without a
+  // principal, PERMISSION_DENIED otherwise). The user.set_status audit entry is
+  // written first; if the audit store is down the call fails UNAVAILABLE with
+  // no change. FAILED_PRECONDITION when the target is the caller's own id or an
+  // admin target. INVALID_ARGUMENT for status UNSPECIFIED, a reason_code that is
+  // not lower_snake_case up to 64 characters, note over 500 characters, until
+  // missing or not in the future for SUSPENDED, or until set for any other
+  // status. NOT_FOUND for an unknown user. Publishes one UserStatusChanged per
+  // call, including re-setting the current status. Moving to RESTRICTED,
+  // SUSPENDED or BANNED revokes every session of the user (one SessionRevoked
+  // per session); ACTIVE revokes none.
+  rpc SetUserStatus(SetUserStatusRequest) returns (SetUserStatusResponse);
+}
+
+message AdminUser {
+  string id = 1;
+  string username = 2;
+  repeated string roles = 3;
+  UserStatus status = 4;
+  string status_reason = 5;
+  google.protobuf.Timestamp status_until = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message ListUsersRequest {
+  string query = 1;
+  UserStatus status = 2;
+  platform.common.v1.PageRequest page = 3;
+}
+
+message ListUsersResponse {
+  repeated AdminUser users = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message SetUserStatusRequest {
+  string user_id = 1;
+  UserStatus status = 2;
+  string reason_code = 3;
+  string note = 4;
+  // Required for SUSPENDED; must be unset for every other status.
+  google.protobuf.Timestamp until = 5;
+}
+
+message SetUserStatusResponse {
+  AdminUser user = 1;
+  int32 sessions_revoked = 2;
+}
+
+// UserStatusChanged is the event published on Kafka topic `identity.events` (key = user
+// id, wrapped in platform.events.v1.EventEnvelope with type
+// "platform.identity.v1.UserStatusChanged") when an admin sets a user's status.
+message UserStatusChanged {
+  string user_id = 1;
+  UserStatus status = 2;
+  UserStatus previous_status = 3;
+  string reason_code = 4;
+  google.protobuf.Timestamp until = 5;
+  google.protobuf.Timestamp changed_at = 6;
 }

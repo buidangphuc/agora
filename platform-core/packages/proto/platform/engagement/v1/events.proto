@@ -6,6 +6,9 @@ syntax = "proto3";
 // switch on `type` and unmarshal `payload`.
 package platform.engagement.v1;
 
+import "google/protobuf/timestamp.proto";
+import "platform/engagement/v1/engagement.proto";
+
 // A user added a listing to their favorites. Payload of an EventEnvelope on `engagement.events`.
 message FavoriteAdded {
   string user_id = 1;
@@ -41,4 +44,17 @@ message ReviewCreated {
   string seller_id = 4;
   // Star rating given by the reviewer.
   int32 rating = 5;
+}
+
+// A dispute was closed (RESOLVED or REJECTED). Published on `engagement.events` (key = dispute id)
+// as the payload of an EventEnvelope with type "platform.engagement.v1.DisputeResolved".
+// By design this carries no free text: only ids, status and ruling.
+message DisputeResolved {
+  string dispute_id = 1;
+  string order_id = 2;
+  string return_id = 3;
+  DisputeStatus status = 4;
+  DisputeRuling ruling = 5;
+  string resolver_id = 6;
+  google.protobuf.Timestamp resolved_at = 7;
 }

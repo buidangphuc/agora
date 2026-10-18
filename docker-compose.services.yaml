@@ -221,6 +221,8 @@ services:
       - SEED_ADMIN_ENABLED=true
       - SEED_ADMIN_USERNAME=admin
       - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-admin-dev-password-123}
+      # SetUserStatus audits through team-audit and fails closed without it.
+      - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
 
   team-domain:
     build:
@@ -233,6 +235,7 @@ services:
         condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
+      - UPSTREAM_AI_ADDR=team-ai-svc:50060
       - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
       - KAFKA_ENABLED=true
@@ -240,6 +243,7 @@ services:
       - OUTBOX_ENABLED=true
       - GRPC_PORT=50051
       - ENV=local
+      - IDENTITY_CONSUMER_ENABLED=true
 
   team-search:
     build:

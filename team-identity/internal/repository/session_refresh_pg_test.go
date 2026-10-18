@@ -74,6 +74,9 @@ func refreshPG(t *testing.T) (*pgxpool.Pool, *PostgresSessionRepository) {
 			t.Fatalf("apply 0006 up: %v", err)
 		}
 	}
+	if _, err := pool.Exec(ctx, migrationSQL(t, "0007_user_status.up.sql")); err != nil {
+		t.Fatalf("apply 0007 up: %v", err)
+	}
 	for _, q := range []string{`DELETE FROM identity_outbox_events`, `DELETE FROM sessions`, `DELETE FROM users WHERE id LIKE 'u-rf%'`,
 		`INSERT INTO users (id, username, password_hash) VALUES ('u-rf1','u-rf1','x'), ('u-rf2','u-rf2','x')`} {
 		if _, err := pool.Exec(ctx, q); err != nil {

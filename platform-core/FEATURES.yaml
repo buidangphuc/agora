@@ -3220,6 +3220,773 @@ features:
     - unit
     status: not-testable
     notes: "Pure proto contract with no user journey; not producible end to end. Verified by: `buf lint` per consumer proto directory (tasks 2.3)"
+
+  # q6-trust-contract: pure proto contract, verified by Go tests, buf and cmp (no e2e).
+
+  - id: q6-trust-contract.unit-trust-contract-new-listing-statuses-have-fixed-numbers
+    title: "Trust contract: New listing statuses have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: New listing statuses have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: New listing statuses have fixed numbers (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/listing/v1/moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-moderationinfo-fields-are-fixed
+    title: "Trust contract: ModerationInfo fields are fixed"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: ModerationInfo fields are fixed"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: ModerationInfo fields are fixed (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-listing-with-moderation-round-trips
+    title: "Trust contract: Listing with moderation round-trips"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Listing with moderation round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Listing with moderation round-trips (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go round-trip test `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-old-readers-skip-the-moderation-field-and-tolerate-new-statuses
+    title: "Trust contract: Old readers skip the moderation field and tolerate new statuses"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Old readers skip the moderation field and tolerate new statuses"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Old readers skip the moderation field and tolerate new statuses (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go test `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-status-is-documented-as-server-owned
+    title: "Trust contract: Status is documented as server-owned"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Status is documented as server-owned"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Status is documented as server-owned (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-missing-server-owned-note-is-caught
+    title: "Trust contract: Missing server-owned note is caught"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Missing server-owned note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Missing server-owned note is caught (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-seller-cannot-set-server-owned-fields
+    title: "Trust contract: Seller cannot set server-owned fields"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Seller cannot set server-owned fields"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Seller cannot set server-owned fields (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-moderation-rpcs-exist-on-listingservice
+    title: "Trust contract: Moderation RPCs exist on ListingService"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Moderation RPCs exist on ListingService"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Moderation RPCs exist on ListingService (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-moderation-messages-have-fixed-numbers
+    title: "Trust contract: Moderation messages have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Moderation messages have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Moderation messages have fixed numbers (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-moderation-request-round-trips
+    title: "Trust contract: Moderation request round-trips"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Moderation request round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Moderation request round-trips (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go round-trip test `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-moderation-authz-and-audit-are-documented
+    title: "Trust contract: Moderation authz and audit are documented"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Moderation authz and audit are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Moderation authz and audit are documented (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-moderation-errors-and-transitions-are-documented
+    title: "Trust contract: Moderation errors and transitions are documented"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Moderation errors and transitions are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Moderation errors and transitions are documented (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `moderation_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-screenlisting-exists-on-aiservice
+    title: "Trust contract: ScreenListing exists on AIService"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: ScreenListing exists on AIService"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: ScreenListing exists on AIService (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/ai/v1/screen_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-screen-messages-have-fixed-numbers
+    title: "Trust contract: Screen messages have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Screen messages have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Screen messages have fixed numbers (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `screen_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-screen-response-round-trips
+    title: "Trust contract: Screen response round-trips"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Screen response round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Screen response round-trips (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go round-trip test `screen_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-screenlisting-is-documented-as-internal
+    title: "Trust contract: ScreenListing is documented as internal"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: ScreenListing is documented as internal"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: ScreenListing is documented as internal (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `screen_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-missing-internal-note-is-caught
+    title: "Trust contract: Missing internal note is caught"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Missing internal note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Missing internal note is caught (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `screen_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-accountadminservice-exists
+    title: "Trust contract: AccountAdminService exists"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: AccountAdminService exists"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: AccountAdminService exists (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/identity/v1/userstatus_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-user-status-messages-have-fixed-numbers
+    title: "Trust contract: User status messages have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: User status messages have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: User status messages have fixed numbers (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `userstatus_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-userstatuschanged-round-trips
+    title: "Trust contract: UserStatusChanged round-trips"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: UserStatusChanged round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: UserStatusChanged round-trips (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go round-trip test `userstatus_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-old-readers-tolerate-unknown-user-status
+    title: "Trust contract: Old readers tolerate unknown user status"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Old readers tolerate unknown user status"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Old readers tolerate unknown user status (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go test `userstatus_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-setuserstatus-authz-audit-and-errors-are-documented
+    title: "Trust contract: SetUserStatus authz, audit and errors are documented"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: SetUserStatus authz, audit and errors are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: SetUserStatus authz, audit and errors are documented (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `userstatus_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-listusers-is-documented-as-a-read
+    title: "Trust contract: ListUsers is documented as a read"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: ListUsers is documented as a read"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: ListUsers is documented as a read (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `userstatus_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-event-and-login-refusal-are-documented
+    title: "Trust contract: Event and login refusal are documented"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Event and login refusal are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Event and login refusal are documented (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `userstatus_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-non-admin-callers-are-denied-user-administration
+    title: "Trust contract: Non-admin callers are denied user administration"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Non-admin callers are denied user administration"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Non-admin callers are denied user administration (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `userstatus_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-report-rpcs-exist-on-engagementservice
+    title: "Trust contract: Report RPCs exist on EngagementService"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Report RPCs exist on EngagementService"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Report RPCs exist on EngagementService (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `platform-core/packages/proto/platform/engagement/v1/trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-report-messages-have-fixed-numbers
+    title: "Trust contract: Report messages have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Report messages have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Report messages have fixed numbers (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-report-round-trips
+    title: "Trust contract: Report round-trips"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Report round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Report round-trips (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go round-trip test `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-createreport-rules-are-documented
+    title: "Trust contract: CreateReport rules are documented"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: CreateReport rules are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: CreateReport rules are documented (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-report-admin-rpcs-are-documented
+    title: "Trust contract: Report admin RPCs are documented"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Report admin RPCs are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Report admin RPCs are documented (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-reporter-identity-is-documented-as-admin-only
+    title: "Trust contract: Reporter identity is documented as admin-only"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Reporter identity is documented as admin-only"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Reporter identity is documented as admin-only (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-missing-audit-first-note-is-caught
+    title: "Trust contract: Missing audit-first note is caught"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Missing audit-first note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Missing audit-first note is caught (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-dispute-rpcs-exist
+    title: "Trust contract: Dispute RPCs exist"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Dispute RPCs exist"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Dispute RPCs exist (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-dispute-fields-have-fixed-numbers
+    title: "Trust contract: Dispute fields have fixed numbers"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Dispute fields have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Dispute fields have fixed numbers (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor test `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-dispute-with-ruling-round-trips
+    title: "Trust contract: Dispute with ruling round-trips"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Dispute with ruling round-trips"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Dispute with ruling round-trips (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go round-trip test `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-old-readers-skip-the-dispute-additions
+    title: "Trust contract: Old readers skip the dispute additions"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Old readers skip the dispute additions"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Old readers skip the dispute additions (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go test `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-disputeresolved-message-is-fixed
+    title: "Trust contract: DisputeResolved message is fixed"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: DisputeResolved message is fixed"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: DisputeResolved message is fixed (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go descriptor and round-trip test `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-dispute-escalation-errors-are-documented
+    title: "Trust contract: Dispute escalation errors are documented"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Dispute escalation errors are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Dispute escalation errors are documented (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-dispute-state-machine-is-documented
+    title: "Trust contract: Dispute state machine is documented"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Dispute state machine is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Dispute state machine is documented (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-dispute-listing-authz-is-documented
+    title: "Trust contract: Dispute listing authz is documented"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Dispute listing authz is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Dispute listing authz is documented (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-disputeresolved-delivery-is-documented
+    title: "Trust contract: DisputeResolved delivery is documented"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: DisputeResolved delivery is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: DisputeResolved delivery is documented (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-non-party-callers-are-denied-dispute-reads
+    title: "Trust contract: Non-party callers are denied dispute reads"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Non-party callers are denied dispute reads"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Non-party callers are denied dispute reads (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: comment-text assertion in `trust_compat_test.go` (tasks 2.1)"
+
+  - id: q6-trust-contract.unit-trust-contract-catalogue-lists-the-new-actions
+    title: "Trust contract: Catalogue lists the new actions"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Catalogue lists the new actions"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Catalogue lists the new actions (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go test `platform-core/packages/proto/platform/audit/v1/auditquery_roundtrip_test.go` (tasks 2.2)"
+
+  - id: q6-trust-contract.unit-trust-contract-audit-wire-is-unchanged
+    title: "Trust contract: Audit wire is unchanged"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Audit wire is unchanged"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Audit wire is unchanged (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: existing Go test `auditquery_roundtrip_test.go` (tasks 2.2)"
+
+  - id: q6-trust-contract.unit-trust-contract-catalogue-test-rejects-a-missing-action
+    title: "Trust contract: Catalogue test rejects a missing action"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Catalogue test rejects a missing action"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Catalogue test rejects a missing action (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: Go test `auditquery_roundtrip_test.go` (tasks 2.2)"
+
+  - id: q6-trust-contract.unit-trust-contract-change-is-backward-compatible
+    title: "Trust contract: Change is backward compatible"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Change is backward compatible"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Change is backward compatible (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: command run recorded in tasks 1.6 (`make -C platform-core lint-proto breaking`)"
+
+  - id: q6-trust-contract.unit-trust-contract-wire-breaking-edit-is-rejected
+    title: "Trust contract: Wire-breaking edit is rejected"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Wire-breaking edit is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Wire-breaking edit is rejected (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: scratch-copy run of `buf breaking`, recorded in tasks 1.6"
+
+  - id: q6-trust-contract.unit-trust-contract-new-symbols-in-every-generated-language
+    title: "Trust contract: New symbols in every generated language"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: New symbols in every generated language"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: New symbols in every generated language (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: grep over `platform-core/gen` outputs, recorded in tasks 2.3"
+
+  - id: q6-trust-contract.unit-trust-contract-copies-match-the-source
+    title: "Trust contract: Copies match the source"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Copies match the source (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: one-off `cmp` loop recorded in tasks 3.1"
+
+  - id: q6-trust-contract.unit-trust-contract-drifted-or-missing-copy-is-rejected
+    title: "Trust contract: Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Drifted or missing copy is rejected (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: scratch-tree run of the `cmp` loop, recorded in tasks 3.1"
+
+  - id: q6-trust-contract.unit-trust-contract-consumer-copies-lint
+    title: "Trust contract: Consumer copies lint"
+    persona: guest
+    priority: P2
+    summary: "Trust contract: Consumer copies lint"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Trust contract: Consumer copies lint (unit-verified)"
+    tags: [q6-trust-contract, unit]
+    status: not-testable
+    notes: "q6-trust-contract: pure proto contract, not producible end to end. Verified by: `buf lint` run per consumer, recorded in tasks 3.2"
   - id: order-lifecycle-contract.confirmreceipt-rpc-exists
     title: "Order lifecycle contract: ConfirmReceipt RPC exists"
     persona: guest

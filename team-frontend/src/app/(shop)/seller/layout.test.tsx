@@ -131,4 +131,18 @@ describe("SellerLayout", () => {
     await renderLayout();
     expect(screen.getAllByText("Shop #zxcvbn").length).toBeGreaterThan(0);
   });
+
+  it("shows the restricted notice without listing.write", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({ ...seller, scopes: [] });
+    headerValues.pathname = "/seller/new";
+    await renderLayout();
+    expect(screen.getByText("Cần tài khoản Người Bán")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("page body")).toBeNull();
+    expect(redirect).not.toHaveBeenCalled();
+  });
 });

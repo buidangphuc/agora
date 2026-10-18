@@ -242,3 +242,28 @@ describe("CockpitView audit link", () => {
     expect(link.getAttribute("href")).toBe("/admin/audit");
   });
 });
+
+describe("CockpitView users link", () => {
+  it("shows the users link (Users UI: Cockpit shows the users link)", () => {
+    mockFetch(() => new Promise(() => {}));
+    render(<CockpitView initial={EMPTY} />);
+    const links = screen.getAllByRole("link", { name: "Quản lý người dùng" });
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute("href")).toBe("/admin/users");
+  });
+});
+
+describe("CockpitView moderation links", () => {
+  it("shows the moderation links (Moderation UI: Cockpit shows both links)", () => {
+    mockFetch(() => new Promise(() => {}));
+    render(<CockpitView initial={EMPTY} />);
+    const listings = screen.getAllByRole("link", {
+      name: "Kiểm duyệt tin đăng",
+    });
+    expect(listings).toHaveLength(1);
+    expect(listings[0].getAttribute("href")).toBe("/admin/listings");
+    const cases = screen.getAllByRole("link", { name: "Hộp thư vụ việc" });
+    expect(cases).toHaveLength(1);
+    expect(cases[0].getAttribute("href")).toBe("/admin/cases");
+  });
+});
