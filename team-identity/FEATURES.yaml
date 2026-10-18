@@ -2338,3 +2338,80 @@ features:
     status: automated
     covered_by: "auth/session_retention.feature::Session retention: default stack keeps rows"
     notes: "identity-session-retention: e2e in auth/session_retention.feature"
+
+  # ── frontend-session-client-context (openspec/changes/frontend-session-client-context) ──
+
+  - id: auth.session-client-context-rotation-updates-device-and-ip
+    title: "Session client context: rotation updates device and IP"
+    persona: buyer
+    priority: P1
+    summary: "A refreshed session shows the device that refreshed it"
+    entry_route: "/account/security"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Session client context: rotation updates device and IP"
+    tags: [auth, session]
+    status: planned
+    notes: "frontend-session-client-context: e2e in auth/session_client_context.feature"
+
+  - id: auth.session-client-context-unit-rotation-records-ip-via-repository
+    title: "Session client context: rotation records IP via repository"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-identity]
+    acceptance:
+      - "Session client context: rotation records IP via repository"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (the browser cannot set the IP in the e2e stack). Verified by: `team-identity/internal/service/auth_refresh_test.go` and `team-identity/internal/repository/session_test.go`"
+
+  - id: auth.session-client-context-unit-empty-client-keeps-stored-values-boundary
+    title: "Session client context: empty client keeps stored values (boundary)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-identity]
+    acceptance:
+      - "Session client context: empty client keeps stored values (boundary)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (needs a refresh with no client context and 400-byte values, not producible through the browser). Verified by: `team-identity/internal/service/auth_refresh_test.go`"
+
+  - id: auth.session-client-context-unit-grace-replay-does-not-update-boundary
+    title: "Session client context: grace replay does not update (boundary)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-identity]
+    acceptance:
+      - "Session client context: grace replay does not update (boundary)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (timing-dependent, not stable end to end). Verified by: `team-identity/internal/service/auth_refresh_test.go`"
+
+  - id: auth.session-client-context-unit-rejected-refresh-updates-nothing-error
+    title: "Session client context: rejected refresh updates nothing (error)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-identity]
+    acceptance:
+      - "Session client context: rejected refresh updates nothing (error)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (session rows are not readable by e2e beyond ListSessions). Verified by: `team-identity/internal/service/auth_refresh_test.go`"
+
+  - id: auth.session-client-context-unit-refresh-needs-no-principal-and-grants-nothing-permission
+    title: "Session client context: refresh needs no principal and grants nothing (permission)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-identity]
+    acceptance:
+      - "Session client context: refresh needs no principal and grants nothing (permission)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (identity trusts only gateway-stamped metadata (ADR-0010); forged metadata cannot be sent straight at identity). Verified by: `team-identity/internal/handler/auth_test.go`"

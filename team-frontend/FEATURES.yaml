@@ -13871,3 +13871,77 @@ features:
     tags: [auth, session, unit]
     status: not-testable
     notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `platform-gitops/tests/test_frontend_cookie_secure_manifests.py`"
+
+  # ── frontend-session-client-context (openspec/changes/frontend-session-client-context) ──
+
+  - id: auth.session-client-context-unit-middleware-refresh-forwards-ip-and-ua
+    title: "Session client context: middleware refresh forwards IP and UA"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Session client context: middleware refresh forwards IP and UA"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (the container-to-gateway headers are not observable from the browser). Verified by: `team-frontend/src/lib/gateway/refresh.test.ts` and `team-frontend/src/middleware.test.ts`"
+
+  - id: auth.session-client-context-unit-logout-refresh-and-revoke-forward-ip-and-ua
+    title: "Session client context: logout refresh and revoke forward IP and UA"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Session client context: logout refresh and revoke forward IP and UA"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (the frontend-to-gateway request headers are not observable from the browser). Verified by: `team-frontend/src/features/auth/actions.test.ts`"
+
+  - id: auth.session-client-context-unit-revoke-another-device-forwards-ip-and-ua
+    title: "Session client context: revoke another device forwards IP and UA"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Session client context: revoke another device forwards IP and UA"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (the frontend-to-gateway request headers are not observable from the browser). Verified by: `team-frontend/src/lib/gateway/sessions.test.ts`"
+
+  - id: auth.session-client-context-unit-spoofed-leftmost-x-forwarded-for-is-ignored-permission
+    title: "Session client context: spoofed leftmost X-Forwarded-For is ignored (permission)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Session client context: spoofed leftmost X-Forwarded-For is ignored (permission)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (TRUSTED_PROXY_HOPS derivation inside the frontend container is not observable from the browser). Verified by: `team-frontend/src/lib/gateway/client-context.test.ts`"
+
+  - id: auth.session-client-context-unit-missing-headers-boundary
+    title: "Session client context: missing headers (boundary)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Session client context: missing headers (boundary)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (the container-to-gateway headers are not observable from the browser). Verified by: `team-frontend/src/lib/gateway/refresh.test.ts`"
+
+  - id: auth.session-client-context-unit-refresh-failure-behaviour-unchanged-error
+    title: "Session client context: refresh failure behaviour unchanged (error)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-frontend]
+    acceptance:
+      - "Session client context: refresh failure behaviour unchanged (error)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (covered end to end by frontend-session-continuity S9/S10; the new header attachment is unit-verified). Verified by: `team-frontend/src/middleware.test.ts`"
