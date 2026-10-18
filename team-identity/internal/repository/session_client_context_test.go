@@ -31,7 +31,7 @@ func ccSeed(t *testing.T, r SessionRepository, user, hash string, created time.T
 
 func ccRotate(t *testing.T, r SessionRepository, p, n string, now time.Time, ip, dev string) RotateResult {
 	t.Helper()
-	res, err := r.RotateRefresh(context.Background(), p, n, now, refreshGrace, refreshMaxAge, ip, dev, okEv("cc-ev"))
+	res, err := r.RotateRefresh(context.Background(), p, n, now, refreshGrace, refreshMaxAge, ip, dev, okEv("cc-ev-"+p))
 	if err != nil {
 		t.Fatalf("RotateRefresh: %v", err)
 	}

@@ -54,12 +54,12 @@ type rSessions struct {
 	calls     int
 }
 
-func (s *rSessions) RotateRefresh(ctx context.Context, p, n string, now time.Time, g, m time.Duration, ev repository.EnqueueFn) (repository.RotateResult, error) {
+func (s *rSessions) RotateRefresh(ctx context.Context, p, n string, now time.Time, g, m time.Duration, ip, device string, ev repository.EnqueueFn) (repository.RotateResult, error) {
 	s.calls++
 	if s.rotateErr != nil {
 		return repository.RotateResult{}, s.rotateErr
 	}
-	return s.InMemorySessionRepository.RotateRefresh(ctx, p, n, now, g, m, ev)
+	return s.InMemorySessionRepository.RotateRefresh(ctx, p, n, now, g, m, ip, device, ev)
 }
 
 type rEnv struct {
