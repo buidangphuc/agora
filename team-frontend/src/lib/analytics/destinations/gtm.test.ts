@@ -371,3 +371,85 @@ describe("applyConsent page_location (admin paths are path only)", () => {
     expect(loc).not.toContain("o-9");
   });
 });
+
+describe("page_referrer (scrubbed, pushed with every page_location)", () => {
+  type Push = { page_location?: string; page_referrer?: string };
+  const pagePushes = (): Push[] =>
+    ((window.dataLayer ?? []) as unknown[]).filter(
+      (e): e is Push =>
+        !!e &&
+        typeof e === "object" &&
+        typeof (e as Push).page_location === "string",
+    );
+  const setReferrer = (ref: string) =>
+    Object.defineProperty(document, "referrer", {
+      value: ref,
+      configurable: true,
+    });
+
+  beforeEach(() => {
+    document.head.innerHTML = "";
+    delete (window as { dataLayer?: unknown }).dataLayer;
+    vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    delete (document as { referrer?: unknown }).referrer;
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("[Referrer hygiene: login URL referrer loses returnUrl] page_referrer drops login returnUrl", () => {
+    setReferrer(
+      "https://shop.example/login?returnUrl=%2Fadmin%2Fusers%3Fquery%3Da%40b.vn",
+    );
+    applyConsent(ALL);
+    const pushes = pagePushes();
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0].page_referrer).toBe("https://shop.example/login");
+    const dump = JSON.stringify(window.dataLayer);
+    expect(dump).not.toContain("returnUrl");
+    expect(dump).not.toContain("b.vn");
+  });
+
+  it("[Referrer hygiene: admin referrer loses its query] page_referrer drops admin query", () => {
+    setReferrer("https://shop.example/admin/audit?target_id=u-1");
+    applyConsent(ALL);
+    expect(pagePushes()[0].page_referrer).toBe(
+      "https://shop.example/admin/audit",
+    );
+    expect(JSON.stringify(window.dataLayer)).not.toContain("target_id");
+  });
+
+  it.each(["", "not a url"])(
+    "[Referrer hygiene: empty or invalid referrer becomes empty string] referrer %j gives page_referrer empty string, no throw",
+    (ref) => {
+      setReferrer(ref);
+      expect(() => applyConsent(ALL)).not.toThrow();
+      const pushes = pagePushes();
+      expect(pushes).toHaveLength(1);
+      expect(pushes[0].page_referrer).toBe("");
+    },
+  );
+
+  it("[Referrer hygiene: login URL referrer loses returnUrl] client navigation push also carries the scrubbed page_referrer", async () => {
+    const { trackPageLocation } = await import("./gtm");
+    setReferrer("https://shop.example/admin/audit?target_id=u-1");
+    applyConsent(ALL);
+    window.history.pushState(null, "", "/search?q=ao");
+    trackPageLocation();
+    const pushes = pagePushes();
+    const last = pushes[pushes.length - 1];
+    expect(last.page_location).toBe(`${window.location.origin}/search?q=ao`);
+    expect(last.page_referrer).toBe("https://shop.example/admin/audit");
+  });
+
+  it("[Referrer hygiene: no push without analytics consent] no page_location and no page_referrer without consent", async () => {
+    const { trackPageLocation } = await import("./gtm");
+    setReferrer("https://shop.example/admin/audit?target_id=u-1");
+    applyConsent(NONE);
+    trackPageLocation();
+    expect(pagePushes()).toHaveLength(0);
+    expect(JSON.stringify(window.dataLayer)).not.toContain("page_referrer");
+    expect(JSON.stringify(window.dataLayer)).not.toContain("target_id");
+  });
+});
