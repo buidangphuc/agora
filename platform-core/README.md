@@ -186,7 +186,7 @@ tracing interceptors, health, reflection, and an in-memory `ListingService` seed
 ## Docs and ADRs
 
 Rules live in the monorepo root `AGENTS.md`. Start with `docs/ARCHITECTURE.md` (3 rules)
-and `docs/AGENT_GUIDE.md`. Other docs: `ROADMAP`, `DATA_ARCHITECTURE`,
+and `docs/AGENT_GUIDE.md`. Other docs: `DATA_ARCHITECTURE`,
 `INFRASTRUCTURE_ARCHITECTURE`, `SECURITY_AND_RELIABILITY`,
 `CONTRACT_VERSIONING_GUIDE`, `TAG_CLASSIFIER_AND_FILTER_ENRICHMENT`, `UI_SYSTEM_DESIGN`.
 

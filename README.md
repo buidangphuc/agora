@@ -4,17 +4,17 @@
 It is a standard for letting AI coding agents build and maintain a large multi-service system
 without the system drifting, breaking its own rules, or passing tests that prove nothing.
 
-The marketplace itself (24 bounded contexts: Go gRPC services, a Next.js storefront, Kafka/CQRS,
+The marketplace itself (25 bounded contexts: Go gRPC services, a Next.js storefront, Kafka/CQRS,
 a recommender pipeline) is the **testbed**. It is big and coupled enough that unstructured
 "prompt and hope" development fails quickly. What this repository shows is the lifecycle, the
 gates and the evidence that keep agent output correct as it scales.
 
 | | |
 |---|---|
-| Bounded contexts coordinated | **24** (`team-*` services, `platform-*` platforms), one git repository |
+| Bounded contexts coordinated | **25** (`team-*` services, `platform-*` platforms), one git repository |
 | Commits | **2082**, of which **1672** are agent co-authored |
 | Requirement changes run through the lifecycle | **139** OpenSpec changes (96 archived) · **79** capability specs |
-| Capabilities with a machine-readable contract | `FEATURES.yaml` acceptance coverage **925/932 automated (99%)** |
+| Capabilities with a machine-readable contract | `FEATURES.yaml` entries **1341/2770 `automated` (48%)**; 1422 `not-testable`, 7 `planned` |
 | End-to-end suite | **255** `.feature` files against the real stack (parallel lane + serial destructive lane) |
 | Gates | **4** versioned question sets (`spec`, `task`, `feature`, `release`; 32 questions, each traced to a standard) · **9** CI jobs, 5 required on `main` |
 | Guardrails | **16** skills · **11** sub-agents · **4** hooks · **17** ADRs |

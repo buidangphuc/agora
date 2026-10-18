@@ -110,8 +110,8 @@ make -C deploy smoke          # platform-e2e against the cluster ingress
 make -C deploy cluster-down
 ```
 
-See `deploy/README.md`. Flow: dev push, CI (planned `deploy/act`, not yet present) builds and pushes the image and bumps
-the tag in `envs/local/values.yaml`, Gitea, ArgoCD. CI is not in this repo.
+See `deploy/README.md`. Flow: `make -C deploy images`, then `release-tag` bumps the tag in `envs/<env>/values.yaml`,
+`gitops-push` publishes to Gitea, ArgoCD syncs. CI does not bump tags.
 
 ## Check and verify
 
@@ -124,7 +124,7 @@ the tag in `envs/local/values.yaml`, Gitea, ArgoCD. CI is not in this repo.
 - Local per-service Applications carry **inline values**, while `envs/services/<svc>.yaml` is a copy of them for the ApplicationSet. The two can drift; nothing checks it.
 - `platform-modelserve` runs the tei-fake stand-in for TEI (no real embeddings), so semantic quality on the cluster is fake by design.
 - `envs/staging/values.yaml` and `envs/prod/values.yaml` lack tags for `team-referral`, `team-verification`, `team-sharing`, `team-audit`, `team-promotion` (all are in the ApplicationSet list). The chart falls back to `defaultTag: local`.
-- Service lists are duplicated by hand in four places: `argocd/apps/`, `appset-services.yaml`, `vault-config.yaml` `SERVICES`, `postgres.yaml` `SERVICES`. The latter two differ (gateway and ai are Vault-only).
+- Service lists are duplicated by hand in four places: `argocd/apps/`, `appset-services.yaml` (16 `team-*`, incl. frontend), `vault-config.yaml` `SERVICES` (18: 15 `team-*` without frontend, plus `ga4-relay`, `mlflow`, `platform-finetune`), `postgres.yaml` `SERVICES` (13 `team-*`). Vault-only (not in postgres): `team-gateway`, `team-ai`, `ga4-relay`, `mlflow`, `platform-finetune`.
 - The scaffold skill omits `envs/services/` and the ApplicationSet list.
 - `platform-gitops` has no entry in the root `AGENTS.md` repo map, and no helm/kubeconform/ArgoCD diff check is wired.
 

@@ -96,7 +96,8 @@ features:
       Backend invariant; assert via order.saga-compensation rather than directly.
       Hardened: ReserveStock is now idempotent on a caller-supplied reservation_id
       (re-reserve with the same id is a no-op) so a retried checkout cannot
-      double-decrement stock, and reservations carry a TTL swept by team-order
+      double-decrement stock, and reservations carry a TTL swept by team-domain's
+      ReservationSweeper (internal/service/sweeper.go; team-order runs its own saga-side sweep).
       (SA-M6/C2). See ADR-0008 (inventory reservation), ADR-0007 (durable saga).
 
   - id: listing.event-durability

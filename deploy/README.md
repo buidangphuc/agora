@@ -12,7 +12,6 @@ the cluster. CI only builds images + bumps tags in `platform-gitops`.
 | Edge / LB | ALB | **ingress-nginx** (host `*.localtest.me`) |
 | CD engine | ArgoCD | **ArgoCD** (ns `argocd`) |
 | Git host (desired state) | GitHub / CodeCommit | **Gitea** (`gitea.localtest.me`, repo `ci/platform-gitops`) |
-| Actions runner | GitHub-hosted | **act** |
 | Data infra | RDS / MSK / OpenSearch / S3 | Postgres / Redpanda / OpenSearch / MinIO (in-cluster) |
 
 ## Bring it up
@@ -35,7 +34,6 @@ deploy/kind/        kind cluster + registry + ingress + argocd bootstrap
 deploy/gitea/       Gitea git host + repo/token/app-of-apps bootstrap
 deploy/argocd/      root app-of-apps Application
 deploy/images/      retag+push local images to the registry (ECR stand-in)
-deploy/act/         local GitHub Actions payloads (P4, not created yet)
 ../platform-gitops/ desired-state repo (Helm charts + envs/local + argocd/apps)
 ```
 
@@ -44,6 +42,7 @@ Vault is configured declaratively by the `vault-config` ArgoCD app
 bootstrap script. To add a service, append it to `SERVICES` in that manifest.
 
 ## GitOps flow
-`dev push → CI (act): buf + make check + build/push image + e2e gate + bump tag in
-platform-gitops → Gitea → ArgoCD auto-sync → cluster (+ PostSync e2e smoke)`.
+`make -C deploy images` (push to the local registry) → `release-tag` (bump the tag in
+`platform-gitops/envs/$RELEASE_ENV/values.yaml`) → `gitops-push` (local Gitea) → ArgoCD auto-sync →
+cluster (+ PostSync e2e smoke)`. CI does not bump platform-gitops.
 Never `kubectl apply`/`helm upgrade` by hand — change `platform-gitops` instead.

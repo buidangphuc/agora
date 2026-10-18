@@ -51,6 +51,8 @@ browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) �
 | **platform-recsys** | Python | Offline ALS recommendation model trainer + candidate indexing (owns DB/Qdrant collection) | — |
 | **platform-modelserve** | Python | Internal ML model serving router + Hugging Face TEI / vLLM runtime integration (ADR-0011) | :8100 (router HTTP) |
 | **platform-finetune** | Python | LLM fine-tune pipeline imported from MLOps (Qwen2.5-0.5B on AG News); weekly gated training job publishing `finetune-classifier` to the shared registry; no consumer yet | — |
+| **platform-featurestore** | Python | Batch job (`python -m featurestore materialize`) that turns warehouse Parquet exports into an offline snapshot and Redis online features; not a server (no port, proto, events or DB) | — |
+| **platform-forecast** | Python | Offline probabilistic demand-forecasting library (p10/p50/p90 per listing); unwired: not deployed, nothing calls it | — |
 
 Shared library (not a service): **`platform-core/packages/py-modelregistry`** (package
 `modelregistry`) — the MLflow registry client + publish gate that every trainer runs in-process
@@ -130,7 +132,7 @@ platform-core/tools/seed-marketplace.sh
 ```
 
 Ports: gateway `:8080`, frontend `:3000`, domain `:50051`, search `:50052`,
-identity `:50053`, engagement `:50054`, promotion `:50061`, referral `:50062`, verification `:50064`, sharing `:50065`, audit `:50066`. Modelserve router: `:8100` (TEI embed `:8101`, TEI rerank `:8102`, vLLM `:8103`). Infra: redis `6379`, qdrant `6333/6334`, redpanda `19092` (host), rabbitmq `5672/15672`,
+identity `:50053`, engagement `:50054`, promotion `:50061`, referral `:50062`, verification `:50064`, sharing `:50065`, audit `:50066`. Modelserve router: `:8100`. Infra: redis `6379`, qdrant `6333/6334`, redpanda `19092` (host), rabbitmq `5672/15672`,
 opensearch `9200`, otel-collector `4317`, MLflow `5050` (backed by `postgres-mlflow`, which has
 no host port — reach it only from the compose network).
 
@@ -258,7 +260,6 @@ so many changes/agents run in parallel (each change is an isolated
 
 ## 10. Deeper docs
 
-- `platform-core/docs/ROADMAP.md` — core ecommerce feature plan (phases 3–7).
 - `platform-core/docs/ARCHITECTURE.md` — the 3 rules + protocol-per-hop.
 - `platform-core/docs/UI_SYSTEM_DESIGN.md` — 3-tier design tokens, component taxonomy & Next.js SSR frontend architecture.
 - `platform-core/docs/AGENT_GUIDE.md` — contract workflow + merge gate.

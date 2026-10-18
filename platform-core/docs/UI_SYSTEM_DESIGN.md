@@ -118,7 +118,7 @@ Tailwind without depending on `antd`:
 | Component token (`Button.primaryColor`, ...) | Tier 3 class maps in `src/components/ui/*` |
 | Layout `Grid` (24 columns) / `Space` | Tailwind grid + `gap-*` on the 4px scale |
 | Exception 403/404/500 | `src/app/not-found.tsx`, `src/app/error.tsx` |
-| Skeleton | `src/app/loading.tsx` |
+| Skeleton | Per-route `loading.tsx`, e.g. `team-frontend/src/app/(shop)/cart/loading.tsx` |
 
 Enforcement: `npm run check` runs `scripts/check-tokens.mjs`, which rejects raw hex, `rgb()`/`hsl()`, arbitrary
 `utility-[...]` values and inline style colours in `src/**/*.tsx`; `// tokens-allow: <reason>` exempts one line.
@@ -171,7 +171,7 @@ Handoff and implementation defects arise from guessing missing states. Every int
 
 ---
 
-## 5. Technical Frontend Architecture (Next.js 14 App Router)
+## 5. Technical Frontend Architecture (Next.js 15 App Router)
 
 ### A. Server Components vs Client Boundaries
 1. **Server Components (RSC) by Default**:
@@ -231,7 +231,7 @@ To avoid heavy `@ant-design` runtime dependencies while adopting its full enterp
 | `Result` | Post-action state (Order Success, Payment Fail) | `src/components/ui/Result.tsx` |
 | `Statistic` | Executive KPI cards with trends & prefixes | `src/components/ui/Statistic.tsx` |
 | `Timeline / Steps` | Sequential shipment & Saga checkpoints | `OrderTimeline.tsx` (Vertical Stepper) |
-| `Workplace Dashboard` | Merchant center overview & fast actions | `app/seller/page.tsx` + `SellerLayout` |
+| `Workplace Dashboard` | Merchant center overview & fast actions | `team-frontend/src/app/(shop)/seller/(dashboard)/page.tsx` + `SellerLayout` (`seller/layout.tsx`) |
 
 ---
 

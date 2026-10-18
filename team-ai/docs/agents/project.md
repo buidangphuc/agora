@@ -18,11 +18,11 @@ team-ai: the AI service of the agora platform. Redis and recommendations are man
 - `uv run ruff check app tests scripts`
 - `uv run --all-extras pyright`
 - `uv run --all-extras python -m scripts.check_env_example` (`.env.example` matches Settings)
-- `SKIP=commitizen uv run pre-commit run --all-files --hook-stage pre-commit`
 - `uv run --all-extras pytest -q --cov=app --cov-report=term-missing --cov-fail-under=80`
 - `uv run --env-file .env.example --all-extras python -m scripts.run_eval --min-score 0.8`
 - `uv run --no-dev --env-file .env.example python -c "import main; print('ok')"` (after `uv sync --frozen --no-dev` and `uvx --from grpcio-tools python -m scripts.gen_proto`)
 - `REAL_REDIS_URL=redis://localhost:6379/15 uv run --all-extras pytest -q -p tests.plugins.real_redis tests/unit/modules/test_rate_limit.py tests/unit/modules/test_quota.py` (needs a Redis on :6379)
+- Local only (not in CI): `SKIP=commitizen uv run pre-commit run --all-files --hook-stage pre-commit`
 
 ## Tracker
 <!-- read by: to-tickets -->

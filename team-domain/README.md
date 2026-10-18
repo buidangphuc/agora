@@ -163,7 +163,6 @@ If you enable Kafka standalone, point `KAFKA_BROKERS` at a reachable broker (pla
 - The three fine-grained listing events (`ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStatusChanged`) are defined in the proto but never emitted.
 - No service-to-service authentication beyond trusting `x-principal-*` metadata: a caller that reaches port 50051 directly can forge a service principal (ADR-0010 adds only an interim NetworkPolicy).
 - `listing.stock-reservation` and `listing.event-durability` have no e2e coverage.
-- The `FEATURES.yaml` note says the reservation TTL is swept by team-order; the sweeper actually runs in this service.
 
 ## Links
 

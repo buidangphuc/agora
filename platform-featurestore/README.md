@@ -2,8 +2,9 @@
 
 **Status: batch job** (`python -m featurestore materialize`), introduced by the OpenSpec change
 `featurestore-materialization` (AI-first 4/7). It is not a server: no port, no proto, no events, no database.
-It reads the warehouse Parquet exports and writes an offline snapshot plus an online copy in Redis.
-Serving features to team-ai is a later change (`recs-serving-safeguards`).
+It reads the warehouse Parquet exports and writes an offline snapshot plus an online copy in Redis (DB 2).
+team-ai reads the online item features from that Redis DB when `RECS_FEATURESTORE_REDIS_URL` is set (the root
+compose sets it to `redis://redis:6379/2`); when it is empty the feature store is off for team-ai.
 
 ## Contract
 

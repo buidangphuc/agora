@@ -78,11 +78,3 @@ check-jsonschema --schemafile schemas/features.schema.json docs/examples/team-or
 Inside a YAML flow list, quote any path containing `{param}` — `{` starts a flow
 mapping otherwise: `related_routes: ["/checkout/pay/{order_id}", /cart]`.
 Plain scalars (`entry_route: /listing/{listing_id}`) are fine unquoted.
-
-## Proposed rollout (after this schema is approved)
-
-1. Approve schema + field set (this doc).
-2. Add `FEATURES.yaml` to 2 pilot repos (`team-frontend`, `team-order`), back-filling
-   `status: automated` + `covered_by` for the scenarios platform-e2e already runs.
-3. Build the loader/validator + a `make features-check` gate in platform-e2e.
-4. Roll out to the remaining repos; wire generation + the coverage report.

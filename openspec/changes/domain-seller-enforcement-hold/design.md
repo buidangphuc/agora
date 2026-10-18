@@ -12,3 +12,6 @@
 - R2 [limits] Seller hold: Suspension holds published and pending listings: What happens above 5,000 listings? → **One transaction in batches of 500 with no cap; 5,000 is only the tested bound** (human)
 - R3 [errors] Seller hold: Malformed event is parked, not applied: How is an unknown or future UserStatus value handled? → **Treated as malformed and parked on the DLQ** (human)
 - R4 [security] Seller hold: Other event types are ignored: How are forged UserStatusChanged events prevented? → **Kafka ACL on identity.events, accepted as a deploy item for LOCK.md's human list** (human)
+
+### Round 2 — 2026-10-18
+- Q1 [data] Proposal config/NFR: the proposal named group `team-domain-seller-hold` and DLQ `identity.events.team-domain.dlq`, the merged code uses `team-domain-identity` (`team-domain/internal/config/config.go:79`) and `identity.events.dlq` (`internal/consumer/consumer.go:112`). Which is right? → **Align the proposal to the code; no behaviour change** (human)
