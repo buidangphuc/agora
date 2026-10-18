@@ -110,7 +110,8 @@ const (
 	// ScopeListingWrite is granted to seller and admin roles, never to buyers.
 	ScopeListingWrite = "listing.write"
 	// ScopePromoReserve is service-only (held by service-team-order, granted to no
-	// user role): it gates the voucher redemption saga RPCs.
+	// user role): it gates the voucher redemption saga RPCs and the flash-sale stock
+	// holds (Reserve/Commit/ReleaseFlashSaleStock).
 	ScopePromoReserve = "promotion.reserve"
 )
 
