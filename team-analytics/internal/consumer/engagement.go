@@ -22,6 +22,7 @@ const (
 	SellerFollowedEventType   = "platform.engagement.v1.SellerFollowed"
 	SellerUnfollowedEventType = "platform.engagement.v1.SellerUnfollowed"
 	ReviewCreatedEventType    = "platform.engagement.v1.ReviewCreated"
+	ReviewHiddenEventType     = "platform.engagement.v1.ReviewHidden"
 )
 
 // ErrUnknownEngagementType marks a well-formed envelope whose type is not an
@@ -64,6 +65,16 @@ func EngagementFactFromEnvelope(value []byte) (*warehouse.EngagementFactRecord, 
 		payload, rec.Fact = m, warehouse.FactReviewCreated
 		fill = func() {
 			rec.UserID, rec.ListingID, rec.SellerID, rec.Rating = m.GetUserId(), m.GetListingId(), m.GetSellerId(), m.GetRating()
+			rec.ReviewID = m.GetReviewId()
+		}
+	case ReviewHiddenEventType:
+		m := &engagementv1.ReviewHidden{}
+		payload, rec.Fact = m, warehouse.FactReviewHidden
+		fill = func() {
+			rec.ReviewID, rec.ListingID = m.GetReviewId(), m.GetListingId()
+			if m.GetHiddenAt() != nil {
+				rec.OccurredAt = m.GetHiddenAt().AsTime().UTC()
+			}
 		}
 	default:
 		return nil, fmt.Errorf("%w: %q", ErrUnknownEngagementType, env.GetType())
