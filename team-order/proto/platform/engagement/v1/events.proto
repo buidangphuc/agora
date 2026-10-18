@@ -46,6 +46,15 @@ message ReviewCreated {
   int32 rating = 5;
 }
 
+// A review was hidden by a moderator. Published on `engagement.events` (key = listing id) as the
+// payload of an EventEnvelope with type "platform.engagement.v1.ReviewHidden".
+// By design this carries NO user id and NO review text or title: only ids and the time.
+message ReviewHidden {
+  string review_id = 1;
+  string listing_id = 2;
+  google.protobuf.Timestamp hidden_at = 3;
+}
+
 // A dispute was closed (RESOLVED or REJECTED). Published on `engagement.events` (key = dispute id)
 // as the payload of an EventEnvelope with type "platform.engagement.v1.DisputeResolved".
 // By design this carries no free text: only ids, status and ruling.

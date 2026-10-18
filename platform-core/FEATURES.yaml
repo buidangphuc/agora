@@ -5919,3 +5919,183 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestDoRejectsZeroPolicy"
+
+  - id: hardening-contract.unit-reviewhidden-has-the-agreed-fields
+    title: "Hardening contract: ReviewHidden has the agreed fields"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: ReviewHidden has the agreed fields (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-reviewhidden-carries-no-user-data
+    title: "Hardening contract: ReviewHidden carries no user data"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: ReviewHidden carries no user data (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-change-is-backward-compatible-guard
+    title: "Hardening contract: Change is backward compatible (guard)"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: Change is backward compatible (guard) (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-removing-a-reviewhidden-field-is-rejected
+    title: "Hardening contract: Removing a ReviewHidden field is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: Removing a ReviewHidden field is rejected (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-source-protos-lint-clean
+    title: "Hardening contract: Source protos lint clean"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: Source protos lint clean (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-catalogue-has-18-actions
+    title: "Hardening contract: Catalogue has 18 actions"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: Catalogue has 18 actions (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-audit-wire-format-is-unchanged-guard
+    title: "Hardening contract: Audit wire format is unchanged (guard)"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: Audit wire format is unchanged (guard) (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-catalogue-count-mismatch-is-rejected
+    title: "Hardening contract: Catalogue count mismatch is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: Catalogue count mismatch is rejected (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-copies-match-the-source
+    title: "Hardening contract: Copies match the source"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: Copies match the source (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-drifted-or-missing-copy-is-rejected
+    title: "Hardening contract: Drifted or missing copy is rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: Drifted or missing copy is rejected (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-consumer-proto-modules-lint-and-build
+    title: "Hardening contract: Consumer proto modules lint and build"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: Consumer proto modules lint and build (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: hardening-contract.unit-generated-reviewhidden-type-exists-in-consumers
+    title: "Hardening contract: Generated ReviewHidden type exists in consumers"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Hardening contract: Generated ReviewHidden type exists in consumers (unit-verified)"
+    tags:
+    - hardening-contract
+    - unit
+    status: not-testable
+    notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
