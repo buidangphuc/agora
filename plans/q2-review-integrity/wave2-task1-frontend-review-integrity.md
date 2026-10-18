@@ -1,7 +1,7 @@
 # [W2-T1] frontend-review-integrity
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-review-integrity`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-frontend-review-integrity`)
 
 ## Objective
 Implement OpenSpec change `frontend-review-integrity` test-first per its tasks.md (scenario ids there); context in plans/q2-review-integrity/00-spec.md and the change's design.md Clarifications. Imports (never edits) platform-e2e/tests/e2e/support/review_order_support.py.
@@ -23,7 +23,7 @@ Implement OpenSpec change `frontend-review-integrity` test-first per its tasks.m
 - platform-e2e/tests/e2e/step_definitions/test_review_integrity_ui.py
 
 ## Read-only dependencies
-- openspec/changes/frontend-review-integrity/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-frontend-review-integrity/** (frozen by LOCK.md digest)
 - platform-e2e/tests/e2e/support/review_order_support.py, platform-e2e/tests/e2e/step_definitions/rvp_steps.py (engagement-review-integrity output)
 - team-frontend/proto/** (contract output)
 

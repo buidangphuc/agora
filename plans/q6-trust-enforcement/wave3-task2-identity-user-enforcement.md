@@ -1,7 +1,7 @@
 # [W3-T2] identity-user-enforcement
 
 ## Role
-feature-run worker (change `openspec/changes/identity-user-enforcement`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-identity-user-enforcement`)
 
 ## Objective
 Implement OpenSpec change `identity-user-enforcement` test-first per its tasks.md (scenario ids there); context in plans/q6-trust-enforcement/00-spec.md and the change's design.md Clarifications.
@@ -52,13 +52,13 @@ Implement OpenSpec change `identity-user-enforcement` test-first per its tasks.m
 - team-identity/proto/platform/audit/v1/audit.proto (# widened at build: task 4)
 - plans/q6-trust-enforcement/wave3-task2-identity-user-enforcement.md (# widened at build: task 4; packet widening record)
 - platform-e2e/tests/e2e/step_definitions/test_user_enforcement.py
-- openspec/changes/identity-user-enforcement/**
+- openspec/changes/archive/2026-10-18-identity-user-enforcement/**
 - team-identity/internal/grpcserver/accountadmin_server_test.go (# widened at build: task 8)
 - team-identity/internal/grpcserver/server_test.go (# widened at build: task 8)
 - team-gateway/internal/upstream/clients.go (# widened at build: task 9)
 
 ## Read-only dependencies
-- openspec/changes/identity-user-enforcement/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-18-identity-user-enforcement/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/support/audit_support.py (reuse, do not edit)
 - team-identity/proto/platform/identity/v1/identity.proto (copied by q6-trust-contract)
 - plans/q6-trust-enforcement/00-spec.md, slices.yaml, LOCK.md

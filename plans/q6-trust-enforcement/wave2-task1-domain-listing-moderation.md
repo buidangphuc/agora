@@ -1,7 +1,7 @@
 # [W2-T1] domain-listing-moderation
 
 ## Role
-feature-run worker (change `openspec/changes/domain-listing-moderation`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-domain-listing-moderation`)
 
 ## Objective
 Implement OpenSpec change `domain-listing-moderation` test-first per its tasks.md (scenario ids there); context in plans/q6-trust-enforcement/00-spec.md and the change's design.md Clarifications.
@@ -57,10 +57,10 @@ Implement OpenSpec change `domain-listing-moderation` test-first per its tasks.m
 - platform-e2e/tests/e2e/features/admin/listing_admin_audit.feature
 - platform-e2e/tests/e2e/step_definitions/test_listing_admin_audit.py
 - docker-compose.services.yaml
-- openspec/changes/domain-listing-moderation/**
+- openspec/changes/archive/2026-10-18-domain-listing-moderation/**
 
 ## Read-only dependencies
-- openspec/changes/domain-listing-moderation/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-18-domain-listing-moderation/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/support/audit_support.py (reuse, do not edit)
 - team-search/internal/taxonomy/classifier.go (principal pattern)
 - plans/q6-trust-enforcement/00-spec.md, slices.yaml, LOCK.md

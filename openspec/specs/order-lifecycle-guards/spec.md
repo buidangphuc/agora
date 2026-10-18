@@ -17,6 +17,7 @@ concurrency on every write path, what a cancel does to stock and vouchers, and h
 | `Paid` | `Shipped` | seller |
 | `Shipped` | `Completed` | seller |
 | `Pending`, `Paid` | `Cancelled` | buyer (`CancelOrder`); admin (`ForceFailSaga`) |
+| `Pending` | `Cancelled` | system: the lifecycle sweep, unpaid-order expiry only (reason `PAYMENT_EXPIRED`) |
 
 `Completed` and `Cancelled` SHALL be terminal. An admin SHALL act with the seller's class on `UpdateOrderStatus`. A
 caller who is not the order's buyer, seller or an admin SHALL get `PERMISSION_DENIED` before any status is revealed; a
@@ -48,6 +49,16 @@ rejected change SHALL leave the order unchanged.
 
 - **WHEN** a buyer who is neither the order's buyer nor its seller calls `UpdateOrderStatus` on it
 - **THEN** the call fails with `permission_denied` and the order is unchanged
+
+#### Scenario: Order expiry: System may cancel only from Pending
+- **WHEN** the transition table is asked for the source statuses from which the system actor may reach `Cancelled`
+- **THEN** it returns exactly `Pending`, and the buyer actor's set stays `Pending` and `Paid`
+- **VERIFIED BY**: team-order `internal/service` `TestAllowedFromCancelledSystemIsPendingOnly`
+
+#### Scenario: Order expiry: A seller or admin cannot request Cancelled through UpdateOrderStatus
+- **WHEN** the seller calls `UpdateOrderStatus` to `Cancelled` on their `Pending` order
+- **THEN** the call fails with `permission_denied` and the order is still `Pending`
+- **VERIFIED BY**: team-order `internal/service` `TestUpdateOrderStatusCancelledStillForbidden`
 
 ### Requirement: Status changes are compare-and-set
 

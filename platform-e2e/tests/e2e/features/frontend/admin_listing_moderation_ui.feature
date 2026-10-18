@@ -2,7 +2,7 @@
 Feature: Admin listing moderation queue in the browser (frontend-listing-moderation)
   /admin/listings is admin-only and lists flagged listings; the admin approves or rejects them and
   the decision fails closed when team-audit is down. Scenario names echo the spec scenarios of
-  openspec/changes/frontend-listing-moderation. Every refusal is paired with a positive control
+  openspec/changes/archive/2026-10-18-frontend-listing-moderation. Every refusal is paired with a positive control
   (the admin sees the queue) so it cannot pass vacuously.
 
   Scenario: Moderation UI: Anonymous browser visit

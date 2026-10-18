@@ -368,6 +368,12 @@ from `COPY . .`, so `generated/` must exist in the build context.
   trace exporter is initialised; only the otelgrpc stats handler and request-id interceptors are
   wired.
 - The outbox payload carries ids and status only, not the amount.
+- Main specs still describe a late payment after an unpaid cancel as succeeding (`PAID`):
+  `openspec/specs/seller-settlement-credit/spec.md:41` and `openspec/specs/seller-refund-deduction/spec.md:57`,
+  and the matching `FEATURES.yaml` acceptance lines. Since payment-unpaid-cancel
+  (`openspec/changes/payment-unpaid-cancel/specs/unpaid-order-payment/spec.md:42`) the settle re-reads the
+  order and refuses it with `FAILED_PRECONDITION` "payment cancelled"; the e2e scenarios assert that. The
+  change carries no MODIFIED delta for those scenarios yet.
 
 ## Links
 

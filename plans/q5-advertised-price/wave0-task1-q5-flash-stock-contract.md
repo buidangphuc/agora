@@ -1,7 +1,7 @@
 # [W0-T1] q5-flash-stock-contract
 
 ## Role
-feature-run worker (change `openspec/changes/q5-flash-stock-contract`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-q5-flash-stock-contract`)
 
 ## Objective
 Implement OpenSpec change `q5-flash-stock-contract` test-first per its tasks.md (scenario ids there); context in plans/q5-advertised-price/00-spec.md and the change's design.md Clarifications (Rounds 1-2).
@@ -19,7 +19,7 @@ Implement OpenSpec change `q5-flash-stock-contract` test-first per its tasks.md 
 - platform-core/FEATURES.yaml
 
 ## Read-only dependencies
-- openspec/changes/q5-flash-stock-contract/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-q5-flash-stock-contract/** (frozen by LOCK.md digest)
 - platform-core/packages/proto/platform/analytics/v1/*_compat_test.go (pattern to mirror)
 - plans/q5-advertised-price/00-spec.md, slices.yaml, LOCK.md
 

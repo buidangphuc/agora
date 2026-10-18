@@ -1,7 +1,7 @@
 Feature: KYC reviews are audited
   ReviewKyc writes one team-audit event (kyc.review) before the decision is applied and fails
   closed when team-audit is unavailable. Scenario names echo the spec scenarios of
-  openspec/changes/verification-kyc-audit. Events are read back through QueryAuditLog as admin.
+  openspec/changes/archive/2026-10-18-verification-kyc-audit. Events are read back through QueryAuditLog as admin.
 
   Scenario: An audited KYC approval leaves one audit event (Audited approve is visible end to end)
     Given a seller with a pending KYC submission

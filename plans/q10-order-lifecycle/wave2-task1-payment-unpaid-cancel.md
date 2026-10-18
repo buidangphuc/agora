@@ -1,7 +1,7 @@
 # [W2-T1] payment-unpaid-cancel
 
 ## Role
-feature-run worker (change `openspec/changes/payment-unpaid-cancel`, owner team-payment)
+feature-run worker (change `openspec/changes/archive/2026-10-18-payment-unpaid-cancel`, owner team-payment)
 
 ## Objective
 Implement OpenSpec change `payment-unpaid-cancel` test-first per its tasks.md (scenario ids there); context in plans/q10-order-lifecycle/00-spec.md and the change's design.md Clarifications.
@@ -25,10 +25,10 @@ Implement OpenSpec change `payment-unpaid-cancel` test-first per its tasks.md (s
 - team-payment/FEATURES.yaml
 - platform-e2e/tests/e2e/features/payment/unpaid_cancel.feature
 - platform-e2e/tests/e2e/step_definitions/test_unpaid_cancel.py
-- openspec/changes/payment-unpaid-cancel/**
+- openspec/changes/archive/2026-10-18-payment-unpaid-cancel/**
 
 ## Read-only dependencies
-- openspec/changes/payment-unpaid-cancel/** is frozen by its LOCK.md digest except tasks.md ticks
+- openspec/changes/archive/2026-10-18-payment-unpaid-cancel/** is frozen by its LOCK.md digest except tasks.md ticks
 - platform-e2e/compose/order-inventory.override.yaml (timers owned by order-unpaid-expiry)
 - platform-e2e/tests/e2e/features/payment/mock_pay.feature and features/order steps (reuse)
 - platform-e2e/tests/e2e/support/** (reuse, do not edit)

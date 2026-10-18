@@ -2,7 +2,7 @@
 Feature: Admin cases inbox in the browser (frontend-listing-moderation)
   /admin/cases lists reports; the admin bans or dismisses and closes them, closing fails closed
   when team-audit is down, and the pages are reachable from the cockpit. Scenario names echo the
-  spec scenarios of openspec/changes/frontend-listing-moderation. Every refusal is paired with a
+  spec scenarios of openspec/changes/archive/2026-10-18-frontend-listing-moderation. Every refusal is paired with a
   positive control (the admin sees the inbox) so it cannot pass vacuously.
 
   Scenario: Moderation UI: Admin bans a reported listing and closes the report

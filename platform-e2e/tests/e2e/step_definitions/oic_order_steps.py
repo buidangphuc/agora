@@ -348,10 +348,13 @@ def when_open_payment(oic, buyer):
     oic.data["tx"] = s.open_payment(oic, _actor(oic, buyer), oic.orders["order"])
 
 
-@when(parsers.parse('the payment of "{buyer}" succeeds'))
-def when_payment_succeeds(oic, buyer):
+@when(parsers.parse('a late payment by "{buyer}" is refused as cancelled'))
+def when_late_payment_refused(oic, buyer):
+    # payment-unpaid-cancel, "A cancelled payment cannot be settled": the settle re-reads
+    # the order, so a payment after the cancel is refused and moves no money.
     resp = s.settle_payment(oic, _actor(oic, buyer), oic.data["tx"])
-    assert resp.status_code == 200, resp.text
+    assert s.code_of(resp) == "failed_precondition", resp.text
+    assert resp.json().get("message") == "payment cancelled", resp.text
 
 
 @when(parsers.parse('the payment of "{buyer}" succeeds while "{buyer2}" cancels the order'))

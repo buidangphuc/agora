@@ -14,8 +14,9 @@ def create_order_via_api(
     quantity: int = 1,
     variant_id: str = "",
     voucher_code: str = "FREESHIP",
+    payment_method: str = "PAYMENT_METHOD_COD",
 ) -> dict[str, Any]:
-    """Execute order creation via Gateway API."""
+    """Execute order creation via Gateway API (COD unless an online method is given)."""
     world.service_factory.set_token(buyer.token)
     try:
         world.service_factory.address.create_address(
@@ -40,7 +41,7 @@ def create_order_via_api(
     except Exception:  # noqa: BLE001
         pass
 
-    res = world.service_factory.order.create_order({"paymentMethod": "PAYMENT_METHOD_COD"})
+    res = world.service_factory.order.create_order({"paymentMethod": payment_method})
     orders = res.get("orders", [])
     order_id = orders[0].get("id") if orders else res.get("order", {}).get("id", "order_001")
     world.state.order_id = order_id

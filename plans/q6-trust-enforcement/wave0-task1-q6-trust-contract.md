@@ -1,7 +1,7 @@
 # [W0-T1] q6-trust-contract
 
 ## Role
-feature-run worker (change `openspec/changes/q6-trust-contract`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-q6-trust-contract`)
 
 ## Objective
 Implement OpenSpec change `q6-trust-contract` test-first per its tasks.md (scenario ids there); context in plans/q6-trust-enforcement/00-spec.md and the change's design.md Clarifications.
@@ -56,13 +56,13 @@ Implement OpenSpec change `q6-trust-contract` test-first per its tasks.md (scena
 - team-payment/proto/platform/audit/v1/audit.proto
 - team-promotion/proto/platform/audit/v1/audit.proto
 - team-verification/proto/platform/audit/v1/audit.proto
-- openspec/changes/q6-trust-contract/**
+- openspec/changes/archive/2026-10-18-q6-trust-contract/**
 - team-ai/tests/unit/transport/test_grpc_scopes.py (# widened at build: task 3.1-3.2)
 - team-ai/tests/unit/transport/test_proto_stubs.py (# widened at build: task 3.1-3.2)
 - plans/q6-trust-enforcement/wave0-task1-q6-trust-contract.md (# widened at build: task 3.1-3.2; packet widening record)
 
 ## Read-only dependencies
-- openspec/changes/q6-trust-contract/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-18-q6-trust-contract/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-core/packages/proto/platform/promotion/v1/flashstock_compat_test.go (pattern to mirror)
 - plans/q6-trust-enforcement/00-spec.md, slices.yaml, LOCK.md
 

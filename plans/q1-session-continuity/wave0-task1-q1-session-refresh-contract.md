@@ -1,7 +1,7 @@
 # [W0-T1] q1-session-refresh-contract
 
 ## Role
-feature-run worker (change `openspec/changes/q1-session-refresh-contract`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-q1-session-refresh-contract`)
 
 ## Objective
 Implement OpenSpec change `q1-session-refresh-contract` test-first per its tasks.md (scenario ids there); context in plans/q1-session-continuity/00-spec.md (incl. Amendments) and the change's design.md Clarifications.
@@ -18,7 +18,7 @@ Implement OpenSpec change `q1-session-refresh-contract` test-first per its tasks
 - team-frontend/proto/platform/identity/v1/identity.proto
 
 ## Read-only dependencies
-- openspec/changes/q1-session-refresh-contract/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-q1-session-refresh-contract/** (frozen by LOCK.md digest)
 - plans/q1-session-continuity/00-spec.md, plans/q1-session-continuity/slices.yaml, plans/q1-session-continuity/LOCK.md (reviewer notes)
 
 ## Verify
