@@ -17,7 +17,6 @@ const (
 	ccNewDev = "AgoraTest/2"
 )
 
-
 func ccSeed(t *testing.T, r SessionRepository, user, hash string, created time.Time) Session {
 	t.Helper()
 	s, err := r.CreateSession(context.Background(), Session{
