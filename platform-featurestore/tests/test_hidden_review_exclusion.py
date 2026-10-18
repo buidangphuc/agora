@@ -322,3 +322,39 @@ def test_popularity_v1_unchanged(dirs, settings, redis):
     row = _view(settings, redis, "item_popularity@v1")["L1"]
     assert row["review_count"] == 2
     assert row["avg_rating"] == 3.0
+
+
+# --- task 6: README documents the new versions (documentation, no scenario) ---
+import re as _re
+from pathlib import Path as _Path
+
+_README = (_Path(__file__).resolve().parent.parent / "README.md").read_text()
+
+
+def _table_row(prefix):
+    return [ln for ln in _README.splitlines() if ln.startswith(prefix)]
+
+
+def test_readme_view_table_lists_item_popularity_v2_task6():
+    rows = _table_row("| `item_popularity@v2`")
+    assert len(rows) == 1
+    for feat in ("views_7d", "clicks_7d", "add_to_cart_7d", "favorites_current",
+                 "review_count", "avg_rating", "ctr_7d"):
+        assert feat in rows[0]
+    assert "listing_id" in rows[0]
+
+
+def test_readme_dataset_command_row_lists_als_v3_task6():
+    rows = _table_row("| `dataset`")
+    assert len(rows) == 1
+    assert "als_interactions@v1|v2|v3" in rows[0]
+
+
+def test_readme_documents_review_id_input_task6():
+    assert "review_id" in _README
+    assert _re.search(r"review_id[^\n]*(nullable|null)", _README, _re.I)
+
+
+def test_readme_explains_hidden_review_exclusion_task6():
+    assert _re.search(r"hidden", _README, _re.I)
+    assert "als_interactions@v3" in _README
