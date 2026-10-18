@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { Code, ConnectError } from "@connectrpc/connect";
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock only the true external boundary (the Gateway RefreshSession call).
 // Assumed API: middleware(req) is async (returns Promise<NextResponse>); it calls
@@ -315,5 +315,77 @@ describe("middleware refresh enforcement (frontend-user-enforcement)", () => {
     const cookie = forwarded(res, "cookie") ?? "";
     expect(cookie).not.toContain(`session=${stale}`);
     expect(cookie).toContain("agora_refresh=R1");
+  });
+});
+
+describe("middleware COOKIE_SECURE (frontend-cookie-secure)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("Cookie secure: middleware refresh forced Secure - both rotated cookies Secure without x-forwarded-proto", async () => {
+    vi.stubEnv("COOKIE_SECURE", "true");
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(res.cookies.get("session")?.value).toBe(NEW_ACCESS);
+    expect(res.cookies.get("agora_refresh")?.value).toBe("R2");
+    expect(res.cookies.get("session")?.secure).toBe(true);
+    expect(res.cookies.get("agora_refresh")?.secure).toBe(true);
+  });
+
+  it("Cookie secure: middleware refresh forced Secure - beats a client x-forwarded-proto: http", async () => {
+    vi.stubEnv("COOKIE_SECURE", " TRUE ");
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(
+      req({ refresh: "R1", headers: { "x-forwarded-proto": "http" } }),
+    );
+    expect(res.cookies.get("session")?.secure).toBe(true);
+    expect(res.cookies.get("agora_refresh")?.secure).toBe(true);
+  });
+
+  it("Cookie secure: middleware refresh unset over https - Secure with header, not without", async () => {
+    vi.stubEnv("COOKIE_SECURE", "");
+    refreshSession.mockResolvedValue(ok());
+    const https = await middleware(
+      req({
+        session: jwt(nowSec() - 60),
+        refresh: "R1",
+        headers: { "x-forwarded-proto": "https" },
+      }),
+    );
+    expect(https.cookies.get("session")?.secure).toBe(true);
+    expect(https.cookies.get("agora_refresh")?.secure).toBe(true);
+    const plain = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(plain.cookies.get("session")?.value).toBe(NEW_ACCESS);
+    expect(Boolean(plain.cookies.get("session")?.secure)).toBe(false);
+    expect(Boolean(plain.cookies.get("agora_refresh")?.secure)).toBe(false);
+  });
+
+  it("Cookie secure: middleware refresh forced Secure - flag is read per request", async () => {
+    refreshSession.mockResolvedValue(ok());
+    vi.stubEnv("COOKIE_SECURE", "false");
+    const off = await middleware(req({ refresh: "R1" }));
+    expect(Boolean(off.cookies.get("session")?.secure)).toBe(false);
+    vi.stubEnv("COOKIE_SECURE", "true");
+    const on = await middleware(req({ refresh: "R1" }));
+    expect(on.cookies.get("session")?.secure).toBe(true);
+  });
+
+  it("Cookie secure: failed refresh sets nothing (error) - Unauthenticated deletes both, no valued cookie", async () => {
+    vi.stubEnv("COOKIE_SECURE", "true");
+    refreshSession.mockRejectedValue(new ConnectError("bad", Code.Unauthenticated));
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(isDeleted(res, "session")).toBe(true);
+    expect(isDeleted(res, "agora_refresh")).toBe(true);
+    for (const name of ["session", "agora_refresh"]) {
+      expect(res.cookies.get(name)?.value).toBe("");
+    }
+    expect(res.cookies.get("agora_auth_evt")).toBeUndefined();
   });
 });
