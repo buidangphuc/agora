@@ -303,3 +303,71 @@ describe("trackPageLocation (client-side navigation; NEW export of ./gtm)", () =
     );
   });
 });
+
+describe("applyConsent page_location (admin paths are path only)", () => {
+  const pageLocations = () =>
+    ((window.dataLayer ?? []) as unknown[])
+      .map((e) => (e as { page_location?: unknown } | null)?.page_location)
+      .filter((v): v is string => typeof v === "string");
+
+  const locationFor = (url: string): string => {
+    document.head.innerHTML = "";
+    delete (window as { dataLayer?: unknown }).dataLayer;
+    window.history.replaceState(null, "", url);
+    applyConsent(ALL);
+    const all = pageLocations();
+    expect(all).toHaveLength(1);
+    return all[0];
+  };
+
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("[Referrer hygiene: admin page_location is path only] admin page_location drops all query and fragment (also for a non-admin principal on an admin URL)", () => {
+    const loc = locationFor("/admin/audit?target_id=u-1&actor_id=u-2#x");
+    expect(loc).toBe(`${window.location.origin}/admin/audit`);
+    const dump = JSON.stringify(window.dataLayer);
+    expect(dump).not.toContain("target_id");
+    expect(dump).not.toContain("u-2");
+
+    expect(locationFor("/admin/users?query=x")).toBe(
+      `${window.location.origin}/admin/users`,
+    );
+  });
+
+  it("[Referrer hygiene: look-alike path is not treated as admin] admin match is segment exact", () => {
+    expect(locationFor("/administrator?q=1")).toBe(
+      `${window.location.origin}/administrator?q=1`,
+    );
+    expect(locationFor("/adminx?q=1")).toBe(
+      `${window.location.origin}/adminx?q=1`,
+    );
+  });
+
+  it("[Referrer hygiene: the admin root is stripped too] admin root and case variants stripped", () => {
+    for (const url of ["/admin?x=1", "/ADMIN/users?x=1", "/admin/users/?x=1"]) {
+      const loc = locationFor(url);
+      expect(loc).not.toContain("?");
+      expect(loc).not.toContain("x=1");
+      expect(loc.startsWith(window.location.origin)).toBe(true);
+    }
+    expect(locationFor("/admin?x=1")).toBe(`${window.location.origin}/admin`);
+  });
+
+  it("[Referrer hygiene: non-admin pages keep other params] keeps other params, only returnUrl removed", () => {
+    expect(locationFor("/listing/abc?variant=v2&returnUrl=%2Fx")).toBe(
+      `${window.location.origin}/listing/abc?variant=v2`,
+    );
+  });
+
+  it("[Referrer hygiene: login page_location still has no returnUrl] strips returnUrl on login", () => {
+    const loc = locationFor("/login?returnUrl=%2Faccount%2Forders%2Fo-9");
+    expect(loc).toBe(`${window.location.origin}/login`);
+    expect(loc).not.toContain("o-9");
+  });
+});
