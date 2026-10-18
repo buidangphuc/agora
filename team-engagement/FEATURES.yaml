@@ -2152,7 +2152,7 @@ features:
     acceptance:
       - "Engagement key redaction: handler failure logs fingerprint"
     tags: [privacy, audit, async]
-    status: planned
+    status: automated
     covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: handler failure logs fingerprint"
 
   - id: engagement-consumer-key-redaction.dlq-parking-logs-fingerprint
@@ -2165,7 +2165,7 @@ features:
     acceptance:
       - "Engagement key redaction: DLQ parking logs fingerprint"
     tags: [privacy, audit, async]
-    status: planned
+    status: automated
     covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: DLQ parking logs fingerprint"
 
   - id: engagement-consumer-key-redaction.empty-key
@@ -2178,7 +2178,7 @@ features:
     acceptance:
       - "Engagement key redaction: empty key"
     tags: [privacy, audit, async]
-    status: planned
+    status: automated
     covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: empty key"
 
   - id: engagement-consumer-key-redaction.fingerprint-is-exactly-12-hex-and-stable
@@ -2191,7 +2191,7 @@ features:
     acceptance:
       - "Engagement key redaction: fingerprint is exactly 12 hex and stable"
     tags: [privacy, audit, async]
-    status: planned
+    status: automated
     covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: fingerprint is exactly 12 hex and stable"
 
   - id: engagement-consumer-key-redaction.dlq-produce-failure-logs-fingerprint
