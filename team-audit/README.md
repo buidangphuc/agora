@@ -2,7 +2,7 @@
 
 Go gRPC service that owns the **append-only audit trail** bounded context: who (`actor_id`) did what (`action`) to which target (`target_type` + `target_id`), with free-form string metadata. It is a deployed service (compose: `team-audit-svc`, gRPC `:50066`, no host port published) with its own Postgres database `audit_db` (Rule 3, database per service). It has no upstream dependencies and publishes or consumes no events. The gateway exposes both RPCs to the web API (`team-gateway/internal/edge/audit.go`, `UPSTREAM_AUDIT_ADDR=team-audit-svc:50066`).
 
-Go 1.22 (`go.mod`; the Dockerfile builds with `golang:1.22`), module `github.com/buidangphuc/team-audit`.
+Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com/buidangphuc/team-audit`.
 
 ## Contract
 
@@ -81,7 +81,7 @@ There is no lint target, no `.github/workflows` and no other CI config here; run
 
 ## Spec and verification
 
-- There is no `FEATURES.yaml` in this repo. E2E coverage is the scenario "A written audit event is returned by QueryAuditLog" in `platform-e2e/tests/e2e/features/services/new_services.feature`.
+- `FEATURES.yaml` lists the audit features; their e2e coverage is in `platform-e2e/tests/e2e/features/security/audit_access.feature` and `security/audit_query_filters.feature`.
 - Verify from the repo root: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>` (every scenario of an OpenSpec change is green).
 - Changes go through OpenSpec (`openspec/changes/<id>` at the repo root): propose, implement code and e2e together, verify, archive. See the root `README.md` (ASDLC).
 
@@ -97,7 +97,6 @@ There is no lint target, no `.github/workflows` and no other CI config here; run
 ## Known gaps
 
 - `.env.example` documents many variables the code ignores (see Configuration).
-- No FEATURES.yaml, so `features-check` has no manifest for this service.
 - No tracing: `OTEL_*` is declared but nothing configures a tracer.
 
 ## Links

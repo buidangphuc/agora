@@ -76,8 +76,7 @@ Choose A when correctness must gate the response, B when you only observe qualit
 
 Factory + bootstrap-addon pattern (`factory.py`):
 
-- `build_embed_model` / `build_storage_context` / `build_rag_service` choose concrete backends from `RAG_*` settings and build `KnowledgeRetrievalService`.
-- Defaults are `MockEmbedding` + in-memory storage; unwired backends raise an explicit `RuntimeError` telling you to extend the factory. **Extend the factory** to add a provider/vector store; never wire providers ad hoc in business code.
+- `build_embed_model` (model_server embeddings) and `build_rag_service` (Qdrant store) build from `RAG_*` settings into a `KnowledgeRetrievalService`. Tests swap `build_rag_service` for an in-memory store and mock embeddings. **Extend the factory** to add a provider/vector store; never wire providers ad hoc in business code.
 - `RagAddon` is a `BootstrapAddon`: gated by `RAG_ENABLED`, opens the service into `resources.rag_service`, closes it on shutdown.
 - The service carries a `RedactionPolicy` and a `TimeoutPolicy`, so retrieval is bounded and redacted by construction. Preserve that when extending.
 

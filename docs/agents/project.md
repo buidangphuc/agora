@@ -42,7 +42,7 @@
 
 ## Hot paths
 <!-- read by: everyone. Things that look alike but must not be confused. -->
-- `.github/workflows/` at repo root is the only live CI; nested per-repo workflows are dead.
+- `.github/workflows/` at repo root is the only live CI; there are no nested per-repo workflows.
 - Local e2e stack is built from `../agora-deps`, not this checkout — a stale image gives a wrong-reason red.
 - `.claude/worktrees/<change>/` lacks gitignored artifacts (stubs, node_modules, `platform-e2e/.venv` symlink — never commit it); red_first temp worktrees report false "red at head" for stub-dependent tests.
 - `plans/`: initiatives (ASDLC) plus `plans/mlops/` (older free-form plan). ASDLC process docs: `docs/asdlc/`.

@@ -2,7 +2,7 @@
 
 Go gRPC service that owns the **cart, order lifecycle, purchase saga, shipments and returns (RMA)** bounded context. It is a deployed service (compose: `team-order-svc`, gRPC `:50055`, no host port published) with its own Postgres database `order_db` (Rule 3, database per service). It reserves and releases stock in `team-domain`, reads addresses from `team-identity`, optionally holds vouchers in `team-promotion`, moves orders to PAID from `PaymentSettled` events, and publishes order facts through a transactional outbox.
 
-Go 1.22 (`go.mod`; the Dockerfile builds with `golang:1.22`), module `github.com/buidangphuc/team-order`.
+Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com/buidangphuc/team-order`.
 
 ## Contract
 
@@ -116,6 +116,8 @@ Postgres `order_db` (compose credentials `order_svc` / `order_pass`, shared Post
 | 0005 | `orders.voucher_code`, `discount_amount` |
 | 0006 | `order_outbox_events` (status `pending` / `published` / `failed`) |
 | 0007 | `order_sagas.idempotency_key` + unique `(buyer_id, idempotency_key)`, `orders.paid_at`, `orders_status_check` (`NOT VALID`; validate with `ALTER TABLE orders VALIDATE CONSTRAINT orders_status_check` after `SELECT count(*) FROM orders WHERE status NOT BETWEEN 1 AND 5` returns 0) |
+| 0008 | `orders.payment_due_at` (NULL for COD and pre-migration orders, which are never auto-expired), `payment_reminder_sent_at`, `cancel_reason`; partial index on unpaid orders with a deadline |
+| 0009 | `orders.shipped_at`, `auto_complete_at`, `completed_at`, `return_window_ends_at`, `ship_by`; `order_returns.auto_approve_at`. Backfill runs only when the columns are first added and completes nothing |
 
 The service does **not** migrate on boot. Compose applies migrations with the one-shot `team-order-migrate` job (`migrate/migrate:v4.17.1`, `up`, idempotent), which `team-order` depends on. Standalone, run golang-migrate against `migrations/` yourself.
 
@@ -225,9 +227,8 @@ There is no Makefile, no `.github/workflows` and no other CI config in this repo
 
 - `CalculateShippingFee` and `GetShipmentTracking` are unauthenticated.
 - Scopes `order.read` / `order.write` are not enforced here; authorization is only the id and admin-scope checks above. Principal metadata is trusted as forwarded.
-- A failed `PaymentSettled` leaves the order PENDING; nothing cancels it automatically.
+- A failed `PaymentSettled` leaves the order PENDING until the lifecycle sweeper cancels it at `payment_due_at` (`PAYMENT_EXPIRED`); orders placed before migration 0008 have no deadline and are never auto-expired.
 - `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` and `ENV` are inert: only the otelgrpc stats handler is attached, and no tracer provider or exporter is configured in this repo.
-- `FEATURES.yaml` references `order.v1.ListOrders`, which does not exist (the RPCs are `ListBuyerOrders` and `ListSellerOrders`).
 
 ## Runbook: commit re-sync (after deploying port-order-inventory-correctness)
 

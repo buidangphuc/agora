@@ -25,8 +25,6 @@ change's `#### Scenario:` blocks become runnable e2e tests. One spec scenario â†
   assertions in page objects, barrel imports, reuse-first steps).
 - Manifest contract + how auto consumes it: `platform-e2e/docs/FEATURE_MANIFEST.md`;
   schema `platform-e2e/schemas/features.schema.json`.
-- Already-probed API payloads / selectors (reuse, don't re-derive):
-  `platform-e2e/docs/AUTOMATION_BACKLOG.md`.
 - Ownership: a feature lives in the repo that OWNS the capability (frontend is the UI
   shell only); `services:` lists every repo the journey touches.
 

@@ -23,6 +23,9 @@ make -C deploy gitops-push    # publish platform-gitops to LOCAL Gitea via scrat
 make -C deploy status         # argocd apps + pods
 make -C deploy argocd-ui      # ArgoCD UI (admin / printed password)
 make -C deploy smoke          # platform-e2e against the cluster ingress
+make -C deploy release-tag    # retag with the commit sha + bump envs/$RELEASE_ENV/values.yaml (TAG=<sha> RELEASE_ENV=staging DRY_RUN=1)
+make -C deploy status-staging # staging overlay on kind (ns marketplace-staging)
+make -C deploy smoke-staging  # wait for the staging overlay to be Healthy, then platform-e2e smoke
 make -C deploy cluster-down
 ```
 
@@ -32,7 +35,7 @@ deploy/kind/        kind cluster + registry + ingress + argocd bootstrap
 deploy/gitea/       Gitea git host + repo/token/app-of-apps bootstrap
 deploy/argocd/      root app-of-apps Application
 deploy/images/      retag+push local images to the registry (ECR stand-in)
-deploy/act/         local GitHub Actions payloads (P4)
+deploy/act/         local GitHub Actions payloads (P4, not created yet)
 ../platform-gitops/ desired-state repo (Helm charts + envs/local + argocd/apps)
 ```
 

@@ -129,7 +129,7 @@ which the code does not read.
 
 Standalone: apply the migrations to a reachable `chat_db`, copy `.env.example` to `.env` and
 export it (the binary does not load `.env` itself), then `go run ./cmd/server`. Go and buf are
-not installed on the host per the root `AGENTS.md`, so use a Go 1.22 container.
+not installed on the host per the root `AGENTS.md`, so use a Go 1.26 container.
 
 ## 6. Build, test and lint
 
@@ -137,7 +137,7 @@ There is no Makefile and no repo-local CI config here.
 
 | Task | Command |
 |---|---|
-| Build | `go build ./cmd/server` (or `docker build .`, Go 1.22 alpine) |
+| Build | `go build ./cmd/server` (or `docker build .`, Go 1.26 alpine) |
 | Test | `go test -race ./...` |
 | Postgres tests | `internal/repository/*_pg_test.go` skip unless `TEST_DATABASE_URL` points at a disposable Postgres |
 | Regenerate stubs | `buf generate` (`buf.gen.yaml`, input `proto/`, Go package prefix `github.com/buidangphuc/team-chat/generated`) |

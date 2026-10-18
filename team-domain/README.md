@@ -19,6 +19,7 @@ Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing
 | `GetStorefront`, `BatchGetStorefronts` | `listing.read` | batch max 100 ids, else `InvalidArgument` |
 | `CreateBundle` | `listing.write` | owner-scoped |
 | `GetBundle`, `ListBundlesBySeller` | `listing.read` | |
+| `ModerateListing`, `ListModerationQueue` | `admin` scope (`PermissionDenied` otherwise). `ModerateListing` writes a `listing.moderate` audit entry first (`Unavailable` with no change if team-audit is down) |
 | `ReserveStock`, `ReleaseStock`, `CommitReservation` | **SERVICE principal** (type `service`) holding `listing.write` | internal RPCs; team-order calls them as `service-team-order`. A user, even a seller with the scope, gets `PermissionDenied` |
 
 Reservation lifecycle (spec `inventory-reservations`, ADR-0008): `active → committed | released`, `committed → released`. Only `active` reservations expire; stock is restored once, when a reservation becomes `released`, by the quantity stored on it.
@@ -29,7 +30,7 @@ Reservation lifecycle (spec `inventory-reservations`, ADR-0008): `active → com
 
 Also serves gRPC health, and reflection when `GRPC_REFLECTION_ENABLED=true`.
 
-Callers (root compose): `team-gateway` (`UPSTREAM_LISTING_ADDR`), `team-order` and `team-notification` (`UPSTREAM_DOMAIN_ADDR`). Consumes nothing upstream.
+Callers (root compose): `team-gateway` (`UPSTREAM_LISTING_ADDR`), `team-order`, `team-promotion` and `team-notification` (`UPSTREAM_DOMAIN_ADDR`). Upstream calls: team-audit (`UPSTREAM_AUDIT_ADDR`) and team-ai `ScreenListing` (`UPSTREAM_AI_ADDR`, fails safe to no verdict).
 
 ## Events
 
@@ -37,9 +38,9 @@ Callers (root compose): `team-gateway` (`UPSTREAM_LISTING_ADDR`), `team-order` a
 |---|---|---|---|
 | Produces | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` (`CHANGE_TYPE_CREATED/UPDATED/DELETED`) in a `platform.events.v1.EventEnvelope` | listing id |
 | Produces | `listing.events` | `platform.listing.v1.ListingStockChanged` in a `platform.events.v1.EventEnvelope` | listing id |
-| Consumes | none | | |
+| Consumes | `identity.events` (`KAFKA_IDENTITY_TOPIC`) | `platform.identity.v1.UserStatusChanged` (only when `IDENTITY_CONSUMER_ENABLED=true`; holds or restores the seller's listings) | user id |
 
-`ListingChanged` is emitted on Create/Update/Delete. `ListingStockChanged` is written to the outbox inside every reserve, release and TTL-sweep transaction that changes stock: one per affected listing, with the listing's stock after the change and only the variants that changed. Idempotent no-ops (repeat reserve, repeated or unknown release, commit) emit nothing. `ListingBaseInfoChanged`, `ListingPricingChanged` and `ListingStatusChanged` exist in the proto but are reserved.
+`ListingChanged` is emitted on Create/Update/Delete and on `ModerateListing`. `ListingStockChanged` is written to the outbox inside every reserve, release and TTL-sweep transaction that changes stock: one per affected listing, with the listing's stock after the change and only the variants that changed. Idempotent no-ops (repeat reserve, repeated or unknown release, commit) emit nothing. `ListingBaseInfoChanged`, `ListingPricingChanged` and `ListingStatusChanged` exist in the proto but are reserved.
 
 Outbox: the listing write and its outbox row commit in one DB transaction. The relayer (`internal/events/relayer.go`) claims pending rows with `FOR UPDATE SKIP LOCKED`, produces the stored envelope, and marks rows `published`. Delivery is at-least-once; consumers dedupe on `EventEnvelope.event_id` (the outbox row id). Failures retry with exponential backoff (1s doubling, capped at 5m); after `OUTBOX_MAX_ATTEMPTS` the row is parked as `failed`. The relayer only runs when `OUTBOX_ENABLED` and `KAFKA_ENABLED` are both true; with Kafka off, rows stay `pending`.
 
@@ -58,6 +59,8 @@ Postgres `listing_db` (role `listing_svc`). Migrations in `migrations/` (golang-
 | 0007 `reservations` | `reservations` (idempotency key, `expires_at` TTL, `active/released`) |
 | 0008 `storefronts` | `storefronts` |
 | 0009 `bundles` | `bundles` |
+| 0011 `listing_moderation` | `listings.moderation_reason_code`, `moderation_note`, `screen_flags`, `moderation_decided_at`, `submitted_at`; moderation queue index (`status = 'pending_review'`) |
+| 0012 `seller_enforcement_hold` | `listings.held_prior_status`; `processed_events` (dedupe of `UserStatusChanged`); `seller_status_applied` (stale-event guard) |
 | 0010 `reservation_lifecycle_constraints` | `NOT VALID` checks: `reservations.status IN ('active','committed','released')`, `listings.stock >= 0`, `listing_variants.stock >= 0`. Validate later with `psql "$DATABASE_URL" -f scripts/validate_0010_constraints.sql` (refuses unless every violation count is 0) |
 
 Applied by `make migrate` locally, or by the one-shot `team-domain-migrate` container in the root compose (the service waits for it to complete). A reservation sweeper (`internal/service/sweeper.go`, tick `RESERVATION_SWEEP_INTERVAL`, TTL `RESERVATION_TTL`; defaults 1m / 15m) runs inside this service when Postgres is enabled and restores stock for expired `active` reservations only (committed ones are never swept).
@@ -144,7 +147,7 @@ If you enable Kafka standalone, point `KAFKA_BROKERS` at a reachable broker (pla
 
 ## Spec and verification
 
-- `FEATURES.yaml` (repo root): `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
+- `FEATURES.yaml` (repo root): 151 features, 32 `automated`, 119 `not-testable`. For example `listing.create`, `listing.edit`, `listing.delete`, `listing.shop-display-name` are `automated`; `listing.stock-reservation` and `listing.event-durability` are `not-testable` (no e2e).
 - E2E coverage lives in `platform-e2e`: `make -C platform-e2e features-check` and `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>` at the repo root), per the root README's ASDLC.
 
@@ -153,11 +156,11 @@ If you enable Kafka standalone, point `KAFKA_BROKERS` at a reachable broker (pla
 - `generated/` is gitignored and produced by `make proto`; never hand-edit or commit it. Build and tests fail until it exists.
 - `proto/` is a vendored, pinned copy of platform-core's proto module (ADR-0001). Never edit it here; re-vendor at a new tag (see `proto/README.md`).
 - With `DATABASE_ENABLED=false` there is no outbox and no sweeper (event-less service). With `KAFKA_ENABLED=false` writes succeed but events are never relayed.
-- `ListingChanged` carries the full listing; there are no fine-grained change events.
+- `ListingChanged` carries the full listing; `ListingStockChanged` is the only other event emitted.
 
 ## Known gaps
 
-- The four fine-grained listing events (`BaseInfo`, `Pricing`, `Stock`, `Status` changed) are defined in the proto but never emitted.
+- The three fine-grained listing events (`ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStatusChanged`) are defined in the proto but never emitted.
 - No service-to-service authentication beyond trusting `x-principal-*` metadata: a caller that reaches port 50051 directly can forge a service principal (ADR-0010 adds only an interim NetworkPolicy).
 - `listing.stock-reservation` and `listing.event-durability` have no e2e coverage.
 - The `FEATURES.yaml` note says the reservation TTL is swept by team-order; the sweeper actually runs in this service.

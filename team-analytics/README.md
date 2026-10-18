@@ -15,6 +15,7 @@ Served: `platform.analytics.v1.AnalyticsQueryService` (`proto/platform/analytics
 | `ListRecentOrders` | `admin` scope only |
 | `GetRecommendationPerformance` | Admin only. Over a trailing `window_hours` (1 to 168, default 24; outside it -> `InvalidArgument`), one row per (`placement_id`, `model_version`) seen on impression events. An impression is the triple (`impression_id`, `placement_id`, `model_version`), so a reused id keeps its placements apart. A click counts only on a listing the impression showed, at or before the click, and goes to exactly one impression (latest event; the click's own placement/model must match if it carries them). Add-to-carts (beacons) and purchases (PAID `order_facts` lines whose `buyer_id` is the click's `user_key`; purchase beacons are ignored) are credited once, to the earliest click at most `RECS_ATTRIBUTION_WINDOW_HOURS` earlier. `ctr` = clicks / item impressions; `conversion_rate` = purchases credited to *mature* clicks / mature clicks (a click is mature when its attribution window closed by the report end; 0 without mature clicks, so use a `window_hours` above the attribution window). Also the per-placement share of impressions with `model_version` `serving-fallback`. DuckDB only. |
 | `GetTrackingQualityReport` | `admin` scope only |
+| `GetChannelFunnel` | `admin` scope only, enforced even when `seller_id` is set |
 
 Trust model (ADR-0003): the gateway verifies the token and forwards a resolved Principal as gRPC metadata `x-principal-id`, `x-principal-type` (`user`/`service`/`anonymous`), `x-principal-scopes` (comma-separated). `internal/interceptor/auth.go` reads these headers and does no verification, so the service trusts any caller that can reach `:50059` (see Known gaps).
 
@@ -26,6 +27,7 @@ Trust model (ADR-0003): the gateway verifies the token and forwards a resolved P
 | `GetPlatformOrderSummary` | Distinct paid orders and GMV over the trailing window (default 24h), all sellers. |
 | `ListRecentOrders` | Latest orders, newest first; default 10, max 100; no buyer PII. |
 | `GetTrackingQualityReport` | Health of the tracking stream over a trailing `window_hours` (1 to 168, default 24; outside it -> `InvalidArgument`). Per event type: events, distinct `user_key` visitors (from `tracking_events_resolved`) and, for `view`/`click`/`add_to_cart`/`impression`, the share of events with an empty `listing_id`. Also ingest lag p50/p95 (`ingested_at - occurred_at`, rows with null `ingested_at` excluded), the latest `ingested_at`, and the summed `decode_failures` and `duplicates_skipped`. `status` is `OK` or `DEGRADED` with sorted `reasons`: `stale` (no event in the window, or latest ingest older than `TRACKING_STALE_AFTER_SECONDS`), `lagging` (p95 lag above `TRACKING_LAG_P95_MAX_SECONDS`), `incomplete` (a listing-scoped missing ratio above `TRACKING_MISSING_LISTING_MAX_RATIO`). DuckDB only. |
+| `GetChannelFunnel` | Funnel counts (`impression`, `view`, `add_to_cart`, `begin_checkout`; distinct `transaction_id` for `purchase`) per (`source`, `medium`, `campaign`) over `[from, to]`, read from `tracking_events_attributed`. Empty `seller_id` aggregates every seller; otherwise it narrows to that seller's listings. `from` after `to` -> `InvalidArgument`. DuckDB only. |
 
 Callers: `team-gateway` (`UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059`). Upstream RPCs consumed: none. Data consumed: the two Kafka topics below.
 
@@ -38,6 +40,8 @@ Callers: `team-gateway` (`UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059`). Up
 | Consume | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` | Idempotent upsert of `listing_id -> seller_id, category_id, price` in `listing_sellers` (DuckDB only). Deletes keep the row. |
 | Consume | `engagement.events` (`ENGAGEMENT_EVENTS_TOPIC`) | `platform.engagement.v1.FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated` | One `engagement_facts` row per envelope, `event_id` = envelope `event_id`, `fact` = `favorite_added`, `favorite_removed`, `seller_followed`, `seller_unfollowed` or `review_created`. Own group `team-analytics.engagement` (`ENGAGEMENT_CONSUMER_GROUP`). DuckDB only. |
 | Produce | `engagement.events.analytics.dlq` (`ENGAGEMENT_DLQ_TOPIC`) | the original record, with an `error` header | Only for an undecodable engagement record or an unknown envelope `type`; the consumer then commits past it. |
+| Consume | `analytics.events`, `order.events` (`ga4-relay` worker, group `GA4_RELAY_CONSUMER_GROUP`) | `TrackingEvent`, `OrderPaidEvent` | Separate `cmd/ga4-relay` worker: purchases go to the GA4 Measurement Protocol (`GA4_ENDPOINT`). Disabled unless `GA4_API_SECRET` and `GA4_MEASUREMENT_ID` are both set. |
+| Produce | `analytics.ga4-relay.dlq` (`GA4_RELAY_DLQ_TOPIC`) | records the relay cannot process | Dead-letter topic of the GA4 relay. |
 
 The code does not use the Kafka record key.
 
@@ -61,10 +65,12 @@ Database-per-service; there are no SQL migration files.
 | `listing_sellers` | `listing_id` (primary key), `seller_id`, `updated_at`, `category_id`, `price` (minor units; both NULL when unknown or recorded before the columns existed). Maps a listing to its owner so tracking events (which carry only a listing id) can be attributed to a seller, and carries the listing's attributes for the featurestore (`item_attributes@v1`, `user_preferences@v1`). An older event never overwrites a newer row. Exported as `listing_sellers.parquet` beside the other feature inputs. DuckDB only. |
 | `tracking_ingest_counters` | `hour` (UTC hour, primary key), `decode_failures`, `duplicates_skipped`. The sink adds to it: one upsert per written batch that skipped a duplicate `event_id`, and one per undecodable message. A counter write failure is logged and never blocks ingestion. DuckDB only. |
 | `ga4_events` | DuckDB view over `tracking_events` that renames event types to GA4 names (`view` -> `view_item`, `click` -> `select_item`, `impression` -> `view_item_list`) |
+| `ga4_sessions`, `ga4_events_daily`, `ga4_import_runs` | GA4 export import tables (DuckDB only), written by the daily import that runs inside `cmd/consumer` at `GA4_IMPORT_AT` |
+| `tracking_events_attributed` | View: each tracking event joined to the GA4 session window of its `ga_client_id`, giving `source`, `medium`, `campaign` and `landing_page` (`(none)` when unmatched) |
 
 - Schema is applied at boot by the writer: `CREATE TABLE IF NOT EXISTS`, then `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` for every schema column (additive only), then `CREATE OR REPLACE VIEW ga4_events`. The BigQuery adapter creates its tables at boot and treats "already exists" as success. `warehouse.Schema` and `OrderFactsSchema` are the single source for both adapters.
 - DuckDB is an embedded file (`DUCKDB_PATH`, default `/data/analytics.duckdb`) on the `analytics_data` volume in the root compose. The query service reuses the writer's `*sql.DB` because DuckDB holds an exclusive file lock.
-- Parquet export (`internal/export`): DuckDB only. At start and then every `PARQUET_EXPORT_INTERVAL_SECONDS`, four files are written into the directory of `PARQUET_EXPORT_PATH`: `tracking_events.parquet` (the path itself), `tracking_events_resolved.parquet` (stitched `user_key`, `ingested_at`), `engagement_facts.parquet` and `order_facts.parquet`. Each is written to `<file>.tmp` and renamed over the target, so readers never see a partial file. A failure on one file is logged and does not block the others; the previous version of that file is kept. Enabled only when the path is non-empty and the interval is positive. In the root compose it writes `/data/*.parquet` every 300s; `platform-recsys` (profile `jobs`) and `platform-featurestore` (profile `featurestore`) mount the volume read-only and read it.
+- Parquet export (`internal/export`): DuckDB only. At start and then every `PARQUET_EXPORT_INTERVAL_SECONDS`, seven files are written into the directory of `PARQUET_EXPORT_PATH`: `tracking_events.parquet` (the path itself), `tracking_events_resolved.parquet` (stitched `user_key`, `ingested_at`), `engagement_facts.parquet`, `order_facts.parquet`, `listing_sellers.parquet`, `ga4_sessions.parquet` and `tracking_events_attributed.parquet`. Each is written to `<file>.tmp` and renamed over the target, so readers never see a partial file. A failure on one file is logged and does not block the others; the previous version of that file is kept. Enabled only when the path is non-empty and the interval is positive. In the root compose it writes `/data/*.parquet` every 300s; `platform-recsys` (profile `jobs`) and `platform-featurestore` (profile `featurestore`) mount the volume read-only and read it.
 - BigQuery (`WAREHOUSE_DRIVER=bigquery`) is write-only: no query path and no Parquet export; it is only unit/parity-tested.
 
 ## 4. Configuration
@@ -95,13 +101,25 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `BIGQUERY_PROJECT` | empty | Required for `bigquery` |
 | `BIGQUERY_DATASET` | `analytics` | Required for `bigquery` |
 | `BIGQUERY_TABLE` | `tracking_events` | Tracking table; order facts go to `order_facts` in the same dataset |
-| `PARQUET_EXPORT_PATH` | empty | Export disabled when empty; the other three files go beside it |
+| `PARQUET_EXPORT_PATH` | empty | Export disabled when empty; the other six files go beside it |
 | `PARQUET_EXPORT_INTERVAL_SECONDS` | `0` | 0 disables; must be >= 0 |
 | `BATCH_MAX_SIZE` | `500` | Must be > 0 |
 | `BATCH_FLUSH_INTERVAL_SECONDS` | `2` | 0 disables the interval flush (size and shutdown flush only) |
 | `TRACKING_STALE_AFTER_SECONDS` | `900` | Report is `DEGRADED` (`stale`) when the latest ingest is older; must be > 0 |
 | `TRACKING_LAG_P95_MAX_SECONDS` | `300` | `DEGRADED` (`lagging`) when p95 ingest lag exceeds it; must be > 0 |
 | `TRACKING_MISSING_LISTING_MAX_RATIO` | `0.05` | `DEGRADED` (`incomplete`) when a listing-scoped type's share of events without `listing_id` exceeds it; 0 to 1 |
+| `METRICS_ADDR` | `:9109` | HTTP listen address of `GET /metrics` (Prometheus text) and the GA4 import trigger; empty disables both |
+| `GA4_EXPORT_SOURCE` | `bigquery` | `bigquery` or `fixture` (Parquet `events_YYYYMMDD.parquet` in `GA4_EXPORT_FIXTURE_DIR`); the GA4 import is a no-op while `GA4_EXPORT_DATASET` is empty |
+| `GA4_EXPORT_DATASET` | empty | BigQuery dataset holding the GA4 `events_YYYYMMDD` tables (`dataset` or `project.dataset`) |
+| `GA4_EXPORT_FIXTURE_DIR` | empty | Directory of Parquet fixtures when `GA4_EXPORT_SOURCE=fixture` |
+| `GA4_IMPORT_AT` | `03:30` | Daily UTC `HH:MM` at which the consumer imports yesterday's GA4 export |
+| `GA4_RECONCILE_MAX_DIFF_RATIO` | `0.35` | GA4 vs first-party divergence threshold for the reconciliation report; must be >= 0 |
+| `GA4_API_SECRET` | empty | Secret for the GA4 Measurement Protocol relay; set it via the secret store, never commit it. Relay disabled unless set with `GA4_MEASUREMENT_ID` |
+| `GA4_MEASUREMENT_ID` | empty | GA4 measurement id for the purchase relay |
+| `GA4_ENDPOINT` | `https://www.google-analytics.com/mp/collect` | Measurement Protocol endpoint |
+| `GA4_RELAY_CONSUMER_GROUP` | `team-analytics.ga4-relay` | Consumer group of the GA4 relay |
+| `GA4_RELAY_DLQ_TOPIC` | `analytics.ga4-relay.dlq` | Dead-letter topic of the GA4 relay |
+| `GA4_RELAY_PROBE_PORT` | `8085` | Health probe port of the GA4 relay (1 to 65535 when the relay is enabled) |
 | `RECS_ATTRIBUTION_WINDOW_HOURS` | `24` | `GetRecommendationPerformance` credits an add-to-cart or purchase to a click made at most this many hours earlier; must be > 0 |
 | `OTEL_ENABLED` | `false` | Inert: no tracing code reads it |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty in code (`.env.example` sets `http://localhost:4317`) | Inert |
@@ -126,12 +144,14 @@ Standalone: `docker-compose.local.yaml` runs only this worker against the platfo
 |---|---|
 | `make proto` | `buf generate` into `generated/` (needs `buf`) |
 | `make tidy` | `go mod tidy` (the Dockerfile also runs it in the image) |
+| `make consumer` | Runs the analytics consumer (`go run ./cmd/consumer`; needs `KAFKA_ENABLED=true`) |
+| `make ga4-relay` | Runs the GA4 purchase relay (`go run ./cmd/ga4-relay`) |
 | `make check` | Merge gate: `check-env`, `gofmt -l` (fails on unformatted files), `go vet ./...`, `go test ./...` |
 | `make check-env` | `.env.example` vs `internal/config` drift gate |
 | `make test` | `go test ./...` |
-| `docker build -t team-analytics:latest .` | `golang:1.23`, `CGO_ENABLED=1`, runs on `distroless/cc-debian12:nonroot`; `/data` is pre-created and owned by nonroot |
+| `docker build -t team-analytics:latest .` | `golang:1.26`, `CGO_ENABLED=1`, runs on `distroless/cc-debian12:nonroot`; `/data` is pre-created and owned by nonroot |
 
-There is no CI workflow in this directory; `make check` is the gate. Go is 1.23 (`go.mod`).
+There is no CI workflow in this directory; `make check` is the gate. Go is 1.26 (`go.mod`).
 
 ## 7. Spec and verification
 
@@ -151,12 +171,12 @@ There is no CI workflow in this directory; `make check` is the gate. Go is 1.23 
 ## 9. Known gaps
 
 - Trusted principal metadata: any caller that reaches `:50059` can set `x-principal-*` and act as a seller or admin. Protection relies on network policy (ADR-0010); this service does no token or mTLS check.
-- BigQuery has no query path and no Parquet export; with `WAREHOUSE_DRIVER=bigquery` the five RPCs are not registered (Health only).
+- BigQuery has no query path and no Parquet export; with `WAREHOUSE_DRIVER=bigquery` the query RPCs are not registered (Health only).
 - Deduplication on `event_id` is exact in DuckDB only; BigQuery relies on best-effort insert-id deduplication.
 - `OTEL_*`, `ENV` and `SHUTDOWN_GRACE_SECONDS` are declared but unused; the `internal/interceptor` package comment mentions a `tracing.go` that does not exist.
 - The demand forecast is a flat baseline with no seasonality or recency; its mean and std-dev are per order line over all history.
 - Root `AGENTS.md`, `.env.example` and `proto/README.md` still say this service has "no business RPC, health only"; the code serves `AnalyticsQueryService`. Out of scope for this README and needs a separate fix.
-- An undecodable record is skipped after a warning; there is no dead-letter topic.
+- For `analytics.events` and `order.events`, an undecodable record is skipped after a warning; there is no dead-letter topic for them (engagement records do go to the DLQ).
 
 ## 10. Links
 

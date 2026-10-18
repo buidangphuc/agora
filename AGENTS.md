@@ -40,7 +40,7 @@ browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) �
 | **team-chat** | Go | Buyer-seller chat threads & real-time messaging | :50057 |
 | **team-notification**| Go | In-app notification center | :50058 |
 | **team-gateway** | Go | Connect edge: verify JWT once, rate-limit/CORS, forward to services | :8080 (HTTP) |
-| **team-frontend** | TS | Next.js 14 App Router SSR; consumer home + `/seller` area + auth | :3000 |
+| **team-frontend** | TS | Next.js 15 App Router SSR; consumer home + `/seller` area + auth | :3000 |
 | **team-ai** | Python | FastAPI + gRPC AI service (AIService, ChatService, RecommendationService, SearchListings; :50060 gRPC) | :8000 |
 | **team-analytics** | Go | Kafka worker (§6c): `analytics.events` → analytics warehouse (DB-per-service; no business RPC, health only) | :50059 |
 | **team-promotion** | Go | Shop/platform vouchers + flash-sale campaigns; checkout redemption (reserve→commit/release); emits `promotion.events` | :50061 |
@@ -130,15 +130,13 @@ platform-core/tools/seed-marketplace.sh
 ```
 
 Ports: gateway `:8080`, frontend `:3000`, domain `:50051`, search `:50052`,
-identity `:50053`, engagement `:50054`, promotion `:50061`. Modelserve router: `:8100` (TEI embed `:8101`, TEI rerank `:8102`, vLLM `:8103`). Infra: postgres-listing `5433`,
-postgres-search `5434`, postgres-identity `5435`, postgres-engagement `5436`,
-postgres-promotion `5440`, postgres-notification `5441`,
-redis `6379`, qdrant `6333/6334`, redpanda `19092` (host), rabbitmq `5672/15672`,
+identity `:50053`, engagement `:50054`, promotion `:50061`, referral `:50062`, verification `:50064`, sharing `:50065`, audit `:50066`. Modelserve router: `:8100` (TEI embed `:8101`, TEI rerank `:8102`, vLLM `:8103`). Infra: redis `6379`, qdrant `6333/6334`, redpanda `19092` (host), rabbitmq `5672/15672`,
 opensearch `9200`, otel-collector `4317`, MLflow `5050` (backed by `postgres-mlflow`, which has
 no host port — reach it only from the compose network).
 
-Gateway env (must match reality): `HTTP_PORT`, `UPSTREAM_{SEARCH,LISTING,IDENTITY,
-ENGAGEMENT}_ADDR`, `JWKS_URL`, `RATE_LIMIT_RPS/BURST`, `CORS_ORIGINS`,
+Gateway env (must match reality): `HTTP_PORT`, `UPSTREAM_{AI,ANALYTICS,AUDIT,CHAT,
+ENGAGEMENT,IDENTITY,LISTING,NOTIFICATION,ORDER,PAYMENT,PROMOTION,RECOMMENDATION,REFERRAL,
+SEARCH,SHARING,VERIFICATION}_ADDR`, `JWKS_URL`, `RATE_LIMIT_RPS/BURST`, `CORS_ORIGINS`,
 `OTEL_EXPORTER_OTLP_ENDPOINT`. (No shared `JWT_SECRET` — ADR-0006 made the gateway
 a verify-only party that holds no signing material; it fetches identity's JWKS.)
 
@@ -199,10 +197,10 @@ service behind the gateway; it never requires a new repo.
   with `env:`/`default:` struct tags + a `.env.example` drift gate; bootstrap
   Resources/lifecycle (pgxpool + health); gRPC transport + interceptors;
   in-process gRPC tests on ephemeral ports. `gofmt` + `go vet` + `go test` clean.
-- **Go 1.22 dependency pins** (do not bump without checking Go version): franz-go
-  `v1.18.0`, opensearch-go/v2 `v2.3.0`, golang-jwt/v5 `v5.2.1`, rs/cors `v1.11.0`,
+- **Go dependency pins** (all modules `go 1.26`; do not bump without checking): franz-go
+  `v1.18.0`, opensearch-go/v2 `v2.3.0`, golang-jwt/v5 `v5.2.2`, rs/cors `v1.11.0`,
   golang.org/x/time `v0.5.0`.
-- **Frontend**: Next.js 14 App Router + Tailwind, Connect-ES v1, a server-only
+- **Frontend**: Next.js 15 App Router + Tailwind, Connect-ES v1, a server-only
   gateway module, per-request clients built with the caller's token from the
   httpOnly `session` cookie. `next build` + `tsc` clean.
 - **Financially sensitive** (payments / wallet / boost): **mock/placeholder only**
@@ -241,17 +239,18 @@ deferred (above).
 New requirements flow through **OpenSpec** (`openspec/`), not ad-hoc. speckit is
 retired. Pipeline: `requirement → change → (code ∥ e2e) → gate → archive`, designed
 so many changes/agents run in parallel (each change is an isolated
-`openspec/changes/<id>/`). Full plan: `docs/asdlc/SPEC_DRIVEN_WORKFLOW.md`.
+`openspec/changes/<id>/`).
 
 - Propose: `/opsx:propose "<idea>"` (or author `openspec/changes/<id>/{proposal,tasks}.md` + `specs/<capability>/spec.md`); `openspec validate <id> --strict`.
 - Build in parallel with the **`spec-dispatch`** skill: code track (per repo, obey rules §3) ∥ e2e track (**`spec-to-e2e`** skill → updates the owning repo's `FEATURES.yaml` + a `.feature` in `platform-e2e`).
+- Before any commit/PR that touches code or config, run the **`docs-sync`** skill: every changed RPC, migration, env var, topic, port, route or target is reflected in the owner README (or listed under its Known gaps).
 - Every user-facing `#### Scenario:` must become an automated e2e (shift-left). Gate before archive: `make -C platform-e2e spec-check CHANGE=<id>` (manifests valid + every change scenario has a green test, except one that cannot be produced end to end: it names its unit test in a `**VERIFIED BY**:` line and its FEATURES entry is `not-testable`) + `pytest` green + lint.
 - Archive: `openspec archive <id>` folds the delta into `openspec/specs/`.
-- Conventions for OpenSpec live in `openspec/config.yaml`; e2e conventions in `platform-e2e/AGENTS.md` + `docs/FEATURE_MANIFEST.md`.
+- Conventions for OpenSpec live in `openspec/config.yaml`; e2e conventions in `platform-e2e/AGENTS.md` + `platform-e2e/docs/FEATURE_MANIFEST.md`.
 
 ## 9c. ASDLC v2 (agentic SDLC)
 
-- Process source of truth: [`docs/asdlc/ASDLC-v2.md`](docs/asdlc/ASDLC-v2.md) (10 phases, roles, decision engine, initiative workflow, test guard, human approval points). One-page start: [`docs/ONBOARDING.md`](docs/ONBOARDING.md). Plan: `docs/asdlc/ASDLC-v2-PLAN.md`.
+- Process source of truth: [`docs/asdlc/ASDLC-v2.md`](docs/asdlc/ASDLC-v2.md) (10 phases, roles, decision engine, initiative workflow, test guard, human approval points). One-page start: [`docs/ONBOARDING.md`](docs/ONBOARDING.md).
 - Config and profile (`solo` / `team`): `asdlc.config.yaml`; gates: `gates/`; scripts: `scripts/asdlc/`; agents/skills: `.claude/`.
 - Skills: `initiative-plan` -> human lock -> `initiative-build` -> `feature-run`; `spec-clarify` before the lock; `release` for phase 8.
 - The `implementer` subagent cannot edit test files (`.claude/hooks/guard-tests.sh`); only `test-author` / `e2e-author` do.

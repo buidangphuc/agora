@@ -1,6 +1,6 @@
 # metrics/kev-eval
 
-Eval data and results for the Kev A/B/C experiment (ASDLC-v2-PLAN section 14). Code: `scripts/asdlc/kev_eval/`.
+Eval data and results for the Kev A/B/C experiment. Code: `scripts/asdlc/kev_eval/`.
 
 | Path | Content | Tracked |
 |---|---|---|

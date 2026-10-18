@@ -13,7 +13,7 @@ gRPC on `GRPC_PORT` (default `50053`). Authorization is enforced in handlers onl
 `interceptor.RequirePrincipal`, which reads the gateway-forwarded `x-principal-id` /
 `x-principal-type` / `x-principal-scopes` metadata and rejects missing or anonymous principals
 with `UNAUTHENTICATED`. Scope gating for the public RPCs is the gateway's job; this service does
-not check scopes except in `GetPublicProfiles`.
+not check scopes except in `GetPublicProfiles` (`identity.read`) and `AccountAdminService` (`admin`).
 
 | Service / RPC | Rule in this service |
 |---|---|
@@ -22,10 +22,13 @@ not check scopes except in `GetPublicProfiles`.
 | `AuthService.ChangePassword` | `RequirePrincipal` and a `PRINCIPAL_TYPE_USER` principal (`PERMISSION_DENIED` for service principals). Always targets the principal's id; `user_id` in the request body is ignored. Verifies the old password. |
 | `AuthService.RequestPasswordReset` | No principal check. Returns `expires_at` (15 min TTL, SHA-256 hash stored); the raw reset token is returned in the response only when `PASSWORD_RESET_EXPOSE_TOKEN=true` (dev/e2e; startup refuses it when `ENV=prod`). |
 | `AuthService.ResetPassword` | No principal check. Token must exist, be unused and unexpired. |
+| `AuthService.RefreshSession` | No principal check; the refresh token is the credential. Rotates the refresh token (10 s grace replay, reuse revokes the session). `PERMISSION_DENIED` for a `SUSPENDED` or `BANNED` account. |
 | `AddressService.List/Create/Update/Delete/SetDefault` | `RequirePrincipal`; every query is scoped to the caller's id. |
 | `SessionService.ListSessions`, `ListLoginHistory` | `RequirePrincipal`; scoped to the caller. History page size default 20, max 100, cursor is a numeric offset. |
 | `SessionService.RevokeSession` | `RequirePrincipal`; only the caller's own session (`NOT_FOUND` otherwise). Writes a `SessionRevoked` outbox row in the same transaction. |
 | `PublicProfileService.GetPublicProfiles` | Service principal (`PRINCIPAL_TYPE_SERVICE`) with scope `identity.read` only; otherwise `PERMISSION_DENIED`. Max 100 ids (`InvalidArgument` above). Returns `{user_id, display_name}` where display name is the username. |
+| `AccountAdminService.ListUsers` | Scope `admin` (`PERMISSION_DENIED` otherwise); username prefix or exact id, optional status filter. |
+| `AccountAdminService.SetUserStatus` | Scope `admin`. Writes a `user.set_status` audit entry to team-audit first (fails `UNAVAILABLE` with no change if it is down). Refuses the caller's own id or another admin (`FAILED_PRECONDITION`). Moving to `RESTRICTED`, `SUSPENDED` or `BANNED` revokes all of the user's sessions. |
 | `grpc.health.v1.Health` | Open. |
 | `ServerReflection` | Registered when `GRPC_REFLECTION_ENABLED=true`. |
 
@@ -36,15 +39,15 @@ Role to scopes (`internal/authz/scopes.go`):
 
 | Role | Scopes |
 |---|---|
-| `buyer` | `listing.read`, `search:read`, `search:write`, `engagement:read`, `engagement:write` |
+| `buyer` | `listing.read`, `search:read`, `search:write`, `engagement:read`, `engagement:write`, `recommendations:read`, `ai:use` |
 | `seller` | buyer scopes plus `listing.write` |
-| `admin` | seller scopes plus `admin` |
+| `admin` | seller scopes plus `admin`, `order.admin` |
 
 Token claims (`internal/token/jwt.go`): RS256, header `kid`; `sub`, `name`, `typ` (`user`), `scopes`,
 `sid` (session id, omitted if no session), `iat`, `exp` (`JWT_TTL_SECONDS`). `identity.read` is not in
 any role, so no user token can carry it, and nothing in this service mints service tokens.
 
-Consumes: no upstream RPCs. Vendored contracts only: `platform.common.v1.Principal`,
+Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), used by `SetUserStatus`. Vendored contracts only: `platform.common.v1.Principal`,
 `platform.events.v1.EventEnvelope`, `platform.identity.v1.*`.
 
 ## Events
@@ -52,6 +55,7 @@ Consumes: no upstream RPCs. Vendored contracts only: `platform.common.v1.Princip
 | Direction | Topic | Type | Key |
 |---|---|---|---|
 | Produces | `identity.events` (`IDENTITY_EVENTS_TOPIC`) | `platform.identity.v1.SessionRevoked` in an `EventEnvelope` | user id |
+| Produces | `identity.events` | `platform.identity.v1.UserStatusChanged` in an `EventEnvelope` (on every `SetUserStatus` call) | user id |
 | Consumes | none | | |
 
 `RevokeSession` inserts the outbox row in the same transaction as `sessions.revoked = true`. The
@@ -71,6 +75,8 @@ Database `identity_db`. Migrations in `migrations/` (golang-migrate, up/down pai
 | `0003_password_reset_tokens` | `password_reset_tokens` (PK = SHA-256 token hash) |
 | `0004_sessions` | `sessions`, `login_history` |
 | `0005_identity_outbox_events` | `identity_outbox_events` (claimed with `FOR UPDATE SKIP LOCKED`) |
+| `0006_session_refresh` | adds `sessions.refresh_hash`, `prev_refresh_hash`, `refresh_expires_at`, `rotated_at` |
+| `0007_user_status` | adds `users.status` (`active`, `restricted`, `suspended`, `banned`), `status_reason`, `status_until`, `status_changed_at` |
 
 All user-owned tables reference `users(id)` with `ON DELETE CASCADE`. Migrations are not run by the
 service: the root compose runs the `team-identity-migrate` job; standalone use `make migrate`
@@ -171,7 +177,7 @@ There is no linter beyond gofmt and vet. Postgres-backed tests (`*_pg_test.go`) 
 
 ## Spec and verification
 
-`FEATURES.yaml` (15 features: login, register, password reset, addresses, logout, the RS256/JWKS
+`FEATURES.yaml` (121 features: login, register, password reset, addresses, logout, the RS256/JWKS
 set including key rotation, and session revocation/device+IP) maps each feature to its platform-e2e
 scenario in `covered_by`. Verify with `make -C platform-e2e features-check`, and for an OpenSpec
 change `make -C platform-e2e spec-check CHANGE=<id>`. Changes go through OpenSpec
@@ -185,7 +191,7 @@ then implement, per the root README's ASDLC. `PublicProfileService` has no `FEAT
 - The Dockerfile sets `GRPC_PORT=50053` and `EXPOSE`s only `50053`, not the JWKS port. Compose does
   not depend on `EXPOSE`.
 - `RevokeSession` only records and relays an event. Enforcement happens at the gateway, which must
-  consume `identity.events`; this service does not check `sessions.revoked` anywhere else.
+  consume `identity.events`; the refresh path also rejects revoked sessions (`NOT revoked` in the lookup), but nothing else reads `sessions.revoked` to gate requests.
 - With `KAFKA_ENABLED=false`, outbox rows accumulate unrelayed.
 - JWKS publishes exactly one key (the signer's). `BuildJWKS` accepts several, but `main.go` passes one,
   so rotation means redeploying with a new `JWT_KID` and key.
@@ -193,7 +199,7 @@ then implement, per the root README's ASDLC. `PublicProfileService` has no `FEAT
 
 ## Known gaps
 
-- `sessions.last_seen` is set at creation and never updated.
+- `sessions.last_seen` is set at creation and on refresh rotation; no other call updates it.
 - Identity trusts `x-principal-*` metadata without verification (ADR-0010 interim: NetworkPolicy only).
   Anything that can reach `:50053` directly can impersonate any principal.
 - There is no out-of-band delivery (email/SMS) of the reset token, so with the default

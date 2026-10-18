@@ -16,7 +16,7 @@ Redis and recommendations are mandatory, and gRPC is always served once the app 
 | `app/modules/platform` | Reusable capabilities: quota, rate limit, identity, model_server. |
 | `app/modules/messaging` | Kafka consumer (`kafka/`) and the listing indexer (`listing_indexer/`). |
 | `app/modules/ai` | Optional AI extras (LLM, RAG, evals) behind lazy-import guards (`app/modules/ai/_deps.py`). |
-| `app/modules/business` | Domain/product logic only: ai_assistant, chat, completions, recommendation, tag_classifier. |
+| `app/modules/business` | Domain/product logic only: ai_assistant, chat, completions, listing_screen, recommendation, tag_classifier. |
 | `app/core` | Settings, infra primitives, health, errors, middleware. |
 
 Layer flow:

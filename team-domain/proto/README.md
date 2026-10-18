@@ -37,5 +37,7 @@ your back — you choose when to move the pin.
 ## Ownership
 
 This service (team-domain) OWNS `platform.listing.v1.ListingService`. The other
-modules here (`common`, `search`, `chat`) are vendored only so the contract
-imports resolve during codegen; `search`/`chat` are owned by team-ai.
+modules here (`ai`, `audit`, `chat`, `common`, `engagement`, `events`, `identity`,
+`notification`, `order`, `payment`, `search`) are vendored only so the contract
+imports resolve during codegen; each is owned by its own team (for example
+`search` by team-search, `chat` by team-chat).

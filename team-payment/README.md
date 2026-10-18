@@ -329,14 +329,14 @@ go test -race ./...
 TEST_DATABASE_URL=postgres://postgres:pg@127.0.0.1:<port>/postgres?sslmode=disable go test -race ./...
 ```
 
-Docker build: `Dockerfile` (Go 1.22, static binary, distroless nonroot, exposes 50056). It builds
+Docker build: `Dockerfile` (Go 1.26, static binary, distroless nonroot, exposes 50056). It builds
 from `COPY . .`, so `generated/` must exist in the build context.
 
 ## Spec and verification
 
-- Feature manifest: `FEATURES.yaml` (`payment.mock-pay`, `payment.seller-wallet`, `payment.payout`,
-  `payment.refund`, and four wallet-access authz features), each with a `covered_by` pointing at a
-  scenario in `platform-e2e`.
+- Feature manifest: `FEATURES.yaml` (108 features: 71 `automated`, 37 `not-testable`), including
+  `payment.mock-pay`, `payment.seller-wallet`, `payment.payout`, `payment.refund` and the wallet-access
+  authz features. Automated entries carry a `covered_by` pointing at a scenario in `platform-e2e`.
 - Verify e2e coverage with `make -C platform-e2e features-check`, and for an OpenSpec change with
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC; do
@@ -360,7 +360,6 @@ from `COPY . .`, so `generated/` must exist in the build context.
 ## Known gaps
 
 - `RefundPayment` emits no event.
-- `ProcessMockPayment` re-settles any payment that is not `PAID`, including a refunded one.
 - `payment.events` per-order ordering is not guaranteed (a backed-off outbox row can be overtaken);
   harmless while it carries only `PaymentSettled`, but it must be fixed before a second event
   type is added.

@@ -28,7 +28,7 @@ fixtures are in `test-data/`).
 
 ## Test lanes
 
-Markers are registered in `pyproject.toml` (about 35, `--strict-markers`: an unregistered tag
+Markers are registered in `pyproject.toml` (39, `--strict-markers`: an unregistered tag
 fails collection). Select with `pytest -m <marker>`.
 
 | Lane | Command | Notes |
@@ -183,11 +183,10 @@ Ruff and black use line length 100, Python 3.10+. There is no CI workflow in thi
 ## Spec and verification
 
 - `platform-e2e` has no `FEATURES.yaml` of its own. Each owning repo ships
-  `<repo>/FEATURES.yaml` (17 today); `scripts/features.py` globs `*/FEATURES.yaml`, validates
+  `<repo>/FEATURES.yaml` (21 today); `scripts/features.py` globs `*/FEATURES.yaml`, validates
   against `schemas/features.schema.json`, checks that each `covered_by`
   (`<path under tests/e2e/features>::<Scenario name>`) resolves to a real scenario, and prints
-  coverage. Convention and schema: `docs/FEATURE_MANIFEST.md`; backlog:
-  `docs/AUTOMATION_BACKLOG.md`.
+  coverage. Convention and schema: `docs/FEATURE_MANIFEST.md`.
 - `make features` reports; `make features-check` fails on any manifest or coverage error.
 - `make spec-check CHANGE=<id>` runs `features-check` plus `scripts/spec_sync.py`: every
   `#### Scenario:` in `openspec/changes/<id>/specs/**/spec.md` must match an `automated`
@@ -249,7 +248,7 @@ env/        .env.local / .env.docker / .env.staging
 - `AGENTS.md` rule 2 forbids `wait_for_timeout`, but it is used in
   `BasePage.wait_until_interactive` (100 ms poll) and in fixed waits in `pdp_streaming_steps.py`,
   `ui_components_steps.py`, `product_detail_steps.py`, `pdp_shop_steps.py` and
-  `discovery_steps.py`.
+  `discovery_steps.py`, and 18 more step files (`grep -rl wait_for_timeout tests`).
 - No Make targets for the parallel or destructive lanes; `make test` and `docker-test` run
   everything serially, destructive included.
 - No CI workflow in this repo, and no `.env.example` drift gate.

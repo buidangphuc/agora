@@ -5,7 +5,7 @@ cluster (auto-sync, prune, self-heal on every Application). It is the **deployme
 only**. There is no business code, no service, no proto and no database owned here. It
 holds ArgoCD Applications, one generic Helm chart, per-env values and raw platform
 manifests. It is not a deployed service; it is read by ArgoCD in the local kind cluster
-(`deploy/`), and the staging/prod overlays are not live anywhere (see "Staging and prod").
+(`deploy/`), and the staging/prod overlays are not live anywhere, except the staging overlay on the local kind cluster (see "Staging and prod").
 
 ## Layout
 
@@ -16,8 +16,9 @@ manifests. It is not a deployed service; it is read by ArgoCD in the local kind 
 | `envs/local/values.yaml` | `global.registry` plus the `images:` tag map (one key per image, `local`). CI bumps these. |
 | `envs/services/<svc>.yaml` | Invariant per-service baseline for the 16 `team-*` services. Used by the ApplicationSet only. |
 | `envs/{staging,prod}/` | `values.yaml` (registry + image tags), `services.yaml` (env-wide overlay: probe timing), `services/<svc>.yaml` (per-service overlay). |
-| `platform/` | Raw manifests, no Helm (`recsys`, `featurestore`, `modelserve`, `team-analytics`, `search-indexer` carry a `kustomization.yaml`: manifests have tagless images, `images[].newTag` is the deployed tag, written by `push-images.sh` next to `envs/local/values.yaml`): `infra` (redpanda, opensearch, minio, valkey, flipt, qdrant), `postgres`, `backup`, `monitoring` (Prometheus), `recsys`, `featurestore`, `modelserve` (router + tei-fake runtimes, local-registry images), `search-indexer`, `team-analytics`, `vault-config`. |
-| `scripts/check_identity_seed.py` | The only check shipped in this repo. |
+| `platform/` | Raw manifests, no Helm (`recsys`, `featurestore`, `modelserve`, `team-analytics`, `search-indexer`, `finetune`, `mlflow` carry a `kustomization.yaml`: manifests have tagless images, `images[].newTag` is the deployed tag, written by `push-images.sh` next to `envs/local/values.yaml`): `infra` (redpanda, opensearch, minio, valkey, flipt, qdrant), `postgres`, `backup`, `monitoring` (Prometheus), `recsys`, `featurestore`, `modelserve` (router + tei-fake runtimes, local-registry images), `search-indexer`, `team-analytics`, `vault-config`, `finetune`, `mlflow`. |
+| `scripts/check_identity_seed.py` | The only script check shipped in this repo. |
+| `tests/` | pytest manifest checks: `test_ga4_relay_manifests.py`, `test_mlflow_manifests.py`. |
 | `.claude/skills/scaffold-service/` | Agent skill for adding a service. |
 
 The root app-of-apps (`marketplace-root`, path `argocd/apps`, recursive) is **not in this
@@ -33,7 +34,7 @@ Sync waves: 0 infra, 1 operators (vault, external-secrets, keda, argo-rollouts),
 | Group | Applications |
 |---|---|
 | Services (wave 4, chart `charts/service`) | 16 Apps: `team-identity`, `team-domain`, `team-search`, `team-engagement`, `team-order`, `team-payment`, `team-chat`, `team-notification`, `team-referral`, `team-verification`, `team-sharing`, `team-audit`, `team-gateway`, `team-frontend`, `team-ai`, `team-promotion` |
-| Raw-manifest apps (wave 4) | `team-analytics` (`platform/team-analytics`), `search-indexer`, `featurestore` (CronJob 02:15 UTC: materialize, parity, dataset; PVC `featurestore-data`), `platform-recsys` (CronJob 03:00 UTC, reads that PVC read-only, refuses stale/absent datasets; `platform/recsys/nearline.yaml` adds the `platform-recsys-nearline` Deployment, analytics.events to valkey DB 0). Qdrant (`platform/infra/qdrant.yaml`) holds the ALS vectors team-ai serves |
+| Raw-manifest apps (wave 4) | `team-analytics` (`platform/team-analytics`), `search-indexer`, `mlflow` (`platform/mlflow`), `platform-finetune` (`platform/finetune`, scheduled), `featurestore` (CronJob 02:15 UTC: materialize, parity, dataset; PVC `featurestore-data`), `platform-recsys` (CronJob 03:00 UTC, reads that PVC read-only, refuses stale/absent datasets; `platform/recsys/nearline.yaml` adds the `platform-recsys-nearline` Deployment, analytics.events to valkey DB 0). Qdrant (`platform/infra/qdrant.yaml`) holds the ALS vectors team-ai serves |
 | Infra (wave 0) | `infra-shared` (`platform/infra`), `platform-modelserve` (`platform/modelserve`), `infra-postgres` (`platform/postgres`), `metrics-server` 3.12.2 |
 | Wave 2 | `infra-postgres-backup` (`platform/backup`), `prometheus` (`platform/monitoring`), `vault-config` |
 | Operators (wave 1) | `vault` 0.28.1, `external-secrets` 0.10.4, `keda` 2.14.0, `argo-rollouts` 2.37.3 |
@@ -70,6 +71,8 @@ cluster is unlabelled, so the ApplicationSet generates **zero** apps locally. St
 registries are placeholders (`staging-registry.example.com`, `registry.example.com`) and no
 real staging/prod cluster is provisioned. Infra and raw-manifest apps are local-only. Prod pins
 tags `"1.0.0"`; staging uses `staging`. Design: archived OpenSpec change `add-staging-prod-overlays`.
+`argocd/apps/appset-staging-kind.yaml` (sync wave 5) runs the staging overlay on the local kind cluster,
+namespace `marketplace-staging`, for `team-gateway` and `team-frontend` only.
 
 ## Canary (Argo Rollouts)
 
@@ -107,8 +110,8 @@ make -C deploy smoke          # platform-e2e against the cluster ingress
 make -C deploy cluster-down
 ```
 
-See `deploy/README.md`. Flow: dev push, CI (`deploy/act`) builds and pushes the image and bumps
-the tag in `envs/local/values.yaml`, Gitea, ArgoCD. CI lives in `deploy/act`, not in this repo.
+See `deploy/README.md`. Flow: dev push, CI (planned `deploy/act`, not yet present) builds and pushes the image and bumps
+the tag in `envs/local/values.yaml`, Gitea, ArgoCD. CI is not in this repo.
 
 ## Check and verify
 

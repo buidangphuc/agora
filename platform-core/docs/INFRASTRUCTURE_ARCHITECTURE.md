@@ -64,10 +64,10 @@ Môi trường Local được đóng gói đầy đủ trong `platform-core/infr
 | **`redpanda`** | `redpandadata/redpanda:v24.1.7` | `:19092, :9644` | Kafka-compatible event streaming broker |
 | **`rabbitmq`** | `rabbitmq:3-management` | `:5672, :15672` | Task queue broker (cho background jobs) |
 | **`opensearch`** | `opensearchproject/opensearch:2.15.0` | `:9200` | Search read-model engine |
-| **`minio`** | `minio/minio` | `:9000, :9001` | S3-compatible Object Storage lưu ảnh sản phẩm |
-| **`qdrant`** | `qdrant/qdrant:v1.9.0` | `:6333, :6334` | Vector Database cho tìm kiếm tương đồng AI |
+| **`minio`** | `minio/minio:RELEASE.2024-05-28T17-19-04Z` | `:9000, :9001` | S3-compatible Object Storage lưu ảnh sản phẩm |
+| **`qdrant`** | `qdrant/qdrant:v1.19.0` | `:6333, :6334` | Vector Database cho tìm kiếm tương đồng AI |
 | **`redis`** | `redis:7-alpine` | `:6379` | L2 Distributed Cache & Session Store |
-| **7 PostgreSQL DBs** | `postgres:16-alpine` | `:5433 - :5439` | Database-per-service độc lập cho 7 microservices |
+| **postgres** (1 instance) | `postgres:16-alpine` | `:5432` | Database-per-service: `postgres-init` tạo một DB và role riêng cho mỗi service |
 
 ---
 

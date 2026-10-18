@@ -1,5 +1,5 @@
 # EXAMPLE manifest (proposal) — would live at team-order/FEATURES.yaml
-# Grounded in team-order's real RPCs/routes (MASTER_CAPABILITY_MATRIX Phase 5–8)
+# Grounded in team-order's real RPCs/routes
 # and the actual frontend selectors used by platform-e2e today.
 # Validate against: platform-e2e/schemas/features.schema.json
 repo: team-order

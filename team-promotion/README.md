@@ -69,6 +69,7 @@ Own database `promotion_db` (user `promotion_svc`). Migrations in `migrations/` 
 | `0001_promotion` | `vouchers`, `voucher_reservations` (unique `reservation_id`), `flash_sale_campaigns` |
 | `0002_subscriptions` | `subscription_plans` (seeded `plan_free`, `plan_pro`, `plan_premium`), `seller_subscriptions` (unique `seller_id`) |
 | `0003_sponsored` | `ad_campaigns` (index on `(status, bid DESC)`) |
+| `0004_flash_sale_holds` | Flash-sale stock holds (`reserve`, `commit`, `release`; see Flash stock holds) |
 
 Applied by the `team-promotion-migrate` one-shot container in the root compose (the app waits for
 it), or by `make migrate` (golang-migrate via docker; `DATABASE_URL` from `.env` or the Makefile
@@ -102,6 +103,9 @@ declared keys. The Makefile auto-loads `.env` if present.
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `PROMOTION_EVENTS_TOPIC` | `promotion.events` | |
 | `UPSTREAM_AUDIT_ADDR` | `""` | team-audit gRPC address (`team-audit-svc:50066` in compose). Platform/unspecified-scope `CreateVoucher`, admin `CreateCampaign` and admin `CreateAdCampaign` write an audit event (as `service-team-promotion`, `audit.write`) before inserting; unset or audit failure is `Unavailable` and nothing is created. Seller paths are not audited |
+| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Timeout for upstream calls (team-domain lookup, team-audit write) |
+| `MAX_AD_BID` | `1000000` | Upper bound on a sponsored ad bid; larger is `InvalidArgument` |
+| `MAX_AD_BUDGET` | `1000000000` | Upper bound on an ad campaign budget; larger is `InvalidArgument` |
 | `UPSTREAM_DOMAIN_ADDR` | `""` | team-domain gRPC address (`team-domain-svc:50051` in compose). Unset: non-admin `CreateCampaign` fails closed; `.env.example` uses `localhost:50051` |
 
 The only flag is `flash-sale-enabled` (fail-open, default true). Switched off, it makes
@@ -155,9 +159,8 @@ Postgres repository tests (`internal/repository/postgres_test.go`) skip unless
 
 ## Spec and verification
 
-- `FEATURES.yaml` declares two features: `promotion.voucher-redeemed-at-checkout` and
-  `promotion.flash-sale-live-stock`, both `status: automated`, covered by
-  `platform-e2e/tests/e2e/features/promo/vouchers.feature`.
+- `FEATURES.yaml` declares 85 features: 32 `automated` (each with a `covered_by` scenario, mostly in
+  `platform-e2e/tests/e2e/features/promo/` and `security/promotion_access.feature`) and 53 `not-testable`.
 - Verify coverage with `make -C platform-e2e features-check` and, per change,
   `make -C platform-e2e spec-check CHANGE=<id>`.
 - Behaviour changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC.
@@ -170,8 +173,6 @@ Postgres repository tests (`internal/repository/postgres_test.go`) skip unless
   re-vendor.
 - In-memory fallback: `DATABASE_ENABLED=false` swaps in in-memory repositories; a missing Kafka or
   Flipt at boot only logs a warning and degrades (no events, flags fail open).
-- Port drift: standalone `.env.example` and the Makefile use Postgres `localhost:5438`; AGENTS.md
-  lists `postgres-promotion` at `5440`. In compose the service uses the shared `postgres:5432`.
 - The Dockerfile sets `GRPC_PORT=50060` and `EXPOSE 50060`, while the code default and compose use
   `50061`. Compose overrides it, so a bare `docker run` listens on 50060.
 
