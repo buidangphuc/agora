@@ -36,9 +36,9 @@ Feature: A paid order credits its seller exactly once, from the order's own fact
     And a buyer "b1"
     And "b1" has a Pending order of "L" with an open payment
     When "b1" cancels the order
-    And the payment of "b1" succeeds
+    And a late payment by "b1" is refused as cancelled
     Then the order read by "b1" is Cancelled
-    And the payment read by "b1" is PAID
+    And the payment read by "b1" is CANCELLED
     When a sentinel order of the seller is credited
     Then the seller has exactly 0 ORDER_SETTLEMENT entries of 500000
     And the seller's balance equals the amounts of the credited orders

@@ -51,10 +51,10 @@ Feature: A refund comes out of the credited seller's wallet exactly once
     And a buyer "b1"
     And "b1" has a Pending order of "L" with an open payment
     When "b1" cancels the order
-    And the payment of "b1" succeeds
-    And the seller refunds 500000 of the payment with a fresh refund id
-    Then the call succeeds
-    And the payment read by "b1" is REFUNDED
+    And a late payment by "b1" is refused as cancelled
+    And the seller refunds 500000 of the cancelled order's payment
+    Then the call fails with "failed_precondition"
+    And the payment read by "b1" is CANCELLED
     When a sentinel order of the seller is credited
     Then the seller's ledger has no entry of 500000 or -500000
     And the seller's balance equals the amounts of the credited orders
