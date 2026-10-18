@@ -84,6 +84,9 @@ type CreateVoucherParams struct {
 
 	// AuditActorID is the verified admin id written as the audit actor_id.
 	AuditActorID string
+
+	// AuditAdmin marks a shop-scoped voucher created by an admin; it must be audited.
+	AuditAdmin bool
 }
 
 // WithAudit sets the audit writer used for platform voucher creation.
@@ -112,8 +115,8 @@ func (s *VoucherService) CreateVoucher(ctx context.Context, p CreateVoucherParam
 		StartsAt:      p.StartsAt,
 		EndsAt:        p.EndsAt,
 	}
-	if p.Scope != voucherScopeShop {
-		if err := writeAudit(ctx, s.audit, upstream.AuditEvent{
+	if p.Scope != voucherScopeShop || p.AuditAdmin {
+		ev := upstream.AuditEvent{
 			ActorID:    p.AuditActorID,
 			Action:     "voucher.platform_create",
 			TargetType: "voucher",
@@ -122,7 +125,12 @@ func (s *VoucherService) CreateVoucher(ctx context.Context, p CreateVoucherParam
 				"discount_type": promotionv1.DiscountType(p.DiscountType).String(),
 				"value":         strconv.FormatInt(p.DiscountValue, 10),
 			},
-		}); err != nil {
+		}
+		if p.Scope == voucherScopeShop {
+			ev.Action = "voucher.admin_create"
+			ev.Metadata["seller_id"] = p.SellerID
+		}
+		if err := writeAudit(ctx, s.audit, ev); err != nil {
 			return repository.Voucher{}, err
 		}
 	}
