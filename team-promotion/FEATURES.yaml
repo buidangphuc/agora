@@ -1254,3 +1254,173 @@ features:
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
     notes: "VERIFIED BY team-promotion `internal/repository` `TestPurgeKeepsCommittedHolds` and `internal/service` `TestReleaseOldCommittedHoldAfterPurge`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.shop-voucher-audit-admin-creates-a-shop-voucher
+    title: "Shop voucher audit: admin creates a shop voucher"
+    persona: admin
+    priority: P1
+    summary: "Shop voucher audit (change promotion-shop-voucher-audit): Shop voucher audit: admin creates a shop voucher"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.GetVoucher, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given the seeded admin for the shop voucher audit check"
+      - "When the admin creates a SHOP voucher with a fresh code, discount type percent and value 10"
+      - "Then the shop voucher call succeeds"
+      - "And the shop voucher exists"
+      - "And the audit log holds exactly one \"voucher.admin_create\" event for the shop voucher by the admin with discount type \"DISCOUNT_TYPE_PERCENT\", value \"10\" and the admin id as seller id"
+    tags: [promotion, audit, shop-voucher]
+    status: automated
+    covered_by: "promo/promotion_shop_voucher_audit.feature::Shop voucher audit: admin creates a shop voucher"
+
+  - id: promotion.shop-voucher-audit-sellers-own-shop-voucher-is-not-audited
+    title: "Shop voucher audit: seller's own shop voucher is not audited"
+    persona: seller
+    priority: P1
+    summary: "Shop voucher audit (change promotion-shop-voucher-audit): Shop voucher audit: seller's own shop voucher is not audited"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.GetVoucher, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given the seeded admin for the shop voucher audit check"
+      - "And a seller for the shop voucher audit check"
+      - "And team-audit is stopped for the shop voucher audit check"
+      - "When the seller creates a SHOP voucher with a fresh code for the shop voucher audit check"
+      - "Then the shop voucher call succeeds"
+      - "And the audit log holds no \"voucher.admin_create\" event for the shop voucher after team-audit is started again"
+      - "And an admin SHOP voucher created now is audited as a positive control"
+    tags: [promotion, audit, shop-voucher]
+    status: automated
+    covered_by: "promo/promotion_shop_voucher_audit.feature::Shop voucher audit: seller's own shop voucher is not audited"
+
+  - id: promotion.shop-voucher-audit-audit-down-blocks-an-admin-shop-voucher
+    title: "Shop voucher audit: audit down blocks an admin shop voucher"
+    persona: admin
+    priority: P1
+    summary: "Shop voucher audit (change promotion-shop-voucher-audit): Shop voucher audit: audit down blocks an admin shop voucher"
+    entry_route: /
+    services: [team-promotion, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.GetVoucher, audit.v1.QueryAuditLog]
+    acceptance:
+      - "Given the seeded admin for the shop voucher audit check"
+      - "And team-audit is stopped for the shop voucher audit check"
+      - "When the admin creates a SHOP voucher with a fresh code, discount type percent and value 10"
+      - "Then the shop voucher call fails with code \"unavailable\""
+      - "And the shop voucher is not found after team-audit is started again"
+      - "And an admin SHOP voucher created now is audited as a positive control"
+    tags: [promotion, audit, shop-voucher]
+    status: automated
+    covered_by: "promo/promotion_shop_voucher_audit.feature::Shop voucher audit: audit down blocks an admin shop voucher"
+
+  - id: promotion.shop-voucher-audit-audit-precedes-the-insert
+    title: "Shop voucher audit: audit precedes the insert"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-shop-voucher-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Shop voucher audit: audit precedes the insert"
+    tags: [promotion, audit, shop-voucher, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherShopAdminAuditBeforeInsert`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.shop-voucher-audit-audit-not-configured
+    title: "Shop voucher audit: audit not configured"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-shop-voucher-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Shop voucher audit: audit not configured"
+    tags: [promotion, audit, shop-voucher, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherShopAdminNilAuditUnavailable`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.shop-voucher-audit-audit-error-blocks-the-voucher
+    title: "Shop voucher audit: audit error blocks the voucher"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-shop-voucher-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Shop voucher audit: audit error blocks the voucher"
+    tags: [promotion, audit, shop-voucher, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherShopAdminAuditErrorFailsClosed`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.shop-voucher-audit-seller-path-needs-no-audit-writer
+    title: "Shop voucher audit: seller path needs no audit writer"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-shop-voucher-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Shop voucher audit: seller path needs no audit writer"
+    tags: [promotion, audit, shop-voucher, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherShopSellerWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.shop-voucher-audit-admin-shop-voucher-is-audited-by-the-handler-with-the-admin-as-actor
+    title: "Shop voucher audit: admin shop voucher is audited by the handler with the admin as actor"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-shop-voucher-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Shop voucher audit: admin shop voucher is audited by the handler with the admin as actor"
+    tags: [promotion, audit, shop-voucher, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherShopAdminAudited`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.shop-voucher-audit-refused-callers-write-nothing
+    title: "Shop voucher audit: refused callers write nothing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-shop-voucher-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Shop voucher audit: refused callers write nothing"
+    tags: [promotion, audit, shop-voucher, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherShopRefusedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.shop-voucher-audit-invalid-request-writes-nothing
+    title: "Shop voucher audit: invalid request writes nothing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-shop-voucher-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Shop voucher audit: invalid request writes nothing"
+    tags: [promotion, audit, shop-voucher, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherShopAdminInvalidWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.shop-voucher-audit-platform-scope-keeps-its-action
+    title: "Shop voucher audit: platform scope keeps its action"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-shop-voucher-audit.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Shop voucher audit: platform scope keeps its action"
+    tags: [promotion, audit, shop-voucher, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherPlatformStillPlatformAction`. Not producible end to end through the gateway (unit level)."
