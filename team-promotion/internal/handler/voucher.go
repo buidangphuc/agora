@@ -43,6 +43,7 @@ func (h *VoucherHandler) CreateVoucher(ctx context.Context, req *promotionv1.Cre
 	// and are always bound to the caller's own id: the wire request carries no
 	// seller_id, so a seller can only ever create vouchers for their own shop.
 	sellerID := ""
+	auditAdmin := false
 	switch req.GetScope() {
 	case promotionv1.VoucherScope_VOUCHER_SCOPE_PLATFORM:
 		if err := interceptor.RequireAdmin(principal); err != nil {
@@ -53,6 +54,7 @@ func (h *VoucherHandler) CreateVoucher(ctx context.Context, req *promotionv1.Cre
 			return nil, err
 		}
 		sellerID = principal.GetId()
+		auditAdmin = interceptor.IsAdmin(principal)
 	default:
 		// Unspecified scope: treat as the most restrictive (platform) until validated downstream.
 		if err := interceptor.RequireAdmin(principal); err != nil {
@@ -71,6 +73,7 @@ func (h *VoucherHandler) CreateVoucher(ctx context.Context, req *promotionv1.Cre
 		StartsAt:      service.TimeFromProto(req.GetStartsAt()),
 		EndsAt:        service.TimeFromProto(req.GetEndsAt()),
 		AuditActorID:  principal.GetId(),
+		AuditAdmin:    auditAdmin,
 	})
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
