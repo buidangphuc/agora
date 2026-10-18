@@ -18,6 +18,7 @@ Implement OpenSpec change `engagement-review-hidden-event` test-first per its ta
 - platform-e2e/tests/e2e/features/engagement/review_hidden_event.feature
 - platform-e2e/tests/e2e/step_definitions/test_review_hidden_event.py
 - openspec/changes/engagement-review-hidden-event/**
+- team-engagement/internal/docs/readme_test.go # widened at build: task 3
 
 ## Read-only dependencies
 - openspec/changes/engagement-review-hidden-event/** is frozen by the LOCK.md digest (only task ticks change)
