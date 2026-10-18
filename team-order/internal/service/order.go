@@ -12,6 +12,8 @@ import (
 	"github.com/google/uuid"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
+	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
+	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
 	"github.com/buidangphuc/team-order/internal/upstream"
 )
@@ -25,7 +27,9 @@ var (
 	ErrInvalidRefundAmount   = errors.New("invalid refund amount")
 	ErrUnauthorizedReturn    = errors.New("only buyer can request return for this order")
 	ErrOrderCannotBeReturned = errors.New("order cannot be returned in current status")
-	ErrInvalidReturnStatus   = errors.New("invalid return status transition")
+	// ErrReturnWindowClosed: the completed order's return window has closed.
+	ErrReturnWindowClosed  = errors.New("return window closed")
+	ErrInvalidReturnStatus = errors.New("invalid return status transition")
 	// ErrNothingToReturn: the order's non-rejected returns already cover its total.
 	ErrNothingToReturn = errors.New("order has no returnable amount left")
 	// ErrNotPaidOnline: a return of an order with no paid_at (never paid through
@@ -51,6 +55,27 @@ type OrderService struct {
 	// placer places a checkout's orders and binds their reservations atomically
 	// (design D6). Resolved in NewOrderService.
 	placer repository.OrderPlacer
+
+	// paymentDeadline is how long an online-pay order may stay unpaid; snapshotted
+	// into each order at placement. Zero disables the deadline.
+	paymentDeadline time.Duration
+
+	// paymentReminderBefore is how long before the deadline the reminder is emitted.
+	paymentReminderBefore time.Duration
+
+	// now is the wall clock used by the return-window gate.
+	now func() time.Time
+}
+
+// WithClock replaces the service's wall clock (used by the return-window gate).
+func WithClock(now func() time.Time) OrderServiceOption {
+	return func(s *OrderService) { s.now = now }
+}
+
+// WithPaymentDeadline sets the unpaid-order deadline applied to every non-COD
+// order at placement.
+func WithPaymentDeadline(d time.Duration) OrderServiceOption {
+	return func(s *OrderService) { s.paymentDeadline = d }
 }
 
 func NewOrderService(
@@ -83,6 +108,7 @@ func NewOrderService(
 		logger:         logger,
 		reservationTTL: defaultReservationTTL,
 		releaseCfg:     releaseRetryConfig{}.withDefaults(),
+		now:            time.Now,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -340,7 +366,12 @@ func (s *OrderService) runCheckout(
 		for _, r := range g.reservations {
 			resIDs = append(resIDs, r.ID)
 		}
+		var deadline time.Duration
+		if paymentMethod != int32(paymentv1.PaymentMethod_PAYMENT_METHOD_COD) {
+			deadline = s.paymentDeadline
+		}
 		placed = append(placed, repository.PlacedOrder{
+			PaymentDeadline: deadline,
 			Order: repository.Order{
 				ID:              g.orderID,
 				BuyerID:         buyerID,
@@ -468,13 +499,37 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, actor A
 	if to == repository.OrderStatusCancelled {
 		return repository.Order{}, ErrActorForbidden
 	}
+	// Buyer and system rows exist for ConfirmReceipt and the sweep; this RPC
+	// resolves only the seller and admin classes.
+	if actor == ActorBuyer || actor == ActorSystem {
+		return repository.Order{}, ErrActorForbidden
+	}
 	from := AllowedFrom(to, actor)
 	if len(from) == 0 {
 		return repository.Order{}, ErrActorForbidden
 	}
-	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, to, from, trackingNumber)
+	var opts []repository.StatusOption
+	if to == repository.OrderStatusCompleted {
+		opts = append(opts, repository.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_SELLER)))
+	}
+	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, to, from, trackingNumber, opts...)
 	if errors.Is(err, repository.ErrStatusConflict) {
 		return repository.Order{}, fmt.Errorf("%w: order cannot move to %v from its current status", ErrInvalidStatus, to)
+	}
+	return updated, err
+}
+
+// ConfirmReceipt completes a Shipped order on the buyer's behalf. The caller
+// (handler) has already checked the principal is the order's buyer. The
+// compare-and-set from Shipped is the single winner, so concurrent confirms emit
+// one OrderCompleted; every loser gets ErrInvalidStatus. An open return does not
+// block completion.
+func (s *OrderService) ConfirmReceipt(ctx context.Context, id string) (repository.Order, error) {
+	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCompleted,
+		AllowedFrom(repository.OrderStatusCompleted, ActorBuyer), "",
+		repository.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_BUYER)))
+	if errors.Is(err, repository.ErrStatusConflict) {
+		return repository.Order{}, fmt.Errorf("%w: order is not shipped", ErrInvalidStatus)
 	}
 	return updated, err
 }
@@ -496,7 +551,19 @@ type CancelResult struct {
 // held by a Cancelled order (a crash between claim and release). A voucher release
 // failure is logged and never fails the cancel.
 func (s *OrderService) CancelOrder(ctx context.Context, id string) (CancelResult, error) {
-	claimed, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, cancelFrom, "")
+	return s.CancelOrderWithReason(ctx, id, orderv1.CancelReason_CANCEL_REASON_UNSPECIFIED)
+}
+
+// CancelOrderWithReason is CancelOrder storing reason on the claimed row (and so on
+// the OrderCancelled fact). PAYMENT_EXPIRED is the system's reason and may claim
+// only from Pending; every other reason uses the buyer/admin set.
+func (s *OrderService) CancelOrderWithReason(ctx context.Context, id string, reason orderv1.CancelReason) (CancelResult, error) {
+	from := cancelFrom
+	if reason == orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED {
+		from = systemCancelFrom
+	}
+	claimed, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, from, "",
+		repository.WithCancelReason(int32(reason)))
 	if err != nil {
 		if errors.Is(err, repository.ErrStatusConflict) {
 			msg := "order is not in a cancellable status"
@@ -576,8 +643,12 @@ func (s *OrderService) CreateReturnRequest(ctx context.Context, buyerID, orderID
 		return repository.OrderReturn{}, ErrUnauthorizedReturn
 	}
 
-	if order.Status == repository.OrderStatusCancelled || order.Status == repository.OrderStatusPending {
+	if order.Status != repository.OrderStatusShipped && order.Status != repository.OrderStatusCompleted {
 		return repository.OrderReturn{}, fmt.Errorf("%w: status %v", ErrOrderCannotBeReturned, order.Status)
+	}
+	if order.Status == repository.OrderStatusCompleted && order.ReturnWindowEndsAt != nil &&
+		!s.now().Before(*order.ReturnWindowEndsAt) {
+		return repository.OrderReturn{}, ErrReturnWindowClosed
 	}
 
 	req := repository.OrderReturn{
@@ -766,4 +837,24 @@ func (s *OrderService) AddShipmentCheckpoint(ctx context.Context, shipmentID, lo
 		CreatedAt:   time.Now(),
 	}
 	return s.shipmentRepo.AddShipmentCheckpoint(ctx, cp)
+}
+
+// CanEscalate reports whether a return can be escalated: it was rejected and its
+// order is either shipped, or completed with the return window still open.
+func CanEscalate(ret repository.OrderReturn, o repository.Order, now time.Time) bool {
+	if ret.Status != repository.ReturnStatusRejected {
+		return false
+	}
+	switch o.Status {
+	case repository.OrderStatusShipped:
+		return true
+	case repository.OrderStatusCompleted:
+		return o.ReturnWindowEndsAt != nil && now.Before(*o.ReturnWindowEndsAt)
+	}
+	return false
+}
+
+// CanEscalate evaluates CanEscalate against the service clock.
+func (s *OrderService) CanEscalate(ret repository.OrderReturn, o repository.Order) bool {
+	return CanEscalate(ret, o, s.now())
 }

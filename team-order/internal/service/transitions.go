@@ -47,15 +47,17 @@ type transition struct {
 //	Pending -> Paid       system (payment settlement only)
 //	Pending -> Shipped    seller (cash-on-delivery hand-over)
 //	Paid    -> Shipped    seller
-//	Shipped -> Completed  seller
+//	Shipped -> Completed  seller, buyer (receipt), system
 //	Pending, Paid -> Cancelled  buyer (CancelOrder; ForceFailSaga for admin)
+//	Pending -> Cancelled        system (payment-window expiry)
 var orderTransitions = []transition{
 	{repository.OrderStatusPending, repository.OrderStatusPaid, []Actor{ActorSystem}},
 	{repository.OrderStatusPending, repository.OrderStatusShipped, []Actor{ActorSeller}},
 	{repository.OrderStatusPaid, repository.OrderStatusShipped, []Actor{ActorSeller}},
-	{repository.OrderStatusShipped, repository.OrderStatusCompleted, []Actor{ActorSeller}},
+	{repository.OrderStatusShipped, repository.OrderStatusCompleted, []Actor{ActorSeller, ActorBuyer, ActorSystem}},
 	{repository.OrderStatusPending, repository.OrderStatusCancelled, []Actor{ActorBuyer}},
 	{repository.OrderStatusPaid, repository.OrderStatusCancelled, []Actor{ActorBuyer}},
+	{repository.OrderStatusPending, repository.OrderStatusCancelled, []Actor{ActorSystem}},
 }
 
 // AllowedFrom returns the statuses from which actor may move an order to `to`:
@@ -79,3 +81,6 @@ func AllowedFrom(to repository.OrderStatus, actor Actor) []repository.OrderStatu
 
 // cancelFrom is where a cancel may start (Pending or Paid).
 var cancelFrom = AllowedFrom(repository.OrderStatusCancelled, ActorBuyer)
+
+// systemCancelFrom is where the system may cancel (Pending only).
+var systemCancelFrom = AllowedFrom(repository.OrderStatusCancelled, ActorSystem)

@@ -49,7 +49,7 @@ func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID st
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string) (repository.Order, error) {
+func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string, _ ...repository.StatusOption) (repository.Order, error) {
 	o, ok := m.orders[id]
 	if !ok {
 		return repository.Order{}, repository.ErrOrderNotFound
@@ -373,4 +373,13 @@ func TestOrderService_RejectsBuyingOwnListing(t *testing.T) {
 	if got, _ := orderRepo.ListBuyerOrders(ctx, "seller_1", 0); len(got) != 0 {
 		t.Fatalf("no order may be created, got %d", len(got))
 	}
+}
+
+// Stubs so the fake satisfies repository.OrderRepository (order-unpaid-expiry reminder pass).
+func (m *mockOrderServiceRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]repository.Order, error) {
+	return nil, nil
+}
+
+func (m *mockOrderServiceRepo) MarkReminderSent(context.Context, string, time.Time) (repository.Order, error) {
+	return repository.Order{}, nil
 }

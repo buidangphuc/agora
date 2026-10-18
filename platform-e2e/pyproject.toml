@@ -54,6 +54,8 @@ markers = [
     "destructive: stops a real stack service, turns off a stack-wide switch (checkout-enabled) or needs an idle stack for the scenario (restored in teardown); never run in parallel",
     "freshVisitor: starts with no agora_consent cookie so the consent banner shows (default pre-seeds a grant)",
     "slow: waits on a real timer (a prune cycle, an expiry) and takes over a minute",
+    "lifecycle_timers: waits on the short order-lifecycle timers of compose/order-inventory.override.yaml (payment deadline, auto-complete, return window, ship-by)",
+    "lifecycle_ui: order lifecycle buyer and seller UI (change frontend-order-lifecycle)",
     "killswitch: checkout-enabled emergency kill-switch scenarios",
     "wap: mobile/WAP emulation scenarios",
     "needsSeller: Before-seeds a seller account via the gateway API",

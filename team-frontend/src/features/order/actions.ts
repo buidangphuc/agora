@@ -10,11 +10,13 @@ import { reorder } from "@/lib/gateway/cart";
 import {
   type ViewOrderReturn,
   cancelOrder,
+  confirmReceipt,
   createOrder,
   createReturnRequest,
   updateOrderStatus,
 } from "@/lib/gateway/orders";
 import { createPayment, processMockPayment } from "@/lib/gateway/payment";
+import { findCancelReason } from "./cancelReasons";
 import { PRICE_CHANGED_MESSAGE } from "./shippingCopy";
 
 export interface OrderActionResult {
@@ -121,13 +123,35 @@ export async function cancelOrderAction(
   orderId: string,
   reason?: string,
 ): Promise<ActionResult> {
+  const choice = findCancelReason(reason);
+  if (!choice) return fail("Lý do hủy không hợp lệ.");
   try {
-    await cancelOrder(orderId, reason);
+    await cancelOrder(orderId, choice.label, choice.code);
     revalidateBuyerOrder(orderId);
     revalidatePath("/seller/orders");
     return ok();
   } catch (err: unknown) {
     return fail(err instanceof Error ? err.message : "Hủy đơn hàng thất bại.");
+  }
+}
+
+const ORDER_ALREADY_COMPLETED = "Đơn hàng đã được hoàn thành.";
+
+/** Buyer confirms a shipped order arrived; the order completes. */
+export async function confirmReceiptAction(
+  orderId: string,
+): Promise<ActionResult> {
+  try {
+    await confirmReceipt(orderId);
+    revalidateBuyerOrder(orderId);
+    return ok();
+  } catch (err: unknown) {
+    // Auto-complete won the race: the order is no longer shipped.
+    if (err instanceof ConnectError && err.code === Code.FailedPrecondition) {
+      revalidateBuyerOrder(orderId);
+      return fail(ORDER_ALREADY_COMPLETED);
+    }
+    return fail(err instanceof Error ? err.message : "Xác nhận thất bại.");
   }
 }
 
@@ -177,6 +201,9 @@ export async function processMockPaymentAction(
   }
 }
 
+const RETURN_WINDOW_CLOSED =
+  "Đã hết thời hạn trả hàng (15 ngày kể từ khi đơn hoàn thành).";
+
 export async function createReturnRequestAction(
   orderId: string,
   reason: string,
@@ -197,6 +224,13 @@ export async function createReturnRequestAction(
     revalidateBuyerOrder(orderId);
     return ok(returnRequest);
   } catch (err: unknown) {
+    if (
+      err instanceof ConnectError &&
+      err.code === Code.FailedPrecondition &&
+      err.rawMessage.includes("return window closed")
+    ) {
+      return fail(RETURN_WINDOW_CLOSED);
+    }
     return fail(
       err instanceof Error ? err.message : "Gửi yêu cầu trả hàng thất bại.",
     );

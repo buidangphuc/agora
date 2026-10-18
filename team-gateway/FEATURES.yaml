@@ -1848,3 +1848,29 @@ features:
     status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement edge: Banned user's open stream ends"
     notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: platform-e2e `features/admin/user_enforcement.feature` \"Banned user's open stream ends\""
+  # ---- order-receipt-completion (initiative q10-order-lifecycle; written from the spec, planned until the code lands).
+  - id: gateway.receipt-anonymous-caller-cannot-confirm-receipt
+    title: "Order receipt: Anonymous caller cannot confirm receipt"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Order receipt: Anonymous caller cannot confirm receipt"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestConfirmReceiptRequiresToken`. Not producible end to end through the gateway (unit level)."
+
+  - id: gateway.receipt-confirm-is-forwarded-by-the-gateway
+    title: "Order receipt: Confirm is forwarded by the gateway"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-receipt-completion."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Order receipt: Confirm is forwarded by the gateway"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestConfirmReceiptForwarded`. Not producible end to end through the gateway (unit level)."

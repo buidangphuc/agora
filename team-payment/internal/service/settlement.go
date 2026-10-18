@@ -77,3 +77,27 @@ func (s *PaymentService) RefundReturn(ctx context.Context, orderID, returnID str
 	})
 	return err
 }
+
+// unpaidCanceller is the compare-and-set void both repository implementations provide.
+type unpaidCanceller interface {
+	CancelUnpaid(ctx context.Context, orderID string) (repository.CancelUnpaidOutcome, error)
+}
+
+// VoidCancelledOrder applies team-order's OrderCancelled for an order cancelled unpaid:
+// a PENDING/FAILED transaction is voided (compare-and-set to CANCELLED, no money moves).
+// Absent and already-CANCELLED are no-ops. When the compare-and-set finds the payment
+// settled meanwhile, it falls back to the refund keyed cancel:<order_id>.
+func (s *PaymentService) VoidCancelledOrder(ctx context.Context, orderID string) error {
+	canceller, ok := s.paymentRepo.(unpaidCanceller)
+	if !ok {
+		return errors.New("payment repository cannot void unpaid transactions")
+	}
+	outcome, err := canceller.CancelUnpaid(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	if outcome != repository.CancelOtherStatus {
+		return nil
+	}
+	return s.RefundCancelledOrder(ctx, orderID)
+}

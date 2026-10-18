@@ -8,12 +8,20 @@ import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import type { ViewOrder } from "@/lib/gateway/orders";
 import { shopLabel } from "@/lib/gateway/shops";
+import { ConfirmReceiptButton } from "./ConfirmReceiptButton";
 import { OrderActions, ReviewButton } from "./OrderActions";
 import { OrderItemThumb } from "./OrderItemThumb";
 import { OrderStatusBadge } from "./OrderStatusBadge";
 import { ordersHref } from "./OrderStatusTabs";
+import { canPayAgain } from "./lifecycle";
 import { linkButton } from "./linkStyles";
 import type { OrderStatusKey } from "./paginateOrders";
+
+function formatInstant(iso: string): string {
+  return new Date(iso).toLocaleString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+}
 
 /** Cancel is offered on the list only while the order is still pending. */
 export function canCancelFromList(status: OrderStatus): boolean {
@@ -33,6 +41,10 @@ function OrderRow({
     order.status === OrderStatus.PENDING &&
     order.paymentMethod !== PaymentMethod.COD &&
     order.paymentMethod !== PaymentMethod.UNSPECIFIED;
+
+  const now = new Date();
+  const payable = isOnlinePending && canPayAgain(order, now);
+  const hasDue = isOnlinePending && order.paymentDueAt !== "";
 
   return (
     <Card data-testid="order-card">
@@ -108,6 +120,14 @@ function OrderRow({
                 {order.addressFull && ` - ${order.addressFull}`}
               </p>
             )}
+            {hasDue && payable && (
+              <p className="mt-0.5">
+                Hạn thanh toán: {formatInstant(order.paymentDueAt)}
+              </p>
+            )}
+            {hasDue && !payable && (
+              <p className="mt-0.5">Đã hết hạn thanh toán</p>
+            )}
             {order.trackingNumber && (
               <p className="mt-0.5">Mã vận đơn: {order.trackingNumber}</p>
             )}
@@ -127,13 +147,16 @@ function OrderRow({
           >
             Xem chi tiết
           </Link>
-          {isOnlinePending && (
+          {payable && (
             <Link
               href={`/checkout/pay/${order.id}`}
               className={`${linkButton.primary} w-full sm:w-auto`}
             >
-              Thanh toán ngay
+              Thanh toán lại
             </Link>
+          )}
+          {order.status === OrderStatus.SHIPPED && (
+            <ConfirmReceiptButton orderId={order.id} />
           )}
           <OrderActions
             orderId={order.id}

@@ -1,6 +1,7 @@
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -12,9 +13,15 @@ import {
   PaymentSimulator,
   type SimulatorPhase,
 } from "@/features/payment/PaymentSimulator";
-import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
-import { PaymentStatus } from "@/generated/platform/payment/v1/payment_pb.js";
-import { getPayment } from "@/lib/gateway/payment";
+import {
+  CancelReason,
+  OrderStatus,
+} from "@/generated/platform/order/v1/order_pb.js";
+import {
+  PaymentMethod,
+  PaymentStatus,
+} from "@/generated/platform/payment/v1/payment_pb.js";
+import { createPayment, getPayment } from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
 
 import { loadOrder } from "./data";
@@ -32,16 +39,87 @@ export default async function MockPaymentPage(props: {
   const order = await loadOrder(params.id);
   if (!order) notFound();
 
-  const transaction = await getPayment(undefined, params.id);
-  if (!transaction) notFound();
+  const accountLink = (href: string) => (
+    <Link href={href} className={linkButtonPrimary}>
+      Xem đơn hàng
+    </Link>
+  );
+  const due = order.paymentDueAt ? Date.parse(order.paymentDueAt) : null;
+  const expired =
+    order.status === OrderStatus.PENDING &&
+    due !== null &&
+    !Number.isNaN(due) &&
+    Date.now() >= due;
 
-  const cancelled = order.status === OrderStatus.CANCELLED;
-  const phase: SimulatorPhase =
-    transaction.status === PaymentStatus.PAID
-      ? "success"
-      : transaction.status === PaymentStatus.FAILED
-        ? "failed"
-        : "idle";
+  let state: ReactNode = null;
+  if (order.status !== OrderStatus.PENDING) {
+    if (order.status === OrderStatus.CANCELLED) {
+      state =
+        order.cancelReason === CancelReason.PAYMENT_EXPIRED ? (
+          <Result
+            status="warning"
+            title="Đơn hàng đã hết hạn thanh toán"
+            extra={accountLink("/account/orders")}
+          />
+        ) : (
+          <Result
+            status="warning"
+            title="Đơn hàng đã bị hủy"
+            subTitle="Đơn hàng đã bị hủy và tồn kho đã được giải phóng."
+            extra={accountLink("/account/orders")}
+          />
+        );
+    } else {
+      state = (
+        <Result
+          status="success"
+          title="Đơn hàng đã được thanh toán"
+          extra={accountLink(`/account/orders/${order.id}`)}
+        />
+      );
+    }
+  } else if (order.paymentMethod === PaymentMethod.COD) {
+    state = (
+      <Result
+        status="info"
+        title="Đơn hàng thanh toán khi nhận hàng"
+        extra={accountLink(`/account/orders/${order.id}`)}
+      />
+    );
+  } else if (expired) {
+    state = (
+      <Result
+        status="warning"
+        title="Đơn hàng đã hết hạn thanh toán"
+        extra={accountLink("/account/orders")}
+      />
+    );
+  } else {
+    const transaction =
+      (await getPayment(undefined, params.id)) ??
+      (await createPayment(order.id, order.paymentMethod)).transaction;
+    const phase: SimulatorPhase =
+      transaction.status === PaymentStatus.PAID
+        ? "success"
+        : transaction.status === PaymentStatus.FAILED
+          ? "failed"
+          : "idle";
+    state = (
+      <>
+        {phase === "failed" && due !== null && !Number.isNaN(due) ? (
+          <Alert
+            type="info"
+            description={`Đơn hàng vẫn được giữ đến ${new Date(due).toLocaleString("vi-VN")}. Bạn có thể thử thanh toán lại.`}
+          />
+        ) : null}
+        <PaymentSimulator
+          orderId={order.id}
+          transactionId={transaction.id}
+          initialPhase={phase}
+        />
+      </>
+    );
+  }
 
   return (
     <section className="mx-auto max-w-xl space-y-4 py-4">
@@ -61,40 +139,19 @@ export default async function MockPaymentPage(props: {
               {
                 key: "amount",
                 label: "Số tiền",
-                children: <PriceTag price={transaction.amount} size="lg" />,
+                children: <PriceTag price={order.totalAmount} size="lg" />,
               },
               {
                 key: "method",
                 label: "Phương thức",
-                children: transaction.methodText,
+                children: order.paymentMethodText,
               },
             ]}
           />
         </CardContent>
       </Card>
 
-      {cancelled ? (
-        <Result
-          status="warning"
-          title="Đơn hàng đã bị hủy"
-          extra={
-            <Link href="/account/orders" className={linkButtonPrimary}>
-              Xem đơn hàng
-            </Link>
-          }
-        >
-          <Alert
-            type="warning"
-            description="Thanh toán không thành công nên hệ thống đã hoàn tác: tồn kho đã được giải phóng và đơn hàng đã bị hủy."
-          />
-        </Result>
-      ) : (
-        <PaymentSimulator
-          orderId={order.id}
-          transactionId={transaction.id}
-          initialPhase={phase}
-        />
-      )}
+      {state}
     </section>
   );
 }

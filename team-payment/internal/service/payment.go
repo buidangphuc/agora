@@ -32,6 +32,8 @@ var (
 	// ErrPaymentRefunded: a (partially) refunded payment can never be paid again;
 	// re-settling it would reopen it to further refunds of money already returned.
 	ErrPaymentRefunded = errors.New("payment has been refunded; it cannot be paid again")
+	// ErrPaymentCancelled: the transaction's order was cancelled unpaid; it cannot be paid.
+	ErrPaymentCancelled = errors.New("payment cancelled")
 	// ErrExceedsRemainder: a refund above the payment's refundable remainder.
 	ErrExceedsRemainder = repository.ErrExceedsRemainder
 	// ErrRefundIDConflict: the refund id was already used for another payment or amount.
@@ -227,11 +229,30 @@ func (s *PaymentService) ProcessMockPayment(
 	// Only PENDING or FAILED may be (re)settled. This early check gives the clear
 	// error; the writes below are a compare-and-set from PENDING/FAILED, so a racing
 	// call that settled (and maybe refunded) meanwhile is caught there too.
+	if tx.Status == repository.PaymentStatusCancelled {
+		return repository.PaymentTransaction{}, false, "", ErrPaymentCancelled
+	}
 	if tx.Status == repository.PaymentStatusRefunded || tx.Status == repository.PaymentStatusPartiallyRefunded {
 		return repository.PaymentTransaction{}, false, "", ErrPaymentRefunded
 	}
 
 	if simulateSuccess {
+		// Fail closed: re-read the order before settling; a cancelled order is voided,
+		// an unreachable team-order settles nothing.
+		resp, err := s.orderClient.GetOrder(ctx, &orderv1.GetOrderRequest{Id: tx.OrderID})
+		if err != nil {
+			switch status.Code(err) {
+			case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled:
+				return repository.PaymentTransaction{}, false, "", fmt.Errorf("%w: %v", ErrOrderServiceUnavailable, err)
+			}
+			return repository.PaymentTransaction{}, false, "", fmt.Errorf("%w: %v", ErrOrderNotFound, err)
+		}
+		if resp.GetOrder().GetStatus() == orderv1.OrderStatus_ORDER_STATUS_CANCELLED {
+			if err := s.VoidCancelledOrder(ctx, tx.OrderID); err != nil {
+				return repository.PaymentTransaction{}, false, "", err
+			}
+			return repository.PaymentTransaction{}, false, "", ErrPaymentCancelled
+		}
 		providerRef := fmt.Sprintf("MOCK-REF-%d", time.Now().UnixMilli())
 
 		// AD4 (SA-H3): settle is event-carried, not a synchronous RPC. Write
@@ -271,6 +292,9 @@ func (s *PaymentService) lostSettleRace(ctx context.Context, txID string) (repos
 	}
 	if cur.Status == repository.PaymentStatusPaid {
 		return cur, true, "Đơn hàng đã được thanh toán trước đó", nil
+	}
+	if cur.Status == repository.PaymentStatusCancelled {
+		return repository.PaymentTransaction{}, false, "", ErrPaymentCancelled
 	}
 	return repository.PaymentTransaction{}, false, "", ErrPaymentRefunded
 }

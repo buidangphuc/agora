@@ -26,6 +26,7 @@ Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The p
 | `ListBuyerOrders`, `ListSellerOrders` | authenticated; lists the caller's orders, optional status filter |
 | `UpdateOrderStatus` | `RequirePrincipal`; the order's seller or admin only (`PermissionDenied` otherwise; buyers cancel via `CancelOrder`). Follows the transition table below: a target the seller may never request (PAID, PENDING, CANCELLED) -> `PermissionDenied`; a permitted target from the wrong status -> `FailedPrecondition`. |
 | `CancelOrder` | authenticated; buyer only. Claims CANCELLED from PENDING or PAID (else `FailedPrecondition`, nothing released), then releases the order's reservations by id and its voucher hold. |
+| `ConfirmReceipt` | buyer of the order only (`PermissionDenied` otherwise). Completes a SHIPPED order as completed by the buyer; an open (PENDING or APPROVED) return does not block it; an order not SHIPPED -> `FailedPrecondition`. Emits `OrderCompleted` (`completed_by` BUYER). |
 | `CalculateShippingFee` | none. Free at subtotal >= 500000; 20000 for HCM / Ha Noi city strings; otherwise 35000 (`service/order.go`). |
 | `GetSagaState` | owner or admin (buyer). Built from the order, its reservations and `paid_at` (see Saga view). |
 | `ForceFailSaga` | admin only: scopes `admin` AND `order.admin` (owners get `PermissionDenied`). `fail_step` must be empty, `payment` or `shipping` (`InvalidArgument`). Cancels via `CancelOrder`; `success=false` when a stock release is parked. |
@@ -91,6 +92,9 @@ An admin acts as the seller on `UpdateOrderStatus`. A target the caller may neve
 | produce | `order.events` | `platform.order.v1.OrderShipped` | `order_id` | Outbox row written in the same transaction as `CreateShipment` |
 | produce | `order.events` | `platform.order.v1.OrderCancelled` | `order_id` | Outbox row written in the same transaction as the compare-and-set claim to CANCELLED (`CancelOrder`, `ForceFailSaga`), only when the claim wins. `previous_status` is `ORDER_STATUS_PAID` when the order was cancelled from Paid (it has `paid_at`), else `ORDER_STATUS_PENDING` |
 | produce | `order.events` | `platform.order.v1.ReturnRefunded` | `order_id` | Outbox row written in the same transaction as the won APPROVED -> REFUNDED compare-and-set of a return (`UpdateReturnStatus`); never for an order without `paid_at`. Carries the return, order, buyer and seller ids, the stored `refund_amount` (never a client value), the order currency and `refunded_at`. Consumed by team-payment, which refunds the order's payment once under refund id `return:<return_id>` (clamped to what the payment still has) |
+| produce | `order.events` | `platform.order.v1.OrderCompleted` | `order_id` | Outbox row written in the same transaction as the won SHIPPED -> COMPLETED compare-and-set, whether by buyer `ConfirmReceipt`, seller `UpdateOrderStatus` or the auto-complete timer (`completed_by` says which); concurrent confirms emit one. Carries buyer, seller, total, currency, `completed_at`, `return_window_ends_at` and `paid_online` (false for cash on delivery) |
+| produce | `order.events` | `platform.order.v1.OrderPlaced` | `order_id` | Outbox row written in the same transaction as order placement (`PlaceOrders`) |
+| produce | `order.events` | `platform.order.v1.OrderPaymentReminder` | `order_id` | Outbox row written in the same transaction as the once-only reminder stamp, when a Pending order enters its reminder window (`PAYMENT_REMINDER_BEFORE` before its deadline). The lifecycle sweeper also cancels Pending orders past their payment deadline with reason code `PAYMENT_EXPIRED` (emits `OrderCancelled`) and releases their stock |
 | produce | `payment.events.dlq` (`PAYMENT_EVENTS_DLQ_TOPIC`) | original record | original key | Poison records, or records that exhausted retries |
 
 - The payment consumer commits offsets only after a record is applied or dead-lettered (auto-commit disabled), retries up to 5 times in process, dedupes on `processed_events` (consumer `team-order.payment`), and runs only with Postgres and `KAFKA_ENABLED=true`.
@@ -156,6 +160,13 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `OUTBOX_MAX_ATTEMPTS` | `10` | |
 | `RESERVATION_TTL` | `15m` | Go duration: stock-hold lifetime before the sweep releases it; also how long an unfinished checkout attempt may stay pending. Empty, invalid or non-positive falls back to the default with a WARN; boot never fails |
 | `RESERVATION_SWEEP_INTERVAL` | `1m` | Go duration: sweep cadence. Same fallback rule |
+| `PAYMENT_DEADLINE` | `24h` | Go duration: how long a non-COD order may stay unpaid before the lifecycle sweeper cancels it with `PAYMENT_EXPIRED`. Invalid or non-positive falls back with a WARN |
+| `PAYMENT_REMINDER_BEFORE` | `2h` | Go duration: how long before the deadline the `OrderPaymentReminder` is emitted. Same fallback rule |
+| `LIFECYCLE_SWEEP_INTERVAL` | `1m` | Go duration: lifecycle sweep cadence (needs Postgres). Same fallback rule |
+| `AUTO_COMPLETE_AFTER` | `168h` | Go duration: how long after shipping an order auto-completes (`OrderCompleted`, completed by the timer). Strict: malformed, zero or negative stops startup |
+| `RETURN_WINDOW` | `360h` | Go duration: how long after completion a return may be requested. Strict, same rule |
+| `RETURN_AUTO_APPROVE_AFTER` | `72h` | Go duration: how long a return waits before it is auto-approved. Strict, same rule |
+| `SHIP_BY_AFTER` | `48h` | Go duration: the seller's ship-by deadline after payment. Strict, same rule |
 
 Drift gate: `TestEnvExampleInSync` (`internal/config/config_test.go`) fails if `.env.example` and the declared env keys differ in either direction. `.env.example` points `DATABASE_URL` at `localhost:5437`; compose uses `postgres:5432`.
 
