@@ -11,6 +11,7 @@
 | Logs | `kubectl -n marketplace logs deploy/team-identity --tail=200` |
 
 ## Dependencies
+- upstream `team-audit` (`UPSTREAM_AUDIT_ADDR=team-audit:50066`)
 - Kafka/Redpanda `redpanda.marketplace.svc:9092`
 - Postgres (own database, `platform/postgres`; `DATABASE_URL` from Vault)
 - Vault via ExternalSecret (`svc/team-identity/config` -> Secret `team-identity-env`); a missing secret shows as `CreateContainerConfigError`

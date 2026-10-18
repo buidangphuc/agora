@@ -31,6 +31,8 @@ spec:
           grpcPort: 50053          # native gRPC health probes (grpc.health.v1.Health)
           jwksPort: 50063          # second Service+container port so the edge can reach http://team-identity:50063/.well-known/jwks.json (ADR-0006)
           env:
+            # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
+            UPSTREAM_AUDIT_ADDR: "team-audit:50066"   # same as envs/services
             JWKS_HTTP_PORT: "50063"   # serves GET /.well-known/jwks.json (public keys; ADR-0006)
             # SessionRevoked outbox relayer (ADR-0003 addendum): publishes to identity.events.
             KAFKA_ENABLED: "true"

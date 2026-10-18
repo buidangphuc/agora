@@ -21,6 +21,8 @@ env:
   FEATURE_FLAGS_ENABLED: "true"
   UPSTREAM_DOMAIN_ADDR: "team-domain:50051"
   UPSTREAM_IDENTITY_ADDR: "team-identity:50053"
+  # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
+  UPSTREAM_AUDIT_ADDR: "team-audit:50066"
   # PaymentSettled consumer (AD4/AD1) + order.events outbox relayer (ADR-0013).
   KAFKA_ENABLED: "true"
   KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
@@ -36,9 +38,10 @@ env:
 secrets:
   enabled: true
 # Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50055; only the
-# edge (team-gateway) may reach OrderService/CartService. Payment→order is now
-# event-carried (AD4), so team-payment is NOT a gRPC peer here. Deployed envs only
-# (local exempt per ADR-0010).
+# edge (team-gateway) and two gRPC peers may reach OrderService/CartService:
+# team-payment (GetOrder before creating/settling a payment; settlement itself is
+# event-carried, AD4) and team-engagement (GetOrderParties for order-bound reviews).
+# Deployed envs only (local exempt per ADR-0010).
 networkPolicy:
   enabled: true
-  allowFrom: [team-gateway]
+  allowFrom: [team-gateway, team-payment, team-engagement]

@@ -12,6 +12,7 @@
 
 ## Dependencies
 - upstream `flipt` (`FLIPT_ADDR=flipt:9000`)
+- upstream `team-audit` (`UPSTREAM_AUDIT_ADDR=team-audit:50066`)
 - upstream `team-domain` (`UPSTREAM_DOMAIN_ADDR=team-domain:50051`)
 - upstream `team-identity` (`UPSTREAM_IDENTITY_ADDR=team-identity:50053`)
 - upstream `team-promotion` (`UPSTREAM_PROMOTION_ADDR=team-promotion:50061`)
