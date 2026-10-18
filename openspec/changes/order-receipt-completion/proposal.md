@@ -1,0 +1,66 @@
+## Why
+
+A shipped order never completes today: only the seller can move Shipped to Completed (`UpdateOrderStatus`, `team-order/internal/service/transitions.go`), nothing emits a completion fact, reviews, the referral reward and dispute escalation have no trigger, and `CreateReturnRequest` (`internal/service/order.go`) accepts a return on any order that is not Pending or Cancelled with no time limit. A return the seller never answers stays PENDING forever, and sellers have no deadline for shipping (backlog Q9, Q10, Q20 part; `plans/pm-review-2026-10/buyer-journey.md` #4, #9, `trust-ops.md` #7, `seller-success.md` #4). The locked initiative (`plans/q10-order-lifecycle/00-spec.md`, 2026-10-16) lets the buyer confirm receipt, completes a shipped order 7 days after shipping, opens a 15-day return window at completion, approves an unanswered return after 3 days, stamps a ship-by deadline 2 days after payment, and emits one `OrderCompleted` and one `ReturnRequested` fact. This slice is the team-order side (plus the gateway route for `ConfirmReceipt`). The proto, the unpaid-expiry sweep and the `OrderPlaced` event come from `q10-order-lifecycle-contract` and `order-unpaid-expiry`; notifications are `notification-order-work`; the UI is `frontend-order-lifecycle`. q6-trust-enforcement's dispute slices consume `OrderCompleted`, `ReturnRequested`, `Order.return_window_ends_at` and `OrderReturn.can_escalate` as defined here.
+
+initiative: q10-order-lifecycle
+
+## What Changes
+
+- **team-order, schema** (`migrations/`, next free numbers after `order-unpaid-expiry`'s migration):
+  - `orders` gains nullable `ship_by`, `shipped_at`, `completed_at`, `return_window_ends_at`, `auto_complete_at` (timestamptz). `OrderRepository` structs and `toWireOrder` carry them (proto `Order` fields 19, 20, 21, 22, 24; `payment_due_at` 18 and `cancel_reason` 23 belong to `order-unpaid-expiry`).
+  - `order_returns` gains `auto_approve_at` (timestamptz, `created_at + RETURN_AUTO_APPROVE_AFTER`, snapshotted at creation) and a partial index on `(auto_approve_at) WHERE status = 1`; `orders` gains partial indexes for the two sweep queries.
+  - Backfill: existing SHIPPED orders get `shipped_at` from their shipment row (`created_at`, else `updated_at`) and `auto_complete_at = migration time + 7 days` (never retroactive, so deploy does not complete a backlog at once); existing COMPLETED orders get `completed_at = updated_at` and `return_window_ends_at = updated_at + 15 days`; existing PAID orders and COD PENDING orders get `ship_by = (paid_at or created_at) + 2 days`; existing PENDING returns get `auto_approve_at = migration time + 3 days` (never retroactive). The backfill uses these fixed values (7d, 15d, 2d, 3d), not the env values; new stamps read the env values (clarification B7). Unpaid online orders get no `payment_due_at` from this migration (that column belongs to `order-unpaid-expiry`).
+- **team-order, timestamps stamped by the compare-and-set** (`internal/repository/order.go`, `UpdateOrderStatusFrom` Postgres and in-memory, one transaction):
+  - to PAID: `ship_by = paid_at + SHIP_BY_AFTER`; the existing `OrderPaidEvent` outbox row also carries `seller_id` and `ship_by`.
+  - to SHIPPED: `shipped_at = now`, `auto_complete_at = now + AUTO_COMPLETE_AFTER`.
+  - to COMPLETED: `completed_at = now`, `return_window_ends_at = now + RETURN_WINDOW`, `auto_complete_at` cleared (NULL), and one `OrderCompleted` outbox row (event id stable per order id) with `completed_by`, `paid_online = paid_at is set`. The repository takes the `CompletedBy` as a parameter of the write (new argument `completedBy`), so the seller path, `ConfirmReceipt` and the sweep share one write.
+  - at placement of a COD order: `ship_by = created_at + SHIP_BY_AFTER`, and the `OrderPlaced` event (emitted by `order-unpaid-expiry`'s placement path) carries it; an online-pay order has `ship_by` unset until paid.
+  - Env config, read when the stamp is written: `AUTO_COMPLETE_AFTER=168h`, `RETURN_WINDOW=360h`, `RETURN_AUTO_APPROVE_AFTER=72h`, `SHIP_BY_AFTER=48h`; a malformed or non-positive value fails startup (`internal/config`, `envcheck.go`).
+- **team-order, transitions** (`internal/service/transitions.go`): `Shipped -> Completed` actors become `ActorSeller`, `ActorBuyer`, `ActorSystem`. `UpdateOrderStatus` still resolves only seller/admin, so a buyer cannot reach Completed through it.
+- **team-order, `ConfirmReceipt`** (`internal/service/order.go`, `internal/handler/order.go`): new service method `ConfirmReceipt(ctx, buyerID, orderID)`. Order not found is `NOT_FOUND`; a caller whose principal id is not the order's `buyer_id` (seller, admin, other buyer, service) is `PERMISSION_DENIED` before the status is read; otherwise a CAS Shipped -> Completed with `CompletedBy=BUYER`; an open return (PENDING or APPROVED) on the order does not block the buyer's confirm (clarification B8); a lost CAS or non-SHIPPED order is `FAILED_PRECONDITION`. Response carries the updated `Order`.
+- **team-order, lifecycle sweep** (`internal/service/saga.go` or the file `order-unpaid-expiry` puts the sweep in, `cmd/server/main.go`): two passes are added to the existing `LIFECYCLE_SWEEP_INTERVAL` sweep (the reminder and expiry passes belong to `order-unpaid-expiry`), each bounded to 100 rows per run and idempotent:
+  - Auto-complete: SHIPPED orders with `auto_complete_at <= now` and no blocking return (`NOT EXISTS` on `order_returns`): a PENDING return always blocks; an APPROVED return blocks only when the order was paid online (`paid_at` set), since a cash-on-delivery return can never reach REFUNDED (clarification M2; COD refunds are a follow-up), moved Shipped -> Completed by CAS with `CompletedBy=SYSTEM`, oldest first.
+  - Return auto-approve: returns with status PENDING and `auto_approve_at <= now`, moved PENDING -> APPROVED through `TransitionReturn` (actor system). It moves no money and writes no outbox row; refund stays APPROVED -> REFUNDED by the seller.
+- **team-order, returns** (`internal/service/order.go`, `internal/repository/return.go`, `internal/handler/order.go`):
+  - `CreateReturnRequest` accepts only an order that is SHIPPED, or COMPLETED with `now < return_window_ends_at`. PAID, PENDING, CANCELLED keep or gain `FAILED_PRECONDITION` (`ErrOrderCannotBeReturned`); COMPLETED at or after the window end is `FAILED_PRECONDITION` with message "return window closed" (new `ErrReturnWindowClosed`). Cap rules (`CreateReturnCapped`) are unchanged.
+  - A created return writes one `ReturnRequested` outbox row (event id stable per return id) in the same transaction as the insert (new `WithReturnRequestedOutbox` option next to `WithReturnOutbox`).
+  - `OrderReturn.can_escalate` (proto field 10) is computed at read by `toWireOrderReturn` callers for `CreateReturnRequest`, `GetReturnRequest`, `UpdateReturnStatus` and `ListOrderReturns`: true when the return is REJECTED and its order is SHIPPED or COMPLETED with `now < return_window_ends_at`; otherwise false. It is never stored.
+- **team-gateway** (`internal/edge/order.go`): `OrderForwarder.ConfirmReceipt` forwards through `callWrite` with the buyer's bearer token (same shape as `CancelOrder`); without it the embedded `UnimplementedOrderServiceHandler` answers `unimplemented`. No other route changes: `CreateReturnRequest`, `GetReturnRequest`, `ListOrderReturns`, `UpdateReturnStatus` are forwarded already and carry the new fields.
+- **Proto**: `proto/platform/order/v1/order.proto` copied into `team-order/proto` and `team-gateway/proto` from `platform-core/packages/proto` (the contract slice's version), stubs regenerated; never hand-edited.
+- **platform-e2e** (owned by this slice): new `features/order/order_receipt_completion.feature` and steps; short timers in `compose/order-inventory.override.yaml` (`AUTO_COMPLETE_AFTER=12s`, `RETURN_WINDOW=20s`, `RETURN_AUTO_APPROVE_AFTER=30s`, `SHIP_BY_AFTER=60s`; `LIFECYCLE_SWEEP_INTERVAL=2s` is defined once by `order-unpaid-expiry`). Auto-approve is longer than auto-complete so a return opened right after shipping is still PENDING when the auto-complete deadline passes; helpers in `tests/e2e/support/` to ship an order, read `order.events` by type and order id (reuse the existing helper).
+- Not changed: team-payment, team-notification (it consumes the events in `notification-order-work`), team-frontend, per-category return windows, auto-refund of an APPROVED return, auto-cancel at `ship_by`, a carrier "delivered" signal.
+
+## NFR
+
+- Latency: `ConfirmReceipt` is one read plus one CAS transaction with one outbox insert, p95 under 300 ms at the gateway. Return create adds one outbox insert in its existing transaction.
+- Timing: auto-complete and auto-approve fire within one `LIFECYCLE_SWEEP_INTERVAL` (default 1 minute) after their deadline. Each pass handles at most 100 rows per run; a larger backlog drains over successive runs, oldest deadline first, and a repeated run changes nothing already moved.
+- Availability: a pass that fails on one row logs it and continues with the next; the sweep retries on its next tick. Completion and auto-approve need no upstream call, so they do not depend on team-domain, payment or promotion being up.
+- Limits: deadlines are stored at the moment of the transition from the env value of that moment, so a config change never moves a displayed promise. Window and timer durations are `time.Duration` values, minimum 1 second.
+- Idempotency: `OrderCompleted` event id is `order-completed:<order id>`, `ReturnRequested` is `return-requested:<return id>`; consumers dedupe on it and the producing CAS or insert happens once.
+
+## Data classification
+
+| Field | Class | Purpose | Basis | Retention |
+|---|---|---|---|---|
+| `shipped_at`, `completed_at`, `return_window_ends_at`, `auto_complete_at`, `ship_by` on the order | operational timestamps | lifecycle deadlines, return window, seller ship-by | contract performance (order processing) | with the order row (existing retention) |
+| `auto_approve_at` on the return | operational timestamp | seller no-answer deadline | same | with the return row |
+| `OrderCompleted` (order id, buyer id, seller id, amount, currency, completed_by, times, paid_online) | pseudonymous ids, amount | trigger for reviews, Q7 referral reward, q6 disputes | contract performance; no new purpose beyond order processing | outbox row until relayed and pruned (existing outbox retention); consumers apply their own |
+| `ReturnRequested` (return id, order id, buyer id, seller id, refund amount, currency, time) | pseudonymous ids, amount | seller notification, q6 disputes | same | same |
+| `OrderPaidEvent.seller_id`, `ship_by` | pseudonymous id, timestamp | seller notification, ship-by | same | same |
+
+No new personal data. The free-text return reason is not copied into any event. No address, name or contact detail is added.
+
+## Threat model
+
+- **Assets:** order status (money follows Completed through seller payout and returns), the return window, the completion event that Q7 and q6 act on.
+- **Abuse cases:**
+  - A seller or admin confirms receipt on a buyer's behalf to start the window early and cut the buyer's returns: `ConfirmReceipt` is buyer-only (`PERMISSION_DENIED` for every other principal); the seller path through `UpdateOrderStatus` stays but is bounded by the same 15-day window, which starts at that completion.
+  - A buyer calls `UpdateOrderStatus` to Completed: still `PERMISSION_DENIED`; only `ConfirmReceipt` takes the buyer actor.
+  - A buyer opens a return outside its window or on an unshipped order to hold up a seller or to launder a refund: refused by status and window in `CreateReturnRequest`; cap rules unchanged.
+  - Double confirm, confirm racing the sweep, seller completion racing the sweep: one CAS wins, the loser gets `FAILED_PRECONDITION` or a skipped row, one `OrderCompleted` is written inside the winning transaction.
+  - A seller answering a return exactly at auto-approve: `TransitionReturn` compare-and-set, one transition wins, one refund path.
+  - A seller never answering a return so the buyer cannot escalate: auto-approve after 3 days opens the refund path; `can_escalate` is only for a REJECTED return.
+  - A client spoofing `can_escalate` or timestamps: all computed or stamped server-side, ignored in requests.
+  - A buyer keeps a shipped order from completing by opening a return: accepted by design while the return is PENDING, or APPROVED on an online-paid order; a REJECTED or REFUNDED return, or an APPROVED return on a COD order, no longer blocks, and APPROVED never auto-refunds (non-goal, listed in OPEN_ISSUES).
+- **Authz rule:** `ConfirmReceipt`: principal id equals the order's `buyer_id`, no admin override. `CreateReturnRequest`: buyer-owned (unchanged). `UpdateReturnStatus`: seller or admin (unchanged); the system actor exists only inside the sweep and is not reachable by any RPC. The gateway passes the caller's token through; it grants nothing.
+- **Accepted risk:** a seller can hold an order SHIPPED indefinitely only until `auto_complete_at`; a return left APPROVED and unrefunded blocks auto-complete for an online-paid order (no auto-refund, M3 follow-up); on a COD order an APPROVED return does not block, and its refund is a follow-up (M2).
