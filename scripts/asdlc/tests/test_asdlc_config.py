@@ -79,3 +79,16 @@ def test_route_strips_only_literal_leading_dot_slash():
     cfg["routing"] = {"auth": [".hidden/*"], "pii": ["a/*"], "payment": ["x"], "proto": ["y"], "release": ["z"]}
     assert c.route([".hidden/f"], cfg) == {"auth"}      # lstrip("./") would have eaten the dot
     assert c.route(["./a/f"], cfg) == {"pii"}
+
+
+def test_route_gateway_admin_policy_and_wiring_is_auth():
+    assert "auth" in c.route(["team-gateway/internal/edge/policy.go"])
+    assert "auth" in c.route(["team-gateway/internal/edge/server.go"])
+    assert "auth" not in c.route(["team-gateway/internal/edge/listing.go"])
+
+
+def test_route_frontend_api_routes_and_session_are_auth():
+    assert "auth" in c.route(["team-frontend/src/app/api/analytics/identity/route.ts"])
+    assert "auth" in c.route(["team-frontend/src/app/api/admin/metrics/route.ts"])
+    assert "auth" in c.route(["team-frontend/src/lib/gateway/session.ts"])
+    assert "auth" not in c.route(["team-frontend/src/app/listings/page.tsx"])

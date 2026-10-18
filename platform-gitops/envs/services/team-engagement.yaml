@@ -17,6 +17,8 @@ resources:
     memory: 256Mi
 env:
   UPSTREAM_ORDER_ADDR: "team-order:50055"
+  # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
+  UPSTREAM_AUDIT_ADDR: "team-audit:50066"
   KAFKA_ENABLED: "true"
   KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
   KAFKA_CONSUMER_GROUP: "team-engagement-feed"

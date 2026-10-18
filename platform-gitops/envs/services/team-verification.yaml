@@ -15,6 +15,9 @@ resources:
   limits:
     cpu: 250m
     memory: 256Mi
+env:
+  # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
+  UPSTREAM_AUDIT_ADDR: "team-audit:50066"
 secrets:
   enabled: true
 # Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50064; only the

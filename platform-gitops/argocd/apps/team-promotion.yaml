@@ -37,6 +37,8 @@ spec:
               cpu: 250m
               memory: 256Mi
           env:
+            # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
+            UPSTREAM_AUDIT_ADDR: "team-audit:50066"   # same as envs/services
             FEATURE_FLAGS_ENABLED: "false"
             GRPC_PORT: "50061"
             KAFKA_ENABLED: "true"

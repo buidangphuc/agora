@@ -39,7 +39,7 @@ type ServerOptions struct {
 
 // NewServer returns a gRPC server with the otelgrpc stats handler, the chain
 // request id, recovery, logging and auth (outermost first), the health service
-// and, when Config.ReflectionEnabled, reflection.
+// and reflection.
 func NewServer(o ServerOptions) *grpc.Server {
 	logger := o.Logger
 	if logger == nil {
@@ -75,9 +75,7 @@ func NewServer(o ServerOptions) *grpc.Server {
 	srv := grpc.NewServer(append(opts, o.Extra...)...)
 
 	grpc_health_v1.RegisterHealthServer(srv, o.Health.Server())
-	if o.Config.ReflectionEnabled {
-		reflection.Register(srv)
-	}
+	reflection.Register(srv)
 	return srv
 }
 
@@ -127,14 +125,16 @@ func grpcMethod(ctx context.Context) string {
 
 // Serve returns a component that listens on c.Addr() and serves srv. When its
 // context ends it calls GracefulStop and, if that has not finished within
-// c.ShutdownGrace(), Stop.
+// c.ShutdownGrace, Stop. Under lifecycle.Run the components get
+// Options.ShutdownGrace minus Options.CloseGrace, so keep c.ShutdownGrace within
+// that or the closers (database pool, for one) can run while RPCs still drain.
 func Serve(srv *grpc.Server, c config.GRPC) lifecycle.Component {
 	return lifecycle.Func(func(ctx context.Context) error {
 		lis, err := net.Listen("tcp", c.Addr())
 		if err != nil {
 			return fmt.Errorf("grpcx: listen %s: %w", c.Addr(), err)
 		}
-		return ServeListener(srv, lis, c.ShutdownGrace()).Run(ctx)
+		return ServeListener(srv, lis, c.ShutdownGrace).Run(ctx)
 	})
 }
 

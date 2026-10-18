@@ -30,6 +30,7 @@ pointer to each slice's `plans/<id>/run/<slice>.md` (written by feature-run). Re
 Events go to `metrics/runs/<id>.build.jsonl`; per-slice metrics stay in `metrics/runs/<slice>.jsonl`.
 
 ## Steps
+Run every test/coverage/gate command below through the `gate-digest` skill (`scripts/asdlc/gate_digest.py`): decide from its JSON verdict; open logs only at a named failure.
 1. **Waves from the DAG.** Start from the LOCK.md build order.
    - Wave 0: slices owned by `platform-core` (contracts), one at a time, in order.
    - Next waves: DAG levels. For each slice write a packet

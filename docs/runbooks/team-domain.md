@@ -11,6 +11,8 @@
 | Logs | `kubectl -n marketplace logs deploy/team-domain --tail=200` |
 
 ## Dependencies
+- upstream `team-ai` (`UPSTREAM_AI_ADDR=team-ai:50060`)
+- upstream `team-audit` (`UPSTREAM_AUDIT_ADDR=team-audit:50066`)
 - Postgres (own database, `platform/postgres`; `DATABASE_URL` from Vault)
 - Vault via ExternalSecret (`svc/team-domain/config` -> Secret `team-domain-env`); a missing secret shows as `CreateContainerConfigError`
 

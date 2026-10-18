@@ -18,7 +18,8 @@ resources:
 secrets:
   enabled: true
 # Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to :50066; only the
-# edge (team-gateway) may reach it. Deployed envs only (local exempt per ADR-0010).
+# edge (team-gateway) and the services whose audited admin mutations write here
+# (UPSTREAM_AUDIT_ADDR) may reach it. Deployed envs only (local exempt per ADR-0010).
 networkPolicy:
   enabled: true
-  allowFrom: [team-gateway]
+  allowFrom: [team-gateway, team-domain, team-engagement, team-identity, team-order, team-payment, team-promotion, team-verification]

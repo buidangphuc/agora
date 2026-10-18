@@ -37,6 +37,11 @@ spec:
               cpu: 250m
               memory: 256Mi
           env:
+            # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
+            UPSTREAM_AUDIT_ADDR: "team-audit:50066"   # same as envs/services
+            UPSTREAM_AI_ADDR: "team-ai:50060"   # listing screening; unset => pending_review
+            IDENTITY_CONSUMER_ENABLED: "true"   # UserStatusChanged -> hide/restore listings
+            KAFKA_IDENTITY_TOPIC: "identity.events"
             KAFKA_ENABLED: "true"
           secrets:
             enabled: true
