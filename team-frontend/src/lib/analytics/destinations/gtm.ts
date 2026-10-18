@@ -6,6 +6,7 @@
  */
 
 import type { ConsentGroups } from "@/lib/consent/consent";
+import { scrubReferrer } from "../scrub";
 
 const SCRIPT_SELECTOR = 'script[src*="googletagmanager.com/gtm.js"]';
 
@@ -65,7 +66,10 @@ export function trackPageLocation(): void {
     .filter(([k]) => k === "update")
     .pop()?.[1];
   if (granted?.analytics_storage !== "granted") return;
-  layer.push({ page_location: currentPageLocation() });
+  layer.push({
+    page_location: currentPageLocation(),
+    page_referrer: scrubReferrer(document.referrer),
+  });
 }
 
 export function applyConsent(groups: ConsentGroups): void {
@@ -123,7 +127,10 @@ export function applyConsent(groups: ConsentGroups): void {
           typeof (e as { page_location?: unknown }).page_location === "string",
       ) as { page_location: string } | undefined;
     if (lastPage?.page_location !== pageLocation) {
-      layer.push({ page_location: pageLocation });
+      layer.push({
+        page_location: pageLocation,
+        page_referrer: scrubReferrer(document.referrer),
+      });
     }
 
     const gtmId = process.env.NEXT_PUBLIC_GTM_ID?.trim();
