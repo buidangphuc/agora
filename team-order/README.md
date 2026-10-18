@@ -129,7 +129,7 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | Only feeds `IsProd()`, which nothing calls |
+| `ENV` | `local` | Feeds the boot guard `RequireDurableStorage` (staging/prod refuse to start without a database). `IsProd()` is never called |
 | `LOG_LEVEL` | `info` | Only `debug` changes behaviour; anything else is info |
 | `LOG_JSON` | `true` | |
 | `GRPC_HOST` / `GRPC_PORT` | `0.0.0.0` / `50055` | |
@@ -228,7 +228,7 @@ There is no Makefile, no `.github/workflows` and no other CI config in this repo
 - `CalculateShippingFee` and `GetShipmentTracking` are unauthenticated.
 - Scopes `order.read` / `order.write` are not enforced here; authorization is only the id and admin-scope checks above. Principal metadata is trusted as forwarded.
 - A failed `PaymentSettled` leaves the order PENDING until the lifecycle sweeper cancels it at `payment_due_at` (`PAYMENT_EXPIRED`); orders placed before migration 0008 have no deadline and are never auto-expired.
-- `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` and `ENV` are inert: only the otelgrpc stats handler is attached, and no tracer provider or exporter is configured in this repo.
+- `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` are inert: only the otelgrpc stats handler is attached, and no tracer provider or exporter is configured in this repo.
 
 ## Runbook: commit re-sync (after deploying port-order-inventory-correctness)
 

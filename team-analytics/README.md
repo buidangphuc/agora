@@ -136,6 +136,8 @@ docker compose --profile jobs run --rm platform-recsys      # trains from the Pa
 
 The `team-analytics` service in `docker-compose.services.yaml` sets `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`, `DUCKDB_PATH=/data/analytics.duckdb`, `PARQUET_EXPORT_PATH=/data/tracking_events.parquet`, `PARQUET_EXPORT_INTERVAL_SECONDS=300` on the `analytics_data` volume. It publishes no host port; the gateway reaches it at `team-analytics-svc:50059`. The root compose does not set `KAFKA_ORDER_TOPIC`, so the default `order.events` applies.
 
+The `ga4-relay` service in `docker-compose.services.yaml` runs the GA4 purchase relay (`/ga4-relay`) with no `GA4_API_SECRET`, so it stays disabled; locally, `make ga4-relay` runs it without Docker.
+
 Standalone: `docker-compose.local.yaml` runs only this worker against the platform-core Redpanda on the external `platform-core_default` network (DuckDB on the `analytics-data` volume; no Parquet export configured). Without Docker: `cp .env.example .env`, `make proto`, then `KAFKA_ENABLED=true make consumer` (needs CGO and a C toolchain for DuckDB, and a writable `DUCKDB_PATH`; the default `/data/...` usually is not).
 
 ## 6. Build, test and lint

@@ -94,9 +94,3 @@ see `ADR/0001-proto-distribution.md`.
   3-tier token hierarchy (Core → Semantic → Component), Next.js 14 App Router
   SSR-first principles, primitive component library, and zero layout-shift rules.
 - **DB-per-service** (Rule 3), **fixed stack** (see README).
-
-## What is intentionally NOT here (Phase 0)
-
-No JWT/cookie auth, no cloud/CI. Those are later phases — this repo only makes
-them buildable in a consistent way. (Async brokers are now chosen — ADR-0002 —
-and the first services + search read-model exist as sibling repos.)

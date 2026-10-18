@@ -134,7 +134,7 @@ Enforced by `platform-e2e/scripts/features.py` (`make -C platform-e2e features-c
 | Metrics and baseline | `metrics/`, `metrics/baseline.json`, `docs/asdlc/baseline.md` |
 | Release, rollback, runbooks | `docs/asdlc/release.md`, `scripts/rollback.sh`, `docs/runbooks/`, `platform-gitops/`, `deploy/` |
 | Ownership | `CODEOWNERS` (capability -> owning team) |
-| Experiments | `docs/asdlc/experiments/`, `metrics/kev-eval/` |
+| Experiments | `metrics/kev-eval/` |
 
 ## 9. Human approval points
 

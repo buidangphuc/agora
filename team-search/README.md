@@ -204,7 +204,7 @@ grpcurl -plaintext localhost:50052 grpc.health.v1.Health/Check
 | `make check-env` | `.env.example` vs config drift gate |
 | `make check` | merge gate: `check-env`, `gofmt -l .`, `go vet ./...`, `go test ./...` |
 
-`go.mod` is Go 1.26; `franz-go` is pinned to v1.18.0 because newer tags require Go 1.25. The
+`go.mod` is Go 1.26; `franz-go` is pinned at v1.18.0; do not bump without running the tests. The
 Docker build uses `golang:1.26`.
 
 ## Spec and verification

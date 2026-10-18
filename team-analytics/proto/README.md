@@ -7,7 +7,10 @@ writes here.
 
 team-analytics OWNS the read-only `platform.analytics.v1.AnalyticsQueryService`
 (served on `:50059`) and otherwise consumes Kafka events. It vendors
-`common`, `events`, and `analytics` so it can consume `analytics.events`:
+the whole `platform/` tree (18 packages, 19 `.proto` files: `ai`, `analytics`, `audit`,
+`chat`, `common`, `engagement`, `events`, `identity`, `listing`, `notification`, `order`,
+`payment`, `promotion`, `recommendation`, `referral`, `search`, `sharing`, `verification`),
+of which it consumes `common`, `events` and `analytics` to read `analytics.events`:
 unmarshal `platform.events.v1.EventEnvelope`, switch on `type`, and decode the
 `platform.analytics.v1.TrackingEvent` payload. It does NOT edit the contract —
 the analytics contract was added by `add-tracking-event-contract` and lives in
