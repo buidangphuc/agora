@@ -33,7 +33,8 @@ Implement OpenSpec change `frontend-session-client-context` test-first per its t
 - platform-e2e/tests/e2e/features/auth/session_client_context.feature
 - platform-e2e/tests/e2e/step_definitions/test_session_client_context.py
 - openspec/changes/frontend-session-client-context/**
-- team-identity/internal/handler/auth_refresh_test.go # widened at build: task 1.1
+- team-identity/internal/handler/auth_refresh_test.go (# widened at build: task 1.1)
+- plans/privacy-audit-hardening/wave2-task3-frontend-session-client-context.md (# widened at build: task 1.1; packet widening record)
 
 ## Read-only dependencies
 - openspec/changes/frontend-session-client-context/** is frozen by the LOCK.md digest (only task ticks change)
