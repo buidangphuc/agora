@@ -2,6 +2,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  CancelReason,
   OrderStatus,
   ReturnStatus,
 } from "@/generated/platform/order/v1/order_pb.js";
@@ -11,6 +12,7 @@ import { makeClients } from "./client.js";
 import {
   calculateShippingFee,
   cancelOrder,
+  confirmReceipt,
   createOrder,
   getOrder,
   getOrderResult,
@@ -35,6 +37,7 @@ function stubOrder(rpcs: Record<string, ReturnType<typeof vi.fn>>) {
     listSellerOrders: vi.fn(),
     updateOrderStatus: vi.fn(),
     cancelOrder: vi.fn(),
+    confirmReceipt: vi.fn(),
     ...rpcs,
   };
   vi.mocked(makeClients).mockReturnValue({ order } as never);
@@ -236,16 +239,109 @@ describe("orders gateway wrapper", () => {
     ).rejects.toThrow("update order status failed");
   });
 
-  it("cancelOrder forwards id + reason and maps the order", async () => {
+  it("Order lifecycle: cancel sends the reason code with the label", async () => {
     const order = stubOrder({
       cancelOrder: vi.fn().mockResolvedValue({ order: protoOrder }),
     });
-    const res = await cancelOrder("o1", "changed mind");
+    const res = await cancelOrder(
+      "o1",
+      "Đặt nhầm sản phẩm",
+      CancelReason.WRONG_ITEM,
+    );
+    expect(order.cancelOrder).toHaveBeenCalledTimes(1);
+    expect(order.cancelOrder).toHaveBeenCalledWith({
+      id: "o1",
+      reason: "Đặt nhầm sản phẩm",
+      reasonCode: CancelReason.WRONG_ITEM,
+    });
+    expect(res.id).toBe("o1");
+  });
+
+  it("Order lifecycle: cancel sends reasonCode UNSPECIFIED when none is given", async () => {
+    const order = stubOrder({
+      cancelOrder: vi.fn().mockResolvedValue({ order: protoOrder }),
+    });
+    await cancelOrder("o1", "changed mind");
     expect(order.cancelOrder).toHaveBeenCalledWith({
       id: "o1",
       reason: "changed mind",
+      reasonCode: CancelReason.UNSPECIFIED,
     });
+  });
+
+  it("Order lifecycle: confirming receipt calls the server and completes the order", async () => {
+    const order = stubOrder({
+      confirmReceipt: vi.fn().mockResolvedValue({
+        order: { ...protoOrder, status: OrderStatus.COMPLETED },
+      }),
+    });
+    const res = await confirmReceipt("o1");
+    expect(order.confirmReceipt).toHaveBeenCalledTimes(1);
+    expect(order.confirmReceipt).toHaveBeenCalledWith({ id: "o1" });
     expect(res.id).toBe("o1");
+    expect(res.status).toBe(OrderStatus.COMPLETED);
+  });
+
+  it("Order lifecycle: confirmReceipt throws when the gateway returns no order", async () => {
+    stubOrder({ confirmReceipt: vi.fn().mockResolvedValue({}) });
+    await expect(confirmReceipt("o1")).rejects.toThrow();
+  });
+
+  it("Order lifecycle: confirmReceipt propagates a server refusal", async () => {
+    stubOrder({
+      confirmReceipt: vi
+        .fn()
+        .mockRejectedValue(
+          new ConnectError("not shipped", Code.FailedPrecondition),
+        ),
+    });
+    await expect(confirmReceipt("o1")).rejects.toBeInstanceOf(ConnectError);
+  });
+
+  it("Order lifecycle: ViewOrder deadlines are ISO strings, empty when unset", async () => {
+    const ts = (sec: number) => ({ seconds: BigInt(sec), nanos: 0 });
+    stubOrder({
+      getOrder: vi
+        .fn()
+        .mockResolvedValueOnce({ order: protoOrder })
+        .mockResolvedValueOnce({
+          order: {
+            ...protoOrder,
+            paymentDueAt: ts(1_700_000_000),
+            shipBy: ts(1_700_000_100),
+            shippedAt: ts(1_700_000_200),
+            completedAt: ts(1_700_000_300),
+            returnWindowEndsAt: ts(1_700_000_400),
+            autoCompleteAt: ts(1_700_000_500),
+            cancelReason: CancelReason.PAYMENT_EXPIRED,
+          },
+        }),
+    });
+    const bare = await getOrder("o1");
+    for (const k of [
+      "paymentDueAt",
+      "shipBy",
+      "shippedAt",
+      "completedAt",
+      "returnWindowEndsAt",
+      "autoCompleteAt",
+    ] as const) {
+      expect(bare?.[k]).toBe("");
+    }
+    expect(bare?.cancelReason).toBe(CancelReason.UNSPECIFIED);
+
+    const full = await getOrder("o1");
+    expect(full?.paymentDueAt).toBe(new Date(1_700_000_000_000).toISOString());
+    expect(full?.shipBy).toBe(new Date(1_700_000_100_000).toISOString());
+    expect(full?.shippedAt).toBe(new Date(1_700_000_200_000).toISOString());
+    expect(full?.completedAt).toBe(new Date(1_700_000_300_000).toISOString());
+    expect(full?.returnWindowEndsAt).toBe(
+      new Date(1_700_000_400_000).toISOString(),
+    );
+    expect(full?.autoCompleteAt).toBe(
+      new Date(1_700_000_500_000).toISOString(),
+    );
+    expect(full?.cancelReason).toBe(CancelReason.PAYMENT_EXPIRED);
   });
 
   it("getOrder maps paid_at (empty when never paid online)", async () => {

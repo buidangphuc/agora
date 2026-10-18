@@ -110,3 +110,25 @@ func TestCancelledFactIsRelayedToOrderEvents(t *testing.T) {
 	_, ev := decodeCancelled(t, cancels[0].payload)
 	assert.Equal(t, orderv1.OrderStatus_ORDER_STATUS_PAID, ev.GetPreviousStatus())
 }
+
+// Scenario "Order expiry: Expiry emits OrderCancelled with the expiry reason" and
+// "Buyer cancel stores the chosen reason": reason_code is built from the claimed
+// row, so it can never disagree with the order.
+func TestCancelledEnvelopeCarriesReasonFromClaimedRow(t *testing.T) {
+	for _, reason := range []orderv1.CancelReason{
+		orderv1.CancelReason_CANCEL_REASON_UNSPECIFIED,
+		orderv1.CancelReason_CANCEL_REASON_CHANGED_MIND,
+		orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED,
+		orderv1.CancelReason_CANCEL_REASON_ADMIN_FORCE_FAIL,
+	} {
+		t.Run(reason.String(), func(t *testing.T) {
+			order := sampleOrder()
+			order.Status = repository.OrderStatusCancelled
+			order.CancelReason = int32(reason)
+			row, err := BuildCancelledOutboxRow(order)
+			require.NoError(t, err)
+			_, ev := decodeCancelled(t, row.Payload)
+			assert.Equal(t, reason, ev.GetReasonCode())
+		})
+	}
+}

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { listSellerOrders } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
 import { batchGetShopNames } from "@/lib/gateway/shops";
 import SellerLayout from "./layout";
@@ -22,6 +23,7 @@ vi.mock("next/headers", () => ({
     return h;
   }),
 }));
+vi.mock("@/lib/gateway/orders", () => ({ listSellerOrders: vi.fn() }));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
 vi.mock("@/lib/gateway/shops", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/gateway/shops")>()),
@@ -101,6 +103,18 @@ describe("SellerLayout", () => {
       screen.getByRole("link", { name: "Quay lại trang chủ" }),
     ).toHaveAttribute("href", "/");
     expect(screen.queryByText("page body")).toBeNull();
+  });
+
+  it("[Order lifecycle: a session without seller scope sees no seller orders] no seller orders without listing scope", async () => {
+    vi.mocked(getPrincipal).mockReturnValue({
+      ...seller,
+      scopes: ["order.read"],
+    });
+    await renderLayout();
+    expect(screen.getByText("Cần tài khoản Người Bán")).toBeInTheDocument();
+    expect(screen.queryByText("page body")).toBeNull();
+    expect(screen.queryByText("Cần gửi")).toBeNull();
+    expect(listSellerOrders).not.toHaveBeenCalled();
   });
 
   it("shows the real shop name on the shop card", async () => {

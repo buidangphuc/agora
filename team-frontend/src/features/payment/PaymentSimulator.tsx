@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -30,6 +31,7 @@ export function PaymentSimulator({
   initialPhase: SimulatorPhase;
 }) {
   const toast = useToast();
+  const router = useRouter();
   const [phase, setPhase] = useState<SimulatorPhase>(initialPhase);
   const [pending, setPending] = useState<"success" | "failed" | null>(null);
   const [failure, setFailure] = useState("");
@@ -46,12 +48,14 @@ export function PaymentSimulator({
         setFailure(res.error);
         toast.error(res.error);
         setPhase("failed");
+        router.refresh();
       }
     } catch {
       const msg = "Có lỗi xảy ra khi xử lý thanh toán giả lập.";
       setFailure(msg);
       toast.error(msg);
       setPhase("failed");
+      router.refresh();
     } finally {
       setPending(null);
     }

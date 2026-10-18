@@ -69,9 +69,18 @@ def cod_order_handed_over(w: OicWorld, amount: int = 500_000, buyer_name: str = 
 
 
 # ── returns ──────────────────────────────────────────────────────────────
+def ship_if_paid(w: OicWorld, buyer: Actor, order_id: str) -> None:
+    """order-receipt-completion: a return is accepted only on a shipped (or recently completed)
+    order, so a paid order is handed over by its seller first."""
+    seller = w.actors.get("seller")
+    if seller is not None and o.order_status(w, buyer, order_id) == o.PAID:
+        ok(post(w, seller, ORDER, "UpdateOrderStatus", {"id": order_id, "status": o.SHIPPED}))
+
+
 def request_return(
     w: OicWorld, buyer: Actor, order_id: str, amount: int | None, reason: str | None = None
 ) -> httpx.Response:
+    ship_if_paid(w, buyer, order_id)
     body: dict[str, Any] = {"orderId": order_id, "reason": reason or f"e2e-{uuid.uuid4().hex[:8]}"}
     if amount is not None:
         body["refundAmount"] = amount

@@ -12,6 +12,7 @@ Implement OpenSpec change `payment-unpaid-cancel` test-first per its tasks.md (s
 - team-payment/generated/**
 - team-payment/internal/repository/payment.go
 - team-payment/internal/repository/payment_test.go
+- team-payment/internal/repository/unpaid_cancel_test.go (# widened at build: task 1)
 - team-payment/internal/service/payment.go
 - team-payment/internal/service/settlement.go
 - team-payment/internal/service/*_test.go

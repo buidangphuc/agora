@@ -145,6 +145,16 @@ redelivered cancel (its key exists) and a cancel from `PENDING` write nothing; a
 settled transaction goes to the DLQ. A cancel published while `team-payment` is down is applied
 when it restarts (committed offsets).
 
+### Unpaid cancel (`CANCELLED`)
+
+When `OrderCancelled` arrives with `previous_status` `PENDING`, the consumer voids the order's
+`PENDING` and `FAILED` transactions by setting them to `CANCELLED` (status 6). A `PAID` payment is
+never voided here; a late settle of a cancelled order is refunded with `cancel:<order_id>`.
+`ProcessMockPayment` refuses a `CANCELLED` transaction with `FailedPrecondition`, and returns
+`Unavailable` when team-order is unreachable to confirm the order state. Before settling, it re-reads
+the order status and fails closed. A settle that still lands after the cancel is refunded once, keyed
+`cancel:<order_id>`.
+
 ### RMA refund (`ReturnRefunded`)
 
 `team-order` writes `ReturnRefunded` through its outbox in the same transaction as the return's
@@ -175,7 +185,7 @@ startup.
 
 | Migration | Tables | Used by |
 |---|---|---|
-| `0001_initial` | `payment_transactions` (status 1 PENDING, 2 PAID, 3 FAILED, 4 REFUNDED; 5 PARTIALLY_REFUNDED since `0007`) | payment RPCs |
+| `0001_initial` | `payment_transactions` (status 1 PENDING, 2 PAID, 3 FAILED, 4 REFUNDED, 5 PARTIALLY_REFUNDED (since `0007`), 6 CANCELLED) | payment RPCs |
 | `0002_seller_wallet` | `payout_requests` (bank details), plus legacy `seller_wallets` and `wallet_transactions` (no longer read or written) | `RequestPayout`, `ListPayoutHistory` |
 | `0003_payment_outbox` | `payment_outbox_events` | settle + relayer |
 | `0004_wallet_ledger` | `wallet_ledger` (single-entry signed rows: `type`, `amount`, `status`) | `GetSellerWallet`, `GetWalletBalance`, `ListLedgerEntries`, `RequestPayout`, `RequestWalletPayout`, settlement credit |

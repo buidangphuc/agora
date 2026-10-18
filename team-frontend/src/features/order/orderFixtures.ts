@@ -1,4 +1,7 @@
-import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
+import {
+  CancelReason,
+  OrderStatus,
+} from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import type { ViewOrder } from "@/lib/gateway/orders";
 
@@ -36,6 +39,13 @@ export function makeOrder(
     trackingNumber: "",
     createdAt: "01/09/2026",
     paidAt: "",
+    paymentDueAt: "",
+    shipBy: "",
+    shippedAt: "",
+    completedAt: "",
+    returnWindowEndsAt: "",
+    autoCompleteAt: "",
+    cancelReason: CancelReason.UNSPECIFIED,
     items: [
       {
         id: `${id}-it1`,
