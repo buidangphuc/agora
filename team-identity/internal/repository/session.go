@@ -110,7 +110,15 @@ type SessionRepository interface {
 	// ListLoginHistory returns a page of the user's login history (newest first)
 	// plus the total number of events for that user.
 	ListLoginHistory(ctx context.Context, userID string, limit, offset int) ([]LoginEvent, int64, error)
+	// PurgeSessions deletes up to limit sessions that ended (revoked, refresh-expired or past the
+	// absolute max age) more than retention before now; it returns the number deleted.
+	PurgeSessions(ctx context.Context, now time.Time, retention time.Duration, limit int) (int, error)
+	// PurgeLoginHistory deletes up to limit login events created strictly before the cutoff.
+	PurgeLoginHistory(ctx context.Context, before time.Time, limit int) (int, error)
 }
+
+// sessionAbsoluteMaxAge is the absolute session lifetime counted as expiry by the purge.
+const sessionAbsoluteMaxAge = 90 * 24 * time.Hour
 
 // --- Postgres implementation ---
 
@@ -357,6 +365,29 @@ func (r *PostgresSessionRepository) ListLoginHistory(ctx context.Context, userID
 	return items, total, nil
 }
 
+func (r *PostgresSessionRepository) PurgeSessions(ctx context.Context, now time.Time, retention time.Duration, limit int) (int, error) {
+	const q = `DELETE FROM sessions WHERE id IN (
+		SELECT id FROM sessions
+		WHERE (revoked AND COALESCE(revoked_at, last_seen) < $1)
+		   OR (NOT revoked AND (refresh_expires_at < $1 OR created_at < $2))
+		ORDER BY id LIMIT $3 FOR UPDATE SKIP LOCKED)`
+	tag, err := r.pool.Exec(ctx, q, now.Add(-retention), now.Add(-retention-sessionAbsoluteMaxAge), limit)
+	if err != nil {
+		return 0, fmt.Errorf("purge sessions: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+func (r *PostgresSessionRepository) PurgeLoginHistory(ctx context.Context, before time.Time, limit int) (int, error) {
+	const q = `DELETE FROM login_history WHERE id IN (
+		SELECT id FROM login_history WHERE created_at < $1 ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED)`
+	tag, err := r.pool.Exec(ctx, q, before, limit)
+	if err != nil {
+		return 0, fmt.Errorf("purge login history: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
 // --- InMemory implementation (tests, no live DB) ---
 
 type InMemorySessionRepository struct {
@@ -560,4 +591,48 @@ func (r *InMemorySessionRepository) ListLoginHistory(_ context.Context, userID s
 		end = len(owned)
 	}
 	return owned[offset:end], total, nil
+}
+
+// PurgeSessions: the in-memory model has no revoked_at, so revoked rows age from LastSeen.
+func (r *InMemorySessionRepository) PurgeSessions(_ context.Context, now time.Time, retention time.Duration, limit int) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	cutoff := now.Add(-retention)
+	absCutoff := now.Add(-retention - sessionAbsoluteMaxAge)
+	ids := make([]string, 0)
+	for id, s := range r.sessions {
+		var dead bool
+		if s.Revoked {
+			dead = s.LastSeen.Before(cutoff)
+		} else {
+			dead = (!s.RefreshExpiresAt.IsZero() && s.RefreshExpiresAt.Before(cutoff)) || s.CreatedAt.Before(absCutoff)
+		}
+		if dead {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	if limit >= 0 && len(ids) > limit {
+		ids = ids[:limit]
+	}
+	for _, id := range ids {
+		delete(r.sessions, id)
+	}
+	return len(ids), nil
+}
+
+func (r *InMemorySessionRepository) PurgeLoginHistory(_ context.Context, before time.Time, limit int) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	kept := make([]LoginEvent, 0, len(r.logins))
+	n := 0
+	for _, e := range r.logins {
+		if e.CreatedAt.Before(before) && (limit < 0 || n < limit) {
+			n++
+			continue
+		}
+		kept = append(kept, e)
+	}
+	r.logins = kept
+	return n, nil
 }
