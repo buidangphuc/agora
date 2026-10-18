@@ -120,4 +120,55 @@ describe("refreshSession", () => {
     });
     expect(seen.calls).toHaveLength(1);
   });
+  it("Session client context: middleware refresh forwards IP and UA, no Authorization", async () => {
+    await refreshSession("old-refresh", {
+      ip: "203.0.113.9",
+      userAgent: "AgoraTest/2",
+    });
+
+    expect(seen.calls).toHaveLength(1);
+    const h = seen.calls[0]!.headers;
+    expect(h.get("x-forwarded-for")).toBe("203.0.113.9");
+    expect(h.get("user-agent")).toBe("AgoraTest/2");
+    expect(h.has("authorization")).toBe(false);
+    expect(seen.calls[0]!.message).toEqual(
+      expect.objectContaining({ refreshToken: "old-refresh" }),
+    );
+  });
+
+  it("Session client context: missing headers (boundary) - empty client sets neither header and still succeeds", async () => {
+    const res = await refreshSession("old-refresh", {});
+
+    expect(seen.calls).toHaveLength(1);
+    const h = seen.calls[0]!.headers;
+    expect(h.has("x-forwarded-for")).toBe(false);
+    expect(h.has("user-agent")).toBe(false);
+    expect(h.has("authorization")).toBe(false);
+    expect(res.token).toBe("new-access");
+  });
+
+  it("Session client context: missing headers (boundary) - omitted client sets neither header", async () => {
+    await refreshSession("old-refresh");
+    const h = seen.calls[0]!.headers;
+    expect(h.has("x-forwarded-for")).toBe(false);
+    expect(h.has("user-agent")).toBe(false);
+  });
+
+  it("Session client context: only one field present forwards only that header", async () => {
+    await refreshSession("old-refresh", { userAgent: "AgoraTest/2" });
+    const h = seen.calls[0]!.headers;
+    expect(h.get("user-agent")).toBe("AgoraTest/2");
+    expect(h.has("x-forwarded-for")).toBe(false);
+  });
+
+  it("Session client context: refresh failure with client context still surfaces Unauthenticated, 3 s timeout kept", async () => {
+    seen.reply = () => {
+      throw new ConnectError("revoked", Code.Unauthenticated);
+    };
+    await expect(
+      refreshSession("old-refresh", { ip: "203.0.113.9", userAgent: "A/1" }),
+    ).rejects.toMatchObject({ code: Code.Unauthenticated });
+    expect(seen.calls).toHaveLength(1);
+    expect(seen.calls[0]!.timeoutMs).toBe(3000);
+  });
 });
