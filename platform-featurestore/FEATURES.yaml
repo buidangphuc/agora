@@ -536,3 +536,31 @@ features:
     tags: [recsys, unit, consent]
     status: not-testable
     notes: "recsys-consent-and-context: unit-verified: platform-featurestore/tests/test_consent_filter.py test_missing_consent_is_denied. Not producible end to end."
+
+  - id: featurestore.hidden-review-exclusion
+    title: "Hidden reviews are excluded from item_popularity@v2 and als_interactions@v3"
+    persona: guest
+    priority: P2
+    summary: "Hidden review exclusion: popularity and ALS interactions ignore reviews that carry a review_hidden fact; locked v1/v2 definitions stay unchanged."
+    entry_route: "/"
+    services: [platform-featurestore]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Hidden review exclusion: a hidden review leaves review_count and avg_rating"
+      - "Hidden review exclusion: a listing whose only review is hidden has no rating"
+      - "Hidden review exclusion: a hide recorded after AS_OF is not applied"
+      - "Hidden review exclusion: a review_hidden for an unknown review id changes nothing"
+      - "Hidden review exclusion: a review without a review id is still counted"
+      - "Hidden review exclusion: non-review columns match v1"
+      - "Hidden review exclusion: a hidden positive review adds no ALS weight"
+      - "Hidden review exclusion: a hidden negative review no longer lowers a weight"
+      - "Hidden review exclusion: a visible earlier review of the same listing still counts"
+      - "Hidden review exclusion: a hide recorded after AS_OF is not applied to a dataset"
+      - "Hidden review exclusion: v3 keeps the consent filter"
+      - "Hidden review exclusion: new versions are registered and locked"
+      - "Hidden review exclusion: editing a locked file fails with drift"
+      - "Hidden review exclusion: old versions still count hidden reviews"
+    tags: [featurestore, unit, privacy]
+    status: not-testable
+    notes: "featurestore-hidden-review-exclusion: unit-verified by platform-featurestore/tests/test_hidden_review_exclusion.py (not written by this slice). A full admin-hide, export and materialize cycle needs engagement-review-hidden-event and the export loop and adds no coverage beyond the SQL."
