@@ -41,7 +41,7 @@ func (m *mockOrderClient) UpdateOrderStatus(_ context.Context, req *orderv1.Upda
 // permissiveAudit accepts every admin-refund audit write (these tests are not about audit).
 type permissiveAudit struct{}
 
-func (permissiveAudit) WriteAdminRefund(context.Context, string, string, string, int64) error {
+func (permissiveAudit) WriteAdminRefund(context.Context, string, string, string, string, int64) error {
 	return nil
 }
 
