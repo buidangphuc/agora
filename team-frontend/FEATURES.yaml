@@ -13961,7 +13961,7 @@ features:
       - "Then the response contains the header `Referrer-Policy` with the value `strict-origin-when-cross-origin`"
       - "And the `Content-Security-Policy` header is still present"
     tags: [auth, referrer-hygiene, privacy]
-    status: planned
+    status: automated
 
   - id: auth.referrer-hygiene.a-weaker-referrer-policy-value-is-not-configured
     title: "Referrer hygiene: a weaker Referrer-Policy value is not configured"
@@ -13974,7 +13974,7 @@ features:
       - "When the `headers()` result is inspected for all sources"
       - "Then exactly one `Referrer-Policy` entry exists, and the configuration does not contain a weaker value such as `unsafe-url`, `no-referrer-when-downgrade` or `origin-when-cross-origin`"
     tags: [auth, referrer-hygiene, privacy]
-    status: planned
+    status: automated
 
   - id: auth.referrer-hygiene.admin-audit-page-declares-no-referrer
     title: "Referrer hygiene: admin audit page declares no-referrer"
@@ -13987,7 +13987,7 @@ features:
       - "When `/admin/audit?target_id=u-1` is rendered for an admin"
       - "Then the document head contains `<meta name=\"referrer\" content=\"no-referrer\">`"
     tags: [auth, referrer-hygiene, privacy]
-    status: planned
+    status: automated
 
   - id: auth.referrer-hygiene.every-admin-page-and-login-declare-no-referrer
     title: "Referrer hygiene: every admin page and login declare no-referrer"
@@ -14000,7 +14000,7 @@ features:
       - "When the metadata export of `/login` and of `admin/cockpit`, `admin/users`, `admin/audit`, `admin/listings`, `admin/cases` is read"
       - "Then each has `referrer` equal to `no-referrer`"
     tags: [auth, referrer-hygiene, privacy]
-    status: planned
+    status: automated
 
   - id: auth.referrer-hygiene.a-new-admin-page-without-the-metadata-fails-the-build
     title: "Referrer hygiene: a new admin page without the metadata fails the build"
@@ -14027,7 +14027,7 @@ features:
       - "When a signed-in buyer opens `/admin/users?query=x`"
       - "Then the 403 view is rendered and the document head contains `<meta name=\"referrer\" content=\"no-referrer\">`"
     tags: [auth, referrer-hygiene, privacy]
-    status: planned
+    status: automated
 
   - id: auth.referrer-hygiene.no-admin-query-reaches-a-cross-origin-request-header
     title: "Referrer hygiene: no admin query reaches a cross-origin request header"
@@ -14040,7 +14040,7 @@ features:
       - "When an admin opens `/admin/audit?target_id=u-1` in a browser and the page issues a cross-origin request"
       - "Then that request carries no `Referer` header"
     tags: [auth, referrer-hygiene, privacy]
-    status: planned
+    status: automated
 
   - id: auth.referrer-hygiene.admin-page-location-is-path-only
     title: "Referrer hygiene: admin page_location is path only"
@@ -14193,7 +14193,7 @@ features:
       - "When a consenting admin opens `/admin/audit?target_id=u-1` in a browser and navigates to `/admin/users?query=a%40b.vn`"
       - "Then no `dataLayer` entry contains `target_id`, `query=` or `a@b.vn` in `page_location` or `page_referrer`"
     tags: [auth, referrer-hygiene, privacy]
-    status: planned
+    status: automated
 
   - id: auth.referrer-hygiene.guest-on-admin-users-search-gets-path-only-returnurl
     title: "Referrer hygiene: guest on admin users search gets path-only returnUrl"
@@ -14207,7 +14207,7 @@ features:
       - "Then the browser is redirected to `/login?returnUrl=%2Fadmin%2Fusers`"
       - "And the location contains no `query` and no `a%40b.vn`"
     tags: [auth, referrer-hygiene, privacy]
-    status: planned
+    status: automated
 
   - id: auth.referrer-hygiene.buildreturnpath-drops-admin-searchparams
     title: "Referrer hygiene: buildReturnPath drops admin searchParams"
@@ -14248,7 +14248,7 @@ features:
       - "When `buildReturnPath(\"/chat\", { thread: \"t1\", tag: [\"a\", \"b\"] })` is called"
       - "Then it returns `/chat?thread=t1&tag=a&tag=b`"
     tags: [auth, referrer-hygiene, privacy]
-    status: planned
+    status: automated
 
   - id: auth.referrer-hygiene.look-alike-admin-prefix-keeps-its-query
     title: "Referrer hygiene: look-alike admin prefix keeps its query"
@@ -14275,4 +14275,4 @@ features:
       - "When a signed-in buyer opens `/admin/users?query=x`"
       - "Then the response renders \"Cần tài khoản Quản trị\" with no redirect to login"
     tags: [auth, referrer-hygiene, privacy]
-    status: planned
+    status: automated

@@ -67,9 +67,9 @@ describe("referrer metadata", () => {
   });
 
   it("scanner rejects a metadata block lacking referrer (Referrer hygiene: a new admin page without the metadata fails the build)", () => {
-    expect(metadataBlock('export const metadata = { title: "x" };')).not.toMatch(
-      /referrer/,
-    );
+    expect(
+      metadataBlock('export const metadata = { title: "x" };'),
+    ).not.toMatch(/referrer/);
     expect(metadataBlock("export default function P() {}")).toBeNull();
   });
 });

@@ -25,7 +25,10 @@ beforeEach(() => {
 describe("Referrer hygiene: buildReturnPath drops admin searchParams", () => {
   it("admin returnUrl is path only", () => {
     expect(
-      buildReturnPath("/admin/audit", { target_id: "u-1", actor_id: ["a", "b"] }),
+      buildReturnPath("/admin/audit", {
+        target_id: "u-1",
+        actor_id: ["a", "b"],
+      }),
     ).toBe("/admin/audit");
   });
 

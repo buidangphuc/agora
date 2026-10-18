@@ -70,9 +70,7 @@ describe("CasesPage", () => {
     expect(
       await CasesPage({ searchParams: Promise.resolve({ tab: "reports" }) }),
     ).toBeNull();
-    expect(redirect).toHaveBeenCalledWith(
-      "/login?returnUrl=%2Fadmin%2Fcases",
-    );
+    expect(redirect).toHaveBeenCalledWith("/login?returnUrl=%2Fadmin%2Fcases");
     expect(listReports).not.toHaveBeenCalled();
     expect(listModerationQueue).not.toHaveBeenCalled();
   });

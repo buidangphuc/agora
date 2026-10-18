@@ -168,9 +168,7 @@ describe("UsersPage", () => {
 
   it("403 view keeps no-referrer (Referrer hygiene: non-admin 403 view on an admin URL also sends no referrer)", async () => {
     vi.mocked(getPrincipal).mockReturnValue(buyer);
-    render(
-      await UsersPage({ searchParams: Promise.resolve({ query: "x" }) }),
-    );
+    render(await UsersPage({ searchParams: Promise.resolve({ query: "x" }) }));
     expect(screen.getByText(FORBIDDEN_TITLE)).toBeInTheDocument();
     expect(redirect).not.toHaveBeenCalled();
     expect(metadata.referrer).toBe("no-referrer");
