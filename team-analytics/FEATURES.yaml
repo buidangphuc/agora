@@ -2211,3 +2211,19 @@ features:
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
     notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestMalformedEnvelopeErrors. Not producible end to end (consumer-internal mapping)."
+
+  - id: analytics.review-hidden-reaches-warehouse
+    title: "Analytics review hidden: a produced ReviewHidden reaches the warehouse"
+    persona: guest
+    priority: P1
+    summary: "A ReviewHidden envelope on engagement.events becomes a review_hidden fact beside the kept review_created row."
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Analytics review hidden: a produced ReviewHidden reaches the warehouse"
+    tags: [analytics, integration]
+    status: planned
+    covered_by: "analytics/review_hidden.feature::Analytics review hidden: a produced ReviewHidden reaches the warehouse"
+    notes: "analytics-review-hidden"
