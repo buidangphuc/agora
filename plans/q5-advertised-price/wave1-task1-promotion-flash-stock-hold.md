@@ -1,7 +1,7 @@
 # [W1-T1] promotion-flash-stock-hold
 
 ## Role
-feature-run worker (change `openspec/changes/promotion-flash-stock-hold`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-promotion-flash-stock-hold`)
 
 ## Objective
 Implement OpenSpec change `promotion-flash-stock-hold` test-first per its tasks.md; context in plans/q5-advertised-price/00-spec.md and design.md Clarifications.
@@ -27,7 +27,7 @@ Implement OpenSpec change `promotion-flash-stock-hold` test-first per its tasks.
 - platform-e2e/tests/e2e/step_definitions/test_flash_sale_stock_hold.py
 
 ## Read-only dependencies
-- openspec/changes/promotion-flash-stock-hold/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-promotion-flash-stock-hold/** (frozen by LOCK.md digest)
 - team-promotion voucher reserve/commit/release code and tests (pattern)
 - plans/q5-advertised-price/00-spec.md, LOCK.md
 

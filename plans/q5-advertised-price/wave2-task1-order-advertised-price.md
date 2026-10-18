@@ -1,7 +1,7 @@
 # [W2-T1] order-advertised-price
 
 ## Role
-feature-run worker (change `openspec/changes/order-advertised-price`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-order-advertised-price`)
 
 ## Objective
 Implement OpenSpec change `order-advertised-price` test-first per its tasks.md; context in plans/q5-advertised-price/00-spec.md and design.md Clarifications.
@@ -27,7 +27,7 @@ Implement OpenSpec change `order-advertised-price` test-first per its tasks.md; 
 - platform-e2e/tests/e2e/step_definitions/order_advertised_price_steps.py
 
 ## Read-only dependencies
-- openspec/changes/order-advertised-price/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-order-advertised-price/** (frozen by LOCK.md digest)
 - platform-e2e/tests/e2e/support/flash_hold_support.py (from promotion-flash-stock-hold; reuse)
 - plans/q5-advertised-price/00-spec.md, LOCK.md
 
