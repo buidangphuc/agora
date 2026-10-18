@@ -3,6 +3,7 @@ package upstream
 import (
 	"context"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -63,7 +64,7 @@ func TestNewAuditClientEmptyAddrIsNil(t *testing.T) {
 		t.Fatalf("Close on nil client: %v", err)
 	}
 	// A nil client must fail closed, never succeed silently.
-	if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", 200000); err == nil {
+	if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", "rf-1", 200000); err == nil {
 		t.Fatal("nil audit client must return an error")
 	}
 }
@@ -80,7 +81,7 @@ func TestAuditClientUsesServicePrincipal(t *testing.T) {
 
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
 		"x-principal-id", "adm-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
-	if err := c.WriteAdminRefund(ctx, "adm-1", "P-1", "O-1", 200000); err != nil {
+	if err := c.WriteAdminRefund(ctx, "adm-1", "P-1", "O-1", "rf-1", 200000); err != nil {
 		t.Fatalf("WriteAdminRefund: %v", err)
 	}
 	if len(rec.reqs) != 1 {
@@ -91,8 +92,8 @@ func TestAuditClientUsesServicePrincipal(t *testing.T) {
 		req.GetTargetType() != "payment" || req.GetTargetId() != "P-1" {
 		t.Errorf("unexpected event: %+v", req)
 	}
-	if m := req.GetMetadata(); len(m) != 2 || m["order_id"] != "O-1" || m["amount"] != "200000" {
-		t.Errorf("metadata = %v, want order_id+amount only", m)
+	if m := req.GetMetadata(); len(m) != 3 || m["refund_id"] != "rf-1" || m["order_id"] != "O-1" || m["amount"] != "200000" {
+		t.Errorf("metadata = %v, want exactly refund_id+order_id+amount", m)
 	}
 	want := map[string]string{
 		"x-principal-id":     "service-team-payment",
@@ -114,7 +115,7 @@ func TestAuditClientUpstreamErrorIsReturned(t *testing.T) {
 		t.Fatalf("NewAuditClient: %v, %v", c, err)
 	}
 	defer func() { _ = c.Close() }()
-	if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", 1); err == nil {
+	if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", "rf-1", 1); err == nil {
 		t.Fatal("an audit failure must be returned, not swallowed")
 	}
 	if len(rec.reqs) != 1 {
@@ -131,7 +132,7 @@ func TestAuditClientTimeoutBounded(t *testing.T) {
 	}
 	defer func() { _ = c.Close() }()
 	start := time.Now()
-	if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", 1); err == nil {
+	if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", "rf-1", 1); err == nil {
 		t.Fatal("expected an error when team-audit hangs")
 	}
 	if el := time.Since(start); el > 1150*time.Millisecond {
@@ -139,5 +140,31 @@ func TestAuditClientTimeoutBounded(t *testing.T) {
 	}
 	if len(rec.reqs) != 1 {
 		t.Fatalf("no retry expected, got %d calls", len(rec.reqs))
+	}
+}
+
+// Scenario: Refund audit id: Audit client puts refund_id in metadata (distinct ids stay distinct;
+// a repeated id is carried verbatim, including the 64-char boundary).
+func TestAuditClientRefundIDDistinctAndVerbatim(t *testing.T) {
+	rec := &recordingAudit{}
+	c, err := NewAuditClient(startAudit(t, rec), time.Second)
+	if err != nil || c == nil {
+		t.Fatalf("NewAuditClient: %v, %v", c, err)
+	}
+	defer func() { _ = c.Close() }()
+	long := strings.Repeat("a", 64)
+	for _, id := range []string{"rf-1", "rf-1", "rf-2", long} {
+		if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", id, 100); err != nil {
+			t.Fatalf("WriteAdminRefund(%q): %v", id, err)
+		}
+	}
+	want := []string{"rf-1", "rf-1", "rf-2", long}
+	if len(rec.reqs) != len(want) {
+		t.Fatalf("want %d events, got %d", len(want), len(rec.reqs))
+	}
+	for i, w := range want {
+		if got := rec.reqs[i].GetMetadata()["refund_id"]; got != w {
+			t.Errorf("event %d refund_id = %q, want %q", i, got, w)
+		}
 	}
 }
