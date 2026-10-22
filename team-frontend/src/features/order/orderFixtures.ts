@@ -46,6 +46,9 @@ export function makeOrder(
     returnWindowEndsAt: "",
     autoCompleteAt: "",
     cancelReason: CancelReason.UNSPECIFIED,
+    checkoutId: "",
+    platformVoucherCode: "",
+    platformDiscountAmount: 0,
     items: [
       {
         id: `${id}-it1`,

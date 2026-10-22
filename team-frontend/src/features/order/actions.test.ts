@@ -25,6 +25,12 @@ import {
   reorderAction,
   updateOrderStatusAction,
 } from "./actions";
+import {
+  ADDRESS_CHANGED_MESSAGE,
+  ADDRESS_NOT_FOUND_MESSAGE,
+  PRICE_CHANGED_MESSAGE,
+  UNAVAILABLE_RETRY_MESSAGE,
+} from "./shippingCopy";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/gateway/cart", () => ({ reorder: vi.fn() }));
@@ -41,17 +47,40 @@ vi.mock("@/lib/gateway/payment", () => ({
 
 beforeEach(() => vi.clearAllMocks());
 
+const ADDRESS = {
+  recipientName: "Nguyễn An",
+  phone: "0901234567",
+  street: "12 Lê Lợi",
+  ward: "Hải Châu 1",
+  district: "Hải Châu",
+  city: "Đà Nẵng",
+};
+
 describe("checkoutAction", () => {
-  it("creates orders and skips payment for COD", async () => {
+  it("Checkout coherence: placing an online order goes to the first pay page - online checkout returns the first pay page without creating a payment", async () => {
+    vi.mocked(createOrder).mockResolvedValue([
+      { id: "o1" },
+      { id: "o2" },
+    ] as never);
+    const res = await checkoutAction({
+      addressId: "addr1",
+      itemIds: ["it1"],
+      paymentMethod: PaymentMethod.MOCK_MOMO,
+    });
+    expect(createPayment).toHaveBeenCalledTimes(0);
+    expect(res).toEqual({
+      ok: true,
+      data: { orderIds: ["o1", "o2"], paymentUrl: "/checkout/pay/o1" },
+    });
+  });
+
+  it("Checkout coherence: placing an online order goes to the first pay page - COD returns no pay page and no payment is created", async () => {
     vi.mocked(createOrder).mockResolvedValue([{ id: "o1" }] as never);
-    const res = await checkoutAction("addr1", ["it1"], PaymentMethod.COD);
-    expect(createOrder).toHaveBeenCalledWith(
-      "addr1",
-      ["it1"],
-      PaymentMethod.COD,
-      undefined,
-      undefined,
-    );
+    const res = await checkoutAction({
+      addressId: "addr1",
+      itemIds: ["it1"],
+      paymentMethod: PaymentMethod.COD,
+    });
     expect(createPayment).not.toHaveBeenCalled();
     expect(res).toEqual({
       ok: true,
@@ -59,47 +88,66 @@ describe("checkoutAction", () => {
     });
   });
 
-  it("initiates a payment for an online method", async () => {
-    vi.mocked(createOrder).mockResolvedValue([{ id: "o1" }] as never);
-    vi.mocked(createPayment).mockResolvedValue({
-      transaction: {} as never,
-      paymentUrl: "http://pay",
-    });
-    const res = await checkoutAction("addr1", ["it1"], PaymentMethod.MOCK_MOMO);
-    expect(createPayment).toHaveBeenCalledWith("o1", PaymentMethod.MOCK_MOMO);
-    expect(res).toEqual({
-      ok: true,
-      data: { orderIds: ["o1"], paymentUrl: "http://pay" },
-    });
-  });
-
-  it("still succeeds when payment initiation fails (falls back)", async () => {
-    vi.mocked(createOrder).mockResolvedValue([{ id: "o1" }] as never);
+  it("Checkout coherence: placing an online order goes to the first pay page - an online order never calls createPayment even when it would fail", async () => {
+    vi.mocked(createOrder).mockResolvedValue([{ id: "o9" }] as never);
     vi.mocked(createPayment).mockRejectedValue(new Error("pay down"));
-    const res = await checkoutAction("addr1", ["it1"], PaymentMethod.MOCK_MOMO);
+    const res = await checkoutAction({
+      addressId: "addr1",
+      paymentMethod: PaymentMethod.MOCK_BANK,
+    });
+    expect(createPayment).not.toHaveBeenCalled();
     expect(res).toEqual({
       ok: true,
-      data: { orderIds: ["o1"], paymentUrl: undefined },
+      data: { orderIds: ["o9"], paymentUrl: "/checkout/pay/o9" },
     });
   });
 
-  it("passes the idempotency key through to createOrder", async () => {
+  it("Checkout coherence: only valid vouchers are placed - scoped vouchers, items and confirmed address reach createOrder and no legacy voucher is sent", async () => {
     vi.mocked(createOrder).mockResolvedValue([{ id: "o1" }] as never);
-    await checkoutAction("addr1", undefined, PaymentMethod.COD, "V", "key-1");
+    await checkoutAction({
+      addressId: "addr1",
+      itemIds: ["it1", "it2"],
+      paymentMethod: PaymentMethod.COD,
+      shopVouchers: [{ sellerId: "s1", code: "SHOPA" }],
+      platformVoucherCode: "SAVE10",
+      confirmedAddress: ADDRESS,
+      idempotencyKey: "key-1",
+    });
+    expect(createOrder).toHaveBeenCalledTimes(1);
     expect(createOrder).toHaveBeenCalledWith(
       "addr1",
-      undefined,
+      ["it1", "it2"],
       PaymentMethod.COD,
-      "V",
       "key-1",
+      {
+        shopVouchers: [{ sellerId: "s1", code: "SHOPA" }],
+        platformVoucherCode: "SAVE10",
+        confirmedAddress: ADDRESS,
+      },
     );
+  });
+
+  it("Checkout coherence: only valid vouchers are placed - no vouchers means empty slots", async () => {
+    vi.mocked(createOrder).mockResolvedValue([{ id: "o1" }] as never);
+    await checkoutAction({
+      addressId: "addr1",
+      paymentMethod: PaymentMethod.COD,
+      idempotencyKey: "key-2",
+    });
+    const opts = vi.mocked(createOrder).mock.calls[0]?.[4];
+    expect(opts?.shopVouchers ?? []).toEqual([]);
+    expect(opts?.platformVoucherCode ?? "").toBe("");
+    expect(vi.mocked(createOrder).mock.calls[0]?.[3]).toBe("key-2");
   });
 
   it("maps an aborted checkout to a retryable in-progress message", async () => {
     vi.mocked(createOrder).mockRejectedValue(
       new ConnectError("checkout already in progress", Code.Aborted),
     );
-    const res = await checkoutAction("addr1", ["it1"], PaymentMethod.COD);
+    const res = await checkoutAction({
+      addressId: "addr1",
+      paymentMethod: PaymentMethod.COD,
+    });
     expect(res).toEqual({
       ok: false,
       error: "Đơn hàng đang được xử lý, vui lòng thử lại sau giây lát.",
@@ -108,49 +156,97 @@ describe("checkoutAction", () => {
 
   it("returns an error shape when order creation fails", async () => {
     vi.mocked(createOrder).mockRejectedValue(new Error("no stock"));
-    const res = await checkoutAction("addr1", ["it1"], PaymentMethod.COD);
+    const res = await checkoutAction({
+      addressId: "addr1",
+      paymentMethod: PaymentMethod.COD,
+    });
     expect(res).toEqual({ ok: false, error: "no stock" });
   });
 });
 
-describe("checkoutAction price change", () => {
-  const PRICE_CHANGED =
-    "Giá một số sản phẩm trong giỏ đã thay đổi. Giỏ hàng đã được cập nhật, vui lòng kiểm tra tổng tiền mới rồi đặt hàng lại.";
+describe("checkoutAction error mapping", () => {
+  const input = {
+    addressId: "addr1",
+    paymentMethod: PaymentMethod.COD,
+    confirmedAddress: ADDRESS,
+    idempotencyKey: "k",
+  };
 
+  it("Checkout coherence: an edited address is refused and refreshed - maps address changed", async () => {
+    vi.mocked(createOrder).mockRejectedValue(
+      new ConnectError("address changed", Code.FailedPrecondition),
+    );
+    const res = await checkoutAction(input);
+    expect(ADDRESS_CHANGED_MESSAGE).toEqual(expect.any(String));
+    expect(ADDRESS_CHANGED_MESSAGE.length).toBeGreaterThan(0);
+    expect(res).toEqual({
+      ok: false,
+      error: ADDRESS_CHANGED_MESSAGE,
+      addressChanged: true,
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/checkout");
+    expect(createPayment).not.toHaveBeenCalled();
+  });
+
+  it("Checkout coherence: a missing address is explained - maps address not found and leaves other preconditions generic", async () => {
+    vi.mocked(createOrder).mockRejectedValue(
+      new ConnectError("address not found", Code.FailedPrecondition),
+    );
+    const res = await checkoutAction({ ...input, addressId: "" });
+    expect(ADDRESS_NOT_FOUND_MESSAGE.length).toBeGreaterThan(0);
+    expect(res).toEqual({
+      ok: false,
+      error: ADDRESS_NOT_FOUND_MESSAGE,
+      addressNotFound: true,
+    });
+    expect(res).not.toHaveProperty("addressChanged");
+    expect(res).not.toHaveProperty("priceChanged");
+
+    const other = new ConnectError(
+      "insufficient wallet balance",
+      Code.FailedPrecondition,
+    );
+    vi.mocked(createOrder).mockRejectedValue(other);
+    const generic = await checkoutAction(input);
+    expect(generic).toEqual({ ok: false, error: other.message });
+    expect(generic).not.toHaveProperty("addressNotFound");
+    expect(generic).not.toHaveProperty("addressChanged");
+  });
+
+  it("Checkout coherence: a missing address is explained - address changed and not found are distinct messages", () => {
+    expect(ADDRESS_CHANGED_MESSAGE).not.toBe(ADDRESS_NOT_FOUND_MESSAGE);
+  });
+
+  it("Checkout coherence: an identity outage asks the buyer to retry - maps unavailable to a retry message", async () => {
+    vi.mocked(createOrder).mockRejectedValue(
+      new ConnectError("identity down", Code.Unavailable),
+    );
+    const res = await checkoutAction(input);
+    expect(UNAVAILABLE_RETRY_MESSAGE.length).toBeGreaterThan(0);
+    expect(res).toEqual({ ok: false, error: UNAVAILABLE_RETRY_MESSAGE });
+    expect(res).not.toHaveProperty("priceChanged");
+    expect(res).not.toHaveProperty("addressChanged");
+    expect(revalidatePath).not.toHaveBeenCalledWith("/cart");
+  });
+});
+
+describe("checkoutAction price change", () => {
   it("maps price changed to a refresh-worthy failure", async () => {
     vi.mocked(createOrder).mockRejectedValue(
       new ConnectError("price changed", Code.FailedPrecondition),
     );
-    const res = await checkoutAction("addr1", undefined, PaymentMethod.COD);
+    const res = await checkoutAction({
+      addressId: "addr1",
+      paymentMethod: PaymentMethod.COD,
+    });
     expect(res).toEqual({
       ok: false,
-      error: PRICE_CHANGED,
+      error: PRICE_CHANGED_MESSAGE,
       priceChanged: true,
     });
     expect(revalidatePath).toHaveBeenCalledWith("/cart");
     expect(revalidatePath).toHaveBeenCalledWith("/checkout");
     expect(createPayment).not.toHaveBeenCalled();
-  });
-
-  it("other failed preconditions are not price changes", async () => {
-    const err = new ConnectError(
-      "insufficient wallet balance",
-      Code.FailedPrecondition,
-    );
-    vi.mocked(createOrder).mockRejectedValue(err);
-    const res = await checkoutAction("addr1", undefined, PaymentMethod.COD);
-    expect(res).toEqual({ ok: false, error: err.message });
-    expect(res).not.toHaveProperty("priceChanged");
-    expect(revalidatePath).not.toHaveBeenCalledWith("/cart");
-  });
-
-  it("unavailable keeps the generic error and leaves the cart", async () => {
-    const err = new ConnectError("service unavailable", Code.Unavailable);
-    vi.mocked(createOrder).mockRejectedValue(err);
-    const res = await checkoutAction("addr1", undefined, PaymentMethod.COD);
-    expect(res).toEqual({ ok: false, error: err.message });
-    expect(res).not.toHaveProperty("priceChanged");
-    expect(revalidatePath).not.toHaveBeenCalledWith("/cart");
   });
 });
 
