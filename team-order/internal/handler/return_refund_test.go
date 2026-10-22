@@ -227,3 +227,26 @@ func TestGetOrder_PaidAtOnTheWire(t *testing.T) {
 		t.Fatalf("a COD order must leave paid_at unset: %v", resp.GetOrder().GetPaidAt())
 	}
 }
+
+func TestUpdateReturnStatusRejectedStaysTerminal(t *testing.T) {
+	seller := incomingPrincipalCtx("seller_1", "seller")
+	callers := map[string]context.Context{"seller": seller, "order.admin": adminCtx()}
+	for name, ctx := range callers {
+		t.Run("Dispute refund: Re-approval is not reachable from the status RPC/"+name, func(t *testing.T) {
+			e := newRMAEnv()
+			o := e.order(t, true)
+			id := e.createReturn(t, o.ID, 200000)
+			if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REJECTED); err != nil {
+				t.Fatal(err)
+			}
+			wantCode(t, e.setStatus(ctx, id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED), codes.FailedPrecondition)
+			got, err := e.h.GetReturnRequest(seller, &orderv1.GetReturnRequestRequest{Id: id})
+			if err != nil || got.GetReturnRequest().GetStatus() != orderv1.ReturnStatus_RETURN_STATUS_REJECTED {
+				t.Fatalf("status: %v %v", got, err)
+			}
+			if e.refundRows() != 0 {
+				t.Fatal("refused re-approval wrote a fact")
+			}
+		})
+	}
+}
