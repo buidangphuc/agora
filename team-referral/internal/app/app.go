@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"google.golang.org/grpc"
-
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/lifecycle"
@@ -13,12 +11,10 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/otelx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
 
-	referralv1 "github.com/buidangphuc/team-referral/generated/platform/referral/v1"
 	"github.com/buidangphuc/team-referral/internal/config"
-	"github.com/buidangphuc/team-referral/internal/handler"
-	"github.com/buidangphuc/team-referral/internal/interceptor"
-	"github.com/buidangphuc/team-referral/internal/repository"
-	"github.com/buidangphuc/team-referral/internal/service"
+	"github.com/buidangphuc/team-referral/internal/referral"
+	"github.com/buidangphuc/team-referral/internal/rpc"
+	"github.com/buidangphuc/team-referral/internal/store"
 )
 
 const serviceName = "team-referral"
@@ -51,12 +47,13 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	stack.Push(func(context.Context) error { pool.Close(); return nil })
 	health.Register("postgres", postgres.Checker(pool))
 
-	h := handler.NewReferralHandler(service.NewReferralService(repository.NewPostgresReferralRepo(pool)))
+	h, err := rpc.NewHandler(referral.NewService(store.NewPostgresReferralRepo(pool)), logger)
+	if err != nil {
+		return err
+	}
 
-	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health,
-		Extra: []grpc.ServerOption{grpc.UnaryInterceptor(interceptor.UnaryServerInterceptor())},
-	})
-	referralv1.RegisterReferralServiceServer(srv, h)
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health})
+	rpc.Register(srv, h)
 
 	return lifecycle.Run(ctx, lifecycle.Options{
 		ShutdownGrace: s.ShutdownGrace,
