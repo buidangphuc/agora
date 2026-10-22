@@ -21,6 +21,7 @@ import {
   PaymentMethod,
   PaymentStatus,
 } from "@/generated/platform/payment/v1/payment_pb.js";
+import { listBuyerOrdersResult } from "@/lib/gateway/orders";
 import { createPayment, getPayment } from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
 
@@ -98,6 +99,21 @@ export default async function MockPaymentPage(props: {
     const transaction =
       (await getPayment(undefined, params.id)) ??
       (await createPayment(order.id, order.paymentMethod)).transaction;
+    let nextOrderId: string | undefined;
+    if (order.checkoutId) {
+      const siblings = await listBuyerOrdersResult();
+      if (siblings.ok) {
+        nextOrderId = siblings.orders
+          .filter(
+            (o) =>
+              o.checkoutId === order.checkoutId &&
+              o.id !== order.id &&
+              o.status === OrderStatus.PENDING &&
+              o.paymentMethod !== PaymentMethod.COD,
+          )
+          .sort((a, b) => a.sellerId.localeCompare(b.sellerId))[0]?.id;
+      }
+    }
     const phase: SimulatorPhase =
       transaction.status === PaymentStatus.PAID
         ? "success"
@@ -116,6 +132,7 @@ export default async function MockPaymentPage(props: {
           orderId={order.id}
           transactionId={transaction.id}
           initialPhase={phase}
+          nextOrderId={nextOrderId}
         />
       </>
     );
