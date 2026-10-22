@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
@@ -54,7 +55,7 @@ func flashLineHandler(t *testing.T, opts ...service.OrderServiceOption) *handler
 		t.Fatal(err)
 	}
 	svc := service.NewOrderService(repository.NewInMemoryOrderRepository(), carts, nil, nil, domain, nil, nil, opts...)
-	return handler.NewOrderHandler(svc, nil, nil)
+	return handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil)
 }
 
 func TestCreateOrderPriceChangedFailedPrecondition(t *testing.T) {

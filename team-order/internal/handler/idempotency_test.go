@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	"github.com/buidangphuc/team-order/internal/handler"
@@ -30,7 +31,7 @@ func checkoutHandler(t *testing.T) (*handler.OrderHandler, *upstreamtest.Domain,
 		}
 	}
 	svc := service.NewOrderService(orders, carts, nil, nil, domain, nil, nil)
-	return handler.NewOrderHandler(svc, nil, nil), domain, orders
+	return handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil), domain, orders
 }
 
 func withKey(ctx context.Context, keys ...string) context.Context {
