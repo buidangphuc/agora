@@ -418,6 +418,7 @@ export interface ViewOrderReturn {
   refundAmount: number;
   status: ReturnStatus;
   statusText: string;
+  canEscalate: boolean;
 }
 
 export function getReturnStatusText(s: ReturnStatus): string {
@@ -443,6 +444,7 @@ function mapReturn(r: OrderReturn): ViewOrderReturn {
     refundAmount: Number(r.refundAmount),
     status: r.status,
     statusText: getReturnStatusText(r.status),
+    canEscalate: r.canEscalate,
   };
 }
 

@@ -14286,3 +14286,602 @@ features:
     tags: [auth, referrer-hygiene, privacy]
     status: automated
     covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: signed-in non-admin still sees the 403 view"
+
+  # ---- frontend-dispute-cases (initiative q6-trust-enforcement)
+  - id: frontend.dce-buyer-escalates-a-rejected-return-in-the-browser
+    title: "Buyer escalates a rejected return in the browser"
+    persona: buyer
+    priority: P2
+    summary: "Browser scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend, team-engagement, team-order, team-gateway]
+    acceptance:
+      - "Buyer escalates a rejected return in the browser"
+    tags: [buyer, order, engagement]
+    status: automated
+    covered_by: "frontend/dispute_cases_ui.feature::Buyer escalates a rejected return in the browser"
+
+  - id: frontend.dce-admin-investigates-and-rules-for-the-buyer-in-the-browser
+    title: "Admin investigates and rules for the buyer in the browser"
+    persona: admin
+    priority: P2
+    summary: "Browser scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend, team-engagement, team-order, team-gateway]
+    acceptance:
+      - "Admin investigates and rules for the buyer in the browser"
+    tags: [admin, order, engagement]
+    status: automated
+    covered_by: "frontend/dispute_cases_ui.feature::Admin investigates and rules for the buyer in the browser"
+
+  - id: frontend.dce-seller-favour-ruling-moves-no-return-in-the-browser
+    title: "Seller-favour ruling moves no return in the browser"
+    persona: admin
+    priority: P2
+    summary: "Browser scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend, team-engagement, team-order, team-gateway]
+    acceptance:
+      - "Seller-favour ruling moves no return in the browser"
+    tags: [admin, order, engagement]
+    status: automated
+    covered_by: "frontend/dispute_cases_ui.feature::Seller-favour ruling moves no return in the browser"
+
+  - id: frontend.dce-admin-cannot-skip-investigation-in-the-browser
+    title: "Admin cannot skip investigation in the browser"
+    persona: admin
+    priority: P2
+    summary: "Browser scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend, team-engagement, team-order, team-gateway]
+    acceptance:
+      - "Admin cannot skip investigation in the browser"
+    tags: [admin, order, engagement]
+    status: automated
+    covered_by: "frontend/dispute_cases_ui.feature::Admin cannot skip investigation in the browser"
+
+  - id: frontend.dce-a-buyer-opening-the-tab-in-the-browser-is-refused
+    title: "A buyer opening the tab in the browser is refused"
+    persona: buyer
+    priority: P2
+    summary: "Browser scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend, team-engagement, team-order, team-gateway]
+    acceptance:
+      - "A buyer opening the tab in the browser is refused"
+    tags: [buyer, order, engagement]
+    status: automated
+    covered_by: "frontend/dispute_cases_ui.feature::A buyer opening the tab in the browser is refused"
+
+  - id: frontend.dce-unit-button-is-shown-on-an-escalable-return
+    title: "Button is shown on an escalable return"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Button is shown on an escalable return"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/order/ReturnRequestSection.test.tsx > shows the escalate button when canEscalate and no open dispute"
+
+  - id: frontend.dce-unit-button-is-hidden-when-the-return-cannot-be-escalated
+    title: "Button is hidden when the return cannot be escalated"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Button is hidden when the return cannot be escalated"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/order/ReturnRequestSection.test.tsx > hides the escalate button when canEscalate is false"
+
+  - id: frontend.dce-unit-button-is-hidden-while-a-dispute-is-open-for-the-return
+    title: "Button is hidden while a dispute is open for the return"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Button is hidden while a dispute is open for the return"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/order/ReturnRequestSection.test.tsx > hides the escalate button while a dispute is open"
+
+  - id: frontend.dce-unit-a-closed-dispute-does-not-hide-the-button-forever
+    title: "A closed dispute does not hide the button forever"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "A closed dispute does not hide the button forever"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/order/ReturnRequestSection.test.tsx > shows the escalate button after a closed dispute"
+
+  - id: frontend.dce-unit-escalation-creates-a-dispute
+    title: "Escalation creates a dispute"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Escalation creates a dispute"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > createDisputeAction sends order, seller and return ids; team-frontend/src/features/order/ReturnRequestSection.test.tsx > shows the created dispute as Đang chờ xử lý"
+
+  - id: frontend.dce-unit-blank-reason-is-refused-locally
+    title: "Blank reason is refused locally"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Blank reason is refused locally"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/EscalateDisputeModal.test.tsx > refuses a blank reason without a call"
+
+  - id: frontend.dce-unit-reason-at-the-length-limit
+    title: "Reason at the length limit"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Reason at the length limit"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/EscalateDisputeModal.test.tsx > accepts 1000 characters and refuses 1001"
+
+  - id: frontend.dce-unit-server-says-the-return-cannot-be-escalated
+    title: "Server says the return cannot be escalated"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Server says the return cannot be escalated"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > maps FAILED_PRECONDITION to the cannot-escalate message; team-frontend/src/features/dispute/EscalateDisputeModal.test.tsx > shows a refusal message, keeps the reason and adds no entry"
+
+  - id: frontend.dce-unit-a-dispute-already-exists-for-the-return
+    title: "A dispute already exists for the return"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "A dispute already exists for the return"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > maps ALREADY_EXISTS and revalidates the order; team-frontend/src/features/dispute/EscalateDisputeModal.test.tsx > shows a refusal message, keeps the reason and adds no entry"
+
+  - id: frontend.dce-unit-buyer-is-not-a-party
+    title: "Buyer is not a party"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Buyer is not a party"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > maps PERMISSION_DENIED; team-frontend/src/features/dispute/EscalateDisputeModal.test.tsx > shows a refusal message, keeps the reason and adds no entry"
+
+  - id: frontend.dce-unit-return-or-order-not-found
+    title: "Return or order not found"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Return or order not found"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > maps NOT_FOUND to the not-found message"
+
+  - id: frontend.dce-unit-server-refuses-the-defendant
+    title: "Server refuses the defendant"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Server refuses the defendant"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > maps INVALID_ARGUMENT to the reload message"
+
+  - id: frontend.dce-unit-gateway-outage-on-create
+    title: "Gateway outage on create"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Gateway outage on create"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > maps outage and never forwards err.message; team-frontend/src/features/dispute/EscalateDisputeModal.test.tsx > shows a refusal message, keeps the reason and adds no entry"
+
+  - id: frontend.dce-unit-double-click-sends-one-request
+    title: "Double click sends one request"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Double click sends one request"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/EscalateDisputeModal.test.tsx > is single-flight"
+
+  - id: frontend.dce-unit-disputes-are-listed-with-status-and-ruling
+    title: "Disputes are listed with status and ruling"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Disputes are listed with status and ruling"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/OrderDisputeList.test.tsx > lists disputes with status and ruling in server order"
+
+  - id: frontend.dce-unit-order-has-no-disputes
+    title: "Order has no disputes"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Order has no disputes"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/OrderDisputeList.test.tsx > shows the empty state"
+
+  - id: frontend.dce-unit-dispute-list-failure-leaves-the-order-page-intact
+    title: "Dispute list failure leaves the order page intact"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Dispute list failure leaves the order page intact"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/lib/gateway/disputes.test.ts > listOrderDisputes maps failures to an error result"
+
+  - id: frontend.dce-unit-markup-in-a-dispute-is-shown-as-text
+    title: "Markup in a dispute is shown as text"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Markup in a dispute is shown as text"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/OrderDisputeList.test.tsx > renders dispute text as text"
+
+  - id: frontend.dce-unit-anonymous-visitor-on-the-dispute-tab-is-redirected-to-login
+    title: "Anonymous visitor on the dispute tab is redirected to login"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Anonymous visitor on the dispute tab is redirected to login"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/app/(shop)/admin/cases/page.test.tsx > redirects an anonymous visitor on the disputes tab"
+
+  - id: frontend.dce-unit-non-admin-sees-the-403-result-on-the-dispute-tab
+    title: "Non-admin sees the 403 result on the dispute tab"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Non-admin sees the 403 result on the dispute tab"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/app/(shop)/admin/cases/page.test.tsx > renders 403 on the disputes tab for a non-admin"
+
+  - id: frontend.dce-unit-gateway-refusal-and-expired-session
+    title: "Gateway refusal and expired session"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Gateway refusal and expired session"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/app/(shop)/admin/cases/page.test.tsx > maps gateway PermissionDenied and Unauthenticated on the disputes tab"
+
+  - id: frontend.dce-unit-default-list-is-open-20-per-page
+    title: "Default list is OPEN, 20 per page"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Default list is OPEN, 20 per page"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/lib/gateway/disputes.test.ts > listDisputes defaults to OPEN and page size 20"
+
+  - id: frontend.dce-unit-status-filter-and-server-order
+    title: "Status filter and server order"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Status filter and server order"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > keeps the server order and applies the status filter"
+
+  - id: frontend.dce-unit-non-admin-token-is-denied-the-list
+    title: "Non-admin token is denied the list"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Non-admin token is denied the list"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/lib/gateway/disputes.test.ts > listDisputes maps PermissionDenied to forbidden"
+
+  - id: frontend.dce-unit-unknown-status-falls-back-to-open
+    title: "Unknown status falls back to OPEN"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Unknown status falls back to OPEN"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/lib/gateway/disputes.test.ts > ignores an unknown status"
+
+  - id: frontend.dce-unit-next-page-link-carries-the-cursor
+    title: "Next page link carries the cursor"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Next page link carries the cursor"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > builds the next link from the filter and cursor"
+
+  - id: frontend.dce-unit-admin-tab-has-no-disputes
+    title: "Admin tab has no disputes"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Admin tab has no disputes"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > shows the empty state"
+
+  - id: frontend.dce-unit-load-failure
+    title: "Load failure"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Load failure"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/lib/gateway/disputes.test.ts > listDisputes maps UNAVAILABLE to an error result"
+
+  - id: frontend.dce-unit-deep-link-opens-one-dispute
+    title: "Deep link opens one dispute"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Deep link opens one dispute"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/app/(shop)/admin/cases/page.test.tsx > deep link renders the dispute detail; team-frontend/src/lib/gateway/disputes.test.ts > getDispute maps NOT_FOUND to not_found"
+
+  - id: frontend.dce-unit-row-detail-and-unsafe-evidence-url
+    title: "Row detail and unsafe evidence URL"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Row detail and unsafe evidence URL"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > links only http and https evidence"
+
+  - id: frontend.dce-unit-actions-offered-per-status
+    title: "Actions offered per status"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Actions offered per status"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/allowedActions.test.ts > offers the server state machine only"
+
+  - id: frontend.dce-unit-start-investigating
+    title: "Start investigating"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Start investigating"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > resolveDisputeAction moves OPEN to INVESTIGATING; team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > shows the dispute detail with its new status after an action"
+
+  - id: frontend.dce-unit-ruling-is-required-for-a-return-linked-dispute
+    title: "Ruling is required for a return-linked dispute"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Ruling is required for a return-linked dispute"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > requires a ruling for a return-linked dispute"
+
+  - id: frontend.dce-unit-buyer-favour-needs-confirmation
+    title: "Buyer-favour needs confirmation"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Buyer-favour needs confirmation"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > confirms a buyer-favour ruling before sending"
+
+  - id: frontend.dce-unit-seller-favour-and-reject-send-the-right-payload
+    title: "Seller-favour and reject send the right payload"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Seller-favour and reject send the right payload"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > sends seller-favour and reject payloads"
+
+  - id: frontend.dce-unit-dispute-without-a-return-takes-no-ruling
+    title: "Dispute without a return takes no ruling"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Dispute without a return takes no ruling"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > omits the ruling for a dispute without a return"
+
+  - id: frontend.dce-unit-server-refuses-the-transition
+    title: "Server refuses the transition"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Server refuses the transition"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > maps a refused transition; team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > shows an action error and keeps the status"
+
+  - id: frontend.dce-unit-audit-service-is-down
+    title: "Audit service is down"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Audit service is down"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > maps UNAVAILABLE to the audit-down message; team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > shows an action error and keeps the status"
+
+  - id: frontend.dce-unit-resolve-times-out
+    title: "Resolve times out"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Resolve times out"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > maps a resolve timeout to the unknown-state message"
+
+  - id: frontend.dce-unit-non-admin-cannot-call-the-action
+    title: "Non-admin cannot call the action"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Non-admin cannot call the action"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/dispute/actions.test.ts > refuses a non-admin before calling the gateway"
+
+  - id: frontend.dce-unit-double-click-on-a-resolve-sends-one-request
+    title: "Double click on a resolve sends one request"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend]
+    acceptance:
+      - "Double click on a resolve sends one request"
+    tags: [unit-verified]
+    status: not-testable
+    notes: "Verified by Vitest: team-frontend/src/features/admin/DisputeCasesPanel.test.tsx > is single-flight"

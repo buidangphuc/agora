@@ -13,6 +13,7 @@ import {
 import { ReturnStateProvider } from "@/features/order/ReturnState";
 import { parseDetailTab } from "@/features/order/detailTab";
 import { linkButton } from "@/features/order/linkStyles";
+import { listOrderDisputes } from "@/lib/gateway/disputes";
 import { listOrderReturns } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
 
@@ -77,7 +78,10 @@ export default async function BuyerOrderDetailPage(props: {
   }
 
   // Server data, so the returns are still listed after a reload.
-  const returns = await listOrderReturns(res.order.id);
+  const [returns, disputeRes] = await Promise.all([
+    listOrderReturns(res.order.id),
+    listOrderDisputes(res.order.id),
+  ]);
 
   return (
     <section className="py-2">
@@ -85,6 +89,8 @@ export default async function BuyerOrderDetailPage(props: {
         <OrderDetailView
           order={res.order}
           tab={parseDetailTab(searchParams.tab)}
+          disputes={disputeRes.status === "ok" ? disputeRes.disputes : []}
+          disputesFailed={disputeRes.status !== "ok"}
           timeline={
             <Suspense fallback={<OrderTimelineSkeleton />}>
               <OrderTimelineSection orderId={res.order.id} />

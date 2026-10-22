@@ -206,6 +206,7 @@ describe("OrderActions return", () => {
         refundAmount: 50000,
         status: 1,
         statusText: "Chờ duyệt",
+        canEscalate: false,
       },
     });
     renderActions({ canReturn: true });
