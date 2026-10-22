@@ -47,7 +47,7 @@ func checkoutOrder(buyer, seller, checkoutID, platformCode string, platformDisco
 	}
 }
 
-func ids(orders []repository.Order) []string {
+func checkoutIDs(orders []repository.Order) []string {
 	out := make([]string, 0, len(orders))
 	for _, o := range orders {
 		out = append(out, o.ID)
@@ -85,7 +85,7 @@ func TestListOrdersByCheckout(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ListOrdersByCheckout: %v", err)
 			}
-			gotIDs := ids(got)
+			gotIDs := checkoutIDs(got)
 			if len(gotIDs) != 3 {
 				t.Fatalf("siblings = %v, want %v", gotIDs, want)
 			}
