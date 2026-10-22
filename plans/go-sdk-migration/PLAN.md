@@ -91,5 +91,10 @@ From the mock audit (2026-10-22, memory project-open-gaps-register), each one it
 - `GRPC_REFLECTION_ENABLED`, `SERVER_REFLECTION_ENABLED`, `EDGE_REFLECTION_ENABLED`: debug surface, must stay off in production.
 - `SEED_ADMIN_ENABLED` (identity): seeds an admin account; behaviour, not a dependency.
 
+## Shared lint/make files (user 2026-10-22: no per-service copies)
+- Services reference `platform-core/make/go-service.mk` (`include ../platform-core/make/go-service.mk`) and `platform-core/packages/go-sdk/.golangci.yml` (`golangci-lint run --config ../platform-core/packages/go-sdk/.golangci.yml`); CI runs the same commands. They are dev/CI-time only, so the per-service docker build context is unaffected.
+- golangci-lint has no config inheritance: drop the `BEGIN/END service-local` block; a service exclusion becomes a path-scoped rule (`path: team-<svc>/...`) in the shared file. goimports `local-prefixes` becomes the common `github.com/buidangphuc`.
+- Part of Step 0 (G1): remove `sync-go-sdk.sh`'s copy step and the copies' headers/comments.
+
 ## Open questions
-- Keep `make/go-service.mk` / `.golangci.yml` copies per service, or reference them?
+- none
