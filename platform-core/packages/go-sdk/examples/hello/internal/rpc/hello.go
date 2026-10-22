@@ -17,9 +17,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/greeter"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/examples/hello/internal/greeter"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 )
 
 // Handler implements the hello.v1.Hello methods.

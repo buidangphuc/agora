@@ -2,7 +2,7 @@
 // bound from environment variables.
 package config
 
-import sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+import sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 
 // Settings is everything the service reads from the environment. Runtime and
 // GRPC are embedded so their fields read as s.Env and s.Port; Postgres and OTel

@@ -14,8 +14,8 @@ import (
 	"github.com/twmb/franz-go/plugin/kotel"
 	"go.opentelemetry.io/otel"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 // Header is one record header. A record may carry several with the same key.
@@ -79,6 +79,8 @@ type Options struct {
 	BaseBackoff    time.Duration // delay after the first failure, doubling (default 100ms)
 	MaxBackoff     time.Duration // backoff ceiling (default 30s)
 	Logger         *slog.Logger  // default slog.Default()
+	// KeyFP fingerprints record keys for logs; nil uses a random per-process secret.
+	KeyFP *kafkax.Fingerprinter
 }
 
 // DLQProducer publishes a built dead-letter record. *kafkax.Producer satisfies it.
@@ -93,6 +95,7 @@ type Consumer struct {
 	handler Handler
 	dlq     DLQProducer
 	opts    Options
+	scrub   keyScrubber
 }
 
 // NewConsumer binds client, which must have auto-commit disabled (as
@@ -131,7 +134,7 @@ func newConsumer(client groupClient, group string, h Handler, dlq DLQProducer, o
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
-	return &Consumer{client: client, group: group, handler: h, dlq: dlq, opts: o}, nil
+	return &Consumer{client: client, group: group, handler: h, dlq: dlq, opts: o, scrub: keyScrubber{fp: orRandomFingerprinter(o.KeyFP)}}, nil
 }
 
 // Run polls until ctx is cancelled (it then returns nil) or a record can be
@@ -207,6 +210,7 @@ func (c *Consumer) process(ctx context.Context, rec *kgo.Record) error {
 	r := toRecord(rec)
 	hctx := recordContext(ctx, rec)
 	var last error
+	kfp := c.scrub.fp.Of(rec.Key)
 	for attempt := 1; attempt <= c.opts.MaxAttempts; attempt++ {
 		last = c.handler(hctx, r)
 		if last == nil {
@@ -216,15 +220,18 @@ func (c *Consumer) process(ctx context.Context, rec *kgo.Record) error {
 		if errors.As(last, &perm) {
 			break
 		}
-		c.opts.Logger.WarnContext(hctx, "consume: handler failed", "topic", rec.Topic, "offset", rec.Offset, "attempt", attempt, "err", last)
+		c.opts.Logger.WarnContext(hctx, "consume: handler failed", "topic", rec.Topic, "offset", rec.Offset, "attempt", attempt, "key_fp", kfp, "err", scrubbedError(c.scrub.scrub(last.Error(), rec)))
 		if attempt < c.opts.MaxAttempts && !sleep(ctx, c.backoff(attempt)) {
 			return ctx.Err()
 		}
 	}
-	if err := c.dlq.PublishRecord(hctx, deadLetter(c.opts.DLQTopic, c.group, rec, last)); err != nil {
-		return fmt.Errorf("consume: dead-letter %s[%d]@%d: %w", rec.Topic, rec.Partition, rec.Offset, err)
+	safe := scrubbedError(c.scrub.scrub(last.Error(), rec))
+	if err := c.dlq.PublishRecord(hctx, deadLetter(c.opts.DLQTopic, c.group, rec, safe)); err != nil {
+		derr := scrubbedWrap{c.scrub.scrub(err.Error(), rec), err}
+		c.opts.Logger.ErrorContext(hctx, "consume: dead-letter failed", "topic", rec.Topic, "offset", rec.Offset, "key_fp", kfp, "err", derr)
+		return fmt.Errorf("consume: dead-letter %s[%d]@%d: %w", rec.Topic, rec.Partition, rec.Offset, derr)
 	}
-	c.opts.Logger.WarnContext(hctx, "consume: record dead-lettered", "topic", rec.Topic, "offset", rec.Offset, "dlq", c.opts.DLQTopic, "err", last)
+	c.opts.Logger.WarnContext(hctx, "consume: record dead-lettered", "topic", rec.Topic, "offset", rec.Offset, "dlq", c.opts.DLQTopic, "key_fp", kfp, "err", safe)
 	return nil
 }
 

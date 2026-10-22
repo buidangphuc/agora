@@ -1,12 +1,13 @@
 package config_test
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 )
 
 type messagingSettings struct {
@@ -117,5 +118,272 @@ func TestStrictEnvRejectsEmptyKafkaBrokers(t *testing.T) {
 	t.Setenv("KAFKA_BROKERS", "")
 	if _, err := config.Load[deployedSettings](); err == nil {
 		t.Fatal("Load: want an error for an empty KAFKA_BROKERS")
+	}
+}
+
+type everyGroup struct {
+	Runtime  config.Runtime
+	GRPC     config.GRPC
+	Postgres config.Postgres
+	OTel     config.OTel
+	Kafka    config.Kafka
+	Outbox   config.Outbox
+	Flags    config.Flags
+}
+
+// Scenario: No config group declares a dependency enable variable.
+func TestNoDependencyEnableFlags(t *testing.T) {
+	keys := config.DeclaredEnvKeys(everyGroup{})
+	if len(keys) == 0 {
+		t.Fatal("no env keys declared")
+	}
+	var enabled []string
+	for _, k := range keys {
+		if strings.HasSuffix(k, "_ENABLED") {
+			enabled = append(enabled, k)
+		}
+	}
+	if !slices.Equal(enabled, []string{"GRPC_REFLECTION_ENABLED", "OTEL_ENABLED"}) {
+		t.Errorf("_ENABLED keys = %v, want only [GRPC_REFLECTION_ENABLED OTEL_ENABLED]", enabled)
+	}
+	for _, banned := range []string{"DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "FEATURE_FLAGS_ENABLED"} {
+		if slices.Contains(keys, banned) {
+			t.Errorf("%s must not be declared", banned)
+		}
+	}
+}
+
+type mockDataSettings struct {
+	config.Runtime
+	config.Postgres
+	config.MockData
+}
+
+func unsetDatabaseURL(t *testing.T) {
+	t.Helper()
+	t.Setenv("DATABASE_URL", "")
+}
+
+func TestLoadRefusesMockDataInStrictEnvBeforeValidation(t *testing.T) {
+	unsetDatabaseURL(t)
+	t.Setenv("ENV", "prod")
+	t.Setenv("MOCK_DATA", "payment-provider")
+	_, err := config.Load[mockDataSettings]()
+	if err == nil {
+		t.Fatal("Load succeeded, want an error naming MOCK_DATA")
+	}
+	if !strings.Contains(err.Error(), "MOCK_DATA") {
+		t.Errorf("error %q does not name MOCK_DATA", err)
+	}
+	if strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Errorf("error %q names DATABASE_URL, validation masked MOCK_DATA", err)
+	}
+}
+
+func TestMockDataRefusedForEveryStrictSpelling(t *testing.T) {
+	for _, env := range []string{"staging", "stage", "prod", "production", "PROD"} {
+		t.Run(env, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
+			t.Setenv("ENV", env)
+			t.Setenv("MOCK_DATA", "payment-provider")
+			_, err := config.Load[mockDataSettings]()
+			if err == nil || !strings.Contains(err.Error(), "MOCK_DATA") {
+				t.Fatalf("ENV=%s: err = %v, want one naming MOCK_DATA", env, err)
+			}
+		})
+	}
+}
+
+func TestMockDataAllowedWhenLocalOrEmpty(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
+	cases := []struct{ env, mock string }{
+		{"local", "payment-provider"},
+		{"test", "payment-provider"},
+		{"prod", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.env+"/"+c.mock, func(t *testing.T) {
+			t.Setenv("ENV", c.env)
+			t.Setenv("MOCK_DATA", c.mock)
+			if _, err := config.Load[mockDataSettings](); err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+		})
+	}
+	t.Run("prod/unset", func(t *testing.T) {
+		t.Setenv("ENV", "prod")
+		t.Setenv("MOCK_DATA", "")
+		if _, err := config.Load[mockDataSettings](); err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+	})
+}
+
+type auditSettings struct {
+	config.Runtime
+	config.Audit
+}
+
+func TestStrictEnvRequiresAuditAddr(t *testing.T) {
+	for _, env := range []string{"prod", "staging"} {
+		t.Run(env+"/unset-or-empty", func(t *testing.T) {
+			t.Setenv("ENV", env)
+			t.Setenv("UPSTREAM_AUDIT_ADDR", "")
+			_, err := config.Load[auditSettings]()
+			if err == nil || !strings.Contains(err.Error(), "UPSTREAM_AUDIT_ADDR") {
+				t.Fatalf("ENV=%s: err = %v, want one naming UPSTREAM_AUDIT_ADDR", env, err)
+			}
+		})
+	}
+	t.Run("strict/set", func(t *testing.T) {
+		t.Setenv("ENV", "prod")
+		t.Setenv("UPSTREAM_AUDIT_ADDR", "team-audit:9090")
+		s, err := config.Load[auditSettings]()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if s.Addr != "team-audit:9090" {
+			t.Errorf("Addr = %q, want team-audit:9090", s.Addr)
+		}
+	})
+	t.Run("local", func(t *testing.T) {
+		t.Setenv("ENV", "local")
+		t.Setenv("UPSTREAM_AUDIT_ADDR", "")
+		s, err := config.Load[auditSettings]()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if s.Addr != "" {
+			t.Errorf("Addr = %q, want empty", s.Addr)
+		}
+	})
+}
+
+type logKeyFPSettings struct {
+	config.Runtime
+	config.LogKeyFP
+}
+
+func TestStrictEnvRequiresLogKeyFPSecret(t *testing.T) {
+	for _, env := range []string{"prod", "staging"} {
+		t.Run(env+"/unset-or-empty", func(t *testing.T) {
+			t.Setenv("ENV", env)
+			t.Setenv("LOG_KEY_FP_SECRET", "")
+			_, err := config.Load[logKeyFPSettings]()
+			if err == nil || !strings.Contains(err.Error(), "LOG_KEY_FP_SECRET") {
+				t.Fatalf("ENV=%s: err = %v, want one naming LOG_KEY_FP_SECRET", env, err)
+			}
+		})
+	}
+	t.Run("strict/set", func(t *testing.T) {
+		t.Setenv("ENV", "prod")
+		t.Setenv("LOG_KEY_FP_SECRET", "vault-secret")
+		s, err := config.Load[logKeyFPSettings]()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if s.Secret != "vault-secret" {
+			t.Errorf("Secret = %q, want vault-secret", s.Secret)
+		}
+	})
+	t.Run("local/default", func(t *testing.T) {
+		t.Setenv("ENV", "local")
+		t.Setenv("LOG_KEY_FP_SECRET", "")
+		s, err := config.Load[logKeyFPSettings]()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if s.Secret == "" {
+			t.Error("Secret is empty, want a documented local default")
+		}
+	})
+}
+
+type reflectionSettings struct {
+	config.Runtime
+	config.GRPC
+}
+
+type reflectionNoRuntime struct {
+	config.GRPC
+}
+
+func reflectionFlag(t *testing.T, g config.GRPC) bool {
+	t.Helper()
+	f := reflect.ValueOf(g).FieldByName("ReflectionEnabled")
+	if !f.IsValid() {
+		t.Fatal("config.GRPC has no ReflectionEnabled field")
+	}
+	return f.Bool()
+}
+
+// Scenario: Reflection is refused in a strict environment.
+func TestStrictEnvRefusesGRPCReflection(t *testing.T) {
+	for _, env := range []string{"prod", "staging"} {
+		t.Run(env, func(t *testing.T) {
+			t.Setenv("ENV", env)
+			t.Setenv("GRPC_PORT", "50065")
+			t.Setenv("GRPC_REFLECTION_ENABLED", "true")
+			_, err := config.Load[reflectionSettings]()
+			if err == nil || !strings.Contains(err.Error(), "GRPC_REFLECTION_ENABLED") {
+				t.Fatalf("ENV=%s: err = %v, want one naming GRPC_REFLECTION_ENABLED", env, err)
+			}
+		})
+	}
+}
+
+// Scenario: Reflection without a Runtime is refused.
+func TestReflectionWithoutRuntimeIsRefused(t *testing.T) {
+	t.Setenv("GRPC_PORT", "50065")
+	t.Setenv("GRPC_REFLECTION_ENABLED", "true")
+	_, err := config.Load[reflectionNoRuntime]()
+	if err == nil || !strings.Contains(err.Error(), "GRPC_REFLECTION_ENABLED") {
+		t.Fatalf("err = %v, want one naming GRPC_REFLECTION_ENABLED", err)
+	}
+}
+
+// Scenario: Reflection is accepted locally and defaults to off (local, test).
+func TestLocalEnvAcceptsGRPCReflection(t *testing.T) {
+	for _, env := range []string{"local", "test"} {
+		t.Run(env, func(t *testing.T) {
+			t.Setenv("ENV", env)
+			t.Setenv("GRPC_PORT", "50065")
+			t.Setenv("GRPC_REFLECTION_ENABLED", "true")
+			s, err := config.Load[reflectionSettings]()
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if !reflectionFlag(t, s.GRPC) {
+				t.Error("ReflectionEnabled = false, want true")
+			}
+		})
+	}
+}
+
+// Scenario: Reflection is accepted locally and defaults to off (unset in prod).
+func TestGRPCReflectionDefaultsOff(t *testing.T) {
+	t.Setenv("ENV", "prod")
+	t.Setenv("GRPC_PORT", "50065")
+	t.Setenv("GRPC_REFLECTION_ENABLED", "")
+	s, err := config.Load[reflectionSettings]()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if reflectionFlag(t, s.GRPC) {
+		t.Error("ReflectionEnabled = true, want false by default")
+	}
+}
+
+// Scenario: A strict-env reflection refusal comes before group validation.
+func TestStrictReflectionRefusalPrecedesValidation(t *testing.T) {
+	t.Setenv("ENV", "prod")
+	t.Setenv("GRPC_PORT", "")
+	t.Setenv("GRPC_REFLECTION_ENABLED", "true")
+	_, err := config.Load[reflectionSettings]()
+	if err == nil || !strings.Contains(err.Error(), "GRPC_REFLECTION_ENABLED") {
+		t.Fatalf("err = %v, want one naming GRPC_REFLECTION_ENABLED", err)
+	}
+	if strings.Contains(err.Error(), "GRPC_PORT") {
+		t.Errorf("error %q names GRPC_PORT, validation masked the refusal", err)
 	}
 }

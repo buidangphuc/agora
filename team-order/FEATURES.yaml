@@ -1246,8 +1246,8 @@ features:
     api:
       exercised: [order.v1.CreateOrder, order.v1.GetOrder]
     acceptance:
-      - "When a buyer starts an online payment for a `Pending` order, cancels the order, and the payment then succeeds"
-      - "Then the order read through the gateway stays `Cancelled` and its listing's stock is restored once"
+      - "When a buyer starts an online payment for a `Pending` order, cancels the order, and then pays it"
+      - "Then the payment call fails with `failed_precondition`, the order read through the gateway stays `Cancelled` and its listing's stock is restored once"
     tags: [order]
     status: automated
     covered_by: "order/oic_lifecycle_guards.feature::A late payment after cancel is ignored"
@@ -1284,8 +1284,8 @@ features:
     api:
       exercised: [order.v1.CreateOrder, order.v1.GetOrder]
     acceptance:
-      - "When a buyer checks out with a voucher whose quota is 1, cancels the order, and a payment for that order then succeeds"
-      - "Then the order stays `Cancelled` and another buyer can still check out with that voucher"
+      - "When a buyer checks out with a voucher whose quota is 1, cancels the order, and then pays it"
+      - "Then the payment call fails with `failed_precondition`, the order stays `Cancelled` and another buyer can still check out with that voucher"
     tags: [order]
     status: automated
     covered_by: "order/oic_lifecycle_guards.feature::A late payment of a cancelled voucher order leaves the voucher unused"

@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 )
 
 func schemaCount(t *testing.T, dsn string) (rows int) {

@@ -17,11 +17,11 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/lifecycle"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 const internalMessage = "internal error"
@@ -75,7 +75,9 @@ func NewServer(o ServerOptions) *grpc.Server {
 	srv := grpc.NewServer(append(opts, o.Extra...)...)
 
 	grpc_health_v1.RegisterHealthServer(srv, o.Health.Server())
-	reflection.Register(srv)
+	if o.Config.ReflectionEnabled {
+		reflection.Register(srv)
+	}
 	return srv
 }
 

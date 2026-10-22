@@ -1,10 +1,12 @@
 # go-sdk
 
+Version: v1.0.2
+
 Shared platform layer for Go services: config, logging, tracing, auth, health,
 lifecycle, Postgres, migrations, retries and the gRPC server chain.
 
 Design and rules: [ADR-0016](../../docs/ADR/0016-go-service-convention-and-sdk.md).
-Module: `github.com/buidangphuc/platform-core/packages/go-sdk`.
+Module: `github.com/buidangphuc/agora/platform-core/packages/go-sdk`.
 
 ## Packages
 
@@ -19,37 +21,49 @@ All under `pkg/`.
 | `auth` | Principal from `x-principal-*` metadata, interceptors, `PrincipalType` constants (`TypeUser`, `TypeService`, `TypeAnonymous`), `RequirePrincipal`, `RequireScopes` (exact match), `RequireScopesAllowAnonymous`, `RequireService`, `RequireUser`. |
 | `jwtx` | JWT claims and JWKS wire types shared by issuer and verifier. |
 | `idempotency` | The `idempotency-key` metadata key, `Validate` and `ErrInvalidKey`. |
-| `healthx` | `New(interval, logger) (*Health, error)` (interval must be positive); checker registry polled in the background; flips the gRPC health status; `Drain()` on shutdown. |
+| `healthx` | `New(interval, logger) (*Health, error)` (interval must be positive); checker registry polled in the background; flips the gRPC health status; the `liveness` service reports process liveness and stays serving while a dependency is down; `Drain()` on shutdown. |
 | `lifecycle` | Runs `Run(ctx) error` components with an ordered, deadline-bound shutdown, `Stack` for closers, `StopAfter`, `Every(interval, fn, opts...) (Component, error)` with the `RunAtStart` and `WithLogger` options, and `HTTP` (graceful HTTP server). Shutdown stays within one `ShutdownGrace` after the drain delay; `CloseGrace` (default a fifth of it, at most 2s) is reserved for the closers. |
-| `postgres` | Pool open with ping, `OpenOrLocal` (nil pool only when `ENV` is local or test), health checker, `WithTx` (deferred, time-bounded rollback on error, panic and `runtime.Goexit`). |
+| `postgres` | Pool open with ping, health checker, `WithTx` (deferred, time-bounded rollback on error, panic and `runtime.Goexit`). |
 | `migrate` | golang-migrate runner over a service's `migrations/` directory. |
 | `pagination` | `Clamp` and opaque offset page tokens. |
-| `grpcx` | Server builder (request-id, recovery, logging, auth, otelgrpc, health, reflection always on), serving that drains, and `Status` with an ordered `ErrorTable` (`NewErrorTable(Rule{Target, Code, Message}...) (ErrorTable, error)`, which rejects nil targets and `codes.OK`; first match wins; an empty `Message` sends the sentinel's text). Incoming `x-request-id` is kept only if it is at most 128 characters of `[A-Za-z0-9._-]`. |
+| `grpcx` | Server builder (request-id, recovery, logging, auth, otelgrpc, health, reflection only when `GRPC_REFLECTION_ENABLED=true`, refused in staging and prod), serving that drains, and `Status` with an ordered `ErrorTable` (`NewErrorTable(Rule{Target, Code, Message}...) (ErrorTable, error)`, which rejects nil targets and `codes.OK`; first match wins; an empty `Message` sends the sentinel's text). Incoming `x-request-id` is kept only if it is at most 128 characters of `[A-Za-z0-9._-]`. |
 | `kafkax` | franz-go producer (30s default delivery timeout) and consumer clients with trace and request-id headers; a group client uses `BlockRebalanceOnPoll`; an empty group gives a group-less reader; `Checker` for health. |
 | `outbox` | Transactional outbox table (`SchemaSQL`), idempotent `EnqueueTx`, `Purge`, and a relayer that publishes through `Publisher.PublishRecord`, in order per aggregate, with capped-backoff retry (transient errors never park) and parking of record-level errors only (`Permanent`, `Store.Requeue`, `Store.RequeueParked`, `Store.Stats`). Rows carry the `kafkax` headers `event-id`, `event-type`, `x-request-id` and `traceparent` and an optional per-row topic. |
 | `consume` | `NewConsumer` and `NewBatchConsumer` (both return an error) with DLQ and `Permanent`; the handler ctx carries the trace and request id; one commit per fetch; `Record{Topic, Partition, Offset, Timestamp, Key, Value, Headers []Header}`; `NewDedupe` and `Dedupe` (`Seen`, `Processed`). |
 | `upstream` | `NewClient`: lazy gRPC client with principal and request-id propagation, round_robin balancing, `AsService`, per-call service principal, `WithDialOptions`. |
 | `resilience` | `Retry` and `Breaker` return `(Policy, error)` with safe defaults for zero options; `Do`; `Retryable` is an allow-list. `Policy` is opaque. |
 | `flags` | OpenFeature client over Flipt that fails open; `BooleanEnabled(ctx, flag, def, opts...)` with `WithTargetingKey` and `WithAttributes`; `NewOrDisabled`. Built on `openfeature/isolated`, which upstream marks experimental. |
+| `mockdata` | `New(cfg config.MockData, known...)` declares the adapters a service can mock; `Select` picks the mock for an active name; `LogActive` logs the active adapters once at boot. Mock data, not mock services: the real service serves the mock data. |
+| `auditx` | `Dial` (service principal, `config.Audit`), `Writer` interface the service implements over its audit client, and a fail-closed `Gate.Do` that refuses the privileged action with `Unavailable` "audit trail unavailable" when the audit write fails. |
 | `testkit` | Postgres and Redpanda containers, `SharedPostgres` + `Schema`, `FreePort`, `Eventually`, `Recorder`, `Produce`/`ReadAll`. |
 
 `examples/hello` wires all of the above and is the reference service.
 
 ## How a service adopts it
 
-1. Pick a release tag, for example `go-sdk/v1.0.0`.
-2. From the repo root, sync the SDK into the service:
+1. Pick a release tag, for example `go-sdk/v1.0.2`.
+2. Require it in the service `go.mod`:
 
    ```sh
-   platform-core/tools/sync-go-sdk.sh go-sdk/v1.0.0 team-<svc>
+   go get github.com/buidangphuc/agora/platform-core/packages/go-sdk@v1.0.2
    ```
 
-   This writes `third_party/go-sdk` (with `VERSION`), adds the `replace` to `go.mod`, copies `make/go-service.mk` and `.golangci.yml` (lines between `# BEGIN service-local` and `# END service-local` in the service's file are kept), pins the golangci-lint `tool` directive to the SDK's version, and runs `go mod tidy`. It fails without changes if the tag does not exist. If the tag has no `.golangci.yml`, it prints a warning and skips that file.
+   No `replace` and no vendored copy. The service Makefile includes `../platform-core/make/go-service.mk` and passes `../platform-core/packages/go-sdk/.golangci.yml` as the lint config.
 3. Copy `examples/hello` as the starting layout: `cmd/<binary>/main.go`, `internal/app`, `internal/config`, `internal/rpc`.
-4. In the service `Makefile` set `SERVICE`, `GRPC_PORT` (and `BINARIES` if not `server`), then `include make/go-service.mk`. Run `make help` for the targets.
+4. In the service `Makefile` set `SERVICE`, `GRPC_PORT` (and `BINARIES` if not `server`), then `include ../platform-core/make/go-service.mk`. Run `make help` for the targets.
 5. Copy `platform-core/templates/go-service/Dockerfile` to the service root. Build with `--build-arg BIN=<binary>`.
 
-To upgrade, run the script again with the new tag and review the diff in a PR. Do not edit `third_party/go-sdk` by hand.
+Kubernetes probes: set `probes.livenessService: liveness` in the chart values so the liveness probe uses the `liveness` health service.
+
+To upgrade, `go get` the new tag and review the diff in a PR.
+
+## v1.0.2 rules
+
+- Environment: `MOCK_DATA` (comma-separated adapter names; refused when `Runtime.IsStrict()`), `UPSTREAM_AUDIT_ADDR` (required when strict), `LOG_KEY_FP_SECRET` (HMAC key for the `key_fp` fingerprint that `consume` and `kafkax` log instead of the raw key).
+- No enable flag: the SDK has no `*_ENABLED` switch for any dependency. A service that needs a dependency requires it; use `mockdata` for local data.
+- Do not format ids or keys into errors: raw keys are scrubbed from logged and DLQ error text, but an id interpolated into an error string leaks through every other sink. Return sentinel errors and log ids as attributes.
+- `grpcx.Status` maps a Postgres unique violation (SQLSTATE 23505) to `AlreadyExists` without exposing the detail.
+- The vendoring tooling (`sync-go-sdk.sh`, `check-go-sdk-vendor.sh`) is removed; there is no `third_party/go-sdk` copy.
 
 ## Copying from examples/hello
 
@@ -73,14 +87,14 @@ The layout, wiring order and test conventions are in ADR-0016; `examples/hello` 
    }
    ```
 3. In `internal/config`, keep `Settings`, `Validate`, `Load` and `TestEnvExampleInSync`; add service fields and their keys to `.env.example` at the service root.
-4. Replace `internal/rpc/hello.go` (a hand-built `grpc.ServiceDesc`, used only to avoid codegen) with your generated registration, and `internal/greeter` with your domain packages. Handlers stay thin: `auth.Require*`, domain call, `grpcx.Status` with your `ErrorTable`. Reflection is always on; it only describes methods once the service has generated descriptors.
+4. Replace `internal/rpc/hello.go` (a hand-built `grpc.ServiceDesc`, used only to avoid codegen) with your generated registration, and `internal/greeter` with your domain packages. Handlers stay thin: `auth.Require*`, domain call, `grpcx.Status` with your `ErrorTable`. Reflection is off unless `GRPC_REFLECTION_ENABLED=true` (local or test only); it only describes methods once the service has generated descriptors.
 5. Drop `internal/store` and `migrations/` if the service has no database. Otherwise keep migrations in `<repo>/migrations/` (`NNNN_name.up.sql`/`.down.sql` plus `migrations/embed.go` with `//go:embed *.sql`), applied by the deploy migrate job, not at boot; tests and an optional `migrate up` subcommand pass `migrations.Files` to `migrate.Up`. Add `internal/events` only when needed.
-6. Set goimports `local-prefixes` to your module path (the synced `.golangci.yml` has the SDK's value).
+6. Set goimports `local-prefixes` to your module path (the shared `.golangci.yml` uses `github.com/buidangphuc`).
 7. Tests: see ADR-0016 ("Tests") for ports, `grpcx.ServeListener`, `logx.NewTo` and `GO_SDK_REQUIRE_DOCKER`.
 
 ## Upgrading to v1
 
-v1 changes API and configuration on purpose; there are no deprecated aliases. The sections below list every breaking change since `go-sdk/v0.2.1` (what most services vendor). A service on `v0.1.1` also takes the "from v0.1.1" list. Re-run `platform-core/tools/sync-go-sdk.sh go-sdk/<tag> <service>` and fix the compile errors with this list.
+v1 changes API and configuration on purpose; there are no deprecated aliases. The sections below list every breaking change since `go-sdk/v0.2.1` (what most services vendor). A service on `v0.1.1` also takes the "from v0.1.1" list. Run `go get` for the new tag and fix the compile errors with this list.
 
 ### Renames
 
@@ -92,7 +106,7 @@ v1 changes API and configuration on purpose; there are no deprecated aliases. Th
 
 ### Configuration
 
-- `ENV` is required and has no default; it used to default to `local`. An unset `ENV` now fails `Load`, and `IsLocal()` is true only for `local` or `test`. Add `ENV=` to every deployment and to `.env.example`. `OpenOrLocal` falls back to a nil pool only when `IsLocal()`.
+- `ENV` is required and has no default; it used to default to `local`. An unset `ENV` now fails `Load`, and `IsLocal()` is true only for `local` or `test`. Add `ENV=` to every deployment and to `.env.example`. `OpenOrLocal` is removed; a service opens its pool with `postgres.Open` and uses `mockdata` for local data.
 - `Load` calls `Validate()` on every nested or embedded group and joins the errors. A `Settings` that wrapped `Postgres.Validate()` by hand can drop it; one that embeds several groups no longer needs to pick which `Validate` is promoted.
 - `KAFKA_BROKERS` loses its tag default and is required when `ENV` is staging, stage, prod or production (`Runtime.IsStrict`); a local or test `ENV` still gets `localhost:9092`. `Load` applies this through `ResolveFor(Runtime)` on `Kafka`, using the `Runtime` embedded in (or held by) your `Settings`; add `KAFKA_BROKERS` to every deployment that uses it.
 - `FEATURE_FLAGS_ENABLED` and `config.Flags.Enabled` are removed: flags have no on/off switch. A service always evaluates through Flipt at `FLIPT_ADDR` (default `localhost:9000`), and an unreachable Flipt makes every evaluation return the default written in code. Drop the variable from env files and manifests; set `FLIPT_ADDR` where Flipt runs.
@@ -106,7 +120,7 @@ v1 changes API and configuration on purpose; there are no deprecated aliases. Th
 | `FEATURE_FLAGS_EVAL_TIMEOUT_MS` (`Flags.EvalTimeoutMS int`) | `FEATURE_FLAGS_EVAL_TIMEOUT` (`Flags.EvalTimeout`) | `500ms` |
 | `OUTBOX_MAX_ATTEMPTS` (`Outbox.MaxAttempts int`) | removed: the relayer has no attempt limit; use `RelayerOptions.AlertAfter` | |
 
-  `OUTBOX_POLL_INTERVAL` was already a Go duration. The `ShutdownGrace()` and `DrainDelay()` methods are gone: read the fields. Reflection is always on and the database has no enable flag; neither `GRPC_REFLECTION_ENABLED` nor `DATABASE_ENABLED` exists.
+  `OUTBOX_POLL_INTERVAL` was already a Go duration. The `ShutdownGrace()` and `DrainDelay()` methods are gone: read the fields. The database has no enable flag (no `DATABASE_ENABLED`); reflection is opt-in through `GRPC_REFLECTION_ENABLED`, which is accepted only when `ENV` is local or test.
 
 ### API signatures
 
@@ -202,7 +216,7 @@ Everything above applies, plus these packages first appeared after v0.1.1 and ne
 
 `testkit` and the golangci-lint `tool` directive stay in the SDK module. Moving them to separate modules was evaluated (review finding m16) and rejected for v1:
 
-- `sync-go-sdk.sh` vendors the SDK directory at a tag into `third_party/go-sdk` with one `replace`, and reads the golangci-lint version from the `tool` directive in the SDK's `go.mod`. A second module for `testkit` would need its own `replace` and placeholder require in every service, and a second module for the tooling would need a different source for the lint version; both change `sync-go-sdk.sh`, `check-go-sdk-vendor.sh` and their tests beyond trivial edits.
+- A second module for `testkit` or the tooling would need its own require in every service and its own release tag.
 - The cost they would save is only module-graph size: `go mod tidy` in a service prunes what its packages do not import, so a service that does not import `testkit` does not build testcontainers.
 
 Revisit if the vendored graph causes real trouble.

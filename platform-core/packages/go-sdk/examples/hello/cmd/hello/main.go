@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/app"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/examples/hello/internal/app"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/examples/hello/internal/config"
 )
 
 func main() {

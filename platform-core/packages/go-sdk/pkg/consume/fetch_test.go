@@ -10,9 +10,9 @@ import (
 
 	"github.com/twmb/franz-go/pkg/kgo"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 )
 
 // logSink records the messages Run logs.

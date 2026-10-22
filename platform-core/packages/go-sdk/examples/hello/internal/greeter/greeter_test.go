@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/greeter"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/examples/hello/internal/greeter"
 )
 
 func TestGreet(t *testing.T) {
