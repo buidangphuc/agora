@@ -1,11 +1,11 @@
 // @vitest-environment node
 import { Code, ConnectError } from "@connectrpc/connect";
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock only the true external boundary (the Gateway RefreshSession call).
 // Assumed API: middleware(req) is async (returns Promise<NextResponse>); it calls
-// refreshSession(refreshToken) with that single argument (no bearer, S12) from
+// refreshSession(refreshToken, clientContext) (no bearer, S12) from
 // "@/lib/gateway/refresh"; `config.runtime === "nodejs"`.
 const refreshSession = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/gateway/refresh", () => ({ refreshSession }));
@@ -44,7 +44,10 @@ function req(
 function forwarded(res: Response, name: string): string | null {
   return res.headers.get(`x-middleware-request-${name}`);
 }
-function isDeleted(res: { cookies: { get(n: string): any } }, name: string) {
+function isDeleted(
+  res: { cookies: { get(n: string): { value: string } | undefined } },
+  name: string,
+) {
   const c = res.cookies.get(name);
   return c !== undefined && c.value === "";
 }
@@ -66,16 +69,26 @@ describe("middleware refresh", () => {
       req({ session: jwt(nowSec() - 60), refresh: "R1" }),
     );
     expect(refreshSession).toHaveBeenCalledTimes(1);
-    expect(refreshSession).toHaveBeenCalledWith("R1");
+    expect(refreshSession).toHaveBeenCalledWith("R1", expect.anything());
     const access = res.cookies.get("session");
     const refresh = res.cookies.get("agora_refresh");
     expect(access?.value).toBe(NEW_ACCESS);
     expect(refresh?.value).toBe("R2");
     expect(access).toEqual(
-      expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/", maxAge: 3600 }),
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 3600,
+      }),
     );
     expect(refresh).toEqual(
-      expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/", maxAge: 2592000 }),
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 2592000,
+      }),
     );
   });
 
@@ -158,7 +171,9 @@ describe("middleware refresh", () => {
   });
 
   it("S9: Unauthenticated clears both cookies in browser and render", async () => {
-    refreshSession.mockRejectedValue(new ConnectError("bad", Code.Unauthenticated));
+    refreshSession.mockRejectedValue(
+      new ConnectError("bad", Code.Unauthenticated),
+    );
     const res = await middleware(
       req({ session: jwt(nowSec() - 60), refresh: "R1" }),
     );
@@ -209,7 +224,8 @@ describe("middleware refresh", () => {
   it("S12: refreshSession receives only the refresh token (no bearer argument)", async () => {
     refreshSession.mockResolvedValue(ok());
     await middleware(req({ session: jwt(nowSec() - 60), refresh: "R1" }));
-    expect(refreshSession.mock.calls[0]).toEqual(["R1"]);
+    expect(refreshSession.mock.calls[0]?.[0]).toBe("R1");
+    expect(refreshSession.mock.calls[0]).toHaveLength(2);
   });
 
   it("S19: empty refresh_token sets only session and keeps agora_refresh", async () => {
@@ -227,13 +243,18 @@ describe("middleware refresh", () => {
 
 describe("middleware x-pathname", () => {
   it("S23: carries path and query when anonymous", async () => {
-    const res = await middleware(req({ url: "http://localhost/cart?coupon=A1" }));
+    const res = await middleware(
+      req({ url: "http://localhost/cart?coupon=A1" }),
+    );
     expect(forwarded(res, "x-pathname")).toBe("/cart?coupon=A1");
   });
 
   it("S23: carries path and query when signed in", async () => {
     const res = await middleware(
-      req({ session: jwt(nowSec() + 3600), url: "http://localhost/cart?coupon=A1" }),
+      req({
+        session: jwt(nowSec() + 3600),
+        url: "http://localhost/cart?coupon=A1",
+      }),
     );
     expect(forwarded(res, "x-pathname")).toBe("/cart?coupon=A1");
   });
@@ -248,7 +269,10 @@ describe("middleware x-pathname", () => {
 
   it("S23: carries path and query when the stale cookie is cleared", async () => {
     const res = await middleware(
-      req({ session: jwt(nowSec() - 60), url: "http://localhost/cart?coupon=A1" }),
+      req({
+        session: jwt(nowSec() - 60),
+        url: "http://localhost/cart?coupon=A1",
+      }),
     );
     expect(forwarded(res, "x-pathname")).toBe("/cart?coupon=A1");
   });
@@ -286,7 +310,9 @@ describe("middleware config", () => {
     expect((config as { runtime?: string }).runtime).toBe("nodejs");
   });
   it("keeps the static-asset-excluding matcher", () => {
-    expect(config.matcher).toEqual(["/((?!_next/static|_next/image|favicon.ico).*)"]);
+    expect(config.matcher).toEqual([
+      "/((?!_next/static|_next/image|favicon.ico).*)",
+    ]);
   });
 });
 
@@ -307,7 +333,9 @@ describe("middleware refresh enforcement (frontend-user-enforcement)", () => {
   });
 
   it("Users UI: Transient refresh failure keeps the refresh cookie - transient refresh failure keeps the refresh cookie", async () => {
-    refreshSession.mockRejectedValue(new ConnectError("down", Code.Unavailable));
+    refreshSession.mockRejectedValue(
+      new ConnectError("down", Code.Unavailable),
+    );
     const stale = jwt(nowSec() - 60);
     const res = await middleware(req({ session: stale, refresh: "R1" }));
     expect(res.cookies.get("agora_refresh")).toBeUndefined();
@@ -315,5 +343,176 @@ describe("middleware refresh enforcement (frontend-user-enforcement)", () => {
     const cookie = forwarded(res, "cookie") ?? "";
     expect(cookie).not.toContain(`session=${stale}`);
     expect(cookie).toContain("agora_refresh=R1");
+  });
+});
+
+describe("middleware COOKIE_SECURE (frontend-cookie-secure)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("Cookie secure: middleware refresh forced Secure - both rotated cookies Secure without x-forwarded-proto", async () => {
+    vi.stubEnv("COOKIE_SECURE", "true");
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(res.cookies.get("session")?.value).toBe(NEW_ACCESS);
+    expect(res.cookies.get("agora_refresh")?.value).toBe("R2");
+    expect(res.cookies.get("session")?.secure).toBe(true);
+    expect(res.cookies.get("agora_refresh")?.secure).toBe(true);
+  });
+
+  it("Cookie secure: middleware refresh forced Secure - beats a client x-forwarded-proto: http", async () => {
+    vi.stubEnv("COOKIE_SECURE", " TRUE ");
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(
+      req({ refresh: "R1", headers: { "x-forwarded-proto": "http" } }),
+    );
+    expect(res.cookies.get("session")?.secure).toBe(true);
+    expect(res.cookies.get("agora_refresh")?.secure).toBe(true);
+  });
+
+  it("Cookie secure: middleware refresh unset over https - Secure with header, not without", async () => {
+    vi.stubEnv("COOKIE_SECURE", "");
+    refreshSession.mockResolvedValue(ok());
+    const https = await middleware(
+      req({
+        session: jwt(nowSec() - 60),
+        refresh: "R1",
+        headers: { "x-forwarded-proto": "https" },
+      }),
+    );
+    expect(https.cookies.get("session")?.secure).toBe(true);
+    expect(https.cookies.get("agora_refresh")?.secure).toBe(true);
+    const plain = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(plain.cookies.get("session")?.value).toBe(NEW_ACCESS);
+    expect(Boolean(plain.cookies.get("session")?.secure)).toBe(false);
+    expect(Boolean(plain.cookies.get("agora_refresh")?.secure)).toBe(false);
+  });
+
+  it("Cookie secure: middleware refresh forced Secure - flag is read per request", async () => {
+    refreshSession.mockResolvedValue(ok());
+    vi.stubEnv("COOKIE_SECURE", "false");
+    const off = await middleware(req({ refresh: "R1" }));
+    expect(Boolean(off.cookies.get("session")?.secure)).toBe(false);
+    vi.stubEnv("COOKIE_SECURE", "true");
+    const on = await middleware(req({ refresh: "R1" }));
+    expect(on.cookies.get("session")?.secure).toBe(true);
+  });
+
+  it("Cookie secure: failed refresh sets nothing (error) - Unauthenticated deletes both, no valued cookie", async () => {
+    vi.stubEnv("COOKIE_SECURE", "true");
+    refreshSession.mockRejectedValue(
+      new ConnectError("bad", Code.Unauthenticated),
+    );
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(isDeleted(res, "session")).toBe(true);
+    expect(isDeleted(res, "agora_refresh")).toBe(true);
+    for (const name of ["session", "agora_refresh"]) {
+      expect(res.cookies.get(name)?.value).toBe("");
+    }
+    expect(res.cookies.get("agora_auth_evt")).toBeUndefined();
+  });
+});
+
+describe("middleware client context (frontend-session-client-context)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("Session client context: middleware refresh forwards IP and UA", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    refreshSession.mockResolvedValue(ok());
+    await middleware(
+      req({
+        session: jwt(nowSec() - 60),
+        refresh: "R1",
+        headers: {
+          "x-forwarded-for": "203.0.113.9",
+          "user-agent": "AgoraTest/2",
+        },
+      }),
+    );
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(refreshSession).toHaveBeenCalledWith("R1", {
+      ip: "203.0.113.9",
+      userAgent: "AgoraTest/2",
+    });
+  });
+
+  it("Session client context: spoofed leftmost X-Forwarded-For is ignored on middleware refresh (permission)", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    refreshSession.mockResolvedValue(ok());
+    await middleware(
+      req({
+        refresh: "R1",
+        headers: {
+          "x-forwarded-for": "6.6.6.6, 198.51.100.4",
+          "user-agent": "AgoraTest/2",
+        },
+      }),
+    );
+    expect(refreshSession).toHaveBeenCalledWith("R1", {
+      ip: "198.51.100.4",
+      userAgent: "AgoraTest/2",
+    });
+  });
+
+  it("Session client context: missing headers still refresh with an empty context (boundary)", async () => {
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(req({ refresh: "R1" }));
+    expect(refreshSession).toHaveBeenCalledWith("R1", {});
+    expect(res.cookies.get("session")?.value).toBe(NEW_ACCESS);
+  });
+
+  it("Session client context: refresh failure behaviour unchanged (error) - Unauthenticated with context clears both cookies", async () => {
+    refreshSession.mockRejectedValue(
+      new ConnectError("bad", Code.Unauthenticated),
+    );
+    const res = await middleware(
+      req({
+        session: jwt(nowSec() - 60),
+        refresh: "R1",
+        headers: {
+          "x-forwarded-for": "203.0.113.9",
+          "user-agent": "AgoraTest/2",
+        },
+      }),
+    );
+    expect(refreshSession).toHaveBeenCalledWith("R1", {
+      ip: "203.0.113.9",
+      userAgent: "AgoraTest/2",
+    });
+    expect(isDeleted(res, "session")).toBe(true);
+    expect(isDeleted(res, "agora_refresh")).toBe(true);
+  });
+
+  it("Session client context: refresh failure behaviour unchanged (error) - transient failure keeps cookies", async () => {
+    refreshSession.mockRejectedValue(
+      new ConnectError("slow", Code.DeadlineExceeded),
+    );
+    const res = await middleware(
+      req({
+        session: jwt(nowSec() - 60),
+        refresh: "R1",
+        headers: {
+          "x-forwarded-for": "203.0.113.9",
+          "user-agent": "AgoraTest/2",
+        },
+      }),
+    );
+    expect(refreshSession).toHaveBeenCalledWith("R1", {
+      ip: "203.0.113.9",
+      userAgent: "AgoraTest/2",
+    });
+    expect(res.headers.get("set-cookie")).toBeNull();
+    expect(forwarded(res, "cookie") ?? "agora_refresh=R1").toContain(
+      "agora_refresh=R1",
+    );
   });
 });

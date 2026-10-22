@@ -1,0 +1,12 @@
+Depends on `pah-contract` (vendored `ReviewHidden` in team-engagement protos), `analytics-review-hidden` (consumer handles the type; must be deployed first) and `engagement-consumer-key-redaction` (same repo, serialised; no shared files). No migration, gateway or compose change.
+
+## Code track (team-engagement)
+
+- [x] 1. Repository. Write-set: `team-engagement/internal/repository/review.go`, `internal/repository/review_hide_fact_test.go` (new; Postgres-backed like the existing `CreateReview` outbox tests). Wrap `HideReview` in `pgx.BeginFunc`: UPDATE ... `RETURNING listing_id, hidden_at`, then `enqueueFact(ctx, tx, listingID, &engagementv1.ReviewHidden{...})` only when a row changed; keep the not-found and already-hidden branches; interface and in-memory repo unchanged. Scenarios: Review hidden event: effective hide enqueues one fact, Review hidden event: payload carries no moderator data, Review hidden event: fact and hide are atomic, Review hidden event: re-hide emits nothing new, Review hidden event: concurrent hides emit once, Review hidden event: unknown review emits nothing.
+- [x] 2. Service and handler regression tests. Write-set: `team-engagement/internal/service/review_test.go`, `internal/handler/reviews_hide_test.go` (add tests only; production code unchanged). Scenarios: Review hidden event: audit failure emits nothing, Review hidden event: non-admin cannot trigger a fact, Review hidden event: existing hide behaviour is preserved.
+- [x] 3. Docs. Write-set: `team-engagement/README.md` (list `ReviewHidden` among published facts and note the analytics-first deploy order). Scenarios: Review hidden event: effective hide enqueues one fact.
+
+## E2E track (platform-e2e)
+
+- [x] 4. Feature `platform-e2e/tests/e2e/features/engagement/review_hidden_event.feature` and bindings `step_definitions/test_review_hidden_event.py` (reuse the Kafka reader steps of `test_efe_facts.py`, the review-creation and hide steps of `review_integrity_steps.py`; tags as in `review_integrity.feature`). Scenarios: Review hidden event: admin hide appears on engagement.events, Review hidden event: repeated hide publishes nothing new, Review hidden event: a buyer cannot hide a review, Review hidden event: analytics records review_hidden.
+- [x] 5. `team-engagement/FEATURES.yaml`: entry for the new e2e scenarios is written by the e2e-author, not by this slice. Existing `engagement-review-integrity.*` entries stay unchanged. Scenarios: all end-to-end scenarios above.

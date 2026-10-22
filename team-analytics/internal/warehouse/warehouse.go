@@ -249,6 +249,7 @@ const (
 	FactSellerFollowed   = "seller_followed"
 	FactSellerUnfollowed = "seller_unfollowed"
 	FactReviewCreated    = "review_created"
+	FactReviewHidden     = "review_hidden"
 )
 
 // EngagementFactRecord is one row of engagement_facts: a server-truth preference
@@ -261,6 +262,7 @@ type EngagementFactRecord struct {
 	ListingID  string
 	SellerID   string
 	Rating     int32
+	ReviewID   string
 	OccurredAt time.Time
 }
 

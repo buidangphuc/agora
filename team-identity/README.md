@@ -78,6 +78,10 @@ Database `identity_db`. Migrations in `migrations/` (golang-migrate, up/down pai
 | `0006_session_refresh` | adds `sessions.refresh_hash`, `prev_refresh_hash`, `refresh_expires_at`, `rotated_at` |
 | `0007_user_status` | adds `users.status` (`active`, `restricted`, `suspended`, `banned`), `status_reason`, `status_until`, `status_changed_at` |
 
+Retention: `sessions` and `login_history` rows are purged by a background sweeper once older than
+`SESSION_RETENTION` (default 30d) and `LOGIN_HISTORY_RETENTION` (default 180d), in batches every
+`SESSION_SWEEP_INTERVAL`. Invalid (zero, negative, unparseable) values stop startup.
+
 All user-owned tables reference `users(id)` with `ON DELETE CASCADE`. Migrations are not run by the
 service: the root compose runs the `team-identity-migrate` job; standalone use `make migrate`
 (needs docker).
@@ -107,6 +111,11 @@ drifts from the config structs. The service refuses to start without `DATABASE_E
 | `OUTBOX_BATCH_SIZE` | `100` | |
 | `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | |
 | `OUTBOX_MAX_ATTEMPTS` | `10` | |
+| `SESSION_RETENTION` | `720h` | Go duration, must be > 0; sessions older than this are purged |
+| `LOGIN_HISTORY_RETENTION` | `4320h` | Go duration, must be > 0; login_history rows older than this are purged |
+| `SESSION_SWEEP_INTERVAL` | `1h` | Go duration, must be > 0 |
+| `SESSION_SWEEP_BATCH_SIZE` | `500` | Rows deleted per batch, must be > 0 |
+| `SESSION_SWEEP_ENABLED` | `true` | Turns the retention sweeper off when `false` |
 | `JWT_PRIVATE_KEY` | empty | Required. PEM RSA key (PKCS#1 or PKCS#8); literal `\n` and surrounding quotes are accepted |
 | `JWT_KID` | empty | Required |
 | `JWKS_HTTP_PORT` | `50063` | |
@@ -199,7 +208,7 @@ then implement, per the root README's ASDLC. `PublicProfileService` has no `FEAT
 
 ## Known gaps
 
-- `sessions.last_seen` is set at creation and on refresh rotation; no other call updates it.
+- `sessions.last_seen` is set at creation; refresh rotation also updates the session ip, device and last_seen from the request client context. An empty client context on refresh keeps the stored ip and device unchanged; no other call updates last_seen.
 - Identity trusts `x-principal-*` metadata without verification (ADR-0010 interim: NetworkPolicy only).
   Anything that can reach `:50053` directly can impersonate any principal.
 - There is no out-of-band delivery (email/SMS) of the reset token, so with the default

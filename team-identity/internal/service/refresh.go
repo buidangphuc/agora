@@ -75,7 +75,8 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 	}
 	now := s.clock()
 	ev := s.revokedEvent(ctx, now)
-	res, err := s.sessions.RotateRefresh(ctx, hashToken(refreshToken), hashToken(newRaw), now, refreshGrace, refreshMaxAge, ev)
+	c, _ := ctx.Value(clientCtxKey{}).(ClientInfo)
+	res, err := s.sessions.RotateRefresh(ctx, hashToken(refreshToken), hashToken(newRaw), now, refreshGrace, refreshMaxAge, clip(c.IP, 64), clip(c.UserAgent, 256), ev)
 	if err != nil {
 		return AuthResult{}, mapRotateErr(err)
 	}

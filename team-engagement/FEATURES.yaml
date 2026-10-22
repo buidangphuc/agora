@@ -2141,3 +2141,258 @@ features:
     tags: [listing-reports, unit]
     status: not-testable
     notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestReportRepositoryParity`"
+
+  - id: engagement-consumer-key-redaction.handler-failure-logs-fingerprint
+    title: "Engagement key redaction: handler failure logs fingerprint"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: handler failure logs fingerprint."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: handler failure logs fingerprint"
+    tags: [privacy, audit, async]
+    status: automated
+    covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: handler failure logs fingerprint"
+
+  - id: engagement-consumer-key-redaction.dlq-parking-logs-fingerprint
+    title: "Engagement key redaction: DLQ parking logs fingerprint"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: DLQ parking logs fingerprint."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: DLQ parking logs fingerprint"
+    tags: [privacy, audit, async]
+    status: automated
+    covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: DLQ parking logs fingerprint"
+
+  - id: engagement-consumer-key-redaction.empty-key
+    title: "Engagement key redaction: empty key"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: empty key."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: empty key"
+    tags: [privacy, audit, async]
+    status: automated
+    covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: empty key"
+
+  - id: engagement-consumer-key-redaction.fingerprint-is-exactly-12-hex-and-stable
+    title: "Engagement key redaction: fingerprint is exactly 12 hex and stable"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: fingerprint is exactly 12 hex and stable."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: fingerprint is exactly 12 hex and stable"
+    tags: [privacy, audit, async]
+    status: automated
+    covered_by: "engagement/consumer_key_redaction.feature::Engagement key redaction: fingerprint is exactly 12 hex and stable"
+
+  - id: engagement-consumer-key-redaction.dlq-produce-failure-logs-fingerprint
+    title: "Engagement key redaction: DLQ produce failure logs fingerprint"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: DLQ produce failure logs fingerprint."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: DLQ produce failure logs fingerprint"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-engagement `internal/consumer` `TestDLQProduceFailureLogsFingerprintOffsetHeld`. Not producible end to end (needs a broker fault / handler-internal view of the key); unit level."
+
+  - id: engagement-consumer-key-redaction.successful-records-and-key-unchanged
+    title: "Engagement key redaction: successful records and key unchanged"
+    persona: admin
+    priority: P2
+    summary: "Change engagement-consumer-key-redaction: successful records and key unchanged."
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Engagement key redaction: successful records and key unchanged"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-engagement `internal/consumer` `TestSuccessPassesRawKeyToHandler`. Not producible end to end (needs a broker fault / handler-internal view of the key); unit level."
+
+  # ---- engagement-review-hidden-event (e2e-author; automated, green against the local stack)
+  - id: engagement-review-hidden-event.effective-hide-enqueues-one-fact
+    title: "Review hidden event: effective hide enqueues one fact"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Review hidden event: effective hide enqueues one fact"
+    tags: [review-hidden-event, unit]
+    status: not-testable
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestHideReviewEnqueuesReviewHidden`"
+
+  - id: engagement-review-hidden-event.payload-carries-no-moderator-data
+    title: "Review hidden event: payload carries no moderator data"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Review hidden event: payload carries no moderator data"
+    tags: [review-hidden-event, unit]
+    status: not-testable
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestReviewHiddenFactOmitsAdminAndReason`"
+
+  - id: engagement-review-hidden-event.fact-and-hide-are-atomic
+    title: "Review hidden event: fact and hide are atomic"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Review hidden event: fact and hide are atomic"
+    tags: [review-hidden-event, unit]
+    status: not-testable
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestHideReviewRollsBackWhenEnqueueFails`"
+
+  - id: engagement-review-hidden-event.re-hide-emits-nothing-new
+    title: "Review hidden event: re-hide emits nothing new"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Review hidden event: re-hide emits nothing new"
+    tags: [review-hidden-event, unit]
+    status: not-testable
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestHideReviewTwiceEnqueuesOnce`"
+
+  - id: engagement-review-hidden-event.concurrent-hides-emit-once
+    title: "Review hidden event: concurrent hides emit once"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Review hidden event: concurrent hides emit once"
+    tags: [review-hidden-event, unit]
+    status: not-testable
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestHideReviewConcurrentEnqueuesOnce`"
+
+  - id: engagement-review-hidden-event.unknown-review-emits-nothing
+    title: "Review hidden event: unknown review emits nothing"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Review hidden event: unknown review emits nothing"
+    tags: [review-hidden-event, unit]
+    status: not-testable
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestHideReviewUnknownEnqueuesNothing`"
+
+  - id: engagement-review-hidden-event.audit-failure-emits-nothing
+    title: "Review hidden event: audit failure emits nothing"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Review hidden event: audit failure emits nothing"
+    tags: [review-hidden-event, unit]
+    status: not-testable
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/service` `TestHideReviewAuditFailureNoFact`"
+
+  - id: engagement-review-hidden-event.non-admin-cannot-trigger-a-fact
+    title: "Review hidden event: non-admin cannot trigger a fact"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Review hidden event: non-admin cannot trigger a fact"
+    tags: [review-hidden-event, unit]
+    status: not-testable
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/handler` `TestHideReviewNonAdminNoFact`"
+
+  - id: engagement-review-hidden-event.existing-hide-behaviour-is-preserved
+    title: "Review hidden event: existing hide behaviour is preserved"
+    persona: admin
+    priority: P2
+    entry_route: /
+    services: [team-engagement]
+    acceptance:
+      - "Review hidden event: existing hide behaviour is preserved"
+    tags: [review-hidden-event, unit]
+    status: not-testable
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/handler` `TestHideReviewHidesFromList` and `TestHideReviewUpdatesSummaries`"
+
+  - id: engagement-review-hidden-event.admin-hide-appears-on-engagement-events
+    title: "Review hidden event: admin hide appears on engagement.events"
+    persona: admin
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.HideReview]
+    acceptance:
+      - "Review hidden event: admin hide appears on engagement.events"
+    tags: [admin, review-hidden-event]
+    status: automated
+    covered_by: "engagement/review_hidden_event.feature::Review hidden event: admin hide appears on engagement.events"
+    notes: "engagement-review-hidden-event: API-level journey through the gateway."
+
+  - id: engagement-review-hidden-event.repeated-hide-publishes-nothing-new
+    title: "Review hidden event: repeated hide publishes nothing new"
+    persona: admin
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.HideReview]
+    acceptance:
+      - "Review hidden event: repeated hide publishes nothing new"
+    tags: [admin, review-hidden-event]
+    status: automated
+    covered_by: "engagement/review_hidden_event.feature::Review hidden event: repeated hide publishes nothing new"
+    notes: "engagement-review-hidden-event: API-level journey through the gateway."
+
+  - id: engagement-review-hidden-event.a-buyer-cannot-hide-a-review
+    title: "Review hidden event: a buyer cannot hide a review"
+    persona: buyer
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.HideReview]
+    acceptance:
+      - "Review hidden event: a buyer cannot hide a review"
+    tags: [buyer, review-hidden-event]
+    status: automated
+    covered_by: "engagement/review_hidden_event.feature::Review hidden event: a buyer cannot hide a review"
+    notes: "engagement-review-hidden-event: API-level journey through the gateway."
+
+  - id: engagement-review-hidden-event.analytics-records-review-hidden
+    title: "Review hidden event: analytics records review_hidden"
+    persona: admin
+    priority: P1
+    entry_route: /
+    services: [team-engagement, team-gateway, team-order, team-analytics]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.HideReview]
+    acceptance:
+      - "Review hidden event: analytics records review_hidden"
+    tags: [admin, review-hidden-event]
+    status: automated
+    covered_by: "engagement/review_hidden_event.feature::Review hidden event: analytics records review_hidden"
+    notes: "engagement-review-hidden-event: API-level journey through the gateway."

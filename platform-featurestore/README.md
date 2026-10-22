@@ -19,6 +19,7 @@ are empty and the job warns; with it but without `category_id` or `price` the jo
 | --- | --- | --- |
 | `user_activity@v2` | `user_key` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `follows_current`, `paid_orders_30d` |
 | `item_popularity@v1` | `listing_id` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `review_count`, `avg_rating`, `ctr_7d` |
+| `item_popularity@v2` | `listing_id` | `views_7d`, `clicks_7d`, `add_to_cart_7d`, `favorites_current`, `review_count`, `avg_rating`, `ctr_7d` (reviews with a `hide` moderation decision are excluded from `review_count` and `avg_rating`) |
 | `item_attributes@v1` | `listing_id` | `seller_id`, `category_id` (strings), `price` (int, minor units); null when unknown |
 | `user_preferences@v1` | `user_key` | `preferred_categories`: up to three category ids, comma-joined |
 
@@ -53,7 +54,7 @@ RFC 3339 UTC ending in `Z`. The old `fs:u:` / `fs:i:` keys are gone.
 | --- | --- |
 | `materialize` | compute, write offline + online, parity gate |
 | `parity` | compare Redis with the latest run's snapshots |
-| `dataset` | build every registered governed dataset version (`als_interactions@v1|v2`, `rank_training@v1|v2`) as of `AS_OF` into `<offline>/datasets/<name>/v<n>/as_of=<stamp>.parquet` + `.manifest.json`; window `DATASET_WINDOW_DAYS` (default 30) |
+| `dataset` | build every registered governed dataset version (`als_interactions@v1|v2|v3`, `rank_training@v1|v2`) as of `AS_OF` into `<offline>/datasets/<name>/v<n>/as_of=<stamp>.parquet` + `.manifest.json`; window `DATASET_WINDOW_DAYS` (default 30) |
 | `lock` | regenerate `registry/features.lock` after a deliberate definition change |
 
 Exit codes: 0 ok, 2 config/missing input, 3 parity mismatch (`parity mismatch view=.. entity=.. feature=..
@@ -68,6 +69,9 @@ platform-recsys' GBDT trainer reads it (change `recsys-gbdt-trainer`).
 with personalization consent (`consent_personalization` true, `consent_version > 0`, after the user's latest opt-out);
 `als_interactions@v2` applies the same filter. platform-recsys still reads the v1 datasets by default
 (`DATASET_DIR`, `RANK_DATASET_DIR` in `platform-recsys/recsys/config.py`).
+
+`als_interactions@v3` is `als_interactions@v2` minus hidden reviews: a review event whose `review_id` was hidden by a
+moderation decision is dropped. Facts input `review_id` is nullable (null for non-review events, which are never excluded).
 
 ## Configuration
 

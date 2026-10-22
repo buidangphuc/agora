@@ -10,6 +10,7 @@ the overlays you need to its `-f` list.
 | Overlay | Used by | Effect |
 |---|---|---|
 | `order-inventory.override.yaml` | order / inventory features | 20 s reservation TTL, 2 s sweep |
+| `session-retention.override.yaml` | `auth/session_retention.feature` (`@retention_override`) | team-identity `SESSION_RETENTION=5s`, `LOGIN_HISTORY_RETENTION=5s`, `SESSION_SWEEP_INTERVAL=2s`; the `@retention_default` control runs without it |
 | `payment-ledger.override.yaml` | payment ledger features | short ledger windows |
 | `search-tombstones.override.yaml` | search read-model features | 30 s tombstone TTL |
 | `llm-fake.override.yaml` | `ai/llm_*.feature` | adds the `llm-fake` provider, switches team-ai to `CHAT_BACKEND=llm_router` against it |

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
@@ -54,12 +55,12 @@ type rSessions struct {
 	calls     int
 }
 
-func (s *rSessions) RotateRefresh(ctx context.Context, p, n string, now time.Time, g, m time.Duration, ev repository.EnqueueFn) (repository.RotateResult, error) {
+func (s *rSessions) RotateRefresh(ctx context.Context, p, n string, now time.Time, g, m time.Duration, ip, device string, ev repository.EnqueueFn) (repository.RotateResult, error) {
 	s.calls++
 	if s.rotateErr != nil {
 		return repository.RotateResult{}, s.rotateErr
 	}
-	return s.InMemorySessionRepository.RotateRefresh(ctx, p, n, now, g, m, ev)
+	return s.InMemorySessionRepository.RotateRefresh(ctx, p, n, now, g, m, ip, device, ev)
 }
 
 type rEnv struct {
@@ -384,4 +385,57 @@ func TestRefreshSecretsNeverLogged(t *testing.T) {
 	if len(e.sess.OutboxRows()) == 0 {
 		t.Fatal("precondition: the reuse revocation must have written an outbox row")
 	}
+}
+
+// Scenarios: Session client context: rotation records IP via repository; refresh needs no
+// principal and grants nothing (permission). The ClientInfo in ctx is the only caller input.
+// Regression guards: behaviour delivered by 1.1/1.2, so green at base by design.
+func TestSessionClientContext_HandlerRefreshNoPrincipalRecordsClient_Permission(t *testing.T) {
+	e := newREnv(t)
+	reg, err := e.h.Register(gwCtx("203.0.113.1", "AgoraTest/1"),
+		&identityv1.RegisterRequest{Username: "alice", Password: "password123", Role: "buyer"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.clock.Advance(time.Minute)
+	ctx := gwCtx("198.51.100.4", "AgoraTest/2") // no Principal
+	res, err := e.h.RefreshSession(ctx, &identityv1.RefreshSessionRequest{RefreshToken: reg.GetResult().GetRefreshToken()})
+	if err != nil {
+		t.Fatalf("refresh without principal: %v", err)
+	}
+	if fmt.Sprint(res.GetResult().GetPrincipal().GetScopes()) != fmt.Sprint(reg.GetResult().GetPrincipal().GetScopes()) || res.GetResult().GetPrincipal().GetId() != reg.GetResult().GetPrincipal().GetId() {
+		t.Fatalf("refresh must grant nothing beyond the session owner's principal, got %v", res.GetResult().GetPrincipal())
+	}
+	items, err := e.sess.ListSessions(context.Background(), reg.GetResult().GetPrincipal().GetId())
+	if err != nil || len(items) != 1 {
+		t.Fatalf("want 1 session, got %d err=%v", len(items), err)
+	}
+	if items[0].IP != "198.51.100.4" || items[0].Device != "AgoraTest/2" {
+		t.Fatalf("want ip/device from ctx, got ip=%q device=%q", items[0].IP, items[0].Device)
+	}
+}
+
+// Scenario: Session client context: rejected refresh updates nothing (error), via the handler.
+func TestSessionClientContext_HandlerRejectedRefreshUpdatesNothing_Error(t *testing.T) {
+	e := newREnv(t)
+	reg, err := e.h.Register(gwCtx("203.0.113.1", "AgoraTest/1"),
+		&identityv1.RegisterRequest{Username: "alice", Password: "password123", Role: "buyer"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uid := reg.GetResult().GetPrincipal().GetId()
+	ctx := gwCtx("198.51.100.4", "AgoraTest/2")
+	_, err = e.h.RefreshSession(ctx, &identityv1.RefreshSessionRequest{RefreshToken: "not-a-real-token"})
+	if status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("want Unauthenticated, got %v", err)
+	}
+	items, _ := e.sess.ListSessions(context.Background(), uid)
+	if len(items) != 1 || items[0].IP != "203.0.113.1" || items[0].Device != "AgoraTest/1" {
+		t.Fatalf("rejected refresh must leave ip/device untouched, got %+v", items)
+	}
+}
+
+// gwCtx simulates the gateway-forwarded client context (no Principal).
+func gwCtx(ip, ua string) context.Context {
+	return metadata.NewIncomingContext(context.Background(), metadata.Pairs("x-client-ip", ip, "x-client-user-agent", ua))
 }

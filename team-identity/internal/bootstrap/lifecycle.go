@@ -17,6 +17,7 @@ import (
 	"github.com/buidangphuc/team-identity/internal/config"
 	"github.com/buidangphuc/team-identity/internal/events"
 	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/service"
 	"github.com/buidangphuc/team-identity/internal/upstream"
 )
 
@@ -57,6 +58,9 @@ func OpenResources(ctx context.Context, s *config.Settings, logger *slog.Logger)
 		res.Publisher = events.NoopPublisher{}
 	}
 
+	// Session retention sweeper: independent of Kafka.
+	res.startSessionSweeper(s, repository.NewPostgresSessionRepository(pool), logger)
+
 	res.Health.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 	res.startDBHealthCheck(logger)
 	return res, nil
@@ -75,6 +79,14 @@ func CloseResources(_ context.Context, res *Resources) error {
 			res.relayerDone = nil
 		}
 		res.stopRelayer = nil
+	}
+	if res.stopSweeper != nil {
+		res.stopSweeper()
+		if res.sweeperDone != nil {
+			<-res.sweeperDone
+			res.sweeperDone = nil
+		}
+		res.stopSweeper = nil
 	}
 	if res.stopHealth != nil {
 		res.stopHealth()
@@ -158,5 +170,27 @@ func (res *Resources) startRelayer(s *config.Settings, producer events.RawProduc
 	go func() {
 		defer close(res.relayerDone)
 		relayer.Run(ctx)
+	}()
+}
+
+// startSessionSweeper launches the retention sweeper in its own goroutine when
+// enabled. CloseResources cancels it and waits on sweeperDone before the pool closes.
+func (res *Resources) startSessionSweeper(s *config.Settings, repo repository.SessionRepository, logger *slog.Logger) {
+	if !s.Retention.SweepEnabled {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	res.stopSweeper = cancel
+	res.sweeperDone = make(chan struct{})
+
+	sweeper := service.NewSessionSweeper(repo, service.SessionSweeperConfig{
+		SessionRetention:      s.Retention.Session,
+		LoginHistoryRetention: s.Retention.LoginHistory,
+		Interval:              s.Retention.SweepInterval,
+		BatchSize:             s.Retention.SweepBatchSize,
+	}, logger)
+	go func() {
+		defer close(res.sweeperDone)
+		sweeper.Run(ctx)
 	}()
 }

@@ -6,8 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -426,5 +432,112 @@ func TestMarkHelpfulHiddenReviewNotFound(t *testing.T) {
 	got, _ := f.repo.GetReview(context.Background(), r.ID)
 	if got.HelpfulCount != 0 {
 		t.Fatalf("helpful_count changed to %d", got.HelpfulCount)
+	}
+}
+
+// pgSchemaPool returns a pool on a private, freshly migrated schema of the
+// throwaway TEST_DATABASE_URL database (skipped when unset). A private schema
+// keeps parallel package test binaries from dropping each other's tables.
+func pgSchemaPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	url := os.Getenv("TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	admin, err := pgxpool.New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := fmt.Sprintf("hide_%s_%d", "hdl", time.Now().UnixNano())
+	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
+		admin.Close()
+		t.Fatal(err)
+	}
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ConnConfig.RuntimeParams["search_path"] = schema
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		pool.Close()
+		_, _ = admin.Exec(ctx, "DROP SCHEMA "+schema+" CASCADE")
+		admin.Close()
+	})
+	files, _ := filepath.Glob("../../migrations/*.up.sql")
+	sort.Strings(files)
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, string(b)); err != nil {
+			t.Fatalf("migrate %s: %v", filepath.Base(f), err)
+		}
+	}
+	return pool
+}
+
+func reviewHiddenCount(t *testing.T, pool *pgxpool.Pool) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM outbox WHERE type = 'platform.engagement.v1.ReviewHidden'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// Scenario: Review hidden event: non-admin cannot trigger a fact
+func TestHideReviewNonAdminNoFact(t *testing.T) {
+	pool := pgSchemaPool(t)
+	repo := repository.NewPostgresReviewRepository(pool)
+	if _, err := repo.CreateReview(adminCtx(), repository.Review{ID: "r1", ListingID: "L1", UserID: "u1", OrderID: "O1", Rating: 1, VerifiedPurchase: true}); err != nil {
+		t.Fatal(err)
+	}
+	audit := &auditSpy{}
+	svc := service.NewReviewService(repo, nil, nil).WithAudit(audit)
+	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(), svc, nil, nil, nil)
+	hide := func(ctx context.Context) error {
+		_, err := h.HideReview(ctx, &engagementv1.HideReviewRequest{ReviewId: "r1", Reason: "spam"})
+		return err
+	}
+
+	for name, c := range map[string]struct {
+		ctx  context.Context
+		want codes.Code
+	}{
+		"buyer":        {userCtx("buyer-1"), codes.PermissionDenied},
+		"seller":       {principalCtx("s-1", commonv1.PrincipalType_PRINCIPAL_TYPE_USER, append(append([]string{}, userScopes...), "listing.write")...), codes.PermissionDenied},
+		"anonymous":    {anonCtx(), codes.Unauthenticated},
+		"no principal": {context.Background(), codes.Unauthenticated},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := hide(c.ctx); status.Code(err) != c.want {
+				t.Fatalf("want %v, got %v", c.want, err)
+			}
+			if n := reviewHiddenCount(t, pool); n != 0 {
+				t.Fatalf("ReviewHidden outbox rows = %d, want 0", n)
+			}
+			if len(audit.events) != 0 {
+				t.Fatal("audit event written for a non-admin")
+			}
+			got, err := repo.GetReview(context.Background(), "r1")
+			if err != nil || got.HiddenAt != nil {
+				t.Fatalf("review must stay visible: %+v %v", got, err)
+			}
+		})
+	}
+
+	// Control: an admin hide emits exactly one fact, so the zero counts above mean something.
+	if err := hide(adminCtx()); err != nil {
+		t.Fatal(err)
+	}
+	if n := reviewHiddenCount(t, pool); n != 1 {
+		t.Fatalf("control: ReviewHidden outbox rows = %d, want 1", n)
 	}
 }

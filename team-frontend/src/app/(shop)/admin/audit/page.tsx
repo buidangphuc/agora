@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   title: "Nhật ký kiểm toán | Sàn Thương Mại Điện Tử",
   description:
     "Tra cứu các thao tác quản trị: ai đã làm gì, lên đối tượng nào, vào lúc nào.",
+  referrer: "no-referrer",
 };
 
 export const dynamic = "force-dynamic";

@@ -35,7 +35,7 @@ Generated services in use (`src/generated/platform/*`, from the vendored `proto/
 
 Login/register forward the browser IP and user agent to the gateway (`src/lib/gateway/client-context.ts`): the `X-Forwarded-For` entry `TRUSTED_PROXY_HOPS` places from the right, never the client-controlled leftmost one. The gateway trusts it only from this server (`TRUSTED_PROXIES=team-frontend-svc` in compose).
 
-Session: login stores the JWT in cookie `session` (`httpOnly`, `sameSite=lax`, `path=/`, `maxAge=3600`) and the rotating refresh token in cookie `agora_refresh` (`maxAge=2592000`, 30 days; `src/features/auth/actions.ts`, `src/lib/gateway/session-cookie.ts`). The server attaches the access token as `Authorization: Bearer`. Both cookies are `secure` only when the request carries `X-Forwarded-Proto: https`.
+Session: login stores the JWT in cookie `session` (`httpOnly`, `sameSite=lax`, `path=/`, `maxAge=3600`) and the rotating refresh token in cookie `agora_refresh` (`maxAge=2592000`, 30 days; `src/features/auth/actions.ts`, `src/lib/gateway/session-cookie.ts`). The server attaches the access token as `Authorization: Bearer`. Both cookies are `secure` when `COOKIE_SECURE=true`, or else only when the request carries `X-Forwarded-Proto: https`.
 
 ## 2. Events
 
@@ -56,6 +56,7 @@ Read by the code (see `.env.example`; there is no drift gate for this repo):
 | `OTEL_SERVICE_NAME` | `team-frontend` | `src/lib/gateway/config.ts` |
 | `FEATURE_FLAGS_ENABLED` | `true` (anything but `false` enables) | `src/lib/flags/config.ts` |
 | `FLIPT_ADDR` | `flipt:8080` (`http://` prepended if missing; Flipt REST port) | `src/lib/flags/config.ts` |
+| `COOKIE_SECURE` | unset (`true` forces the `Secure` cookie attribute; server-only, TLS environments only, never plain http; unset keeps the `X-Forwarded-Proto` rule) | `src/lib/gateway/session-cookie.ts` |
 | `TRUSTED_PROXY_HOPS` | `1` (values below 1 or non-numeric fall back to 1) | `src/lib/gateway/client-context.ts` |
 | `NEXT_PUBLIC_GTM_ID` | empty, GTM disabled (Dockerfile build `ARG`, inlined at build) | `src/lib/analytics/destinations/gtm.ts` |
 | `NEXT_PUBLIC_MEDIA_BASE_URL` | `http://localhost:9000/listing-images` | `src/lib/media.ts` |
@@ -124,7 +125,6 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 
 ## 9. Known gaps
 
-- Cookies are `secure` only when `X-Forwarded-Proto: https` reaches the server (`isSecureRequest`); a TLS-terminating proxy that does not set that header leaves them non-secure.
 - `/api/suggest` and `/api/listings` swallow every error and return empty results, hiding gateway outages from the UI.
 - `.env.example` omits `NEXT_PUBLIC_MEDIA_BASE_URL`, whose default points at a local MinIO URL that is wrong outside local dev.
 - `FEATURES.yaml` has 7 `planned` features with no automated coverage yet.

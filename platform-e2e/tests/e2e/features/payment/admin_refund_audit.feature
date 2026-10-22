@@ -47,3 +47,37 @@ Feature: An admin refund is audited before money moves
     Then the call fails with "permission_denied"
     And the payment read by "b1" reads PAID with a refunded amount of 0 and no refund
     And no audit event exists for the payment
+
+  # payment-refund-audit-id: the audit row carries the idempotency key of the refund.
+  # Refund ids are global keys, so a label such as "rf-e2e-1" is expanded to a per-run unique id
+  # ("rf-e2e-1-<hex>"); the steps assert against the expanded value.
+  Scenario: Refund audit id: Admin refund audit row exposes refund_id end to end
+    Given a seller with a listing "L" whose order pays 500000
+    And a buyer "b1"
+    And "b1" has paid an order of "L" and the seller is credited
+    And a logged-in admin
+    When the admin refunds 200000 of the payment with refund id "rf-e2e-1"
+    Then the call succeeds
+    And exactly one payment.admin_refund audit event exists for the payment with metadata refund id "rf-e2e-1" and amount "200000"
+
+  Scenario: Refund audit id: Replayed refund_id is traceable end to end
+    Given a seller with a listing "L" whose order pays 500000
+    And a buyer "b1"
+    And "b1" has paid an order of "L" and the seller is credited
+    And a logged-in admin
+    When the admin refunds 100000 of the payment with refund id "rf-e2e-2"
+    And the admin refunds 100000 of the payment with refund id "rf-e2e-2"
+    And the admin refunds 100000 of the payment with refund id "rf-e2e-3"
+    Then the payment read by "b1" reads PARTIALLY_REFUNDED with a refunded amount of 200000
+    And every payment.admin_refund audit event for the payment carries a refund id of "rf-e2e-2" or "rf-e2e-3" and both appear
+
+  Scenario: Refund audit id: Non-admin cannot read the refund audit row end to end
+    Given a seller with a listing "L" whose order pays 500000
+    And a buyer "b1"
+    And "b1" has paid an order of "L" and the seller is credited
+    And a logged-in admin
+    When the admin refunds 200000 of the payment with refund id "rf-e2e-4"
+    Then the call succeeds
+    And exactly one payment.admin_refund audit event exists for the payment with metadata refund id "rf-e2e-4" and amount "200000"
+    When "b1" queries the audit log for the payment
+    Then the audit query is denied with "permission_denied" and returns no events

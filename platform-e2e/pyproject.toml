@@ -53,6 +53,8 @@ markers = [
     "chat: buyer seller messaging and threads",
     "destructive: stops a real stack service, turns off a stack-wide switch (checkout-enabled) or needs an idle stack for the scenario (restored in teardown); never run in parallel",
     "freshVisitor: starts with no agora_consent cookie so the consent banner shows (default pre-seeds a grant)",
+    "retention_override: needs compose/session-retention.override.yaml on team-identity (5 s retention, 2 s sweep)",
+    "retention_default: control that needs the default stack (no session-retention override)",
     "slow: waits on a real timer (a prune cycle, an expiry) and takes over a minute",
     "lifecycle_timers: waits on the short order-lifecycle timers of compose/order-inventory.override.yaml (payment deadline, auto-complete, return window, ship-by)",
     "lifecycle_ui: order lifecycle buyer and seller UI (change frontend-order-lifecycle)",

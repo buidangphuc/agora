@@ -2,3 +2,5 @@
 ingress:
   enabled: true
   host: www.staging.example.com
+env:
+  COOKIE_SECURE: "true"

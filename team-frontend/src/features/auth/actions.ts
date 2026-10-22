@@ -51,12 +51,14 @@ function failure(
 }
 
 const AUTH_EVT_COOKIE = "agora_auth_evt";
-const AUTH_EVT_OPTS = {
-  maxAge: 60,
-  sameSite: "lax",
-  path: "/",
-  httpOnly: false,
-} as const;
+const AUTH_EVT_OPTS = (secure: boolean) =>
+  ({
+    maxAge: 60,
+    sameSite: "lax",
+    path: "/",
+    httpOnly: false,
+    secure,
+  }) as const;
 
 async function setSession(token: string, refreshToken: string) {
   const jar = await cookies();
@@ -117,7 +119,11 @@ export async function loginAction(
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
   await setSession(token, refreshToken);
-  (await cookies()).set(AUTH_EVT_COOKIE, "login", AUTH_EVT_OPTS);
+  (await cookies()).set(
+    AUTH_EVT_COOKIE,
+    "login",
+    AUTH_EVT_OPTS(isSecureRequest(await headers())),
+  );
   redirect(safeReturnUrl(String(formData.get("returnUrl") ?? "")));
 }
 
@@ -156,23 +162,28 @@ export async function registerAction(
   }
   if (!token) return failure(username, "Không nhận được phiên đăng nhập.");
   await setSession(token, refreshToken);
-  (await cookies()).set(AUTH_EVT_COOKIE, "sign_up", AUTH_EVT_OPTS);
+  (await cookies()).set(
+    AUTH_EVT_COOKIE,
+    "sign_up",
+    AUTH_EVT_OPTS(isSecureRequest(await headers())),
+  );
   redirect(safeReturnUrl(String(formData.get("returnUrl") ?? "")));
 }
 
 export async function logoutAction() {
   const jar = await cookies();
   try {
+    const client = clientContextFrom(await headers());
     let bearer: string | undefined;
     const access = jar.get(SESSION_COOKIE)?.value;
     const refresh = jar.get(REFRESH_COOKIE)?.value;
     if (access && isUsableToken(access)) {
       bearer = access;
     } else if (refresh) {
-      bearer = (await refreshSession(refresh)).token || undefined;
+      bearer = (await refreshSession(refresh, client)).token || undefined;
     }
     const sid = bearer ? sessionIdOf(bearer) : undefined;
-    if (bearer && sid) await revokeOwnSession(sid, bearer);
+    if (bearer && sid) await revokeOwnSession(sid, bearer, client);
   } catch {
     // Best effort: logout must always clear the cookies.
   }

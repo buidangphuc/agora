@@ -1951,3 +1951,153 @@ features:
     status: automated
     covered_by: "payment/unpaid_cancel.feature::Another buyer cannot pay a cancelled order's transaction"
     notes: "payment-unpaid-cancel e2e."
+
+  - id: payment.prai-admin-refund-audit-row-exposes-refund-id-end-to-end
+    title: "Refund audit id: Admin refund audit row exposes refund_id end to end"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Admin refund audit row exposes refund_id end to end"
+    entry_route: /
+    services: [team-payment, team-audit]
+    acceptance:
+      - "Refund audit id: Admin refund audit row exposes refund_id end to end"
+      - "Then QueryAuditLog by payment id returns exactly one payment.admin_refund event with metadata refund_id and amount 200000"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Refund audit id: Admin refund audit row exposes refund_id end to end"
+    notes: "payment-refund-audit-id e2e; green against the rebuilt stack."
+
+  - id: payment.prai-replayed-refund-id-is-traceable-end-to-end
+    title: "Refund audit id: Replayed refund_id is traceable end to end"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Replayed refund_id is traceable end to end"
+    entry_route: /
+    services: [team-payment, team-audit]
+    acceptance:
+      - "Refund audit id: Replayed refund_id is traceable end to end"
+      - "Then every payment.admin_refund event carries refund_id rf-e2e-2 or rf-e2e-3, refunded total counts rf-e2e-2 once"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Refund audit id: Replayed refund_id is traceable end to end"
+    notes: "payment-refund-audit-id e2e; green against the rebuilt stack."
+
+  - id: payment.prai-non-admin-cannot-read-the-refund-audit-row-end-to-end
+    title: "Refund audit id: Non-admin cannot read the refund audit row end to end"
+    persona: buyer
+    priority: P2
+    summary: "Refund audit id: Non-admin cannot read the refund audit row end to end"
+    entry_route: /
+    services: [team-payment, team-audit]
+    acceptance:
+      - "Refund audit id: Non-admin cannot read the refund audit row end to end"
+      - "Then the buyer's QueryAuditLog is denied with permission_denied and returns no events"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Refund audit id: Non-admin cannot read the refund audit row end to end"
+    notes: "payment-refund-audit-id e2e; green against the rebuilt stack."
+
+  - id: payment.prai-admin-refund-event-carries-refund-id
+    title: "Refund audit id: Admin refund event carries refund_id"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Admin refund event carries refund_id"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Admin refund event carries refund_id (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditCarriesRefundID`. Not producible end to end."
+
+  - id: payment.prai-audit-client-puts-refund-id-in-metadata
+    title: "Refund audit id: Audit client puts refund_id in metadata"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Audit client puts refund_id in metadata"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Audit client puts refund_id in metadata (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/upstream` `TestAuditClientRefundIDDistinctAndVerbatim`. Not producible end to end."
+
+  - id: payment.prai-retry-with-the-same-refund-id-is-distinguishable
+    title: "Refund audit id: Retry with the same refund_id is distinguishable"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Retry with the same refund_id is distinguishable"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Retry with the same refund_id is distinguishable (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundRetryKeepsRefundID`. Not producible end to end."
+
+  - id: payment.prai-audit-is-still-written-before-the-refund
+    title: "Refund audit id: Audit is still written before the refund"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Audit is still written before the refund"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Audit is still written before the refund (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditBeforeRefund`. Not producible end to end."
+
+  - id: payment.prai-invalid-refund-id-writes-no-event
+    title: "Refund audit id: Invalid refund_id writes no event"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Invalid refund_id writes no event"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Invalid refund_id writes no event (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundInvalidRefundIDWritesNoEvent`. Not producible end to end."
+
+  - id: payment.prai-boundary-64-character-refund-id-is-recorded-intact
+    title: "Refund audit id: Boundary 64-character refund_id is recorded intact"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Boundary 64-character refund_id is recorded intact"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Boundary 64-character refund_id is recorded intact (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditRefundIDMaxLength`. Not producible end to end."
+
+  - id: payment.prai-audit-failure-still-refuses-the-refund
+    title: "Refund audit id: Audit failure still refuses the refund"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Audit failure still refuses the refund"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Audit failure still refuses the refund (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditErrorLeavesLedgerUnchanged`. Not producible end to end."

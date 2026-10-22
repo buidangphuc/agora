@@ -6,6 +6,7 @@
  */
 
 import type { ConsentGroups } from "@/lib/consent/consent";
+import { scrubReferrer } from "../scrub";
 
 const SCRIPT_SELECTOR = 'script[src*="googletagmanager.com/gtm.js"]';
 
@@ -32,13 +33,28 @@ function consentEntries(layer: unknown[]): [string, Signals][] {
   return out;
 }
 
-function currentPageLocation(): string {
-  const loc = new URL(window.location.href);
+/** True for /admin and /admin/... (segment exact, case-insensitive). */
+function isAdminPath(pathname: string): boolean {
+  return /^\/admin(\/|$)/i.test(pathname);
+}
+
+/** page_location for analytics: admin paths lose all query+hash; others lose returnUrl. */
+export function pageLocationFor(href: string): string {
+  const loc = new URL(href);
+  if (isAdminPath(loc.pathname)) {
+    loc.search = "";
+    loc.hash = "";
+    return loc.toString();
+  }
   if (loc.searchParams.has("returnUrl")) {
     loc.searchParams.delete("returnUrl");
     return loc.toString();
   }
   return loc.href;
+}
+
+function currentPageLocation(): string {
+  return pageLocationFor(window.location.href);
 }
 
 /** Pushes the current page_location (without returnUrl) after a client-side navigation. */
@@ -50,7 +66,10 @@ export function trackPageLocation(): void {
     .filter(([k]) => k === "update")
     .pop()?.[1];
   if (granted?.analytics_storage !== "granted") return;
-  layer.push({ page_location: currentPageLocation() });
+  layer.push({
+    page_location: currentPageLocation(),
+    page_referrer: scrubReferrer(document.referrer),
+  });
 }
 
 export function applyConsent(groups: ConsentGroups): void {
@@ -108,7 +127,10 @@ export function applyConsent(groups: ConsentGroups): void {
           typeof (e as { page_location?: unknown }).page_location === "string",
       ) as { page_location: string } | undefined;
     if (lastPage?.page_location !== pageLocation) {
-      layer.push({ page_location: pageLocation });
+      layer.push({
+        page_location: pageLocation,
+        page_referrer: scrubReferrer(document.referrer),
+      });
     }
 
     const gtmId = process.env.NEXT_PUBLIC_GTM_ID?.trim();
