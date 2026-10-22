@@ -1,7 +1,7 @@
 # [W2-T1] domain-admin-listing-audit
 
 ## Role
-feature-run worker (change `openspec/changes/domain-admin-listing-audit`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-domain-admin-listing-audit`)
 
 ## Objective
 Implement OpenSpec change `domain-admin-listing-audit` test-first per its tasks.md (scenario ids there); context in plans/q3-audit-log/00-spec.md and the change's design.md Clarifications.
@@ -30,7 +30,7 @@ Implement OpenSpec change `domain-admin-listing-audit` test-first per its tasks.
 - platform-e2e/tests/e2e/step_definitions/test_listing_admin_audit.py
 
 ## Read-only dependencies
-- openspec/changes/domain-admin-listing-audit/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-domain-admin-listing-audit/** (frozen by LOCK.md digest)
 - team-domain/proto/platform/audit/v1/audit.proto (vendored by q3-audit-log-contract; regenerate gitignored `generated/` with `make proto`, never hand-edit)
 - platform-e2e/tests/e2e/support/audit_support.py (audit-query-filters output; import only, never edit)
 - team-domain/internal/handler/listing_test.go, team-domain/internal/handler/listing_visibility_test.go (principal helpers to mirror)

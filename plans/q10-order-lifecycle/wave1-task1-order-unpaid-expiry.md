@@ -1,7 +1,7 @@
 # [W1-T1] order-unpaid-expiry
 
 ## Role
-feature-run worker (change `openspec/changes/order-unpaid-expiry`, owner team-order)
+feature-run worker (change `openspec/changes/archive/2026-10-18-order-unpaid-expiry`, owner team-order)
 
 ## Objective
 Implement OpenSpec change `order-unpaid-expiry` test-first per its tasks.md (scenario ids there); context in plans/q10-order-lifecycle/00-spec.md and the change's design.md Clarifications.
@@ -35,14 +35,14 @@ Implement OpenSpec change `order-unpaid-expiry` test-first per its tasks.md (sce
 - platform-e2e/tests/e2e/support/**
 - platform-e2e/tests/e2e/features/order/unpaid_expiry.feature
 - platform-e2e/tests/e2e/step_definitions/test_order_unpaid_expiry.py
-- openspec/changes/order-unpaid-expiry/**
+- openspec/changes/archive/2026-10-18-order-unpaid-expiry/**
 - team-order/.env.example (# widened at build: task 2)
 - plans/q10-order-lifecycle/wave1-task1-order-unpaid-expiry.md (# widened at build: task 2; packet widening record)
 - team-order/internal/consumer/payment.go (# widened at build: task 4)
 - team-order/cmd/server/lifecycle_sweeper_test.go (# widened at build: task 8)
 
 ## Read-only dependencies
-- openspec/changes/order-unpaid-expiry/** is frozen by its LOCK.md digest except tasks.md ticks
+- openspec/changes/archive/2026-10-18-order-unpaid-expiry/** is frozen by its LOCK.md digest except tasks.md ticks
 - team-order runReservationSweeper, ReservationTTL accessor, cancel/ForceFailSaga paths (pattern)
 - platform-e2e/tests/e2e/support/oic_order_support.py and order_events_published.feature helpers (reuse)
 - plans/q10-order-lifecycle/00-spec.md, slices.yaml, LOCK.md

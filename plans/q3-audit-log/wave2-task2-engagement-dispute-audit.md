@@ -1,7 +1,7 @@
 # [W2-T2] engagement-dispute-audit
 
 ## Role
-feature-run worker (change `openspec/changes/engagement-dispute-audit`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-engagement-dispute-audit`)
 
 ## Objective
 Implement OpenSpec change `engagement-dispute-audit` test-first per its tasks.md (scenario ids there); context in plans/q3-audit-log/00-spec.md and the change's design.md Clarifications.
@@ -27,7 +27,7 @@ Implement OpenSpec change `engagement-dispute-audit` test-first per its tasks.md
 - platform-e2e/tests/e2e/step_definitions/test_dispute_audit.py
 
 ## Read-only dependencies
-- openspec/changes/engagement-dispute-audit/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-engagement-dispute-audit/** (frozen by LOCK.md digest)
 - team-engagement/proto/platform/audit/v1/audit.proto (vendored by q3-audit-log-contract; regenerate gitignored `generated/` with `make proto`, never hand-edit)
 - platform-e2e/tests/e2e/support/audit_support.py (audit-query-filters output; import only, never edit)
 - platform-e2e/tests/e2e/step_definitions/group_b_steps.py, platform-e2e/tests/e2e/step_definitions/disputes_access_steps.py (dispute steps to reuse)

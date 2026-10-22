@@ -1,7 +1,7 @@
 # [W3-T1] frontend-login-return
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-login-return`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-frontend-login-return`)
 
 ## Objective
 Implement OpenSpec change `frontend-login-return` test-first per its tasks.md (scenario ids there); context in plans/q1-session-continuity/00-spec.md (incl. Amendments) and the change's design.md Clarifications.
@@ -45,7 +45,7 @@ Implement OpenSpec change `frontend-login-return` test-first per its tasks.md (s
 - platform-e2e/src/pages/** (new page objects only)
 
 ## Read-only dependencies
-- openspec/changes/frontend-login-return/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-frontend-login-return/** (frozen by LOCK.md digest)
 - plans/q1-session-continuity/00-spec.md, plans/q1-session-continuity/slices.yaml, plans/q1-session-continuity/LOCK.md (reviewer notes)
 
 ## Verify

@@ -8151,7 +8151,7 @@ features:
     status: automated
     covered_by: "tracking/ga4_destination.feature::gaClientId is bounded to 64 characters"
 
-  # ── frontend-session-continuity (openspec/changes/frontend-session-continuity) ──
+  # ── frontend-session-continuity (openspec/changes/archive/2026-10-18-frontend-session-continuity) ──
 
   - id: auth.session-continuity-s1
     title: "S1 Login sets both cookies"
@@ -8575,7 +8575,7 @@ features:
     status: not-testable
     notes: "frontend-session-continuity S26: VERIFIED BY team-frontend/src/middleware.test.ts middleware.test.ts (incoming x-pathname overwritten by the real path and query). The render-visible header has no observable signal end to end (see S23)."
 
-  # ── frontend-login-return (openspec/changes/frontend-login-return) ──
+  # ── frontend-login-return (openspec/changes/archive/2026-10-18-frontend-login-return) ──
 
   - id: auth.login-return.same-origin-path-with-query-is-kept
     title: "Same-origin path with query is kept"
@@ -8884,7 +8884,7 @@ features:
       - "Then zero matches remain; all guards call `redirectToLogin`"
     tags: [auth, login-return, unit]
     status: not-testable
-    notes: "frontend-login-return: VERIFIED BY `team-frontend/src/features/auth/guards.test.ts` `no bare redirect to login` (static scan, cannot be produced end to end)"
+    notes: "frontend-login-return: VERIFIED BY `team-frontend/src/app/guards.test.ts` `no bare redirect to login` (static scan, cannot be produced end to end)"
 
   - id: auth.login-return.signed-in-user-without-the-scope-is-not-redirected-to-login
     title: "Signed-in user without the scope is not redirected to login"

@@ -1,7 +1,7 @@
 # [W1-T2] gateway-loop-event-intake
 
 ## Role
-feature-run worker (change `openspec/changes/gateway-loop-event-intake`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-gateway-loop-event-intake`)
 
 ## Objective
 Implement OpenSpec change `gateway-loop-event-intake` test-first per its tasks.md (scenario ids there); context in plans/q4-loop-instrumentation/00-spec.md and the change's design.md Clarifications.
@@ -16,7 +16,7 @@ Implement OpenSpec change `gateway-loop-event-intake` test-first per its tasks.m
 - platform-e2e/tests/e2e/step_definitions/test_loop_event_intake.py
 
 ## Read-only dependencies
-- openspec/changes/gateway-loop-event-intake/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-gateway-loop-event-intake/** (frozen by LOCK.md digest)
 - platform-e2e/tests/e2e/step_definitions/tracking_steps.py, tii_validation_steps.py (import, never edit)
 - plans/q4-loop-instrumentation/00-spec.md, slices.yaml, LOCK.md
 

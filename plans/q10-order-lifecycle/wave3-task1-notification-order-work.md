@@ -1,7 +1,7 @@
 # [W3-T1] notification-order-work
 
 ## Role
-feature-run worker (change `openspec/changes/notification-order-work`, owner team-notification)
+feature-run worker (change `openspec/changes/archive/2026-10-18-notification-order-work`, owner team-notification)
 
 ## Objective
 Implement OpenSpec change `notification-order-work` test-first per its tasks.md (scenario ids there); context in plans/q10-order-lifecycle/00-spec.md and the change's design.md Clarifications.
@@ -30,10 +30,10 @@ Implement OpenSpec change `notification-order-work` test-first per its tasks.md 
 - platform-e2e/tests/e2e/support/**
 - platform-e2e/tests/e2e/features/notification/order_work.feature
 - platform-e2e/tests/e2e/step_definitions/test_notification_order_work.py
-- openspec/changes/notification-order-work/**
+- openspec/changes/archive/2026-10-18-notification-order-work/**
 
 ## Read-only dependencies
-- openspec/changes/notification-order-work/** is frozen by its LOCK.md digest except tasks.md ticks
+- openspec/changes/archive/2026-10-18-notification-order-work/** is frozen by its LOCK.md digest except tasks.md ticks
 - team-notification/internal/consumer/user_events_test.go fakes, durable_state_pg_test.go (pattern)
 - order helpers from order-unpaid-expiry / order-receipt-completion in support/ (extend, reuse before adding)
 - plans/q10-order-lifecycle/00-spec.md, slices.yaml, LOCK.md

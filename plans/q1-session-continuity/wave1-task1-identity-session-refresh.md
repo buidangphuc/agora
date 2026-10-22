@@ -1,7 +1,7 @@
 # [W1-T1] identity-session-refresh
 
 ## Role
-feature-run worker (change `openspec/changes/identity-session-refresh`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-identity-session-refresh`)
 
 ## Objective
 Implement OpenSpec change `identity-session-refresh` test-first per its tasks.md (scenario ids there); context in plans/q1-session-continuity/00-spec.md (incl. Amendments) and the change's design.md Clarifications.
@@ -41,7 +41,7 @@ Implement OpenSpec change `identity-session-refresh` test-first per its tasks.md
 - platform-e2e/src/pages/** (new page objects only)
 
 ## Read-only dependencies
-- openspec/changes/identity-session-refresh/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-identity-session-refresh/** (frozen by LOCK.md digest)
 - plans/q1-session-continuity/00-spec.md, plans/q1-session-continuity/slices.yaml, plans/q1-session-continuity/LOCK.md (reviewer notes)
 
 ## Verify

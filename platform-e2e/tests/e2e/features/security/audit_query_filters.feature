@@ -1,6 +1,6 @@
 Feature: Audit log query filters
   An admin can narrow QueryAuditLog by target id, action and time range through the
-  gateway. Scenario names echo the spec scenarios of openspec/changes/audit-query-filters.
+  gateway. Scenario names echo the spec scenarios of openspec/changes/archive/2026-10-18-audit-query-filters.
   Rows are seeded straight into audit_db with a fresh target per scenario.
 
   Scenario: An admin filters the audit log by target (Target id and target type narrow to one target)

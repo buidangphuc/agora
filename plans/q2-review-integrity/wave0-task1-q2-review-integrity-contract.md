@@ -1,7 +1,7 @@
 # [W0-T1] q2-review-integrity-contract
 
 ## Role
-feature-run worker (change `openspec/changes/q2-review-integrity-contract`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-q2-review-integrity-contract`)
 
 ## Objective
 Implement OpenSpec change `q2-review-integrity-contract` test-first per its tasks.md (scenario ids there); context in plans/q2-review-integrity/00-spec.md.
@@ -18,7 +18,7 @@ Implement OpenSpec change `q2-review-integrity-contract` test-first per its task
 - team-frontend/proto/platform/engagement/v1/engagement.proto
 
 ## Read-only dependencies
-- openspec/changes/q2-review-integrity-contract/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-q2-review-integrity-contract/** (frozen by LOCK.md digest)
 - plans/q2-review-integrity/00-spec.md, plans/q2-review-integrity/slices.yaml, plans/q2-review-integrity/LOCK.md
 
 ## Verify

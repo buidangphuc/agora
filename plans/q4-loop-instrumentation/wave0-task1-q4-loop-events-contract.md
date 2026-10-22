@@ -1,7 +1,7 @@
 # [W0-T1] q4-loop-events-contract
 
 ## Role
-feature-run worker (change `openspec/changes/q4-loop-events-contract`)
+feature-run worker (change `openspec/changes/archive/2026-10-18-q4-loop-events-contract`)
 
 ## Objective
 Implement OpenSpec change `q4-loop-events-contract` test-first per its tasks.md (scenario ids there); context in plans/q4-loop-instrumentation/00-spec.md and the change's design.md Clarifications.
@@ -16,7 +16,7 @@ Implement OpenSpec change `q4-loop-events-contract` test-first per its tasks.md 
 - platform-core/FEATURES.yaml
 
 ## Read-only dependencies
-- openspec/changes/q4-loop-events-contract/** (frozen by LOCK.md digest)
+- openspec/changes/archive/2026-10-18-q4-loop-events-contract/** (frozen by LOCK.md digest)
 - platform-core/packages/proto/platform/analytics/v1/consent_compat_test.go (pattern to mirror)
 - plans/q4-loop-instrumentation/00-spec.md, slices.yaml, LOCK.md
 
