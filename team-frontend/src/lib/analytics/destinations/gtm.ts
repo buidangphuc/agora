@@ -46,8 +46,9 @@ export function pageLocationFor(href: string): string {
     loc.hash = "";
     return loc.toString();
   }
-  if (loc.searchParams.has("returnUrl")) {
+  if (loc.searchParams.has("returnUrl") || loc.searchParams.has("items")) {
     loc.searchParams.delete("returnUrl");
+    loc.searchParams.delete("items");
     return loc.toString();
   }
   return loc.href;
