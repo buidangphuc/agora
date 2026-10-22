@@ -3,20 +3,18 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Descriptions } from "@/components/ui/Descriptions";
-import { Image } from "@/components/ui/Image";
-import { PriceTag } from "@/components/ui/PriceTag";
 import { Radio } from "@/components/ui/Radio";
 import { Tag } from "@/components/ui/Tag";
 import { formatPrice } from "@/components/ui/format";
 import { AddressSelectorModal } from "@/features/address/AddressSelectorModal";
-import { formatAddress } from "@/features/address/formatAddress";
 import { linkButtonPrimary } from "@/features/cart/linkButton";
 import { VoucherModal } from "@/features/voucher/VoucherModal";
 import type { EcommerceItem } from "@/lib/analytics";
 import type { ViewAddress } from "@/lib/gateway/addresses";
 import type { ViewCartItem } from "@/lib/gateway/cart";
+import type { ViewCheckoutGroup } from "@/lib/gateway/orders";
 import type { ViewVoucher } from "@/lib/gateway/promotion";
-import { getImageUrl } from "@/lib/media";
+import { CheckoutGroups } from "./CheckoutGroups";
 import { PaymentOptionsGrid } from "./PaymentOptionsGrid";
 import { PlaceOrderForm } from "./PlaceOrderForm";
 import { type CheckoutState, checkoutHref } from "./checkoutParams";
@@ -78,9 +76,13 @@ export function AddressStep({
 export function ShippingStep({
   shipping,
   state,
+  groups,
+  items,
 }: {
   shipping: ShippingFee;
   state: CheckoutState;
+  groups: ViewCheckoutGroup[];
+  items: ViewCartItem[];
 }) {
   return (
     <div className="space-y-4">
@@ -89,7 +91,7 @@ export function ShippingStep({
           <CardTitle>Phương thức vận chuyển</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border-strong bg-surface-muted p-3.5 ring-2 ring-focus-ring">
+          <div className="space-y-4">
             <Radio
               name="shippingMethod"
               value="standard"
@@ -98,11 +100,7 @@ export function ShippingStep({
               label="Giao hàng tiêu chuẩn"
               description="Phí vận chuyển ước tính theo địa chỉ nhận hàng."
             />
-            {shipping.isFree ? (
-              <Tag color="success">Freeship</Tag>
-            ) : (
-              <PriceTag price={shipping.fee} size="md" />
-            )}
+            <CheckoutGroups groups={groups} items={items} shippingQuoted />
           </div>
         </CardContent>
       </Card>
@@ -141,7 +139,7 @@ export function PaymentStep({
         vouchers={vouchers}
         subtotal={subtotal}
         sellerId={sellerId}
-        appliedCode={state.voucher}
+        appliedCode={state.pv}
         appliedDiscount={appliedDiscount}
       />
       <StepActions
@@ -156,13 +154,20 @@ export function ConfirmStep({
   state,
   address,
   items,
+  groups,
+  shippingQuoted,
   shipping,
   total,
   trackItems,
 }: {
   state: CheckoutState;
-  address: ViewAddress;
+  address: Pick<
+    ViewAddress,
+    "id" | "recipientName" | "phone" | "street" | "ward" | "district" | "city"
+  >;
   items: ViewCartItem[];
+  groups: ViewCheckoutGroup[];
+  shippingQuoted: boolean;
   shipping: ShippingFee;
   total: number;
   trackItems: EcommerceItem[];
@@ -186,7 +191,14 @@ export function ConfirmStep({
               {
                 key: "address",
                 label: "Địa chỉ",
-                children: formatAddress(address),
+                children: [
+                  address.street,
+                  address.ward,
+                  address.district,
+                  address.city,
+                ]
+                  .filter(Boolean)
+                  .join(", "),
               },
               {
                 key: "shipping",
@@ -210,40 +222,21 @@ export function ConfirmStep({
               {
                 key: "voucher",
                 label: "Mã giảm giá",
-                children: state.voucher ?? "-",
+                children: state.pv ?? "-",
               },
             ]}
           />
-          <ul className="divide-y divide-border-subtle rounded-xl border border-border-subtle">
-            {items.map((it) => (
-              <li key={it.id} className="flex items-center gap-3 p-3">
-                <div className="w-16 shrink-0">
-                  <Image
-                    src={getImageUrl(it.imageUrl)}
-                    alt={it.title}
-                    aspect="square"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="line-clamp-1 text-sm font-medium text-text-primary">
-                    {it.title}
-                  </p>
-                  <p className="text-xs text-text-secondary">
-                    {it.variantName ? `Phân loại: ${it.variantName} · ` : ""}x
-                    {it.quantity}
-                  </p>
-                </div>
-                <PriceTag price={it.unitPrice * it.quantity} size="sm" />
-              </li>
-            ))}
-          </ul>
+          <CheckoutGroups
+            groups={groups}
+            items={items}
+            shippingQuoted={shippingQuoted}
+          />
         </CardContent>
       </Card>
       <PlaceOrderForm
         addressId={address.id}
         method={state.pay}
-        voucherCode={state.voucher}
+        voucherCode={state.pv}
         total={total}
         shippingTier={shipping.isFree ? "FREE" : "STANDARD"}
         items={trackItems}
