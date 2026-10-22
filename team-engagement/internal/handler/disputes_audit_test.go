@@ -78,7 +78,7 @@ const (
 // Scenario: Dispute audit: Admin resolves a dispute and one event is written
 func TestResolveDisputeWritesAuditEvent(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusOpen)
+	id := f.seed(t, repository.DisputeStatusInvestigating)
 	if err := f.resolve(adminCtxAs("adm-1"), id, stResolved, "refund buyer"); err != nil {
 		t.Fatalf("ResolveDispute: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestResolveDisputeWritesAuditEvent(t *testing.T) {
 	if ev.Action != "dispute.resolve" || ev.TargetType != "dispute" || ev.TargetID != id || ev.ActorID != "adm-1" {
 		t.Errorf("unexpected event %+v", ev)
 	}
-	if m := ev.Metadata; len(m) != 3 || m["resolution"] != "refund buyer" || m["order_id"] != "o-1" || m["status"] != "resolved" {
+	if m := ev.Metadata; len(m) != 5 || m["ruling"] != "" || m["return_id"] != "" || m["resolution"] != "refund buyer" || m["order_id"] != "o-1" || m["status"] != "resolved" {
 		t.Errorf("metadata = %v", m)
 	}
 }
@@ -128,7 +128,7 @@ func TestResolveDisputeAuditsEveryStatus(t *testing.T) {
 // Scenario: Dispute audit: Resolution note is trimmed in the event
 func TestResolveDisputeAuditResolutionTrimmed(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusOpen)
+	id := f.seed(t, repository.DisputeStatusInvestigating)
 	if err := f.resolve(adminCtx(), id, stResolved, "  refund  "); err != nil {
 		t.Fatal(err)
 	}
@@ -158,12 +158,12 @@ func TestResolveDisputeEmptyResolutionAudited(t *testing.T) {
 // Scenario: Dispute audit: Audit error leaves the dispute open (handler maps to Unavailable)
 func TestResolveDisputeAuditDownIsUnavailable(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusOpen)
+	id := f.seed(t, repository.DisputeStatusInvestigating)
 	f.audit.err = errors.New("team-audit down")
 	if got := status.Code(f.resolve(adminCtx(), id, stResolved, "x")); got != codes.Unavailable {
 		t.Fatalf("want Unavailable, got %v", got)
 	}
-	if d := f.stored(t, id); d.Status != repository.DisputeStatusOpen || d.Resolution != "" {
+	if d := f.stored(t, id); d.Status != repository.DisputeStatusInvestigating || d.Resolution != "" {
 		t.Fatalf("dispute must be unchanged: %+v", d)
 	}
 }
@@ -176,12 +176,12 @@ func TestResolveDisputeNoAuditConfiguredIsUnavailable(t *testing.T) {
 		service.NewQAService(repository.NewInMemoryQARepository(), nil),
 		service.NewDisputeService(repo, nil),
 		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil))
-	d, _ := repo.CreateDispute(context.Background(), repository.Dispute{OrderID: "o-1", ClaimantID: "b", DefendantID: "s", Reason: "r", Status: repository.DisputeStatusOpen})
+	d, _ := repo.CreateDispute(context.Background(), repository.Dispute{OrderID: "o-1", ClaimantID: "b", DefendantID: "s", Reason: "r", Status: repository.DisputeStatusInvestigating})
 	_, err := h.ResolveDispute(adminCtx(), &engagementv1.ResolveDisputeRequest{DisputeId: d.ID, Status: stResolved})
 	if status.Code(err) != codes.Unavailable {
 		t.Fatalf("want Unavailable, got %v", err)
 	}
-	if got, _ := repo.GetDispute(context.Background(), d.ID); got.Status != repository.DisputeStatusOpen {
+	if got, _ := repo.GetDispute(context.Background(), d.ID); got.Status != repository.DisputeStatusInvestigating {
 		t.Fatalf("dispute changed: %+v", got)
 	}
 }
