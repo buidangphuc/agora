@@ -389,6 +389,36 @@ func (f *EngagementForwarder) ResolveDispute(
 	return connect.NewResponse(out), nil
 }
 
+func (f *EngagementForwarder) ListOrderDisputes(
+	ctx context.Context, req *connect.Request[engagementv1.ListOrderDisputesRequest],
+) (*connect.Response[engagementv1.ListOrderDisputesResponse], error) {
+	var out *engagementv1.ListOrderDisputesResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListOrderDisputes(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
+func (f *EngagementForwarder) ListDisputes(
+	ctx context.Context, req *connect.Request[engagementv1.ListDisputesRequest],
+) (*connect.Response[engagementv1.ListDisputesResponse], error) {
+	var out *engagementv1.ListDisputesResponse
+	err := f.edge.callWrite(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.ListDisputes(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
+
 // ── Seller Follows ──
 
 func (f *EngagementForwarder) FollowSeller(

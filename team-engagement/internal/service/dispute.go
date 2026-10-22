@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
@@ -20,6 +24,9 @@ var (
 	ErrInvalidDisputeStatus = errors.New("invalid dispute status")
 	ErrSameClaimantAndDef   = errors.New("claimant and defendant cannot be the same")
 	ErrDisputeClosed        = errors.New("dispute is already closed")
+	ErrInvalidTransition    = errors.New("invalid dispute status transition")
+	ErrRulingRequired       = errors.New("ruling is required to resolve a return-linked dispute")
+	ErrRulingNotAllowed     = errors.New("ruling is only allowed when resolving")
 )
 
 type DisputeService struct {
@@ -43,7 +50,7 @@ func NewDisputeService(repo repository.DisputeRepository, logger *slog.Logger) *
 
 func (s *DisputeService) CreateDispute(
 	ctx context.Context,
-	orderID, claimantID, defendantID, reason string,
+	orderID, claimantID, defendantID, returnID, reason string,
 	evidenceURLs []string,
 ) (repository.Dispute, error) {
 	orderID = strings.TrimSpace(orderID)
@@ -78,6 +85,7 @@ func (s *DisputeService) CreateDispute(
 		ClaimantID:   claimantID,
 		DefendantID:  defendantID,
 		Reason:       reason,
+		ReturnID:     strings.TrimSpace(returnID),
 		EvidenceURLs: cleanedURLs,
 		Status:       repository.DisputeStatusOpen,
 	}
@@ -97,11 +105,48 @@ func (s *DisputeService) GetDispute(ctx context.Context, id string) (repository.
 	return s.repo.GetDispute(ctx, id)
 }
 
+func (s *DisputeService) ListOrderDisputes(ctx context.Context, orderID string) ([]repository.Dispute, error) {
+	orderID = strings.TrimSpace(orderID)
+	if orderID == "" {
+		return nil, ErrEmptyOrderID
+	}
+	return s.repo.ListByOrder(ctx, orderID)
+}
+
+func (s *DisputeService) ListDisputes(
+	ctx context.Context,
+	status repository.DisputeStatus,
+	pageSize int,
+	cursor string,
+) ([]repository.Dispute, string, error) {
+	return s.repo.ListByStatus(ctx, status, pageSize, cursor)
+}
+
+func allowedTransition(from, to repository.DisputeStatus) bool {
+	switch from {
+	case repository.DisputeStatusOpen:
+		return to == repository.DisputeStatusInvestigating || to == repository.DisputeStatusRejected
+	case repository.DisputeStatusInvestigating:
+		return to == repository.DisputeStatusInvestigating ||
+			to == repository.DisputeStatusResolved ||
+			to == repository.DisputeStatusRejected
+	}
+	return false
+}
+
+func rulingLabel(r engagementv1.DisputeRuling) string {
+	if r == engagementv1.DisputeRuling_DISPUTE_RULING_UNSPECIFIED {
+		return ""
+	}
+	return strings.ToLower(strings.TrimPrefix(r.String(), "DISPUTE_RULING_"))
+}
+
 func (s *DisputeService) ResolveDispute(
 	ctx context.Context,
 	actorID string,
 	id string,
 	status repository.DisputeStatus,
+	ruling engagementv1.DisputeRuling,
 	resolution string,
 ) (repository.Dispute, error) {
 	id = strings.TrimSpace(id)
@@ -111,7 +156,6 @@ func (s *DisputeService) ResolveDispute(
 
 	switch status {
 	case repository.DisputeStatusResolved, repository.DisputeStatusRejected, repository.DisputeStatusInvestigating:
-		// valid status transition
 	default:
 		return repository.Dispute{}, ErrInvalidDisputeStatus
 	}
@@ -124,9 +168,21 @@ func (s *DisputeService) ResolveDispute(
 	if existing.Status == repository.DisputeStatusResolved || existing.Status == repository.DisputeStatusRejected {
 		return repository.Dispute{}, ErrDisputeClosed
 	}
+	if !allowedTransition(existing.Status, status) {
+		return repository.Dispute{}, ErrInvalidTransition
+	}
+	if ruling != engagementv1.DisputeRuling_DISPUTE_RULING_UNSPECIFIED && status != repository.DisputeStatusResolved {
+		return repository.Dispute{}, ErrRulingNotAllowed
+	}
+	if status == repository.DisputeStatusResolved && existing.ReturnID != "" &&
+		ruling == engagementv1.DisputeRuling_DISPUTE_RULING_UNSPECIFIED {
+		return repository.Dispute{}, ErrRulingRequired
+	}
 
+	prev := existing.Status
 	existing.Status = status
 	existing.Resolution = strings.TrimSpace(resolution)
+	existing.Ruling = ruling
 
 	if s.audit == nil {
 		return repository.Dispute{}, ErrAuditUnavailable
@@ -140,14 +196,36 @@ func (s *DisputeService) ResolveDispute(
 			"resolution": existing.Resolution,
 			"order_id":   existing.OrderID,
 			"status":     strings.ToLower(string(status)),
+			"ruling":     rulingLabel(ruling),
+			"return_id":  existing.ReturnID,
 		},
 	}); err != nil {
 		return repository.Dispute{}, fmt.Errorf("%w: %v", ErrAuditUnavailable, err)
 	}
 
-	updated, err := s.repo.UpdateDispute(ctx, existing)
+	if status == repository.DisputeStatusInvestigating {
+		updated, err := s.repo.UpdateDispute(ctx, existing)
+		if err != nil {
+			return repository.Dispute{}, fmt.Errorf("update dispute: %w", err)
+		}
+		return updated, nil
+	}
+
+	factStatus := engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED
+	if status == repository.DisputeStatusRejected {
+		factStatus = engagementv1.DisputeStatus_DISPUTE_STATUS_REJECTED
+	}
+	updated, err := s.repo.ResolveWithEvent(ctx, existing, prev, &engagementv1.DisputeResolved{
+		DisputeId:  id,
+		OrderId:    existing.OrderID,
+		ReturnId:   existing.ReturnID,
+		Status:     factStatus,
+		Ruling:     ruling,
+		ResolverId: actorID,
+		ResolvedAt: timestamppb.New(time.Now().UTC()),
+	})
 	if err != nil {
-		return repository.Dispute{}, fmt.Errorf("update dispute: %w", err)
+		return repository.Dispute{}, fmt.Errorf("resolve dispute: %w", err)
 	}
 	return updated, nil
 }

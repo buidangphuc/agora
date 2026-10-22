@@ -27,14 +27,16 @@ def _admin(world: World) -> tuple[str, str]:
     return token, _subject(token)
 
 
-def _resolve(world: World, token: str, resolution: str) -> httpx.Response:
+def _resolve(
+    world: World, token: str, resolution: str, status: str = "DISPUTE_STATUS_RESOLVED"
+) -> httpx.Response:
     resp = _post(
         world,
         token,
         "ResolveDispute",
         {
             "disputeId": world.state.extra["dispute_id"],
-            "status": "DISPUTE_STATUS_RESOLVED",
+            "status": status,
             "resolution": resolution,
         },
     )
@@ -50,6 +52,14 @@ def open_dispute(world: World) -> None:
     dispute = resp.json()["dispute"]
     world.state.extra["dispute_id"] = dispute["id"]
     world.state.extra["dispute_order_id"] = world.state.order_id
+
+
+@given("an admin has moved the dispute to investigating")
+def admin_investigates(world: World) -> None:
+    token, admin_id = _admin(world)
+    world.state.extra["admin_id"] = admin_id
+    resp = _resolve(world, token, "looking into it", "DISPUTE_STATUS_INVESTIGATING")
+    assert resp.status_code == 200, f"{resp.status_code}: {resp.text}"
 
 
 @given("team-audit is stopped")
@@ -95,28 +105,43 @@ def call_refused(world: World, code: str) -> None:
     )
 )
 def one_event(world: World, resolution: str, status: str) -> None:
-    aud.assert_one_event(
-        world,
-        target_type="dispute",
-        target_id=world.state.extra["dispute_id"],
-        action="dispute.resolve",
-        actor_id=world.state.extra["admin_id"],
-        metadata={
-            "resolution": resolution,
-            "order_id": world.state.extra["dispute_order_id"],
-            "status": status,
-        },
+    found = aud.events_for(
+        world, "dispute", world.state.extra["dispute_id"], action="dispute.resolve"
     )
+    found = [
+        e
+        for e in found
+        if e.get("action") == "dispute.resolve"
+        and (e.get("metadata") or {}).get("status") == status
+    ]
+    assert len(found) == 1, f"expected exactly 1 '{status}' dispute.resolve event, got {found}"
+    event = found[0]
+    assert event.get("actorId") == world.state.extra["admin_id"], event
+    meta = event.get("metadata") or {}
+    assert meta.get("resolution") == resolution, event
+    assert meta.get("order_id") == world.state.extra["dispute_order_id"], event
 
 
-@then("the dispute is still open with an empty resolution")
-def still_open(world: World) -> None:
+def _assert_unresolved(world: World, statuses: tuple) -> None:
     buyer = world.state.extra["seeded_buyer"]
     resp = _post(world, buyer.token, "GetDispute", {"disputeId": world.state.extra["dispute_id"]})
     assert resp.status_code == 200, f"{resp.status_code}: {resp.text}"
     dispute = resp.json()["dispute"]
-    assert dispute.get("status") in (None, "", "DISPUTE_STATUS_OPEN"), dispute
-    assert not dispute.get("resolution"), dispute
+    assert dispute.get("status") in statuses, dispute
+    assert dispute.get("status") != "DISPUTE_STATUS_RESOLVED", dispute
+
+
+@then("the dispute is still open with an empty resolution")
+def still_open(world: World) -> None:
+    _assert_unresolved(world, (None, "", "DISPUTE_STATUS_OPEN"))
+    buyer = world.state.extra["seeded_buyer"]
+    resp = _post(world, buyer.token, "GetDispute", {"disputeId": world.state.extra["dispute_id"]})
+    assert not resp.json()["dispute"].get("resolution"), resp.text
+
+
+@then("the dispute is still investigating")
+def still_investigating(world: World) -> None:
+    _assert_unresolved(world, ("DISPUTE_STATUS_INVESTIGATING",))
 
 
 @then("no dispute.resolve audit event exists for the dispute")
@@ -133,3 +158,29 @@ def no_event(world: World) -> None:
 def no_event_after_restart(world: World) -> None:
     aud.start_audit(world)
     no_event(world)
+
+
+@then(parsers.parse("the dispute has {count:d} dispute.resolve audit events in total"))
+def event_total(world: World, count: int) -> None:
+    found = aud.events_for(
+        world, "dispute", world.state.extra["dispute_id"], action="dispute.resolve"
+    )
+    found = [e for e in found if e.get("action") == "dispute.resolve"]
+    assert len(found) == count, f"want {count} dispute.resolve event(s), got {found}"
+
+
+@then(
+    "after team-audit is started again no resolved dispute.resolve audit event exists for the dispute"
+)
+def no_resolved_event_after_restart(world: World) -> None:
+    aud.start_audit(world)
+    found = aud.events_for(
+        world, "dispute", world.state.extra["dispute_id"], action="dispute.resolve"
+    )
+    resolved = [
+        e
+        for e in found
+        if e.get("action") == "dispute.resolve"
+        and (e.get("metadata") or {}).get("status") == "resolved"
+    ]
+    assert not resolved, f"unexpected resolved event(s): {resolved}"

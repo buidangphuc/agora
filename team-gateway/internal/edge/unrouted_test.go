@@ -231,3 +231,24 @@ func TestUnroutedGuardAccountAdmin(t *testing.T) {
 		}
 	}
 }
+
+// Scenario: Dispute edge: The new RPCs are not left unrouted.
+func TestUnroutedGuardCoversDisputeLists(t *testing.T) {
+	admin := func(f *cockpitFixture) string { return "Bearer " + f.token(t, "admin") }
+	for _, c := range []struct {
+		name, path, body string
+		calls            func(*disputeUpstream) int64
+	}{
+		{"ListOrderDisputes", listOrderDisputesPath, `{"order_id":"o-7"}`, func(u *disputeUpstream) int64 { return u.listOrderCalls.Load() }},
+		{"ListDisputes", listDisputesPath, `{}`, func(u *disputeUpstream) int64 { return u.listCalls.Load() }},
+	} {
+		up := &disputeUpstream{}
+		code, body := callDisputeRPC(t, up, c.path, c.body, admin)
+		if code != http.StatusOK {
+			t.Fatalf("admin %s = %d %s, want forwarded 200 (not 501)", c.name, code, body)
+		}
+		if n := c.calls(up); n != 1 {
+			t.Fatalf("%s upstream calls = %d, want 1", c.name, n)
+		}
+	}
+}

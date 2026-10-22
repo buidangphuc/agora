@@ -6,18 +6,21 @@ Feature: Audited dispute resolution
 
   Scenario: Dispute audit: Resolved dispute leaves one audit event end to end
     Given the buyer has an open dispute on the order
+    And an admin has moved the dispute to investigating
     When an admin resolves the dispute with resolution "refund buyer"
     Then the dispute audit call succeeds
     And exactly one dispute.resolve audit event exists for the dispute with the admin as actor and resolution "refund buyer" and status "resolved"
+    And the dispute has 2 dispute.resolve audit events in total
 
   @destructive
   Scenario: Dispute audit: Resolution is refused while team-audit is down end to end
     Given the buyer has an open dispute on the order
+    And an admin has moved the dispute to investigating
     And team-audit is stopped
     When an admin resolves the dispute with resolution "refund buyer"
     Then the dispute audit call is refused with code "unavailable"
-    And the dispute is still open with an empty resolution
-    And after team-audit is started again no dispute.resolve audit event exists for the dispute
+    And the dispute is still investigating
+    And after team-audit is started again no resolved dispute.resolve audit event exists for the dispute
 
   Scenario: Dispute audit: A buyer cannot resolve a dispute end to end
     Given the buyer has an open dispute on the order
@@ -28,7 +31,9 @@ Feature: Audited dispute resolution
 
   Scenario: Dispute audit: Resolving a closed dispute writes no second event end to end
     Given the buyer has an open dispute on the order
+    And an admin has moved the dispute to investigating
     When an admin resolves the dispute with resolution "refund buyer"
     And an admin resolves the dispute again with resolution "second try"
     Then the dispute audit call is refused with code "failed_precondition"
     And exactly one dispute.resolve audit event exists for the dispute with the admin as actor and resolution "refund buyer" and status "resolved"
+    And the dispute has 2 dispute.resolve audit events in total
