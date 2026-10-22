@@ -21,6 +21,8 @@ Implement OpenSpec change `order-address-eta` test-first per its tasks.md (scena
 - platform-e2e/tests/e2e/support/address_support.py
 - platform-e2e/tests/e2e/features/order/address_eta.feature
 - platform-e2e/tests/e2e/step_definitions/test_order_address_eta.py
+- platform-e2e/tests/e2e/step_definitions/order_address_eta_steps.py (# widened at build: task 1)
+- plans/q11-checkout-coherence/wave1-task2-order-address-eta.md (# widened at build: task 1; packet widening record)
 - openspec/changes/order-address-eta/**
 
 ## Read-only dependencies
