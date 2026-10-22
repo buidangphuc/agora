@@ -46,7 +46,7 @@ quota (`used < quota`) and, for shop vouchers, that the voucher `seller_id` equa
 `subtotal*value/100` capped by `max_discount` (when > 0); fixed = `value`; always clamped to
 `[0, subtotal]`.
 
-`ValidateAndReserveResponse.scope` and `seller_id` echo the voucher's scope and owning seller on the valid, rejected and idempotent-replay paths. `scope` is `VOUCHER_SCOPE_SHOP` with `seller_id` set for shop vouchers, and `VOUCHER_SCOPE_PLATFORM` with an empty `seller_id` for platform vouchers. Both are empty (unspecified scope, empty `seller_id`) when the code matches no voucher, or when a replayed `reservation_id` has no stored voucher.
+`ValidateAndReserveResponse.scope` and `seller_id` echo the voucher's scope and owning seller on the valid, rejected and idempotent-replay paths. `scope` is `VOUCHER_SCOPE_SHOP` with `seller_id` set for shop vouchers, and the stored scope (`VOUCHER_SCOPE_PLATFORM`, or unspecified if it was created without one) with an empty `seller_id` for platform vouchers. Both are empty (unspecified scope, empty `seller_id`) when the code matches no voucher, or when a replayed `reservation_id` has no stored voucher.
 
 ## Events
 
