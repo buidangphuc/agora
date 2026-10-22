@@ -14286,3 +14286,64 @@ features:
     tags: [auth, referrer-hygiene, privacy]
     status: automated
     covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: signed-in non-admin still sees the 403 view"
+
+  # ---- frontend-dispute-cases (initiative q6-trust-enforcement)
+  - id: frontend.dce-buyer-escalates-a-rejected-return
+    title: "Buyer escalates a rejected return"
+    persona: buyer
+    priority: P2
+    summary: "Browser scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend, team-engagement, team-order, team-gateway]
+    acceptance:
+      - "Buyer escalates a rejected return"
+    tags: [buyer, order, engagement]
+    status: planned
+
+  - id: frontend.dce-admin-rules-for-the-buyer-and-the-return-is-refunded
+    title: "Admin rules for the buyer and the return is refunded"
+    persona: admin
+    priority: P2
+    summary: "Browser scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend, team-engagement, team-order, team-gateway]
+    acceptance:
+      - "Admin rules for the buyer and the return is refunded"
+    tags: [admin, order, engagement]
+    status: planned
+
+  - id: frontend.dce-seller-favour-ruling-leaves-the-return-unchanged
+    title: "Seller-favour ruling leaves the return unchanged"
+    persona: admin
+    priority: P2
+    summary: "Browser scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend, team-engagement, team-order, team-gateway]
+    acceptance:
+      - "Seller-favour ruling leaves the return unchanged"
+    tags: [admin, order, engagement]
+    status: planned
+
+  - id: frontend.dce-an-open-dispute-cannot-be-resolved-directly
+    title: "An open dispute cannot be resolved directly"
+    persona: admin
+    priority: P2
+    summary: "Browser scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend, team-engagement, team-order, team-gateway]
+    acceptance:
+      - "An open dispute cannot be resolved directly"
+    tags: [admin, order, engagement]
+    status: planned
+
+  - id: frontend.dce-a-buyer-cannot-open-the-dispute-tab
+    title: "A buyer cannot open the dispute tab"
+    persona: buyer
+    priority: P2
+    summary: "Browser scenario of change frontend-dispute-cases."
+    entry_route: /
+    services: [team-frontend, team-engagement, team-order, team-gateway]
+    acceptance:
+      - "A buyer cannot open the dispute tab"
+    tags: [buyer, order, engagement]
+    status: planned
