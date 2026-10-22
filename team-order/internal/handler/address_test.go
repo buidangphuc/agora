@@ -1,8 +1,11 @@
 package handler_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -160,5 +163,103 @@ func TestCreateOrderNonUserNoAddressLookup(t *testing.T) {
 	}
 	if fake.calls != 0 || domain.Calls.Reserve != 0 {
 		t.Fatalf("no identity call or reservation allowed: list %d reserve %d", fake.calls, domain.Calls.Reserve)
+	}
+}
+
+func confirmedOf(a *identityv1.Address) *identityv1.Address {
+	return &identityv1.Address{Id: a.GetId(), UserId: a.GetUserId(), RecipientName: a.GetRecipientName(), Phone: a.GetPhone(), Street: a.GetStreet(), Ward: a.GetWard(), District: a.GetDistrict(), City: a.GetCity(), IsDefault: a.GetIsDefault()}
+}
+
+func TestCreateOrderConfirmedAddressMatches(t *testing.T) {
+	// Scenario: Address and ETA: An unchanged confirmed address places the order
+	h, _, _, _ := addressCheckout(t, &fakeAddrClient{addrs: []*identityv1.Address{addrA(), addrB()}})
+	resp, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{AddressId: "addr_B", ConfirmedAddress: confirmedOf(addrB())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := resp.GetOrders()[0].GetShippingAddress(); got.GetId() != "addr_B" || got.GetStreet() != "2 B St" {
+		t.Fatalf("want address B snapshot, got %v", got)
+	}
+}
+
+func TestCreateOrderEditedAddressRefused(t *testing.T) {
+	// Scenario: Address and ETA: An address edited after confirm is refused
+	h, domain, carts, orders := addressCheckout(t, &fakeAddrClient{addrs: []*identityv1.Address{addrA(), addrB()}})
+	c := confirmedOf(addrB())
+	c.City = "Hà Nội"
+	_, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{AddressId: "addr_B", ConfirmedAddress: c})
+	assertRefusedNothingReserved(t, err, codes.FailedPrecondition, "address changed", domain, carts, orders)
+}
+
+func TestCreateOrderEachAddressFieldChangeRefused(t *testing.T) {
+	// Scenario: Address and ETA: Each delivery field counts as a change
+	mutators := map[string]func(*identityv1.Address){
+		"recipient_name": func(a *identityv1.Address) { a.RecipientName += "x" },
+		"phone":          func(a *identityv1.Address) { a.Phone += "1" },
+		"street":         func(a *identityv1.Address) { a.Street += "x" },
+		"ward":           func(a *identityv1.Address) { a.Ward += "x" },
+		"district":       func(a *identityv1.Address) { a.District += "x" },
+		"city":           func(a *identityv1.Address) { a.City += "x" },
+	}
+	for name, mut := range mutators {
+		t.Run(name, func(t *testing.T) {
+			h, domain, carts, orders := addressCheckout(t, &fakeAddrClient{addrs: []*identityv1.Address{addrA(), addrB()}})
+			c := confirmedOf(addrB())
+			mut(c)
+			_, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{AddressId: "addr_B", ConfirmedAddress: c})
+			assertRefusedNothingReserved(t, err, codes.FailedPrecondition, "address changed", domain, carts, orders)
+		})
+	}
+}
+
+func TestCreateOrderConfirmedAddressIgnoresMetadata(t *testing.T) {
+	// Scenario: Address and ETA: Metadata differences are not a change
+	h, _, _, _ := addressCheckout(t, &fakeAddrClient{addrs: []*identityv1.Address{addrA(), addrB()}})
+	c := confirmedOf(addrB())
+	c.IsDefault = true
+	c.UserId = ""
+	if _, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{AddressId: "addr_B", ConfirmedAddress: c}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCreateOrderNoConfirmedAddressSkipsCompare(t *testing.T) {
+	// Scenario: Address and ETA: A request without a confirmed address is not compared
+	h, _, _, _ := addressCheckout(t, &fakeAddrClient{addrs: []*identityv1.Address{addrA(), addrB()}})
+	resp, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{AddressId: "addr_B"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := resp.GetOrders()[0].GetShippingAddress().GetStreet(); got != "2 B St" {
+		t.Fatalf("want identity copy, got %q", got)
+	}
+}
+
+func TestCreateOrderAddressRefusalLogsIDOnly(t *testing.T) {
+	// Scenario: Address and ETA: Address details are never logged
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	domain := upstreamtest.NewDomain(map[string]int32{"lst_1": 10})
+	orders := repository.NewInMemoryOrderRepository()
+	carts := repository.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), repository.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "s1", Title: "item"}); err != nil {
+		t.Fatal(err)
+	}
+	svc := service.NewOrderService(orders, carts, nil, nil, domain, nil, nil)
+	h := handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA(), addrB()}}, logger)
+	c := confirmedOf(addrB())
+	c.City = "Hà Nội"
+	_, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{AddressId: "addr_B", ConfirmedAddress: c})
+	if status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("want FailedPrecondition, got %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "addr_B") {
+		t.Fatalf("log must carry the address id, got %q", out)
+	}
+	for _, secret := range []string{"Binh", "0900000002", "2 B St"} {
+		if strings.Contains(out, secret) {
+			t.Fatalf("log leaks %q: %q", secret, out)
+		}
 	}
 }
