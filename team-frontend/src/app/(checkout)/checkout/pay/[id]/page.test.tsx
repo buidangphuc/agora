@@ -21,8 +21,8 @@ import { getPrincipal } from "@/lib/gateway/session";
 import { setupUser } from "@/test/user";
 
 import { processMockPaymentAction } from "@/features/order/actions";
-import PayLayout from "./layout";
 import PaymentNotFound from "../not-found";
+import PayLayout from "./layout";
 import PaymentLoading from "./loading";
 import MockPaymentPage from "./page";
 
