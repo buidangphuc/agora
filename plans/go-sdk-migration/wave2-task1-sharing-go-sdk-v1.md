@@ -15,6 +15,9 @@ Implement OpenSpec change `sharing-go-sdk-v1` test-first per its tasks.md: migra
 - platform-gitops/envs/prod/services/team-sharing.yaml
 - platform-e2e/tests/e2e/**
 - openspec/changes/sharing-go-sdk-v1/**
+- team-sharing/internal/handler (widened at build: task 1.6)
+- team-sharing/internal/service (widened at build: task 1.6)
+- team-sharing/internal/repository (widened at build: task 1.6)
 
 ## Verify
 - cd team-sharing && go build ./... && go vet ./... && go test ./... -count=1
