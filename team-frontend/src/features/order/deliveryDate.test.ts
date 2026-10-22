@@ -5,7 +5,7 @@ import { formatDeliveryDate } from "./deliveryDate";
 const originalTz = process.env.TZ;
 
 afterEach(() => {
-  if (originalTz === undefined) delete process.env.TZ;
+  if (originalTz === undefined) Reflect.deleteProperty(process.env, "TZ");
   else process.env.TZ = originalTz;
 });
 

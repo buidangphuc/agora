@@ -45,6 +45,7 @@ describe("ShippingInfo (PDP shipping row)", () => {
       shippingFee: 20000,
       isFreeShipping: false,
       message: "",
+      estimatedDeliveryAt: null,
     });
     const c = await row(true);
     expect(calculateShippingFee).toHaveBeenCalledWith("Hà Nội", 0);
