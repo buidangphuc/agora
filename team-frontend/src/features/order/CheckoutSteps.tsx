@@ -8,15 +8,15 @@ import { Tag } from "@/components/ui/Tag";
 import { formatPrice } from "@/components/ui/format";
 import { AddressSelectorModal } from "@/features/address/AddressSelectorModal";
 import { linkButtonPrimary } from "@/features/cart/linkButton";
-import { VoucherModal } from "@/features/voucher/VoucherModal";
 import type { EcommerceItem } from "@/lib/analytics";
 import type { ViewAddress } from "@/lib/gateway/addresses";
 import type { ViewCartItem } from "@/lib/gateway/cart";
-import type { ViewCheckoutGroup } from "@/lib/gateway/orders";
+import type { ViewCheckoutGroup, ViewVoucherQuote } from "@/lib/gateway/orders";
 import type { ViewVoucher } from "@/lib/gateway/promotion";
 import { CheckoutGroups } from "./CheckoutGroups";
 import { PaymentOptionsGrid } from "./PaymentOptionsGrid";
 import { PlaceOrderForm } from "./PlaceOrderForm";
+import { VoucherModal } from "./VoucherModal";
 import { type CheckoutState, checkoutHref } from "./checkoutParams";
 import { paymentOptionFor } from "./paymentOptions";
 import type { ShippingFee } from "./shippingCopy";
@@ -114,16 +114,14 @@ export function ShippingStep({
 
 export function PaymentStep({
   state,
-  vouchers,
-  subtotal,
-  sellerId,
-  appliedDiscount,
+  groups,
+  quotes,
+  available,
 }: {
   state: CheckoutState;
-  vouchers: ViewVoucher[];
-  subtotal: number;
-  sellerId: string;
-  appliedDiscount: number;
+  groups: ViewCheckoutGroup[];
+  quotes: ViewVoucherQuote[];
+  available?: Record<string, ViewVoucher[]>;
 }) {
   return (
     <div className="space-y-4">
@@ -136,11 +134,10 @@ export function PaymentStep({
         </CardContent>
       </Card>
       <VoucherModal
-        vouchers={vouchers}
-        subtotal={subtotal}
-        sellerId={sellerId}
-        appliedCode={state.pv}
-        appliedDiscount={appliedDiscount}
+        state={state}
+        groups={groups}
+        quotes={quotes}
+        available={available}
       />
       <StepActions
         backHref={checkoutHref({ ...state, step: "shipping" })}

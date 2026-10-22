@@ -28,7 +28,7 @@ import {
   type ViewCheckoutPreview,
   previewCheckout,
 } from "@/lib/gateway/orders";
-import { listVouchers } from "@/lib/gateway/promotion";
+import { type ViewVoucher, listVouchers } from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
@@ -70,7 +70,6 @@ export default async function CheckoutPage(props: {
     state.items.length > 0
       ? cart.items.filter((it) => state.items.includes(it.id))
       : cart.items;
-  const sellerId = items[0]?.sellerId ?? "";
 
   let quote: ViewCheckoutPreview;
   try {
@@ -94,7 +93,19 @@ export default async function CheckoutPage(props: {
     throw e;
   }
 
-  const vouchers = state.step === "payment" ? await listVouchers(sellerId) : [];
+  const available: Record<string, ViewVoucher[]> = {};
+  if (state.step === "payment") {
+    await Promise.all(
+      [
+        ...new Set([
+          ...items.map((it) => it.sellerId),
+          ...quote.groups.map((g) => g.sellerId),
+        ]),
+      ].map(async (id) => {
+        available[id] = await listVouchers(id);
+      }),
+    );
+  }
   const view = state;
   const discount = quote.discountAmount;
   const shipping: ShippingFee | null = quote.shippingQuoted
@@ -149,10 +160,9 @@ export default async function CheckoutPage(props: {
     payment: (
       <PaymentStep
         state={view}
-        vouchers={vouchers}
-        subtotal={subtotal}
-        sellerId={sellerId}
-        appliedDiscount={discount}
+        groups={quote.groups}
+        quotes={quote.vouchers}
+        available={available}
       />
     ),
     confirm:
