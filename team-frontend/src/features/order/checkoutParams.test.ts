@@ -12,7 +12,9 @@ describe("resolveCheckout", () => {
       step: "address",
       addr: "a2",
       pay: PaymentMethod.COD,
-      voucher: undefined,
+      items: [],
+      sv: {},
+      pv: undefined,
       needsRedirect: false,
     });
   });
@@ -67,10 +69,42 @@ describe("resolveCheckout", () => {
     });
   });
 
-  it("ignores an invalid pay and keeps the voucher code", () => {
-    const r = resolveCheckout({ pay: "99", voucher: "SAVE10" }, addrs);
-    expect(r.pay).toBe(PaymentMethod.COD);
-    expect(r.voucher).toBe("SAVE10");
+  it("ignores an invalid pay", () => {
+    expect(resolveCheckout({ pay: "99" }, addrs).pay).toBe(PaymentMethod.COD);
+  });
+
+  it("items are parsed from a comma-separated list; empty means whole cart", () => {
+    expect(resolveCheckout({ items: "i1,i2" }, addrs).items).toEqual([
+      "i1",
+      "i2",
+    ]);
+    expect(resolveCheckout({ items: "" }, addrs).items).toEqual([]);
+    expect(resolveCheckout({}, addrs).items).toEqual([]);
+  });
+
+  it("sv is repeatable sellerId:CODE with at most one code per seller; pv is one code", () => {
+    const r = resolveCheckout(
+      { sv: ["s1:SHOPA10", "s2:B5", "s1:LATER"], pv: "PLAT5" },
+      addrs,
+    );
+    expect(r.sv).toEqual({ s1: "SHOPA10", s2: "B5" });
+    expect(r.pv).toBe("PLAT5");
+    expect(resolveCheckout({ sv: "s3:X" }, addrs).sv).toEqual({ s3: "X" });
+  });
+
+  it("a malformed sv entry is dropped", () => {
+    expect(resolveCheckout({ sv: ["nocolon", ":X", "s1:"] }, addrs).sv).toEqual(
+      {},
+    );
+  });
+
+  it("legacy voucher param is ignored", () => {
+    const r = resolveCheckout({ voucher: "OLD" }, addrs);
+    expect(r).not.toHaveProperty("voucher");
+    expect(r.sv).toEqual({});
+    expect(r.pv).toBeUndefined();
+    expect(r.needsRedirect).toBe(false);
+    expect(checkoutHref({ ...r })).not.toContain("voucher");
   });
 
   it("reads the first value of a repeated param", () => {
@@ -85,8 +119,41 @@ describe("checkoutHref", () => {
     expect(
       checkoutHref({ step: "payment", addr: "a1", pay: PaymentMethod.COD }),
     ).toBe("/checkout?step=payment&addr=a1&pay=1");
-    expect(checkoutHref({ voucher: "SAVE10" })).toBe(
-      "/checkout?voucher=SAVE10",
+  });
+
+  it("items are kept by checkoutHref", () => {
+    expect(checkoutHref({ items: ["i1", "i2"] })).toBe(
+      "/checkout?items=i1%2Ci2",
     );
+    expect(checkoutHref({ items: [] })).toBe("/checkout?");
+  });
+
+  it("items survive every checkout step", () => {
+    for (const step of ["address", "shipping", "payment", "confirm"] as const) {
+      const parsed = resolveCheckout(
+        { step, addr: "a1", items: "i1,i2" },
+        addrs,
+      );
+      expect(parsed.items).toEqual(["i1", "i2"]);
+      expect(checkoutHref({ ...parsed })).toContain("items=i1%2Ci2");
+    }
+  });
+
+  it("sv and pv round-trip through the href", () => {
+    const href = checkoutHref({
+      step: "confirm",
+      sv: { s1: "SHOPA10", s2: "B5" },
+      pv: "PLAT5",
+    });
+    const q = new URLSearchParams(href.split("?")[1]);
+    expect(q.getAll("sv")).toEqual(["s1:SHOPA10", "s2:B5"]);
+    expect(q.get("pv")).toBe("PLAT5");
+    expect(q.has("voucher")).toBe(false);
+    const back = resolveCheckout(
+      { step: "confirm", addr: "a1", sv: q.getAll("sv"), pv: q.get("pv") ?? undefined },
+      addrs,
+    );
+    expect(back.sv).toEqual({ s1: "SHOPA10", s2: "B5" });
+    expect(back.pv).toBe("PLAT5");
   });
 });
