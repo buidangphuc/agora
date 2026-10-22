@@ -2,7 +2,13 @@ package app_test
 
 import (
 	"context"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io/fs"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -266,5 +272,110 @@ func TestShutdownWithinGrace(t *testing.T) {
 	if c, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(r.port), 2*time.Second); err == nil {
 		_ = c.Close()
 		t.Fatal("listener still accepts connections after Run returned")
+	}
+}
+
+const fakeImportPath = "github.com/buidangphuc/team-referral/internal/store/fake"
+
+func nonTestGoFiles(t *testing.T, root string, skip func(rel string) bool) []string {
+	t.Helper()
+	var files []string
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return relErr
+		}
+		if d.IsDir() {
+			if skip(filepath.ToSlash(rel)) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return files
+}
+
+func TestProductionCodeDoesNotImportFake(t *testing.T) {
+	module, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fset := token.NewFileSet()
+
+	var entry []string
+	entry = append(entry, nonTestGoFiles(t, filepath.Join(module, "cmd"), func(string) bool { return false })...)
+	entry = append(entry, nonTestGoFiles(t, filepath.Join(module, "internal", "app"), func(string) bool { return false })...)
+	if len(entry) < 2 {
+		t.Fatalf("found only %d non-test files under cmd and internal/app", len(entry))
+	}
+	for _, path := range entry {
+		f, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+		if perr != nil {
+			t.Fatal(perr)
+		}
+		for _, imp := range f.Imports {
+			if strings.Trim(imp.Path.Value, `"`) == fakeImportPath {
+				t.Errorf("%s imports %s", path, fakeImportPath)
+			}
+		}
+	}
+
+	all := nonTestGoFiles(t, module, func(rel string) bool {
+		return rel == "generated" || rel == filepath.ToSlash(filepath.Join("internal", "store", "fake")) || rel == ".git"
+	})
+	for _, path := range all {
+		src, rerr := os.ReadFile(path)
+		if rerr != nil {
+			t.Fatal(rerr)
+		}
+		f, perr := parser.ParseFile(fset, path, src, 0)
+		if perr != nil {
+			t.Fatal(perr)
+		}
+		mapTypes := map[string]bool{}
+		for _, decl := range f.Decls {
+			gd, ok := decl.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+			for _, spec := range gd.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				st, ok := ts.Type.(*ast.StructType)
+				if !ok {
+					continue
+				}
+				for _, field := range st.Fields.List {
+					if _, isMap := field.Type.(*ast.MapType); isMap {
+						mapTypes[ts.Name.Name] = true
+					}
+				}
+			}
+		}
+		for _, decl := range f.Decls {
+			fd, ok := decl.(*ast.FuncDecl)
+			if !ok || fd.Recv == nil || len(fd.Recv.List) == 0 || fd.Name.Name != "OwnerOfCode" {
+				continue
+			}
+			recv := fd.Recv.List[0].Type
+			if star, isStar := recv.(*ast.StarExpr); isStar {
+				recv = star.X
+			}
+			if id, isIdent := recv.(*ast.Ident); isIdent && mapTypes[id.Name] {
+				t.Errorf("%s defines an in-memory repository %s outside internal/store/fake", path, id.Name)
+			}
+		}
 	}
 }

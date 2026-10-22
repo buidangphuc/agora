@@ -170,7 +170,7 @@ def referral_container_migrated() -> None:
     running, restarting, restarts, health = out.split("|", 4)[:4]
     env_keys = {line.split("=", 1)[0] for line in out.split("|", 4)[4].splitlines() if line}
     assert running == "true" and restarting == "false" and restarts == "0", out[:80]
-    assert health in ("none", "healthy"), f"container health is {health}"
+    assert health != "unhealthy", f"container health is {health}"
     assert (
         "DATABASE_ENABLED" not in env_keys
     ), "team-referral container still carries the removed DATABASE_ENABLED flag"

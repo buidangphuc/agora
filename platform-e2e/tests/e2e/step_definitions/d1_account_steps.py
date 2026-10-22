@@ -8,15 +8,18 @@ and on the gateway state the mutation left behind.
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 
+import pytest
 from playwright.sync_api import Page, expect
 from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
 from src.api.services import AddressService, AuthService, ListingService
-from src.api.services.base_service import BaseService
+from src.api.services.base_service import BaseService, GatewayError
+from src.api.services.referral_service import ReferralService
 from src.api.services.verification_service import VerificationService
 from src.constants import timeouts
 from src.models import Listing, User
@@ -431,6 +434,7 @@ def redeem_code(world: World, code: str) -> None:
     LoginPage(world.page).wait_until_interactive(field)
     field.fill(code)
     world.page.get_by_role("button", name="Nhập mã").click()
+    world.state.extra["redeemed_code"] = code
 
 
 @then(
@@ -445,6 +449,14 @@ def redeem_rejected(world: World) -> None:
     assert help_text, "help text is empty"
     toast = world.page.get_by_role("alert").filter(has_text=help_text)
     expect(toast.first).to_be_visible(timeout=timeouts.DEFAULT)
+    code = world.state.extra["redeemed_code"]
+    token = world.state.current_user.token
+    with pytest.raises(GatewayError) as err:
+        ReferralService(token=token).redeem_referral(code)
+    assert err.value.status == 404, err.value
+    body = json.loads(err.value.body)
+    assert body.get("code") == "not_found", body
+    assert help_text == body.get("message"), (help_text, body)
 
 
 @then(parsers.parse('the rewards area shows Empty "{text}"'))

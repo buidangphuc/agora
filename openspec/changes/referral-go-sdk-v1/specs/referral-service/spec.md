@@ -109,7 +109,7 @@ Every `ReferralService` RPC SHALL resolve the caller with `auth.RequirePrincipal
 #### Scenario: An unknown code is not found
 - **WHEN** a user calls `RedeemReferral` with the code `NOT-A-REAL-CODE`
 - **THEN** the call returns `NotFound`, and the referral page shows an error toast with the server message
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_ui.feature` scenario "Redeeming an invalid code"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_ui.feature` scenario "An unknown code is not found"
 
 #### Scenario: Self-referral and a second redeem are refused
 - **WHEN** `alice` redeems her own code, and separately `bob` redeems `alice`'s code and then `carol`'s code
@@ -163,7 +163,7 @@ Every `ReferralService` RPC SHALL resolve the caller with `auth.RequirePrincipal
 #### Scenario: A new user sees an empty ledger
 - **WHEN** a signed-in buyer with no rewards opens the referral page
 - **THEN** the rewards area shows the Empty state "Chưa có phần thưởng nào."
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_ui.feature` scenario "No rewards yet"
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/frontend/account_ui.feature` scenario "A new user sees an empty ledger"
 
 ### Requirement: Unique violations and cancellation map to their own status codes
 
@@ -210,5 +210,5 @@ team-referral SHALL require `github.com/buidangphuc/agora/platform-core/packages
 
 #### Scenario: The service answers on its port after the migration
 - **WHEN** the stack runs with the migrated image and a buyer creates a referral code through the gateway
-- **THEN** the call succeeds and the container reports healthy
-- **VERIFIED BY**: `platform-e2e/tests/e2e/features/services/new_services.feature` scenario "Referral code creation is readable via GetMyReferral"
+- **THEN** the call succeeds and the container is running, has not restarted and carries no removed flag; the service has no Docker healthcheck, and its gRPC health is verified by `TestHealthReportsDatabaseDown` and the other health scenarios
+- **VERIFIED BY**: `platform-e2e/tests/e2e/features/services/new_services.feature` scenario "The service answers on its port after the migration"

@@ -20,3 +20,6 @@ class ReferralService(BaseService):
 
     def list_referral_rewards(self, page_size: int = 20) -> dict:
         return self.post(f"{_SVC}/ListReferralRewards", {"page": {"pageSize": page_size}})
+
+    def redeem_referral(self, code: str) -> dict:
+        return self.post(f"{_SVC}/RedeemReferral", {"code": code})
