@@ -14755,3 +14755,472 @@ features:
     tags: [buyer, checkout, unit]
     status: not-testable
     notes: "VERIFIED BY `team-frontend/src/features/order/checkoutParams.test.ts` `legacy voucher param is ignored`. Not producible end to end through the browser (unit level)."
+
+  # ---- frontend-cart-selection (initiative q11-checkout-coherence).
+  - id: frontend.cs-every-line-is-ticked-by-default
+    title: "Cart selection: every line is ticked by default"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: every line is ticked by default"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/CartSelection.test.tsx` `all lines ticked by default`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-ticking-a-subset-changes-the-link-and-the-summary
+    title: "Cart selection: ticking a subset changes the link and the summary"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: ticking a subset changes the link and the summary"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/CartSelection.test.tsx` `subset updates href and summary`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-a-shop-select-all-toggles-that-shop-s-lines
+    title: "Cart selection: a shop select-all toggles that shop's lines"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: a shop select-all toggles that shop's lines"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/CartSelection.test.tsx` `shop select all toggles its lines`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-nothing-ticked-disables-the-buy-action
+    title: "Cart selection: nothing ticked disables the buy action"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: nothing ticked disables the buy action"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/CartSelection.test.tsx` `nothing ticked disables buy`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-the-checkout-kill-switch-keeps-the-buy-action-disabled
+    title: "Cart selection: the checkout kill switch keeps the buy action disabled"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: the checkout kill switch keeps the buy action disabled"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/cart/page.test.tsx` `kill switch disables buy even with a selection`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-a-partial-selection-hides-the-cart-discount-and-carries-no-voucher
+    title: "Cart selection: a partial selection hides the cart discount and carries no voucher"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: a partial selection hides the cart discount and carries no voucher"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/CartSelection.test.tsx` `partial selection hides discount and carries no voucher`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-the-back-link-from-checkout-restores-the-selection
+    title: "Cart selection: the back link from checkout restores the selection"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: the back link from checkout restores the selection"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/CartSelection.test.tsx` `initial selection comes from items param`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-an-items-parameter-with-no-current-line-ticks-everything
+    title: "Cart selection: an items parameter with no current line ticks everything"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: an items parameter with no current line ticks everything"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/selection.test.ts` `no valid id falls back to all lines for the cart page`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-an-anonymous-visitor-cannot-reach-the-selectable-cart
+    title: "Cart selection: an anonymous visitor cannot reach the selectable cart"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: an anonymous visitor cannot reach the selectable cart"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(shop)/cart/page.test.tsx` `anonymous is redirected to login`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-the-cart-first-response-still-holds-the-line-rows
+    title: "Cart selection: the cart first response still holds the line rows"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-cart-selection (initiative q11-checkout-coherence)."
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order, team-identity, team-domain]
+    acceptance:
+      - "Cart selection: the cart first response still holds the line rows"
+    tags: [buyer, checkout, cart-selection]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cs-parsing-trims-drops-empties-and-de-duplicates
+    title: "Cart selection: parsing trims, drops empties and de-duplicates"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: parsing trims, drops empties and de-duplicates"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/selection.test.ts` `parse trims drops empties and dedupes`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-ids-absent-from-the-cart-are-ignored
+    title: "Cart selection: ids absent from the cart are ignored"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: ids absent from the cart are ignored"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/selection.test.ts` `unknown ids are ignored and order follows the cart`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-an-empty-or-unmatched-list-resolves-to-no-line
+    title: "Cart selection: an empty or unmatched list resolves to no line"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: an empty or unmatched list resolves to no line"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/selection.test.ts` `empty or unmatched resolves to nothing`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-a-50-line-selection-fits-one-link
+    title: "Cart selection: a 50 line selection fits one link"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: a 50 line selection fits one link"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/selection.test.ts` `fifty ids round trip`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-a-line-id-that-is-not-the-buyer-s-own-resolves-to-nothing
+    title: "Cart selection: a line id that is not the buyer's own resolves to nothing"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: a line id that is not the buyer's own resolves to nothing"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/selection.test.ts` `foreign line id resolves to nothing`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-checkout-uses-only-the-selected-ids
+    title: "Cart selection: checkout uses only the selected ids"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: checkout uses only the selected ids"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `selected ids reach preview and beacon`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-placing-the-order-sends-the-selected-ids
+    title: "Cart selection: placing the order sends the selected ids"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: placing the order sends the selected ids"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/PlaceOrderForm.test.tsx` `submits the selected item ids`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-a-selection-naming-no-cart-line-returns-to-the-cart
+    title: "Cart selection: a selection naming no cart line returns to the cart"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: a selection naming no cart line returns to the cart"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `dead selection redirects to cart`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-ids-not-in-the-cart-are-ignored-at-checkout
+    title: "Cart selection: ids not in the cart are ignored at checkout"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: ids not in the cart are ignored at checkout"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `ghost ids are ignored`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-an-empty-items-parameter-is-the-whole-cart-not-a-redirect
+    title: "Cart selection: an empty items parameter is the whole cart, not a redirect"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /cart
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: an empty items parameter is the whole cart, not a redirect"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `empty items param is the whole cart`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-the-back-link-keeps-the-selection
+    title: "Cart selection: the back link keeps the selection"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: the back link keeps the selection"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `back link carries the selection`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-another-buyer-s-line-id-places-nothing
+    title: "Cart selection: another buyer's line id places nothing"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-cart-selection (initiative q11-checkout-coherence)."
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-identity, team-domain]
+    acceptance:
+      - "Cart selection: another buyer's line id places nothing"
+    tags: [buyer, checkout, cart-selection]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cs-an-anonymous-visitor-is-sent-to-login
+    title: "Cart selection: an anonymous visitor is sent to login"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-cart-selection (initiative q11-checkout-coherence)."
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-identity, team-domain]
+    acceptance:
+      - "Cart selection: an anonymous visitor is sent to login"
+    tags: [buyer, checkout, cart-selection]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cs-checking-out-some-lines-leaves-the-others-in-the-cart
+    title: "Cart selection: checking out some lines leaves the others in the cart"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-cart-selection (initiative q11-checkout-coherence)."
+    entry_route: /cart
+    services: [team-frontend, team-gateway, team-order, team-identity, team-domain]
+    acceptance:
+      - "Cart selection: checking out some lines leaves the others in the cart"
+    tags: [buyer, checkout, cart-selection]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cs-a-shop-s-select-all-checks-out-that-shop-only
+    title: "Cart selection: a shop's select-all checks out that shop only"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-cart-selection (initiative q11-checkout-coherence)."
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-identity, team-domain]
+    acceptance:
+      - "Cart selection: a shop's select-all checks out that shop only"
+    tags: [buyer, checkout, cart-selection]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cs-mua-ngay-opens-checkout-with-the-new-line-only
+    title: "Cart selection: Mua ngay opens checkout with the new line only"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /listing
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: Mua ngay opens checkout with the new line only"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/PurchasePanel.test.tsx` `buy now navigates with the added line id`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-mua-ngay-on-an-existing-line-checks-out-the-merged-quantity
+    title: "Cart selection: Mua ngay on an existing line checks out the merged quantity"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-cart-selection (initiative q11-checkout-coherence)."
+    entry_route: /listing
+    services: [team-frontend, team-gateway, team-order, team-identity, team-domain]
+    acceptance:
+      - "Cart selection: Mua ngay on an existing line checks out the merged quantity"
+    tags: [buyer, checkout, cart-selection]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cs-the-action-returns-the-matching-line-id
+    title: "Cart selection: the action returns the matching line id"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: the action returns the matching line id"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/actions.test.ts` `returns the id of the added line`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-a-listing-without-variants-matches-the-empty-variant-id
+    title: "Cart selection: a listing without variants matches the empty variant id"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: a listing without variants matches the empty variant id"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/actions.test.ts` `matches a line without a variant`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-mua-ngay-does-not-fall-back-to-the-whole-cart
+    title: "Cart selection: Mua ngay does not fall back to the whole cart"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /listing
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: Mua ngay does not fall back to the whole cart"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/PurchasePanel.test.tsx` `buy now with no matching line stays on the page`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-a-failed-add-shows-the-error-and-does-not-navigate
+    title: "Cart selection: a failed add shows the error and does not navigate"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: a failed add shows the error and does not navigate"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/PurchasePanel.test.tsx` `failed add does not navigate`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-an-anonymous-visitor-pressing-mua-ngay-is-sent-to-login
+    title: "Cart selection: an anonymous visitor pressing Mua ngay is sent to login"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /listing
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: an anonymous visitor pressing Mua ngay is sent to login"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/PurchasePanel.test.tsx` `anonymous buy now goes to login`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-the-mobile-buy-bar-uses-the-same-path
+    title: "Cart selection: the mobile buy bar uses the same path"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: the mobile buy bar uses the same path"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/cart/PurchasePanel.test.tsx` `buy bar buy now uses the same selection`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-mua-ngay-checks-out-only-that-line-end-to-end
+    title: "Cart selection: Mua ngay checks out only that line end to end"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-cart-selection (initiative q11-checkout-coherence)."
+    entry_route: /listing
+    services: [team-frontend, team-gateway, team-order, team-identity, team-domain]
+    acceptance:
+      - "Cart selection: Mua ngay checks out only that line end to end"
+    tags: [buyer, checkout, cart-selection]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cs-page-location-has-no-items-parameter
+    title: "Cart selection: page_location has no items parameter"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: page_location has no items parameter"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/lib/analytics/destinations/gtm.test.ts` `page_location has no items`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cs-begin-checkout-carries-no-cart-line-id
+    title: "Cart selection: begin_checkout carries no cart line id"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-cart-selection."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Cart selection: begin_checkout carries no cart line id"
+    tags: [buyer, checkout, cart-selection, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/lib/analytics/destinations/gtm.test.ts` `begin_checkout has no line id`. Not producible end to end through the browser (unit level)."
