@@ -76,20 +76,33 @@ func TestRequireNoMockPayments(t *testing.T) {
 				t.Setenv("MOCK_PAYMENTS", tc.mock)
 			}
 			s, err := config.LoadSettings()
+			if tc.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "MOCK_PAYMENTS") {
+					t.Fatalf("LoadSettings() = %v, want an error naming MOCK_PAYMENTS", err)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatalf("LoadSettings: %v", err)
 			}
 			if tc.mock == "" && s.Mock.MockPayments {
 				t.Fatal("MOCK_PAYMENTS must default to false")
 			}
-			err = s.RequireNoMockPayments()
-			if (err != nil) != tc.wantErr {
-				t.Fatalf("RequireNoMockPayments() = %v, wantErr %v", err, tc.wantErr)
-			}
-			if err != nil && !strings.Contains(err.Error(), "MOCK_PAYMENTS") {
-				t.Fatalf("error must name MOCK_PAYMENTS: %v", err)
+			if err := s.RequireNoMockPayments(); err != nil {
+				t.Fatalf("RequireNoMockPayments() = %v, want nil", err)
 			}
 		})
+	}
+}
+
+func TestMockPaymentsGuardRunsBeforeDatabaseCheck(t *testing.T) {
+	t.Setenv("ENV", "production")
+	t.Setenv("MOCK_PAYMENTS", "true")
+	t.Setenv("DATABASE_ENABLED", "true")
+	t.Setenv("DATABASE_URL", "")
+	_, err := config.LoadSettings()
+	if err == nil || !strings.Contains(err.Error(), "MOCK_PAYMENTS") {
+		t.Fatalf("LoadSettings() = %v, want an error naming MOCK_PAYMENTS", err)
 	}
 }
 

@@ -100,6 +100,9 @@ func LoadSettings() (*Settings, error) {
 	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
 		return nil, err
 	}
+	if err := s.RequireNoMockPayments(); err != nil {
+		return nil, err
+	}
 	if err := s.Validate(); err != nil {
 		return nil, err
 	}
