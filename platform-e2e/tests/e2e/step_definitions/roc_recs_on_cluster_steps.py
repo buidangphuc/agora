@@ -187,7 +187,8 @@ def ai_env(roc):
 
 
 @then(
-    "its NetworkPolicy ingress sources are exactly team-gateway, team-search-indexer and prometheus"
+    "its NetworkPolicy ingress sources are exactly team-gateway, team-search-indexer, team-domain and "
+    "prometheus"
 )
 def ai_allow_list(roc):
     policies = [d for d in roc["ai"] if d["kind"] == "NetworkPolicy"]
@@ -199,6 +200,7 @@ def ai_allow_list(roc):
     assert {p["podSelector"]["matchLabels"]["app"] for p in peers} == {
         "team-gateway",
         "team-search-indexer",
+        "team-domain",
         "prometheus",
     }
 
@@ -269,7 +271,11 @@ def _egress(np) -> set[tuple[str, tuple[int, ...]]]:
 )
 def egress_limited(roc):
     for key, app, expected in (
-        ("rx_np", "platform-recsys", {("qdrant", (6333, 6334)), ("valkey", (6379,))}),
+        (
+            "rx_np",
+            "platform-recsys",
+            {("qdrant", (6333, 6334)), ("valkey", (6379,)), ("mlflow", (5050,))},
+        ),
         ("nl_np", "platform-recsys-nearline", {("redpanda", (9092,)), ("valkey", (6379,))}),
     ):
         np = roc[key]
