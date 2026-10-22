@@ -63,6 +63,8 @@ ApplicationSet (`marketplace-services`) uses, later wins:
 5. `envs/<env>/services/<svc>.yaml` (optional, `ignoreMissingValueFiles`)
 6. inline `image.repo` (`<envRegistry>/<svc>`) and `pullPolicy: IfNotPresent`
 
+`probes.livenessService` (gRPC services only) names the health service the livenessProbe checks (for example `liveness`); empty means overall health.
+
 ## Staging and prod
 
 `appset-services.yaml` generates one Application per (cluster x service) for clusters labelled

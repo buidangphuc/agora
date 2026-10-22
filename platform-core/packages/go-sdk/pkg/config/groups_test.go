@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -142,8 +143,8 @@ func TestNoDependencyEnableFlags(t *testing.T) {
 			enabled = append(enabled, k)
 		}
 	}
-	if !slices.Equal(enabled, []string{"OTEL_ENABLED"}) {
-		t.Errorf("_ENABLED keys = %v, want only [OTEL_ENABLED]", enabled)
+	if !slices.Equal(enabled, []string{"GRPC_REFLECTION_ENABLED", "OTEL_ENABLED"}) {
+		t.Errorf("_ENABLED keys = %v, want only [GRPC_REFLECTION_ENABLED OTEL_ENABLED]", enabled)
 	}
 	for _, banned := range []string{"DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "FEATURE_FLAGS_ENABLED"} {
 		if slices.Contains(keys, banned) {
@@ -296,4 +297,93 @@ func TestStrictEnvRequiresLogKeyFPSecret(t *testing.T) {
 			t.Error("Secret is empty, want a documented local default")
 		}
 	})
+}
+
+type reflectionSettings struct {
+	config.Runtime
+	config.GRPC
+}
+
+type reflectionNoRuntime struct {
+	config.GRPC
+}
+
+func reflectionFlag(t *testing.T, g config.GRPC) bool {
+	t.Helper()
+	f := reflect.ValueOf(g).FieldByName("ReflectionEnabled")
+	if !f.IsValid() {
+		t.Fatal("config.GRPC has no ReflectionEnabled field")
+	}
+	return f.Bool()
+}
+
+// Scenario: Reflection is refused in a strict environment.
+func TestStrictEnvRefusesGRPCReflection(t *testing.T) {
+	for _, env := range []string{"prod", "staging"} {
+		t.Run(env, func(t *testing.T) {
+			t.Setenv("ENV", env)
+			t.Setenv("GRPC_PORT", "50065")
+			t.Setenv("GRPC_REFLECTION_ENABLED", "true")
+			_, err := config.Load[reflectionSettings]()
+			if err == nil || !strings.Contains(err.Error(), "GRPC_REFLECTION_ENABLED") {
+				t.Fatalf("ENV=%s: err = %v, want one naming GRPC_REFLECTION_ENABLED", env, err)
+			}
+		})
+	}
+}
+
+// Scenario: Reflection without a Runtime is refused.
+func TestReflectionWithoutRuntimeIsRefused(t *testing.T) {
+	t.Setenv("GRPC_PORT", "50065")
+	t.Setenv("GRPC_REFLECTION_ENABLED", "true")
+	_, err := config.Load[reflectionNoRuntime]()
+	if err == nil || !strings.Contains(err.Error(), "GRPC_REFLECTION_ENABLED") {
+		t.Fatalf("err = %v, want one naming GRPC_REFLECTION_ENABLED", err)
+	}
+}
+
+// Scenario: Reflection is accepted locally and defaults to off (local, test).
+func TestLocalEnvAcceptsGRPCReflection(t *testing.T) {
+	for _, env := range []string{"local", "test"} {
+		t.Run(env, func(t *testing.T) {
+			t.Setenv("ENV", env)
+			t.Setenv("GRPC_PORT", "50065")
+			t.Setenv("GRPC_REFLECTION_ENABLED", "true")
+			s, err := config.Load[reflectionSettings]()
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if !reflectionFlag(t, s.GRPC) {
+				t.Error("ReflectionEnabled = false, want true")
+			}
+		})
+	}
+}
+
+// Scenario: Reflection is accepted locally and defaults to off (unset in prod).
+func TestGRPCReflectionDefaultsOff(t *testing.T) {
+	t.Setenv("ENV", "prod")
+	t.Setenv("GRPC_PORT", "50065")
+	t.Setenv("GRPC_REFLECTION_ENABLED", "")
+	s, err := config.Load[reflectionSettings]()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if reflectionFlag(t, s.GRPC) {
+		t.Error("ReflectionEnabled = true, want false by default")
+	}
+}
+
+// Scenario: A strict-env reflection refusal comes before group validation.
+func TestStrictReflectionRefusalPrecedesValidation(t *testing.T) {
+	t.Setenv("ENV", "prod")
+	t.Setenv("GRPC_PORT", "")
+	t.Setenv("GRPC_REFLECTION_ENABLED", "true")
+	_, err := config.Load[reflectionSettings]()
+	if err == nil || !strings.Contains(err.Error(), "GRPC_REFLECTION_ENABLED") {
+		t.Fatalf("err = %v, want one naming GRPC_REFLECTION_ENABLED", err)
+	}
+	if strings.Contains(err.Error(), "GRPC_PORT") {
+		t.Errorf("error %q names GRPC_PORT, validation masked the refusal", err)
+	}
 }
