@@ -490,6 +490,9 @@ func listServicesOverReflection(t *testing.T, enabled bool) ([]string, error) {
 		return nil, err
 	}
 	if err := stream.Send(&rpb.ServerReflectionRequest{MessageRequest: &rpb.ServerReflectionRequest_ListServices{ListServices: "*"}}); err != nil {
+		if _, rerr := stream.Recv(); rerr != nil {
+			return nil, rerr
+		}
 		return nil, err
 	}
 	resp, err := stream.Recv()
