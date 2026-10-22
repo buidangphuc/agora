@@ -97,11 +97,13 @@ def platform_voucher(msw: s.OicWorld, name: str, amount: int, minimum: int) -> N
 
 
 @given(parsers.parse('"{label}" applies shop voucher "{name}" to shop "{shop}"'))
+@when(parsers.parse('"{label}" applies shop voucher "{name}" to shop "{shop}"'))
 def apply_shop_voucher(msw: s.OicWorld, label: str, name: str, shop: str) -> None:
     _req(msw, label)["shop_vouchers"].append((_shop_id(msw, shop), _d(msw)["vouchers"][name]))
 
 
 @given(parsers.parse('"{label}" applies platform voucher "{name}"'))
+@when(parsers.parse('"{label}" applies platform voucher "{name}"'))
 def apply_platform_voucher(msw: s.OicWorld, label: str, name: str) -> None:
     _req(msw, label)["platform"] = _d(msw)["vouchers"][name]
 

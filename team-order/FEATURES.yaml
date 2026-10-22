@@ -4511,3 +4511,768 @@ features:
     tags: [buyer, order]
     status: automated
     covered_by: "order/address_eta.feature::Address and ETA: An edited address is refused end to end and a retry succeeds"
+  - id: order.omc-two-shops-are-quoted-per-group-not-as-one-total
+    title: "Multishop checkout: Two shops are quoted per group, not as one total"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: Two shops are quoted per group, not as one total"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: Two shops are quoted per group, not as one total"
+  - id: order.omc-free-shipping-is-decided-per-group
+    title: "Multishop checkout: Free shipping is decided per group"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Free shipping is decided per group"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutFreeShippingPerGroup`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-totals-equal-the-placed-orders
+    title: "Multishop checkout: Preview totals equal the placed orders"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: Preview totals equal the placed orders"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: Preview totals equal the placed orders"
+  - id: order.omc-preview-reserves-nothing
+    title: "Multishop checkout: Preview reserves nothing"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview reserves nothing"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutReservesNothing`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-limits-itself-to-the-selected-lines
+    title: "Multishop checkout: Preview limits itself to the selected lines"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview limits itself to the selected lines"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutSelectsItemIDs`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-of-an-empty-selection-is-refused
+    title: "Multishop checkout: Preview of an empty selection is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview of an empty selection is refused"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestPreviewCheckoutEmptySelectionFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-without-an-address-quotes-no-shipping
+    title: "Multishop checkout: Preview without an address quotes no shipping"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview without an address quotes no shipping"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutNoAddressNotQuoted`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-with-an-unknown-address-id-is-refused
+    title: "Multishop checkout: Preview with an unknown address id is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview with an unknown address id is refused"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestPreviewCheckoutUnknownAddressFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-with-addresses-but-no-default-is-refused
+    title: "Multishop checkout: Preview with addresses but no default is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview with addresses but no default is refused"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutNoDefaultAddressFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-fails-closed-when-identity-is-unreachabl
+    title: "Multishop checkout: Preview fails closed when identity is unreachable"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview fails closed when identity is unreachable"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutIdentityUnavailable`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-echoes-the-address-it-quoted
+    title: "Multishop checkout: Preview echoes the address it quoted"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview echoes the address it quoted"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutEchoesShippingAddress`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-refuses-a-changed-price
+    title: "Multishop checkout: Preview refuses a changed price"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview refuses a changed price"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutPriceChangedRepricesCart`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-of-the-buyer-s-own-listing-is-refused
+    title: "Multishop checkout: Preview of the buyer's own listing is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview of the buyer's own listing is refused"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutSelfPurchaseRefused`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-ignores-another-buyer-s-cart
+    title: "Multishop checkout: Preview ignores another buyer's cart"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: Preview ignores another buyer's cart"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: Preview ignores another buyer's cart"
+  - id: order.omc-preview-needs-a-user-principal
+    title: "Multishop checkout: Preview needs a user principal"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview needs a user principal"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestPreviewCheckoutRequiresUserPrincipal`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-is-reachable-through-the-gateway-for-a-s
+    title: "Multishop checkout: Preview is reachable through the gateway for a signed-in buyer"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: Preview is reachable through the gateway for a signed-in buyer"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: Preview is reachable through the gateway for a signed-in buyer"
+  - id: order.omc-platform-discount-splits-across-groups-and-sums
+    title: "Multishop checkout: Platform discount splits across groups and sums back"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Platform discount splits across groups and sums back"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutProratesPlatformDiscount`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-remainder-ties-go-to-the-lowest-seller-id
+    title: "Multishop checkout: Remainder ties go to the lowest seller id"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Remainder ties go to the lowest seller id"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutRemainderTieLowestSellerID`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-single-group-takes-the-whole-platform-discount
+    title: "Multishop checkout: A single group takes the whole platform discount"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A single group takes the whole platform discount"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutSingleGroupWholeDiscount`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-stacked-discounts-never-make-a-negative-total
+    title: "Multishop checkout: Stacked discounts never make a negative total"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Stacked discounts never make a negative total"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutClampsGroupTotalAtZero`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-totals-always-add-up
+    title: "Multishop checkout: Totals always add up"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Totals always add up"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutTableTotalsInvariant`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-each-shop-voucher-discounts-its-own-group
+    title: "Multishop checkout: Each shop voucher discounts its own group"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: Each shop voucher discounts its own group"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: Each shop voucher discounts its own group"
+  - id: order.omc-a-shop-voucher-on-another-shop-s-group-is-refuse
+    title: "Multishop checkout: A shop voucher on another shop's group is refused"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: A shop voucher on another shop's group is refused"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: A shop voucher on another shop's group is refused"
+  - id: order.omc-createorder-aborts-on-a-refused-shop-voucher-and
+    title: "Multishop checkout: CreateOrder aborts on a refused shop voucher and holds nothing"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: CreateOrder aborts on a refused shop voucher and holds nothing"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCreateOrderShopVoucherWrongShopAbortsAndReleases`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-platform-code-in-a-shop-slot-is-refused
+    title: "Multishop checkout: A platform code in a shop slot is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A platform code in a shop slot is refused"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestShopSlotRefusesPlatformScope`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-shop-voucher-for-a-shop-outside-the-selection
+    title: "Multishop checkout: A shop voucher for a shop outside the selection is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A shop voucher for a shop outside the selection is refused"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestShopVoucherSellerNotInSelectionRefused`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-two-shop-vouchers-for-one-seller-are-rejected
+    title: "Multishop checkout: Two shop vouchers for one seller are rejected"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Two shop vouchers for one seller are rejected"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestShopVouchersDuplicateSellerInvalidArgument`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-platform-voucher-is-split-and-stored-per-order
+    title: "Multishop checkout: Platform voucher is split and stored per order"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: Platform voucher is split and stored per order"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: Platform voucher is split and stored per order"
+  - id: order.omc-platform-min-spend-is-checked-on-the-whole-selec
+    title: "Multishop checkout: Platform min spend is checked on the whole selection"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Platform min spend is checked on the whole selection"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPlatformVoucherMinSpendOnSelectionSubtotal`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-platform-voucher-below-min-spend-is-refused
+    title: "Multishop checkout: Platform voucher below min spend is refused"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: Platform voucher below min spend is refused"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: Platform voucher below min spend is refused"
+  - id: order.omc-a-shop-code-in-the-platform-slot-is-refused
+    title: "Multishop checkout: A shop code in the platform slot is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A shop code in the platform slot is refused"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPlatformSlotRefusesShopScope`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-platform-and-shop-vouchers-stack-on-one-group
+    title: "Multishop checkout: Platform and shop vouchers stack on one group"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Platform and shop vouchers stack on one group"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutStacksShopAndPlatform`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-createorder-aborts-on-a-refused-platform-voucher
+    title: "Multishop checkout: CreateOrder aborts on a refused platform voucher and holds nothing"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: CreateOrder aborts on a refused platform voucher and holds nothing"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCreateOrderPlatformVoucherRefusedAbortsAndReleases`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-every-voucher-hold-of-a-failed-checkout-is-relea
+    title: "Multishop checkout: Every voucher hold of a failed checkout is released"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Every voucher hold of a failed checkout is released"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestFailAndCompensateReleasesAllVoucherHolds`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-legacy-platform-code-becomes-the-platform-vouc
+    title: "Multishop checkout: A legacy platform code becomes the platform voucher"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A legacy platform code becomes the platform voucher"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestLegacyVoucherCodePlatformScopeRouted`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-legacy-shop-code-is-refused-as-a-platform-vouc
+    title: "Multishop checkout: A legacy shop code is refused as a platform voucher"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A legacy shop code is refused as a platform voucher"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestLegacyVoucherCodeShopScopeRefused`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-an-unknown-legacy-code-is-refused
+    title: "Multishop checkout: An unknown legacy code is refused"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: An unknown legacy code is refused"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestLegacyVoucherCodeUnknownRefused`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-voucher-named-twice-is-rejected
+    title: "Multishop checkout: A voucher named twice is rejected"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A voucher named twice is rejected"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestVoucherCodeNamedTwiceInvalidArgument`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-legacy-and-platform-voucher-fields-together-are
+    title: "Multishop checkout: Legacy and platform voucher fields together are rejected"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Legacy and platform voucher fields together are rejected"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestLegacyAndPlatformVoucherTogetherInvalidArgument`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-vouchers-are-ignored-without-a-promotion-client
+    title: "Multishop checkout: Vouchers are ignored without a promotion client"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Vouchers are ignored without a promotion client"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestVouchersIgnoredWithoutPromotionClient`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-promotion-outage-blocks-a-voucher-checkout
+    title: "Multishop checkout: A promotion outage blocks a voucher checkout"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A promotion outage blocks a voucher checkout"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestVoucherTransportErrorUnavailable`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-preview-holds-are-released-and-never-committed
+    title: "Multishop checkout: Preview holds are released and never committed"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Preview holds are released and never committed"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutReleasesPreviewHoldsNeverCommits`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-preview-release-failure-does-not-fail-the-prev
+    title: "Multishop checkout: A preview release failure does not fail the preview"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A preview release failure does not fail the preview"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutReleaseErrorIgnored`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-orders-of-one-checkout-share-a-checkout-id
+    title: "Multishop checkout: Orders of one checkout share a checkout_id"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: Orders of one checkout share a checkout_id"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: Orders of one checkout share a checkout_id"
+  - id: order.omc-placed-totals-equal-the-quote-function
+    title: "Multishop checkout: Placed totals equal the quote function"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Placed totals equal the quote function"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestRunCheckoutPlacesQuotedFigures`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-checkout-without-vouchers-is-unchanged
+    title: "Multishop checkout: A checkout without vouchers is unchanged"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A checkout without vouchers is unchanged"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestRunCheckoutNoVoucherUnchanged`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-non-user-principal-cannot-place-a-multi-vouche
+    title: "Multishop checkout: A non-user principal cannot place a multi-voucher checkout"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A non-user principal cannot place a multi-voucher checkout"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderVouchersRequireUserPrincipal`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-the-order-repository-returns-checkout-siblings
+    title: "Multishop checkout: The order repository returns checkout siblings"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: The order repository returns checkout siblings"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestListOrdersByCheckout`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-order-rows-stay-readable-before-the-migration-da
+    title: "Multishop checkout: Order rows stay readable before the migration data exists"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Order rows stay readable before the migration data exists"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestOrderLegacyRowDefaultsNewColumns`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-first-paid-order-commits-the-platform-voucher
+    title: "Multishop checkout: First paid order commits the platform voucher"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: First paid order commits the platform voucher"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestSettleCommitsPlatformVoucherOnFirstPaid`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-platform-voucher-is-counted-once-for-two-paid-or
+    title: "Multishop checkout: Platform voucher is counted once for two paid orders"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: Platform voucher is counted once for two paid orders"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: Platform voucher is counted once for two paid orders"
+  - id: order.omc-an-order-without-a-platform-voucher-makes-no-pla
+    title: "Multishop checkout: An order without a platform voucher makes no platform commit"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: An order without a platform voucher makes no platform commit"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestSettleNoPlatformCommitWithoutPlatformVoucher`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-platform-commit-failure-is-retried
+    title: "Multishop checkout: A platform commit failure is retried"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A platform commit failure is retried"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestSettlePlatformCommitErrorRetried`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-cancelling-one-order-keeps-the-platform-voucher
+    title: "Multishop checkout: Cancelling one order keeps the platform voucher and sibling prices"
+    persona: buyer
+    priority: P1
+    summary: "E2E scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order, team-promotion, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own sellers, buyer and listings, and seeds its own vouchers through the gateway.
+    acceptance:
+      - "Multishop checkout: Cancelling one order keeps the platform voucher and sibling prices"
+    tags: [order, checkout]
+    status: automated
+    covered_by: "order/multishop_checkout.feature::Multishop checkout: Cancelling one order keeps the platform voucher and sibling prices"
+  - id: order.omc-cancelling-the-last-unpaid-order-releases-the-pl
+    title: "Multishop checkout: Cancelling the last unpaid order releases the platform voucher"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Cancelling the last unpaid order releases the platform voucher"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCancelLastOrderReleasesPlatformVoucher`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-paid-sibling-blocks-the-platform-release
+    title: "Multishop checkout: A paid sibling blocks the platform release"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A paid sibling blocks the platform release"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCancelWithPaidSiblingKeepsPlatformVoucher`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-the-system-cancel-of-an-expired-order-follows-th
+    title: "Multishop checkout: The system cancel of an expired order follows the same rule"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: The system cancel of an expired order follows the same rule"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestSystemCancelReleasesPlatformVoucherWhenAllCancelled`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-a-platform-release-failure-never-fails-the-cance
+    title: "Multishop checkout: A platform release failure never fails the cancel"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: A platform release failure never fails the cancel"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCancelPlatformReleaseErrorNeverFailsCancel`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-cancelling-an-order-without-a-platform-voucher-m
+    title: "Multishop checkout: Cancelling an order without a platform voucher makes no platform call"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: Cancelling an order without a platform voucher makes no platform call"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestCancelWithoutPlatformVoucherNoPlatformCalls`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-the-gateway-forwards-previewcheckout-with-the-ca
+    title: "Multishop checkout: The gateway forwards PreviewCheckout with the caller's identity"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: The gateway forwards PreviewCheckout with the caller's identity"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestOrderForwarderPreviewCheckout`. Not producible end to end through the gateway (unit level)."
+  - id: order.omc-the-gateway-maps-an-upstream-failure
+    title: "Multishop checkout: The gateway maps an upstream failure"
+    persona: buyer
+    priority: P2
+    summary: "Unit-verified scenario of change order-multishop-checkout."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Multishop checkout: The gateway maps an upstream failure"
+    tags: [order, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestOrderForwarderPreviewCheckoutMapsError`. Not producible end to end through the gateway (unit level)."
