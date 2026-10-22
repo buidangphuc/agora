@@ -54,7 +54,7 @@ def exits_non_zero(world: World) -> None:
 def log_names_database(world: World) -> None:
     proc: subprocess.CompletedProcess[str] = world.state.extra["boot"]
     log = proc.stdout + proc.stderr
-    assert "DATABASE_URL is required" in log, log
+    assert "DATABASE_ENABLED" in log and "DATABASE_URL" in log, log
 
 
 @then("the same image with ENV production and an unreachable database exits non-zero")

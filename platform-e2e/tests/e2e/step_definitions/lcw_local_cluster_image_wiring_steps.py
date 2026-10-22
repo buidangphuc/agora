@@ -28,10 +28,9 @@ def _kustomization(app: str) -> dict:
 
 
 def _push_map() -> list[tuple[str, str, str]]:
-    script = (ROOT / "deploy/images/push-images.sh").read_text()
-    block = script.split('MAP="', 1)[1].split('"', 1)[0]
+    rows = (ROOT / "deploy/images/services.map").read_text().splitlines()
     return [
-        tuple(ln.split()) for ln in block.splitlines() if ln.strip()
+        tuple(ln.split()) for ln in rows if ln.strip() and not ln.lstrip().startswith("#")
     ]  # key, repo, compose image
 
 
@@ -110,7 +109,7 @@ def tags_follow_values(lcw):
 def read_push(lcw):
     lcw["push"] = _push_map()
     lcw["compose_images"] = set()
-    for name in ("docker-compose.services.yaml", "docker-compose.yaml"):
+    for name in ("docker-compose.services.yaml", "docker-compose.yaml", "platform-core/infra/docker-compose.yaml"):
         doc = yaml.safe_load((ROOT / name).read_text()) or {}
         lcw["compose_images"] |= {
             s["image"] for s in doc.get("services", {}).values() if "image" in s

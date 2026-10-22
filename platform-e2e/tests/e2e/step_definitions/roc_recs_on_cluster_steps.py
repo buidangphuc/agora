@@ -289,11 +289,13 @@ def egress_limited(roc):
 
 @when("the image push script and the local values are read")
 def read_push(roc):
-    script = (ROOT / "deploy/images/push-images.sh").read_text()
-    block = script.split('MAP="', 1)[1].split('"', 1)[0]
+    rows = (ROOT / "deploy/images/services.map").read_text().splitlines()
     # "<values-key> <registry-repo> <compose-image>"
     roc["push"] = {
-        k: src for k, _repo, src in (ln.split() for ln in block.splitlines() if ln.strip())
+        k: src
+        for k, _repo, src in (
+            ln.split() for ln in rows if ln.strip() and not ln.lstrip().startswith("#")
+        )
     }
     roc["values"] = yaml.safe_load((GITOPS / "envs/local/values.yaml").read_text())
 

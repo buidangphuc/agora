@@ -8,7 +8,7 @@ Feature: Empty and error UI states
     Then the search results show an empty state notice
     And suggested search tips are displayed
 
-  Scenario: Visitor navigating to empty cart sees clear empty state and shop link
-    Given the "home" page is open
-    When the buyer opens the cart
+  Scenario: Signed-in buyer navigating to an empty cart sees clear empty state and shop link
+    Given a d2 buyer has an empty cart
+    When the d2 buyer opens the cart
     Then the empty cart state is displayed

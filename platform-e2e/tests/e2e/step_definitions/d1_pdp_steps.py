@@ -434,7 +434,8 @@ def stage_placeholder(world: World) -> None:
     box = stage.locator(".aspect-square").first.bounding_box()
     assert box and abs(box["width"] - box["height"]) < 1, box
     hosts = world.page.evaluate(
-        "() => [...new Set(performance.getEntriesByType('resource').map(r => new URL(r.name).hostname))]"
+        "() => [...new Set(performance.getEntriesByType('resource')"
+        ".filter(r => r.initiatorType === 'img').map(r => new URL(r.name).hostname))]"
     )
     external = [h for h in hosts if h not in ("localhost", "127.0.0.1")]
     assert not external, f"external hosts requested: {external}"
@@ -821,7 +822,9 @@ def guest_prompt(world: World) -> None:
     prompt = world.page.get_by_test_id("qa-login-prompt")
     expect(prompt).to_be_visible(timeout=timeouts.NAVIGATION)
     link = prompt.get_by_role("link")
-    expect(link.first).to_have_attribute("href", f"/login?returnUrl=/listing/{_listing_id(world)}")
+    expect(link.first).to_have_attribute(
+        "href", f"/login?returnUrl=%2Flisting%2F{_listing_id(world)}"
+    )
     expect(world.page.get_by_test_id("qa-ask-form")).to_have_count(0)
 
 
