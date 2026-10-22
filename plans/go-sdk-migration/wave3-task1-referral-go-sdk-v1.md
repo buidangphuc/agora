@@ -15,6 +15,13 @@ Implement OpenSpec change `referral-go-sdk-v1` test-first per its tasks.md: migr
 - platform-gitops/envs/prod/services/team-referral.yaml
 - platform-e2e/tests/e2e/**
 - openspec/changes/referral-go-sdk-v1/**
+- team-referral/Makefile (widened at build: task 1.1)
+- team-referral/.env.example (widened at build: task 1.1)
+- docker-compose.services.yaml (widened at build: task 1.1)
+- platform-gitops/envs/services/team-referral.yaml (widened at build: task 1.1)
+- platform-gitops/argocd/apps/team-referral.yaml (widened at build: task 1.1)
+- platform-gitops/envs/staging/services/team-referral.yaml (widened at build: task 1.1)
+- platform-gitops/envs/prod/services/team-referral.yaml (widened at build: task 1.1)
 
 ## Verify
 - cd team-referral && go build ./... && go vet ./... && go test ./... -count=1
