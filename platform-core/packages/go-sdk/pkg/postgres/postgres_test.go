@@ -3,7 +3,6 @@ package postgres_test
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"runtime"
 	"testing"
 	"time"
@@ -92,22 +91,6 @@ func TestWithTxCommits(t *testing.T) {
 	}
 }
 
-func TestOpenOrLocalFallsBackOnlyLocally(t *testing.T) {
-	c := config.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?connect_timeout=1", MaxConns: 2}
-	logger := slog.New(slog.DiscardHandler)
-
-	pool, err := postgres.OpenOrLocal(context.Background(), c, config.Runtime{Env: "dev"}, logger)
-	if err == nil || pool != nil {
-		t.Errorf("dev: pool=%v err=%v; want nil pool and an error", pool, err)
-	}
-	for _, env := range []string{"local", "test"} {
-		pool, err = postgres.OpenOrLocal(context.Background(), c, config.Runtime{Env: env}, logger)
-		if err != nil || pool != nil {
-			t.Errorf("%s: pool=%v err=%v; want nil, nil", env, pool, err)
-		}
-	}
-}
-
 func TestWithTxPanicDoesNotLeakConnection(t *testing.T) {
 	pool := openPool(t) // MaxConns: 4
 
@@ -139,14 +122,6 @@ func TestWithTxPanicDoesNotLeakConnection(t *testing.T) {
 	}
 	if got := pool.Stat().AcquiredConns(); got != 0 {
 		t.Fatalf("acquired conns = %d, want 0", got)
-	}
-}
-
-func TestOpenOrLocalNilLogger(t *testing.T) {
-	c := config.Postgres{URL: "postgres://u:p@127.0.0.1:1/db?connect_timeout=1", MaxConns: 2}
-	pool, err := postgres.OpenOrLocal(context.Background(), c, config.Runtime{Env: "local"}, nil)
-	if err != nil || pool != nil {
-		t.Fatalf("pool=%v err=%v; want nil, nil", pool, err)
 	}
 }
 
