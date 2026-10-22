@@ -1424,3 +1424,237 @@ features:
     tags: [promotion, audit, shop-voucher, unit]
     status: not-testable
     notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherPlatformStillPlatformAction`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-shop-voucher-reports-shop-scope-and-its-seller
+    title: "Shop voucher reports SHOP scope and its seller"
+    persona: buyer
+    priority: P1
+    summary: "Voucher scope (change promotion-voucher-scope): Shop voucher reports SHOP scope and its seller"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    acceptance:
+      - "Shop voucher reports SHOP scope and its seller"
+    tags: [promotion, voucher-scope]
+    status: automated
+    covered_by: "promo/voucher_scope.feature::Shop voucher reports SHOP scope and its seller"
+
+  - id: promotion.voucher-scope-platform-voucher-reports-platform-scope-and-no-seller
+    title: "Platform voucher reports PLATFORM scope and no seller"
+    persona: buyer
+    priority: P1
+    summary: "Voucher scope (change promotion-voucher-scope): Platform voucher reports PLATFORM scope and no seller"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    acceptance:
+      - "Platform voucher reports PLATFORM scope and no seller"
+    tags: [promotion, voucher-scope]
+    status: automated
+    covered_by: "promo/voucher_scope.feature::Platform voucher reports PLATFORM scope and no seller"
+
+  - id: promotion.voucher-scope-platform-voucher-min-spend-is-checked-on-the-subtotal-sent
+    title: "Platform voucher min spend is checked on the subtotal sent"
+    persona: buyer
+    priority: P1
+    summary: "Voucher scope (change promotion-voucher-scope): Platform voucher min spend is checked on the subtotal sent"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    acceptance:
+      - "Platform voucher min spend is checked on the subtotal sent"
+    tags: [promotion, voucher-scope]
+    status: automated
+    covered_by: "promo/voucher_scope.feature::Platform voucher min spend is checked on the subtotal sent"
+
+  - id: promotion.voucher-scope-a-shop-voucher-for-another-seller-is-refused-and-still-reports-its-shop
+    title: "A shop voucher for another seller is refused and still reports its shop"
+    persona: buyer
+    priority: P1
+    summary: "Voucher scope (change promotion-voucher-scope): A shop voucher for another seller is refused and still reports its shop"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    acceptance:
+      - "A shop voucher for another seller is refused and still reports its shop"
+    tags: [promotion, voucher-scope]
+    status: automated
+    covered_by: "promo/voucher_scope.feature::A shop voucher for another seller is refused and still reports its shop"
+
+  - id: promotion.voucher-scope-an-unknown-code-reports-no-scope
+    title: "An unknown code reports no scope"
+    persona: buyer
+    priority: P1
+    summary: "Voucher scope (change promotion-voucher-scope): An unknown code reports no scope"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    acceptance:
+      - "An unknown code reports no scope"
+    tags: [promotion, voucher-scope]
+    status: automated
+    covered_by: "promo/voucher_scope.feature::An unknown code reports no scope"
+
+  - id: promotion.voucher-scope-a-buyer-preview-receives-the-scope
+    title: "A buyer preview receives the scope"
+    persona: buyer
+    priority: P1
+    summary: "Voucher scope (change promotion-voucher-scope): A buyer preview receives the scope"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    acceptance:
+      - "A buyer preview receives the scope"
+    tags: [promotion, voucher-scope]
+    status: automated
+    covered_by: "promo/voucher_scope.feature::A buyer preview receives the scope"
+
+  - id: promotion.voucher-scope-a-buyer-outside-the-preview-namespace-is-denied
+    title: "A buyer outside the preview namespace is denied"
+    persona: buyer
+    priority: P1
+    summary: "Voucher scope (change promotion-voucher-scope): A buyer outside the preview namespace is denied"
+    entry_route: /
+    services: [team-promotion, team-gateway]
+    acceptance:
+      - "A buyer outside the preview namespace is denied"
+    tags: [promotion, voucher-scope]
+    status: automated
+    covered_by: "promo/voucher_scope.feature::A buyer outside the preview namespace is denied"
+
+  - id: promotion.voucher-scope-platform-voucher-ignores-the-seller-id-of-the-request
+    title: "Platform voucher ignores the seller id of the request"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Platform voucher ignores the seller id of the request"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReservePlatformIgnoresRequestSeller`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-a-shop-voucher-without-a-seller-id-is-refused
+    title: "A shop voucher without a seller id is refused"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A shop voucher without a seller id is refused"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveShopVoucherRequiresSeller`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-a-rejected-voucher-still-reports-its-scope
+    title: "A rejected voucher still reports its scope"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A rejected voucher still reports its scope"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveRejectionsReportScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-replay-reports-the-stored-voucher-s-scope
+    title: "Replay reports the stored voucher's scope"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Replay reports the stored voucher's scope"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveReplayReportsStoredScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-replay-of-a-released-hold-reports-the-scope
+    title: "Replay of a released hold reports the scope"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Replay of a released hold reports the scope"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveReleasedReplayReportsScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-replay-whose-voucher-is-gone-keeps-its-stored-outcome
+    title: "Replay whose voucher is gone keeps its stored outcome"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Replay whose voucher is gone keeps its stored outcome"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveReplayMissingVoucherNoScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-a-repository-failure-on-replay-is-an-internal-error
+    title: "A repository failure on replay is an internal error"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A repository failure on replay is an internal error"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveReplayStoreErrorPropagates`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-discount-and-reasons-are-unchanged
+    title: "Discount and reasons are unchanged"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Discount and reasons are unchanged"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveIdempotent`, `TestValidateAndReserveRejections`, `TestQuotaExhaustedRejected`, `TestComputeDiscount`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-the-order-service-receives-the-scope
+    title: "The order service receives the scope"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The order service receives the scope"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestValidateAndReserveHandlerEchoesScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-a-service-without-the-reserve-scope-is-denied
+    title: "A service without the reserve scope is denied"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A service without the reserve scope is denied"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestValidateAndReserveServiceWithoutScopeDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.voucher-scope-an-empty-reservation-id-is-rejected
+    title: "An empty reservation id is rejected"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change promotion-voucher-scope.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An empty reservation id is rejected"
+    tags: [promotion, voucher-scope, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/handler` `TestValidateAndReserveEmptyReservationIDInvalid`. Not producible end to end through the gateway (unit level)."
