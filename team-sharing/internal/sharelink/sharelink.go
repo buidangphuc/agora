@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-
 	"time"
 )
 
@@ -135,9 +134,9 @@ func defaultOgMeta(targetType, targetID string) (title, desc, image string) {
 // string.
 func randBase62() (string, error) {
 	b := make([]byte, shortCodeLen)
-	max := big.NewInt(int64(len(base62Alphabet)))
+	alphabetLen := big.NewInt(int64(len(base62Alphabet)))
 	for i := range b {
-		n, err := rand.Int(rand.Reader, max)
+		n, err := rand.Int(rand.Reader, alphabetLen)
 		if err != nil {
 			return "", err
 		}

@@ -62,7 +62,7 @@ func (r *fakeRepo) creator(t *testing.T, code string) string {
 
 func newHandler(t *testing.T, repo sharelink.Repository) *rpc.Handler {
 	t.Helper()
-	h, err := rpc.NewHandler(sharelink.NewService(repo), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h, err := rpc.NewHandler(sharelink.NewService(repo), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
@@ -184,6 +184,7 @@ type failingRepo struct{}
 func (failingRepo) Create(context.Context, *sharelink.ShareLink) (*sharelink.ShareLink, error) {
 	return nil, io.ErrClosedPipe
 }
+
 func (failingRepo) Resolve(context.Context, string) (*sharelink.ShareLink, error) {
 	return nil, io.ErrClosedPipe
 }

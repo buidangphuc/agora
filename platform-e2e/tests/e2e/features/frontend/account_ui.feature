@@ -96,6 +96,15 @@ Feature: Account and auth screens - forms, feedback, URL state and layout
     Given a signed-in buyer on the referral page
     Then the rewards area shows Empty "Chưa có phần thưởng nào."
 
+  Scenario: An unknown code is not found
+    Given a signed-in buyer on the referral page
+    When the buyer redeems the code "NOT-A-REAL-CODE"
+    Then an error toast is shown and the redeem field shows the server message as help and is invalid
+
+  Scenario: A new user sees an empty ledger
+    Given a signed-in buyer on the referral page
+    Then the rewards area shows Empty "Chưa có phần thưởng nào."
+
   # ── Following ─────────────────────────────────────────────────────────
   Scenario: Tab is held in the URL
     Given a signed-in buyer

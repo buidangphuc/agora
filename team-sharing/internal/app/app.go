@@ -66,7 +66,8 @@ func run(ctx context.Context, s config.Settings, repo sharelink.Repository) (err
 		return err
 	}
 
-	srv := grpcx.NewServer(grpcx.ServerOptions{Config: s.GRPC, Logger: logger, Health: health,
+	srv := grpcx.NewServer(grpcx.ServerOptions{
+		Config: s.GRPC, Logger: logger, Health: health,
 		Extra: []grpc.ServerOption{grpc.UnaryInterceptor(dropAnonymousPrincipal)},
 	})
 	rpc.Register(srv, handler)

@@ -8,6 +8,19 @@ Feature: New backend services API round-trips
     Then GetMyReferral returns that same code
     And listing referral rewards succeeds
 
+  Scenario: A buyer reaches the service through the gateway
+    Given an authenticated buyer
+    When the buyer creates a referral code
+    Then GetMyReferral returns that same code
+    And listing referral rewards succeeds
+    And GetMyReferral without a token is refused as unauthenticated with "authentication required"
+
+  Scenario: The service answers on its port after the migration
+    Given an authenticated buyer
+    When the buyer creates a referral code
+    Then GetMyReferral returns that same code
+    And the team-referral container is running, not restarting, and carries no DATABASE_ENABLED flag
+
   Scenario: A created share link resolves back to its target with OG meta
     Given an authenticated seller
     When the seller creates a share link for target "listing" "listing_001"

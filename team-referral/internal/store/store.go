@@ -1,15 +1,13 @@
-// Package repository holds team-referral's persistence layer. It owns three
+// Package store holds team-referral's persistence layer. It owns three
 // small tables — referral_codes (one code per user), referrals (who redeemed
 // whose code), and referral_rewards (mock coin-credit ledger) — behind a single
 // ReferralRepository interface. Both a Postgres and an in-memory implementation
 // satisfy it, so the service layer and its tests never depend on a live DB.
-package repository
+package store
 
 import (
 	"context"
 	"errors"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -187,157 +185,4 @@ func (r *PostgresReferralRepo) SumRewards(ctx context.Context, userID string) (i
 	var total int64
 	err := r.pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM referral_rewards WHERE user_id = $1`, userID).Scan(&total)
 	return total, err
-}
-
-// ── In-memory implementation ──
-
-type referral struct {
-	referrerID string
-	refereeID  string
-	code       string
-	createdAt  time.Time
-}
-
-type InMemoryReferralRepo struct {
-	mu         sync.Mutex
-	codeByUser map[string]string                       // user_id -> code
-	userByCode map[string]string                       // code -> user_id
-	referrals  []referral                              // ordered by creation
-	rewards    map[string][]*referralv1.ReferralReward // user_id -> ledger (append order)
-}
-
-func NewInMemoryReferralRepo() *InMemoryReferralRepo {
-	return &InMemoryReferralRepo{
-		codeByUser: make(map[string]string),
-		userByCode: make(map[string]string),
-		rewards:    make(map[string][]*referralv1.ReferralReward),
-	}
-}
-
-func (r *InMemoryReferralRepo) GetCodeByUser(_ context.Context, userID string) (string, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	code, ok := r.codeByUser[userID]
-	if !ok {
-		return "", ErrCodeNotFound
-	}
-	return code, nil
-}
-
-func (r *InMemoryReferralRepo) CreateCode(_ context.Context, userID, code string) (string, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if existing, ok := r.codeByUser[userID]; ok {
-		return existing, nil // idempotent
-	}
-	r.codeByUser[userID] = code
-	r.userByCode[code] = userID
-	return code, nil
-}
-
-func (r *InMemoryReferralRepo) OwnerOfCode(_ context.Context, code string) (string, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	userID, ok := r.userByCode[code]
-	if !ok {
-		return "", ErrCodeNotFound
-	}
-	return userID, nil
-}
-
-func (r *InMemoryReferralRepo) HasRedeemed(_ context.Context, refereeID string) (bool, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for _, ref := range r.referrals {
-		if ref.refereeID == refereeID {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (r *InMemoryReferralRepo) CreateReferral(_ context.Context, referrerID, refereeID, code string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for _, ref := range r.referrals {
-		if ref.refereeID == refereeID {
-			return ErrAlreadyRedeemed
-		}
-	}
-	r.referrals = append(r.referrals, referral{
-		referrerID: referrerID,
-		refereeID:  refereeID,
-		code:       code,
-		createdAt:  time.Now(),
-	})
-	return nil
-}
-
-func (r *InMemoryReferralRepo) CountReferralsByReferrer(_ context.Context, referrerID string) (int64, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	var n int64
-	for _, ref := range r.referrals {
-		if ref.referrerID == referrerID {
-			n++
-		}
-	}
-	return n, nil
-}
-
-func (r *InMemoryReferralRepo) AddReward(_ context.Context, userID string, amount int64, reason string) (*referralv1.ReferralReward, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	rw := &referralv1.ReferralReward{
-		Id:        newRewardID(),
-		Amount:    amount,
-		Reason:    reason,
-		CreatedAt: timestamppb.New(time.Now()),
-	}
-	r.rewards[userID] = append(r.rewards[userID], rw)
-	return cloneReward(rw), nil
-}
-
-func (r *InMemoryReferralRepo) ListRewards(_ context.Context, userID string, limit, offset int) ([]*referralv1.ReferralReward, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	ledger := r.rewards[userID]
-	// Newest-first, matching the Postgres ORDER BY created_at DESC.
-	sorted := make([]*referralv1.ReferralReward, len(ledger))
-	copy(sorted, ledger)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		return sorted[i].GetCreatedAt().AsTime().After(sorted[j].GetCreatedAt().AsTime())
-	})
-	if offset >= len(sorted) {
-		return nil, nil
-	}
-	end := offset + limit
-	if end > len(sorted) {
-		end = len(sorted)
-	}
-	page := sorted[offset:end]
-	out := make([]*referralv1.ReferralReward, 0, len(page))
-	for _, rw := range page {
-		out = append(out, cloneReward(rw))
-	}
-	return out, nil
-}
-
-func (r *InMemoryReferralRepo) SumRewards(_ context.Context, userID string) (int64, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	var total int64
-	for _, rw := range r.rewards[userID] {
-		total += rw.GetAmount()
-	}
-	return total, nil
-}
-
-func cloneReward(rw *referralv1.ReferralReward) *referralv1.ReferralReward {
-	return &referralv1.ReferralReward{
-		Id:        rw.GetId(),
-		Amount:    rw.GetAmount(),
-		Reason:    rw.GetReason(),
-		CreatedAt: rw.GetCreatedAt(),
-	}
 }

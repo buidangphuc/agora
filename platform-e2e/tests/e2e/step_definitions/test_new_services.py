@@ -9,11 +9,14 @@ gateway_endpoints. Auth reuses the existing AuthService (register-or-login).
 
 from __future__ import annotations
 
+import os
+import subprocess
 import uuid
 
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
+from src.api.services.base_service import GatewayError
 from src.api.services.auth_service import AuthService
 from src.api.services.referral_service import ReferralService
 from src.api.services.sharing_service import SharingService
@@ -137,3 +140,37 @@ def verification_status_pending(ctx: dict) -> None:
     assert (
         "VERIFIED" not in status and "REJECTED" not in status
     ), f"verification status is not PENDING: {resp}"
+
+
+@then(
+    parsers.parse(
+        'GetMyReferral without a token is refused as unauthenticated with "{message}"'
+    )
+)
+def get_my_referral_anonymous_refused(message: str) -> None:
+    with pytest.raises(GatewayError) as err:
+        ReferralService(token=None).get_my_referral()
+    assert err.value.status == 401, err.value
+    assert "unauthenticated" in err.value.body and message in err.value.body, err.value.body
+
+
+@then(
+    "the team-referral container is running, not restarting, and carries no DATABASE_ENABLED flag"
+)
+def referral_container_migrated() -> None:
+    name = os.environ.get("PLP_TEAM_REFERRAL_CONTAINER", "team-referral-svc")
+    fmt = (
+        "{{.State.Running}}|{{.State.Restarting}}|{{.RestartCount}}|"
+        "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}"
+        "|{{range .Config.Env}}{{println .}}{{end}}"
+    )
+    out = subprocess.run(
+        ["docker", "inspect", name, "--format", fmt], capture_output=True, text=True, check=True
+    ).stdout
+    running, restarting, restarts, health = out.split("|", 4)[:4]
+    env_keys = {line.split("=", 1)[0] for line in out.split("|", 4)[4].splitlines() if line}
+    assert running == "true" and restarting == "false" and restarts == "0", out[:80]
+    assert health != "unhealthy", f"container health is {health}"
+    assert (
+        "DATABASE_ENABLED" not in env_keys
+    ), "team-referral container still carries the removed DATABASE_ENABLED flag"
