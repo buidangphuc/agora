@@ -286,3 +286,19 @@ func (f *OrderForwarder) ConfirmReceipt(
 	}
 	return connect.NewResponse(out), nil
 }
+
+func (f *OrderForwarder) PreviewCheckout(
+	ctx context.Context,
+	req *connect.Request[orderv1.PreviewCheckoutRequest],
+) (*connect.Response[orderv1.PreviewCheckoutResponse], error) {
+	var out *orderv1.PreviewCheckoutResponse
+	err := f.edge.callRead(f.edge.outgoing(ctx, req.Header()), func(c context.Context) error {
+		var e error
+		out, e = f.client.PreviewCheckout(c, req.Msg)
+		return e
+	})
+	if err != nil {
+		return nil, toConnectErr(err)
+	}
+	return connect.NewResponse(out), nil
+}
