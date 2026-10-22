@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/twmb/franz-go/pkg/kgo"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 )
 
 func TestPostgresFixtureIsReachable(t *testing.T) {

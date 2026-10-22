@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 )
 
 type svcSettings struct {
@@ -320,5 +320,25 @@ func TestLoadReportsEachFailureOnce(t *testing.T) {
 	_, err := config.Load[singleEmbedded]()
 	if err == nil || strings.Count(err.Error(), "GRPC_PORT") != 1 {
 		t.Fatalf("err = %v, want GRPC_PORT named once", err)
+	}
+}
+
+type runtimePostgresSettings struct {
+	config.Runtime
+	Postgres config.Postgres
+}
+
+func (s runtimePostgresSettings) Validate() error { return s.Postgres.Validate() }
+
+// Scenario: Removed flags are ignored, not honoured.
+func TestLoadIgnoresRemovedEnableFlags(t *testing.T) {
+	t.Setenv("ENV", "local")
+	t.Setenv("DATABASE_ENABLED", "false")
+	t.Setenv("KAFKA_ENABLED", "false")
+	t.Setenv("DATABASE_URL", "")
+
+	_, err := config.Load[runtimePostgresSettings]()
+	if err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Fatalf("err = %v, want an error naming DATABASE_URL", err)
 	}
 }

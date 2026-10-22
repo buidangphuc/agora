@@ -151,3 +151,54 @@ func PositiveDuration(key, raw string, def time.Duration) (time.Duration, error)
 	}
 	return d, nil
 }
+
+// MockData holds the MOCK_DATA adapter list: a comma-separated set of adapter
+// names that serve fixture data instead of calling the real dependency.
+type MockData struct {
+	Adapters string `env:"MOCK_DATA"`
+}
+
+// ResolveFor refuses a non-empty MOCK_DATA when the environment is strict.
+func (m *MockData) ResolveFor(rt Runtime) error {
+	if rt.IsStrict() && strings.TrimSpace(m.Adapters) != "" {
+		return errors.New("MOCK_DATA must be empty when ENV is staging or prod")
+	}
+	return nil
+}
+
+// Audit holds the audit-service address. Addr has no tag default: in a strict
+// environment an empty value is rejected, locally it stays empty.
+type Audit struct {
+	Addr string `env:"UPSTREAM_AUDIT_ADDR"`
+}
+
+// ResolveFor rejects an empty Addr when the environment is strict.
+func (a *Audit) ResolveFor(rt Runtime) error {
+	if rt.IsStrict() && strings.TrimSpace(a.Addr) == "" {
+		return errors.New("UPSTREAM_AUDIT_ADDR is required when ENV is staging or prod")
+	}
+	return nil
+}
+
+const localLogKeyFPDefault = "local-dev-log-key-fp-secret"
+
+// LogKeyFP holds the secret that keys the record-key fingerprints the consume
+// loops log instead of raw keys. Secret has no tag default: Load fills a
+// documented local default for a local ENV and rejects an unset or empty value
+// when Runtime.IsStrict.
+type LogKeyFP struct {
+	Secret string `env:"LOG_KEY_FP_SECRET"`
+}
+
+// ResolveFor rejects an empty Secret when the environment is strict and fills
+// the local default otherwise.
+func (l *LogKeyFP) ResolveFor(rt Runtime) error {
+	if strings.TrimSpace(l.Secret) != "" {
+		return nil
+	}
+	if rt.IsStrict() {
+		return errors.New("LOG_KEY_FP_SECRET is required when ENV is staging or prod")
+	}
+	l.Secret = localLogKeyFPDefault
+	return nil
+}

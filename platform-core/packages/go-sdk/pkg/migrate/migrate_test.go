@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/migrate"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 )
 
 func fsys(up string) fstest.MapFS {

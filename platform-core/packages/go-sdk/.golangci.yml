@@ -27,10 +27,6 @@ linters:
         linters:
           - gosec
           - errcheck
-      # Services add their own exclusions between these markers; sync-go-sdk.sh
-      # keeps what is inside when it replaces this file.
-      # BEGIN service-local
-      # END service-local
 
 formatters:
   enable:
@@ -39,4 +35,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/buidangphuc/platform-core
+        - github.com/buidangphuc

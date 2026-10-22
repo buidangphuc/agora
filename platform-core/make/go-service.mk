@@ -1,5 +1,5 @@
-# Shared targets for Go services (ADR-0016). Synced into a service by
-# platform-core/tools/sync-go-sdk.sh; do not edit the copy.
+# Shared targets for Go services (ADR-0016). Included by a service Makefile
+# from ../platform-core/make/go-service.mk.
 #
 # The including Makefile sets:
 #   SERVICE    image and binary name, e.g. team-sharing   (required)
@@ -8,10 +8,12 @@
 #
 #   SERVICE := team-sharing
 #   GRPC_PORT := 50065
-#   include make/go-service.mk
+#   LINT_CONFIG := ../platform-core/packages/go-sdk/.golangci.yml
+#   include ../platform-core/make/go-service.mk
 
 BINARIES ?= server
 BIN      := $(firstword $(BINARIES))
+LINT_CONFIG ?= .golangci.yml
 
 .DEFAULT_GOAL := help
 
@@ -39,8 +41,8 @@ test: ## Run tests with the race detector (DOCKER_HOST from the docker context i
 	go test -race ./...
 
 .PHONY: lint
-lint: ## Run golangci-lint with .golangci.yml
-	go tool golangci-lint run ./...
+lint: ## Run golangci-lint with the shared .golangci.yml
+	go tool golangci-lint run --config $(LINT_CONFIG) ./...
 
 .PHONY: check-env
 check-env: ## Check .env.example matches the config struct

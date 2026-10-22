@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/rpc"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/otelx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/examples/hello/internal/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/examples/hello/internal/rpc"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/lifecycle"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/otelx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 const service = "hello"

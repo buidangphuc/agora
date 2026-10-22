@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/resilience"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/resilience"
 )
 
 var fastRetry = resilience.RetryOptions{MaxAttempts: 3, BaseDelay: time.Millisecond, MaxDelay: 5 * time.Millisecond}

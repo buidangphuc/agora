@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/lifecycle"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/lifecycle"
 )
 
 const wait = 5 * time.Second

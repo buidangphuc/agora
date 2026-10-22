@@ -10,7 +10,7 @@ import (
 
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
 )
 
 const (

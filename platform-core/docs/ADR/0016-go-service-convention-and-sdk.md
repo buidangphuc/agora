@@ -1,6 +1,6 @@
 # ADR-0016 — Go service convention and SDK distribution
 
-**Status:** Accepted · **Date:** 2026-10-12 · **Relates to:** ADR-0001, ADR-0002, ADR-0004, ADR-0010
+**Status:** Accepted; Superseded in part by ADR-0018 (distribution) · **Date:** 2026-10-12 · **Relates to:** ADR-0001, ADR-0002, ADR-0004, ADR-0010
 
 ## Context
 
