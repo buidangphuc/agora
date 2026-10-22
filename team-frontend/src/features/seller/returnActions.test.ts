@@ -25,6 +25,7 @@ const view = {
   refundAmount: 1,
   status: ReturnStatus.REFUNDED,
   statusText: "Đã hoàn tiền",
+  canEscalate: false,
 };
 
 beforeEach(() => vi.clearAllMocks());

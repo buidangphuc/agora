@@ -42,6 +42,7 @@ function ret(status: ReturnStatus, over: Partial<ViewOrderReturn> = {}) {
     refundAmount: 200000,
     status,
     statusText: TEXT[status],
+    canEscalate: false,
     ...over,
   } satisfies ViewOrderReturn;
 }

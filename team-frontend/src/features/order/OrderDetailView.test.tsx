@@ -379,6 +379,7 @@ describe("OrderDetailView lifecycle", () => {
               refundAmount: 1000,
               status,
               statusText: "x",
+              canEscalate: false,
             },
           ]}
         >

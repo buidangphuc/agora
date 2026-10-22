@@ -69,6 +69,7 @@ describe("OrderDetailTabs", () => {
               refundAmount: 1000,
               status: ReturnStatus.PENDING,
               statusText: "Chờ duyệt",
+              canEscalate: false,
             })
           }
         >
