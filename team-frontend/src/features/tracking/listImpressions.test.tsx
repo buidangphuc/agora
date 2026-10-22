@@ -7,8 +7,8 @@ vi.mock("@/features/engagement/FavoriteButton", () => ({
   FavoriteButton: () => <button type="button">fav</button>,
 }));
 
-import { beaconQueue } from "@/lib/analytics/queue";
 import { ListingGrid } from "@/features/listing/ListingGrid";
+import { beaconQueue } from "@/lib/analytics/queue";
 import { SearchImpressions } from "./SearchImpressions";
 
 type Wire = Record<string, unknown>;

@@ -25,7 +25,9 @@ function directiveProblems(source: string): string[] {
   const noBlockComments = source.replace(/\/\*[\s\S]*?\*\//g, (m) =>
     m.replace(/[^\n]/g, " "),
   );
-  const lines = noBlockComments.split("\n").map((l) => l.replace(/^\s*\/\/.*$/, ""));
+  const lines = noBlockComments
+    .split("\n")
+    .map((l) => l.replace(/^\s*\/\/.*$/, ""));
 
   lines.forEach((line, i) => {
     if (WRAPPED.test(line))
@@ -53,15 +55,21 @@ describe("use client / use server directives", () => {
   });
 
   it("[Directives stay real directives] accepts a leading directive, with comments and blank lines before it", () => {
-    expect(directiveProblems('"use client";\nimport a from "a";\n')).toEqual([]);
+    expect(directiveProblems('"use client";\nimport a from "a";\n')).toEqual(
+      [],
+    );
     expect(directiveProblems("'use server'\nimport a from 'a';\n")).toEqual([]);
     expect(
-      directiveProblems('// license\n/* block\n x */\n\n"use client";\nimport a from "a";\n'),
+      directiveProblems(
+        '// license\n/* block\n x */\n\n"use client";\nimport a from "a";\n',
+      ),
     ).toEqual([]);
   });
 
   it("[Directives stay real directives] flags a parenthesised directive", () => {
-    expect(directiveProblems('("use client");\nimport a from "a";\n')).toHaveLength(1);
+    expect(
+      directiveProblems('("use client");\nimport a from "a";\n'),
+    ).toHaveLength(1);
   });
 
   it("[Directives stay real directives] flags an import above the directive", () => {

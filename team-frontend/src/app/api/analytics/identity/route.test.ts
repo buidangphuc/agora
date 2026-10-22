@@ -76,7 +76,7 @@ beforeEach(() => {
   );
 });
 afterEach(() => {
-  delete process.env.GA4_USER_ID_HMAC_KEY;
+  Reflect.deleteProperty(process.env, "GA4_USER_ID_HMAC_KEY");
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -139,7 +139,7 @@ describe("identity route", () => {
   });
 
   it("[Missing key disables the feature] unset key -> 204 for a consented, logged-in caller", async () => {
-    delete process.env.GA4_USER_ID_HMAC_KEY;
+    Reflect.deleteProperty(process.env, "GA4_USER_ID_HMAC_KEY");
     const r = await call({ a: 1, session: jwt(SUB) });
     expect(r.status).toBe(204);
     expect(await r.text()).toBe("");

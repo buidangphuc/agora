@@ -6,5 +6,5 @@ Feature: team-search refuses to boot without a reachable database outside local
     When it is started with ENV production and no DATABASE_URL
     Then the process exits non-zero
     And its log names the database setting
-    And the same image with ENV production and an unreachable database exits non-zero
-    And the same image with ENV local and an unreachable database falls back to in-memory storage
+    And the same image with ENV production, DATABASE_ENABLED true and an unreachable database exits non-zero
+    And the same image with ENV local and DATABASE_ENABLED false falls back to in-memory storage

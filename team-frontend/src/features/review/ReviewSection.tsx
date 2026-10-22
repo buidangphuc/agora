@@ -12,8 +12,8 @@ import type {
 } from "@/lib/gateway/reviews";
 import { AiReviewSummary } from "./AiReviewSummary";
 import { ReviewList } from "./ReviewList";
-import { ReviewRatingFilter } from "./ReviewRatingFilter";
 import { ReviewOrdersHint } from "./ReviewOrdersHint";
+import { ReviewRatingFilter } from "./ReviewRatingFilter";
 
 const STARS = [5, 4, 3, 2, 1];
 

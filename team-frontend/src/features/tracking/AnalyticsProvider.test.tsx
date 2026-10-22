@@ -36,7 +36,7 @@ const clearCookie = () => {
 describe("AnalyticsProvider GTM gating", () => {
   beforeEach(() => {
     document.head.innerHTML = "";
-    delete (window as { dataLayer?: unknown }).dataLayer;
+    Reflect.deleteProperty(window, "dataLayer");
     clearCookie();
     vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
   });

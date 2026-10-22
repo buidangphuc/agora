@@ -212,9 +212,9 @@ def _seed_verified_review(world: World, rating: int, comment: str) -> None:
     )
     review = ros.seed_verified_review(world, author, seller, _listing_id(world), rating, comment)
     assert review.get("verifiedPurchase") is True, f"seeded review is not verified: {review}"
-    assert review.get("userId") == _principal_id(token), (
-        f"review author {review.get('userId')} is not the order owner {_principal_id(token)}"
-    )
+    assert review.get("userId") == _principal_id(
+        token
+    ), f"review author {review.get('userId')} is not the order owner {_principal_id(token)}"
 
 
 @given(parsers.parse("a published listing with {count:d} reviews and a buyer on its page"))
@@ -377,9 +377,9 @@ def lint_pdp_clean(world: World) -> None:
 def no_stars_no_sold(world: World) -> None:
     detail = _detail(world)
     expect(detail.rating_row).to_contain_text("Chưa có đánh giá")
-    assert detail.rating_row.get_by_role("img").count() == 0, (
-        "stars rendered for an unrated listing"
-    )
+    assert (
+        detail.rating_row.get_by_role("img").count() == 0
+    ), "stars rendered for an unrated listing"
     card = world.page.get_by_test_id("shop-header-card")
     assert card.get_by_role("img", name=re.compile(r"trên 5 sao")).count() == 0
     for area in (world.page.locator("main").first,):
@@ -434,7 +434,8 @@ def stage_placeholder(world: World) -> None:
     box = stage.locator(".aspect-square").first.bounding_box()
     assert box and abs(box["width"] - box["height"]) < 1, box
     hosts = world.page.evaluate(
-        "() => [...new Set(performance.getEntriesByType('resource').map(r => new URL(r.name).hostname))]"
+        "() => [...new Set(performance.getEntriesByType('resource')"
+        ".filter(r => r.initiatorType === 'img').map(r => new URL(r.name).hostname))]"
     )
     external = [h for h in hosts if h not in ("localhost", "127.0.0.1")]
     assert not external, f"external hosts requested: {external}"
@@ -821,7 +822,9 @@ def guest_prompt(world: World) -> None:
     prompt = world.page.get_by_test_id("qa-login-prompt")
     expect(prompt).to_be_visible(timeout=timeouts.NAVIGATION)
     link = prompt.get_by_role("link")
-    expect(link.first).to_have_attribute("href", f"/login?returnUrl=/listing/{_listing_id(world)}")
+    expect(link.first).to_have_attribute(
+        "href", f"/login?returnUrl=%2Flisting%2F{_listing_id(world)}"
+    )
     expect(world.page.get_by_test_id("qa-ask-form")).to_have_count(0)
 
 

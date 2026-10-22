@@ -20,7 +20,7 @@ Feature: The cluster stores, serves and keeps fresh the trained recommendations
 
   Scenario: team-ai keeps its ingress allow-list
     When charts/service is rendered for team-ai with its recs service values
-    Then its NetworkPolicy ingress sources are exactly team-gateway, team-search-indexer and prometheus
+    Then its NetworkPolicy ingress sources are exactly team-gateway, team-search-indexer, team-domain and prometheus
 
   Scenario: The nearline consumer is wired to the cluster brokers
     When the nearline manifest is rendered

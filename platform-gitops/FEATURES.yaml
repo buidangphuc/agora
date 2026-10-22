@@ -34,7 +34,7 @@ features:
       data: "None: static `helm template` render of platform-gitops/charts/service."
     acceptance:
       - "When `charts/service` is rendered for team-ai with its service values"
-      - "Then a `NetworkPolicy` selects `app: team-ai` and its only ingress sources are `app: team-gateway`, `app: team-search-indexer` and `app: prometheus`"
+      - "Then a `NetworkPolicy` selects `app: team-ai` and its only ingress sources are `app: team-gateway`, `app: team-search-indexer`, `app: team-domain` and `app: prometheus`"
     tags: [ops]
     status: automated
     covered_by: "ops/gitops_render.feature::team-ai renders an ingress allow-list"
@@ -289,7 +289,7 @@ features:
       data: "None: static parse of platform-gitops raw manifests and helm template of charts/service."
     acceptance:
       - "When charts/service is rendered for team-ai with its recs service values"
-      - "Then its NetworkPolicy ingress sources are exactly team-gateway, team-search-indexer and prometheus"
+      - "Then its NetworkPolicy ingress sources are exactly team-gateway, team-search-indexer, team-domain and prometheus"
     tags: [ops]
     status: automated
     covered_by: "ops/roc_recs_on_cluster.feature::team-ai keeps its ingress allow-list"

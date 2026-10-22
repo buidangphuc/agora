@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isCheckoutEnabled } from "@/lib/flags";
 import type { ViewCart, ViewCartItem } from "@/lib/gateway/cart";
 import { getCartWithShopNames } from "@/lib/gateway/cart";
+import { listVouchers, previewVoucher } from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
 import { redirect } from "next/navigation";
-import { listVouchers, previewVoucher } from "@/lib/gateway/promotion";
 
 import CartPage from "./page";
 

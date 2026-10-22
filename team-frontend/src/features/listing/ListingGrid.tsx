@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
-import type { ViewListing } from "@/lib/gateway/listings";
 import { randomId } from "@/lib/analytics/dispatcher";
+import type { ViewListing } from "@/lib/gateway/listings";
+import { useState } from "react";
 import { ListingCard } from "./ListingCard";
 import { LISTING_GRID_CLASS } from "./gridClass";
 

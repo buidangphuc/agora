@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ViewRatingSummary } from "@/lib/gateway/reviews";
-import { makeReviews } from "./reviewFixtures";
 import { ReviewSection } from "./ReviewSection";
+import { makeReviews } from "./reviewFixtures";
 
 // The async children stream in their own Suspense boundaries; stub them so the
 // synchronous shell (heading, summary box, filter) can be rendered here.

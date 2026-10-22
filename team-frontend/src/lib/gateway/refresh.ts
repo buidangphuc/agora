@@ -27,8 +27,8 @@ export async function refreshSession(
     defaultTimeoutMs: REFRESH_TIMEOUT_MS,
     interceptors: [authInterceptor({ client })],
   });
-  const res = await createPromiseClient(AuthService, transport).refreshSession(
-    { refreshToken },
-  );
+  const res = await createPromiseClient(AuthService, transport).refreshSession({
+    refreshToken,
+  });
   return res.result ?? new AuthResult();
 }

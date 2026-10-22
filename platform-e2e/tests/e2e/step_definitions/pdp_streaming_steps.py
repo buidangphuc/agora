@@ -45,15 +45,17 @@ _BEACON_TAP = """
 
 def _record_beacons(world: World) -> list[dict]:
     beacons: list[dict] = []
+    seen: set[str] = set()
     world.state.extra["beacons"] = beacons
 
     def collect(body: str | None) -> None:
-        if not body:
+        if not body or body in seen:
             return
         try:
             payload = json.loads(body)
         except ValueError:
             return
+        seen.add(body)
         beacons.extend(payload if isinstance(payload, list) else [payload])
 
     def on_request(request) -> None:  # noqa: ANN001
