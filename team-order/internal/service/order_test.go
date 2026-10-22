@@ -75,22 +75,102 @@ func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id strin
 	return o, nil
 }
 
+func etaService(now time.Time) *service.OrderService {
+	return service.NewOrderService(nil, nil, nil, nil, nil, nil, nil, service.WithClock(func() time.Time { return now }))
+}
+
 func TestOrderService_CalculateShippingFee(t *testing.T) {
 	s := service.NewOrderService(nil, nil, nil, nil, nil, nil, nil)
 
-	fee, isFree, _ := s.CalculateShippingFee("Hà Nội", 600000)
+	fee, isFree, _, _, _ := s.CalculateShippingFee("Hà Nội", 600000)
 	if !isFree || fee != 0 {
 		t.Errorf("expected free shipping, got fee %d", fee)
 	}
 
-	fee, isFree, _ = s.CalculateShippingFee("Hà Nội", 200000)
+	fee, isFree, _, _, _ = s.CalculateShippingFee("Hà Nội", 200000)
 	if isFree || fee != 20000 {
 		t.Errorf("expected 20000, got fee %d", fee)
 	}
 
-	fee, isFree, _ = s.CalculateShippingFee("Đà Nẵng", 200000)
+	fee, isFree, _, _, _ = s.CalculateShippingFee("Đà Nẵng", 200000)
 	if isFree || fee != 35000 {
 		t.Errorf("expected 35000, got fee %d", fee)
+	}
+}
+
+func TestShippingETAHoChiMinhTwoDays(t *testing.T) {
+	now := time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC)
+	_, _, _, days, at := etaService(now).CalculateShippingFee("Hồ Chí Minh", 300000)
+	if days != 2 {
+		t.Errorf("Address and ETA: Hồ Chí Minh is delivered in 2 days: days=%d", days)
+	}
+	if want := time.Date(2026, 10, 18, 5, 0, 0, 0, time.UTC); !at.Equal(want) {
+		t.Errorf("Address and ETA: Hồ Chí Minh is delivered in 2 days: at=%v want %v", at, want)
+	}
+}
+
+func TestShippingETAHaNoiTwoDays(t *testing.T) {
+	now := time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC)
+	_, _, _, days, at := etaService(now).CalculateShippingFee("Hà Nội", 300000)
+	if days != 2 {
+		t.Errorf("Address and ETA: Hà Nội is delivered in 2 days: days=%d", days)
+	}
+	if want := time.Date(2026, 10, 18, 5, 0, 0, 0, time.UTC); !at.Equal(want) {
+		t.Errorf("Address and ETA: Hà Nội is delivered in 2 days: at=%v want %v", at, want)
+	}
+}
+
+func TestShippingETAOtherCityFourDays(t *testing.T) {
+	now := time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC)
+	_, _, _, days, at := etaService(now).CalculateShippingFee("Đà Nẵng", 300000)
+	if days != 4 {
+		t.Errorf("Address and ETA: Any other city is delivered in 4 days: days=%d", days)
+	}
+	if want := time.Date(2026, 10, 20, 5, 0, 0, 0, time.UTC); !at.Equal(want) {
+		t.Errorf("Address and ETA: Any other city is delivered in 4 days: at=%v want %v", at, want)
+	}
+}
+
+func TestShippingETAIsHoChiMinhCalendarDate(t *testing.T) {
+	now := time.Date(2026, 10, 16, 18, 0, 0, 0, time.UTC)
+	_, _, _, _, at := etaService(now).CalculateShippingFee("Đà Nẵng", 300000)
+	loc, err := time.LoadLocation("Asia/Ho_Chi_Minh")
+	if err != nil {
+		t.Fatalf("load tz: %v", err)
+	}
+	if got := at.In(loc).Format("02/01/2006"); got != "21/10/2026" {
+		t.Errorf("Address and ETA: The delivery date is a calendar date in Asia/Ho_Chi_Minh: got %s want 21/10/2026", got)
+	}
+}
+
+func TestShippingETAIndependentOfFreeShipping(t *testing.T) {
+	now := time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC)
+	fee, isFree, _, days, at := etaService(now).CalculateShippingFee("Đà Nẵng", 600000)
+	if fee != 0 || !isFree {
+		t.Errorf("Address and ETA: Free shipping does not change the delivery time: fee=%d free=%v", fee, isFree)
+	}
+	if days != 4 || at.IsZero() {
+		t.Errorf("Address and ETA: Free shipping does not change the delivery time: days=%d at=%v", days, at)
+	}
+}
+
+func TestShippingFeeAmountsUnchanged(t *testing.T) {
+	s := etaService(time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC))
+	cases := []struct {
+		city     string
+		subtotal int64
+		fee      int64
+		free     bool
+	}{
+		{"Hà Nội", 200000, 20000, false},
+		{"Đà Nẵng", 200000, 35000, false},
+		{"Đà Nẵng", 500000, 0, true},
+	}
+	for _, c := range cases {
+		fee, free, _, _, _ := s.CalculateShippingFee(c.city, c.subtotal)
+		if fee != c.fee || free != c.free {
+			t.Errorf("Address and ETA: Fee amounts are unchanged: %s/%d got fee=%d free=%v want fee=%d free=%v", c.city, c.subtotal, fee, free, c.fee, c.free)
+		}
 	}
 }
 
