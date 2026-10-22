@@ -9,12 +9,10 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/upstream"
 )
 
 // Message is the client-visible text of the error returned when the audit
@@ -71,15 +69,5 @@ func Dial(cfg config.Audit, serviceID string, scopes ...string) (*grpc.ClientCon
 	if strings.TrimSpace(cfg.Addr) == "" {
 		return nil, nil
 	}
-	joined := strings.Join(scopes, ",")
-	inject := func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctx = metadata.AppendToOutgoingContext(ctx,
-			auth.MDPrincipalID, serviceID,
-			auth.MDPrincipalType, "service",
-			auth.MDPrincipalScopes, joined)
-		return invoker(ctx, method, req, reply, cc, opts...)
-	}
-	return grpc.NewClient(cfg.Addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(inject))
+	return upstream.NewClient(cfg.Addr, upstream.AsService(serviceID, scopes...))
 }
