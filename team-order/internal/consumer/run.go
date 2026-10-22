@@ -40,7 +40,7 @@ type RunConfig struct {
 	BaseBackoff time.Duration // first retry delay; doubles per attempt (default 200ms)
 	// FetchRetryBackoff spaces out retries after a failed fetch (default 1s).
 	FetchRetryBackoff time.Duration
-	// MaxBackoff caps the retry delay (default: uncapped, or 30s when
+	// MaxBackoff caps the retry delay (default: uncapped, or 5s when
 	// RetryTransientUntilApplied is set).
 	MaxBackoff time.Duration
 	// RetryTransientUntilApplied keeps retrying a transient failure forever
@@ -63,7 +63,7 @@ func (c RunConfig) withDefaults() RunConfig {
 		c.FetchRetryBackoff = time.Second
 	}
 	if c.RetryTransientUntilApplied && c.MaxBackoff <= 0 {
-		c.MaxBackoff = 30 * time.Second
+		c.MaxBackoff = 5 * time.Second
 	}
 	return c
 }
