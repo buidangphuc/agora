@@ -307,9 +307,7 @@ describe("Cart selection: Mua ngay", () => {
     await user.click(inlineBuy());
     expect(push).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith("/login?returnUrl=%2Flisting%2Fabc");
-    expect(push).not.toHaveBeenCalledWith(
-      expect.stringContaining("/checkout"),
-    );
+    expect(push).not.toHaveBeenCalledWith(expect.stringContaining("/checkout"));
   });
 
   it("Cart selection: the mobile buy bar uses the same path - buy bar buy now uses the same selection", async () => {
