@@ -34,6 +34,11 @@ Implement OpenSpec change `frontend-dispute-cases` test-first per its tasks.md (
 - platform-e2e/tests/e2e/step_definitions/test_dispute_cases_ui.py
 - platform-e2e/tests/e2e/support/dispute_cases_ui_support.py
 - openspec/changes/frontend-dispute-cases/**
+- team-frontend/src/features/order/OrderActions.test.tsx # widened at build: task 1.7
+- team-frontend/src/features/order/OrderDetailTabs.test.tsx # widened at build: task 1.7
+- team-frontend/src/features/order/returns.actions.test.ts # widened at build: task 1.7
+- team-frontend/src/features/seller/SellerReturns.test.tsx # widened at build: task 1.7
+- team-frontend/src/features/seller/returnActions.test.ts # widened at build: task 1.7
 
 ## Read-only dependencies
 - openspec/changes/frontend-dispute-cases/** is frozen by the LOCK.md digest (only task ticks change)
