@@ -108,26 +108,24 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		return nil, err
 	}
 
-	var shippingAddr repository.Address
-	// Look up shipping address from identity service if client provided
-	if h.addrClient != nil {
-		resp, err := h.addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
-		if err == nil && resp != nil {
-			for _, a := range resp.GetAddresses() {
-				if req.GetAddressId() != "" && a.GetId() == req.GetAddressId() {
-					shippingAddr = toRepoAddress(a)
-					break
-				}
-				if req.GetAddressId() == "" && a.GetIsDefault() {
-					shippingAddr = toRepoAddress(a)
-					break
-				}
-			}
-			if shippingAddr.ID == "" && len(resp.GetAddresses()) > 0 {
-				shippingAddr = toRepoAddress(resp.GetAddresses()[0])
-			}
+	if h.addrClient == nil {
+		return nil, status.Error(codes.Unavailable, "address service unavailable; please retry")
+	}
+	resp, err := h.addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
+	if err != nil || resp == nil {
+		return nil, clientErr(h.logger, codes.Unavailable, "address service unavailable; please retry", err)
+	}
+	var picked *identityv1.Address
+	for _, a := range resp.GetAddresses() {
+		if (req.GetAddressId() != "" && a.GetId() == req.GetAddressId()) || (req.GetAddressId() == "" && a.GetIsDefault()) {
+			picked = a
+			break
 		}
 	}
+	if picked == nil || strings.TrimSpace(picked.GetCity()) == "" {
+		return nil, status.Error(codes.FailedPrecondition, "address not found")
+	}
+	shippingAddr := toRepoAddress(picked)
 
 	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode(), service.WithIdempotencyKey(idemKey))
 	if err != nil {
