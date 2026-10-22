@@ -2396,3 +2396,181 @@ features:
     status: automated
     covered_by: "engagement/review_hidden_event.feature::Review hidden event: analytics records review_hidden"
     notes: "engagement-review-hidden-event: API-level journey through the gateway."
+
+  # ---- engagement-dispute-escalation (initiative q6-trust-enforcement)
+
+  - id: engagement.dispute-escalation.escalation-refused
+    title: Escalation of a return that cannot be escalated is refused
+    persona: buyer
+    priority: P2
+    summary: Escalation of a return that cannot be escalated is refused.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateDispute, engagement.v1.ListOrderDisputes]
+    acceptance:
+      - "Dispute escalation: Return that cannot be escalated is refused"
+    tags: [engagement, order]
+    status: planned
+
+  - id: engagement.dispute-escalation.escalation-duplicate
+    title: One open dispute per return
+    persona: buyer
+    priority: P2
+    summary: One open dispute per return.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateDispute, engagement.v1.ListOrderDisputes, engagement.v1.ResolveDispute]
+    acceptance:
+      - "Dispute escalation: Second dispute on the same return is refused while one is open"
+    tags: [engagement, order]
+    status: planned
+
+  - id: engagement.dispute-escalation.resolve-open-direct
+    title: An open dispute cannot be resolved directly
+    persona: admin
+    priority: P2
+    summary: An open dispute cannot be resolved directly.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.ResolveDispute, engagement.v1.GetDispute]
+    acceptance:
+      - "Dispute escalation: Open dispute cannot be resolved directly"
+    tags: [engagement, order]
+    status: planned
+
+  - id: engagement.dispute-escalation.resolve-audit-down
+    title: Audit down blocks the ruling
+    persona: admin
+    priority: P2
+    summary: Audit down blocks the ruling.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.ResolveDispute, engagement.v1.GetDispute]
+    acceptance:
+      - "Dispute escalation: Audit down blocks the ruling"
+    tags: [engagement, order]
+    status: planned
+
+  - id: engagement.dispute-escalation.resolved-fact
+    title: DisputeResolved reaches engagement.events once
+    persona: admin
+    priority: P2
+    summary: DisputeResolved reaches engagement.events once.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.ResolveDispute]
+    acceptance:
+      - "Dispute escalation: The fact reaches Kafka once"
+    tags: [engagement, order]
+    status: planned
+
+  - id: engagement.dispute-escalation.list-order-parties
+    title: Parties list the disputes of an order newest first
+    persona: buyer
+    priority: P2
+    summary: Parties list the disputes of an order newest first.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.ListOrderDisputes, engagement.v1.CreateDispute]
+    acceptance:
+      - "Dispute escalation: Buyer and seller list the order's disputes newest first"
+    tags: [engagement, order]
+    status: planned
+
+  - id: engagement.dispute-escalation.list-order-non-party
+    title: A non-party cannot list the disputes of an order
+    persona: buyer
+    priority: P2
+    summary: A non-party cannot list the disputes of an order.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.ListOrderDisputes]
+    acceptance:
+      - "Dispute escalation: Non-party is denied"
+    tags: [engagement, order]
+    status: planned
+
+  - id: engagement.dispute-escalation.list-by-status
+    title: Admin lists open disputes oldest first
+    persona: admin
+    priority: P2
+    summary: Admin lists open disputes oldest first.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: admin
+    api:
+      exercised: [engagement.v1.ListDisputes, engagement.v1.ResolveDispute]
+    acceptance:
+      - "Dispute escalation: Admin lists open disputes oldest first"
+    tags: [engagement, order]
+    status: planned
+
+  - id: engagement.dispute-escalation.end-to-end
+    title: Rejected return to resolved dispute end to end
+    persona: buyer
+    priority: P2
+    summary: Rejected return to resolved dispute end to end.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateDispute, engagement.v1.ResolveDispute, engagement.v1.GetDispute]
+    acceptance:
+      - "Dispute escalation: Rejected return to resolved dispute end to end"
+    tags: [engagement, order]
+    status: planned
+
+  - id: engagement.dispute-escalation.return-unchanged
+    title: A dispute under investigation leaves the return status alone
+    persona: buyer
+    priority: P2
+    summary: A dispute under investigation leaves the return status alone.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateDispute, engagement.v1.ResolveDispute]
+    acceptance:
+      - "Dispute escalation: Return keeps its status until the refund consumer acts"
+    tags: [engagement, order]
+    status: planned
+
+  - id: engagement.dispute-escalation.buyer-cannot-rule
+    title: A buyer cannot rule on their own dispute
+    persona: buyer
+    priority: P2
+    summary: A buyer cannot rule on their own dispute.
+    entry_route: /account/orders
+    services: [team-engagement, team-order, team-audit, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [engagement.v1.CreateDispute, engagement.v1.ResolveDispute]
+    acceptance:
+      - "Dispute escalation: A buyer cannot rule on their own dispute end to end"
+    tags: [engagement, order]
+    status: planned
