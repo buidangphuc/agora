@@ -23,6 +23,7 @@ var adminProcedures = map[string]string{
 	verificationv1connect.VerificationServiceReviewKycProcedure:                   adminScope,
 	engagementv1connect.EngagementServiceResolveDisputeProcedure:                  adminScope,
 	engagementv1connect.EngagementServiceHideReviewProcedure:                      adminScope,
+	engagementv1connect.EngagementServiceListDisputesProcedure:                    adminScope,
 	engagementv1connect.EngagementServiceListReportsProcedure:                     adminScope,
 	engagementv1connect.EngagementServiceResolveReportProcedure:                   adminScope,
 	auditv1connect.AuditServiceQueryAuditLogProcedure:                             adminScope,
