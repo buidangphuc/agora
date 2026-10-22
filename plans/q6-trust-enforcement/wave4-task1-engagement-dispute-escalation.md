@@ -51,6 +51,9 @@ Implement OpenSpec change `engagement-dispute-escalation` test-first per its tas
 - platform-e2e/tests/e2e/step_definitions/test_disputes.py
 - platform-e2e/tests/e2e/step_definitions/test_dispute_access.py
 - openspec/changes/engagement-dispute-escalation/**
+- team-engagement/internal/grpcserver/server_test.go (# widened at build: task 4)
+- team-engagement/internal/handler/engagement_test.go (# widened at build: task 4)
+- plans/q6-trust-enforcement/wave4-task1-engagement-dispute-escalation.md (# widened at build: task 4; packet widening record)
 
 ## Read-only dependencies
 - openspec/changes/engagement-dispute-escalation/** is frozen by the LOCK.md digest (only task ticks change)
