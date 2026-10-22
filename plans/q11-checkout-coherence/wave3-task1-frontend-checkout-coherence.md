@@ -45,6 +45,8 @@ Implement OpenSpec change `frontend-checkout-coherence` test-first per its tasks
 - platform-e2e/tests/e2e/step_definitions/test_checkout_coherence_ui.py
 - platform-e2e/tests/e2e/support/checkout_coherence_ui_support.py
 - openspec/changes/frontend-checkout-coherence/**
+- team-frontend/src/features/order/CheckoutStepper.tsx # widened at build: task 1.8
+- team-frontend/src/features/order/orderFixtures.ts # widened at build: task 1.8
 
 ## Read-only dependencies
 - openspec/changes/frontend-checkout-coherence/** is frozen by the LOCK.md digest (only task ticks change)
