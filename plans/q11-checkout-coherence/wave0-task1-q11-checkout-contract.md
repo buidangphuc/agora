@@ -29,6 +29,7 @@ Implement OpenSpec change `q11-checkout-contract` test-first per its tasks.md (s
 - team-promotion/proto/platform/promotion/v1/promotion.proto
 - platform-core/FEATURES.yaml
 - openspec/changes/q11-checkout-contract/**
+- platform-core/packages/proto/checkout_consumer_copies_test.sh (# widened at build: task 2-3)
 
 ## Read-only dependencies
 - openspec/changes/q11-checkout-contract/** is frozen by the LOCK.md digest (only task ticks and the 1.1 field-number note change)

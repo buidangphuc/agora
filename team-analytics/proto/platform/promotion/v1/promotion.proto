@@ -209,6 +209,9 @@ message ValidateAndReserveResponse {
   string reason = 2; // human-readable reason when valid=false
   int64 discount_amount = 3;
   string voucher_id = 4;
+  VoucherScope scope = 5;
+  // The shop the voucher belongs to; empty for PLATFORM.
+  string seller_id = 6;
 }
 
 message CommitReservationRequest {
