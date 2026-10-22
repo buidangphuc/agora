@@ -515,6 +515,9 @@ func listServices(t *testing.T, r *running) ([]string, error) {
 		return nil, err
 	}
 	if err := stream.Send(&reflectionpb.ServerReflectionRequest{MessageRequest: &reflectionpb.ServerReflectionRequest_ListServices{ListServices: ""}}); err != nil {
+		if _, rerr := stream.Recv(); rerr != nil {
+			return nil, rerr
+		}
 		return nil, err
 	}
 	resp, err := stream.Recv()
