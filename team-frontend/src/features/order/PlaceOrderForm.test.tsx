@@ -462,10 +462,7 @@ describe("PlaceOrderForm checkout coherence", () => {
     vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
     const ui = (city: string) => (
       <CheckoutPendingProvider>
-        <PlaceOrderForm
-          {...props}
-          confirmedAddress={{ ...CONFIRMED, city }}
-        />
+        <PlaceOrderForm {...props} confirmedAddress={{ ...CONFIRMED, city }} />
       </CheckoutPendingProvider>
     );
     const { rerender } = render(ui("Đà Nẵng"));
