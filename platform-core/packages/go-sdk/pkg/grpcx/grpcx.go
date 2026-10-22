@@ -75,7 +75,9 @@ func NewServer(o ServerOptions) *grpc.Server {
 	srv := grpc.NewServer(append(opts, o.Extra...)...)
 
 	grpc_health_v1.RegisterHealthServer(srv, o.Health.Server())
-	reflection.Register(srv)
+	if o.Config.ReflectionEnabled {
+		reflection.Register(srv)
+	}
 	return srv
 }
 
