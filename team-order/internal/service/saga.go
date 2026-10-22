@@ -255,7 +255,7 @@ func (s *OrderService) commitDomainReservations(ctx context.Context, reservation
 // every reservation of the saga that holds (or may hold) stock, by its id, the
 // voucher hold, and marks the saga COMPENSATED. It reads the durable reservation
 // set and runs on a fresh background context (AD3).
-func (s *OrderService) failAndCompensate(sagaID, voucherReservationID string) {
+func (s *OrderService) failAndCompensate(sagaID string, voucherReservationIDs ...string) {
 	bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
 	defer cancel()
 	all, err := s.sagaRepo.ListReservationsBySaga(bg, sagaID)
@@ -264,7 +264,9 @@ func (s *OrderService) failAndCompensate(sagaID, voucherReservationID string) {
 			slog.String("saga_id", sagaID), slog.Any("err", err))
 	}
 	s.compensate(all)
-	s.releaseVoucher(bg, voucherReservationID)
+	for _, id := range voucherReservationIDs {
+		s.releaseVoucher(bg, id)
+	}
 	if uerr := s.sagaRepo.UpdateSagaStatus(bg, sagaID, repository.SagaStatusCompensated); uerr != nil {
 		s.logger.ErrorContext(bg, "failed to mark saga compensated",
 			slog.String("saga_id", sagaID), slog.Any("err", uerr))

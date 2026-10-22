@@ -217,7 +217,18 @@ func (s *OrderService) CreateOrdersFromCart(
 		}
 		saga = sg
 	}
-	return s.runCheckout(ctx, saga, buyerID, shippingAddr, itemsToCheckout, paymentMethod, voucherCode, flash)
+	return s.runCheckout(ctx, saga, buyerID, shippingAddr, itemsToCheckout, paymentMethod, voucherCode, cfg.vouchers, flash)
+}
+
+// WithVouchers supplies the per-shop and platform voucher codes of a checkout.
+func WithVouchers(shop []*orderv1.ShopVoucher, platformCode string) CheckoutOption {
+	return func(c *checkoutConfig) {
+		slots := &voucherSlots{platformCode: platformCode}
+		for _, sv := range shop {
+			slots.shops = append(slots.shops, shopVoucherSlot{sellerID: sv.GetSellerId(), code: sv.GetCode()})
+		}
+		c.vouchers = slots
+	}
 }
 
 // selectItems returns the cart items to check out: all of them, or only those
@@ -301,6 +312,7 @@ func (s *OrderService) runCheckout(
 	items []repository.CartItem,
 	paymentMethod int32,
 	voucherCode string,
+	slots *voucherSlots,
 	flash map[string]flashLine,
 ) ([]repository.Order, error) {
 	groups := groupBySeller(items)
@@ -312,10 +324,10 @@ func (s *OrderService) runCheckout(
 	// voucherReservationID is the voucher hold placed for this checkout (empty until
 	// one is placed). It equals the order id it discounts, so compensation, cancel
 	// and the settle-time commit address the same hold with only the order id.
-	var voucherReservationID string
+	var voucherReservationIDs []string
 	fail := func(cause error) ([]repository.Order, error) {
 		s.releaseFlashHolds(groups)
-		s.failAndCompensate(saga.ID, voucherReservationID)
+		s.failAndCompensate(saga.ID, voucherReservationIDs...)
 		return nil, cause
 	}
 
@@ -333,7 +345,7 @@ func (s *OrderService) runCheckout(
 			}
 			g.discountAmount = discount
 			g.voucherCode = voucherCode
-			voucherReservationID = g.orderID
+			voucherReservationIDs = append(voucherReservationIDs, g.orderID)
 		}
 		// Flash holds follow the stock reservation (and the voucher, which is priced
 		// on the flash subtotal); a refusal compensates all of it.
@@ -346,6 +358,67 @@ func (s *OrderService) runCheckout(
 				}
 			}
 		}
+	}
+
+	var resolved resolvedVouchers
+	if slots != nil {
+		inputs := make([]quoteGroupInput, 0, len(groups))
+		for _, g := range groups {
+			inputs = append(inputs, quoteGroupInput{sellerID: g.sellerID, itemsSubtotal: g.itemsSubtotal})
+		}
+		var verr error
+		resolved, verr = s.resolveVouchers(ctx, voucherResolveInput{
+			buyerID:               buyerID,
+			groups:                inputs,
+			slots:                 *slots,
+			platformReservationID: "platform:" + saga.ID,
+			shopReservationID: func(sellerID string) string {
+				for _, g := range groups {
+					if g.sellerID == sellerID {
+						return g.orderID
+					}
+				}
+				return ""
+			},
+		})
+		for _, o := range resolved.shops {
+			if o.valid {
+				voucherReservationIDs = append(voucherReservationIDs, o.reservationID)
+			}
+		}
+		if resolved.platform.valid {
+			voucherReservationIDs = append(voucherReservationIDs, resolved.platform.reservationID)
+		}
+		if verr != nil {
+			return fail(verr)
+		}
+		for _, g := range groups {
+			if o, ok := resolved.shops[g.sellerID]; ok && !o.valid {
+				return fail(fmt.Errorf("%w: %s", ErrVoucherRejected, o.reason))
+			}
+		}
+		for _, sl := range slots.shops {
+			if o, ok := resolved.shops[sl.sellerID]; ok && !o.valid {
+				return fail(fmt.Errorf("%w: %s", ErrVoucherRejected, o.reason))
+			}
+		}
+		if resolved.platform.code != "" && !resolved.platform.valid {
+			return fail(fmt.Errorf("%w: %s", ErrVoucherRejected, resolved.platform.reason))
+		}
+	}
+
+	quoteInputs := make([]quoteGroupInput, 0, len(groups))
+	for _, g := range groups {
+		qg := quoteGroupInput{sellerID: g.sellerID, itemsSubtotal: g.itemsSubtotal, shopVoucherCode: g.voucherCode, shopDiscount: g.discountAmount}
+		if o, ok := resolved.shops[g.sellerID]; ok {
+			qg.shopVoucherCode, qg.shopDiscount = o.code, o.discount
+		}
+		quoteInputs = append(quoteInputs, qg)
+	}
+	quote := s.quoteCheckout(quoteInput{city: shippingAddr.City, platformDiscount: resolved.platform.discount, groups: quoteInputs})
+	quoted := make(map[string]quoteGroup, len(quote.groups))
+	for _, qg := range quote.groups {
+		quoted[qg.sellerID] = qg
 	}
 
 	// Phase B — make every reservation permanent in team-domain before any order
@@ -366,11 +439,7 @@ func (s *OrderService) runCheckout(
 	placed := make([]repository.PlacedOrder, 0, len(groups))
 	var checkedOut []string
 	for _, g := range groups {
-		shippingFee, _, _, _, _ := s.CalculateShippingFee(shippingAddr.City, g.itemsSubtotal)
-		total := g.itemsSubtotal + shippingFee - g.discountAmount
-		if total < 0 {
-			total = 0 // a discount never yields a negative total
-		}
+		qg := quoted[g.sellerID]
 		resIDs := make([]string, 0, len(g.reservations))
 		for _, r := range g.reservations {
 			resIDs = append(resIDs, r.ID)
@@ -386,15 +455,19 @@ func (s *OrderService) runCheckout(
 				BuyerID:         buyerID,
 				SellerID:        g.sellerID,
 				Status:          repository.OrderStatusPending,
-				TotalAmount:     total,
+				TotalAmount:     qg.totalAmount,
 				ItemsSubtotal:   g.itemsSubtotal,
-				ShippingFee:     shippingFee,
+				ShippingFee:     qg.shippingFee,
 				PaymentMethod:   paymentMethod,
 				Currency:        "VND",
 				ShippingAddress: shippingAddr,
 				Items:           g.orderItems,
-				VoucherCode:     g.voucherCode,
-				DiscountAmount:  g.discountAmount,
+				VoucherCode:     qg.shopVoucherCode,
+				DiscountAmount:  qg.shopDiscount + qg.platformDiscount,
+
+				CheckoutID:             saga.ID,
+				PlatformVoucherCode:    resolved.platform.code,
+				PlatformDiscountAmount: qg.platformDiscount,
 			},
 			ReservationIDs: resIDs,
 		})
