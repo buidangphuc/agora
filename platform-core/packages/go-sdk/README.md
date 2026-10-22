@@ -33,6 +33,8 @@ All under `pkg/`.
 | `upstream` | `NewClient`: lazy gRPC client with principal and request-id propagation, round_robin balancing, `AsService`, per-call service principal, `WithDialOptions`. |
 | `resilience` | `Retry` and `Breaker` return `(Policy, error)` with safe defaults for zero options; `Do`; `Retryable` is an allow-list. `Policy` is opaque. |
 | `flags` | OpenFeature client over Flipt that fails open; `BooleanEnabled(ctx, flag, def, opts...)` with `WithTargetingKey` and `WithAttributes`; `NewOrDisabled`. Built on `openfeature/isolated`, which upstream marks experimental. |
+| `mockdata` | `New(cfg config.MockData, known...)` declares the adapters a service can mock; `Select` picks the mock for an active name; `LogActive` logs the active adapters once at boot. Mock data, not mock services: the real service serves the mock data. |
+| `auditx` | `Dial` (service principal, `config.Audit`), `Writer` interface the service implements over its audit client, and a fail-closed `Gate.Do` that refuses the privileged action with `Unavailable` "audit trail unavailable" when the audit write fails. |
 | `testkit` | Postgres and Redpanda containers, `SharedPostgres` + `Schema`, `FreePort`, `Eventually`, `Recorder`, `Produce`/`ReadAll`. |
 
 `examples/hello` wires all of the above and is the reference service.
@@ -52,6 +54,14 @@ All under `pkg/`.
 5. Copy `platform-core/templates/go-service/Dockerfile` to the service root. Build with `--build-arg BIN=<binary>`.
 
 To upgrade, `go get` the new tag and review the diff in a PR.
+
+## v1.0.1 rules
+
+- Environment: `MOCK_DATA` (comma-separated adapter names; refused when `Runtime.IsStrict()`), `UPSTREAM_AUDIT_ADDR` (required when strict), `LOG_KEY_FP_SECRET` (HMAC key for the `key_fp` fingerprint that `consume` and `kafkax` log instead of the raw key).
+- No enable flag: the SDK has no `*_ENABLED` switch for any dependency. A service that needs a dependency requires it; use `mockdata` for local data.
+- Do not format ids or keys into errors: raw keys are scrubbed from logged and DLQ error text, but an id interpolated into an error string leaks through every other sink. Return sentinel errors and log ids as attributes.
+- `grpcx.Status` maps a Postgres unique violation (SQLSTATE 23505) to `AlreadyExists` without exposing the detail.
+- The vendoring tooling (`sync-go-sdk.sh`, `check-go-sdk-vendor.sh`) is removed; there is no `third_party/go-sdk` copy.
 
 ## Copying from examples/hello
 
@@ -77,7 +87,7 @@ The layout, wiring order and test conventions are in ADR-0016; `examples/hello` 
 3. In `internal/config`, keep `Settings`, `Validate`, `Load` and `TestEnvExampleInSync`; add service fields and their keys to `.env.example` at the service root.
 4. Replace `internal/rpc/hello.go` (a hand-built `grpc.ServiceDesc`, used only to avoid codegen) with your generated registration, and `internal/greeter` with your domain packages. Handlers stay thin: `auth.Require*`, domain call, `grpcx.Status` with your `ErrorTable`. Reflection is always on; it only describes methods once the service has generated descriptors.
 5. Drop `internal/store` and `migrations/` if the service has no database. Otherwise keep migrations in `<repo>/migrations/` (`NNNN_name.up.sql`/`.down.sql` plus `migrations/embed.go` with `//go:embed *.sql`), applied by the deploy migrate job, not at boot; tests and an optional `migrate up` subcommand pass `migrations.Files` to `migrate.Up`. Add `internal/events` only when needed.
-6. Set goimports `local-prefixes` to your module path (the synced `.golangci.yml` has the SDK's value).
+6. Set goimports `local-prefixes` to your module path (the shared `.golangci.yml` uses `github.com/buidangphuc`).
 7. Tests: see ADR-0016 ("Tests") for ports, `grpcx.ServeListener`, `logx.NewTo` and `GO_SDK_REQUIRE_DOCKER`.
 
 ## Upgrading to v1
