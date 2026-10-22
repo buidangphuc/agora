@@ -193,6 +193,13 @@ func (c *PaymentConsumer) apply(ctx context.Context, settled *paymentv1.PaymentS
 		c.logger.InfoContext(ctx, "committed voucher reservation on settle",
 			slog.String("order_id", order.ID), slog.String("voucher_code", order.VoucherCode))
 	}
+	if c.promo != nil && order.PlatformVoucherCode != "" && order.CheckoutID != "" && order.PaidAt != nil {
+		if _, err := c.promo.CommitReservation(ctx, &promotionv1.CommitReservationRequest{ReservationId: "platform:" + order.CheckoutID}); err != nil {
+			return fmt.Errorf("commit platform voucher for checkout %q: %w", order.CheckoutID, err)
+		}
+		c.logger.InfoContext(ctx, "committed platform voucher reservation on settle",
+			slog.String("order_id", order.ID), slog.String("checkout_id", order.CheckoutID))
+	}
 	return nil
 }
 

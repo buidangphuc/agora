@@ -21,7 +21,8 @@ Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The p
 
 | RPC | Authorization / behaviour |
 |---|---|
-| `CreateOrder` | authenticated. Evaluates Flipt flag `checkout-enabled` first (off -> `FailedPrecondition`). Optional `idempotency-key` metadata (see below). Runs the purchase saga below. Returns one order per seller, all or none. |
+| `PreviewCheckout` | USER principal only. Quotes the selected cart lines per seller group (items subtotal, shipping, shop discount, platform share, total, ETA) and reserves nothing: vouchers are validated in the promotion preview namespace and never committed, no stock or flash call. An invalid voucher is reported with its reason and the totals are quoted without it. Empty selection or unknown address id -> `InvalidArgument`. |
+| `CreateOrder` | authenticated. Evaluates Flipt flag `checkout-enabled` first (off -> `FailedPrecondition`). Optional `idempotency-key` metadata (see below). Runs the purchase saga below. Returns one order per seller, all or none. Reads `shop_vouchers` (one per seller) and `platform_voucher_code`; the legacy `voucher_code` is the platform slot only and may not be combined with `platform_voucher_code`. A voucher named twice or two shop vouchers for one seller -> `InvalidArgument` before any promotion call; a rejected voucher -> `FailedPrecondition`; a promotion outage -> `Unavailable`. |
 | `GetOrder` | Principal required (`Unauthenticated` otherwise). Allowed: the order's buyer or seller, an admin scope, or a `service` principal with `order.read` (used by team-payment and team-engagement); others get `PermissionDenied`. `Order.paid_at` is set when the order moved to PAID through a payment; unset means it was never paid online (e.g. cash on delivery). |
 | `ListBuyerOrders`, `ListSellerOrders` | authenticated; lists the caller's orders, optional status filter |
 | `UpdateOrderStatus` | `RequirePrincipal`; the order's seller or admin only (`PermissionDenied` otherwise; buyers cancel via `CancelOrder`). Follows the transition table below: a target the seller may never request (PAID, PENDING, CANCELLED) -> `PermissionDenied`; a permitted target from the wrong status -> `FailedPrecondition`. |
@@ -38,6 +39,14 @@ Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The p
 | `GetShipmentTracking` | none; by `tracking_code`, `order_id` or `shipment_id` |
 
 The gRPC server also registers `grpc.health.v1` and, when `GRPC_REFLECTION_ENABLED=true`, reflection.
+
+### Multi-shop voucher routing and lifecycle (`internal/service/redemption.go`, `checkoutquote.go`)
+
+- A shop voucher discounts only its own seller group; a platform voucher in a shop slot (or the reverse), or a shop voucher for a seller outside the selection, is refused. The scope and seller id echoed by promotion are checked.
+- The platform voucher is reserved once, on the selection's items subtotal (so `min_spend` is checked on the whole selection), under the id `platform:<checkout_id>`. Its discount is split across groups by `items_subtotal` with integer division; the remainder goes to the largest group, ties to the lowest seller id. A group may carry its shop voucher and its platform share; the group total is clamped at 0.
+- Every order of a checkout stores `checkout_id`, `platform_voucher_code` and `platform_discount_amount` (migration 0010). The sum of the placed `total_amount` equals the preview total.
+- The platform voucher is committed on the first paid order of the checkout. It is released only when every order of the checkout is cancelled before any was paid, including the system cancel of an unpaid order (`CancelOrderWithReason`).
+- Without `UPSTREAM_PROMOTION_ADDR`, vouchers are ignored (preview reason "vouchers unavailable").
 
 ### Purchase saga (`CreateOrdersFromCart`: `internal/service/order.go`, `saga.go`, `idempotency.go`, `redemption.go`)
 
@@ -127,6 +136,7 @@ Postgres `order_db` (compose credentials `order_svc` / `order_pass`, shared Post
 | 0007 | `order_sagas.idempotency_key` + unique `(buyer_id, idempotency_key)`, `orders.paid_at`, `orders_status_check` (`NOT VALID`; validate with `ALTER TABLE orders VALIDATE CONSTRAINT orders_status_check` after `SELECT count(*) FROM orders WHERE status NOT BETWEEN 1 AND 5` returns 0) |
 | 0008 | `orders.payment_due_at` (NULL for COD and pre-migration orders, which are never auto-expired), `payment_reminder_sent_at`, `cancel_reason`; partial index on unpaid orders with a deadline |
 | 0009 | `orders.shipped_at`, `auto_complete_at`, `completed_at`, `return_window_ends_at`, `ship_by`; `order_returns.auto_approve_at`. Backfill runs only when the columns are first added and completes nothing |
+| 0010 | `orders.checkout_id`, `platform_voucher_code`, `platform_discount_amount` |
 
 The service does **not** migrate on boot. Compose applies migrations with the one-shot `team-order-migrate` job (`migrate/migrate:v4.17.1`, `up`, idempotent), which `team-order` depends on. Standalone, run golang-migrate against `migrations/` yourself.
 
@@ -149,7 +159,7 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `DB_MAX_CONNS` | `10` | |
 | `UPSTREAM_DOMAIN_ADDR` | `localhost:50051` | |
 | `UPSTREAM_IDENTITY_ADDR` | `localhost:50053` | |
-| `UPSTREAM_PROMOTION_ADDR` | empty | Empty disables vouchers and flash pricing/holds (lines are priced at the regular price; a flash-priced cart line is re-priced at checkout); `voucher_code` is then ignored |
+| `UPSTREAM_PROMOTION_ADDR` | empty | Empty disables vouchers and flash pricing/holds (lines are priced at the regular price; a flash-priced cart line is re-priced at checkout); `voucher_code`, `shop_vouchers` and `platform_voucher_code` are then ignored |
 | `UPSTREAM_AUDIT_ADDR` | empty | team-audit address; empty means the audited admin actions (`ForceFailSaga`, admin `UpdateOrderStatus`, `UpdateReturnStatus`, `CreateShipment`) fail closed with `Unavailable` |
 | `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Bound for one audit write (single attempt, no retry) |
 | `OTEL_ENABLED` | `false` | Declared but not read (see Known gaps) |
