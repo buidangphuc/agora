@@ -124,15 +124,24 @@ func NewOrderService(
 	return s
 }
 
-func (s *OrderService) CalculateShippingFee(city string, itemsSubtotal int64) (int64, bool, string) {
-	if itemsSubtotal >= 500000 {
-		return 0, true, "Miễn phí vận chuyển cho đơn hàng từ 500.000 VND"
-	}
+func isMajorCity(city string) bool {
 	cityUpper := strings.ToUpper(city)
-	if strings.Contains(cityUpper, "HỒ CHÍ MINH") || strings.Contains(cityUpper, "HCM") || strings.Contains(cityUpper, "HÀ NỘI") || strings.Contains(cityUpper, "HN") {
-		return 20000, false, "Phí vận chuyển nội thành (20.000 VND)"
+	return strings.Contains(cityUpper, "HỒ CHÍ MINH") || strings.Contains(cityUpper, "HCM") || strings.Contains(cityUpper, "HÀ NỘI") || strings.Contains(cityUpper, "HN")
+}
+
+func (s *OrderService) CalculateShippingFee(city string, itemsSubtotal int64) (int64, bool, string, int32, time.Time) {
+	days := int32(4)
+	if isMajorCity(city) {
+		days = 2
 	}
-	return 35000, false, "Phí vận chuyển toàn quốc (35.000 VND)"
+	eta := s.now().Add(time.Duration(days) * 24 * time.Hour)
+	if itemsSubtotal >= 500000 {
+		return 0, true, "Miễn phí vận chuyển cho đơn hàng từ 500.000 VND", days, eta
+	}
+	if isMajorCity(city) {
+		return 20000, false, "Phí vận chuyển nội thành (20.000 VND)", days, eta
+	}
+	return 35000, false, "Phí vận chuyển toàn quốc (35.000 VND)", days, eta
 }
 
 func (s *OrderService) CreateOrdersFromCart(
@@ -357,7 +366,7 @@ func (s *OrderService) runCheckout(
 	placed := make([]repository.PlacedOrder, 0, len(groups))
 	var checkedOut []string
 	for _, g := range groups {
-		shippingFee, _, _ := s.CalculateShippingFee(shippingAddr.City, g.itemsSubtotal)
+		shippingFee, _, _, _, _ := s.CalculateShippingFee(shippingAddr.City, g.itemsSubtotal)
 		total := g.itemsSubtotal + shippingFee - g.discountAmount
 		if total < 0 {
 			total = 0 // a discount never yields a negative total

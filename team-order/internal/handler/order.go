@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -107,26 +108,28 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		return nil, err
 	}
 
-	var shippingAddr repository.Address
-	// Look up shipping address from identity service if client provided
-	if h.addrClient != nil {
-		resp, err := h.addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
-		if err == nil && resp != nil {
-			for _, a := range resp.GetAddresses() {
-				if req.GetAddressId() != "" && a.GetId() == req.GetAddressId() {
-					shippingAddr = toRepoAddress(a)
-					break
-				}
-				if req.GetAddressId() == "" && a.GetIsDefault() {
-					shippingAddr = toRepoAddress(a)
-					break
-				}
-			}
-			if shippingAddr.ID == "" && len(resp.GetAddresses()) > 0 {
-				shippingAddr = toRepoAddress(resp.GetAddresses()[0])
-			}
+	if h.addrClient == nil {
+		return nil, status.Error(codes.Unavailable, "address service unavailable; please retry")
+	}
+	resp, err := h.addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
+	if err != nil || resp == nil {
+		return nil, clientErr(h.logger, codes.Unavailable, "address service unavailable; please retry", err)
+	}
+	var picked *identityv1.Address
+	for _, a := range resp.GetAddresses() {
+		if (req.GetAddressId() != "" && a.GetId() == req.GetAddressId()) || (req.GetAddressId() == "" && a.GetIsDefault()) {
+			picked = a
+			break
 		}
 	}
+	if picked == nil || strings.TrimSpace(picked.GetCity()) == "" {
+		return nil, status.Error(codes.FailedPrecondition, "address not found")
+	}
+	if c := req.GetConfirmedAddress(); c != nil && !sameDeliveryAddress(c, picked) {
+		h.logger.Warn("checkout refused: address changed", slog.String("address_id", picked.GetId()))
+		return nil, status.Error(codes.FailedPrecondition, "address changed")
+	}
+	shippingAddr := toRepoAddress(picked)
 
 	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode(), service.WithIdempotencyKey(idemKey))
 	if err != nil {
@@ -193,11 +196,20 @@ func idempotencyKeyFromContext(ctx context.Context) (string, error) {
 }
 
 func (h *OrderHandler) CalculateShippingFee(_ context.Context, req *orderv1.CalculateShippingFeeRequest) (*orderv1.CalculateShippingFeeResponse, error) {
-	fee, isFree, msg := h.svc.CalculateShippingFee(req.GetCity(), req.GetItemsSubtotal())
+	fee, isFree, msg, days, at := h.svc.CalculateShippingFee(req.GetCity(), req.GetItemsSubtotal())
+	var etaAt *timestamppb.Timestamp
+	if strings.TrimSpace(req.GetCity()) == "" {
+		days = 0
+	} else {
+		etaAt = timestamppb.New(at)
+	}
 	return &orderv1.CalculateShippingFeeResponse{
 		ShippingFee:    fee,
 		IsFreeShipping: isFree,
 		Message:        msg,
+
+		EstimatedDeliveryDays: days,
+		EstimatedDeliveryAt:   etaAt,
 	}, nil
 }
 
@@ -709,6 +721,15 @@ func (h *OrderHandler) GetShipmentTracking(ctx context.Context, req *orderv1.Get
 	return &orderv1.GetShipmentTrackingResponse{
 		Shipment: toWireShipment(shipment),
 	}, nil
+}
+
+func sameDeliveryAddress(a, b *identityv1.Address) bool {
+	return a.GetRecipientName() == b.GetRecipientName() &&
+		a.GetPhone() == b.GetPhone() &&
+		a.GetStreet() == b.GetStreet() &&
+		a.GetWard() == b.GetWard() &&
+		a.GetDistrict() == b.GetDistrict() &&
+		a.GetCity() == b.GetCity()
 }
 
 func toRepoAddress(a *identityv1.Address) repository.Address {

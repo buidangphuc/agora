@@ -4186,3 +4186,328 @@ features:
     tags: [buyer, order, unit]
     status: not-testable
     notes: "VERIFIED BY team-order `internal/repository` `TestMigrationDownDropsLifecycleColumns`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-ho-chi-minh-is-delivered-in-2-days
+    title: "Address and ETA: Hồ Chí Minh is delivered in 2 days"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: Hồ Chí Minh is delivered in 2 days"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestShippingETAHoChiMinhTwoDays`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-ha-noi-is-delivered-in-2-days
+    title: "Address and ETA: Hà Nội is delivered in 2 days"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: Hà Nội is delivered in 2 days"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestShippingETAHaNoiTwoDays`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-any-other-city-is-delivered-in-4-days
+    title: "Address and ETA: Any other city is delivered in 4 days"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: Any other city is delivered in 4 days"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestShippingETAOtherCityFourDays`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-the-delivery-date-is-a-calendar-date-in-asia-ho-chi-minh
+    title: "Address and ETA: The delivery date is a calendar date in Asia/Ho_Chi_Minh"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: The delivery date is a calendar date in Asia/Ho_Chi_Minh"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestShippingETAIsHoChiMinhCalendarDate`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-free-shipping-does-not-change-the-delivery-time
+    title: "Address and ETA: Free shipping does not change the delivery time"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: Free shipping does not change the delivery time"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestShippingETAIndependentOfFreeShipping`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-an-empty-city-gets-no-delivery-date
+    title: "Address and ETA: An empty city gets no delivery date"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: An empty city gets no delivery date"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCalculateShippingFeeEmptyCityNoETA`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-fee-amounts-are-unchanged
+    title: "Address and ETA: Fee amounts are unchanged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: Fee amounts are unchanged"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/service` `TestShippingFeeAmountsUnchanged` (new; includes the Đà Nẵng 500000 free-shipping case the existing `TestOrderService_CalculateShippingFee` lacks). Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-the-delivery-date-is-quoted-through-the-gateway
+    title: "Address and ETA: The delivery date is quoted through the gateway"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: The delivery date is quoted through the gateway"
+    tags: [buyer, order]
+    status: automated
+    covered_by: "order/address_eta.feature::Address and ETA: The delivery date is quoted through the gateway"
+
+  - id: order.address-eta-the-picked-address-is-the-order-s-address
+    title: "Address and ETA: The picked address is the order's address"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: The picked address is the order's address"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderUsesPickedAddress`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-an-empty-address-id-uses-the-default-address
+    title: "Address and ETA: An empty address id uses the default address"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: An empty address id uses the default address"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderEmptyAddressIDUsesDefault`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-an-unknown-address-id-is-refused-and-nothing-is-reserved
+    title: "Address and ETA: An unknown address id is refused and nothing is reserved"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: An unknown address id is refused and nothing is reserved"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderUnknownAddressRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-a-buyer-without-any-address-is-refused
+    title: "Address and ETA: A buyer without any address is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: A buyer without any address is refused"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderNoAddressRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-without-a-default-address-an-empty-address-id-is-refused
+    title: "Address and ETA: Without a default address an empty address id is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: Without a default address an empty address id is refused"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderNoDefaultAddressRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-an-address-with-an-empty-city-is-refused
+    title: "Address and ETA: An address with an empty city is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: An address with an empty city is refused"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderEmptyCityAddressRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-another-buyer-s-address-id-is-refused
+    title: "Address and ETA: Another buyer's address id is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: Another buyer's address id is refused"
+    tags: [buyer, order]
+    status: automated
+    covered_by: "order/address_eta.feature::Address and ETA: Another buyer's address id is refused"
+
+  - id: order.address-eta-an-identity-outage-never-places-an-order
+    title: "Address and ETA: An identity outage never places an order"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: An identity outage never places an order"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderIdentityUnavailableRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-a-missing-address-client-refuses-the-order
+    title: "Address and ETA: A missing address client refuses the order"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: A missing address client refuses the order"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderNilAddressClientRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-a-non-user-principal-is-refused-before-any-identity-call
+    title: "Address and ETA: A non-user principal is refused before any identity call"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: A non-user principal is refused before any identity call"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderNonUserNoAddressLookup`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-an-unchanged-confirmed-address-places-the-order
+    title: "Address and ETA: An unchanged confirmed address places the order"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: An unchanged confirmed address places the order"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderConfirmedAddressMatches`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-an-address-edited-after-confirm-is-refused
+    title: "Address and ETA: An address edited after confirm is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: An address edited after confirm is refused"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderEditedAddressRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-each-delivery-field-counts-as-a-change
+    title: "Address and ETA: Each delivery field counts as a change"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: Each delivery field counts as a change"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderEachAddressFieldChangeRefused`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-metadata-differences-are-not-a-change
+    title: "Address and ETA: Metadata differences are not a change"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: Metadata differences are not a change"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderConfirmedAddressIgnoresMetadata`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-a-request-without-a-confirmed-address-is-not-compared
+    title: "Address and ETA: A request without a confirmed address is not compared"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: A request without a confirmed address is not compared"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderNoConfirmedAddressSkipsCompare`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-address-details-are-never-logged
+    title: "Address and ETA: Address details are never logged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: Address details are never logged"
+    tags: [buyer, order, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderAddressRefusalLogsIDOnly`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.address-eta-an-edited-address-is-refused-end-to-end-and-a-retry-succeeds
+    title: "Address and ETA: An edited address is refused end to end and a retry succeeds"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-address-eta."
+    entry_route: /checkout
+    services: [team-order]
+    acceptance:
+      - "Address and ETA: An edited address is refused end to end and a retry succeeds"
+    tags: [buyer, order]
+    status: automated
+    covered_by: "order/address_eta.feature::Address and ETA: An edited address is refused end to end and a retry succeeds"

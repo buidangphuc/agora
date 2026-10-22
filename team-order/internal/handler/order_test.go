@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	commonv1 "github.com/buidangphuc/team-order/generated/platform/common/v1"
+	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	"github.com/buidangphuc/team-order/internal/handler"
 	"github.com/buidangphuc/team-order/internal/interceptor"
@@ -163,7 +164,7 @@ func TestOrderHandler_CreateOrder_KillSwitchOn(t *testing.T) {
 	svc := service.NewOrderService(
 		repository.NewInMemoryOrderRepository(), cartRepo, nil, nil, nil, nil, nil,
 	)
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithFeatureFlags(fakeFlags{enabled: true}))
+	h := handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil, handler.WithFeatureFlags(fakeFlags{enabled: true}))
 	ctx := incomingPrincipalCtx("buyer_1", "buyer")
 
 	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
@@ -182,7 +183,7 @@ func TestOrderHandler_CreateOrder_NoFlagsFailsOpen(t *testing.T) {
 	svc := service.NewOrderService(
 		repository.NewInMemoryOrderRepository(), cartRepo, nil, nil, nil, nil, nil,
 	)
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+	h := handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil, handler.WithAuditWriter(&fakeAudit{}))
 	ctx := incomingPrincipalCtx("buyer_1", "buyer")
 
 	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
@@ -544,4 +545,47 @@ func (m *mockOrderServiceRepo) FindReminderDue(context.Context, time.Time, time.
 
 func (m *mockOrderServiceRepo) MarkReminderSent(context.Context, string, time.Time) (repository.Order, error) {
 	return repository.Order{}, nil
+}
+
+func TestCalculateShippingFeeEmptyCityNoETA(t *testing.T) {
+	now := time.Date(2026, 10, 22, 3, 0, 0, 0, time.UTC)
+	svc := service.NewOrderService(nil, nil, nil, nil, nil, nil, nil, service.WithClock(func() time.Time { return now }))
+	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+
+	res, err := h.CalculateShippingFee(context.Background(), &orderv1.CalculateShippingFeeRequest{City: "", ItemsSubtotal: 200000})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.GetEstimatedDeliveryDays() != 0 {
+		t.Errorf("estimated_delivery_days = %d, want 0", res.GetEstimatedDeliveryDays())
+	}
+	if res.GetEstimatedDeliveryAt() != nil {
+		t.Errorf("estimated_delivery_at = %v, want unset", res.GetEstimatedDeliveryAt())
+	}
+	if res.GetShippingFee() != 35000 || res.GetIsFreeShipping() {
+		t.Errorf("fee fields changed: fee=%d free=%v", res.GetShippingFee(), res.GetIsFreeShipping())
+	}
+}
+
+func TestCalculateShippingFeeETAOnTheWire(t *testing.T) {
+	now := time.Date(2026, 10, 22, 3, 0, 0, 0, time.UTC)
+	svc := service.NewOrderService(nil, nil, nil, nil, nil, nil, nil, service.WithClock(func() time.Time { return now }))
+	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+
+	for _, c := range []struct {
+		city string
+		days int32
+	}{{"Hồ Chí Minh", 2}, {"Hà Nội", 2}, {"Đà Nẵng", 4}} {
+		res, err := h.CalculateShippingFee(context.Background(), &orderv1.CalculateShippingFeeRequest{City: c.city, ItemsSubtotal: 300000})
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", c.city, err)
+		}
+		if res.GetEstimatedDeliveryDays() != c.days {
+			t.Errorf("%s: days = %d, want %d", c.city, res.GetEstimatedDeliveryDays(), c.days)
+		}
+		want := now.Add(time.Duration(c.days) * 24 * time.Hour)
+		if res.GetEstimatedDeliveryAt() == nil || !res.GetEstimatedDeliveryAt().AsTime().Equal(want) {
+			t.Errorf("%s: at = %v, want %v", c.city, res.GetEstimatedDeliveryAt(), want)
+		}
+	}
 }
