@@ -26,7 +26,8 @@ Implement OpenSpec change `order-dispute-refund` test-first per its tasks.md (sc
 - team-order/internal/bootstrap/kafka_test.go
 - team-order/cmd/server/main.go
 - team-order/README.md
-- team-order/.env.example # widened at build: task 3
+- team-order/.env.example (# widened at build: task 3)
+- plans/q6-trust-enforcement/wave5-task1-order-dispute-refund.md (# widened at build: task 3; packet widening record)
 - team-order/FEATURES.yaml
 - docker-compose.services.yaml
 - platform-e2e/tests/e2e/features/order/dispute_refund.feature
