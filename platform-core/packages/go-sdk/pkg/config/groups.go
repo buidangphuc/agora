@@ -151,3 +151,17 @@ func PositiveDuration(key, raw string, def time.Duration) (time.Duration, error)
 	}
 	return d, nil
 }
+
+// MockData holds the MOCK_DATA adapter list: a comma-separated set of adapter
+// names that serve fixture data instead of calling the real dependency.
+type MockData struct {
+	Adapters string `env:"MOCK_DATA"`
+}
+
+// ResolveFor refuses a non-empty MOCK_DATA when the environment is strict.
+func (m *MockData) ResolveFor(rt Runtime) error {
+	if rt.IsStrict() && strings.TrimSpace(m.Adapters) != "" {
+		return errors.New("MOCK_DATA must be empty when ENV is staging or prod")
+	}
+	return nil
+}
