@@ -11,7 +11,9 @@ import {
   updateCartItem,
 } from "@/lib/gateway/cart";
 
-export type CartActionResult = ActionResult | AddToCartUnauthenticated;
+export type CartActionResult =
+  | ActionResult<{ itemId: string }>
+  | AddToCartUnauthenticated;
 
 /** addToCartAction only: the caller has no session and should go to login. */
 export type AddToCartUnauthenticated = {
@@ -30,10 +32,14 @@ export async function addToCartAction(
   quantity = 1,
 ): Promise<CartActionResult> {
   try {
-    await addToCart(listingId, variantId, quantity);
+    const cart = await addToCart(listingId, variantId, quantity);
     revalidatePath("/cart");
     revalidatePath("/checkout");
-    return ok();
+    const line = cart.items.find(
+      (i) => i.listingId === listingId && i.variantId === (variantId ?? ""),
+    );
+    if (!line) return fail("Không tìm thấy sản phẩm trong giỏ");
+    return ok({ itemId: line.id });
   } catch (err: unknown) {
     if (err instanceof ConnectError && err.code === Code.Unauthenticated) {
       return {
