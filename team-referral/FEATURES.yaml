@@ -1,0 +1,570 @@
+# Feature manifest for team-referral.
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-referral
+owner: referral-team
+features:
+- id: referral-runtime.missing-database-url-fails-the-load
+  title: Missing database URL fails the load
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Missing database URL fails the load
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestLoadRequiresDatabaseURL`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.missing-env-or-port-fails-the-load
+  title: Missing ENV or port fails the load
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Missing ENV or port fails the load
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestLoadRequiresEnvAndPort`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-removed-enable-flag-is-ignored-not-honoured
+  title: A removed enable flag is ignored, not honoured
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A removed enable flag is ignored, not honoured
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestLoadIgnoresRemovedEnableFlags`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.no-enable-flag-is-declared
+  title: No enable flag is declared
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - No enable flag is declared
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestNoEnableFlagsDeclared`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-env-example-matches-the-settings
+  title: The env example matches the settings
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The env example matches the settings
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestEnvExampleInSync`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.unreachable-database-refuses-to-boot-in-the-local-environment
+  title: Unreachable database refuses to boot in the local environment
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Unreachable database refuses to boot in the local environment
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/app` `TestBootFailsWhenDatabaseUnreachableEvenLocally`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.unreachable-database-refuses-to-boot-outside-local
+  title: Unreachable database refuses to boot outside local
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Unreachable database refuses to boot outside local
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/app` `TestBootFailsWhenDatabaseUnreachableOutsideLocal`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-reachable-database-serves-from-postgres
+  title: A reachable database serves from Postgres
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A reachable database serves from Postgres
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/app` `TestServesFromPostgresAcrossRestart`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.health-turns-not-serving-when-the-database-is-lost
+  title: Health turns NOT_SERVING when the database is lost
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Health turns NOT_SERVING when the database is lost
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/app` `TestHealthReportsDatabaseDown`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.production-code-cannot-reach-the-in-memory-repository
+  title: Production code cannot reach the in-memory repository
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Production code cannot reach the in-memory repository
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/app` `TestProductionCodeDoesNotImportFake`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.compose-and-gitops-carry-no-removed-flag
+  title: Compose and gitops carry no removed flag
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Compose and gitops carry no removed flag
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestDeployFilesCarryNoRemovedFlag`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-call-without-a-principal-is-rejected
+  title: A call without a principal is rejected
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A call without a principal is rejected
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestHandlerRejectsAnonymous`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-gateway-s-anonymous-principal-is-rejected
+  title: The gateway's anonymous principal is rejected
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The gateway's anonymous principal is rejected
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestGatewayAnonymousIsUnauthenticated`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral.a-buyer-reaches-the-service-through-the-gateway
+  title: A buyer reaches the service through the gateway
+  persona: buyer
+  priority: P1
+  summary: A buyer reaches the service through the gateway (change referral-go-sdk-v1).
+  entry_route: /account/referral
+  services:
+  - team-referral
+  - team-gateway
+  acceptance:
+  - Given an authenticated buyer
+  - When the buyer creates a referral code
+  - Then GetMyReferral returns that same code
+  - And listing referral rewards succeeds
+  - And GetMyReferral without a token is refused as unauthenticated with "authentication required"
+  tags:
+  - referral-service
+  status: automated
+  covered_by: services/new_services.feature::A buyer reaches the service through the gateway
+- id: referral-runtime.one-user-cannot-see-another-user-s-data
+  title: One user cannot see another user's data
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - One user cannot see another user's data
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestHandlerScopesToPrincipal`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.creating-a-code-twice-returns-the-same-code
+  title: Creating a code twice returns the same code
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Creating a code twice returns the same code
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestCreateThenGetRoundtrip`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.redeeming-credits-the-referrer
+  title: Redeeming credits the referrer
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Redeeming credits the referrer
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemAttributesReferee`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.an-empty-code-is-rejected
+  title: An empty code is rejected
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - An empty code is rejected
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestRedeemEmptyCodeIsInvalidArgument`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral.an-unknown-code-is-not-found
+  title: An unknown code is not found
+  persona: buyer
+  priority: P1
+  summary: An unknown code is not found (change referral-go-sdk-v1).
+  entry_route: /account/referral
+  services:
+  - team-referral
+  - team-gateway
+  acceptance:
+  - Given a signed-in buyer on the referral page
+  - When the buyer redeems the code "NOT-A-REAL-CODE"
+  - Then an error toast is shown and the redeem field shows the server message as help and is invalid
+  tags:
+  - referral-service
+  status: automated
+  covered_by: frontend/account_ui.feature::An unknown code is not found
+- id: referral-runtime.self-referral-and-a-second-redeem-are-refused
+  title: Self-referral and a second redeem are refused
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Self-referral and a second redeem are refused
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestRedeemRejectsSelfAndUnknown` and `TestRedeemRejectsSecondRedeem`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-second-redeem-is-refused-by-the-database-too
+  title: The second redeem is refused by the database too
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The second redeem is refused by the database too
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/store` `TestPostgresRedeemTwiceIsAlreadyRedeemed`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.an-anonymous-caller-cannot-redeem
+  title: An anonymous caller cannot redeem
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - An anonymous caller cannot redeem
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestAnonymousRedeemWritesNothing`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.users-are-isolated-in-the-ledger
+  title: Users are isolated in the ledger
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Users are isolated in the ledger
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestCrossUserIsolation`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.pages-walk-the-ledger
+  title: Pages walk the ledger
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Pages walk the ledger
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestListRewardsPagination`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.page-size-is-clamped
+  title: Page size is clamped
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Page size is clamped
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestListRewardsPageSizeClamp`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-malformed-cursor-restarts-at-the-first-page
+  title: A malformed cursor restarts at the first page
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A malformed cursor restarts at the first page
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/referral` `TestMalformedCursorStartsAtZero`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-page-total-is-the-page-length
+  title: The page total is the page length
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The page total is the page length
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestPageTotalIsPageLength`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-storage-failure-does-not-leak-its-cause
+  title: A storage failure does not leak its cause
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A storage failure does not leak its cause
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestMapErrHidesInternalCause`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral.a-new-user-sees-an-empty-ledger
+  title: A new user sees an empty ledger
+  persona: buyer
+  priority: P1
+  summary: A new user sees an empty ledger (change referral-go-sdk-v1).
+  entry_route: /account/referral
+  services:
+  - team-referral
+  - team-gateway
+  acceptance:
+  - Given a signed-in buyer on the referral page
+  - Then the rewards area shows Empty "Chưa có phần thưởng nào."
+  tags:
+  - referral-service
+  status: automated
+  covered_by: frontend/account_ui.feature::A new user sees an empty ledger
+- id: referral-runtime.a-unique-violation-is-alreadyexists
+  title: A unique violation is AlreadyExists
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A unique violation is AlreadyExists
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestUniqueViolationIsAlreadyExists`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-cancelled-request-is-canceled
+  title: A cancelled request is Canceled
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A cancelled request is Canceled
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestCancelledRequestIsCanceled`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-redeem-race-keeps-failedprecondition
+  title: The redeem race keeps FailedPrecondition
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The redeem race keeps FailedPrecondition
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/rpc` `TestRedeemRaceIsFailedPrecondition`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-module-requires-the-tag-without-a-replace
+  title: The module requires the tag without a replace
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The module requires the tag without a replace
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestModuleRequiresSDKTagWithoutReplace`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.the-makefile-uses-the-shared-files
+  title: The Makefile uses the shared files
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - The Makefile uses the shared files
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/config` `TestMakefileUsesSharedFiles`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.a-failed-start-releases-what-was-opened
+  title: A failed start releases what was opened
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - A failed start releases what was opened
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/app` `TestEarlyFailureClosesPool`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral-runtime.context-cancellation-stops-the-server-within-the-grace-period
+  title: Context cancellation stops the server within the grace period
+  persona: buyer
+  priority: P2
+  summary: Unit-verified scenario of change referral-go-sdk-v1.
+  entry_route: /
+  services:
+  - team-referral
+  acceptance:
+  - Context cancellation stops the server within the grace period
+  tags:
+  - referral-service
+  - unit
+  status: not-testable
+  notes: VERIFIED BY `team-referral/internal/app` `TestShutdownWithinGrace`. Not producible end to end through the gateway (unit, database, log or boot level).
+- id: referral.the-service-answers-on-its-port-after-the-migration
+  title: The service answers on its port after the migration
+  persona: buyer
+  priority: P1
+  summary: The service answers on its port after the migration (change referral-go-sdk-v1).
+  entry_route: /
+  services:
+  - team-referral
+  - team-gateway
+  acceptance:
+  - Given an authenticated buyer
+  - When the buyer creates a referral code
+  - Then GetMyReferral returns that same code
+  - And the team-referral container is running, not restarting, and carries no DATABASE_ENABLED flag
+  tags:
+  - referral-service
+  status: automated
+  covered_by: services/new_services.feature::The service answers on its port after the migration

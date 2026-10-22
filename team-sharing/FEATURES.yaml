@@ -1,0 +1,586 @@
+# Feature manifest for team-sharing.
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-sharing
+owner: sharing-team
+
+features:
+  - id: sharing.create-and-resolve-link
+    title: A created share link resolves back to its target with OG meta
+    persona: seller
+    priority: P1
+    summary: A seller creates a share link through the gateway and resolving the short code returns the target, OG meta defaults and click_count 1 (change sharing-go-sdk-v1).
+    entry_route: /
+    services:
+    - team-sharing
+    - team-gateway
+    preconditions:
+      login: seller
+    api:
+      exercised:
+      - sharing.v1.CreateShareLink
+      - sharing.v1.ResolveShareLink
+    acceptance:
+    - Given an authenticated seller
+    - When the seller creates a share link for target "listing" "listing_001"
+    - Then resolving the short code returns target "listing" "listing_001"
+    - And the resolved link carries OG meta
+    - And the resolved link has click count 1
+    tags:
+    - sharing
+    status: automated
+    covered_by: services/new_services.feature::A created share link resolves back to its target with OG meta
+  - id: sharing-runtime.handler-round-trip-returns-the-stored-link
+    title: Handler round trip returns the stored link
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Handler round trip returns the stored link
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/rpc` `TestHandlerCreateThenResolve`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.unknown-short-code-is-notfound
+    title: Unknown short code is NotFound
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Unknown short code is NotFound
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/rpc` `TestHandlerResolveUnknownIsNotFound`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.empty-target-or-empty-code-is-invalidargument
+    title: Empty target or empty code is InvalidArgument
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Empty target or empty code is InvalidArgument
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/rpc` `TestHandlerCreateInvalidArgument`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.each-resolve-increments-click-count-by-exactly-one
+    title: Each resolve increments click_count by exactly one
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Each resolve increments click_count by exactly one
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/sharelink` `TestResolveIncrementsClickCount`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.a-nil-utm-map-is-stored-as-an-empty-object
+    title: A nil UTM map is stored as an empty object
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - A nil UTM map is stored as an empty object
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/sharelink` `TestCreateWithNilUTM`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.mint-retries-on-collision-and-then-gives-up
+    title: Mint retries on collision and then gives up
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Mint retries on collision and then gives up
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/sharelink` `TestCreateGivesUpAfterFiveCollisions`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.a-non-domain-error-hides-its-cause
+    title: A non-domain error hides its cause
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - A non-domain error hides its cause
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/rpc` `TestMapErrHidesInternalCause`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.an-authenticated-creator-is-recorded
+    title: An authenticated creator is recorded
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - An authenticated creator is recorded
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/rpc` `TestHandlerCreateAttributesPrincipal`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.anonymous-creator-is-accepted-and-stored-as-empty
+    title: Anonymous creator is accepted and stored as empty
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Anonymous creator is accepted and stored as empty
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/rpc` `TestCreateAnonymousStoresEmptyCreator`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.the-legacy-user-id-header-identifies-nobody
+    title: The legacy user id header identifies nobody
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - The legacy user id header identifies nobody
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/rpc` `TestLegacyUserIDHeaderIgnored`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.resolve-needs-no-principal-and-no-scope
+    title: Resolve needs no principal and no scope
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Resolve needs no principal and no scope
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/rpc` `TestResolveRequiresNoPrincipal`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.missing-database-url-is-refused-in-every-env
+    title: Missing DATABASE_URL is refused in every ENV
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Missing DATABASE_URL is refused in every ENV
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/config` `TestLoadRequiresDatabaseURLInEveryEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.no-default-dsn-is-compiled-in
+    title: No default DSN is compiled in
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - No default DSN is compiled in
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/config` `TestLoadHasNoDefaultDSN`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.unreachable-database-fails-boot-locally
+    title: Unreachable database fails boot locally
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Unreachable database fails boot locally
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestBootFailsWhenDatabaseUnreachableInLocal`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.unreachable-database-fails-boot-outside-local
+    title: Unreachable database fails boot outside local
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Unreachable database fails boot outside local
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestBootFailsWhenDatabaseUnreachableOutsideLocal`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.the-removed-enable-flag-is-ignored
+    title: The removed enable flag is ignored
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - The removed enable flag is ignored
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/config` `TestDatabaseEnabledFlagIsIgnored`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.production-source-has-no-in-memory-store-or-local-fallback
+    title: Production source has no in-memory store or local fallback
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Production source has no in-memory store or local fallback
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestNoInMemoryStoreOrFallbackInProductionSource`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.a-running-service-persists-links-in-postgres
+    title: A running service persists links in Postgres
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - A running service persists links in Postgres
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/store` `TestPostgresCreateResolveAcrossInstances`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.valid-settings-load-with-the-documented-defaults
+    title: Valid settings load with the documented defaults
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Valid settings load with the documented defaults
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/config` `TestConfigLoad`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.missing-env-or-grpc-port-is-refused
+    title: Missing ENV or GRPC_PORT is refused
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Missing ENV or GRPC_PORT is refused
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/config` `TestConfigLoadRequiresEnvAndPort`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.a-malformed-duration-is-refused
+    title: A malformed duration is refused
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - A malformed duration is refused
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/config` `TestConfigLoadRejectsBadDuration`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.env-example-is-in-sync-with-settings
+    title: '`.env.example` is in sync with Settings'
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - '`.env.example` is in sync with Settings'
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/config` `TestEnvExampleInSync`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.database-loss-flips-health-to-not-serving
+    title: Database loss flips health to NOT_SERVING
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Database loss flips health to NOT_SERVING
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestHealthReportsDatabaseDown`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.health-recovers-when-the-database-returns
+    title: Health recovers when the database returns
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Health recovers when the database returns
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestHealthRecoversWhenDatabaseReturns`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.boot-does-not-apply-migrations
+    title: Boot does not apply migrations
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Boot does not apply migrations
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestBootDoesNotApplyMigrations`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.shutdown-stops-the-server-within-the-grace-period
+    title: Shutdown stops the server within the grace period
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Shutdown stops the server within the grace period
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestRunStopsOnContextCancel`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.migrations-apply-cleanly-to-an-empty-database
+    title: Migrations apply cleanly to an empty database
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Migrations apply cleanly to an empty database
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/store` `TestMigrationsApply`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.go-mod-requires-the-tag-without-replace
+    title: go.mod requires the tag without replace
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - go.mod requires the tag without replace
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestGoModRequiresTaggedSDKWithoutReplace`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.no-vendored-or-copied-build-files
+    title: No vendored or copied build files
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - No vendored or copied build files
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestNoVendoredSDKOrCopiedBuildFiles`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.the-image-builds-from-the-module-cache
+    title: The image builds from the module cache
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - The image builds from the module cache
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `docker build -t team-sharing:local team-sharing` (tasks.md 1.8, run by `make -C team-sharing docker`). Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.a-panicking-handler-returns-internal-and-the-server-keeps-serving
+    title: A panicking handler returns Internal and the server keeps serving
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - A panicking handler returns Internal and the server keeps serving
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestPanicIsContained`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.call-logs-carry-no-link-data
+    title: Call logs carry no link data
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Call logs carry no link data
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestCallLogsCarryNoLinkData`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.an-anonymous-call-is-logged-without-a-principal-id
+    title: An anonymous call is logged without a principal id
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - An anonymous call is logged without a principal id
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestAnonymousCallIsLoggedAndServed`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.reflection-is-off-by-default
+    title: Reflection is off by default
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Reflection is off by default
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestReflectionOffByDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.reflection-works-when-enabled-locally
+    title: Reflection works when enabled locally
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Reflection works when enabled locally
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestReflectionEnabledLocally`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.strict-env-refuses-reflection
+    title: Strict ENV refuses reflection
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Strict ENV refuses reflection
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/config` `TestLoadRefusesReflectionInStrictEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: sharing-runtime.boot-with-telemetry-off-and-no-collector
+    title: Boot with telemetry off and no collector
+    persona: seller
+    priority: P2
+    summary: Unit-verified scenario of change sharing-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-sharing
+    acceptance:
+    - Boot with telemetry off and no collector
+    tags:
+    - sharing
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-sharing/internal/app` `TestBootWithoutCollectorWhenOTelOff`. Not producible end to end through the gateway (unit, database, log or boot level)."
