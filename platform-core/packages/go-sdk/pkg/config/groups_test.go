@@ -119,3 +119,35 @@ func TestStrictEnvRejectsEmptyKafkaBrokers(t *testing.T) {
 		t.Fatal("Load: want an error for an empty KAFKA_BROKERS")
 	}
 }
+
+type everyGroup struct {
+	Runtime  config.Runtime
+	GRPC     config.GRPC
+	Postgres config.Postgres
+	OTel     config.OTel
+	Kafka    config.Kafka
+	Outbox   config.Outbox
+	Flags    config.Flags
+}
+
+// Scenario: No config group declares a dependency enable variable.
+func TestNoDependencyEnableFlags(t *testing.T) {
+	keys := config.DeclaredEnvKeys(everyGroup{})
+	if len(keys) == 0 {
+		t.Fatal("no env keys declared")
+	}
+	var enabled []string
+	for _, k := range keys {
+		if strings.HasSuffix(k, "_ENABLED") {
+			enabled = append(enabled, k)
+		}
+	}
+	if !slices.Equal(enabled, []string{"OTEL_ENABLED"}) {
+		t.Errorf("_ENABLED keys = %v, want only [OTEL_ENABLED]", enabled)
+	}
+	for _, banned := range []string{"DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "FEATURE_FLAGS_ENABLED"} {
+		if slices.Contains(keys, banned) {
+			t.Errorf("%s must not be declared", banned)
+		}
+	}
+}
