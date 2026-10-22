@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from playwright.sync_api import Page, expect
 from pytest_bdd import given, parsers, then, when
 
@@ -55,6 +53,11 @@ def open_order_as_buyer(world: World) -> None:
     sign_in(world, w.actors["buyer"].token)
     goto(world, f"/account/orders/{w.orders['order']}")
     open_returns_tab(world.page)
+
+
+def detail_card(page: Page):
+    card = page.locator("ul").first
+    return card if card.count() else page
 
 
 def choose_ruling(page: Page, label: str) -> None:
@@ -135,24 +138,24 @@ def admin_deep_link(world: World) -> None:
 
 @then(parsers.parse('the dispute detail shows "{text}"'))
 def detail_shows(world: World, text: str) -> None:
-    expect(world.page.get_by_text(text).first).to_be_visible(timeout=timeouts.DEFAULT)
+    expect(detail_card(world.page).get_by_text(text).first).to_be_visible(timeout=timeouts.DEFAULT)
 
 
 @when(parsers.parse('the admin clicks "{name}" on the dispute detail'))
 def admin_clicks(world: World, name: str) -> None:
-    world.page.get_by_role("button", name=name, exact=True).click()
+    detail_card(world.page).get_by_role("button", name=name, exact=True).click()
 
 
 @then(parsers.parse('the dispute detail offers "{name}"'))
 def detail_offers(world: World, name: str) -> None:
-    expect(world.page.get_by_role("button", name=name, exact=True)).to_be_visible(
+    expect(detail_card(world.page).get_by_role("button", name=name, exact=True)).to_be_visible(
         timeout=timeouts.DEFAULT
     )
 
 
 @then(parsers.parse('the dispute detail offers no "{name}" button'))
 def detail_offers_not(world: World, name: str) -> None:
-    expect(world.page.get_by_role("button", name=name, exact=True)).to_have_count(0)
+    expect(detail_card(world.page).get_by_role("button", name=name, exact=True)).to_have_count(0)
 
 
 @then(parsers.parse('the browser is on the dispute detail at "{query}"'))

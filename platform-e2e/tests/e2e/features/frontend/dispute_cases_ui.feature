@@ -5,7 +5,7 @@ Feature: Dispute escalation and the admin Khiếu nại tab in the browser (fron
   real, distinct users; every outcome is read off the rendered page and, where the spec promises
   state, off the gateway. Refusals are paired with a positive control.
 
-  Scenario: Buyer escalates a rejected return
+  Scenario: Buyer escalates a rejected return in the browser
     Given a buyer with a paid online order whose return the seller rejected
     When the buyer opens the returns tab of the order
     Then the return card offers the escalate button
@@ -13,7 +13,7 @@ Feature: Dispute escalation and the admin Khiếu nại tab in the browser (fron
     Then the order detail shows a dispute "Đang chờ xử lý" and no escalate button
     And the gateway lists exactly one OPEN dispute for the order linked to the return
 
-  Scenario: Admin rules for the buyer and the return is refunded
+  Scenario: Admin investigates and rules for the buyer in the browser
     Given an OPEN dispute on that rejected return
     And the dispute admin is signed in the browser
     When the admin opens the dispute detail by deep link
@@ -32,7 +32,7 @@ Feature: Dispute escalation and the admin Khiếu nại tab in the browser (fron
     Then the returns tab shows the return as "Đã hoàn tiền"
     And the order detail dispute shows the ruling "Người mua thắng"
 
-  Scenario: Seller-favour ruling leaves the return unchanged
+  Scenario: Seller-favour ruling moves no return in the browser
     Given an INVESTIGATING dispute on that rejected return
     And the dispute admin is signed in the browser
     When the admin opens the dispute detail by deep link
@@ -47,7 +47,7 @@ Feature: Dispute escalation and the admin Khiếu nại tab in the browser (fron
     And the returns tab shows the return as "Đã từ chối"
     And the return still reads REJECTED at the gateway after a quiet period
 
-  Scenario: An open dispute cannot be resolved directly
+  Scenario: Admin cannot skip investigation in the browser
     Given an OPEN dispute on that rejected return
     And the dispute admin is signed in the browser
     When the admin opens the dispute detail by deep link
@@ -56,7 +56,7 @@ Feature: Dispute escalation and the admin Khiếu nại tab in the browser (fron
     And the dispute detail offers no "Giải quyết" button
     And the dispute reads OPEN at the gateway
 
-  Scenario: A buyer cannot open the dispute tab
+  Scenario: A buyer opening the tab in the browser is refused
     Given an OPEN dispute on that rejected return
     And the dispute buyer is signed in the browser
     When the buyer opens the dispute tab in the browser
