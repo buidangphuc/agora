@@ -8,7 +8,7 @@ Layout: `cmd/server` (loads `internal/config`, calls `internal/app`) -> `interna
 
 ## Contract
 
-Served: `platform.sharing.v1.SharingService` (`proto/platform/sharing/v1/sharing.proto`) on `:50065`, plus the standard gRPC health service (serving) and gRPC reflection (always on). The only caller is `team-gateway` (`UPSTREAM_SHARING_ADDR`, default `team-sharing-svc:50065`), which exposes it over Connect and forwards the principal as `x-principal-{id,type,scopes}` metadata.
+Served: `platform.sharing.v1.SharingService` (`proto/platform/sharing/v1/sharing.proto`) on `:50065`, plus the standard gRPC health service (overall status for readiness, `liveness` for the livenessProbe) and gRPC reflection only when `GRPC_REFLECTION_ENABLED=true` in a local or test `ENV`. The only caller is `team-gateway` (`UPSTREAM_SHARING_ADDR`, default `team-sharing-svc:50065`), which exposes it over Connect and forwards the principal as `x-principal-{id,type,scopes}` metadata.
 
 | RPC | Authorization | Behaviour |
 |---|---|---|
@@ -79,7 +79,7 @@ Targets come from `../platform-core/make/go-service.mk` (lint config from the go
 
 ## Spec and verification
 
-- There is no `FEATURES.yaml` in this repo (peers such as `team-order` have one). End-to-end coverage lives in `platform-e2e`: share-link scenarios are in `tests/e2e/features/services/new_services.feature` and `tests/e2e/features/journeys/buyer_full_funnel_journey.feature`, with steps in `tests/e2e/step_definitions/test_new_services.py`.
+- Feature catalogue: `team-sharing/FEATURES.yaml`. End-to-end coverage lives in `platform-e2e`: share-link scenarios are in `tests/e2e/features/services/new_services.feature` and `tests/e2e/features/journeys/buyer_full_funnel_journey.feature`, with steps in `tests/e2e/step_definitions/test_new_services.py`.
 - Verify with `make -C platform-e2e features-check` and, for an OpenSpec change, `make -C platform-e2e spec-check CHANGE=<id>`.
 - Changes go through OpenSpec (`openspec/changes/<id>`) per the root README's ASDLC. No open change currently targets sharing.
 
