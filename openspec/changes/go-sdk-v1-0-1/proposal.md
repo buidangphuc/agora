@@ -47,6 +47,8 @@ initiative: adhoc
 | `key_fp` (12 hex of HMAC-SHA256 of the key) | pseudonymous personal data | correlate log lines of one record without exposing the id | legitimate interest (security logging), same basis as archived `domain-consumer-key-redaction` | platform log retention; no new store |
 | `LOG_KEY_FP_SECRET` | secret | HMAC key; makes `key_fp` unguessable from a known user-id list | n/a | Vault in staging and prod; rotation changes all fingerprints |
 | Audit event `actor_id`, `target_id`, metadata | personal data | passed through `auditx` to team-audit as today | existing basis of the audited admin action | owned by team-audit; unchanged |
+| DLQ record (raw key and value) | personal data | dead-lettered record kept for replay on the `<topic>.dlq` topic | same basis as the source topic | same retention and erasure as the source topic; unchanged by this change |
+| `auditx` failure log (`action`, `target_type`, gRPC status code) | internal operational data | alert on audit outages; never carries `actor_id`, `target_id` or error text | n/a (no personal data) | platform log retention; no new store |
 | `MOCK_DATA`, `UPSTREAM_AUDIT_ADDR` | internal config | boot configuration | n/a | n/a |
 
 Consumer error text may embed user ids (for example `fmt.Errorf("user %s: %w", id, err)`); the SDK scrubs the record key from logged and DLQ-header error text but cannot know other ids a handler puts in its error. Services must not format ids into errors (stated in the README).
