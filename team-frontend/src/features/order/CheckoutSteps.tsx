@@ -156,6 +156,7 @@ export function ConfirmStep({
   shipping,
   total,
   trackItems,
+  vouchers,
 }: {
   state: CheckoutState;
   address: Pick<
@@ -168,6 +169,7 @@ export function ConfirmStep({
   shipping: ShippingFee;
   total: number;
   trackItems: EcommerceItem[];
+  vouchers: ViewVoucherQuote[];
 }) {
   const payment = paymentOptionFor(state.pay);
   return (
@@ -233,7 +235,16 @@ export function ConfirmStep({
       <PlaceOrderForm
         addressId={address.id}
         method={state.pay}
-        voucherCode={state.pv}
+        vouchers={vouchers}
+        itemIds={items.map((it) => it.id)}
+        confirmedAddress={{
+          recipientName: address.recipientName,
+          phone: address.phone,
+          street: address.street,
+          ward: address.ward,
+          district: address.district,
+          city: address.city,
+        }}
         total={total}
         shippingTier={shipping.isFree ? "FREE" : "STANDARD"}
         items={trackItems}

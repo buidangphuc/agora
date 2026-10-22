@@ -178,6 +178,7 @@ export default async function CheckoutPage(props: {
           shipping={shipping}
           total={total}
           trackItems={trackItems}
+          vouchers={quote.vouchers}
         />
       ) : null,
   } as const;
