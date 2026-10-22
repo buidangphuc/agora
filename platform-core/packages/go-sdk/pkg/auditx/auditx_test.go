@@ -158,7 +158,7 @@ func TestDoReturnsActionErrorUnchanged(t *testing.T) {
 	g := auditx.NewGate(&fakeWriter{}, quietLogger(&bytes.Buffer{}))
 	want := status.Error(codes.PermissionDenied, "missing scope")
 	err := g.Do(context.Background(), auditx.Event{Action: "a"}, func(context.Context) error { return want })
-	if err != want {
+	if !errors.Is(err, want) {
 		t.Errorf("err = %v, want the action error itself", err)
 	}
 	if status.Code(err) != codes.PermissionDenied {

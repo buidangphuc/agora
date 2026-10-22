@@ -37,7 +37,7 @@ func TestNoEnableFlagInSDKSource(t *testing.T) {
 				s = lit.Value
 			}
 			for _, w := range strings.FieldsFunc(s, func(r rune) bool {
-				return !(r == '_' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9')
+				return r != '_' && (r < 'A' || r > 'Z') && (r < '0' || r > '9')
 			}) {
 				if strings.HasSuffix(w, "_ENABLED") && w != "OTEL_ENABLED" {
 					t.Errorf("%s: string literal names %s", fset.Position(lit.Pos()), w)
