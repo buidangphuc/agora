@@ -9,7 +9,6 @@ import (
 
 	"google.golang.org/grpc"
 
-	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
 	"github.com/buidangphuc/team-order/internal/repository"
@@ -163,7 +162,6 @@ func TestSystemCancelReleasesPlatformVoucherWhenAllCancelled(t *testing.T) {
 	if len(got) != 1 || got[0] != "platform:chk_1" {
 		t.Fatalf("want exactly one release of platform:chk_1, got %v", got)
 	}
-	_ = orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED
 }
 
 // Scenario: Multishop checkout: A platform release failure never fails the cancel
