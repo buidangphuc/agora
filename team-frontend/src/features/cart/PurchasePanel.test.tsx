@@ -153,9 +153,12 @@ describe("PurchasePanel", () => {
     expect(plus).toBeDisabled();
   });
 
-  it("Mua ngay adds the selected variant once and goes to /checkout", async () => {
+  it("Cart selection: Mua ngay opens checkout with the new line only - buy now navigates with the added line id", async () => {
     const user = setupUser();
-    vi.mocked(addToCartAction).mockResolvedValue({ ok: true });
+    vi.mocked(addToCartAction).mockResolvedValue({
+      ok: true,
+      data: { itemId: "ci-new" },
+    } as never);
     const listing = {
       ...baseListing,
       variants: [
@@ -166,7 +169,8 @@ describe("PurchasePanel", () => {
     renderPanel(listing, "b");
     await user.click(inlineBuy());
     expect(addToCartAction).toHaveBeenCalledWith("l1", "b", 1);
-    expect(push).toHaveBeenCalledWith("/checkout");
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith("/checkout?items=ci-new");
     expect(trackEcommerce).toHaveBeenCalledTimes(1);
     expect(trackEcommerce).toHaveBeenCalledWith(
       "add_to_cart",
@@ -256,6 +260,84 @@ describe("PurchasePanel guest login routing", () => {
     ).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
     expect(trackEcommerce).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Cart selection: Mua ngay", () => {
+  it("Cart selection: Mua ngay does not fall back to the whole cart - buy now with no matching line stays on the page", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockResolvedValue({
+      ok: false,
+      error: "Không tìm thấy sản phẩm trong giỏ",
+    } as never);
+    renderPanel();
+    await user.click(inlineBuy());
+    expect(
+      await screen.findByText("Không tìm thấy sản phẩm trong giỏ"),
+    ).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+    expect(inlineBuy()).toBeEnabled();
+  });
+
+  it("Cart selection: Mua ngay does not fall back to the whole cart - ok without an item id shows an error and does not push /checkout", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockResolvedValue({ ok: true } as never);
+    renderPanel();
+    await user.click(inlineBuy());
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+    expect(inlineBuy()).toBeEnabled();
+  });
+
+  it("Cart selection: a failed add shows the error and does not navigate - failed add does not navigate", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockRejectedValue(new Error("network"));
+    renderPanel();
+    await user.click(inlineBuy());
+    expect(
+      await screen.findByText("Có lỗi xảy ra khi thêm vào giỏ hàng."),
+    ).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("Cart selection: an anonymous visitor pressing Mua ngay is sent to login - anonymous buy now goes to login", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockResolvedValue(guest as never);
+    renderPanel({ ...baseListing, id: "abc" });
+    await user.click(inlineBuy());
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith("/login?returnUrl=%2Flisting%2Fabc");
+    expect(push).not.toHaveBeenCalledWith(
+      expect.stringContaining("/checkout"),
+    );
+  });
+
+  it("Cart selection: the mobile buy bar uses the same path - buy bar buy now uses the same selection", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockResolvedValue({
+      ok: true,
+      data: { itemId: "ci-bar" },
+    } as never);
+    renderPanel();
+    const bar = screen.getByTestId("buy-bar");
+    await user.click(within(bar).getByRole("button", { name: "Mua ngay" }));
+    expect(addToCartAction).toHaveBeenCalledWith("l1", undefined, 1);
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith("/checkout?items=ci-bar");
+  });
+
+  it("Cart selection: add to cart does not navigate even when an item id comes back", async () => {
+    const user = setupUser();
+    vi.mocked(addToCartAction).mockResolvedValue({
+      ok: true,
+      data: { itemId: "ci-x" },
+    } as never);
+    renderPanel();
+    await user.click(inlineAdd());
+    expect(
+      await screen.findByText("Đã thêm 1 sản phẩm vào giỏ hàng"),
+    ).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
   });
 });
 
