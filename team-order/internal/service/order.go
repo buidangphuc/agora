@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
@@ -35,6 +37,9 @@ var (
 	// ErrNotPaidOnline: a return of an order with no paid_at (never paid through
 	// team-payment, e.g. cash on delivery) cannot be moved to REFUNDED.
 	ErrNotPaidOnline = errors.New("order was not paid online; cash-on-delivery refunds are handled outside the system")
+
+	ErrAddressNotFound    = errors.New("address not found")
+	ErrAddressUnavailable = errors.New("address service unavailable; please retry")
 )
 
 type OrderService struct {
@@ -939,4 +944,156 @@ func CanEscalate(ret repository.OrderReturn, o repository.Order, now time.Time) 
 // CanEscalate evaluates CanEscalate against the service clock.
 func (s *OrderService) CanEscalate(ret repository.OrderReturn, o repository.Order) bool {
 	return CanEscalate(ret, o, s.now())
+}
+
+func (s *OrderService) resolvePreviewAddress(ctx context.Context, addressID string) (*identityv1.Address, bool, error) {
+	if s.addrClient == nil {
+		return nil, false, ErrAddressUnavailable
+	}
+	resp, err := s.addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
+	if err != nil || resp == nil {
+		return nil, false, ErrAddressUnavailable
+	}
+	if len(resp.GetAddresses()) == 0 && addressID == "" {
+		return nil, false, nil
+	}
+	for _, a := range resp.GetAddresses() {
+		if (addressID != "" && a.GetId() == addressID) || (addressID == "" && a.GetIsDefault()) {
+			if strings.TrimSpace(a.GetCity()) == "" {
+				break
+			}
+			return a, true, nil
+		}
+	}
+	return nil, false, ErrAddressNotFound
+}
+
+// PreviewCheckout quotes a checkout without reserving stock or committing anything.
+// Voucher holds taken to price it live under a preview namespace and are always released.
+func (s *OrderService) PreviewCheckout(ctx context.Context, buyerID, addressID string, itemIDs []string, opts ...CheckoutOption) (*orderv1.PreviewCheckoutResponse, error) {
+	var cfg checkoutConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	cartItems, err := s.cartRepo.GetCart(ctx, buyerID)
+	if err != nil {
+		return nil, fmt.Errorf("get cart: %w", err)
+	}
+	items := selectItems(cartItems, itemIDs)
+	if len(items) == 0 {
+		return nil, ErrEmptyCart
+	}
+	for _, it := range items {
+		if it.SellerID != "" && it.SellerID == buyerID {
+			return nil, ErrSelfPurchase
+		}
+	}
+	if _, err := s.precheckPrices(ctx, buyerID, items); err != nil {
+		return nil, err
+	}
+	addr, quoted, err := s.resolvePreviewAddress(ctx, addressID)
+	if err != nil {
+		return nil, err
+	}
+
+	groups := groupBySeller(items)
+	inputs := make([]quoteGroupInput, 0, len(groups))
+	for _, g := range groups {
+		var sub int64
+		ids := make([]string, 0, len(g.items))
+		for _, it := range g.items {
+			sub += it.UnitPrice * int64(it.Quantity)
+			ids = append(ids, it.ID)
+		}
+		inputs = append(inputs, quoteGroupInput{sellerID: g.sellerID, itemIDs: ids, itemsSubtotal: sub})
+	}
+
+	var resolved resolvedVouchers
+	var slots voucherSlots
+	if cfg.vouchers != nil {
+		slots = *cfg.vouchers
+		prefix := "preview:" + buyerID + ":"
+		resolved, err = s.resolveVouchers(ctx, voucherResolveInput{
+			buyerID:               buyerID,
+			groups:                inputs,
+			slots:                 slots,
+			platformReservationID: prefix + uuid.NewString(),
+			shopReservationID:     func(string) string { return prefix + uuid.NewString() },
+		})
+		rel := context.WithoutCancel(ctx)
+		for _, o := range resolved.shops {
+			if o.valid {
+				s.releaseVoucher(rel, o.reservationID)
+			}
+		}
+		if resolved.platform.valid {
+			s.releaseVoucher(rel, resolved.platform.reservationID)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for i := range inputs {
+		if o, ok := resolved.shops[inputs[i].sellerID]; ok && o.valid {
+			inputs[i].shopVoucherCode, inputs[i].shopDiscount = o.code, o.discount
+		}
+	}
+	var platformDiscount int64
+	if resolved.platform.valid {
+		platformDiscount = resolved.platform.discount
+	}
+	city := ""
+	if quoted {
+		city = addr.GetCity()
+	}
+	q := s.quoteCheckout(quoteInput{city: city, platformDiscount: platformDiscount, groups: inputs})
+
+	resp := &orderv1.PreviewCheckoutResponse{ShippingQuoted: quoted}
+	for _, g := range q.groups {
+		if !quoted {
+			g.shippingFee, g.isFreeShipping = 0, false
+			g.totalAmount = g.itemsSubtotal - g.shopDiscount - g.platformDiscount
+			if g.totalAmount < 0 {
+				g.totalAmount = 0
+			}
+		}
+		gq := &orderv1.CheckoutGroupQuote{
+			SellerId:               g.sellerID,
+			ItemIds:                g.itemIDs,
+			ItemsSubtotal:          g.itemsSubtotal,
+			ShippingFee:            g.shippingFee,
+			IsFreeShipping:         g.isFreeShipping,
+			ShopVoucherCode:        g.shopVoucherCode,
+			ShopDiscountAmount:     g.shopDiscount,
+			PlatformDiscountAmount: g.platformDiscount,
+			TotalAmount:            g.totalAmount,
+		}
+		if quoted {
+			gq.EstimatedDeliveryAt = timestamppb.New(g.estimatedDeliveryAt)
+		}
+		resp.Groups = append(resp.Groups, gq)
+		resp.ItemsSubtotal += g.itemsSubtotal
+		resp.ShippingFee += g.shippingFee
+		resp.DiscountAmount += g.shopDiscount + g.platformDiscount
+		resp.TotalAmount += g.totalAmount
+	}
+	for _, sl := range slots.shops {
+		if o, ok := resolved.shops[sl.sellerID]; ok {
+			resp.Vouchers = append(resp.Vouchers, &orderv1.VoucherQuote{
+				Code: o.code, Scope: orderv1.CheckoutVoucherScope_CHECKOUT_VOUCHER_SCOPE_SHOP,
+				SellerId: sl.sellerID, Valid: o.valid, Reason: o.reason, DiscountAmount: o.discount,
+			})
+		}
+	}
+	if o := resolved.platform; o.code != "" {
+		resp.Vouchers = append(resp.Vouchers, &orderv1.VoucherQuote{
+			Code: o.code, Scope: orderv1.CheckoutVoucherScope_CHECKOUT_VOUCHER_SCOPE_PLATFORM,
+			Valid: o.valid, Reason: o.reason, DiscountAmount: o.discount,
+		})
+	}
+	if quoted {
+		resp.ShippingAddress = proto.Clone(addr).(*identityv1.Address)
+	}
+	return resp, nil
 }
