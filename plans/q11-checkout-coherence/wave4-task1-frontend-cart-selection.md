@@ -33,6 +33,8 @@ Implement OpenSpec change `frontend-cart-selection` test-first per its tasks.md 
 - platform-e2e/tests/e2e/step_definitions/test_cart_selection_ui.py
 - platform-e2e/tests/e2e/support/cart_selection_ui_support.py
 - openspec/changes/frontend-cart-selection/**
+- team-frontend/src/features/order/OrderSummary.tsx (widened at build: task 1.2)
+- team-frontend/src/features/order/OrderSummary.test.tsx (widened at build: task 1.2)
 
 ## Read-only dependencies
 - openspec/changes/frontend-cart-selection/** is frozen by the LOCK.md digest (only task ticks change)
