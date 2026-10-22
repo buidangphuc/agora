@@ -533,7 +533,6 @@ services:
       team-sharing-migrate:
         condition: service_completed_successfully
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://sharing_svc:sharing_pass@postgres:5432/sharing_db?sslmode=disable
       - GRPC_PORT=50065
       - ENV=local

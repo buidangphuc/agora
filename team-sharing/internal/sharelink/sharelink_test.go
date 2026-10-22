@@ -1,16 +1,16 @@
-package service_test
+package sharelink_test
 
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
-	"github.com/buidangphuc/team-sharing/internal/repository"
-	"github.com/buidangphuc/team-sharing/internal/service"
+	"github.com/buidangphuc/team-sharing/internal/sharelink"
 )
 
-func newService() *service.ShareService {
-	return service.NewShareService(repository.NewInMemoryShareLinkRepo())
+func newService() *sharelink.Service {
+	return sharelink.NewService(newFakeRepo())
 }
 
 // Create then Resolve returns the same target and UTM, and a non-empty short
@@ -49,7 +49,7 @@ func TestResolveUnknownReturnsNotFound(t *testing.T) {
 	svc := newService()
 
 	_, err := svc.ResolveShareLink(context.Background(), "does_not_exist")
-	if !errors.Is(err, service.ErrShareLinkNotFound) {
+	if !errors.Is(err, sharelink.ErrShareLinkNotFound) {
 		t.Fatalf("expected ErrShareLinkNotFound, got %v", err)
 	}
 }
@@ -80,13 +80,13 @@ func TestCreateAndResolveValidation(t *testing.T) {
 	svc := newService()
 	ctx := context.Background()
 
-	if _, err := svc.CreateShareLink(ctx, "", "", "id", nil); !errors.Is(err, service.ErrEmptyTargetType) {
+	if _, err := svc.CreateShareLink(ctx, "", "", "id", nil); !errors.Is(err, sharelink.ErrEmptyTargetType) {
 		t.Fatalf("expected ErrEmptyTargetType, got %v", err)
 	}
-	if _, err := svc.CreateShareLink(ctx, "", "listing", "", nil); !errors.Is(err, service.ErrEmptyTargetID) {
+	if _, err := svc.CreateShareLink(ctx, "", "listing", "", nil); !errors.Is(err, sharelink.ErrEmptyTargetID) {
 		t.Fatalf("expected ErrEmptyTargetID, got %v", err)
 	}
-	if _, err := svc.ResolveShareLink(ctx, ""); !errors.Is(err, service.ErrEmptyShortCode) {
+	if _, err := svc.ResolveShareLink(ctx, ""); !errors.Is(err, sharelink.ErrEmptyShortCode) {
 		t.Fatalf("expected ErrEmptyShortCode, got %v", err)
 	}
 }
@@ -115,7 +115,7 @@ func TestCreateWithNilUTM(t *testing.T) {
 
 func TestCreateShareLinkRecordsCreator(t *testing.T) {
 	ctx := context.Background()
-	svc := service.NewShareService(repository.NewInMemoryShareLinkRepo())
+	svc := sharelink.NewService(newFakeRepo())
 
 	owned, err := svc.CreateShareLink(ctx, "user-7", "listing", "l1", nil)
 	if err != nil || owned.CreatedBy != "user-7" {
@@ -124,5 +124,82 @@ func TestCreateShareLinkRecordsCreator(t *testing.T) {
 	anon, err := svc.CreateShareLink(ctx, "", "listing", "l1", nil)
 	if err != nil || anon.CreatedBy != "" {
 		t.Fatalf("anonymous link: %+v err=%v", anon, err)
+	}
+}
+
+type fakeRepo struct {
+	mu       sync.Mutex
+	links    map[string]*sharelink.ShareLink
+	attempts int
+	collide  int
+}
+
+func newFakeRepo() *fakeRepo {
+	return &fakeRepo{links: map[string]*sharelink.ShareLink{}}
+}
+
+func clone(l *sharelink.ShareLink) *sharelink.ShareLink {
+	c := *l
+	c.UTM = map[string]string{}
+	for k, v := range l.UTM {
+		c.UTM[k] = v
+	}
+	return &c
+}
+
+func (r *fakeRepo) Create(_ context.Context, l *sharelink.ShareLink) (*sharelink.ShareLink, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.attempts++
+	if r.collide < 0 || r.attempts <= r.collide {
+		return nil, sharelink.ErrShortCodeExists
+	}
+	if _, ok := r.links[l.ShortCode]; ok {
+		return nil, sharelink.ErrShortCodeExists
+	}
+	r.links[l.ShortCode] = clone(l)
+	return clone(l), nil
+}
+
+func (r *fakeRepo) Resolve(_ context.Context, code string) (*sharelink.ShareLink, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	l, ok := r.links[code]
+	if !ok {
+		return nil, sharelink.ErrShareLinkNotFound
+	}
+	l.ClickCount++
+	return clone(l), nil
+}
+
+func TestCreateGivesUpAfterFiveCollisions(t *testing.T) {
+	repo := newFakeRepo()
+	repo.collide = -1
+	svc := sharelink.NewService(repo)
+
+	_, err := svc.CreateShareLink(context.Background(), "", "listing", "l1", nil)
+	if err == nil {
+		t.Fatalf("expected an error after repeated collisions")
+	}
+	if errors.Is(err, sharelink.ErrShareLinkNotFound) || errors.Is(err, sharelink.ErrEmptyTargetType) ||
+		errors.Is(err, sharelink.ErrEmptyTargetID) || errors.Is(err, sharelink.ErrEmptyShortCode) {
+		t.Fatalf("expected a non-domain error, got %v", err)
+	}
+	if repo.attempts != 5 {
+		t.Fatalf("expected exactly 5 store attempts, got %d", repo.attempts)
+	}
+}
+
+func TestCreateRetriesOnCollisionThenSucceeds(t *testing.T) {
+	repo := newFakeRepo()
+	repo.collide = 4
+	svc := sharelink.NewService(repo)
+
+	got, err := svc.CreateShareLink(context.Background(), "", "listing", "l1", nil)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if repo.attempts != 5 || len(got.ShortCode) != 7 {
+		t.Fatalf("attempts=%d code=%q", repo.attempts, got.ShortCode)
 	}
 }

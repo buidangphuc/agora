@@ -3,7 +3,7 @@
 // code back to its target while counting the click. It mirrors the notification
 // service's layering — validate here, persist in the repository; the short-code
 // alphabet and OG defaults are the only domain specifics.
-package service
+package sharelink
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/buidangphuc/team-sharing/internal/repository"
+	"time"
 )
 
 // Validation errors, mapped to InvalidArgument by the handler.
@@ -22,9 +22,28 @@ var (
 	ErrEmptyShortCode  = errors.New("short_code is required")
 )
 
-// ErrShareLinkNotFound is re-exported so the handler maps it without importing
-// the repository package directly.
-var ErrShareLinkNotFound = repository.ErrShareLinkNotFound
+var (
+	ErrShareLinkNotFound = errors.New("share link not found")
+	ErrShortCodeExists   = errors.New("short code already exists")
+)
+
+type ShareLink struct {
+	ShortCode     string
+	TargetType    string
+	TargetID      string
+	CreatedBy     string
+	UTM           map[string]string
+	OgTitle       string
+	OgDescription string
+	OgImageURL    string
+	ClickCount    int64
+	CreatedAt     time.Time
+}
+
+type Repository interface {
+	Create(ctx context.Context, link *ShareLink) (*ShareLink, error)
+	Resolve(ctx context.Context, shortCode string) (*ShareLink, error)
+}
 
 const (
 	// base62Alphabet is the short-code alphabet: URL-safe, case-sensitive.
@@ -36,23 +55,23 @@ const (
 	createMaxAttempts = 5
 )
 
-// ShareService is the share-link use-case boundary.
-type ShareService struct {
-	repo repository.ShareLinkRepository
+// Service is the share-link use-case boundary.
+type Service struct {
+	repo Repository
 	// randCode is injectable so tests can force a collision; production uses
 	// the crypto/rand-backed generator.
 	randCode func() (string, error)
 }
 
-func NewShareService(repo repository.ShareLinkRepository) *ShareService {
-	return &ShareService{repo: repo, randCode: randBase62}
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo, randCode: randBase62}
 }
 
 // CreateShareLink mints a short code for the given target, stamps the UTM map and
 // a synthesized OG preview, and stores it. target_type/target_id are required;
 // utm may be nil (stored as empty). createdBy is the authenticated principal id
 // ("" for anonymous callers); the link itself is a public artifact.
-func (s *ShareService) CreateShareLink(ctx context.Context, createdBy, targetType, targetID string, utm map[string]string) (*repository.ShareLink, error) {
+func (s *Service) CreateShareLink(ctx context.Context, createdBy, targetType, targetID string, utm map[string]string) (*ShareLink, error) {
 	if targetType == "" {
 		return nil, ErrEmptyTargetType
 	}
@@ -60,6 +79,9 @@ func (s *ShareService) CreateShareLink(ctx context.Context, createdBy, targetTyp
 		return nil, ErrEmptyTargetID
 	}
 
+	if utm == nil {
+		utm = map[string]string{}
+	}
 	title, desc, image := defaultOgMeta(targetType, targetID)
 	var lastErr error
 	for attempt := 0; attempt < createMaxAttempts; attempt++ {
@@ -67,7 +89,7 @@ func (s *ShareService) CreateShareLink(ctx context.Context, createdBy, targetTyp
 		if err != nil {
 			return nil, err
 		}
-		link := &repository.ShareLink{
+		link := &ShareLink{
 			ShortCode:     code,
 			TargetType:    targetType,
 			TargetID:      targetID,
@@ -78,7 +100,7 @@ func (s *ShareService) CreateShareLink(ctx context.Context, createdBy, targetTyp
 			OgImageURL:    image,
 		}
 		stored, err := s.repo.Create(ctx, link)
-		if errors.Is(err, repository.ErrShortCodeExists) {
+		if errors.Is(err, ErrShortCodeExists) {
 			lastErr = err
 			continue // collision — try a fresh code
 		}
@@ -92,7 +114,7 @@ func (s *ShareService) CreateShareLink(ctx context.Context, createdBy, targetTyp
 
 // ResolveShareLink looks up a short code, counts the click, and returns the
 // target + UTM + OG metadata. Returns ErrShareLinkNotFound for unknown codes.
-func (s *ShareService) ResolveShareLink(ctx context.Context, shortCode string) (*repository.ShareLink, error) {
+func (s *Service) ResolveShareLink(ctx context.Context, shortCode string) (*ShareLink, error) {
 	if shortCode == "" {
 		return nil, ErrEmptyShortCode
 	}

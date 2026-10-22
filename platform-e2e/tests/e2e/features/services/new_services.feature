@@ -13,6 +13,7 @@ Feature: New backend services API round-trips
     When the seller creates a share link for target "listing" "listing_001"
     Then resolving the short code returns target "listing" "listing_001"
     And the resolved link carries OG meta
+    And the resolved link has click count 1
 
   Scenario: Submitting KYC yields a PENDING verification status
     Given an authenticated buyer
