@@ -160,4 +160,52 @@ describe("PaymentSimulator", () => {
     );
     expect(router.refresh).not.toHaveBeenCalled();
   });
+
+  it("offers the next unpaid order of the checkout", async () => {
+    const user = setupUser();
+    vi.mocked(processMockPaymentAction).mockResolvedValue({
+      ok: true,
+      data: { message: "paid" },
+    });
+    render(
+      <PaymentSimulator {...props} initialPhase="idle" nextOrderId="order-2" />,
+    );
+    expect(
+      screen.queryByRole("link", { name: "Thanh toán đơn tiếp theo" }),
+    ).toBeNull();
+    await user.click(
+      screen.getByRole("button", { name: "Thanh toán thành công" }),
+    );
+    expect(
+      screen.getByRole("link", { name: "Thanh toán đơn tiếp theo" }),
+    ).toHaveAttribute("href", "/checkout/pay/order-2");
+  });
+
+  it("offers the next unpaid order of the checkout: none on the last unpaid order", async () => {
+    const user = setupUser();
+    vi.mocked(processMockPaymentAction).mockResolvedValue({
+      ok: true,
+      data: { message: "paid" },
+    });
+    render(<PaymentSimulator {...props} initialPhase="idle" />);
+    await user.click(
+      screen.getByRole("button", { name: "Thanh toán thành công" }),
+    );
+    expect(
+      screen.queryByRole("link", { name: "Thanh toán đơn tiếp theo" }),
+    ).toBeNull();
+  });
+
+  it("offers the next unpaid order of the checkout: not after a failed payment", async () => {
+    render(
+      <PaymentSimulator
+        {...props}
+        initialPhase="failed"
+        nextOrderId="order-2"
+      />,
+    );
+    expect(
+      screen.queryByRole("link", { name: "Thanh toán đơn tiếp theo" }),
+    ).toBeNull();
+  });
 });
