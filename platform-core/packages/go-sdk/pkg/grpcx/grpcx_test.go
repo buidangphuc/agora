@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -495,5 +496,63 @@ func TestNewErrorTableRejectsBadRules(t *testing.T) {
 	}
 	if _, err := grpcx.NewErrorTable(); err != nil {
 		t.Fatalf("empty table: %v", err)
+	}
+}
+
+func TestStatusMapsUniqueViolationToAlreadyExists(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+	err := grpcx.Status(context.Background(), logger,
+		fmt.Errorf("insert voucher: %w", &pgconn.PgError{Code: "23505", ConstraintName: "vouchers_code_key"}), mustTable(t))
+	st, _ := status.FromError(err)
+	if st.Code() != codes.AlreadyExists || st.Message() != "already exists" {
+		t.Fatalf("got %v, want AlreadyExists %q", err, "already exists")
+	}
+}
+
+func TestStatusUniqueViolationHidesDetail(t *testing.T) {
+	logs := &syncBuffer{}
+	logger := slog.New(slog.NewJSONHandler(logs, nil))
+	pgErr := &pgconn.PgError{Code: "23505", ConstraintName: "vouchers_code_key", Detail: "Key (code)=(SAVE10) already exists."}
+	err := grpcx.Status(context.Background(), logger, fmt.Errorf("insert voucher: %w", pgErr), mustTable(t))
+	st, _ := status.FromError(err)
+	if st.Code() != codes.AlreadyExists {
+		t.Fatalf("got %v, want AlreadyExists", err)
+	}
+	if strings.Contains(st.Message(), "SAVE10") || strings.Contains(st.Message(), "vouchers_code_key") {
+		t.Fatalf("detail leaked to caller: %q", st.Message())
+	}
+	if !strings.Contains(logs.String(), "vouchers_code_key") {
+		t.Fatalf("constraint name must be logged, got %s", logs.String())
+	}
+}
+
+func TestStatusRuleBeatsUniqueViolation(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+	table := mustTable(t, grpcx.Rule{Target: errTaken, Code: codes.FailedPrecondition})
+	err := grpcx.Status(context.Background(), logger,
+		errors.Join(errTaken, &pgconn.PgError{Code: "23505", ConstraintName: "vouchers_code_key"}), table)
+	st, _ := status.FromError(err)
+	if st.Code() != codes.FailedPrecondition {
+		t.Fatalf("got %v, want FailedPrecondition", err)
+	}
+}
+
+func TestStatusOtherPgErrorsStayInternal(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+	err := grpcx.Status(context.Background(), logger,
+		fmt.Errorf("insert: %w", &pgconn.PgError{Code: "23503", ConstraintName: "fk_x"}), mustTable(t))
+	st, _ := status.FromError(err)
+	if st.Code() != codes.Internal || st.Message() != "internal error" {
+		t.Fatalf("got %v, want Internal %q", err, "internal error")
+	}
+}
+
+func TestStatusGRPCStatusBeatsUniqueViolation(t *testing.T) {
+	logger := slog.New(slog.NewJSONHandler(&syncBuffer{}, nil))
+	in := status.Error(codes.PermissionDenied, "missing scope")
+	err := grpcx.Status(context.Background(), logger, in, mustTable(t))
+	st, _ := status.FromError(err)
+	if st.Code() != codes.PermissionDenied || st.Message() != "missing scope" {
+		t.Fatalf("got %v, want PermissionDenied %q", err, "missing scope")
 	}
 }
