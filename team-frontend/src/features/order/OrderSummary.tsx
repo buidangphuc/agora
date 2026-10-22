@@ -14,7 +14,7 @@ export interface OrderSummaryProps {
   /** Server-previewed voucher discount (0 when none). */
   discount: number;
   /** Server total, shown unchanged. */
-  total: number;
+  total?: number;
   voucherCode?: string;
   /** null while no address is chosen yet (cart): the fee is shown as pending. */
   shipping: ShippingFee | null;
@@ -30,10 +30,11 @@ function SummaryRows({
   itemCount,
   subtotal,
   discount,
-  total,
+  total: serverTotal,
   voucherCode,
   shipping,
 }: Omit<OrderSummaryProps, "action" | "mobileAction" | "notice">) {
+  const total = serverTotal ?? subtotal - discount;
   return (
     <Descriptions
       bordered={false}
@@ -98,7 +99,7 @@ export function OrderSummary({
   notice,
   ...rows
 }: OrderSummaryProps) {
-  const { total } = rows;
+  const total = rows.total ?? rows.subtotal - rows.discount;
   return (
     <>
       <Card
