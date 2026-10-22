@@ -14363,8 +14363,8 @@ features:
     acceptance:
       - "Checkout coherence: the shown totals equal the placed orders"
     tags: [buyer, checkout]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/checkout_coherence_ui.feature::Checkout coherence: the shown totals equal the placed orders"
 
   - id: frontend.cc-shop-and-platform-vouchers-go-to-their-own-slots
     title: "Checkout coherence: shop and platform vouchers go to their own slots"
@@ -14415,8 +14415,8 @@ features:
     acceptance:
       - "Checkout coherence: another shop's voucher is refused for a group"
     tags: [buyer, checkout]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/checkout_coherence_ui.feature::Checkout coherence: another shop's voucher is refused for a group"
 
   - id: frontend.cc-two-shop-vouchers-and-a-platform-voucher-place-discounted-orders
     title: "Checkout coherence: two shop vouchers and a platform voucher place discounted orders"
@@ -14428,8 +14428,8 @@ features:
     acceptance:
       - "Checkout coherence: two shop vouchers and a platform voucher place discounted orders"
     tags: [buyer, checkout]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/checkout_coherence_ui.feature::Checkout coherence: two shop vouchers and a platform voucher place discounted orders"
 
   - id: frontend.cc-the-pdp-shows-the-server-delivery-date
     title: "Checkout coherence: the PDP shows the server delivery date"
@@ -14506,8 +14506,8 @@ features:
     acceptance:
       - "Checkout coherence: the delivery date matches the mock rule end to end"
     tags: [buyer, checkout]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/checkout_coherence_ui.feature::Checkout coherence: the delivery date matches the mock rule end to end"
 
   - id: frontend.cc-the-confirmed-address-is-sent-with-the-order
     title: "Checkout coherence: the confirmed address is sent with the order"
@@ -14584,8 +14584,8 @@ features:
     acceptance:
       - "Checkout coherence: an edit after confirm shows the new address"
     tags: [buyer, checkout]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/checkout_coherence_ui.feature::Checkout coherence: an edit after confirm shows the new address"
 
   - id: frontend.cc-placing-an-online-order-goes-to-the-first-pay-page
     title: "Checkout coherence: placing an online order goes to the first pay page"
@@ -14675,8 +14675,8 @@ features:
     acceptance:
       - "Checkout coherence: both orders of a two-shop checkout are payable"
     tags: [buyer, checkout]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/checkout_coherence_ui.feature::Checkout coherence: both orders of a two-shop checkout are payable"
 
   - id: frontend.cc-pay-now-works-for-an-order-without-a-transaction
     title: "Checkout coherence: pay now works for an order without a transaction"
@@ -14688,8 +14688,8 @@ features:
     acceptance:
       - "Checkout coherence: pay now works for an order without a transaction"
     tags: [buyer, checkout]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/checkout_coherence_ui.feature::Checkout coherence: pay now works for an order without a transaction"
 
   - id: frontend.cc-items-survive-every-checkout-step
     title: "Checkout coherence: items survive every checkout step"

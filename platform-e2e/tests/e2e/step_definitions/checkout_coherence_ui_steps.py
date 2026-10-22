@@ -169,6 +169,7 @@ def choose_method(world: World, value: str) -> None:
     expect(radio).to_have_count(1, timeout=timeouts.DEFAULT)
     radio.check(force=True)
     expect(radio).to_be_checked()
+    world.page.wait_for_url(re.compile(rf".*[?&]pay={value}\b"), timeout=timeouts.DEFAULT)
     page.continue_to("confirm")
 
 
