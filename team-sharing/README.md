@@ -87,7 +87,7 @@ Targets come from `../platform-core/make/go-service.mk` (lint config from the go
 
 - `proto/` is vendored from `platform-core/packages/proto` (ADR-0001) and is currently byte-identical to it. Never edit it here: change platform-core first, then re-sync.
 - `generated/` is gitignored (root `.gitignore` `**/generated/`) and must be regenerated with `make proto` after a fresh checkout or proto re-sync, or the build fails.
-- Open Graph data is not supplied by callers. The service synthesizes a Vietnamese placeholder title/description and a `https://cdn.batdongsan.com.vn/og/<type>/<id>.png` image URL (`internal/service/sharing.go`, `defaultOgMeta`).
+- Open Graph data is not supplied by callers. The service synthesizes a Vietnamese placeholder title/description and a `https://cdn.batdongsan.com.vn/og/<type>/<id>.png` image URL (`internal/sharelink/sharelink.go`, `defaultOgMeta`).
 - The `utm` map is stored verbatim and returned on resolve; the service does not append it to any URL.
 
 ## Known gaps
