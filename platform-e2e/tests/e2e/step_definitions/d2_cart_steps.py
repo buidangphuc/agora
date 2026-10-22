@@ -10,6 +10,7 @@ from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
 from tests.e2e.support import d2_support as d2
+from tests.e2e.support.voucher_seed import ensure_known_voucher
 from tests.e2e.support.world import World
 
 REPO = Path(__file__).resolve().parents[4]
@@ -256,6 +257,7 @@ def open_voucher_modal(world: World) -> None:
 
 @when(parsers.parse('the d2 buyer applies the code "{code}" in the voucher modal'))
 def apply_code(world: World, code: str) -> None:
+    ensure_known_voucher(code)
     page = world.page
     page.locator('input[name="voucher_code"]').fill(code)
     page.get_by_role("dialog").get_by_role("button", name="Áp dụng").click()
