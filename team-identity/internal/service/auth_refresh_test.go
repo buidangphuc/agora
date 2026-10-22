@@ -69,13 +69,13 @@ type spySessions struct {
 	lastNew   string
 }
 
-func (s *spySessions) RotateRefresh(ctx context.Context, presented, newHash string, now time.Time, grace, maxAge time.Duration, ev repository.EnqueueFn) (repository.RotateResult, error) {
+func (s *spySessions) RotateRefresh(ctx context.Context, presented, newHash string, now time.Time, grace, maxAge time.Duration, ip, device string, ev repository.EnqueueFn) (repository.RotateResult, error) {
 	s.calls++
 	s.grace, s.maxAge, s.lastNew = grace, maxAge, newHash
 	if s.rotateErr != nil {
 		return repository.RotateResult{}, s.rotateErr
 	}
-	return s.InMemorySessionRepository.RotateRefresh(ctx, presented, newHash, now, grace, maxAge, ev)
+	return s.InMemorySessionRepository.RotateRefresh(ctx, presented, newHash, now, grace, maxAge, ip, device, ev)
 }
 
 type refreshEnv struct {
@@ -658,7 +658,7 @@ func TestRefreshErrorsAreGenericAndLeakNothing(t *testing.T) { // scenario: Fail
 // conflictSessions makes RotateRefresh fail with a hash-conflict-like error.
 type conflictSessions struct{ *spySessions }
 
-func (c conflictSessions) RotateRefresh(context.Context, string, string, time.Time, time.Duration, time.Duration, repository.EnqueueFn) (repository.RotateResult, error) {
+func (c conflictSessions) RotateRefresh(context.Context, string, string, time.Time, time.Duration, time.Duration, string, string, repository.EnqueueFn) (repository.RotateResult, error) {
 	return repository.RotateResult{}, errors.New("refresh hash conflict")
 }
 
@@ -704,7 +704,7 @@ type faultSessions struct {
 	err error
 }
 
-func (c faultSessions) RotateRefresh(context.Context, string, string, time.Time, time.Duration, time.Duration, repository.EnqueueFn) (repository.RotateResult, error) {
+func (c faultSessions) RotateRefresh(context.Context, string, string, time.Time, time.Duration, time.Duration, string, string, repository.EnqueueFn) (repository.RotateResult, error) {
 	return repository.RotateResult{}, c.err
 }
 

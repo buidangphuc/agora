@@ -19,6 +19,8 @@ Implement OpenSpec change `featurestore-hidden-review-exclusion` test-first per 
 - platform-featurestore/README.md
 - platform-featurestore/FEATURES.yaml
 - openspec/changes/featurestore-hidden-review-exclusion/**
+- platform-featurestore/tests/test_materialize.py (# widened at build: task 4)
+- plans/privacy-audit-hardening/wave2-task2-featurestore-hidden-review-exclusion.md (# widened at build: task 4; packet widening record)
 
 ## Read-only dependencies
 - openspec/changes/featurestore-hidden-review-exclusion/** is frozen by the LOCK.md digest (only task ticks change)

@@ -87,6 +87,8 @@ def write_listings(d: Path, listings, drop=()):
 
 
 def write_inputs(d: Path, events=(), facts=(), orders=(), listings=None):
+    """A fact dict may carry "review_id"; the column is written only when some fact has the key
+    (so an old export without it stays reproducible)."""
     ev = [
         {
             "event_id": e["id"],
@@ -130,8 +132,13 @@ def write_inputs(d: Path, events=(), facts=(), orders=(), listings=None):
         }
         for o in orders
     ]
+    fact_schema = FACTS
+    if any("review_id" in f for f in facts):
+        for row, f in zip(fa, facts, strict=True):
+            row["review_id"] = f.get("review_id")
+        fact_schema = FACTS.append(pa.field("review_id", pa.string()))
     pq.write_table(pa.Table.from_pylist(ev, schema=EVENTS), d / "tracking_events_resolved.parquet")
-    pq.write_table(pa.Table.from_pylist(fa, schema=FACTS), d / "engagement_facts.parquet")
+    pq.write_table(pa.Table.from_pylist(fa, schema=fact_schema), d / "engagement_facts.parquet")
     pq.write_table(pa.Table.from_pylist(oa, schema=ORDERS), d / "order_facts.parquet")
     if listings is not None:
         write_listings(d, listings)

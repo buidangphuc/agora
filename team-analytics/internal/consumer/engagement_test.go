@@ -46,7 +46,7 @@ func TestEngagementFactFromEnvelope(t *testing.T) {
 		{"seller unfollowed", consumer.SellerUnfollowedEventType, &engagementv1.SellerUnfollowed{UserId: "u", SellerId: "s"},
 			warehouse.EngagementFactRecord{Fact: "seller_unfollowed", UserID: "u", SellerID: "s"}},
 		{"review created", consumer.ReviewCreatedEventType, &engagementv1.ReviewCreated{ReviewId: "r", UserId: "u", ListingId: "l", SellerId: "s", Rating: 4},
-			warehouse.EngagementFactRecord{Fact: "review_created", UserID: "u", ListingID: "l", SellerID: "s", Rating: 4}},
+			warehouse.EngagementFactRecord{Fact: "review_created", ReviewID: "r", UserID: "u", ListingID: "l", SellerID: "s", Rating: 4}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -56,6 +56,56 @@ func TestEngagementFactFromEnvelope(t *testing.T) {
 			assert.Equal(t, c.want, *got)
 		})
 	}
+}
+
+func TestEngagementFactFromEnvelopeReviewHidden(t *testing.T) {
+	hiddenAt := time.Date(2026, 10, 2, 8, 30, 0, 0, time.UTC)
+
+	t.Run("Analytics review hidden: a ReviewHidden envelope maps to a review_hidden fact", func(t *testing.T) {
+		got, err := consumer.EngagementFactFromEnvelope(engEnvelope(t, "evt-h", consumer.ReviewHiddenEventType,
+			&engagementv1.ReviewHidden{ReviewId: "r1", ListingId: "l1", HiddenAt: timestamppb.New(hiddenAt)}))
+		require.NoError(t, err)
+		assert.Equal(t, "platform.engagement.v1.ReviewHidden", consumer.ReviewHiddenEventType)
+		assert.Equal(t, warehouse.EngagementFactRecord{
+			EventID: "evt-h", Fact: "review_hidden", ReviewID: "r1", ListingID: "l1", OccurredAt: hiddenAt,
+		}, *got)
+		assert.Empty(t, got.UserID, "a hidden fact carries no user id")
+		assert.Equal(t, "review_hidden", warehouse.FactReviewHidden)
+	})
+
+	t.Run("Analytics review hidden: hidden_at missing falls back to the envelope time", func(t *testing.T) {
+		got, err := consumer.EngagementFactFromEnvelope(engEnvelope(t, "evt-h2", consumer.ReviewHiddenEventType,
+			&engagementv1.ReviewHidden{ReviewId: "r2", ListingId: "l2"}))
+		require.NoError(t, err)
+		assert.Equal(t, engAt, got.OccurredAt)
+		assert.Equal(t, "r2", got.ReviewID)
+		assert.Equal(t, "review_hidden", got.Fact)
+	})
+
+	t.Run("Analytics review hidden: a corrupt payload is dead-lettered", func(t *testing.T) {
+		b, err := proto.Marshal(&eventsv1.EventEnvelope{EventId: "bad", Type: consumer.ReviewHiddenEventType, Payload: []byte{0xff, 0xff}})
+		require.NoError(t, err)
+		_, err = consumer.EngagementFactFromEnvelope(b)
+		require.Error(t, err)
+		assert.NotErrorIs(t, err, consumer.ErrUnknownEngagementType, "type is known; the payload is corrupt")
+
+		good := engEnvelope(t, "g", consumer.ReviewHiddenEventType, &engagementv1.ReviewHidden{ReviewId: "r", ListingId: "l"})
+		w, d := &engWriter{}, &engDLQ{}
+		recs := []*kgo.Record{{Key: []byte("k0"), Value: b}, {Key: []byte("k1"), Value: good}}
+		require.NoError(t, consumer.ProcessEngagementRecords(context.Background(), recs, w, d, slog.Default()))
+		require.Len(t, d.vals, 1)
+		assert.Equal(t, b, d.vals[0])
+		require.Len(t, w.rows, 1)
+		assert.Equal(t, "g", w.rows[0].EventID)
+	})
+
+	t.Run("Analytics review hidden: existing engagement types are unchanged", func(t *testing.T) {
+		got, err := consumer.EngagementFactFromEnvelope(engEnvelope(t, "evt-f", consumer.FavoriteAddedEventType,
+			&engagementv1.FavoriteAdded{UserId: "u", ListingId: "l"}))
+		require.NoError(t, err)
+		assert.Equal(t, warehouse.EngagementFactRecord{EventID: "evt-f", Fact: "favorite_added", UserID: "u", ListingID: "l", OccurredAt: engAt}, *got)
+		assert.Empty(t, got.ReviewID)
+	})
 }
 
 func TestEngagementFactFromEnvelopeRejects(t *testing.T) {

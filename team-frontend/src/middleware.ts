@@ -12,6 +12,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { clientContextFrom } from "@/lib/gateway/client-context";
 import { refreshSession } from "@/lib/gateway/refresh";
 import {
   REFRESH_COOKIE,
@@ -63,7 +64,10 @@ export async function middleware(req: NextRequest) {
   }
 
   try {
-    const result = await refreshSession(refreshToken);
+    const result = await refreshSession(
+      refreshToken,
+      clientContextFrom(req.headers),
+    );
     if (!result.token) return clearBoth();
     const secure = isSecureRequest(req.headers);
     const set: Record<string, string> = { [SESSION_COOKIE]: result.token };

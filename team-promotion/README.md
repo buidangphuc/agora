@@ -103,7 +103,7 @@ declared keys. The Makefile auto-loads `.env` if present.
 | `KAFKA_ENABLED` | `false` | |
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `PROMOTION_EVENTS_TOPIC` | `promotion.events` | |
-| `UPSTREAM_AUDIT_ADDR` | `""` | team-audit gRPC address (`team-audit-svc:50066` in compose). Platform/unspecified-scope `CreateVoucher`, admin `CreateCampaign` and admin `CreateAdCampaign` write an audit event (as `service-team-promotion`, `audit.write`) before inserting; unset or audit failure is `Unavailable` and nothing is created. Seller paths are not audited |
+| `UPSTREAM_AUDIT_ADDR` | `""` | team-audit gRPC address (`team-audit-svc:50066` in compose). Platform/unspecified-scope `CreateVoucher` (`voucher.admin_create`), admin `CreateCampaign` and admin `CreateAdCampaign` write an audit event (as `service-team-promotion`, `audit.write`) before inserting; unset or audit failure is `Unavailable` and nothing is created. Seller paths are not audited |
 | `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Timeout for upstream calls (team-domain lookup, team-audit write) |
 | `MAX_AD_BID` | `1000000` | Upper bound on a sponsored ad bid; larger is `InvalidArgument` |
 | `MAX_AD_BUDGET` | `1000000000` | Upper bound on an ad campaign budget; larger is `InvalidArgument` |

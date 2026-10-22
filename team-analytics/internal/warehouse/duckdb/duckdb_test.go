@@ -401,7 +401,18 @@ func TestExportRelationWritesReadableParquetForTablesAndViews(t *testing.T) {
 	if err := w.Write(ctx, []*warehouse.TrackingRecord{{EventID: "e1", EventType: "view", ListingID: "l1", OccurredAt: at}}); err != nil {
 		t.Fatal(err)
 	}
+	// Scenario "Analytics review hidden: the Parquet export includes hidden rows".
+	if err := w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{hiddenRec("h-exp", "r-exp", "l1", at)}); err != nil {
+		t.Fatal(err)
+	}
 	dir := t.TempDir()
+	defer func() {
+		var n int
+		q := "SELECT COUNT(*) FROM read_parquet('" + dir + "/engagement_facts.parquet') WHERE fact='review_hidden' AND review_id='r-exp'"
+		if err := w.DB().QueryRow(q).Scan(&n); err != nil || n != 1 {
+			t.Errorf("Analytics review hidden: the Parquet export includes hidden rows: n=%d err=%v", n, err)
+		}
+	}()
 	for _, rel := range []string{warehouse.TableName, warehouse.ResolvedViewName, warehouse.EngagementFactsTableName, warehouse.OrderFactsTableName} {
 		dst := dir + "/" + rel + ".parquet"
 		if err := w.ExportRelation(ctx, rel, dst); err != nil {
@@ -596,5 +607,156 @@ func TestConsentAndClientIdArePersisted_DuckDBRoundTrip(t *testing.T) {
 	}
 	if client != "111.222" || version != 1 || !a || m || !p {
 		t.Errorf("row = %q v%d a=%v m=%v p=%v, want 111.222 v1 a=true m=false p=true", client, version, a, m, p)
+	}
+}
+
+func hiddenRec(id, reviewID, listing string, at time.Time) *warehouse.EngagementFactRecord {
+	return &warehouse.EngagementFactRecord{EventID: id, Fact: warehouse.FactReviewHidden, ListingID: listing, ReviewID: reviewID, OccurredAt: at}
+}
+
+type factRow struct {
+	reviewID sql.NullString
+	rating   sql.NullInt64
+	listing  string
+}
+
+func factOf(t *testing.T, w *Writer, eventID string) factRow {
+	t.Helper()
+	var r factRow
+	if err := w.DB().QueryRow("SELECT review_id, rating, listing_id FROM engagement_facts WHERE event_id = ?", eventID).Scan(&r.reviewID, &r.rating, &r.listing); err != nil {
+		t.Fatalf("event %s: %v", eventID, err)
+	}
+	return r
+}
+
+// Scenario: Analytics review hidden: a review_created row stores its review id.
+func TestReviewIDStoredForCreatedAndHidden(t *testing.T) {
+	ctx := context.Background()
+	at := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
+	w := openAt(t, "", at)
+	defer w.Close()
+	created := &warehouse.EngagementFactRecord{EventID: "c1", Fact: warehouse.FactReviewCreated, UserID: "u1", ListingID: "l-1", SellerID: "s1", Rating: 4, ReviewID: "r-1", OccurredAt: at}
+	hidden := hiddenRec("h1", "r-1", "l-1", at.Add(time.Hour))
+	hidden.Rating = 3 // a hidden row never carries a rating
+	if err := w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{created, hidden}); err != nil {
+		t.Fatal(err)
+	}
+	c := factOf(t, w, "c1")
+	if !c.reviewID.Valid || c.reviewID.String != "r-1" || !c.rating.Valid || c.rating.Int64 != 4 || c.listing != "l-1" {
+		t.Fatalf("created row = %+v", c)
+	}
+	h := factOf(t, w, "h1")
+	if !h.reviewID.Valid || h.reviewID.String != "r-1" || h.rating.Valid || h.listing != c.listing {
+		t.Fatalf("hidden row = %+v (rating must be NULL)", h)
+	}
+	var n int
+	if err := w.DB().QueryRow("SELECT count(*) FROM engagement_facts WHERE fact='review_hidden' AND user_id='' AND seller_id=''").Scan(&n); err != nil || n != 1 {
+		t.Fatalf("hidden row user/seller must be empty (n=%d err=%v)", n, err)
+	}
+}
+
+// Scenario: Analytics review hidden: the review_created row is kept.
+func TestReviewHiddenKeepsReviewCreated(t *testing.T) {
+	ctx := context.Background()
+	at := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
+	w := openAt(t, "", at)
+	defer w.Close()
+	created := &warehouse.EngagementFactRecord{EventID: "c1", Fact: warehouse.FactReviewCreated, UserID: "u1", ListingID: "l-1", Rating: 4, ReviewID: "r-1", OccurredAt: at}
+	if err := w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{created}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{hiddenRec("h1", "r-1", "l-1", at.Add(time.Hour))}); err != nil {
+		t.Fatal(err)
+	}
+	if got := count(t, w, "engagement_facts WHERE review_id = 'r-1'"); got != 2 {
+		t.Fatalf("rows for review = %d, want 2", got)
+	}
+	c := factOf(t, w, "c1")
+	if !c.rating.Valid || c.rating.Int64 != 4 {
+		t.Fatalf("created rating = %+v, want 4", c.rating)
+	}
+}
+
+// Scenario: Analytics review hidden: a replayed event is stored once.
+func TestReviewHiddenIdempotent(t *testing.T) {
+	ctx := context.Background()
+	at := time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
+	w := openAt(t, "", at)
+	defer w.Close()
+	for i := 0; i < 2; i++ {
+		if err := w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{hiddenRec("h1", "r-1", "l-1", at)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := count(t, w, "engagement_facts WHERE fact='review_hidden' AND event_id='h1'"); got != 1 {
+		t.Fatalf("hidden rows = %d, want 1", got)
+	}
+}
+
+// Scenarios: Analytics review hidden: opening an existing database adds review_id once;
+// a legacy review_created row is not given a review id without a backfill.
+func TestOpenAddsReviewIDColumnIdempotently(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "w.duckdb")
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	w := openAt(t, path, at)
+	if _, err := w.DB().Exec("ALTER TABLE engagement_facts DROP COLUMN review_id"); err != nil {
+		t.Fatalf("drop review_id (fresh schema must have it): %v", err)
+	}
+	if _, err := w.DB().Exec(`INSERT INTO engagement_facts (event_id, fact, user_id, listing_id, seller_id, rating, occurred_at)
+		VALUES ('old', 'review_created', 'u1', 'l0', 's1', 5, ?)`, at); err != nil {
+		t.Fatal(err)
+	}
+	w.Close()
+
+	for i := 0; i < 2; i++ {
+		w2, err := Open(ctx, path)
+		if err != nil {
+			t.Fatalf("open #%d: %v", i+1, err)
+		}
+		var cols int
+		if err := w2.DB().QueryRow("SELECT count(*) FROM information_schema.columns WHERE table_name='engagement_facts' AND column_name='review_id'").Scan(&cols); err != nil || cols != 1 {
+			t.Fatalf("open #%d: review_id columns = %d err=%v", i+1, cols, err)
+		}
+		if got := count(t, w2, warehouse.EngagementFactsTableName); got != 1 {
+			t.Fatalf("open #%d: rows = %d, want 1", i+1, got)
+		}
+		w2.Close()
+	}
+
+	w3 := openAt(t, path, at)
+	defer w3.Close()
+	if err := w3.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{hiddenRec("h2", "r-2", "l2", at)}); err != nil {
+		t.Fatal(err)
+	}
+	old := factOf(t, w3, "old")
+	if old.reviewID.Valid || !old.rating.Valid || old.rating.Int64 != 5 {
+		t.Fatalf("legacy row = %+v, want NULL review_id and rating 5", old)
+	}
+	if h := factOf(t, w3, "h2"); h.reviewID.String != "r-2" {
+		t.Fatalf("new hidden row = %+v", h)
+	}
+}
+
+// Scenario: Analytics review hidden: the favorites and follows views ignore review_hidden.
+func TestReviewHiddenDoesNotAffectCurrentViews(t *testing.T) {
+	ctx := context.Background()
+	t0 := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	w := openAt(t, "", t0)
+	defer w.Close()
+	if err := w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{
+		engRec("a1", warehouse.FactFavoriteAdded, "u1", "l1", "", t0),
+		engRec("s1", warehouse.FactSellerFollowed, "u1", "", "s1", t0),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{hiddenRec("h1", "r-1", "l1", t0.Add(time.Minute))}); err != nil {
+		t.Fatal(err)
+	}
+	if fav := currentPairs(t, w, "SELECT user_id, listing_id FROM favorites_current ORDER BY 1, 2"); len(fav) != 1 || fav[0] != "u1|l1" {
+		t.Fatalf("favorites_current = %v", fav)
+	}
+	if fol := currentPairs(t, w, "SELECT user_id, seller_id FROM follows_current ORDER BY 1, 2"); len(fol) != 1 || fol[0] != "u1|s1" {
+		t.Fatalf("follows_current = %v", fol)
 	}
 }

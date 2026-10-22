@@ -3,6 +3,8 @@ package consumer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -168,7 +170,7 @@ func (c *Consumer) processRecord(ctx context.Context, key, value []byte, h Handl
 		}
 		logger.Warn("event handler failed",
 			slog.Int("attempt", attempt),
-			slog.String("key", string(key)),
+			slog.String("key_fp", keyFingerprint(key)),
 			slog.Any("err", lastErr),
 		)
 		if errors.Is(lastErr, ErrPermanent) {
@@ -183,13 +185,13 @@ func (c *Consumer) processRecord(ctx context.Context, key, value []byte, h Handl
 	// Retries exhausted → park to DLQ, then allow the offset to advance.
 	if err := c.dlq.Produce(ctx, key, value); err != nil {
 		logger.Error("dlq produce failed; offset will not advance",
-			slog.String("key", string(key)),
+			slog.String("key_fp", keyFingerprint(key)),
 			slog.Any("err", err),
 		)
 		return fmt.Errorf("dlq produce: %w", err)
 	}
 	logger.Warn("event parked to dlq after max attempts",
-		slog.String("key", string(key)),
+		slog.String("key_fp", keyFingerprint(key)),
 		slog.Int("attempts", c.cfg.MaxAttempts),
 		slog.Any("err", lastErr),
 	)
@@ -214,4 +216,11 @@ func (c *Consumer) Close() {
 	if c.dlq != nil {
 		c.dlq.Close()
 	}
+}
+
+// keyFingerprint returns the first 12 hex chars of SHA-256(key) so logs can
+// correlate records without exposing the raw Kafka key.
+func keyFingerprint(key []byte) string {
+	sum := sha256.Sum256(key)
+	return hex.EncodeToString(sum[:])[:12]
 }

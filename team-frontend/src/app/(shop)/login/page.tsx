@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
+
 import { LoginForm } from "@/features/auth/LoginForm";
 import { safeReturnUrl } from "@/features/auth/returnUrl";
+
+export const metadata: Metadata = {
+  referrer: "no-referrer",
+};
 
 export default async function LoginPage({
   searchParams,

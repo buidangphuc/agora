@@ -20,14 +20,15 @@ import type {
 } from "@/generated/platform/identity/v1/identity_pb.js";
 
 import { authInterceptor } from "./auth.js";
+import type { ClientContext } from "./client-context.js";
 import { gatewayConfig } from "./config.js";
 import { getToken } from "./session.js";
 
-function sessions() {
+function sessions(client?: ClientContext) {
   const transport = createConnectTransport({
     baseUrl: gatewayConfig.gatewayUrl,
     httpVersion: "1.1",
-    interceptors: [authInterceptor({ token: getToken() })],
+    interceptors: [authInterceptor({ token: getToken(), client })],
   });
   return createPromiseClient(SessionService, transport);
 }
@@ -82,8 +83,11 @@ export async function listSessions(): Promise<ViewSession[]> {
   return res.sessions.map(mapSession);
 }
 
-export async function revokeSession(sessionId: string): Promise<void> {
-  await sessions().revokeSession({ sessionId });
+export async function revokeSession(
+  sessionId: string,
+  client?: ClientContext,
+): Promise<void> {
+  await sessions(client).revokeSession({ sessionId });
 }
 
 export async function listLoginHistory(): Promise<ViewLoginEvent[]> {

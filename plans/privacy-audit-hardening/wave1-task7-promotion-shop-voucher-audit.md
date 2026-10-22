@@ -18,6 +18,8 @@ Implement OpenSpec change `promotion-shop-voucher-audit` test-first per its task
 - platform-e2e/tests/e2e/features/promo/promotion_shop_voucher_audit.feature
 - platform-e2e/tests/e2e/step_definitions/test_promotion_shop_voucher_audit.py
 - openspec/changes/promotion-shop-voucher-audit/**
+- team-promotion/internal/docs/readme_test.go (# widened at build: task 3)
+- plans/privacy-audit-hardening/wave1-task7-promotion-shop-voucher-audit.md (# widened at build: task 3; packet widening record)
 
 ## Read-only dependencies
 - openspec/changes/promotion-shop-voucher-audit/** is frozen by the LOCK.md digest (only task ticks change)

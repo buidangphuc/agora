@@ -1988,3 +1988,431 @@ features:
     tags: [admin, unit]
     status: not-testable
     notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestListUsersRequiresAdminScope`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  # ---- identity-session-retention (e2e-author; planned until the feature scenarios run green)
+
+  - id: session-retention.revoked-session-older-than-retention-is-deleted
+    title: "Session retention: revoked session older than retention is deleted"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: revoked session older than retention is deleted"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: revoked session older than retention is deleted (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsDeletesOldRevoked`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.expired-refresh-session-is-deleted
+    title: "Session retention: expired refresh session is deleted"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: expired refresh session is deleted"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: expired refresh session is deleted (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsDeletesExpiredRefresh`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.absolute-max-age-counts-as-expiry
+    title: "Session retention: absolute max age counts as expiry"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: absolute max age counts as expiry"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: absolute max age counts as expiry (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsAbsoluteMaxAge`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.legacy-rows-without-timestamps
+    title: "Session retention: legacy rows without timestamps"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: legacy rows without timestamps"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: legacy rows without timestamps (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsLegacyRows`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.active-session-is-never-touched
+    title: "Session retention: active session is never touched"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: active session is never touched"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: active session is never touched (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsKeepsActive`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.boundary-at-exactly-the-retention
+    title: "Session retention: boundary at exactly the retention"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: boundary at exactly the retention"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: boundary at exactly the retention (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsRetentionBoundary`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.recently-revoked-session-is-kept
+    title: "Session retention: recently revoked session is kept"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: recently revoked session is kept"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: recently revoked session is kept (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsKeepsRecentRevoked`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.revoke-records-revoked-at
+    title: "Session retention: revoke records revoked_at"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: revoke records revoked_at"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: revoke records revoked_at (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestRevokePathsSetRevokedAt`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.old-login-history-is-deleted
+    title: "Session retention: old login history is deleted"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: old login history is deleted"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: old login history is deleted (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeLoginHistory`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.login-history-without-rows-or-with-a-failed-purge
+    title: "Session retention: login history without rows or with a failed purge"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: login history without rows or with a failed purge"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: login history without rows or with a failed purge (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSweepOnceLoginHistoryErrorIsolated`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.login-history-boundary
+    title: "Session retention: login history boundary"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: login history boundary"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: login history boundary (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeLoginHistoryBoundary`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.batches-of-500
+    title: "Session retention: batches of 500"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: batches of 500"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: batches of 500 (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSweepOnceBatches`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.locked-row-is-skipped
+    title: "Session retention: locked row is skipped"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: locked row is skipped"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: locked row is skipped (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsSkipsLocked`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.sweep-error-is-logged-and-retried
+    title: "Session retention: sweep error is logged and retried"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: sweep error is logged and retried"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: sweep error is logged and retried (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSweeperSurvivesError`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.shutdown-drains-the-sweeper
+    title: "Session retention: shutdown drains the sweeper"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: shutdown drains the sweeper"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: shutdown drains the sweeper (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/bootstrap` `TestCloseResourcesStopsSweeper`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.purge-does-not-log-personal-data
+    title: "Session retention: purge does not log personal data"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: purge does not log personal data"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: purge does not log personal data (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSweeperLogsCountsOnly`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.defaults
+    title: "Session retention: defaults"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: defaults"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: defaults (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/config` `TestRetentionDefaults`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.invalid-value-is-refused
+    title: "Session retention: invalid value is refused"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: invalid value is refused"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: invalid value is refused (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/config` `TestRetentionInvalidRejected`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.env-example-matches-config
+    title: "Session retention: env example matches config"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: env example matches config"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: env example matches config (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `make check-env`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.disabled-sweeper
+    title: "Session retention: disabled sweeper"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: disabled sweeper"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: disabled sweeper (unit-verified)"
+    tags: [auth, unit]
+    status: not-testable
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/bootstrap` `TestSweeperDisabled`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+
+  - id: session-retention.revoked-session-disappears-end-to-end
+    title: "Session retention: revoked session disappears end to end"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: revoked session disappears end to end"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: revoked session disappears end to end"
+    tags: [auth, slow]
+    status: automated
+    covered_by: "auth/session_retention.feature::Session retention: revoked session disappears end to end"
+    notes: "identity-session-retention: e2e in auth/session_retention.feature (@retention_override: run with platform-e2e/compose/session-retention.override.yaml on team-identity; verified green 2026-10-18)"
+
+  - id: session-retention.old-login-history-disappears-end-to-end
+    title: "Session retention: old login history disappears end to end"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: old login history disappears end to end"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: old login history disappears end to end"
+    tags: [auth, slow]
+    status: automated
+    covered_by: "auth/session_retention.feature::Session retention: old login history disappears end to end"
+    notes: "identity-session-retention: e2e in auth/session_retention.feature (@retention_override: run with platform-e2e/compose/session-retention.override.yaml on team-identity; verified green 2026-10-18)"
+
+  - id: session-retention.default-stack-keeps-rows
+    title: "Session retention: default stack keeps rows"
+    persona: buyer
+    priority: P1
+    summary: "Session retention: default stack keeps rows"
+    entry_route: /
+    services: [team-identity]
+    preconditions:
+      login: buyer
+    acceptance:
+      - "Session retention: default stack keeps rows"
+    tags: [auth, slow]
+    status: automated
+    covered_by: "auth/session_retention.feature::Session retention: default stack keeps rows"
+    notes: "identity-session-retention: e2e in auth/session_retention.feature"
+
+  # ── frontend-session-client-context (openspec/changes/frontend-session-client-context) ──
+
+  - id: auth.session-client-context-rotation-updates-device-and-ip
+    title: "Session client context: rotation updates device and IP"
+    persona: buyer
+    priority: P1
+    summary: "A refreshed session shows the device that refreshed it"
+    entry_route: "/account/security"
+    services: [team-frontend, team-gateway, team-identity]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Session client context: rotation updates device and IP"
+    tags: [auth, session]
+    status: automated
+    covered_by: "auth/session_client_context.feature::Session client context: rotation updates device and IP"
+    notes: "frontend-session-client-context: e2e in auth/session_client_context.feature"
+
+  - id: auth.session-client-context-unit-rotation-records-ip-via-repository
+    title: "Session client context: rotation records IP via repository"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-identity]
+    acceptance:
+      - "Session client context: rotation records IP via repository"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (the browser cannot set the IP in the e2e stack). Verified by: `team-identity/internal/service/auth_refresh_test.go` and `team-identity/internal/repository/session_test.go`"
+
+  - id: auth.session-client-context-unit-empty-client-keeps-stored-values-boundary
+    title: "Session client context: empty client keeps stored values (boundary)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-identity]
+    acceptance:
+      - "Session client context: empty client keeps stored values (boundary)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (needs a refresh with no client context and 400-byte values, not producible through the browser). Verified by: `team-identity/internal/service/auth_refresh_test.go`"
+
+  - id: auth.session-client-context-unit-grace-replay-does-not-update-boundary
+    title: "Session client context: grace replay does not update (boundary)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-identity]
+    acceptance:
+      - "Session client context: grace replay does not update (boundary)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (timing-dependent, not stable end to end). Verified by: `team-identity/internal/service/auth_refresh_test.go`"
+
+  - id: auth.session-client-context-unit-rejected-refresh-updates-nothing-error
+    title: "Session client context: rejected refresh updates nothing (error)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-identity]
+    acceptance:
+      - "Session client context: rejected refresh updates nothing (error)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (session rows are not readable by e2e beyond ListSessions). Verified by: `team-identity/internal/service/auth_refresh_test.go`"
+
+  - id: auth.session-client-context-unit-refresh-needs-no-principal-and-grants-nothing-permission
+    title: "Session client context: refresh needs no principal and grants nothing (permission)"
+    persona: buyer
+    priority: P2
+    entry_route: "/"
+    services: [team-identity]
+    acceptance:
+      - "Session client context: refresh needs no principal and grants nothing (permission)"
+    tags: [auth, session, unit]
+    status: not-testable
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (identity trusts only gateway-stamped metadata (ADR-0010); forged metadata cannot be sent straight at identity). Verified by: `team-identity/internal/handler/auth_test.go`"

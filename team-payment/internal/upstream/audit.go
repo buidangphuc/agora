@@ -60,7 +60,7 @@ func (c *AuditClient) Close() error {
 
 // WriteAdminRefund records that actorID (an admin) refunded amount on paymentID
 // (order orderID). Single attempt, bounded by the call timeout.
-func (c *AuditClient) WriteAdminRefund(ctx context.Context, actorID, paymentID, orderID string, amount int64) error {
+func (c *AuditClient) WriteAdminRefund(ctx context.Context, actorID, paymentID, orderID, refundID string, amount int64) error {
 	if c == nil || c.svc == nil {
 		return errors.New("audit client not configured")
 	}
@@ -75,7 +75,7 @@ func (c *AuditClient) WriteAdminRefund(ctx context.Context, actorID, paymentID, 
 		Action:     "payment.admin_refund",
 		TargetType: "payment",
 		TargetId:   paymentID,
-		Metadata:   map[string]string{"order_id": orderID, "amount": strconv.FormatInt(amount, 10)},
+		Metadata:   map[string]string{"order_id": orderID, "refund_id": refundID, "amount": strconv.FormatInt(amount, 10)},
 	})
 	if err != nil {
 		return fmt.Errorf("write audit event: %w", err)

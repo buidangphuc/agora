@@ -28,7 +28,7 @@ type PaymentHandler struct {
 
 // AuditWriter records admin refunds in team-audit before money moves.
 type AuditWriter interface {
-	WriteAdminRefund(ctx context.Context, actorID, paymentID, orderID string, amount int64) error
+	WriteAdminRefund(ctx context.Context, actorID, paymentID, orderID, refundID string, amount int64) error
 }
 
 // WithAuditWriter sets the audit writer used by the admin RefundPayment path. Without
@@ -312,7 +312,7 @@ func (h *PaymentHandler) RefundPayment(ctx context.Context, req *paymentv1.Refun
 		if h.audit == nil {
 			return nil, status.Error(codes.Unavailable, "audit unavailable")
 		}
-		if err := h.audit.WriteAdminRefund(ctx, principal.GetId(), target.ID, target.OrderID, req.GetAmount()); err != nil {
+		if err := h.audit.WriteAdminRefund(ctx, principal.GetId(), target.ID, target.OrderID, req.GetRefundId(), req.GetAmount()); err != nil {
 			reqID, _ := interceptor.RequestIDFromContext(ctx)
 			h.logger.ErrorContext(ctx, "admin refund audit failed",
 				slog.String("request_id", reqID), slog.Any("err", err))

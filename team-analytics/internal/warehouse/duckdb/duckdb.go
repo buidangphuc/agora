@@ -133,7 +133,7 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 		return fmt.Errorf("ensure %s table: %w", warehouse.CountersTableName, err)
 	}
 
-	for _, ddl := range []string{engagementFactsDDL, favoritesCurrentDDL, followsCurrentDDL} {
+	for _, ddl := range []string{engagementFactsDDL, engagementFactsReviewIDDDL, favoritesCurrentDDL, followsCurrentDDL} {
 		if _, err := w.db.ExecContext(ctx, ddl); err != nil {
 			return fmt.Errorf("ensure engagement facts schema: %w", err)
 		}
@@ -223,8 +223,14 @@ var engagementFactsDDL = fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
   seller_id   VARCHAR,
   rating      INTEGER,
   occurred_at TIMESTAMP,
-  ingested_at TIMESTAMP
+  ingested_at TIMESTAMP,
+  review_id   VARCHAR
 )`, warehouse.EngagementFactsTableName)
+
+// engagementFactsReviewIDDDL adds review_id to databases created before it existed;
+// legacy rows keep NULL (no backfill).
+var engagementFactsReviewIDDDL = fmt.Sprintf(`ALTER TABLE %s ADD COLUMN IF NOT EXISTS review_id VARCHAR`,
+	warehouse.EngagementFactsTableName)
 
 // currentStateViewDDL keeps the (user, key) pairs whose latest fact among
 // (onFact, offFact) is onFact. Ties on occurred_at resolve by event_id order.
@@ -245,8 +251,8 @@ var followsCurrentDDL = currentStateViewDDL(warehouse.FollowsCurrentViewName, "s
 	warehouse.FactSellerFollowed, warehouse.FactSellerUnfollowed)
 
 var insertEngagementFactsSQL = buildIdempotentInsert(warehouse.EngagementFactsTableName,
-	[]string{"event_id", "fact", "user_id", "listing_id", "seller_id", "rating", "occurred_at", "ingested_at"},
-	[]string{"VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "INTEGER", "TIMESTAMP", "TIMESTAMP"})
+	[]string{"event_id", "fact", "user_id", "listing_id", "seller_id", "rating", "occurred_at", "ingested_at", "review_id"},
+	[]string{"VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "INTEGER", "TIMESTAMP", "TIMESTAMP", "VARCHAR"})
 
 // WriteEngagementFacts appends the batch in one transaction, idempotent on event_id.
 func (w *Writer) WriteEngagementFacts(ctx context.Context, batch []*warehouse.EngagementFactRecord) error {
@@ -270,9 +276,13 @@ func (w *Writer) WriteEngagementFacts(ctx context.Context, batch []*warehouse.En
 		if r.Fact == warehouse.FactReviewCreated {
 			rating = int64(r.Rating)
 		}
+		var reviewID any // set on review_created and review_hidden only
+		if r.Fact == warehouse.FactReviewCreated || r.Fact == warehouse.FactReviewHidden {
+			reviewID = nullIfEmpty(r.ReviewID)
+		}
 		if _, err := stmt.ExecContext(ctx,
 			r.EventID, r.Fact, r.UserID, r.ListingID, r.SellerID, rating,
-			r.OccurredAt.UTC(), ingestedAt,
+			r.OccurredAt.UTC(), ingestedAt, reviewID,
 			r.EventID, // NOT EXISTS dedupe key
 		); err != nil {
 			_ = tx.Rollback()

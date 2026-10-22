@@ -2214,3 +2214,94 @@ features:
     tags: [admin, enforcement, unit]
     status: not-testable
     notes: "VERIFIED BY team-domain `internal/grpcserver` `TestReserveStock_HeldListingExistingReservationNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: consumer.key-redaction-handler-failure-logs-the-fingerprint
+    title: "Domain key redaction: Handler failure logs the fingerprint"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain key redaction: Handler failure logs the fingerprint"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordLogsKeyFingerprint`. Not producible end to end through the gateway (unit level)."
+
+  - id: consumer.key-redaction-raw-key-never-appears-in-any-log-line
+    title: "Domain key redaction: Raw key never appears in any log line"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain key redaction: Raw key never appears in any log line"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordParkLogsNoRawKey`. Not producible end to end through the gateway (unit level)."
+
+  - id: consumer.key-redaction-dlq-produce-failure-logs-the-fingerprint
+    title: "Domain key redaction: DLQ produce failure logs the fingerprint"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain key redaction: DLQ produce failure logs the fingerprint"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordDLQFailureLogsFingerprint`. Not producible end to end through the gateway (unit level)."
+
+  - id: consumer.key-redaction-empty-key-is-still-fingerprinted
+    title: "Domain key redaction: Empty key is still fingerprinted"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain key redaction: Empty key is still fingerprinted"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestKeyFingerprintEmptyKey`. Not producible end to end through the gateway (unit level)."
+
+  - id: consumer.key-redaction-fingerprint-is-stable-and-fixed-length
+    title: "Domain key redaction: Fingerprint is stable and fixed length"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain key redaction: Fingerprint is stable and fixed length"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestKeyFingerprintStableAndTwelveHex`. Not producible end to end through the gateway (unit level)."
+
+  - id: consumer.key-redaction-kafka-key-and-retry-behaviour-are-unchanged
+    title: "Domain key redaction: Kafka key and retry behaviour are unchanged"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain key redaction: Kafka key and retry behaviour are unchanged"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordDLQKeepsOriginalKey`. Not producible end to end through the gateway (unit level)."
+
+  - id: consumer.key-redaction-successful-records-log-no-key
+    title: "Domain key redaction: Successful records log no key"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain key redaction: Successful records log no key"
+    tags: [privacy, audit, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordSuccessLogsNothing`. Not producible end to end through the gateway (unit level)."

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -43,8 +44,8 @@ func (l *callLog) all() []string {
 }
 
 type auditCall struct {
-	Actor, Payment, Order string
-	Amount                int64
+	Actor, Payment, Order, Refund string
+	Amount                        int64
 }
 
 // fakeAudit is the AuditWriter at the true external boundary (team-audit).
@@ -55,13 +56,13 @@ type fakeAudit struct {
 	err   error
 }
 
-func (f *fakeAudit) WriteAdminRefund(_ context.Context, actorID, paymentID, orderID string, amount int64) error {
+func (f *fakeAudit) WriteAdminRefund(_ context.Context, actorID, paymentID, orderID, refundID string, amount int64) error {
 	f.log.add("audit")
 	if f.err != nil {
 		return f.err
 	}
 	f.mu.Lock()
-	f.calls = append(f.calls, auditCall{actorID, paymentID, orderID, amount})
+	f.calls = append(f.calls, auditCall{actorID, paymentID, orderID, refundID, amount})
 	f.mu.Unlock()
 	return nil
 }
@@ -176,7 +177,7 @@ func TestAdminRefundWritesAuditEvent(t *testing.T) {
 	if p.GetStatus() != paymentv1.PaymentStatus_PAYMENT_STATUS_PARTIALLY_REFUNDED || p.GetRefundedAmount() != 200000 {
 		t.Fatalf("payment: %v", p)
 	}
-	want := []auditCall{{Actor: "adm-1", Payment: f.txID, Order: "order-L", Amount: 200000}}
+	want := []auditCall{{Actor: "adm-1", Payment: f.txID, Order: "order-L", Refund: "R-1", Amount: 200000}}
 	if got := f.audit.written(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("audit events = %+v, want %+v", got, want)
 	}
@@ -250,15 +251,15 @@ func TestAdminRefundAuditMetadataKeys(t *testing.T) {
 		t.Fatalf("want 1 audit event, got %d", len(cap.reqs))
 	}
 	req := cap.reqs[0]
-	keys := make([]string, 0, 2)
+	keys := make([]string, 0, 3)
 	for k := range req.GetMetadata() {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	if !reflect.DeepEqual(keys, []string{"amount", "order_id"}) {
-		t.Fatalf("metadata keys = %v, want exactly amount, order_id", keys)
+	if !reflect.DeepEqual(keys, []string{"amount", "order_id", "refund_id"}) {
+		t.Fatalf("metadata keys = %v, want exactly amount, order_id, refund_id", keys)
 	}
-	if req.GetMetadata()["amount"] != strconv.Itoa(200000) || req.GetMetadata()["order_id"] != "order-L" ||
+	if req.GetMetadata()["amount"] != strconv.Itoa(200000) || req.GetMetadata()["order_id"] != "order-L" || req.GetMetadata()["refund_id"] != "R-1" ||
 		req.GetAction() != "payment.admin_refund" || req.GetTargetType() != "payment" ||
 		req.GetTargetId() != f.txID || req.GetActorId() != "adm-1" {
 		t.Fatalf("event = %+v", req)
@@ -477,6 +478,114 @@ func TestRefundPaymentNonSellerDeniedNoAudit(t *testing.T) {
 		t.Fatalf("calls made for a denied caller: %v", got)
 	}
 	f.assertUnchanged(t)
+}
+
+// Scenario: Refund audit id: Admin refund event carries refund_id
+func TestAdminRefundAuditCarriesRefundID(t *testing.T) {
+	cap := &captureAudit{}
+	client := realClient(t, startCapture(t, cap), time.Second)
+	f := newAuditFixture(t, func(*callLog) handler.AuditWriter { return client })
+	if _, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "rf-1", 200000)); err != nil {
+		t.Fatal(err)
+	}
+	if len(cap.reqs) != 1 {
+		t.Fatalf("want 1 audit event, got %d", len(cap.reqs))
+	}
+	r := cap.reqs[0]
+	m := r.GetMetadata()
+	if len(m) != 3 || m["refund_id"] != "rf-1" || m["order_id"] != "order-L" || m["amount"] != "200000" ||
+		r.GetAction() != "payment.admin_refund" || r.GetTargetType() != "payment" ||
+		r.GetTargetId() != f.txID || r.GetActorId() != "adm-1" {
+		t.Fatalf("event = %+v", r)
+	}
+}
+
+// Scenario: Refund audit id: Retry with the same refund_id is distinguishable
+func TestAdminRefundRetryKeepsRefundID(t *testing.T) {
+	f := newAuditFixture(t, withFake(nil))
+	f.flaky.failN = 1
+	if _, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "rf-1", 200000)); status.Code(err) != codes.Internal {
+		t.Fatalf("first call: want Internal, got %v", err)
+	}
+	if _, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "rf-1", 200000)); err != nil {
+		t.Fatalf("retry: %v", err)
+	}
+	if _, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "rf-2", 100000)); err != nil {
+		t.Fatalf("second refund: %v", err)
+	}
+	var ids []string
+	for _, c := range f.audit.written() {
+		ids = append(ids, c.Refund)
+	}
+	if want := []string{"rf-1", "rf-1", "rf-2"}; !reflect.DeepEqual(ids, want) {
+		t.Fatalf("audited refund ids = %v, want %v", ids, want)
+	}
+	if p := f.read(t); p.GetRefundedAmount() != 300000 || len(p.GetRefunds()) != 2 {
+		t.Fatalf("money moved wrongly: %v", p)
+	}
+}
+
+// Scenario: Refund audit id: Invalid refund_id writes no event
+func TestAdminRefundInvalidRefundIDWritesNoEvent(t *testing.T) {
+	f := newAuditFixture(t, withFake(nil))
+	for _, id := range []string{"", strings.Repeat("x", 65), "has space"} {
+		_, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, id, 100))
+		if status.Code(err) != codes.InvalidArgument {
+			t.Errorf("refund_id %q: want InvalidArgument, got %v", id, err)
+		}
+	}
+	if got := f.audit.written(); len(got) != 0 {
+		t.Fatalf("audit events written: %+v", got)
+	}
+	if got := f.log.all(); len(got) != 0 {
+		t.Fatalf("audit writer invoked: %v", got)
+	}
+	f.assertUnchanged(t)
+}
+
+// Scenario: Refund audit id: Boundary 64-character refund_id is recorded intact
+func TestAdminRefundAuditRefundIDMaxLength(t *testing.T) {
+	cap := &captureAudit{}
+	client := realClient(t, startCapture(t, cap), time.Second)
+	f := newAuditFixture(t, func(*callLog) handler.AuditWriter { return client })
+	id := strings.Repeat("a", 64)
+	if _, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, id, 200000)); err != nil {
+		t.Fatal(err)
+	}
+	if len(cap.reqs) != 1 || cap.reqs[0].GetMetadata()["refund_id"] != id {
+		t.Fatalf("events = %+v, want refund_id intact", cap.reqs)
+	}
+}
+
+// Scenario: Refund audit id: Audit failure still refuses the refund
+func TestAdminRefundAuditErrorLeavesLedgerUnchanged(t *testing.T) {
+	f := newAuditFixture(t, withFake(status.Error(codes.Internal, "audit db down")))
+	_, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "rf-1", 200000))
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("want Unavailable, got %v", err)
+	}
+	if got := f.log.all(); !reflect.DeepEqual(got, []string{"audit"}) {
+		t.Fatalf("calls = %v", got)
+	}
+	f.assertUnchanged(t)
+}
+
+// Scenario: Refund audit id: Seller refund writes no audit event
+func TestSellerRefundWritesNoAuditEvent(t *testing.T) {
+	f := newAuditFixture(t, withFake(nil))
+	if _, err := f.h.RefundPayment(userCtx("seller-L"), refundReq(f.txID, "rf-1", 200000)); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.audit.written(); len(got) != 0 {
+		t.Fatalf("seller refund wrote audit events: %+v", got)
+	}
+	_, err := f.h.RefundPayment(userCtx("someone-else"), refundReq(f.txID, "rf-2", 100000))
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("want PermissionDenied, got %v", err)
+	}
+	if got := f.audit.written(); len(got) != 0 {
+		t.Fatalf("denied caller wrote audit events: %+v", got)
+	}
 }
 
 var _ grpc.CallOption // keep grpc import tied to fakes above

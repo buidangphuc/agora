@@ -265,6 +265,7 @@ def test_committed_lock_matches_registry(settings):
     assert {v.key for v in views} == {
         "user_activity@v2",
         "item_popularity@v1",
+        "item_popularity@v2",
         "item_attributes@v1",
         "user_preferences@v1",
     }

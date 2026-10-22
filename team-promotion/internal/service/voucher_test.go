@@ -533,3 +533,91 @@ func TestCreateVoucherInsertFailureAfterAuditIsNotUnavailable(t *testing.T) {
 		t.Fatalf("audit events = %d, want 2 (audit precedes every insert attempt)", n)
 	}
 }
+
+func shopAdminParams(code string) CreateVoucherParams {
+	return CreateVoucherParams{
+		Code: code, Scope: voucherScopeShop, SellerID: "admin-1", DiscountType: discountTypePercent,
+		DiscountValue: 10, Quota: 5, AuditActorID: "admin-1", AuditAdmin: true,
+	}
+}
+
+// Scenario: Shop voucher audit: audit precedes the insert.
+func TestCreateVoucherShopAdminAuditBeforeInsert(t *testing.T) {
+	log := &callLog{}
+	w := &recordingAuditWriter{log: log}
+	svc, mem, pub := newAuditedVoucherSvc(t, w, log)
+	if _, err := svc.CreateVoucher(context.Background(), shopAdminParams("SHOP-ADM10")); err != nil {
+		t.Fatalf("CreateVoucher: %v", err)
+	}
+	if got := log.get(); len(got) != 2 || got[0] != "audit" || got[1] != "insert" {
+		t.Fatalf("call order = %v, want [audit insert]", got)
+	}
+	evs := w.got()
+	if len(evs) != 1 {
+		t.Fatalf("want exactly 1 audit event, got %d", len(evs))
+	}
+	ev := evs[0]
+	if ev.Action != "voucher.admin_create" || ev.TargetType != "voucher" || ev.TargetID != "SHOP-ADM10" || ev.ActorID != "admin-1" {
+		t.Errorf("event = %+v", ev)
+	}
+	if len(ev.Metadata) != 3 || ev.Metadata["discount_type"] != "DISCOUNT_TYPE_PERCENT" ||
+		ev.Metadata["value"] != "10" || ev.Metadata["seller_id"] != "admin-1" {
+		t.Errorf("metadata = %v, want discount_type, value, seller_id", ev.Metadata)
+	}
+	if _, err := mem.GetByCode(context.Background(), "SHOP-ADM10"); err != nil {
+		t.Errorf("voucher not stored: %v", err)
+	}
+	if pub.count() != 1 {
+		t.Errorf("VoucherChanged emitted %d times, want 1", pub.count())
+	}
+}
+
+// Scenario: Shop voucher audit: audit not configured.
+func TestCreateVoucherShopAdminNilAuditUnavailable(t *testing.T) {
+	svc, mem, pub := newAuditedVoucherSvc(t, nil, &callLog{})
+	_, err := svc.CreateVoucher(context.Background(), shopAdminParams("SHOP-NOAUDIT"))
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("code = %v, want Unavailable (err=%v)", status.Code(err), err)
+	}
+	assertVoucherAbsent(t, mem, "SHOP-NOAUDIT")
+	if pub.count() != 0 {
+		t.Errorf("nothing may be emitted, got %d", pub.count())
+	}
+}
+
+// Scenario: Shop voucher audit: audit error blocks the voucher.
+func TestCreateVoucherShopAdminAuditErrorFailsClosed(t *testing.T) {
+	for name, cause := range auditFailures {
+		t.Run(name, func(t *testing.T) {
+			log := &callLog{}
+			svc, mem, pub := newAuditedVoucherSvc(t, &recordingAuditWriter{log: log, err: cause}, log)
+			_, err := svc.CreateVoucher(context.Background(), shopAdminParams("SHOP-DOWN"))
+			if status.Code(err) != codes.Unavailable {
+				t.Fatalf("code = %v, want Unavailable (err=%v)", status.Code(err), err)
+			}
+			if got := log.get(); len(got) != 1 || got[0] != "audit" {
+				t.Fatalf("call order = %v, want [audit] (no insert)", got)
+			}
+			assertVoucherAbsent(t, mem, "SHOP-DOWN")
+			if pub.count() != 0 {
+				t.Errorf("nothing may be emitted, got %d", pub.count())
+			}
+		})
+	}
+}
+
+// Scenario: Shop voucher audit: platform scope keeps its action (AuditAdmin set
+// must not switch the action).
+func TestCreateVoucherPlatformStillPlatformAction(t *testing.T) {
+	w := &recordingAuditWriter{}
+	svc, _, _ := newAuditedVoucherSvc(t, w, &callLog{})
+	p := platformParams("PLAT-KEEP")
+	p.AuditAdmin = true
+	if _, err := svc.CreateVoucher(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	evs := w.got()
+	if len(evs) != 1 || evs[0].Action != "voucher.platform_create" {
+		t.Fatalf("events = %+v, want exactly one voucher.platform_create", evs)
+	}
+}

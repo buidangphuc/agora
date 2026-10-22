@@ -104,13 +104,21 @@ type SessionRepository interface {
 	// both hashes and insert the outbox row built by ev in the same transaction (any error
 	// leaves the session unchanged). ev must be non-nil. A token past refresh_expires_at
 	// yields RotateExpired with no write.
-	RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ev EnqueueFn) (RotateResult, error)
+	RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ip, device string, ev EnqueueFn) (RotateResult, error)
 	// RecordLogin appends a login attempt to the user's history.
 	RecordLogin(ctx context.Context, e LoginEvent) (LoginEvent, error)
 	// ListLoginHistory returns a page of the user's login history (newest first)
 	// plus the total number of events for that user.
 	ListLoginHistory(ctx context.Context, userID string, limit, offset int) ([]LoginEvent, int64, error)
+	// PurgeSessions deletes up to limit sessions that ended (revoked, refresh-expired or past the
+	// absolute max age) more than retention before now; it returns the number deleted.
+	PurgeSessions(ctx context.Context, now time.Time, retention time.Duration, limit int) (int, error)
+	// PurgeLoginHistory deletes up to limit login events created strictly before the cutoff.
+	PurgeLoginHistory(ctx context.Context, before time.Time, limit int) (int, error)
 }
+
+// sessionAbsoluteMaxAge is the absolute session lifetime counted as expiry by the purge.
+const sessionAbsoluteMaxAge = 90 * 24 * time.Hour
 
 // --- Postgres implementation ---
 
@@ -213,7 +221,7 @@ func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	const q = `UPDATE sessions SET revoked = true, refresh_hash = NULL, prev_refresh_hash = NULL WHERE id = $1 AND user_id = $2 RETURNING ` + sessionColumns
+	const q = `UPDATE sessions SET revoked = true, revoked_at = now(), refresh_hash = NULL, prev_refresh_hash = NULL WHERE id = $1 AND user_id = $2 RETURNING ` + sessionColumns
 	var s Session
 	if err := scanSession(tx.QueryRow(ctx, q, sessionID, userID), &s); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -236,7 +244,7 @@ func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID
 	return nil
 }
 
-func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ev EnqueueFn) (RotateResult, error) {
+func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ip, device string, ev EnqueueFn) (RotateResult, error) {
 	if ev == nil {
 		return RotateResult{}, errEnqueueRequired
 	}
@@ -260,7 +268,7 @@ func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presented
 	}
 
 	revoke := func(outcome RotateOutcome, msg string) (RotateResult, error) {
-		const rev = `UPDATE sessions SET revoked = true, refresh_hash = NULL, prev_refresh_hash = NULL
+		const rev = `UPDATE sessions SET revoked = true, revoked_at = now(), refresh_hash = NULL, prev_refresh_hash = NULL
 			WHERE id = $1 RETURNING ` + sessionColumns
 		var out Session
 		if err := scanSession(tx.QueryRow(ctx, rev, s.ID), &out); err != nil {
@@ -289,9 +297,11 @@ func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presented
 	switch {
 	case s.RefreshHash == presentedHash:
 		const upd = `UPDATE sessions SET prev_refresh_hash = refresh_hash, refresh_hash = $2,
-			rotated_at = $3, last_seen = $3, refresh_expires_at = $4 WHERE id = $1 RETURNING ` + sessionColumns
+			rotated_at = $3, last_seen = $3, refresh_expires_at = $4,
+			ip = COALESCE(NULLIF($5, ''), ip), device = COALESCE(NULLIF($6, ''), device)
+			WHERE id = $1 RETURNING ` + sessionColumns
 		var out Session
-		if err := scanSession(tx.QueryRow(ctx, upd, s.ID, newHash, now, now.Add(RefreshTTL)), &out); err != nil {
+		if err := scanSession(tx.QueryRow(ctx, upd, s.ID, newHash, now, now.Add(RefreshTTL), ip, device), &out); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				return RotateResult{}, fmt.Errorf("%w: %w", errRefreshHashConflict, ErrRotateFault)
@@ -355,6 +365,29 @@ func (r *PostgresSessionRepository) ListLoginHistory(ctx context.Context, userID
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+func (r *PostgresSessionRepository) PurgeSessions(ctx context.Context, now time.Time, retention time.Duration, limit int) (int, error) {
+	const q = `DELETE FROM sessions WHERE id IN (
+		SELECT id FROM sessions
+		WHERE (revoked AND COALESCE(revoked_at, last_seen) < $1)
+		   OR (NOT revoked AND (refresh_expires_at < $1 OR created_at < $2))
+		ORDER BY id LIMIT $3 FOR UPDATE SKIP LOCKED)`
+	tag, err := r.pool.Exec(ctx, q, now.Add(-retention), now.Add(-retention-sessionAbsoluteMaxAge), limit)
+	if err != nil {
+		return 0, fmt.Errorf("purge sessions: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+func (r *PostgresSessionRepository) PurgeLoginHistory(ctx context.Context, before time.Time, limit int) (int, error) {
+	const q = `DELETE FROM login_history WHERE id IN (
+		SELECT id FROM login_history WHERE created_at < $1 ORDER BY id LIMIT $2 FOR UPDATE SKIP LOCKED)`
+	tag, err := r.pool.Exec(ctx, q, before, limit)
+	if err != nil {
+		return 0, fmt.Errorf("purge login history: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 // --- InMemory implementation (tests, no live DB) ---
@@ -449,7 +482,7 @@ func (r *InMemorySessionRepository) RevokeSession(_ context.Context, sessionID, 
 	return nil
 }
 
-func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ev EnqueueFn) (RotateResult, error) {
+func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ip, device string, ev EnqueueFn) (RotateResult, error) {
 	if ev == nil {
 		return RotateResult{}, errEnqueueRequired
 	}
@@ -500,6 +533,12 @@ func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHa
 		s.RefreshHash = newHash
 		s.RotatedAt = now
 		s.LastSeen = now
+		if ip != "" {
+			s.IP = ip
+		}
+		if device != "" {
+			s.Device = device
+		}
 		s.RefreshExpiresAt = now.Add(RefreshTTL)
 		r.sessions[s.ID] = s
 		return RotateResult{Outcome: RotateRotated, Session: s}, nil
@@ -560,4 +599,48 @@ func (r *InMemorySessionRepository) ListLoginHistory(_ context.Context, userID s
 		end = len(owned)
 	}
 	return owned[offset:end], total, nil
+}
+
+// PurgeSessions: the in-memory model has no revoked_at, so revoked rows age from LastSeen.
+func (r *InMemorySessionRepository) PurgeSessions(_ context.Context, now time.Time, retention time.Duration, limit int) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	cutoff := now.Add(-retention)
+	absCutoff := now.Add(-retention - sessionAbsoluteMaxAge)
+	ids := make([]string, 0)
+	for id, s := range r.sessions {
+		var dead bool
+		if s.Revoked {
+			dead = s.LastSeen.Before(cutoff)
+		} else {
+			dead = (!s.RefreshExpiresAt.IsZero() && s.RefreshExpiresAt.Before(cutoff)) || s.CreatedAt.Before(absCutoff)
+		}
+		if dead {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	if limit >= 0 && len(ids) > limit {
+		ids = ids[:limit]
+	}
+	for _, id := range ids {
+		delete(r.sessions, id)
+	}
+	return len(ids), nil
+}
+
+func (r *InMemorySessionRepository) PurgeLoginHistory(_ context.Context, before time.Time, limit int) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	kept := make([]LoginEvent, 0, len(r.logins))
+	n := 0
+	for _, e := range r.logins {
+		if e.CreatedAt.Before(before) && (limit < 0 || n < limit) {
+			n++
+			continue
+		}
+		kept = append(kept, e)
+	}
+	r.logins = kept
+	return n, nil
 }
