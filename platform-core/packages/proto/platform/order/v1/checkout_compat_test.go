@@ -195,7 +195,7 @@ func TestCheckoutContract_QuoteMessagesHaveFixedNamesNumbersAndTypes(t *testing.
 	}
 	e, _ := f.enum(t, "CheckoutVoucherScope")
 	want := []string{
-		"CHECKOUT_VOUCHER_SCOPE_UNSPECIFIED=0", "CHECKOUT_VOUCHER_SCOPE_SHOP=1", "CHECKOUT_VOUCHER_SCOPE_PLATFORM=2",
+		"CHECKOUT_VOUCHER_SCOPE_PLATFORM=2", "CHECKOUT_VOUCHER_SCOPE_SHOP=1", "CHECKOUT_VOUCHER_SCOPE_UNSPECIFIED=0",
 	}
 	if got := enumPairs(e); !reflect.DeepEqual(got, want) {
 		t.Errorf("CheckoutVoucherScope = %v, want %v", got, want)
