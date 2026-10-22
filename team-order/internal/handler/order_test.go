@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	commonv1 "github.com/buidangphuc/team-order/generated/platform/common/v1"
+	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	"github.com/buidangphuc/team-order/internal/handler"
 	"github.com/buidangphuc/team-order/internal/interceptor"
@@ -163,7 +164,7 @@ func TestOrderHandler_CreateOrder_KillSwitchOn(t *testing.T) {
 	svc := service.NewOrderService(
 		repository.NewInMemoryOrderRepository(), cartRepo, nil, nil, nil, nil, nil,
 	)
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithFeatureFlags(fakeFlags{enabled: true}))
+	h := handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil, handler.WithFeatureFlags(fakeFlags{enabled: true}))
 	ctx := incomingPrincipalCtx("buyer_1", "buyer")
 
 	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
@@ -182,7 +183,7 @@ func TestOrderHandler_CreateOrder_NoFlagsFailsOpen(t *testing.T) {
 	svc := service.NewOrderService(
 		repository.NewInMemoryOrderRepository(), cartRepo, nil, nil, nil, nil, nil,
 	)
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+	h := handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil, handler.WithAuditWriter(&fakeAudit{}))
 	ctx := incomingPrincipalCtx("buyer_1", "buyer")
 
 	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
