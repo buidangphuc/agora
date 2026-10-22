@@ -25,11 +25,11 @@ Defined in `proto/platform/engagement/v1/engagement.proto` (vendored, see Gotcha
 | `AskQuestion` | `engagement:write` | |
 | `AnswerQuestion` | `engagement:write` | `is_shop_reply` is honoured only when the caller owns the question's listing (per the `seller_listings` projection); otherwise it is stored as `false`. |
 | `ListQuestionsByListing` | public | |
-| `CreateDispute` | `engagement:write` | Claimant must be the order's buyer and defendant its seller (both read from team-order); status starts `OPEN`. |
+| `CreateDispute` | `engagement:write` | Claimant must be the order's buyer and defendant its seller (both read from team-order); status starts `OPEN`. Optional `return_id` escalates a return: a defendant other than the order's seller is `InvalidArgument`; `FailedPrecondition` when `can_escalate` is false on the order or return (read via team-order `GetReturnRequest`); `AlreadyExists` while a dispute for the same return is `OPEN` or `INVESTIGATING`. Re-escalation is allowed while `can_escalate` is true. |
 | `GetDispute` | `engagement:read` | Only the claimant, the defendant or an admin. |
-| `ResolveDispute` | `engagement:write` **and** `admin` | Sets status to `INVESTIGATING`, `RESOLVED` or `REJECTED` plus a resolution text. The `dispute.resolve` audit entry is written first. |
-| `ListOrderDisputes` | `engagement:read` | Contract only (q6 `engagement-dispute-escalation`, not built): the handler returns `Unimplemented`. Planned: order's buyer, order's seller or admin. |
-| `ListDisputes` | `admin` | Contract only (q6 `engagement-dispute-escalation`, not built): the handler returns `Unimplemented`. Planned: oldest first, optional status filter. |
+| `ResolveDispute` | `engagement:write` **and** `admin` | Sets status plus a resolution text and an optional `ruling` (`BUYER_FAVOUR` or `SELLER_FAVOUR`). Transitions: `OPEN` to `INVESTIGATING` or `REJECTED`; `INVESTIGATING` to `INVESTIGATING` (note update), `RESOLVED` or `REJECTED`; every other move, including `OPEN` to `RESOLVED`, is `FailedPrecondition`. `ruling` is required for `RESOLVED` on a return-linked dispute and is `InvalidArgument` with any other status. The `dispute.resolve` audit entry is written first; a move to `RESOLVED` or `REJECTED` emits one `DisputeResolved`. |
+| `ListOrderDisputes` | `engagement:read` | The order's disputes, newest first. Callable by the order's buyer, the order's seller or an admin (others `PermissionDenied`); empty `order_id` is `InvalidArgument`. |
+| `ListDisputes` | `admin` | Oldest first, optional status filter (unspecified means all). A read, not audited. |
 | `HideReview` | `admin` | Hides a review (audited first; idempotent). Hidden reviews drop out of listings and ratings. |
 | `CreateReport` | authenticated, `engagement:write` | Reports a listing; idempotent per (reporter, target) while `OPEN`; 20 `OPEN` reports per reporter cap. |
 | `ListReports`, `ResolveReport` | `admin` | `ResolveReport` writes a `report.resolve` audit entry first and moves the report to `ACTIONED` or `DISMISSED`. |
@@ -44,7 +44,7 @@ Consumes: `team-order` `GetOrder` (gRPC), called as the service principal `servi
 
 ## 2. Events
 
-Produces engagement facts (`FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated`, `ReviewHidden`; no review text) to `engagement.events` through a transactional outbox (migration 0010) and a relayer that publishes in `seq` order, keyed by listing id (seller id for follows), and deletes published rows older than 7 days each cycle; an idempotent no-op writes no fact (an already-hidden `HideReview` writes no `ReviewHidden`). Deploy order for `ReviewHidden`: deploy team-analytics before team-engagement, so the consumer understands the fact before it is published. Consumes `listing.events` (`platform.events.v1.EventEnvelope`) when `KAFKA_ENABLED=true`; it is the only writer of `seller_listings` (the follow-feed source).
+Produces engagement facts (`FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated`, `ReviewHidden`, `DisputeResolved`; no free text) to `engagement.events` through a transactional outbox (migration 0010) and a relayer that publishes in `seq` order, keyed by listing id (seller id for follows), and deletes published rows older than 7 days each cycle; an idempotent no-op writes no fact (an already-hidden `HideReview` writes no `ReviewHidden`). `DisputeResolved` (dispute id, order id, `return_id`, status, `ruling`, resolver id, resolved time) is written in the same transaction as the move to `RESOLVED` or `REJECTED`, keyed by dispute id. Deploy order for `ReviewHidden`: deploy team-analytics before team-engagement, so the consumer understands the fact before it is published. Consumes `listing.events` (`platform.events.v1.EventEnvelope`) when `KAFKA_ENABLED=true`; it is the only writer of `seller_listings` (the follow-feed source).
 
 - `ListingChanged` with a `PUBLISHED` listing (created or updated): upsert `(seller_id, listing_id)`. `created_at` is the envelope's `occurred_at` and is kept on redelivery and later updates, so editing a listing does not bump it in the feed. A listing has one owning seller.
 - `ListingChanged` `DELETED`, or any non-published status; and `ListingStatusChanged` to a non-published status: remove the row. `ListingStatusChanged` to `PUBLISHED` is ignored (it carries no seller id; the matching `ListingChanged` upserts).
@@ -69,6 +69,7 @@ Own Postgres `engagement_db`, role `engagement_svc`. Tables by migration (`migra
 | 0010 | `outbox` (engagement facts) |
 | 0011 | review integrity: `reviews.hidden_at`, `hidden_by`, `hide_reason`; at most one verified review per (order, listing) |
 | 0012 | `reports` (listing reports) |
+| 0013 | dispute escalation: `return_id` and `ruling` on `disputes` |
 
 Migrations are applied by golang-migrate, never by the server. Root compose: the `team-engagement-migrate` one-shot runs before `team-engagement`. Standalone: `make migrate` (runs `migrate/migrate` in docker against `DATABASE_URL`, rewriting `localhost` to `host.docker.internal`).
 
@@ -158,7 +159,7 @@ This repo has no CI workflow of its own; `make check` is the gate. Go 1.26 (`go.
 ## 9. Known gaps
 
 - **Follow feed depends on the consumer.** It is empty unless `KAFKA_ENABLED=true` and the group has read `listing.events`. Root compose sets these for this service. A stale redelivery of an old `PUBLISHED` event after a `DELETED` can re-add a listing (events for one listing are keyed together, so this needs a replay or rebalance race).
-- **Dispute transitions are permissive.** `ResolveDispute` allows `OPEN` to `RESOLVED` directly and repeated `INVESTIGATING` (note update); `RESOLVED` and `REJECTED` are terminal and return `FailedPrecondition`. `CreateDispute` verifies the order, its buyer and its seller against `team-order` (fails closed with `UNAVAILABLE` when `UPSTREAM_ORDER_ADDR` is unset or team-order is down).
+- **Dispute creation fails closed.** `CreateDispute` verifies the order, its buyer and its seller against `team-order` (fails closed with `UNAVAILABLE` when `UPSTREAM_ORDER_ADDR` is unset or team-order is down).
 - **Review display name is synthetic.** `CreateReview` sets `user_name` to `"User " + first 6 chars of id` (or a Vietnamese placeholder for short ids).
 - Root `AGENTS.md` describes this service as "Favorites, stats, reviews, Q&A, disputes"; it omits wishlist, follows and loyalty.
 
