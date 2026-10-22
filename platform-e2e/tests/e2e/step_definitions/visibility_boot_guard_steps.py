@@ -18,6 +18,7 @@ IMAGE = os.environ.get("SEARCH_BOOT_IMAGE", "agora-team-search:local")
 # go-sdk v1 requires brokers for a strict ENV; set so the database check is what fails.
 BROKERS = "redpanda:9092"
 UNREACHABLE_DB = "postgres://u:p@127.0.0.1:1/db?sslmode=disable"
+OPENSEARCH_URL = os.environ.get("SEARCH_BOOT_OPENSEARCH_URL", "http://host.docker.internal:9200")
 FALLBACK_MARKER = "saved searches use an in-memory store"
 
 
@@ -57,21 +58,23 @@ def log_names_database(world: World) -> None:
     assert "DATABASE_ENABLED" in log and "DATABASE_URL" in log, log
 
 
-@then("the same image with ENV production and an unreachable database exits non-zero")
+@then("the same image with ENV production, DATABASE_ENABLED true and an unreachable database exits non-zero")
 def production_unreachable(world: World) -> None:
     proc = _run(
         {
             "ENV": "production",
             "GRPC_PORT": "50052",
             "KAFKA_BROKERS": BROKERS,
+            "DATABASE_ENABLED": "true",
             "DATABASE_URL": UNREACHABLE_DB,
+            "OPENSEARCH_URL": OPENSEARCH_URL,
         }
     )
     log = proc.stdout + proc.stderr
-    assert proc.returncode != 0 and "open database" in log, log
+    assert proc.returncode != 0 and "postgres" in log, log
 
 
-@then("the same image with ENV local and an unreachable database falls back to in-memory storage")
+@then("the same image with ENV local and DATABASE_ENABLED false falls back to in-memory storage")
 def local_falls_back(world: World) -> None:
     """Control: the failure above is the database rule, not a generic boot failure."""
     # Unreachable OpenSearch makes the local boot exit quickly, after the database step.
@@ -79,9 +82,10 @@ def local_falls_back(world: World) -> None:
         {
             "ENV": "local",
             "GRPC_PORT": "50052",
+            "DATABASE_ENABLED": "false",
             "DATABASE_URL": UNREACHABLE_DB,
             "OPENSEARCH_URL": "http://opensearch.invalid:9200",
         }
     )
     log = proc.stdout + proc.stderr
-    assert FALLBACK_MARKER in log and "open database" not in log, log
+    assert FALLBACK_MARKER in log and "ping postgres" not in log, log

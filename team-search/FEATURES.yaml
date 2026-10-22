@@ -198,7 +198,7 @@ features:
     persona: admin
     priority: P0
     summary: >-
-      Boot guard: staging/production fail boot without DATABASE_URL or with an unreachable database; ENV=local falls back to in-memory.
+      Boot guard: staging/production fail boot with DATABASE_ENABLED=false or with an unreachable database; ENV=local with DATABASE_ENABLED=false uses in-memory storage.
     entry_route: /
     services: [team-search]
     preconditions:
@@ -206,9 +206,9 @@ features:
     api:
       exercised: [search.v1.SaveSearch]
     acceptance:
-      - WHEN the team-search image is started with ENV=production and no DATABASE_URL, or an unreachable one
-      - THEN the process exits non-zero and its log names the database
-      - AND with ENV=local and an unreachable database it falls back to in-memory storage
+      - WHEN the team-search image is started with ENV=production and no DATABASE_URL, or with DATABASE_ENABLED=true and an unreachable one
+      - THEN the process exits non-zero and its log names the database setting or the postgres error
+      - AND with ENV=local and DATABASE_ENABLED=false it falls back to in-memory storage
     tags: [ops, security]
     status: automated
     covered_by: "ops/boot_guard_search.feature::team-search refuses to boot without a reachable database in production"
