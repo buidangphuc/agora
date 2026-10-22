@@ -151,3 +151,69 @@ func TestNoDependencyEnableFlags(t *testing.T) {
 		}
 	}
 }
+
+type mockDataSettings struct {
+	config.Runtime
+	config.Postgres
+	config.MockData
+}
+
+func unsetDatabaseURL(t *testing.T) {
+	t.Helper()
+	t.Setenv("DATABASE_URL", "")
+}
+
+func TestLoadRefusesMockDataInStrictEnvBeforeValidation(t *testing.T) {
+	unsetDatabaseURL(t)
+	t.Setenv("ENV", "prod")
+	t.Setenv("MOCK_DATA", "payment-provider")
+	_, err := config.Load[mockDataSettings]()
+	if err == nil {
+		t.Fatal("Load succeeded, want an error naming MOCK_DATA")
+	}
+	if !strings.Contains(err.Error(), "MOCK_DATA") {
+		t.Errorf("error %q does not name MOCK_DATA", err)
+	}
+	if strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Errorf("error %q names DATABASE_URL, validation masked MOCK_DATA", err)
+	}
+}
+
+func TestMockDataRefusedForEveryStrictSpelling(t *testing.T) {
+	for _, env := range []string{"staging", "stage", "prod", "production", "PROD"} {
+		t.Run(env, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
+			t.Setenv("ENV", env)
+			t.Setenv("MOCK_DATA", "payment-provider")
+			_, err := config.Load[mockDataSettings]()
+			if err == nil || !strings.Contains(err.Error(), "MOCK_DATA") {
+				t.Fatalf("ENV=%s: err = %v, want one naming MOCK_DATA", env, err)
+			}
+		})
+	}
+}
+
+func TestMockDataAllowedWhenLocalOrEmpty(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db")
+	cases := []struct{ env, mock string }{
+		{"local", "payment-provider"},
+		{"test", "payment-provider"},
+		{"prod", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.env+"/"+c.mock, func(t *testing.T) {
+			t.Setenv("ENV", c.env)
+			t.Setenv("MOCK_DATA", c.mock)
+			if _, err := config.Load[mockDataSettings](); err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+		})
+	}
+	t.Run("prod/unset", func(t *testing.T) {
+		t.Setenv("ENV", "prod")
+		t.Setenv("MOCK_DATA", "")
+		if _, err := config.Load[mockDataSettings](); err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+	})
+}
