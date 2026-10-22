@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -17,6 +19,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
@@ -457,11 +460,70 @@ func TestServeListenerServesAndStops(t *testing.T) {
 	}
 }
 
-func TestReflectionAlwaysRegistered(t *testing.T) {
+func listServicesOverReflection(t *testing.T, enabled bool) ([]string, error) {
+	t.Helper()
 	logger := slog.New(slog.DiscardHandler)
-	srv := grpcx.NewServer(grpcx.ServerOptions{Config: config.GRPC{}, Logger: logger, Health: mustHealth(logger)})
-	if _, ok := srv.GetServiceInfo()["grpc.reflection.v1.ServerReflection"]; !ok {
-		t.Fatalf("reflection not registered; services = %v", srv.GetServiceInfo())
+	cfg := config.GRPC{}
+	if enabled {
+		f := reflect.ValueOf(&cfg).Elem().FieldByName("ReflectionEnabled")
+		if !f.IsValid() {
+			t.Fatal("config.GRPC has no ReflectionEnabled field")
+		}
+		f.SetBool(true)
+	}
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: cfg, Logger: logger, Health: mustHealth(logger)})
+	lis := bufconn.Listen(1 << 20)
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+	conn, err := grpc.NewClient("passthrough:///bufnet",
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return lis.Dial() }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	stream, err := rpb.NewServerReflectionClient(conn).ServerReflectionInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := stream.Send(&rpb.ServerReflectionRequest{MessageRequest: &rpb.ServerReflectionRequest_ListServices{ListServices: "*"}}); err != nil {
+		if _, rerr := stream.Recv(); rerr != nil {
+			return nil, rerr
+		}
+		return nil, err
+	}
+	resp, err := stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, s := range resp.GetListServicesResponse().GetService() {
+		names = append(names, s.GetName())
+	}
+	return names, nil
+}
+
+// Scenario: Reflection is off by default.
+func TestReflectionOffByDefault(t *testing.T) {
+	names, err := listServicesOverReflection(t, false)
+	if status.Code(err) != codes.Unimplemented {
+		t.Fatalf("err = %v (services %v), want codes.Unimplemented", err, names)
+	}
+}
+
+// Scenario: Reflection is served locally when enabled.
+func TestReflectionServedWhenEnabled(t *testing.T) {
+	names, err := listServicesOverReflection(t, true)
+	if err != nil {
+		t.Fatalf("list services: %v", err)
+	}
+	for _, want := range []string{"grpc.health.v1.Health", "grpc.reflection.v1.ServerReflection"} {
+		if !slices.Contains(names, want) {
+			t.Errorf("services %v missing %s", names, want)
+		}
 	}
 }
 

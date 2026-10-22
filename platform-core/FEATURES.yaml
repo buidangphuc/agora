@@ -4809,21 +4809,6 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestStatusKeepsErrorTextWithoutMessage"
-  - id: go-sdk.unreachable-database-outside-local-does-not-fall-back
-    title: "Unreachable database outside local does not fall back"
-    persona: guest
-    priority: P2
-    entry_route: /
-    services:
-    - platform-core
-    acceptance:
-    - "When the database is unreachable with ENV=dev and with ENV=local"
-    - "Then dev returns an error and local returns a nil pool and nil error"
-    tags:
-    - go-sdk
-    - unit
-    status: not-testable
-    notes: "Platform library behaviour with no user journey; verified by platform-core/packages/go-sdk/pkg/postgres TestOpenOrLocalFallsBackOnlyLocally"
   - id: go-sdk.strict-envs-are-recognised-and-dev-is-not
     title: "Strict envs are recognised and dev is not"
     persona: guest
@@ -5124,21 +5109,6 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestStatusMapsContextErrorsWithoutErrorLog"
-  - id: go-sdk.a-nil-logger-does-not-panic
-    title: "A nil logger does not panic"
-    persona: guest
-    priority: P2
-    entry_route: /
-    services:
-    - platform-core
-    acceptance:
-    - "When OpenOrLocal runs with a nil logger against an unreachable database with ENV=local"
-    - "Then it returns a nil pool and nil error"
-    tags:
-    - go-sdk
-    - unit
-    status: not-testable
-    notes: "Platform library behaviour with no user journey; verified by TestOpenOrLocalNilLogger"
   - id: go-sdk.the-first-call-waits-one-interval-unless-runatstart-is-set
     title: "The first call waits one interval unless RunAtStart is set"
     persona: guest
@@ -5754,21 +5724,160 @@ features:
     - unit
     status: not-testable
     notes: "Platform library behaviour with no user journey; verified by TestRequestIDRejectsOversizedOrBadCharset"
-  - id: go-sdk.reflection-is-always-on
-    title: "Reflection is always on"
+  - id: go-sdk.reflection-is-off-by-default
+    title: "Reflection is off by default"
     persona: guest
     priority: P2
     entry_route: /
     services:
     - platform-core
     acceptance:
-    - "When a server is built without any reflection setting"
-    - "Then the reflection service is registered"
+    - "Scenario: Reflection is off by default"
     tags:
     - go-sdk
     - unit
     status: not-testable
-    notes: "Platform library behaviour with no user journey; verified by TestReflectionAlwaysRegistered"
+    notes: "Platform library behaviour with no user journey; verified by TestReflectionOffByDefault"
+  - id: go-sdk.reflection-is-served-locally-when-enabled
+    title: "Reflection is served locally when enabled"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Scenario: Reflection is served locally when enabled"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestReflectionServedWhenEnabled"
+  - id: go-sdk.reflection-is-refused-in-a-strict-environment
+    title: "Reflection is refused in a strict environment"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Scenario: Reflection is refused in a strict environment"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestStrictEnvRefusesGRPCReflection"
+  - id: go-sdk.reflection-without-a-runtime-is-refused
+    title: "Reflection without a Runtime is refused"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Scenario: Reflection without a Runtime is refused"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestReflectionWithoutRuntimeIsRefused"
+  - id: go-sdk.reflection-is-accepted-locally-and-defaults-to-off
+    title: "Reflection is accepted locally and defaults to off"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Scenario: Reflection is accepted locally and defaults to off"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestLocalEnvAcceptsGRPCReflection and TestGRPCReflectionDefaultsOff"
+  - id: go-sdk.a-strict-env-reflection-refusal-comes-before-group-validation
+    title: "A strict-env reflection refusal comes before group validation"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Scenario: A strict-env reflection refusal comes before group validation"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestStrictReflectionRefusalPrecedesValidation"
+  - id: go-sdk.liveness-stays-serving-while-a-dependency-is-down
+    title: "Liveness stays serving while a dependency is down"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Scenario: Liveness stays serving while a dependency is down"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestLivenessIgnoresCheckerFailure"
+  - id: go-sdk.liveness-is-serving-from-construction
+    title: "Liveness is serving from construction"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Scenario: Liveness is serving from construction"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestLivenessServingBeforeRun"
+  - id: go-sdk.a-hanging-checker-does-not-delay-liveness
+    title: "A hanging checker does not delay liveness"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Scenario: A hanging checker does not delay liveness"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestLivenessAnswersFastDuringHangingChecker"
+  - id: go-sdk.drain-turns-liveness-off
+    title: "Drain turns liveness off"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Scenario: Drain turns liveness off"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestDrainSetsLivenessNotServing"
+  - id: go-sdk.an-unknown-health-service-name-is-still-rejected
+    title: "An unknown health service name is still rejected"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "Scenario: An unknown health service name is still rejected"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "Platform library behaviour with no user journey; verified by TestUnknownHealthServiceNotFound"
   - id: go-sdk.an-unreachable-database-fails-boot-outside-local
     title: "An unreachable database fails boot outside local"
     persona: guest

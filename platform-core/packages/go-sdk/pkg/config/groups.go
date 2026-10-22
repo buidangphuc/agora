@@ -50,6 +50,18 @@ type GRPC struct {
 	// DrainDelay is how long to keep serving after health reports NOT_SERVING,
 	// so probes and load balancers notice before the server stops.
 	DrainDelay time.Duration `env:"SHUTDOWN_DRAIN_DELAY" default:"0s"`
+	// ReflectionEnabled serves gRPC server reflection. Accepted only when ENV
+	// is local or test.
+	ReflectionEnabled bool `env:"GRPC_REFLECTION_ENABLED" default:"false"`
+}
+
+// ResolveFor refuses reflection unless the Runtime is local or test. A missing
+// Runtime has an empty Env and is refused too.
+func (g *GRPC) ResolveFor(rt Runtime) error {
+	if g.ReflectionEnabled && !rt.IsLocal() {
+		return errors.New("GRPC_REFLECTION_ENABLED is only allowed when ENV is local or test")
+	}
+	return nil
 }
 
 // Validate rejects a missing or non-positive port. An empty GRPC_PORT= parses

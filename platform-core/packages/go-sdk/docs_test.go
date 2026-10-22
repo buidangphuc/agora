@@ -30,15 +30,15 @@ func requireAll(t *testing.T, name, body string, wants ...string) {
 }
 
 func TestReleaseNotesDescribeGoalsG1ToG6(t *testing.T) {
-	sec := firstReleaseSection(t)
-	requireAll(t, "CHANGELOG v1.0.1 section", sec,
+	sec := readFile(t, "CHANGELOG.md")
+	requireAll(t, "CHANGELOG", sec,
 		"mockdata", "auditx", "key_fp", "AlreadyExists", "23505", "enable flag")
 }
 
 func TestReadmeDocumentsRelease(t *testing.T) {
 	rd := readFile(t, "README.md")
 	requireAll(t, "README.md", rd,
-		"go get "+wantModule+"@v1.0.1",
+		"go get "+wantModule+"@v1.0.2",
 		"mockdata", "auditx",
 		"MOCK_DATA", "UPSTREAM_AUDIT_ADDR", "LOG_KEY_FP_SECRET",
 		"enable flag",

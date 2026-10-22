@@ -60,11 +60,11 @@ func TestReleaseVersionIsDocumented(t *testing.T) {
 	heading := regexp.MustCompile(`(?m)^## \[?v\d+\.\d+\.\d+\]?`)
 	cl := readFile(t, "CHANGELOG.md")
 	h := heading.FindString(cl)
-	if !regexp.MustCompile(`^## \[?v1\.0\.1\]?$`).MatchString(h) {
+	if !regexp.MustCompile(`^## \[?v1\.0\.2\]?$`).MatchString(h) {
 		t.Errorf("first release heading of CHANGELOG.md = %q, want \"## v1.0.1\"", h)
 	}
-	if !regexp.MustCompile(`(?m)^Version:\s*v1\.0\.1\s*$`).MatchString(readFile(t, "README.md")) {
-		t.Errorf("README.md has no line \"Version: v1.0.1\"")
+	if !regexp.MustCompile(`(?m)^Version:\s*v1\.0\.2\s*$`).MatchString(readFile(t, "README.md")) {
+		t.Errorf("README.md has no line \"Version: v1.0.2\"")
 	}
 }
 
@@ -204,5 +204,42 @@ func TestTemplateReferencesSharedMakeAndLint(t *testing.T) {
 		if exists(filepath.Join(tpl, f)) {
 			t.Errorf("template holds a copy of %s", f)
 		}
+	}
+}
+
+func readmeRow(t *testing.T, name string) string {
+	t.Helper()
+	for _, l := range strings.Split(readFile(t, "README.md"), "\n") {
+		if strings.HasPrefix(l, "| `"+name+"` |") {
+			return l
+		}
+	}
+	t.Fatalf("README.md has no table row for %s", name)
+	return ""
+}
+
+func TestReadmeDropsOpenOrLocalAndDocumentsReflection(t *testing.T) {
+	rd := readFile(t, "README.md")
+	if strings.Contains(readmeRow(t, "postgres"), "OpenOrLocal") {
+		t.Errorf("README postgres row still mentions OpenOrLocal")
+	}
+	for i, l := range strings.Split(rd, "\n") {
+		if strings.Contains(l, "OpenOrLocal") && !strings.Contains(strings.ToLower(l), "removed") {
+			t.Errorf("README.md line %d still documents OpenOrLocal: %q", i+1, l)
+		}
+		if strings.Contains(l, "GRPC_REFLECTION_ENABLED") && regexp.MustCompile(`(?i)does not exist|no such`).MatchString(l) {
+			t.Errorf("README.md line %d says GRPC_REFLECTION_ENABLED does not exist: %q", i+1, l)
+		}
+	}
+	requireAll(t, "README grpcx row", readmeRow(t, "grpcx"), "GRPC_REFLECTION_ENABLED", "staging", "prod")
+	requireAll(t, "README healthx row", readmeRow(t, "healthx"), "liveness")
+	requireAll(t, "README.md", rd, "go get "+wantModule+"@v1.0.2", "probes.livenessService: liveness")
+}
+
+func TestChangelogV102DescribesChanges(t *testing.T) {
+	sec := firstReleaseSection(t)
+	requireAll(t, "CHANGELOG v1.0.2 section", sec, "OpenOrLocal", "GRPC_REFLECTION_ENABLED", "liveness", "reflection")
+	if !regexp.MustCompile(`(?mi)^.*removed.*OpenOrLocal|^.*OpenOrLocal.*removed`).MatchString(sec) {
+		t.Errorf("CHANGELOG v1.0.2 does not list OpenOrLocal as removed")
 	}
 }

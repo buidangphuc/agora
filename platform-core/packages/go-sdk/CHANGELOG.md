@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.2
+
+- `postgres.OpenOrLocal` is removed; use `postgres.Open` and `mockdata` for local data.
+- gRPC reflection is off by default and turned on with `GRPC_REFLECTION_ENABLED=true`; it is refused when `ENV` is staging or prod.
+- `healthx` serves a `liveness` health service for the Kubernetes liveness probe (`probes.livenessService: liveness`).
+
 ## v1.0.1
 
 - Module path is now `github.com/buidangphuc/agora/platform-core/packages/go-sdk`, fetchable with a `go-sdk/v1.0.1` tag.
