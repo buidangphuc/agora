@@ -22,12 +22,33 @@ import {
   PaymentStatus,
 } from "@/generated/platform/payment/v1/payment_pb.js";
 import { listBuyerOrdersResult } from "@/lib/gateway/orders";
-import { createPayment, getPayment } from "@/lib/gateway/payment";
+import {
+  type ViewPaymentTransaction,
+  createPayment,
+  getPayment,
+} from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
 
 import { loadOrder } from "./data";
 
 export const dynamic = "force-dynamic";
+
+const inflightTransactions = new Map<string, Promise<ViewPaymentTransaction>>();
+
+function ensureTransaction(
+  orderId: string,
+  method: PaymentMethod,
+): Promise<ViewPaymentTransaction> {
+  const pending = inflightTransactions.get(orderId);
+  if (pending) return pending;
+  const created = (async () =>
+    (await getPayment(undefined, orderId)) ??
+    (await createPayment(orderId, method)).transaction)().finally(() => {
+    inflightTransactions.delete(orderId);
+  });
+  inflightTransactions.set(orderId, created);
+  return created;
+}
 
 export default async function MockPaymentPage(props: {
   params: Promise<{ id: string }>;
@@ -96,9 +117,7 @@ export default async function MockPaymentPage(props: {
       />
     );
   } else {
-    const transaction =
-      (await getPayment(undefined, params.id)) ??
-      (await createPayment(order.id, order.paymentMethod)).transaction;
+    const transaction = await ensureTransaction(params.id, order.paymentMethod);
     let nextOrderId: string | undefined;
     if (order.checkoutId) {
       const siblings = await listBuyerOrdersResult();
