@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -195,7 +196,9 @@ func idempotencyKeyFromContext(ctx context.Context) (string, error) {
 func (h *OrderHandler) CalculateShippingFee(_ context.Context, req *orderv1.CalculateShippingFeeRequest) (*orderv1.CalculateShippingFeeResponse, error) {
 	fee, isFree, msg, days, at := h.svc.CalculateShippingFee(req.GetCity(), req.GetItemsSubtotal())
 	var etaAt *timestamppb.Timestamp
-	if days > 0 {
+	if strings.TrimSpace(req.GetCity()) == "" {
+		days = 0
+	} else {
 		etaAt = timestamppb.New(at)
 	}
 	return &orderv1.CalculateShippingFeeResponse{
