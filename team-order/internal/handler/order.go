@@ -891,12 +891,15 @@ func toWireOrder(o repository.Order) *orderv1.Order {
 			City:          o.ShippingAddress.City,
 			IsDefault:     o.ShippingAddress.IsDefault,
 		},
-		Items:          items,
-		TrackingNumber: o.TrackingNumber,
-		CreatedAt:      timestamppb.New(o.CreatedAt),
-		UpdatedAt:      timestamppb.New(o.UpdatedAt),
-		VoucherCode:    o.VoucherCode,
-		DiscountAmount: o.DiscountAmount,
+		Items:                  items,
+		TrackingNumber:         o.TrackingNumber,
+		CreatedAt:              timestamppb.New(o.CreatedAt),
+		UpdatedAt:              timestamppb.New(o.UpdatedAt),
+		VoucherCode:            o.VoucherCode,
+		DiscountAmount:         o.DiscountAmount,
+		CheckoutId:             o.CheckoutID,
+		PlatformVoucherCode:    o.PlatformVoucherCode,
+		PlatformDiscountAmount: o.PlatformDiscountAmount,
 	}
 }
 
