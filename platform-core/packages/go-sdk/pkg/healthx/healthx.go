@@ -15,6 +15,11 @@ import (
 // DefaultInterval is the probe interval services use unless they have a reason not to.
 const DefaultInterval = 5 * time.Second
 
+// LivenessService is the health service name that reports process liveness.
+// It is SERVING from construction, independent of any registered check, and
+// turns NOT_SERVING only on Drain.
+const LivenessService = "liveness"
+
 // Check reports whether one dependency is reachable. A nil error means healthy.
 type Check func(ctx context.Context) error
 
@@ -45,10 +50,12 @@ func New(interval time.Duration, logger *slog.Logger) (*Health, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	srv := health.NewServer()
+	srv.SetServingStatus(LivenessService, grpc_health_v1.HealthCheckResponse_SERVING)
 	return &Health{
 		interval: interval,
 		logger:   logger,
-		server:   health.NewServer(),
+		server:   srv,
 		serving:  true,
 	}, nil
 }
