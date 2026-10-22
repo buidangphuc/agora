@@ -41,6 +41,8 @@ type BatchOptions struct {
 	BaseBackoff    time.Duration // delay after the first failure, doubling (default 100ms)
 	MaxBackoff     time.Duration // backoff ceiling (default 30s)
 	Logger         *slog.Logger  // default slog.Default()
+	// KeyFP fingerprints record keys for logs; nil uses a random per-process secret.
+	KeyFP *kafkax.Fingerprinter
 }
 
 // BatchConsumer dispatches each fetched batch from a consumer-group client.
@@ -50,6 +52,7 @@ type BatchConsumer struct {
 	handler BatchHandler
 	dlq     DLQProducer
 	opts    BatchOptions
+	scrub   keyScrubber
 }
 
 // NewBatchConsumer binds client, which must have auto-commit disabled (as
@@ -88,7 +91,7 @@ func newBatchConsumer(client groupClient, group string, h BatchHandler, dlq DLQP
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
-	return &BatchConsumer{client: client, group: group, handler: h, dlq: dlq, opts: o}, nil
+	return &BatchConsumer{client: client, group: group, handler: h, dlq: dlq, opts: o, scrub: keyScrubber{fp: orRandomFingerprinter(o.KeyFP)}}, nil
 }
 
 // Run polls until ctx is cancelled (it then returns nil) or a batch cannot be
@@ -155,7 +158,7 @@ func (c *BatchConsumer) process(ctx context.Context, recs []*kgo.Record) error {
 		if errors.As(err, &perm) || attempt >= c.opts.MaxAttempts {
 			return c.deadLetterAll(ctx, recs, err)
 		}
-		c.opts.Logger.WarnContext(ctx, "consume: batch handler failed; will retry", "records", len(recs), "attempt", attempt, "err", err)
+		c.opts.Logger.WarnContext(ctx, "consume: batch handler failed; will retry", "records", len(recs), "attempt", attempt, "key_fps", c.scrub.fingerprints(recs...), "err", scrubbedError(c.scrub.scrub(err.Error(), recs...)))
 		if !sleep(ctx, backoff(c.opts.BaseBackoff, c.opts.MaxBackoff, attempt)) {
 			return ctx.Err()
 		}
@@ -163,12 +166,16 @@ func (c *BatchConsumer) process(ctx context.Context, recs []*kgo.Record) error {
 }
 
 func (c *BatchConsumer) deadLetterAll(ctx context.Context, recs []*kgo.Record, cause error) error {
+	safe := scrubbedError(c.scrub.scrub(cause.Error(), recs...))
+	fps := c.scrub.fingerprints(recs...)
 	for _, rec := range recs {
-		if err := c.dlq.PublishRecord(ctx, deadLetter(c.opts.DLQTopic, c.group, rec, cause)); err != nil {
-			return fmt.Errorf("consume: dead-letter %s[%d]@%d: %w", rec.Topic, rec.Partition, rec.Offset, err)
+		if err := c.dlq.PublishRecord(ctx, deadLetter(c.opts.DLQTopic, c.group, rec, safe)); err != nil {
+			derr := scrubbedWrap{c.scrub.scrub(err.Error(), recs...), err}
+			c.opts.Logger.ErrorContext(ctx, "consume: dead-letter failed", "topic", rec.Topic, "offset", rec.Offset, "key_fp", c.scrub.fp.Of(rec.Key), "key_fps", fps, "err", derr)
+			return fmt.Errorf("consume: dead-letter %s[%d]@%d: %w", rec.Topic, rec.Partition, rec.Offset, derr)
 		}
 	}
-	c.opts.Logger.WarnContext(ctx, "consume: batch dead-lettered", "records", len(recs), "dlq", c.opts.DLQTopic, "err", cause)
+	c.opts.Logger.WarnContext(ctx, "consume: batch dead-lettered", "records", len(recs), "dlq", c.opts.DLQTopic, "key_fps", fps, "err", safe)
 	return nil
 }
 

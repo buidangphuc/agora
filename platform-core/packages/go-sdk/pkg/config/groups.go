@@ -179,3 +179,26 @@ func (a *Audit) ResolveFor(rt Runtime) error {
 	}
 	return nil
 }
+
+const defaultLogKeyFPSecret = "local-dev-log-key-fp-secret"
+
+// LogKeyFP holds the secret that keys the record-key fingerprints the consume
+// loops log instead of raw keys. Secret has no tag default: Load fills a
+// documented local default for a local ENV and rejects an unset or empty value
+// when Runtime.IsStrict.
+type LogKeyFP struct {
+	Secret string `env:"LOG_KEY_FP_SECRET"`
+}
+
+// ResolveFor rejects an empty Secret when the environment is strict and fills
+// the local default otherwise.
+func (l *LogKeyFP) ResolveFor(rt Runtime) error {
+	if strings.TrimSpace(l.Secret) != "" {
+		return nil
+	}
+	if rt.IsStrict() {
+		return errors.New("LOG_KEY_FP_SECRET is required when ENV is staging or prod")
+	}
+	l.Secret = defaultLogKeyFPSecret
+	return nil
+}
