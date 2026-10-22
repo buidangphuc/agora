@@ -100,8 +100,38 @@ func TestDoFailsClosedOnWriteError(t *testing.T) {
 	if strings.Contains(err.Error(), "10.0.0.9") {
 		t.Errorf("error %q leaks the cause", err)
 	}
-	if !strings.Contains(logs.String(), "10.0.0.9") {
-		t.Errorf("log %q does not carry the cause", logs.String())
+	if !strings.Contains(logs.String(), "code=Unknown") {
+		t.Errorf("log %q does not carry the status code", logs.String())
+	}
+}
+
+func TestDoFailureLogsNoTargetOrErrorText(t *testing.T) {
+	const targetID = "listing-8f3a9c"
+	const errText = "dial tcp 10.0.0.9: refused"
+	ev := auditx.Event{ActorID: "admin-1", Action: "voucher.create", TargetType: "voucher", TargetID: targetID}
+
+	var failed bytes.Buffer
+	g := auditx.NewGate(&fakeWriter{err: status.Error(codes.Unavailable, errText)}, quietLogger(&failed))
+	requireUnavailable(t, g.Do(context.Background(), ev, func(context.Context) error { return nil }))
+
+	var skipped bytes.Buffer
+	g = auditx.NewGate(nil, quietLogger(&skipped))
+	requireUnavailable(t, g.Do(context.Background(), ev, func(context.Context) error { return nil }))
+
+	for name, logs := range map[string]string{"write failed": failed.String(), "no writer": skipped.String()} {
+		for _, leak := range []string{targetID, errText, "10.0.0.9", "admin-1"} {
+			if strings.Contains(logs, leak) {
+				t.Errorf("%s log %q contains %q", name, logs, leak)
+			}
+		}
+		for _, want := range []string{"action=voucher.create", "target_type=voucher"} {
+			if !strings.Contains(logs, want) {
+				t.Errorf("%s log %q lacks %q", name, logs, want)
+			}
+		}
+	}
+	if !strings.Contains(failed.String(), "code=Unavailable") {
+		t.Errorf("write failed log %q lacks the status code", failed.String())
 	}
 }
 
