@@ -57,9 +57,14 @@ func (s *OrderService) quoteCheckout(in quoteInput) quoteResult {
 		}
 	}
 	remainder := in.platformDiscount - allocated
-	for i := 0; remainder > 0 && len(inputs) > 0; i = (i + 1) % len(inputs) {
-		shares[i]++
-		remainder--
+	if remainder > 0 && len(inputs) > 0 {
+		largest := 0
+		for i, g := range inputs {
+			if g.itemsSubtotal > inputs[largest].itemsSubtotal {
+				largest = i
+			}
+		}
+		shares[largest] += remainder
 	}
 
 	res := quoteResult{groups: make([]quoteGroup, 0, len(inputs))}
