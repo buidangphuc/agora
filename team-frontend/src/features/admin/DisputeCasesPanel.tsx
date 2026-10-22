@@ -237,7 +237,9 @@ export function DisputeCasesPanel({
 }) {
   return (
     <div className="mx-auto max-w-6xl p-6">
+      <h2 className="mb-3 text-lg font-semibold">Khiếu nại cần xử lý</h2>
       <div className="flex gap-3 text-sm">
+        <span className="text-text-secondary">Trạng thái</span>
         {FILTERS.map(([s, label]) => (
           <Link
             key={s}
