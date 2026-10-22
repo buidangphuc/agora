@@ -547,7 +547,7 @@ func (h *OrderHandler) GetReturnRequest(ctx context.Context, req *orderv1.GetRet
 		return nil, internalErr(h.logger, "get return request", err)
 	}
 
-	if !isAdminOrUser(principal, ret.BuyerID, ret.SellerID) {
+	if !isAdminOrUser(principal, ret.BuyerID, ret.SellerID) && !isServiceWithScope(principal, "order.read") {
 		return nil, status.Error(codes.PermissionDenied, "cannot view another user's return request")
 	}
 
@@ -859,14 +859,11 @@ func canViewOrder(p *commonv1.Principal, o repository.Order) bool {
 	if isAdminOrUser(p, o.BuyerID, o.SellerID) {
 		return true
 	}
-	if p.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE {
-		for _, s := range p.GetScopes() {
-			if s == "order.read" {
-				return true
-			}
-		}
-	}
-	return false
+	return isServiceWithScope(p, "order.read")
+}
+
+func isServiceWithScope(p *commonv1.Principal, scope string) bool {
+	return p.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE && hasScope(p, scope)
 }
 
 const (
