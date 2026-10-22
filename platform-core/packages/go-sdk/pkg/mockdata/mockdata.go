@@ -53,9 +53,9 @@ func (s *Set) LogActive(l *slog.Logger) {
 }
 
 // Select returns mock when the named adapter is active, otherwise real.
-func Select[T any](s *Set, name string, real, mock T) T {
+func Select[T any](s *Set, name string, live, mock T) T {
 	if s.Active(name) {
 		return mock
 	}
-	return real
+	return live
 }
