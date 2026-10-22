@@ -210,6 +210,51 @@ func TestDialSendsServicePrincipal(t *testing.T) {
 	}
 }
 
+func TestDialServicePrincipalReplacesCallerPrincipal(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make(chan metadata.MD, 1)
+	srv := grpc.NewServer(grpc.UnknownServiceHandler(func(_ any, stream grpc.ServerStream) error {
+		md, _ := metadata.FromIncomingContext(stream.Context())
+		got <- md
+		var in emptypb.Empty
+		if err := stream.RecvMsg(&in); err != nil {
+			return err
+		}
+		return stream.SendMsg(&emptypb.Empty{})
+	}))
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+
+	conn, err := auditx.Dial(config.Audit{Addr: lis.Addr().String()}, "team-order", "audit.write")
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ctx = metadata.AppendToOutgoingContext(ctx,
+		auth.MDPrincipalID, "buyer",
+		auth.MDPrincipalType, "user",
+		auth.MDPrincipalScopes, "orders.read")
+	if err := conn.Invoke(ctx, "/test.Echo/Call", &emptypb.Empty{}, &emptypb.Empty{}); err != nil {
+		t.Fatalf("Invoke: %v", err)
+	}
+	md := <-got
+	for key, want := range map[string]string{
+		auth.MDPrincipalID:     "team-order",
+		auth.MDPrincipalType:   "service",
+		auth.MDPrincipalScopes: "audit.write",
+	} {
+		if v := md.Get(key); len(v) != 1 || v[0] != want {
+			t.Errorf("%s = %v, want exactly [%s]", key, v, want)
+		}
+	}
+}
+
 func TestDialEmptyAddressReturnsNilConnection(t *testing.T) {
 	conn, err := auditx.Dial(config.Audit{}, "team-order", "audit.write")
 	if err != nil {
