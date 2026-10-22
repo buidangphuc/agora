@@ -109,7 +109,11 @@ def tags_follow_values(lcw):
 def read_push(lcw):
     lcw["push"] = _push_map()
     lcw["compose_images"] = set()
-    for name in ("docker-compose.services.yaml", "docker-compose.yaml", "platform-core/infra/docker-compose.yaml"):
+    for name in (
+        "docker-compose.services.yaml",
+        "docker-compose.yaml",
+        "platform-core/infra/docker-compose.yaml",
+    ):
         doc = yaml.safe_load((ROOT / name).read_text()) or {}
         lcw["compose_images"] |= {
             s["image"] for s in doc.get("services", {}).values() if "image" in s

@@ -212,9 +212,9 @@ def _seed_verified_review(world: World, rating: int, comment: str) -> None:
     )
     review = ros.seed_verified_review(world, author, seller, _listing_id(world), rating, comment)
     assert review.get("verifiedPurchase") is True, f"seeded review is not verified: {review}"
-    assert review.get("userId") == _principal_id(token), (
-        f"review author {review.get('userId')} is not the order owner {_principal_id(token)}"
-    )
+    assert review.get("userId") == _principal_id(
+        token
+    ), f"review author {review.get('userId')} is not the order owner {_principal_id(token)}"
 
 
 @given(parsers.parse("a published listing with {count:d} reviews and a buyer on its page"))
@@ -377,9 +377,9 @@ def lint_pdp_clean(world: World) -> None:
 def no_stars_no_sold(world: World) -> None:
     detail = _detail(world)
     expect(detail.rating_row).to_contain_text("Chưa có đánh giá")
-    assert detail.rating_row.get_by_role("img").count() == 0, (
-        "stars rendered for an unrated listing"
-    )
+    assert (
+        detail.rating_row.get_by_role("img").count() == 0
+    ), "stars rendered for an unrated listing"
     card = world.page.get_by_test_id("shop-header-card")
     assert card.get_by_role("img", name=re.compile(r"trên 5 sao")).count() == 0
     for area in (world.page.locator("main").first,):
