@@ -150,7 +150,12 @@ describe("checkoutHref", () => {
     expect(q.get("pv")).toBe("PLAT5");
     expect(q.has("voucher")).toBe(false);
     const back = resolveCheckout(
-      { step: "confirm", addr: "a1", sv: q.getAll("sv"), pv: q.get("pv") ?? undefined },
+      {
+        step: "confirm",
+        addr: "a1",
+        sv: q.getAll("sv"),
+        pv: q.get("pv") ?? undefined,
+      },
       addrs,
     );
     expect(back.sv).toEqual({ s1: "SHOPA10", s2: "B5" });
