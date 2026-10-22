@@ -90,4 +90,55 @@ describe("ShippingInfo (PDP shipping row)", () => {
     expect(c).toHaveTextContent("35.000");
     expect(c).not.toHaveTextContent("Hà Nội");
   });
+  it("shows the server delivery date (Checkout coherence: the PDP shows the server delivery date)", async () => {
+    vi.mocked(listAddresses).mockResolvedValue([addr("a2", "Hà Nội", true)]);
+    vi.mocked(calculateShippingFee).mockResolvedValue({
+      shippingFee: 20000,
+      isFreeShipping: false,
+      message: "",
+      estimatedDeliveryAt: "2026-10-18T10:00:00+07:00",
+    });
+    const c = await row(true);
+    expect(c).toHaveTextContent("Nhận hàng dự kiến 18/10");
+  });
+
+  it("formats the date in Ho Chi Minh time (Checkout coherence: the PDP shows the server delivery date)", async () => {
+    vi.mocked(listAddresses).mockResolvedValue([addr("a2", "Hà Nội", true)]);
+    vi.mocked(calculateShippingFee).mockResolvedValue({
+      shippingFee: 20000,
+      isFreeShipping: false,
+      message: "",
+      estimatedDeliveryAt: "2026-10-17T18:30:00Z",
+    });
+    const c = await row(true);
+    expect(c).toHaveTextContent("Nhận hàng dự kiến 18/10");
+  });
+
+  it("no delivery date without an address (Checkout coherence: the PDP shows no date without an address)", async () => {
+    const anon = await row(false);
+    expect(anon).not.toHaveTextContent("Nhận hàng dự kiến");
+    expect(calculateShippingFee).not.toHaveBeenCalled();
+
+    vi.mocked(listAddresses).mockResolvedValue([addr("a1", "Đà Nẵng", false)]);
+    const noDefault = await row(true);
+    expect(noDefault).not.toHaveTextContent("Nhận hàng dự kiến");
+    expect(calculateShippingFee).not.toHaveBeenCalled();
+  });
+
+  it("failed or unset delivery date shows nothing (Checkout coherence: a failed or unset delivery date is not invented)", async () => {
+    vi.mocked(listAddresses).mockResolvedValue([addr("a2", "Hà Nội", true)]);
+    vi.mocked(calculateShippingFee).mockResolvedValue(null);
+    const failed = await row(true);
+    expect(failed).not.toHaveTextContent("Nhận hàng dự kiến");
+
+    vi.mocked(calculateShippingFee).mockResolvedValue({
+      shippingFee: 20000,
+      isFreeShipping: false,
+      message: "",
+      estimatedDeliveryAt: null,
+    });
+    const unset = await row(true);
+    expect(unset).toHaveTextContent("20.000");
+    expect(unset).not.toHaveTextContent("Nhận hàng dự kiến");
+  });
 });
