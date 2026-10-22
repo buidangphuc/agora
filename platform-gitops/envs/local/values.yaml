@@ -26,3 +26,5 @@ images:
   platform-featurestore: sha-222b8d04da59
   platform-modelserve: sha-26f0039817dc
   tei-fake: sha-ead800669078
+  platform-mlflow: latest
+  platform-finetune: latest
