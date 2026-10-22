@@ -1,7 +1,7 @@
 # [W1-T6] payment-refund-audit-id
 
 ## Role
-feature-run worker (change `openspec/changes/payment-refund-audit-id`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-payment-refund-audit-id`)
 
 ## Objective
 Implement OpenSpec change `payment-refund-audit-id` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -16,10 +16,10 @@ Implement OpenSpec change `payment-refund-audit-id` test-first per its tasks.md 
 - team-payment/FEATURES.yaml
 - platform-e2e/tests/e2e/features/payment/admin_refund_audit.feature
 - platform-e2e/tests/e2e/step_definitions/test_admin_refund_audit.py
-- openspec/changes/payment-refund-audit-id/**
+- openspec/changes/archive/2026-10-22-payment-refund-audit-id/**
 
 ## Read-only dependencies
-- openspec/changes/payment-refund-audit-id/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-payment-refund-audit-id/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/support/audit_support.py (reuse)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md
 

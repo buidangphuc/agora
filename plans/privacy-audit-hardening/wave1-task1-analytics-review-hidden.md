@@ -1,7 +1,7 @@
 # [W1-T1] analytics-review-hidden
 
 ## Role
-feature-run worker (change `openspec/changes/analytics-review-hidden`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-analytics-review-hidden`)
 
 ## Objective
 Implement OpenSpec change `analytics-review-hidden` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -19,11 +19,11 @@ Implement OpenSpec change `analytics-review-hidden` test-first per its tasks.md 
 - team-analytics/FEATURES.yaml
 - platform-e2e/tests/e2e/features/analytics/review_hidden.feature
 - platform-e2e/tests/e2e/step_definitions/test_analytics_review_hidden.py
-- openspec/changes/analytics-review-hidden/**
+- openspec/changes/archive/2026-10-22-analytics-review-hidden/**
 - team-analytics/internal/docs/readme_test.go (# widened at build: task 3)
 
 ## Read-only dependencies
-- openspec/changes/analytics-review-hidden/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-analytics-review-hidden/** is frozen by the LOCK.md digest (only task ticks change)
 - team-analytics/proto/platform/engagement/v1/events.proto (copied by pah-contract)
 - platform-e2e/tests/e2e/step_definitions/test_efe_warehouse.py, efe_steps.py (envelope/produce and warehouse-rows helpers; reuse, do not edit)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md

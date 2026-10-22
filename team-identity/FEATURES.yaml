@@ -2339,7 +2339,7 @@ features:
     covered_by: "auth/session_retention.feature::Session retention: default stack keeps rows"
     notes: "identity-session-retention: e2e in auth/session_retention.feature"
 
-  # ── frontend-session-client-context (openspec/changes/frontend-session-client-context) ──
+  # ── frontend-session-client-context (openspec/changes/archive/2026-10-22-frontend-session-client-context) ──
 
   - id: auth.session-client-context-rotation-updates-device-and-ip
     title: "Session client context: rotation updates device and IP"

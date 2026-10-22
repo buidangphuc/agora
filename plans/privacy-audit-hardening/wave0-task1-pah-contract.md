@@ -1,7 +1,7 @@
 # [W0-T1] pah-contract
 
 ## Role
-feature-run worker (change `openspec/changes/pah-contract`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-pah-contract`)
 
 ## Objective
 Implement OpenSpec change `pah-contract` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -32,10 +32,10 @@ Implement OpenSpec change `pah-contract` test-first per its tasks.md (scenario i
 - team-verification/proto/platform/audit/v1/audit.proto
 - team-engagement/generated/**
 - team-analytics/generated/**
-- openspec/changes/pah-contract/**
+- openspec/changes/archive/2026-10-22-pah-contract/**
 
 ## Read-only dependencies
-- openspec/changes/pah-contract/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-pah-contract/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-core/packages/proto/consumer_copies_test.sh (pattern to mirror)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md
 
