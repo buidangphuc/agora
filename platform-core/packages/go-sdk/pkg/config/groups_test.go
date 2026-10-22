@@ -257,3 +257,43 @@ func TestStrictEnvRequiresAuditAddr(t *testing.T) {
 		}
 	})
 }
+
+type logKeyFPSettings struct {
+	config.Runtime
+	config.LogKeyFP
+}
+
+func TestStrictEnvRequiresLogKeyFPSecret(t *testing.T) {
+	for _, env := range []string{"prod", "staging"} {
+		t.Run(env+"/unset-or-empty", func(t *testing.T) {
+			t.Setenv("ENV", env)
+			t.Setenv("LOG_KEY_FP_SECRET", "")
+			_, err := config.Load[logKeyFPSettings]()
+			if err == nil || !strings.Contains(err.Error(), "LOG_KEY_FP_SECRET") {
+				t.Fatalf("ENV=%s: err = %v, want one naming LOG_KEY_FP_SECRET", env, err)
+			}
+		})
+	}
+	t.Run("strict/set", func(t *testing.T) {
+		t.Setenv("ENV", "prod")
+		t.Setenv("LOG_KEY_FP_SECRET", "vault-secret")
+		s, err := config.Load[logKeyFPSettings]()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if s.Secret != "vault-secret" {
+			t.Errorf("Secret = %q, want vault-secret", s.Secret)
+		}
+	})
+	t.Run("local/default", func(t *testing.T) {
+		t.Setenv("ENV", "local")
+		t.Setenv("LOG_KEY_FP_SECRET", "")
+		s, err := config.Load[logKeyFPSettings]()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if s.Secret == "" {
+			t.Error("Secret is empty, want a documented local default")
+		}
+	})
+}
