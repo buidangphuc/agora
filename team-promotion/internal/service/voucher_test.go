@@ -621,3 +621,270 @@ func TestCreateVoucherPlatformStillPlatformAction(t *testing.T) {
 		t.Fatalf("events = %+v, want exactly one voucher.platform_create", evs)
 	}
 }
+
+const (
+	scopeUnspecifiedWant int32 = 0
+	scopeShopWant        int32 = 1
+	scopePlatformWant    int32 = 2
+)
+
+type scopeVoucherRepo struct {
+	repository.VoucherRepository
+	getByIDErr error
+}
+
+func (r scopeVoucherRepo) GetByID(ctx context.Context, id string) (repository.Voucher, error) {
+	if r.getByIDErr != nil {
+		return repository.Voucher{}, r.getByIDErr
+	}
+	return r.VoucherRepository.GetByID(ctx, id)
+}
+
+func newScopeSvc(t *testing.T, getByIDErr error) (*VoucherService, *repository.InMemoryReservationRepository) {
+	t.Helper()
+	vrepo := scopeVoucherRepo{VoucherRepository: repository.NewInMemoryVoucherRepository(), getByIDErr: getByIDErr}
+	rrepo := repository.NewInMemoryReservationRepository()
+	svc := NewVoucherService(vrepo, rrepo, nil, nil, nil)
+	svc.WithAudit(permissiveAudit{})
+	svc.emitter = producer.NewEmitter(&capturePublisher{}, nil)
+	return svc, rrepo
+}
+
+func scopeShopVoucher(t *testing.T, svc *VoucherService, code, seller string, mod func(*CreateVoucherParams)) repository.Voucher {
+	t.Helper()
+	p := CreateVoucherParams{Code: code, Scope: scopeShopWant, SellerID: seller, DiscountType: discountTypeFixed, DiscountValue: 1000, Quota: 5}
+	if mod != nil {
+		mod(&p)
+	}
+	return mustCreatePercentVoucher(t, svc, p)
+}
+
+func scopePlatformVoucher(t *testing.T, svc *VoucherService, code string, mod func(*CreateVoucherParams)) repository.Voucher {
+	t.Helper()
+	p := CreateVoucherParams{Code: code, Scope: scopePlatformWant, DiscountType: discountTypeFixed, DiscountValue: 1000, Quota: 5, AuditActorID: "admin-1"}
+	if mod != nil {
+		mod(&p)
+	}
+	return mustCreatePercentVoucher(t, svc, p)
+}
+
+func assertScope(t *testing.T, got ReserveResult, scope int32, seller string) {
+	t.Helper()
+	if got.Scope != scope || got.SellerID != seller {
+		t.Fatalf("scope/seller = %v/%q, want %v/%q (result %+v)", got.Scope, got.SellerID, scope, seller, got)
+	}
+}
+
+func assertNoHold(t *testing.T, rrepo *repository.InMemoryReservationRepository, id string) {
+	t.Helper()
+	if _, err := rrepo.GetByReservationID(context.Background(), id); err == nil {
+		t.Fatalf("hold %q exists, want none", id)
+	}
+}
+
+func TestValidateAndReserveReportsShopScope(t *testing.T) {
+	svc, _ := newScopeSvc(t, nil)
+	scopeShopVoucher(t, svc, "SHOP", "S1", func(p *CreateVoucherParams) { p.MinSpend = 1000 })
+	res, err := svc.ValidateAndReserve(context.Background(), "r1", "SHOP", "b", 5000, "S1")
+	if err != nil || !res.Valid {
+		t.Fatalf("res=%+v err=%v", res, err)
+	}
+	assertScope(t, res, scopeShopWant, "S1")
+}
+
+func TestValidateAndReservePlatformScopeNoSeller(t *testing.T) {
+	svc, _ := newScopeSvc(t, nil)
+	scopePlatformVoucher(t, svc, "PLAT", nil)
+	res, err := svc.ValidateAndReserve(context.Background(), "r1", "PLAT", "b", 5000, "")
+	if err != nil || !res.Valid {
+		t.Fatalf("res=%+v err=%v", res, err)
+	}
+	assertScope(t, res, scopePlatformWant, "")
+}
+
+func TestValidateAndReservePlatformIgnoresRequestSeller(t *testing.T) {
+	svc, _ := newScopeSvc(t, nil)
+	scopePlatformVoucher(t, svc, "PLAT", nil)
+	res, err := svc.ValidateAndReserve(context.Background(), "r1", "PLAT", "b", 5000, "S9")
+	if err != nil || !res.Valid {
+		t.Fatalf("res=%+v err=%v", res, err)
+	}
+	assertScope(t, res, scopePlatformWant, "")
+}
+
+func TestValidateAndReservePlatformMinSpendBoundary(t *testing.T) {
+	svc, _ := newScopeSvc(t, nil)
+	scopePlatformVoucher(t, svc, "PLAT", func(p *CreateVoucherParams) { p.MinSpend = 500000 })
+	ctx := context.Background()
+	ok, err := svc.ValidateAndReserve(ctx, "r1", "PLAT", "b", 500000, "")
+	if err != nil || !ok.Valid {
+		t.Fatalf("at min spend: %+v err=%v", ok, err)
+	}
+	assertScope(t, ok, scopePlatformWant, "")
+	low, err := svc.ValidateAndReserve(ctx, "r2", "PLAT", "b", 499999, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if low.Valid || low.Reason != "order subtotal below minimum spend" {
+		t.Fatalf("below min spend: %+v", low)
+	}
+	assertScope(t, low, scopePlatformWant, "")
+}
+
+func TestValidateAndReserveWrongSellerReportsOwnerScope(t *testing.T) {
+	svc, rrepo := newScopeSvc(t, nil)
+	scopeShopVoucher(t, svc, "SHOP", "S1", nil)
+	res, err := svc.ValidateAndReserve(context.Background(), "r1", "SHOP", "b", 5000, "S2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Valid || res.Reason != "voucher not valid for this seller" {
+		t.Fatalf("res=%+v", res)
+	}
+	assertScope(t, res, scopeShopWant, "S1")
+	assertNoHold(t, rrepo, "r1")
+}
+
+func TestValidateAndReserveShopVoucherRequiresSeller(t *testing.T) {
+	svc, rrepo := newScopeSvc(t, nil)
+	scopeShopVoucher(t, svc, "SHOP", "S1", nil)
+	res, err := svc.ValidateAndReserve(context.Background(), "r1", "SHOP", "b", 5000, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Valid || res.Reason != "voucher not valid for this seller" {
+		t.Fatalf("res=%+v", res)
+	}
+	if res.Scope != scopeShopWant {
+		t.Fatalf("scope=%v, want shop", res.Scope)
+	}
+	assertNoHold(t, rrepo, "r1")
+}
+
+func TestValidateAndReserveRejectionsReportScope(t *testing.T) {
+	now := time.Now()
+	cases := []struct {
+		name       string
+		create     func(*testing.T, *VoucherService)
+		code       string
+		sellerID   string
+		wantReason string
+		wantScope  int32
+		wantSeller string
+	}{
+		{"expired platform", func(t *testing.T, s *VoucherService) {
+			scopePlatformVoucher(t, s, "OLD", func(p *CreateVoucherParams) { p.EndsAt = now.Add(-time.Hour) })
+		}, "OLD", "", "voucher expired", scopePlatformWant, ""},
+		{"not yet active platform", func(t *testing.T, s *VoucherService) {
+			scopePlatformVoucher(t, s, "FUT", func(p *CreateVoucherParams) { p.StartsAt = now.Add(time.Hour) })
+		}, "FUT", "", "voucher not yet active", scopePlatformWant, ""},
+		{"below min spend shop", func(t *testing.T, s *VoucherService) {
+			scopeShopVoucher(t, s, "MIN", "S1", func(p *CreateVoucherParams) { p.MinSpend = 999999 })
+		}, "MIN", "S1", "order subtotal below minimum spend", scopeShopWant, "S1"},
+		{"quota exhausted shop", func(t *testing.T, s *VoucherService) {
+			v := scopeShopVoucher(t, s, "FULL", "S1", func(p *CreateVoucherParams) { p.Quota = 1 })
+			if err := s.vouchers.IncrementUsed(context.Background(), v.ID, 1); err != nil {
+				t.Fatal(err)
+			}
+		}, "FULL", "S1", "voucher quota exhausted", scopeShopWant, "S1"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, _ := newScopeSvc(t, nil)
+			tc.create(t, svc)
+			res, err := svc.ValidateAndReserve(context.Background(), "r1", tc.code, "b", 5000, tc.sellerID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.Valid || res.Reason != tc.wantReason {
+				t.Fatalf("res=%+v, want reason %q", res, tc.wantReason)
+			}
+			assertScope(t, res, tc.wantScope, tc.wantSeller)
+		})
+	}
+}
+
+func TestValidateAndReserveUnknownCodeNoScope(t *testing.T) {
+	svc, _ := newScopeSvc(t, nil)
+	for code, reason := range map[string]string{"NOPE": "voucher code not found", "": "voucher code is required"} {
+		res, err := svc.ValidateAndReserve(context.Background(), "r-"+code, code, "b", 5000, "S1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Valid || res.Reason != reason {
+			t.Fatalf("code %q: %+v", code, res)
+		}
+		assertScope(t, res, scopeUnspecifiedWant, "")
+	}
+}
+
+func TestValidateAndReserveReplayReportsStoredScope(t *testing.T) {
+	svc, _ := newScopeSvc(t, nil)
+	v := scopeShopVoucher(t, svc, "SHOP", "S1", nil)
+	scopePlatformVoucher(t, svc, "OTHER", nil)
+	ctx := context.Background()
+	first, err := svc.ValidateAndReserve(ctx, "r1", "SHOP", "b", 5000, "S1")
+	if err != nil || !first.Valid {
+		t.Fatalf("first=%+v err=%v", first, err)
+	}
+	again, err := svc.ValidateAndReserve(ctx, "r1", "OTHER", "b", 1, "S9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !again.Valid || again.DiscountAmount != first.DiscountAmount || again.VoucherID != v.ID {
+		t.Fatalf("replay changed outcome: first=%+v again=%+v", first, again)
+	}
+	assertScope(t, again, scopeShopWant, "S1")
+}
+
+func TestValidateAndReserveReleasedReplayReportsScope(t *testing.T) {
+	svc, _ := newScopeSvc(t, nil)
+	scopePlatformVoucher(t, svc, "PLAT", nil)
+	ctx := context.Background()
+	if _, err := svc.ValidateAndReserve(ctx, "r1", "PLAT", "b", 5000, ""); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := svc.ReleaseReservation(ctx, "r1"); err != nil || !ok {
+		t.Fatalf("release ok=%v err=%v", ok, err)
+	}
+	res, err := svc.ValidateAndReserve(ctx, "r1", "PLAT", "b", 5000, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Valid || res.Reason != "reservation already released" {
+		t.Fatalf("res=%+v", res)
+	}
+	assertScope(t, res, scopePlatformWant, "")
+}
+
+func TestValidateAndReserveReplayMissingVoucherNoScope(t *testing.T) {
+	svc, rrepo := newScopeSvc(t, nil)
+	_, _, err := rrepo.Create(context.Background(), repository.Reservation{
+		ReservationID: "r1", VoucherID: "ghost", BuyerID: "b", DiscountAmount: 777, Status: repository.ReservationReserved,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := svc.ValidateAndReserve(context.Background(), "r1", "ANY", "b", 5000, "S1")
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if !res.Valid || res.DiscountAmount != 777 || res.VoucherID != "ghost" {
+		t.Fatalf("stored outcome lost: %+v", res)
+	}
+	assertScope(t, res, scopeUnspecifiedWant, "")
+}
+
+func TestValidateAndReserveReplayStoreErrorPropagates(t *testing.T) {
+	boom := errors.New("db down")
+	svc, rrepo := newScopeSvc(t, boom)
+	_, _, err := rrepo.Create(context.Background(), repository.Reservation{
+		ReservationID: "r1", VoucherID: "v1", BuyerID: "b", DiscountAmount: 100, Status: repository.ReservationReserved,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ValidateAndReserve(context.Background(), "r1", "ANY", "b", 5000, ""); err == nil {
+		t.Fatal("want store error, got nil")
+	}
+}
