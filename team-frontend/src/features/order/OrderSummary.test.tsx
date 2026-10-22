@@ -8,12 +8,13 @@ import { OrderSummary } from "./OrderSummary";
 const action = <button type="button">Đi tiếp</button>;
 
 describe("OrderSummary", () => {
-  it("shows subtotal, discount, shipping and total = max(0, subtotal - discount + shipping)", () => {
+  it("Checkout coherence: the frontend adds nothing up: shows the server total unchanged even when it differs from subtotal - discount + shipping", () => {
     render(
       <OrderSummary
         itemCount={2}
         subtotal={300000}
         discount={30000}
+        total={999000}
         voucherCode="SAVE10"
         shipping={{ fee: 20000, isFree: false }}
         action={action}
@@ -26,8 +27,9 @@ describe("OrderSummary", () => {
     );
     expect(within(card).getByText("₫20.000")).toBeInTheDocument();
     expect(within(card).getByTestId("order-total")).toHaveTextContent(
-      "290.000",
+      "999.000",
     );
+    expect(within(card).queryByText("₫290.000")).toBeNull();
   });
 
   it("always renders the discount row ('-' when none) and a Freeship tag", () => {
@@ -36,6 +38,7 @@ describe("OrderSummary", () => {
         itemCount={1}
         subtotal={600000}
         discount={0}
+        total={600000}
         shipping={{ fee: 0, isFree: true }}
         action={action}
       />,
@@ -54,6 +57,7 @@ describe("OrderSummary", () => {
         itemCount={1}
         subtotal={100000}
         discount={0}
+        total={100000}
         shipping={null}
         action={action}
       />,
@@ -68,6 +72,7 @@ describe("OrderSummary", () => {
         itemCount={1}
         subtotal={100000}
         discount={0}
+        total={777000}
         shipping={{ fee: 35000, isFree: false }}
         action={action}
         mobileAction={<button type="button">Tiếp tục</button>}
@@ -76,7 +81,7 @@ describe("OrderSummary", () => {
     const bar = screen.getByTestId("mobile-summary-bar");
     expect(bar.className).toContain("lg:hidden");
     expect(bar.className).toContain("fixed");
-    expect(within(bar).getByText("135.000")).toBeInTheDocument();
+    expect(within(bar).getByText("777.000")).toBeInTheDocument();
     expect(within(bar).getByRole("button", { name: "Tiếp tục" })).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
@@ -92,6 +97,7 @@ describe("OrderSummary", () => {
         itemCount={1}
         subtotal={1}
         discount={0}
+        total={1}
         shipping={null}
         action={action}
       />,
@@ -106,6 +112,7 @@ describe("OrderSummary", () => {
     const props = {
       itemCount: 1,
       subtotal: 100000,
+      total: 100000,
       shipping: { fee: 0, isFree: true },
       action,
     };

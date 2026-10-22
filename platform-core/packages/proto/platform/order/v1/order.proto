@@ -97,6 +97,66 @@ message ReorderResponse {
 
 // ── Order Service ──
 
+// Mirrors platform.promotion.v1.VoucherScope (same names after the prefix and same numbers);
+// declared locally so this file needs no promotion import.
+enum CheckoutVoucherScope {
+  CHECKOUT_VOUCHER_SCOPE_UNSPECIFIED = 0;
+  CHECKOUT_VOUCHER_SCOPE_SHOP = 1;
+  CHECKOUT_VOUCHER_SCOPE_PLATFORM = 2;
+}
+
+message ShopVoucher {
+  string seller_id = 1;
+  string code = 2;
+}
+
+message PreviewCheckoutRequest {
+  string address_id = 1;
+  repeated string item_ids = 2;
+  repeated ShopVoucher shop_vouchers = 3;
+  string platform_voucher_code = 4;
+}
+
+message CheckoutGroupQuote {
+  string seller_id = 1;
+  repeated string item_ids = 2;
+  int64 items_subtotal = 3;
+  int64 shipping_fee = 4;
+  // Free shipping is decided per group.
+  bool is_free_shipping = 5;
+  string shop_voucher_code = 6;
+  int64 shop_discount_amount = 7;
+  int64 platform_discount_amount = 8;
+  // total_amount = items_subtotal + shipping_fee - shop_discount_amount - platform_discount_amount,
+  // clamped at 0.
+  int64 total_amount = 9;
+  // The estimate is unset when shipping_quoted is false.
+  google.protobuf.Timestamp estimated_delivery_at = 10;
+}
+
+message VoucherQuote {
+  string code = 1;
+  CheckoutVoucherScope scope = 2;
+  // Empty for a platform voucher.
+  string seller_id = 3;
+  bool valid = 4;
+  string reason = 5;
+  int64 discount_amount = 6;
+}
+
+message PreviewCheckoutResponse {
+  // Groups are sorted by seller_id; one per order that CreateOrder would place.
+  repeated CheckoutGroupQuote groups = 1;
+  repeated VoucherQuote vouchers = 2;
+  int64 items_subtotal = 3;
+  int64 shipping_fee = 4;
+  int64 discount_amount = 5;
+  int64 total_amount = 6;
+  bool shipping_quoted = 7;
+  // The buyer's own address, returned only to its owner; never stored and never logged.
+  platform.identity.v1.Address shipping_address = 8;
+}
+
 service OrderService {
   rpc CreateOrder(CreateOrderRequest) returns (CreateOrderResponse);
   rpc GetOrder(GetOrderRequest) returns (GetOrderResponse);
@@ -110,6 +170,15 @@ service OrderService {
   // when the order is not SHIPPED (e.g. already COMPLETED or CANCELLED).
   rpc ConfirmReceipt(ConfirmReceiptRequest) returns (ConfirmReceiptResponse);
   rpc CalculateShippingFee(CalculateShippingFeeRequest) returns (CalculateShippingFeeResponse);
+  // PreviewCheckout quotes a checkout: per-seller groups, shipping, vouchers and totals. It
+  // reserves nothing and writes nothing; CreateOrder places the order. A voucher that is
+  // refused is reported in vouchers[] with valid=false and a reason, not as an error. An
+  // empty selection (item_ids resolving to no cart items) fails with FAILED_PRECONDITION
+  // "cart is empty", not an empty groups list. Only the authenticated buyer may call it, on
+  // their own cart and addresses; the request carries no buyer id, and a seller or a
+  // service principal is denied (PERMISSION_DENIED). The returned shipping address is
+  // never logged.
+  rpc PreviewCheckout(PreviewCheckoutRequest) returns (PreviewCheckoutResponse);
   // Saga Orchestration & Testability (P3 Pillar)
   rpc GetSagaState(GetSagaStateRequest) returns (GetSagaStateResponse);
   rpc ForceFailSaga(ForceFailSagaRequest) returns (ForceFailSagaResponse);
@@ -317,6 +386,7 @@ message Order {
   int64 items_subtotal = 14;
   // Voucher discount applied at checkout; total_amount = items_subtotal + shipping_fee - discount_amount.
   int64 discount_amount = 15;
+  // The shop voucher applied to this order; the platform voucher is platform_voucher_code.
   string voucher_code = 16;
   // When the order was paid online; unset = never paid online (e.g. cash on delivery).
   google.protobuf.Timestamp paid_at = 17;
@@ -332,6 +402,12 @@ message Order {
   CancelReason cancel_reason = 23;
   // shipped_at + 7 days: the system completes the order then; unset otherwise.
   google.protobuf.Timestamp auto_complete_at = 24;
+  // Shared by every order of one checkout; equals the saga id of the checkout.
+  string checkout_id = 25;
+  // The platform voucher applied to the checkout, if any.
+  string platform_voucher_code = 26;
+  // This order's share of the platform voucher discount; part of discount_amount.
+  int64 platform_discount_amount = 27;
 }
 
 message ListOrderReturnsRequest {
@@ -343,12 +419,43 @@ message ListOrderReturnsResponse {
 }
 
 message CreateOrderRequest {
+  // An empty address_id means the default address; with no default the call fails with
+  // FAILED_PRECONDITION "address not found" (no first-address fallback). An id that is not
+  // the buyer's also fails with "address not found".
   string address_id = 1;
   // Optional: if empty, checkout all items in the user's cart
   repeated string item_ids = 2;
   platform.payment.v1.PaymentMethod payment_method = 3;
-  // Optional voucher code; redeemed against team-promotion during the saga.
+  // Optional voucher code; redeemed against team-promotion during the saga. This is the
+  // platform-voucher slot only: a code that is not a platform voucher is refused with
+  // FAILED_PRECONDITION and the promotion reason. Setting it together with
+  // platform_voucher_code, or repeating a code from shop_vouchers, is INVALID_ARGUMENT
+  // and nothing stays held.
   string voucher_code = 4;
+  // Shop vouchers, at most one shop voucher per seller_id (a duplicate seller_id is
+  // INVALID_ARGUMENT). A voucher applies to its seller's group and is checked against that
+  // group's min_spend. A code in the wrong slot or for another shop's group fails with
+  // FAILED_PRECONDITION and the promotion reason. Shop and platform vouchers stack. The
+  // discount of each group is clamped at 0 on the total. On failure nothing stays held.
+  // Only the authenticated buyer may send it, on their own cart and own addresses; the
+  // request carries no buyer id, and a seller or a service principal gets PERMISSION_DENIED.
+  repeated ShopVoucher shop_vouchers = 5;
+  // Platform voucher code, redeemed once for the whole selection under the reservation id
+  // platform:<checkout_id>; its discount is split across groups by integer division
+  // proportionally to items_subtotal, and the remainder goes to the largest group (ties:
+  // lowest seller_id). A shop code here is the wrong slot (FAILED_PRECONDITION, promotion
+  // reason); repeating it or setting voucher_code as well is INVALID_ARGUMENT. Nothing stays
+  // held on failure. Only the authenticated buyer may send it, on their own cart and own
+  // addresses; the request carries no buyer id, and a seller or a service principal gets
+  // PERMISSION_DENIED.
+  string platform_voucher_code = 6;
+  // Optional address the buyer confirmed (recipient_name, phone, street, ward, district,
+  // city); compared with identity's copy, and a difference fails with FAILED_PRECONDITION
+  // "address changed". If identity cannot be reached the call fails closed with UNAVAILABLE.
+  // In every address failure nothing is reserved. Only the authenticated buyer may send it,
+  // on their own cart and own addresses; the request carries no buyer id, and a seller or a
+  // service principal gets PERMISSION_DENIED.
+  platform.identity.v1.Address confirmed_address = 7;
 }
 
 message CreateOrderResponse {
@@ -410,6 +517,9 @@ message CalculateShippingFeeResponse {
   int64 shipping_fee = 1;
   bool is_free_shipping = 2;
   string message = 3;
+  int32 estimated_delivery_days = 4;
+  // now + estimated_delivery_days.
+  google.protobuf.Timestamp estimated_delivery_at = 5;
 }
 
 // ── Order Events (Kafka payload for order.events) ──

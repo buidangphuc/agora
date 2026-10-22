@@ -162,6 +162,8 @@ func (h *VoucherHandler) ValidateAndReserve(ctx context.Context, req *promotionv
 		Reason:         res.Reason,
 		DiscountAmount: res.DiscountAmount,
 		VoucherId:      res.VoucherID,
+		Scope:          promotionv1.VoucherScope(res.Scope),
+		SellerId:       res.SellerID,
 	}, nil
 }
 

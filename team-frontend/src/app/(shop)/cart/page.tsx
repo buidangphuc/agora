@@ -1,18 +1,13 @@
 import Link from "next/link";
 
-import { Alert } from "@/components/ui/Alert";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
-import { Button } from "@/components/ui/Button";
 import { Empty } from "@/components/ui/Empty";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { CartGroups } from "@/features/cart/CartGroups";
+import { CartSelection } from "@/features/cart/CartSelection";
 import { ClearCartButton } from "@/features/cart/ClearCartButton";
 import { groupByShop } from "@/features/cart/groupByShop";
-import {
-  linkButtonOutline,
-  linkButtonPrimary,
-} from "@/features/cart/linkButton";
-import { OrderSummary } from "@/features/order/OrderSummary";
+import { linkButtonPrimary } from "@/features/cart/linkButton";
 import { VoucherModal } from "@/features/voucher/VoucherModal";
 import { isCheckoutEnabled } from "@/lib/flags";
 import { getCartWithShopNames } from "@/lib/gateway/cart";
@@ -60,12 +55,10 @@ export default async function CartPage(props: {
     code ? previewVoucher(code, cart.subtotal, sellerId) : null,
     listVouchers(sellerId),
   ]);
+  const rawItems = searchParams.items;
+  const initialItems = Array.isArray(rawItems) ? rawItems[0] : rawItems;
   const applied = preview?.valid ? code : undefined;
   const discount = preview?.valid ? preview.discountAmount : 0;
-  const checkoutHref = applied
-    ? `/checkout?voucher=${encodeURIComponent(applied)}`
-    : "/checkout";
-
   return (
     <section className="space-y-4 py-2 pb-24 lg:pb-2">
       <Breadcrumb
@@ -79,60 +72,27 @@ export default async function CartPage(props: {
         <ClearCartButton />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <CartGroups groups={groups} />
-          <VoucherModal
-            vouchers={vouchers}
-            subtotal={cart.subtotal}
-            sellerId={sellerId}
-            appliedCode={applied}
-            appliedDiscount={discount}
-          />
-        </div>
-        <div>
-          <OrderSummary
-            itemCount={cart.items.length}
-            subtotal={cart.subtotal}
-            discount={discount}
-            voucherCode={applied}
-            shipping={null}
-            notice={
-              checkoutEnabled ? undefined : (
-                <Alert
-                  type="warning"
-                  description="Thanh toán tạm thời không khả dụng. Vui lòng thử lại sau."
-                />
-              )
-            }
-            action={
-              checkoutEnabled ? (
-                <Link
-                  href={checkoutHref}
-                  className={`${linkButtonPrimary} w-full`}
-                >
-                  Mua hàng
-                </Link>
-              ) : (
-                <Button size="lg" disabled className="w-full">
-                  Mua hàng
-                </Button>
-              )
-            }
-            mobileAction={
-              checkoutEnabled ? (
-                <Link href={checkoutHref} className={linkButtonPrimary}>
-                  Mua hàng
-                </Link>
-              ) : (
-                <Button size="lg" disabled>
-                  Mua hàng
-                </Button>
-              )
-            }
-          />
-        </div>
-      </div>
+      <CartSelection
+        lines={cart.items.map((i) => ({
+          id: i.id,
+          sellerId: i.sellerId,
+          unitPrice: i.unitPrice,
+          quantity: i.quantity,
+        }))}
+        initialItems={initialItems}
+        checkoutEnabled={checkoutEnabled}
+        discount={discount}
+        voucherCode={applied}
+      >
+        <CartGroups groups={groups} />
+        <VoucherModal
+          vouchers={vouchers}
+          subtotal={cart.subtotal}
+          sellerId={sellerId}
+          appliedCode={applied}
+          appliedDiscount={discount}
+        />
+      </CartSelection>
     </section>
   );
 }

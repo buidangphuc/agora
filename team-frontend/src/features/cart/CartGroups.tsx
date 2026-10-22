@@ -7,6 +7,7 @@ import { Tag } from "@/components/ui/Tag";
 import { shopLabel } from "@/lib/gateway/shops";
 import { getImageUrl } from "@/lib/media";
 import { CartQuantityControl } from "./CartQuantityControl";
+import { LineCheckbox, ShopCheckbox } from "./CartSelection";
 import type { ShopGroup } from "./groupByShop";
 
 /**
@@ -21,12 +22,18 @@ export function CartGroups({ groups }: { groups: ShopGroup[] }) {
         <Card key={group.sellerId} data-testid="cart-shop-group">
           <CardHeader>
             <CardTitle>
-              <Link
-                href={`/shop/${group.sellerId}`}
-                className="hover:text-action-primary"
-              >
-                {shopLabel(group.sellerId, group.sellerDisplayName)}
-              </Link>
+              <span className="flex items-center gap-2.5">
+                <ShopCheckbox
+                  sellerId={group.sellerId}
+                  name={shopLabel(group.sellerId, group.sellerDisplayName)}
+                />
+                <Link
+                  href={`/shop/${group.sellerId}`}
+                  className="hover:text-action-primary"
+                >
+                  {shopLabel(group.sellerId, group.sellerDisplayName)}
+                </Link>
+              </span>
             </CardTitle>
           </CardHeader>
           <ul className="divide-y divide-border-subtle">
@@ -35,6 +42,7 @@ export function CartGroups({ groups }: { groups: ShopGroup[] }) {
                 key={it.id}
                 className="flex flex-wrap gap-3 p-4 sm:flex-nowrap sm:items-center"
               >
+                <LineCheckbox id={it.id} title={it.title} />
                 <div className="w-20 shrink-0">
                   <Image
                     src={getImageUrl(it.imageUrl)}

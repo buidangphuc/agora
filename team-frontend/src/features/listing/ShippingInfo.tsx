@@ -1,4 +1,5 @@
 import { formatPrice } from "@/components/ui/format";
+import { formatDeliveryDate } from "@/features/order/deliveryDate";
 import {
   FREE_SHIPPING_THRESHOLD,
   SHIPPING_FEE_RANGE,
@@ -37,6 +38,7 @@ export function ShippingInfoFallback() {
 export async function ShippingInfo({ signedIn }: { signedIn: boolean }) {
   let city: string | null = null;
   let fee: number | null = null;
+  let date: string | null = null;
   if (signedIn) {
     const addresses = await listAddresses();
     const def = addresses.find((a) => a.isDefault);
@@ -45,6 +47,7 @@ export async function ShippingInfo({ signedIn }: { signedIn: boolean }) {
       if (quote) {
         city = def.city;
         fee = quote.shippingFee;
+        date = formatDeliveryDate(quote.estimatedDeliveryAt);
       }
     }
   }
@@ -53,6 +56,7 @@ export async function ShippingInfo({ signedIn }: { signedIn: boolean }) {
     <ShippingRow>
       Phí vận chuyển đến {city}: {formatPrice(fee)}. Miễn phí cho đơn từ{" "}
       {formatPrice(FREE_SHIPPING_THRESHOLD)}.
+      {date ? ` Nhận hàng dự kiến ${date}.` : null}
     </ShippingRow>
   );
 }

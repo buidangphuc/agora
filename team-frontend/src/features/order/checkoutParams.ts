@@ -23,7 +23,9 @@ export interface CheckoutState {
   /** Selected address id; only set when it exists in the buyer's list. */
   addr?: string;
   pay: PaymentMethod;
-  voucher?: string;
+  items: string[];
+  sv: Record<string, string>;
+  pv?: string;
 }
 
 export interface ResolvedCheckout extends CheckoutState {
@@ -34,6 +36,23 @@ export interface ResolvedCheckout extends CheckoutState {
 function first(v: string | string[] | undefined): string | undefined {
   const value = Array.isArray(v) ? v[0] : v;
   return value === undefined || value === "" ? undefined : value;
+}
+
+function parseItems(v: string | string[] | undefined): string[] {
+  const raw = first(v);
+  return raw ? raw.split(",").filter((x) => x !== "") : [];
+}
+
+function parseSv(v: string | string[] | undefined): Record<string, string> {
+  const list = Array.isArray(v) ? v : v === undefined ? [] : [v];
+  const out: Record<string, string> = {};
+  for (const entry of list) {
+    const i = entry.indexOf(":");
+    if (i <= 0 || i === entry.length - 1) continue;
+    const seller = entry.slice(0, i);
+    if (!(seller in out)) out[seller] = entry.slice(i + 1);
+  }
+  return out;
 }
 
 function isStep(v: string | undefined): v is CheckoutStep {
@@ -68,14 +87,18 @@ export function resolveCheckout(
   const valid = addresses.some((a) => a.id === rawAddr);
   const fallback = (addresses.find((a) => a.isDefault) ?? addresses[0])?.id;
   const pay = parsePay(first(raw.pay));
-  const voucher = first(raw.voucher);
+  const items = parseItems(raw.items);
+  const sv = parseSv(raw.sv);
+  const pv = first(raw.pv);
 
   if (requested !== "address" && !valid) {
     return {
       step: "address",
       addr: fallback,
       pay,
-      voucher,
+      items,
+      sv,
+      pv,
       needsRedirect: true,
     };
   }
@@ -83,18 +106,24 @@ export function resolveCheckout(
     step: requested,
     addr: valid ? rawAddr : fallback,
     pay,
-    voucher,
+    items,
+    sv,
+    pv,
     needsRedirect: false,
   };
 }
 
-/** Canonical query string for a checkout state (only ids and a promo code). */
+/** Canonical query string for a checkout state (ids and promo codes). */
 export function checkoutQuery(state: Partial<CheckoutState>): string {
   const q = new URLSearchParams();
   if (state.step) q.set("step", state.step);
   if (state.addr) q.set("addr", state.addr);
   if (state.pay !== undefined) q.set("pay", String(state.pay));
-  if (state.voucher) q.set("voucher", state.voucher);
+  if (state.items && state.items.length > 0)
+    q.set("items", state.items.join(","));
+  for (const [seller, code] of Object.entries(state.sv ?? {}))
+    q.append("sv", `${seller}:${code}`);
+  if (state.pv) q.set("pv", state.pv);
   return q.toString();
 }
 

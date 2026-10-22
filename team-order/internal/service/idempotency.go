@@ -51,6 +51,7 @@ type CheckoutOption func(*checkoutConfig)
 
 type checkoutConfig struct {
 	idempotencyKey string
+	vouchers       *voucherSlots
 }
 
 // WithIdempotencyKey makes the checkout idempotent on key for this buyer. The key

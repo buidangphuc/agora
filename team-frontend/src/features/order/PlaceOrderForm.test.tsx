@@ -1,8 +1,10 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { CheckoutVoucherScope } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { trackEcommerce } from "@/lib/analytics";
+import type { ViewVoucherQuote } from "@/lib/gateway/orders";
 import { setupUser } from "@/test/user";
 
 import { CheckoutPendingProvider } from "./CheckoutPending";
@@ -12,6 +14,11 @@ import {
   type PlaceOrderFormProps,
 } from "./PlaceOrderForm";
 import { checkoutAction } from "./actions";
+import {
+  ADDRESS_CHANGED_MESSAGE,
+  ADDRESS_NOT_FOUND_MESSAGE,
+  UNAVAILABLE_RETRY_MESSAGE,
+} from "./shippingCopy";
 
 const toast = vi.hoisted(() => ({
   success: vi.fn(),
@@ -37,10 +44,33 @@ function deferred() {
   return { promise, resolve };
 }
 
+const CONFIRMED = {
+  recipientName: "Nguyễn An",
+  phone: "0901234567",
+  street: "12 Lê Lợi",
+  ward: "Hải Châu 1",
+  district: "Hải Châu",
+  city: "Đà Nẵng",
+};
+
+const quote = (over: Partial<ViewVoucherQuote>): ViewVoucherQuote => ({
+  code: "SAVE10",
+  scope: CheckoutVoucherScope.PLATFORM,
+  sellerId: "",
+  valid: true,
+  reason: "",
+  discountAmount: 10000,
+  ...over,
+});
+
+const PLATFORM_OK = quote({});
+
 const props: PlaceOrderFormProps = {
   addressId: "a1",
   method: PaymentMethod.MOCK_MOMO,
-  voucherCode: "SAVE10",
+  vouchers: [PLATFORM_OK],
+  itemIds: ["l1"],
+  confirmedAddress: CONFIRMED,
   total: 290000,
   shippingTier: "STANDARD",
   items: [
@@ -75,13 +105,15 @@ describe("PlaceOrderForm double-submit guard", () => {
       fireEvent.click(btn);
     });
     expect(checkoutAction).toHaveBeenCalledTimes(1);
-    expect(checkoutAction).toHaveBeenCalledWith(
-      "a1",
-      undefined,
-      PaymentMethod.MOCK_MOMO,
-      "SAVE10",
-      expect.any(String),
-    );
+    expect(checkoutAction).toHaveBeenCalledWith({
+      addressId: "a1",
+      itemIds: ["l1"],
+      paymentMethod: PaymentMethod.MOCK_MOMO,
+      shopVouchers: [],
+      platformVoucherCode: "SAVE10",
+      confirmedAddress: CONFIRMED,
+      idempotencyKey: expect.any(String),
+    });
 
     await act(async () => {
       d.resolve({
@@ -91,15 +123,17 @@ describe("PlaceOrderForm double-submit guard", () => {
       await d.promise;
     });
     expect(trackEcommerce).toHaveBeenCalledTimes(1);
-    expect(trackEcommerce).toHaveBeenCalledWith("purchase", {
-      transactionId: "o1",
-      currency: "VND",
-      value: 290000,
-      coupon: "SAVE10",
-      shippingTier: "STANDARD",
-      paymentType: String(PaymentMethod.MOCK_MOMO),
-      items: props.items,
-    });
+    expect(trackEcommerce).toHaveBeenCalledWith(
+      "purchase",
+      expect.objectContaining({
+        transactionId: "o1",
+        currency: "VND",
+        value: 290000,
+        shippingTier: "STANDARD",
+        paymentType: String(PaymentMethod.MOCK_MOMO),
+        items: props.items,
+      }),
+    );
     expect(nav.push).toHaveBeenCalledWith("/pay/o1");
   });
 
@@ -290,7 +324,7 @@ describe("PlaceOrderForm idempotency key", () => {
       screen.getAllByRole("button", { name: "Đặt hàng" })[0] as HTMLElement,
     );
   const keyOf = (call: number) =>
-    vi.mocked(checkoutAction).mock.calls[call]?.[4];
+    vi.mocked(checkoutAction).mock.calls[call]?.[0]?.idempotencyKey;
 
   it("two submits of one attempt send the same key", async () => {
     const user = setupUser();
@@ -306,14 +340,14 @@ describe("PlaceOrderForm idempotency key", () => {
   it("a changed voucher sends a new key", async () => {
     const user = setupUser();
     vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
-    const ui = (voucherCode?: string) => (
+    const ui = (vouchers: ViewVoucherQuote[]) => (
       <CheckoutPendingProvider>
-        <PlaceOrderForm {...props} voucherCode={voucherCode} />
+        <PlaceOrderForm {...props} vouchers={vouchers} />
       </CheckoutPendingProvider>
     );
-    const { rerender } = render(ui("SAVE10"));
+    const { rerender } = render(ui([PLATFORM_OK]));
     await place(user);
-    rerender(ui(undefined));
+    rerender(ui([]));
     await place(user);
     expect(keyOf(1)).toBeTruthy();
     expect(keyOf(1)).not.toBe(keyOf(0));
@@ -358,5 +392,170 @@ describe("PlaceOrderForm idempotency key", () => {
       "Đơn hàng đang được xử lý",
     );
     expect(screen.getByRole("button", { name: "Thử lại" })).toBeInTheDocument();
+  });
+});
+
+describe("PlaceOrderForm checkout coherence", () => {
+  const place = async (user: ReturnType<typeof setupUser>) =>
+    user.click(
+      screen.getAllByRole("button", { name: "Đặt hàng" })[0] as HTMLElement,
+    );
+  const firstArg = () => vi.mocked(checkoutAction).mock.calls[0]?.[0];
+
+  it("Checkout coherence: only valid vouchers are placed - sends only valid vouchers in scoped slots", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
+    render(
+      <CheckoutPendingProvider>
+        <PlaceOrderForm
+          {...props}
+          vouchers={[
+            quote({
+              code: "SHOPA",
+              scope: CheckoutVoucherScope.SHOP,
+              sellerId: "s1",
+            }),
+            quote({
+              code: "SHOPBAD",
+              scope: CheckoutVoucherScope.SHOP,
+              sellerId: "s2",
+              valid: false,
+              reason: "forbidden scope",
+              discountAmount: 0,
+            }),
+            quote({ code: "PLATBAD", valid: false, reason: "expired" }),
+          ]}
+        />
+      </CheckoutPendingProvider>,
+    );
+    await place(user);
+    expect(checkoutAction).toHaveBeenCalledTimes(1);
+    const arg = firstArg();
+    expect(arg?.shopVouchers).toEqual([{ sellerId: "s1", code: "SHOPA" }]);
+    expect(arg?.platformVoucherCode ?? "").toBe("");
+    expect(arg).not.toHaveProperty("voucherCode");
+    expect(arg).not.toHaveProperty("voucher_code");
+  });
+
+  it("Checkout coherence: only valid vouchers are placed - a valid platform voucher goes to the platform slot only", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
+    setup();
+    await place(user);
+    const arg = firstArg();
+    expect(arg?.platformVoucherCode).toBe("SAVE10");
+    expect(arg?.shopVouchers ?? []).toEqual([]);
+  });
+
+  it("Checkout coherence: the confirmed address is sent with the order - sends the confirmed address", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
+    setup();
+    await place(user);
+    const arg = firstArg();
+    expect(arg?.addressId).toBe("a1");
+    expect(arg?.confirmedAddress).toEqual(CONFIRMED);
+  });
+
+  it("Checkout coherence: the confirmed address is sent with the order - a different confirmed address is a new attempt key", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
+    const ui = (city: string) => (
+      <CheckoutPendingProvider>
+        <PlaceOrderForm {...props} confirmedAddress={{ ...CONFIRMED, city }} />
+      </CheckoutPendingProvider>
+    );
+    const { rerender } = render(ui("Đà Nẵng"));
+    await place(user);
+    rerender(ui("Hà Nội"));
+    await place(user);
+    const keys = vi
+      .mocked(checkoutAction)
+      .mock.calls.map((c) => c[0]?.idempotencyKey);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBeTruthy();
+    expect(keys[1]).not.toBe(keys[0]);
+  });
+
+  it("Checkout coherence: an edited address is refused and refreshed - unlocks, refreshes once and tracks no purchase", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({
+      ok: false,
+      error: ADDRESS_CHANGED_MESSAGE,
+      addressChanged: true,
+    } as Res);
+    setup();
+    await place(user);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      ADDRESS_CHANGED_MESSAGE,
+    );
+    expect(nav.refresh).toHaveBeenCalledTimes(1);
+    for (const b of screen.getAllByRole("button", { name: "Đặt hàng" })) {
+      expect(b).toBeEnabled();
+    }
+    expect(trackEcommerce).not.toHaveBeenCalled();
+    expect(nav.push).not.toHaveBeenCalled();
+  });
+
+  it("Checkout coherence: a missing address is explained - shows the message with a link to the address step", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({
+      ok: false,
+      error: ADDRESS_NOT_FOUND_MESSAGE,
+      addressNotFound: true,
+    } as Res);
+    setup();
+    await place(user);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      ADDRESS_NOT_FOUND_MESSAGE,
+    );
+    const link = screen.getByRole("link", { name: /địa chỉ/i });
+    expect(link.getAttribute("href")).toContain("step=address");
+    expect(nav.refresh).not.toHaveBeenCalled();
+    expect(trackEcommerce).not.toHaveBeenCalled();
+    expect(
+      screen.getAllByRole("button", { name: "Đặt hàng" })[0],
+    ).toBeEnabled();
+  });
+
+  it("Checkout coherence: a missing address is explained - an ordinary failure shows no address link", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
+    setup();
+    await place(user);
+    expect(screen.queryByRole("link", { name: /địa chỉ/i })).toBeNull();
+  });
+
+  it("Checkout coherence: an identity outage asks the buyer to retry - unlocks and retries with the same key", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({
+      ok: false,
+      error: UNAVAILABLE_RETRY_MESSAGE,
+    });
+    setup();
+    await place(user);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      UNAVAILABLE_RETRY_MESSAGE,
+    );
+    expect(nav.refresh).not.toHaveBeenCalled();
+    await place(user);
+    const keys = vi
+      .mocked(checkoutAction)
+      .mock.calls.map((c) => c[0]?.idempotencyKey);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  it("Checkout coherence: placing an online order goes to the first pay page - the form navigates to the returned pay url", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({
+      ok: true,
+      data: { orderIds: ["o1", "o2"], paymentUrl: "/checkout/pay/o1" },
+    });
+    setup();
+    await place(user);
+    expect(nav.push).toHaveBeenCalledTimes(1);
+    expect(nav.push).toHaveBeenCalledWith("/checkout/pay/o1");
   });
 });

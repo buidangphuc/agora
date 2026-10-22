@@ -182,6 +182,8 @@ type ReserveResult struct {
 	Reason         string
 	DiscountAmount int64
 	VoucherID      string
+	Scope          int32
+	SellerID       string
 }
 
 // ValidateAndReserve validates a voucher against a cart and places an idempotent
@@ -198,10 +200,19 @@ func (s *VoucherService) ValidateAndReserve(ctx context.Context, reservationID, 
 	// original discount regardless of the (possibly re-sent) request fields.
 	existing, err := s.reservations.GetByReservationID(ctx, reservationID)
 	if err == nil {
-		if existing.Status == repository.ReservationReleased {
-			return ReserveResult{Valid: false, Reason: "reservation already released"}, nil
+		var scope int32
+		var owner string
+		stored, gerr := s.vouchers.GetByID(ctx, existing.VoucherID)
+		switch {
+		case gerr == nil:
+			scope, owner = stored.Scope, stored.SellerID
+		case !errors.Is(gerr, repository.ErrVoucherNotFound):
+			return ReserveResult{}, gerr
 		}
-		return ReserveResult{Valid: true, DiscountAmount: existing.DiscountAmount, VoucherID: existing.VoucherID}, nil
+		if existing.Status == repository.ReservationReleased {
+			return ReserveResult{Valid: false, Reason: "reservation already released", Scope: scope, SellerID: owner}, nil
+		}
+		return ReserveResult{Valid: true, DiscountAmount: existing.DiscountAmount, VoucherID: existing.VoucherID, Scope: scope, SellerID: owner}, nil
 	}
 	if !errors.Is(err, repository.ErrReservationNotFound) {
 		return ReserveResult{}, err
@@ -220,7 +231,7 @@ func (s *VoucherService) ValidateAndReserve(ctx context.Context, reservationID, 
 	}
 
 	if reason, ok := s.validate(voucher, cartSubtotal, sellerID); !ok {
-		return ReserveResult{Valid: false, Reason: reason}, nil
+		return ReserveResult{Valid: false, Reason: reason, Scope: voucher.Scope, SellerID: voucher.SellerID}, nil
 	}
 
 	discount := computeDiscount(voucher, cartSubtotal)
@@ -237,7 +248,7 @@ func (s *VoucherService) ValidateAndReserve(ctx context.Context, reservationID, 
 	if err != nil {
 		return ReserveResult{}, err
 	}
-	return ReserveResult{Valid: true, DiscountAmount: stored.DiscountAmount, VoucherID: stored.VoucherID}, nil
+	return ReserveResult{Valid: true, DiscountAmount: stored.DiscountAmount, VoucherID: stored.VoucherID, Scope: voucher.Scope, SellerID: voucher.SellerID}, nil
 }
 
 // validate applies the rejection rules; returns (reason, false) on the first miss.

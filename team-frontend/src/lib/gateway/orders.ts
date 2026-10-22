@@ -4,6 +4,8 @@ import { Code, ConnectError } from "@connectrpc/connect";
 
 import {
   CancelReason,
+  type CheckoutGroupQuote,
+  CheckoutVoucherScope,
   type Order,
   type OrderItem,
   type OrderReturn,
@@ -13,6 +15,7 @@ import {
   type Shipment,
   type ShipmentCheckpoint,
   ShipmentStatus,
+  type VoucherQuote,
 } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { makeClients } from "./client.js";
@@ -48,6 +51,9 @@ export interface ViewOrder {
   currency: string;
   discountAmount: number;
   voucherCode: string;
+  checkoutId: string;
+  platformVoucherCode: string;
+  platformDiscountAmount: number;
   recipientName: string;
   phone: string;
   addressFull: string;
@@ -134,6 +140,9 @@ function mapOrder(o: Order): ViewOrder {
     currency: o.currency || "VND",
     discountAmount: Number(o.discountAmount) || 0,
     voucherCode: o.voucherCode || "",
+    checkoutId: o.checkoutId || "",
+    platformVoucherCode: o.platformVoucherCode || "",
+    platformDiscountAmount: Number(o.platformDiscountAmount) || 0,
     recipientName: addr?.recipientName ?? "",
     phone: addr?.phone ?? "",
     addressFull,
@@ -160,6 +169,7 @@ export async function calculateShippingFee(
   shippingFee: number;
   isFreeShipping: boolean;
   message: string;
+  estimatedDeliveryAt: string | null;
 } | null> {
   try {
     const res = await gateway().order.calculateShippingFee(
@@ -170,24 +180,51 @@ export async function calculateShippingFee(
       shippingFee: Number(res.shippingFee),
       isFreeShipping: res.isFreeShipping,
       message: res.message,
+      estimatedDeliveryAt: res.estimatedDeliveryAt
+        ? isoTs(res.estimatedDeliveryAt)
+        : null,
     };
   } catch {
     return null;
   }
 }
 
+export interface ShopVoucherInput {
+  sellerId: string;
+  code: string;
+}
+
+export interface ConfirmedAddressInput {
+  recipientName: string;
+  phone: string;
+  street: string;
+  ward: string;
+  district: string;
+  city: string;
+}
+
+export interface CreateOrderOptions {
+  shopVouchers?: ShopVoucherInput[];
+  platformVoucherCode?: string;
+  confirmedAddress?: ConfirmedAddressInput;
+}
+
 export async function createOrder(
   addressId?: string,
   itemIds?: string[],
   paymentMethod?: PaymentMethod,
-  voucherCode?: string,
   idempotencyKey?: string,
+  opts: CreateOrderOptions = {},
 ): Promise<ViewOrder[]> {
   const req = {
     addressId: addressId ?? "",
     itemIds: itemIds ?? [],
     paymentMethod: paymentMethod ?? PaymentMethod.COD,
-    voucherCode: voucherCode ?? "",
+    shopVouchers: opts.shopVouchers ?? [],
+    platformVoucherCode: opts.platformVoucherCode ?? "",
+    ...(opts.confirmedAddress
+      ? { confirmedAddress: opts.confirmedAddress }
+      : {}),
   };
   // One key per checkout attempt: the gateway forwards it to team-order, which
   // replays the same orders for a repeated key instead of placing a second set.
@@ -197,6 +234,119 @@ export async function createOrder(
       })
     : await gateway().order.createOrder(req);
   return res.orders.map(mapOrder);
+}
+
+export interface ViewCheckoutGroup {
+  sellerId: string;
+  itemIds: string[];
+  itemsSubtotal: number;
+  shippingFee: number;
+  isFreeShipping: boolean;
+  shopVoucherCode: string;
+  shopDiscountAmount: number;
+  platformDiscountAmount: number;
+  totalAmount: number;
+  estimatedDeliveryAt: string | null;
+}
+
+export interface ViewVoucherQuote {
+  code: string;
+  scope: CheckoutVoucherScope;
+  sellerId: string;
+  valid: boolean;
+  reason: string;
+  discountAmount: number;
+}
+
+export interface ViewCheckoutPreview {
+  groups: ViewCheckoutGroup[];
+  vouchers: ViewVoucherQuote[];
+  itemsSubtotal: number;
+  shippingFee: number;
+  discountAmount: number;
+  totalAmount: number;
+  shippingQuoted: boolean;
+  shippingAddress: {
+    id: string;
+    recipientName: string;
+    phone: string;
+    street: string;
+    ward: string;
+    district: string;
+    city: string;
+  } | null;
+}
+
+export interface PreviewCheckoutInput {
+  addressId?: string;
+  itemIds: string[];
+  shopVouchers?: ShopVoucherInput[];
+  platformVoucherCode?: string;
+}
+
+function mapGroup(g: CheckoutGroupQuote): ViewCheckoutGroup {
+  return {
+    sellerId: g.sellerId,
+    itemIds: g.itemIds,
+    itemsSubtotal: Number(g.itemsSubtotal),
+    shippingFee: Number(g.shippingFee),
+    isFreeShipping: g.isFreeShipping,
+    shopVoucherCode: g.shopVoucherCode,
+    shopDiscountAmount: Number(g.shopDiscountAmount),
+    platformDiscountAmount: Number(g.platformDiscountAmount),
+    totalAmount: Number(g.totalAmount),
+    estimatedDeliveryAt: g.estimatedDeliveryAt
+      ? isoTs(g.estimatedDeliveryAt)
+      : null,
+  };
+}
+
+function mapVoucherQuote(v: VoucherQuote): ViewVoucherQuote {
+  return {
+    code: v.code,
+    scope: v.scope,
+    sellerId: v.sellerId,
+    valid: v.valid,
+    reason: v.reason,
+    discountAmount: Number(v.discountAmount),
+  };
+}
+
+/** Server quote for the checkout selection. A failed call throws so the page
+ * shows no total instead of a guessed one. */
+export async function previewCheckout(
+  input: PreviewCheckoutInput,
+): Promise<ViewCheckoutPreview> {
+  const res = await gateway().order.previewCheckout(
+    {
+      addressId: input.addressId ?? "",
+      itemIds: input.itemIds,
+      shopVouchers: input.shopVouchers ?? [],
+      platformVoucherCode: input.platformVoucherCode ?? "",
+    },
+    { timeoutMs: 5000 },
+  );
+  const a = res.shippingAddress;
+  return {
+    groups: res.groups.map(mapGroup),
+    vouchers: res.vouchers.map(mapVoucherQuote),
+    itemsSubtotal: Number(res.itemsSubtotal),
+    shippingFee: Number(res.shippingFee),
+    discountAmount: Number(res.discountAmount),
+    totalAmount: Number(res.totalAmount),
+    shippingQuoted: res.shippingQuoted,
+    shippingAddress: a
+      ? {
+          id: a.id,
+          recipientName: a.recipientName,
+          phone: a.phone,
+          street: a.street,
+          ward: a.ward,
+          district: a.district,
+          city: a.city,
+        }
+      : null,
+  };
 }
 
 export async function getOrder(id: string): Promise<ViewOrder | null> {
