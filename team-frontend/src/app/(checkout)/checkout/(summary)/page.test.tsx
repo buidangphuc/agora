@@ -2,6 +2,7 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { CheckoutVoucherScope } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { isCheckoutEnabled } from "@/lib/flags";
 import type { ViewAddress } from "@/lib/gateway/addresses";
@@ -551,4 +552,136 @@ describe("/checkout keeps no local shipping, voucher or total rule", () => {
       expect(previewVoucher).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("/checkout scoped vouchers", () => {
+  beforeEach(() => {
+    vi.mocked(getCart).mockResolvedValue({
+      userId: "u1",
+      items: [
+        item(300000, 1, { id: "ci1", sellerId: "s1", title: "Áo A" }),
+        item(300000, 1, { id: "ci2", sellerId: "s2", title: "Áo B" }),
+      ],
+      subtotal: 600000,
+      totalItems: 2,
+    });
+  });
+
+  it("Checkout coherence: shop and platform vouchers go to their own slots: vouchers are sent in their own slots", async () => {
+    setPreview(
+      preview({
+        groups: [
+          group("s1", {
+            itemIds: ["ci1"],
+            itemsSubtotal: 300000,
+            shopVoucherCode: "SHOPA10",
+            shopDiscountAmount: 30000,
+            platformDiscountAmount: 2500,
+            totalAmount: 307500,
+          }),
+          group("s2", {
+            itemIds: ["ci2"],
+            itemsSubtotal: 300000,
+            platformDiscountAmount: 2500,
+            totalAmount: 332500,
+          }),
+        ],
+        vouchers: [
+          {
+            code: "SHOPA10",
+            scope: CheckoutVoucherScope.SHOP,
+            sellerId: "s1",
+            valid: true,
+            reason: "",
+            discountAmount: 30000,
+          },
+          {
+            code: "PLAT5",
+            scope: CheckoutVoucherScope.PLATFORM,
+            sellerId: "",
+            valid: true,
+            reason: "",
+            discountAmount: 5000,
+          },
+        ],
+        itemsSubtotal: 600000,
+        shippingFee: 70000,
+        discountAmount: 35000,
+        totalAmount: 635000,
+      }),
+    );
+    await go({ step: "payment", addr: "a1", sv: "s1:SHOPA10", pv: "PLAT5" });
+    expect(previewCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shopVouchers: [{ sellerId: "s1", code: "SHOPA10" }],
+        platformVoucherCode: "PLAT5",
+      }),
+    );
+    expect(screen.getByTestId("shop-voucher-s1")).toBeInTheDocument();
+    expect(screen.getByTestId("shop-voucher-s2")).toBeInTheDocument();
+    expect(screen.getByTestId("platform-voucher")).toBeInTheDocument();
+    expect(screen.getByTestId("shop-discount-s1")).toHaveTextContent("30.000");
+    expect(screen.getByTestId("platform-share-s1")).toHaveTextContent("2.500");
+    expect(screen.getByTestId("shop-discount-s2").textContent?.trim()).toBe(
+      "-",
+    );
+    expect(screen.getByTestId("platform-share-s2")).toHaveTextContent("2.500");
+  });
+
+  it("Checkout coherence: shop and platform vouchers go to their own slots: available vouchers are listed per group seller", async () => {
+    await go({ step: "payment", addr: "a1" });
+    expect(listVouchers).toHaveBeenCalledWith("s1");
+    expect(listVouchers).toHaveBeenCalledWith("s2");
+  });
+
+  it("Checkout coherence: an invalid voucher shows its reason and no discount: invalid voucher shows its reason", async () => {
+    setPreview(
+      preview({
+        groups: [
+          group("s1", {
+            itemIds: ["ci1"],
+            itemsSubtotal: 300000,
+            shippingFee: 35000,
+            totalAmount: 335000,
+          }),
+          group("s2", {
+            itemIds: ["ci2"],
+            itemsSubtotal: 300000,
+            shippingFee: 35000,
+            totalAmount: 335000,
+          }),
+        ],
+        vouchers: [
+          {
+            code: "SHOPA10",
+            scope: CheckoutVoucherScope.SHOP,
+            sellerId: "s2",
+            valid: false,
+            reason: "voucher belongs to another shop",
+            discountAmount: 0,
+          },
+        ],
+        itemsSubtotal: 600000,
+        shippingFee: 70000,
+        discountAmount: 0,
+        totalAmount: 670000,
+      }),
+    );
+    await go({ step: "payment", addr: "a1", sv: "s2:SHOPA10" });
+    const b = screen.getByTestId("shop-voucher-s2");
+    expect(
+      within(b).getByText("voucher belongs to another shop"),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("shop-voucher-s1")).queryByText(
+        "voucher belongs to another shop",
+      ),
+    ).toBeNull();
+    expect(screen.getByTestId("shop-discount-s2").textContent?.trim()).toBe(
+      "-",
+    );
+    expect(
+      within(screen.getByTestId("order-summary")).getByTestId("order-total"),
+    ).toHaveTextContent("670.000");
+  });
 });
