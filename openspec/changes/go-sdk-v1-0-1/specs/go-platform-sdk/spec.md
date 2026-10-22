@@ -103,7 +103,7 @@ The SDK SHALL provide the settings group `config.MockData` with variable `MOCK_D
 
 ### Requirement: Privileged actions are audit-first and fail closed
 
-`pkg/auditx` SHALL provide `config.Audit` with variable `UPSTREAM_AUDIT_ADDR`, which `Load` SHALL require (non-empty) when `Runtime.IsStrict()` and leave empty otherwise. `auditx.Dial(cfg config.Audit, serviceID string, scopes ...string) (*grpc.ClientConn, error)` SHALL return a lazy connection whose calls carry a service principal (`upstream.AsService`), and SHALL return a nil connection and no error when the address is empty. The SDK SHALL define `auditx.Event{ActorID, Action, TargetType, TargetID string; Metadata map[string]string}` and the interface `auditx.Writer` with `WriteAuditEvent(ctx, Event) error`, which a service implements over the generated `platform.audit.v1.AuditService.WriteAuditEvent` client (design.md D2). `auditx.NewGate(w Writer, logger *slog.Logger) *Gate` and `Gate.Do(ctx, ev, action func(context.Context) error) error` SHALL bound the write by the earlier of the caller deadline and `upstream.DefaultTimeout` (2s), write the event first and call `action` only when the write succeeded. When `w` is nil or the write returns an error, `Do` SHALL NOT call `action`, SHALL log the cause, and SHALL return a gRPC status with code `Unavailable` and message `audit trail unavailable`, which never contains the cause. An error returned by `action` SHALL be returned unchanged.
+`pkg/auditx` SHALL provide `config.Audit` with variable `UPSTREAM_AUDIT_ADDR`, which `Load` SHALL require (non-empty) when `Runtime.IsStrict()` and leave empty otherwise. `auditx.Dial(cfg config.Audit, serviceID string, scopes ...string) (*grpc.ClientConn, error)` SHALL return a lazy connection whose calls carry a service principal (`upstream.AsService`), and SHALL return a nil connection and no error when the address is empty. The SDK SHALL define `auditx.Event{ActorID, Action, TargetType, TargetID string; Metadata map[string]string}` and the interface `auditx.Writer` with `WriteAuditEvent(ctx, Event) error`, which a service implements over the generated `platform.audit.v1.AuditService.WriteAuditEvent` client (design.md D2). `auditx.NewGate(w Writer, logger *slog.Logger) *Gate` and `Gate.Do(ctx, ev, action func(context.Context) error) error` SHALL bound the write by the earlier of the caller deadline and `upstream.DefaultTimeout` (2s), write the event first and call `action` only when the write succeeded. When `w` is nil or the write returns an error, `Do` SHALL NOT call `action`, SHALL log only `action`, `target_type` and, for a write error, its gRPC status code (`status.Code(err)`), never `target_id` or the error text, and SHALL return a gRPC status with code `Unavailable` and message `audit trail unavailable`, which never contains the cause. An error returned by `action` SHALL be returned unchanged.
 
 #### Scenario: A successful audit write lets the action run once
 - **WHEN** `Gate.Do` is called with a writer that succeeds
@@ -114,6 +114,11 @@ The SDK SHALL provide the settings group `config.MockData` with variable `MOCK_D
 - **WHEN** `Gate.Do` is called with a writer that returns `errors.New("dial tcp 10.0.0.9: refused")`
 - **THEN** `action` ran zero times, the code is `Unavailable`, the message is `audit trail unavailable` and does not contain `10.0.0.9`
 - **VERIFIED BY**: `platform-core/packages/go-sdk/pkg/auditx` `TestDoFailsClosedOnWriteError`
+
+#### Scenario: A failed audit write logs no ids or error text
+- **WHEN** `Gate.Do` is called with target id `listing-8f3a9c`, once with a writer that returns `status.Error(codes.Unavailable, "dial tcp 10.0.0.9: refused")` and once on a gate with a nil writer
+- **THEN** both log records carry `action` and `target_type`, the first also carries code `Unavailable`, and neither contains `listing-8f3a9c`, `10.0.0.9` or the error text
+- **VERIFIED BY**: `platform-core/packages/go-sdk/pkg/auditx` `TestDoFailureLogsNoTargetOrErrorText`
 
 #### Scenario: A missing writer refuses the action
 - **WHEN** `Gate.Do` is called on a gate built with a nil writer

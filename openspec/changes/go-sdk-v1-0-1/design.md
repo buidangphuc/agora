@@ -14,7 +14,7 @@ The request fields map one to one: `Event.ActorID/Action/TargetType/TargetID/Met
 
 ## D3. Fail-closed message and logging
 
-The gate returns `Unavailable` with the fixed text `audit trail unavailable` (exported as `auditx.Message`). team-order currently appends `; action not performed`; team-promotion uses the short text. The short text is chosen because it is the message the plan names; per-service migrations must align their tests. A nil writer is treated as an outage (promotion returns "audit trail not configured" today; the SDK does not distinguish, the cause is logged). The cause is logged by the gate (error level, with action and target id) and never returned.
+The gate returns `Unavailable` with the fixed text `audit trail unavailable` (exported as `auditx.Message`). team-order currently appends `; action not performed`; team-promotion uses the short text. The short text is chosen because it is the message the plan names; per-service migrations must align their tests. A nil writer is treated as an outage (promotion returns "audit trail not configured" today; the SDK does not distinguish). The gate logs the failure at error level with only the action, the target type and the writer error's gRPC status code; it never logs the target id or the error text, and never returns the cause.
 
 ## D4. MockData in config, not only in mockdata
 

@@ -51,13 +51,13 @@ func NewGate(w Writer, logger *slog.Logger) *Gate {
 // Message. The action's own error is returned unchanged.
 func (g *Gate) Do(ctx context.Context, ev Event, action func(context.Context) error) error {
 	if g.w == nil {
-		g.logger.ErrorContext(ctx, "audit write skipped: no writer", "action", ev.Action, "target_id", ev.TargetID)
+		g.logger.ErrorContext(ctx, "audit write skipped: no writer", "action", ev.Action, "target_type", ev.TargetType)
 		return status.Error(codes.Unavailable, Message)
 	}
 	wctx, cancel := context.WithTimeout(ctx, writeTimeout)
 	defer cancel()
 	if err := g.w.WriteAuditEvent(wctx, ev); err != nil {
-		g.logger.ErrorContext(ctx, "audit write failed", "action", ev.Action, "target_id", ev.TargetID, "error", err.Error())
+		g.logger.ErrorContext(ctx, "audit write failed", "action", ev.Action, "target_type", ev.TargetType, "code", status.Code(err))
 		return status.Error(codes.Unavailable, Message)
 	}
 	return action(ctx)

@@ -6404,6 +6404,22 @@ features:
     status: not-testable
     notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auditx TestDoFailsClosedOnWriteError."
 
+  - id: go-sdk.a-failed-audit-write-logs-no-ids-or-error-text
+    title: "A failed audit write logs no ids or error text"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `Gate.Do` is called with target id `listing-8f3a9c`, once with a writer that returns `status.Error(codes.Unavailable, \"dial tcp 10.0.0.9: refused\")` and once on a gate with a nil writer"
+    - "Then both log records carry `action` and `target_type`, the first also carries code `Unavailable`, and neither contains `listing-8f3a9c`, `10.0.0.9` or the error text"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auditx TestDoFailureLogsNoTargetOrErrorText."
+
   - id: go-sdk.a-missing-writer-refuses-the-action
     title: "A missing writer refuses the action"
     persona: guest
