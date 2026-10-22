@@ -109,6 +109,12 @@ def resolved_has_og_meta(ctx: dict) -> None:
     assert og.get("title"), f"ogMeta has no title: {og}"
 
 
+@then("the resolved link has click count 1")
+def resolved_click_count_one(ctx: dict) -> None:
+    count = int(ctx["resolved"].get("clickCount", 0))
+    assert count == 1, f"first resolve must report click_count 1: {ctx['resolved']}"
+
+
 # ── Verification ──────────────────────────────────────────────────────────
 @when("the buyer submits a KYC document")
 def submit_kyc(ctx: dict) -> None:
