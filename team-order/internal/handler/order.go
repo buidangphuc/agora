@@ -193,11 +193,14 @@ func idempotencyKeyFromContext(ctx context.Context) (string, error) {
 }
 
 func (h *OrderHandler) CalculateShippingFee(_ context.Context, req *orderv1.CalculateShippingFeeRequest) (*orderv1.CalculateShippingFeeResponse, error) {
-	fee, isFree, msg := h.svc.CalculateShippingFee(req.GetCity(), req.GetItemsSubtotal())
+	fee, isFree, msg, days, at := h.svc.CalculateShippingFee(req.GetCity(), req.GetItemsSubtotal())
 	return &orderv1.CalculateShippingFeeResponse{
 		ShippingFee:    fee,
 		IsFreeShipping: isFree,
 		Message:        msg,
+
+		EstimatedDeliveryDays: days,
+		EstimatedDeliveryAt:   timestamppb.New(at),
 	}, nil
 }
 
