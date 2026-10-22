@@ -366,6 +366,12 @@ func TestEngagementHandler(t *testing.T) {
 		}); status.Code(err) != codes.Unauthenticated {
 			t.Fatalf("expected Unauthenticated for anonymous, got %v", err)
 		}
+		if _, err = h.ResolveDispute(adminCtx, &engagementv1.ResolveDisputeRequest{
+			DisputeId: dispID,
+			Status:    engagementv1.DisputeStatus_DISPUTE_STATUS_INVESTIGATING,
+		}); err != nil {
+			t.Fatalf("unexpected error investigating dispute: %v", err)
+		}
 		resRes, err := h.ResolveDispute(adminCtx, &engagementv1.ResolveDisputeRequest{
 			DisputeId:  dispID,
 			Status:     engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED,

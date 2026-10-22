@@ -23,13 +23,15 @@ func TestOnlyAdminsCanReadTheChannelFunnel_PolicyEntry(t *testing.T) {
 
 // The admin policy set is pinned: changing it is a spec change.
 // Scenario: User enforcement edge: Admin policy set is pinned.
-func TestAdminProceduresPinned(t *testing.T) {
+// Scenario: Dispute edge: The admin procedure set is pinned.
+func TestAdminProceduresPinnedSet(t *testing.T) {
 	want := []string{
 		analyticsv1connect.AnalyticsQueryServiceGetTrackingQualityReportProcedure,
 		analyticsv1connect.AnalyticsQueryServiceGetRecommendationPerformanceProcedure,
 		analyticsv1connect.AnalyticsQueryServiceGetChannelFunnelProcedure, // Only admins can read the channel funnel
 		auditv1connect.AuditServiceQueryAuditLogProcedure,
 		engagementv1connect.EngagementServiceResolveDisputeProcedure,
+		engagementv1connect.EngagementServiceListDisputesProcedure,  // engagement-dispute-escalation
 		engagementv1connect.EngagementServiceHideReviewProcedure,    // HideReview is admin-gated
 		engagementv1connect.EngagementServiceListReportsProcedure,   // listing reports
 		engagementv1connect.EngagementServiceResolveReportProcedure, // listing reports

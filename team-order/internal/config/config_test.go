@@ -333,3 +333,54 @@ func TestLifecycleDurationNonPositiveRejected(t *testing.T) {
 		}
 	}
 }
+
+func kafkaStringField(t *testing.T, cfg *config.Settings, name string) string {
+	t.Helper()
+	f := reflect.ValueOf(cfg.Kafka).FieldByName(name)
+	if !f.IsValid() || f.Kind() != reflect.String {
+		t.Fatalf("Kafka.%s string field is missing", name)
+	}
+	return f.String()
+}
+
+// Scenario: Dispute refund: Config exposes the consumer settings
+func TestKafkaEngagementConsumerSettings(t *testing.T) {
+	t.Setenv("DATABASE_ENABLED", "false")
+	envs := []string{"ENGAGEMENT_EVENTS_TOPIC", "ORDER_DISPUTE_CONSUMER_GROUP", "ENGAGEMENT_EVENTS_DLQ_TOPIC"}
+	for _, k := range envs {
+		t.Setenv(k, "")
+		os.Unsetenv(k)
+	}
+	cfg, err := config.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaults := map[string]string{
+		"EngagementTopic":         "engagement.events",
+		"EngagementConsumerGroup": "team-order.dispute",
+		"EngagementDLQ":           "engagement.events.order.dlq",
+	}
+	for field, want := range defaults {
+		if got := kafkaStringField(t, cfg, field); got != want {
+			t.Errorf("default Kafka.%s = %q, want %q", field, got, want)
+		}
+	}
+
+	t.Setenv("ENGAGEMENT_EVENTS_TOPIC", "eng.custom")
+	t.Setenv("ORDER_DISPUTE_CONSUMER_GROUP", "grp.custom")
+	t.Setenv("ENGAGEMENT_EVENTS_DLQ_TOPIC", "dlq.custom")
+	cfg, err = config.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := map[string]string{
+		"EngagementTopic":         "eng.custom",
+		"EngagementConsumerGroup": "grp.custom",
+		"EngagementDLQ":           "dlq.custom",
+	}
+	for field, want := range set {
+		if got := kafkaStringField(t, cfg, field); got != want {
+			t.Errorf("set Kafka.%s = %q, want %q", field, got, want)
+		}
+	}
+}

@@ -14,6 +14,7 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
+	orderv1 "github.com/buidangphuc/team-engagement/generated/platform/order/v1"
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
 	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
@@ -25,6 +26,18 @@ import (
 // means the order does not exist.
 type OrderPartiesReader interface {
 	GetOrderParties(ctx context.Context, orderID string) (buyerID, sellerID string, err error)
+}
+
+// ReturnReader reads a return request from team-order as this service's own
+// principal. upstream.OrderClient implements it.
+type ReturnReader interface {
+	GetReturn(ctx context.Context, returnID string) (orderID string, status orderv1.ReturnStatus, canEscalate bool, err error)
+}
+
+// WithReturnReader wires the return lookup CreateDispute uses when a dispute
+// escalates a return. Without it such a dispute fails closed (UNAVAILABLE).
+func WithReturnReader(r ReturnReader) Option {
+	return func(h *EngagementHandler) { h.returns = r }
 }
 
 // Option customises an EngagementHandler.
@@ -45,6 +58,7 @@ type EngagementHandler struct {
 	disputeSvc    *service.DisputeService
 	collectionSvc *service.CollectionService
 	orders        OrderPartiesReader
+	returns       ReturnReader
 	reportSvc     *service.ReportService
 }
 
@@ -543,6 +557,11 @@ func (h *EngagementHandler) ListQuestionsByListing(
 func (h *EngagementHandler) CreateDispute(
 	ctx context.Context, req *engagementv1.CreateDisputeRequest,
 ) (*engagementv1.CreateDisputeResponse, error) {
+	if req.GetReturnId() != "" {
+		if _, err := interceptor.RequireAuthenticated(ctx); err != nil {
+			return nil, err
+		}
+	}
 	if err := interceptor.RequireScopes(ctx, "engagement:write"); err != nil {
 		return nil, err
 	}
@@ -578,11 +597,36 @@ func (h *EngagementHandler) CreateDispute(
 		return nil, status.Error(codes.NotFound, "order not found")
 	}
 	if sellerID == "" || sellerID != req.GetDefendantId() {
+		if req.GetReturnId() != "" {
+			return nil, status.Error(codes.InvalidArgument, "defendant must be the order's seller")
+		}
 		return nil, status.Error(codes.PermissionDenied, "defendant must be the order's seller")
 	}
 
-	disp, err := h.disputeSvc.CreateDispute(ctx, req.GetOrderId(), claimantID, req.GetDefendantId(), req.GetReason(), req.GetEvidenceUrls())
+	if req.GetReturnId() != "" {
+		if h.returns == nil {
+			return nil, status.Error(codes.Unavailable, "return verification unavailable")
+		}
+		retOrderID, _, canEscalate, rerr := h.returns.GetReturn(ctx, req.GetReturnId())
+		if rerr != nil {
+			if errors.Is(rerr, upstream.ErrReturnNotFound) {
+				return nil, status.Error(codes.NotFound, "return not found")
+			}
+			return nil, status.Error(codes.Unavailable, "return verification unavailable")
+		}
+		if retOrderID != req.GetOrderId() {
+			return nil, status.Error(codes.NotFound, "return not found")
+		}
+		if !canEscalate {
+			return nil, status.Error(codes.FailedPrecondition, "return cannot be escalated")
+		}
+	}
+
+	disp, err := h.disputeSvc.CreateDispute(ctx, req.GetOrderId(), claimantID, req.GetDefendantId(), req.GetReturnId(), req.GetReason(), req.GetEvidenceUrls())
 	if err != nil {
+		if errors.Is(err, repository.ErrOpenDisputeExists) {
+			return nil, status.Error(codes.AlreadyExists, "an open dispute already exists for this return")
+		}
 		if errors.Is(err, service.ErrSameClaimantAndDef) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
@@ -649,7 +693,7 @@ func (h *EngagementHandler) ResolveDispute(
 		return nil, status.Error(codes.InvalidArgument, "invalid dispute status")
 	}
 
-	disp, err := h.disputeSvc.ResolveDispute(ctx, userID(ctx), req.GetDisputeId(), statusDomain, req.GetResolution())
+	disp, err := h.disputeSvc.ResolveDispute(ctx, userID(ctx), req.GetDisputeId(), statusDomain, req.GetRuling(), req.GetResolution())
 	if err != nil {
 		if errors.Is(err, repository.ErrDisputeNotFound) {
 			return nil, status.Error(codes.NotFound, "dispute not found")
@@ -660,6 +704,12 @@ func (h *EngagementHandler) ResolveDispute(
 		if errors.Is(err, service.ErrInvalidDisputeStatus) {
 			return nil, status.Error(codes.InvalidArgument, "invalid dispute status")
 		}
+		if errors.Is(err, service.ErrInvalidTransition) {
+			return nil, status.Error(codes.FailedPrecondition, "invalid dispute status transition")
+		}
+		if errors.Is(err, service.ErrRulingRequired) || errors.Is(err, service.ErrRulingNotAllowed) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		if errors.Is(err, service.ErrAuditUnavailable) {
 			return nil, status.Error(codes.Unavailable, "audit unavailable")
 		}
@@ -669,6 +719,65 @@ func (h *EngagementHandler) ResolveDispute(
 	return &engagementv1.ResolveDisputeResponse{
 		Dispute: toWireDispute(disp),
 	}, nil
+}
+
+func (h *EngagementHandler) ListOrderDisputes(
+	ctx context.Context, req *engagementv1.ListOrderDisputesRequest,
+) (*engagementv1.ListOrderDisputesResponse, error) {
+	caller, err := interceptor.RequireAuthenticated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := interceptor.RequireScopes(ctx, "engagement:read"); err != nil {
+		return nil, err
+	}
+	if req.GetOrderId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "order_id is required")
+	}
+	if h.disputeSvc == nil {
+		return nil, status.Error(codes.Unimplemented, "dispute service unavailable")
+	}
+	if !interceptor.IsAdmin(ctx) {
+		if h.orders == nil {
+			return nil, status.Error(codes.Unavailable, "order verification unavailable")
+		}
+		buyerID, sellerID, oerr := h.orders.GetOrderParties(ctx, req.GetOrderId())
+		if oerr != nil && !errors.Is(oerr, upstream.ErrOrderNotFound) {
+			return nil, status.Error(codes.Unavailable, "order verification unavailable")
+		}
+		if oerr != nil || caller.GetId() == "" || (caller.GetId() != buyerID && caller.GetId() != sellerID) {
+			return nil, status.Error(codes.PermissionDenied, "not a party to this order")
+		}
+	}
+	ds, err := h.disputeSvc.ListOrderDisputes(ctx, req.GetOrderId())
+	if err != nil {
+		return nil, internalError(ctx, "list order disputes", err)
+	}
+	out := make([]*engagementv1.Dispute, 0, len(ds))
+	for _, d := range ds {
+		out = append(out, toWireDispute(d))
+	}
+	return &engagementv1.ListOrderDisputesResponse{Disputes: out}, nil
+}
+
+func (h *EngagementHandler) ListDisputes(
+	ctx context.Context, req *engagementv1.ListDisputesRequest,
+) (*engagementv1.ListDisputesResponse, error) {
+	if err := interceptor.RequireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	if h.disputeSvc == nil {
+		return nil, status.Error(codes.Unimplemented, "dispute service unavailable")
+	}
+	ds, next, err := h.disputeSvc.ListDisputes(ctx, toDomainDisputeStatus(req.GetStatus()), int(req.GetPage().GetPageSize()), req.GetPage().GetCursor())
+	if err != nil {
+		return nil, internalError(ctx, "list disputes", err)
+	}
+	out := make([]*engagementv1.Dispute, 0, len(ds))
+	for _, d := range ds {
+		out = append(out, toWireDispute(d))
+	}
+	return &engagementv1.ListDisputesResponse{Disputes: out, Page: &commonv1.PageResponse{NextCursor: next}}, nil
 }
 
 // ── Loyalty / Daily Check-in (F4) ──
@@ -769,6 +878,8 @@ func toWireDispute(d repository.Dispute) *engagementv1.Dispute {
 		EvidenceUrls: d.EvidenceURLs,
 		Status:       toProtoDisputeStatus(d.Status),
 		Resolution:   d.Resolution,
+		ReturnId:     d.ReturnID,
+		Ruling:       d.Ruling,
 		CreatedAt:    timestamppb.New(d.CreatedAt),
 		UpdatedAt:    timestamppb.New(d.UpdatedAt),
 	}
