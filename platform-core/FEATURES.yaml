@@ -807,7 +807,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.
+    notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
   - id: go-sdk.unknown-tag-changes-nothing
     title: Unknown tag changes nothing
     persona: guest
@@ -822,7 +822,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: Platform library behaviour with no user journey; verified by unit test platform-core/tools/sync-go-sdk_test.sh.
+    notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
   - id: model-registry.server-is-up-with-the-pinned-version
     title: Server is up with the pinned version
     persona: guest
@@ -4557,7 +4557,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: Platform library behaviour with no user journey; verified by platform-core/tools/sync-go-sdk_test.sh.
+    notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
   - id: go-sdk.duplicate-enqueue-does-not-abort-the-transaction
     title: Duplicate enqueue does not abort the transaction
     persona: guest
@@ -4688,7 +4688,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: Platform library behaviour with no user journey; verified by platform-core/tools/sync-go-sdk_test.sh.
+    notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
   - id: go-sdk.a-hand-edited-vendored-file-fails-the-check
     title: A hand-edited vendored file fails the check
     persona: guest
@@ -4703,7 +4703,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: Platform library behaviour with no user journey; verified by platform-core/tools/check-go-sdk-vendor_test.sh.
+    notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
   - id: go-sdk.a-service-scaffolded-from-the-template-builds-without-platform-copies
     title: A service scaffolded from the template builds without platform copies
     persona: guest
@@ -5078,7 +5078,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "Platform library behaviour with no user journey; verified by platform-core/tools/sync-go-sdk_test.sh"
+    notes: "Obsolete: requirement removed by go-sdk-v1-0-1 (ADR-0018); sync-go-sdk.sh, check-go-sdk-vendor.sh and their tests are deleted. Superseded by the tagged-module scenarios (TestModulePathIsFetchable, TestTemplateRequiresTagWithoutReplace, TestVendoringToolingIsRemoved)."
   - id: go-sdk.a-rule-without-message-sends-the-sentinel-text-not-the-chain
     title: "A rule without message sends the sentinel text, not the chain"
     persona: guest
@@ -6099,3 +6099,627 @@ features:
     - unit
     status: not-testable
     notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
+
+  - id: go-sdk.module-path-and-imports-use-the-fetchable-path
+    title: "Module path and imports use the fetchable path"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the SDK `go.mod` and every `.go` file under `platform-core/packages/go-sdk` are read"
+    - "Then the module line is `github.com/buidangphuc/agora/platform-core/packages/go-sdk` and no file imports `github.com/buidangphuc/platform-core/`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk TestModulePathIsFetchable."
+
+  - id: go-sdk.changelog-names-the-release
+    title: "Changelog names the release"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the first release heading of `CHANGELOG.md` and the version line of `README.md` are read"
+    - "Then both are `v1.0.1`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk TestReleaseVersionIsDocumented."
+
+  - id: go-sdk.the-service-template-requires-a-tag-and-does-not-vendor
+    title: "The service template requires a tag and does not vendor"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `platform-core/templates/_service-go/go.mod` is read"
+    - "Then it has a `require` for the go-sdk module, does not contain a `replace` for it, and the template has no `third_party` directory"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk TestTemplateRequiresTagWithoutReplace."
+
+  - id: go-sdk.vendoring-tooling-is-gone
+    title: "Vendoring tooling is gone"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the files `platform-core/tools/sync-go-sdk.sh`, `sync-go-sdk_test.sh`, `check-go-sdk-vendor.sh` and `check-go-sdk-vendor_test.sh` are looked up"
+    - "Then none exists and no workflow or `ci_local.sh` references them"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk TestVendoringToolingIsRemoved."
+
+  - id: go-sdk.shared-lint-file-has-no-service-local-block-and-one-prefix
+    title: "Shared lint file has no service-local block and one prefix"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `.golangci.yml` is parsed"
+    - "Then it has no `BEGIN service-local` marker, and `local-prefixes` equals `github.com/buidangphuc`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk TestSharedLintConfigIsServiceNeutral."
+
+  - id: go-sdk.service-exclusions-are-path-scoped
+    title: "Service exclusions are path-scoped"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When every exclusion rule of `.golangci.yml` that names a service is read"
+    - "Then each carries a `path` that starts with `team-`, and a rule without a `path` does not name a service"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk TestServiceExclusionsArePathScoped."
+
+  - id: go-sdk.the-template-references-the-shared-files
+    title: "The template references the shared files"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the template `Makefile` is read"
+    - "Then it includes `../platform-core/make/go-service.mk`, passes the shared lint config path, and the template directory has no `.golangci.yml` and no copy of `go-service.mk`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk TestTemplateReferencesSharedMakeAndLint."
+
+  - id: go-sdk.no-config-group-declares-a-dependency-enable-variable
+    title: "No config group declares a dependency enable variable"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When every `env` tag of every group in `pkg/config` is listed"
+    - "Then the only tag ending in `_ENABLED` is `OTEL_ENABLED`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config TestNoDependencyEnableFlags."
+
+  - id: go-sdk.removed-flags-are-ignored-not-honoured
+    title: "Removed flags are ignored, not honoured"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When settings embedding `Runtime` and `Postgres` load with `ENV=local`, `DATABASE_ENABLED=false`, `KAFKA_ENABLED=false` and no `DATABASE_URL`"
+    - "Then `Load` returns an error that names `DATABASE_URL`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config TestLoadIgnoresRemovedEnableFlags."
+
+  - id: go-sdk.no-package-source-reads-an-enable-flag
+    title: "No package source reads an enable flag"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the string literals of every non-test `.go` file under `pkg/` are scanned for names ending in `_ENABLED`"
+    - "Then the only match is `OTEL_ENABLED`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk TestNoEnableFlagInSDKSource."
+
+  - id: go-sdk.strict-env-refuses-mock-data-before-other-validation
+    title: "Strict ENV refuses MOCK_DATA before other validation"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `ENV=prod`, `MOCK_DATA=payment-provider` and no `DATABASE_URL` is set for settings that embed `Runtime`, `Postgres` and `MockData`"
+    - "Then `Load` returns an error naming `MOCK_DATA` and that error does not name `DATABASE_URL`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config TestLoadRefusesMockDataInStrictEnvBeforeValidation."
+
+  - id: go-sdk.every-strict-env-spelling-is-refused
+    title: "Every strict ENV spelling is refused"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `MOCK_DATA=payment-provider` is set with `ENV` equal to `staging`, `stage`, `prod`, `production` and `PROD`"
+    - "Then each `Load` returns an error naming `MOCK_DATA`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config TestMockDataRefusedForEveryStrictSpelling."
+
+  - id: go-sdk.local-and-test-env-accept-mock-data-unset-and-empty-are-accepted-everywhere
+    title: "Local and test ENV accept MOCK_DATA, unset and empty are accepted everywhere"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `MOCK_DATA=payment-provider` is set with `ENV=local` and `ENV=test`, and `MOCK_DATA` is unset or empty with `ENV=prod`"
+    - "Then every `Load` succeeds"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config TestMockDataAllowedWhenLocalOrEmpty."
+
+  - id: go-sdk.unknown-adapter-name-is-refused
+    title: "Unknown adapter name is refused"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `mockdata.New` receives `MOCK_DATA=payment-provider,telepathy` and the declared names `payment-provider` and `eta-provider`"
+    - "Then it returns an error naming `MOCK_DATA`, `telepathy` and the declared names"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/mockdata TestNewRejectsUnknownAdapter."
+
+  - id: go-sdk.names-are-trimmed-de-duplicated-and-case-insensitive
+    title: "Names are trimmed, de-duplicated and case-insensitive"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `mockdata.New` receives ` Payment-Provider ,payment-provider,,` with `payment-provider` declared"
+    - "Then `Set.Active(\"payment-provider\")` is true and `Set.Adapters()` is `[\"payment-provider\"]`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/mockdata TestNewNormalisesNames."
+
+  - id: go-sdk.active-adapters-are-logged-once
+    title: "Active adapters are logged once"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `LogActive` is called twice on a `Set` with `payment-provider` active, and once on a `Set` with none"
+    - "Then exactly one record is logged for the first set, listing `payment-provider`, and none for the second"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/mockdata TestLogActiveOncePerSet."
+
+  - id: go-sdk.select-swaps-only-the-named-adapter
+    title: "Select swaps only the named adapter"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `Select` runs for `payment-provider` active and for `eta-provider` inactive"
+    - "Then the first returns the fixture and the second returns the real adapter"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/mockdata TestSelectSwapsOnlyActiveAdapter."
+
+  - id: go-sdk.a-successful-audit-write-lets-the-action-run-once
+    title: "A successful audit write lets the action run once"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `Gate.Do` is called with a writer that succeeds"
+    - "Then the writer saw the event before `action` ran and `action` ran exactly once"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auditx TestDoWritesBeforeAction."
+
+  - id: go-sdk.a-failed-audit-write-refuses-the-action
+    title: "A failed audit write refuses the action"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `Gate.Do` is called with a writer that returns `errors.New(\"dial tcp 10.0.0.9: refused\")`"
+    - "Then `action` ran zero times, the code is `Unavailable`, the message is `audit trail unavailable` and does not contain `10.0.0.9`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auditx TestDoFailsClosedOnWriteError."
+
+  - id: go-sdk.a-missing-writer-refuses-the-action
+    title: "A missing writer refuses the action"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `Gate.Do` is called on a gate built with a nil writer"
+    - "Then `action` ran zero times and the status is `Unavailable` with message `audit trail unavailable`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auditx TestDoFailsClosedWithoutWriter."
+
+  - id: go-sdk.a-timed-out-audit-write-refuses-the-action
+    title: "A timed-out audit write refuses the action"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the writer blocks until the context deadline of 50ms expires"
+    - "Then `Do` returns `Unavailable` within 500ms and `action` ran zero times"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auditx TestDoFailsClosedOnTimeout."
+
+  - id: go-sdk.without-a-caller-deadline-the-write-is-bounded-by-2s
+    title: "Without a caller deadline the write is bounded by 2s"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the context has no deadline and the writer blocks until its context ends"
+    - "Then `Do` returns `Unavailable` within 2.5s and `action` ran zero times"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auditx TestDoBoundsWriteWithoutCallerDeadline."
+
+  - id: go-sdk.an-action-error-is-returned-as-is
+    title: "An action error is returned as is"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the audit write succeeds and `action` returns `status.Error(codes.PermissionDenied, \"missing scope\")`"
+    - "Then `Do` returns that error with code `PermissionDenied`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auditx TestDoReturnsActionErrorUnchanged."
+
+  - id: go-sdk.strict-env-requires-the-audit-address
+    title: "Strict ENV requires the audit address"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When settings embedding `Runtime` and `config.Audit` load with `ENV=prod` and `UPSTREAM_AUDIT_ADDR` unset or empty, and again with `ENV=local`"
+    - "Then the first two `Load` calls return an error naming `UPSTREAM_AUDIT_ADDR` and the `local` one succeeds with an empty address"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config TestStrictEnvRequiresAuditAddr."
+
+  - id: go-sdk.dial-attaches-a-service-principal
+    title: "Dial attaches a service principal"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a client made with `auditx.Dial(cfg, \"team-order\", \"audit.write\")` calls a test server"
+    - "Then the server sees principal type `service`, id `team-order` and scope `audit.write`, and a dial with an empty address returns a nil connection and no error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/auditx TestDialSendsServicePrincipal."
+
+  - id: go-sdk.handler-failure-logs-the-fingerprint-and-not-the-key
+    title: "Handler failure logs the fingerprint and not the key"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the handler fails on attempt 1 of 3 for key `seller-123` and the fingerprinter secret is `s3cret`"
+    - "Then the log record carries `key_fp` equal to the first 12 hex of HMAC-SHA256(`s3cret`, `seller-123`) and the whole captured output does not contain `seller-123`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/consume TestHandlerFailureLogsKeyFingerprint."
+
+  - id: go-sdk.dead-letter-logs-carry-the-fingerprint-and-the-dlq-key-is-unchanged
+    title: "Dead-letter logs carry the fingerprint and the DLQ key is unchanged"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the handler fails all attempts for key `seller-123` and the DLQ publish succeeds"
+    - "Then the \"record dead-lettered\" log carries `key_fp` and no `key` attribute, and the DLQ record key equals the bytes `seller-123`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/consume TestDeadLetterLogsFingerprintKeepsDLQKey."
+
+  - id: go-sdk.a-failed-dead-letter-write-still-logs-only-the-fingerprint
+    title: "A failed dead-letter write still logs only the fingerprint"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the handler exhausts its attempts and the DLQ publish fails"
+    - "Then the returned error and every log record do not contain `seller-123`, and the offset is not committed"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/consume TestDeadLetterFailureLogsFingerprintOffsetHeld."
+
+  - id: go-sdk.error-text-embedding-the-key-is-scrubbed-in-logs-and-the-dlq-header
+    title: "Error text embedding the key is scrubbed in logs and the DLQ header"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the handler returns `fmt.Errorf(\"user seller-123: %w\", errBoom)` for key `seller-123` and the record is dead-lettered"
+    - "Then the log `err` attribute and the `dlq-error` header equal `user [key_fp:<fp>]: boom` and contain no `seller-123`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/consume TestErrorTextIsScrubbedOfKey."
+
+  - id: go-sdk.the-batch-consumer-scrubs-every-key-of-the-batch
+    title: "The batch consumer scrubs every key of the batch"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a batch handler fails with error text containing the keys `a-1` and `b-2` of two records"
+    - "Then the logged text contains neither key and carries one `key_fp` per record"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/consume TestBatchLogsFingerprintsOnly."
+
+  - id: go-sdk.fingerprints-are-12-hex-stable-per-key-and-different-across-secrets
+    title: "Fingerprints are 12 hex, stable per key and different across secrets"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `Of` runs twice for one key, once for another key (also a 200-byte key and a nil key), and once for the first key under a second secret"
+    - "Then every result matches `^[0-9a-f]{12}$`, the first two are equal, the others differ, and the nil key does not panic"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/kafkax TestFingerprintFormatStableAndKeyed."
+
+  - id: go-sdk.an-empty-secret-is-refused
+    title: "An empty secret is refused"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `NewFingerprinter(\"\")` runs"
+    - "Then it returns an error"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/kafkax TestNewFingerprinterRejectsEmptySecret."
+
+  - id: go-sdk.strict-env-requires-the-secret-and-local-has-a-default
+    title: "Strict ENV requires the secret and local has a default"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When settings embedding `Runtime` and `config.LogKeyFP` load with `ENV=prod` and `LOG_KEY_FP_SECRET` unset or empty, and with `ENV=local`"
+    - "Then the first two `Load` calls return an error naming `LOG_KEY_FP_SECRET` and `local` succeeds with a non-empty secret"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/config TestStrictEnvRequiresLogKeyFPSecret."
+
+  - id: go-sdk.without-a-configured-fingerprinter-the-key-is-still-not-logged
+    title: "Without a configured fingerprinter the key is still not logged"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When a consumer is built with `KeyFP` nil and the handler fails for key `seller-123`"
+    - "Then the log carries a 12-hex `key_fp`, not an unkeyed SHA-256 of the key, and no `seller-123`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/consume TestNilFingerprinterUsesRandomSecret."
+
+  - id: go-sdk.a-unique-violation-becomes-alreadyexists
+    title: "A unique violation becomes AlreadyExists"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When `grpcx.Status` receives `fmt.Errorf(\"insert voucher: %w\", &pgconn.PgError{Code: \"23505\", ConstraintName: \"vouchers_code_key\"})`"
+    - "Then the code is `AlreadyExists` and the message is `already exists`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/grpcx TestStatusMapsUniqueViolationToAlreadyExists."
+
+  - id: go-sdk.constraint-detail-does-not-reach-the-caller
+    title: "Constraint detail does not reach the caller"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the `PgError` carries `Detail: \"Key (code)=(SAVE10) already exists.\"`"
+    - "Then the status message does not contain `SAVE10` or `vouchers_code_key`, and the log record contains the constraint name"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/grpcx TestStatusUniqueViolationHidesDetail."
+
+  - id: go-sdk.a-service-rule-wins-over-the-built-in-mapping
+    title: "A service rule wins over the built-in mapping"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the error wraps both a table sentinel with `Rule{Code: FailedPrecondition}` and a 23505 `PgError`"
+    - "Then the code is `FailedPrecondition`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/grpcx TestStatusRuleBeatsUniqueViolation."
+
+  - id: go-sdk.other-database-errors-stay-internal
+    title: "Other database errors stay internal"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the error wraps a `PgError` with SQLSTATE `23503` (foreign key violation)"
+    - "Then the code is `Internal` and the message is `internal error`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/grpcx TestStatusOtherPgErrorsStayInternal."
+
+  - id: go-sdk.an-existing-grpc-status-passes-through-before-the-mapping
+    title: "An existing gRPC status passes through before the mapping"
+    persona: guest
+    priority: P2
+    entry_route: /
+    services:
+    - platform-core
+    acceptance:
+    - "When the error is `status.Error(codes.PermissionDenied, \"missing scope\")`"
+    - "Then the code stays `PermissionDenied` and the message stays `missing scope`"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "go-sdk-v1-0-1: platform library behaviour with no user journey; verified by unit test platform-core/packages/go-sdk/pkg/grpcx TestStatusGRPCStatusBeatsUniqueViolation."
