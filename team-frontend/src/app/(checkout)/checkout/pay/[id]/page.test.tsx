@@ -329,19 +329,27 @@ describe("Checkout coherence: pay page", () => {
   });
 
   it.each([
-    ["COD", OrderStatus.PENDING, { paymentMethod: PaymentMethod.COD }],
-    ["CANCELLED", OrderStatus.CANCELLED, {}],
-    ["PAID", OrderStatus.PAID, {}],
+    [
+      "COD",
+      OrderStatus.PENDING,
+      { paymentMethod: PaymentMethod.COD },
+      "Đơn hàng thanh toán khi nhận hàng",
+    ],
+    [
+      "CANCELLED",
+      OrderStatus.CANCELLED,
+      { cancelReason: CancelReason.CHANGED_MIND },
+      "Đơn hàng đã bị hủy",
+    ],
+    ["PAID", OrderStatus.PAID, {}, "Đơn hàng đã được thanh toán"],
   ])(
     "no transaction is created for COD or closed orders (%s)",
-    async (_n, status, extra) => {
+    async (_n, status, extra, title) => {
       vi.mocked(getOrder).mockResolvedValue(order(status, extra));
       vi.mocked(getPayment).mockResolvedValue(null);
-      await outcome();
-      expect(createPayment).not.toHaveBeenCalled();
-      expect(
-        screen.queryByRole("button", { name: "Thanh toán thành công" }),
-      ).toBeNull();
+      expect(await outcome()).toBeNull();
+      expect(screen.getByText(title)).toBeInTheDocument();
+      noPaymentCalls();
     },
   );
 
