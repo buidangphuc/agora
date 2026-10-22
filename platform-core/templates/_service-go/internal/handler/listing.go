@@ -42,7 +42,7 @@ func NewListingHandler(logger *slog.Logger, svc *service.ListingService) (*Listi
 
 // GetListing returns the title of the listing with the given id.
 func (h *ListingHandler) GetListing(ctx context.Context, in *wrapperspb.StringValue) (*wrapperspb.StringValue, error) {
-	if _, err := auth.RequirePrincipal(ctx); err != nil {
+	if _, err := auth.RequireScopes(ctx, "listing.read"); err != nil {
 		return nil, grpcx.Status(ctx, h.logger, err, h.errs)
 	}
 	if in.GetValue() == "" {
