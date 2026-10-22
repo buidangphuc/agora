@@ -1,5 +1,7 @@
 github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2 h1:WZQpZOzKv1ehCLGsX9hWFUvuaMWw0rGXmeYNYZEp+FA=
 github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2/go.mod h1:8o1RIPtTd0PEs9D+2pQFOWywgxUi31m9nnUIfvkbA0E=
+github.com/caarlos0/env/v11 v11.4.1 h1:fYwH0sWEsBSMPG7t4e/PEfTFzrWrpjyygXyUnWiSwEw=
+github.com/caarlos0/env/v11 v11.4.1/go.mod h1:qupehSf/Y0TUTsxKywqRt/vJjN5nz6vauiYEUUr8P4U=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/golang/protobuf v1.5.4 h1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek=
 github.com/golang/protobuf v1.5.4/go.mod h1:lnTiLA8Wa4RWRcIUkrtSVa5nRhsEGBg48fD6rSs7xps=
