@@ -92,6 +92,10 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		return nil, status.Error(codes.PermissionDenied, "only a user can place an order")
 	}
 
+	if err := validateVouchers(req.GetVoucherCode(), req.GetPlatformVoucherCode(), req.GetShopVouchers(), true); err != nil {
+		return nil, err
+	}
+
 	// Emergency kill-switch (authoritative enforcement point). Evaluate the
 	// `checkout-enabled` flag with default TRUE (fail-open): a Flipt outage must
 	// never block checkout, only a deliberate OFF toggle does. When off, reject
@@ -131,7 +135,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 	}
 	shippingAddr := toRepoAddress(picked)
 
-	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode(), service.WithIdempotencyKey(idemKey))
+	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode(), service.WithIdempotencyKey(idemKey), service.WithVouchers(req.GetShopVouchers(), req.GetPlatformVoucherCode()))
 	if err != nil {
 		if errors.Is(err, service.ErrEmptyCart) {
 			return nil, status.Error(codes.FailedPrecondition, "cart is empty")
@@ -170,6 +174,83 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		wireOrders = append(wireOrders, toWireOrder(o))
 	}
 	return &orderv1.CreateOrderResponse{Orders: wireOrders}, nil
+}
+
+func validateVouchers(legacy, platform string, shop []*orderv1.ShopVoucher, create bool) error {
+	if create && legacy != "" && platform != "" {
+		return status.Error(codes.InvalidArgument, "voucher_code and platform_voucher_code cannot be combined")
+	}
+	if legacy == "" {
+		legacy = platform
+	}
+	seenSeller := make(map[string]struct{}, len(shop))
+	seenCode := make(map[string]struct{}, len(shop)+1)
+	if legacy != "" {
+		seenCode[legacy] = struct{}{}
+	}
+	for _, sv := range shop {
+		if _, dup := seenSeller[sv.GetSellerId()]; dup {
+			return status.Error(codes.InvalidArgument, "only one shop voucher per seller")
+		}
+		seenSeller[sv.GetSellerId()] = struct{}{}
+		if _, dup := seenCode[sv.GetCode()]; dup {
+			return status.Error(codes.InvalidArgument, "a voucher code can be used only once")
+		}
+		seenCode[sv.GetCode()] = struct{}{}
+	}
+	return nil
+}
+
+// PreviewCheckout quotes a checkout without reserving anything. USER only.
+func (h *OrderHandler) PreviewCheckout(ctx context.Context, req *orderv1.PreviewCheckoutRequest) (*orderv1.PreviewCheckoutResponse, error) {
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if principal.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_USER {
+		return nil, status.Error(codes.PermissionDenied, "only a user can preview a checkout")
+	}
+	if err := validateVouchers("", req.GetPlatformVoucherCode(), req.GetShopVouchers(), false); err != nil {
+		return nil, err
+	}
+	if h.addrClient != nil && req.GetAddressId() != "" {
+		al, aerr := h.addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
+		if aerr != nil || al == nil {
+			return nil, clientErr(h.logger, codes.Unavailable, "address service unavailable; please retry", aerr)
+		}
+		found := false
+		for _, a := range al.GetAddresses() {
+			if a.GetId() == req.GetAddressId() && strings.TrimSpace(a.GetCity()) != "" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, status.Error(codes.FailedPrecondition, "address not found")
+		}
+	}
+	resp, err := h.svc.PreviewCheckout(ctx, principal.GetId(), req.GetAddressId(), req.GetItemIds(),
+		service.WithVouchers(req.GetShopVouchers(), req.GetPlatformVoucherCode()))
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrEmptyCart):
+			return nil, status.Error(codes.FailedPrecondition, "cart is empty")
+		case errors.Is(err, service.ErrAddressNotFound):
+			return nil, status.Error(codes.FailedPrecondition, "address not found")
+		case errors.Is(err, service.ErrSelfPurchase):
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "cannot buy your own listing", err)
+		case errors.Is(err, service.ErrPriceChanged):
+			return nil, status.Error(codes.FailedPrecondition, "price changed")
+		case errors.Is(err, service.ErrVoucherRejected):
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		case errors.Is(err, service.ErrAddressUnavailable):
+			return nil, clientErr(h.logger, codes.Unavailable, "address service unavailable; please retry", err)
+		case errors.Is(err, service.ErrPromotionUnavailable):
+			return nil, clientErr(h.logger, codes.Unavailable, "promotion service unavailable; please retry", err)
+		}
+		return nil, internalErr(h.logger, "preview checkout", err)
+	}
+	return resp, nil
 }
 
 // idempotencyKeyFromContext reads, trims and validates the idempotency-key request
