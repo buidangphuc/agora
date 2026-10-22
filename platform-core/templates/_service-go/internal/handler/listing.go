@@ -1,116 +1,86 @@
-// Package handler is the gRPC transport adapter: it implements the generated
-// service server interface and maps between wire (protobuf) and domain types.
+// Package handler is the gRPC transport adapter: it decodes requests,
+// enforces authentication, calls the service and maps domain errors to gRPC
+// status. It holds no business logic.
 //
-// This file depends on generated code and only compiles AFTER `make proto`.
-// See proto-vendor/README.md.
+// The service is described by a hand-built grpc.ServiceDesc over well-known
+// protobuf messages so the template needs no code generation. Replace it with
+// the generated registration function once the service has its own proto.
 package handler
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"log/slog"
 
+	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	commonv1 "github.com/your-org/team-service/generated/platform/common/v1"
-	listingv1 "github.com/your-org/team-service/generated/platform/listing/v1"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 
-	"github.com/your-org/team-service/internal/interceptor"
 	"github.com/your-org/team-service/internal/repository"
 	"github.com/your-org/team-service/internal/service"
 )
 
-// ListingHandler implements listingv1.ListingServiceServer.
+// ListingHandler serves the listing methods.
 type ListingHandler struct {
-	// Embedding Unimplemented keeps the server forward-compatible when new RPCs
-	// are added to the proto before they're implemented here.
-	listingv1.UnimplementedListingServiceServer
-
-	svc *service.ListingService
+	logger *slog.Logger
+	errs   grpcx.ErrorTable
+	svc    *service.ListingService
 }
 
 // NewListingHandler builds the handler around the business service.
-func NewListingHandler(svc *service.ListingService) *ListingHandler {
-	return &ListingHandler{svc: svc}
+func NewListingHandler(logger *slog.Logger, svc *service.ListingService) (*ListingHandler, error) {
+	errs, err := grpcx.NewErrorTable(grpcx.Rule{Target: repository.ErrNotFound, Code: codes.NotFound})
+	if err != nil {
+		return nil, fmt.Errorf("error table: %w", err)
+	}
+	return &ListingHandler{logger: logger, errs: errs, svc: svc}, nil
 }
 
-// GetListing returns a single listing. Seed implementation: it enforces a read
-// scope, loads from the (in-memory) store, and maps domain -> wire.
-func (h *ListingHandler) GetListing(
-	ctx context.Context,
-	req *listingv1.GetListingRequest,
-) (*listingv1.GetListingResponse, error) {
-	// Coarse RBAC via the Principal the auth interceptor placed on the context.
-	if err := interceptor.RequireScopes(ctx, "listing.read"); err != nil {
-		return nil, err
+// GetListing returns the title of the listing with the given id.
+func (h *ListingHandler) GetListing(ctx context.Context, in *wrapperspb.StringValue) (*wrapperspb.StringValue, error) {
+	if _, err := auth.RequirePrincipal(ctx); err != nil {
+		return nil, grpcx.Status(ctx, h.logger, err, h.errs)
 	}
-	if req.GetId() == "" {
+	if in.GetValue() == "" {
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
-
-	l, err := h.svc.Get(ctx, req.GetId())
+	l, err := h.svc.Get(ctx, in.GetValue())
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "not_found")
-		}
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, grpcx.Status(ctx, h.logger, err, h.errs)
 	}
-
-	return &listingv1.GetListingResponse{Listing: toWire(l)}, nil
+	return wrapperspb.String(l.Title), nil
 }
 
-// ListListings returns a page of listings.
-func (h *ListingHandler) ListListings(
-	ctx context.Context,
-	req *listingv1.ListListingsRequest,
-) (*listingv1.ListListingsResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "listing.read"); err != nil {
+// Register adds the listing service to s.
+func Register(s grpc.ServiceRegistrar, h *ListingHandler) {
+	s.RegisterService(&serviceDesc, h)
+}
+
+type listingServer interface {
+	GetListing(context.Context, *wrapperspb.StringValue) (*wrapperspb.StringValue, error)
+}
+
+var serviceDesc = grpc.ServiceDesc{
+	ServiceName: "team.v1.Listing",
+	HandlerType: (*listingServer)(nil),
+	Methods:     []grpc.MethodDesc{{MethodName: "GetListing", Handler: getListingHandler}},
+}
+
+//nolint:revive // signature fixed by grpc.MethodHandler
+func getListingHandler(srv any, ctx context.Context, dec func(any) error, ic grpc.UnaryServerInterceptor) (any, error) {
+	in := new(wrapperspb.StringValue)
+	if err := dec(in); err != nil {
 		return nil, err
 	}
-
-	var cursor string
-	var pageSize int32
-	if p := req.GetPage(); p != nil {
-		cursor = p.GetCursor()
-		pageSize = p.GetPageSize()
+	if ic == nil {
+		return srv.(listingServer).GetListing(ctx, in)
 	}
-
-	items, next, err := h.svc.List(ctx, cursor, pageSize)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
-	}
-
-	wire := make([]*listingv1.Listing, 0, len(items))
-	for _, l := range items {
-		wire = append(wire, toWire(l))
-	}
-	return &listingv1.ListListingsResponse{
-		Listings: wire,
-		Page:     &commonv1.PageResponse{NextCursor: next, Total: int64(len(wire))},
-	}, nil
-}
-
-// toWire maps a domain Listing to the generated protobuf message.
-func toWire(l repository.Listing) *listingv1.Listing {
-	return &listingv1.Listing{
-		Id:          l.ID,
-		Title:       l.Title,
-		Description: l.Description,
-		Price:       l.Price,
-		Currency:    l.Currency,
-		Status:      wireStatus(l.Status),
-	}
-}
-
-func wireStatus(s string) listingv1.ListingStatus {
-	switch s {
-	case "draft":
-		return listingv1.ListingStatus_LISTING_STATUS_DRAFT
-	case "published":
-		return listingv1.ListingStatus_LISTING_STATUS_PUBLISHED
-	case "rejected":
-		return listingv1.ListingStatus_LISTING_STATUS_REJECTED
-	default:
-		return listingv1.ListingStatus_LISTING_STATUS_UNSPECIFIED
-	}
+	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: "/team.v1.Listing/GetListing"}
+	return ic(ctx, in, info, func(ctx context.Context, req any) (any, error) {
+		return srv.(listingServer).GetListing(ctx, req.(*wrapperspb.StringValue))
+	})
 }

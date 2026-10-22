@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/migrations"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/migrate"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/examples/hello/migrations"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/migrate"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 )
 
 func TestMigrationsApply(t *testing.T) {

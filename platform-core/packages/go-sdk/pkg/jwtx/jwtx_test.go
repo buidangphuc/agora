@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/jwtx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/jwtx"
 )
 
 func TestClaimsJSONContract(t *testing.T) {

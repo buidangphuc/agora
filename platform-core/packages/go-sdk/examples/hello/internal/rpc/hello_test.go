@@ -9,10 +9,10 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/rpc"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/logx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/examples/hello/internal/rpc"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
 )
 
 // A handler is a plain method, so it is tested without a server. NewTo with

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"slices"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -80,6 +81,11 @@ func Status(ctx context.Context, logger *slog.Logger, err error, t ErrorTable) e
 			}
 			return status.Error(rule.Code, msg)
 		}
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		logger.WarnContext(ctx, "unique violation", "constraint", pgErr.ConstraintName, "err", err)
+		return status.Error(codes.AlreadyExists, "already exists")
 	}
 	logger.ErrorContext(ctx, "unhandled error", "err", err)
 	return status.Error(codes.Internal, internalMessage)

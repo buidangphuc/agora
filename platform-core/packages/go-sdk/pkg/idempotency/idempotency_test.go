@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/idempotency"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/idempotency"
 )
 
 func TestValidateRule(t *testing.T) {
