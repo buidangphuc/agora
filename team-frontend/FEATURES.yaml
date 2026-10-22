@@ -14286,3 +14286,472 @@ features:
     tags: [auth, referrer-hygiene, privacy]
     status: automated
     covered_by: "frontend/referrer_hygiene.feature::Referrer hygiene: signed-in non-admin still sees the 403 view"
+
+  # ---- frontend-checkout-coherence (initiative q11-checkout-coherence).
+  - id: frontend.cc-two-shops-show-two-groups-with-their-own-shipping
+    title: "Checkout coherence: two shops show two groups with their own shipping"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: two shops show two groups with their own shipping"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `two shops show two groups with their own shipping`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-free-shipping-is-decided-per-group
+    title: "Checkout coherence: free shipping is decided per group"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: free shipping is decided per group"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `free shipping is decided per group`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-the-frontend-adds-nothing-up
+    title: "Checkout coherence: the frontend adds nothing up"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: the frontend adds nothing up"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `summary shows the response totals unchanged`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-a-failed-preview-shows-no-total
+    title: "Checkout coherence: a failed preview shows no total"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: a failed preview shows no total"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `a failed preview raises and shows no total`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-an-empty-preview-selection-returns-to-the-cart
+    title: "Checkout coherence: an empty preview selection returns to the cart"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: an empty preview selection returns to the cart"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `cart is empty redirects to the cart`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-the-shown-totals-equal-the-placed-orders
+    title: "Checkout coherence: the shown totals equal the placed orders"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-checkout-coherence (initiative q11-checkout-coherence)."
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-payment, team-promotion, team-identity]
+    acceptance:
+      - "Checkout coherence: the shown totals equal the placed orders"
+    tags: [buyer, checkout]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cc-shop-and-platform-vouchers-go-to-their-own-slots
+    title: "Checkout coherence: shop and platform vouchers go to their own slots"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: shop and platform vouchers go to their own slots"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `vouchers are sent in their own slots`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-an-invalid-voucher-shows-its-reason-and-no-discount
+    title: "Checkout coherence: an invalid voucher shows its reason and no discount"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: an invalid voucher shows its reason and no discount"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `invalid voucher shows its reason`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-only-valid-vouchers-are-placed
+    title: "Checkout coherence: only valid vouchers are placed"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: only valid vouchers are placed"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/PlaceOrderForm.test.tsx` `sends only valid vouchers in scoped slots`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-another-shop-s-voucher-is-refused-for-a-group
+    title: "Checkout coherence: another shop's voucher is refused for a group"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-checkout-coherence (initiative q11-checkout-coherence)."
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-payment, team-promotion, team-identity]
+    acceptance:
+      - "Checkout coherence: another shop's voucher is refused for a group"
+    tags: [buyer, checkout]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cc-two-shop-vouchers-and-a-platform-voucher-place-discounted-orders
+    title: "Checkout coherence: two shop vouchers and a platform voucher place discounted orders"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-checkout-coherence (initiative q11-checkout-coherence)."
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-payment, team-promotion, team-identity]
+    acceptance:
+      - "Checkout coherence: two shop vouchers and a platform voucher place discounted orders"
+    tags: [buyer, checkout]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cc-the-pdp-shows-the-server-delivery-date
+    title: "Checkout coherence: the PDP shows the server delivery date"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: the PDP shows the server delivery date"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/listing/ShippingInfo.test.tsx` `shows the server delivery date`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-the-pdp-shows-no-date-without-an-address
+    title: "Checkout coherence: the PDP shows no date without an address"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: the PDP shows no date without an address"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/listing/ShippingInfo.test.tsx` `no delivery date without an address`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-a-failed-or-unset-delivery-date-is-not-invented
+    title: "Checkout coherence: a failed or unset delivery date is not invented"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: a failed or unset delivery date is not invented"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/listing/ShippingInfo.test.tsx` `failed or unset delivery date shows nothing`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-the-date-is-formatted-in-ho-chi-minh-time
+    title: "Checkout coherence: the date is formatted in Ho Chi Minh time"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: the date is formatted in Ho Chi Minh time"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/deliveryDate.test.ts` `formats dd/mm in Asia/Ho_Chi_Minh`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-each-checkout-group-shows-its-own-date
+    title: "Checkout coherence: each checkout group shows its own date"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: each checkout group shows its own date"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `each group shows its own delivery date`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-the-delivery-date-matches-the-mock-rule-end-to-end
+    title: "Checkout coherence: the delivery date matches the mock rule end to end"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-checkout-coherence (initiative q11-checkout-coherence)."
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-payment, team-promotion, team-identity]
+    acceptance:
+      - "Checkout coherence: the delivery date matches the mock rule end to end"
+    tags: [buyer, checkout]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cc-the-confirmed-address-is-sent-with-the-order
+    title: "Checkout coherence: the confirmed address is sent with the order"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: the confirmed address is sent with the order"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/PlaceOrderForm.test.tsx` `sends the confirmed address`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-an-edited-address-is-refused-and-refreshed
+    title: "Checkout coherence: an edited address is refused and refreshed"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: an edited address is refused and refreshed"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/actions.test.ts` `maps address changed`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-a-missing-address-is-explained
+    title: "Checkout coherence: a missing address is explained"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: a missing address is explained"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/actions.test.ts` `maps address not found and leaves other preconditions generic`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-an-identity-outage-asks-the-buyer-to-retry
+    title: "Checkout coherence: an identity outage asks the buyer to retry"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: an identity outage asks the buyer to retry"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/actions.test.ts` `maps unavailable to a retry message`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-an-anonymous-visitor-cannot-reach-checkout-or-pay-pages
+    title: "Checkout coherence: an anonymous visitor cannot reach checkout or pay pages"
+    persona: guest
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: an anonymous visitor cannot reach checkout or pay pages"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `guest is redirected to login without any call`; `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `guest is redirected to login before any payment call`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-an-edit-after-confirm-shows-the-new-address
+    title: "Checkout coherence: an edit after confirm shows the new address"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-checkout-coherence (initiative q11-checkout-coherence)."
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-payment, team-promotion, team-identity]
+    acceptance:
+      - "Checkout coherence: an edit after confirm shows the new address"
+    tags: [buyer, checkout]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cc-placing-an-online-order-goes-to-the-first-pay-page
+    title: "Checkout coherence: placing an online order goes to the first pay page"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: placing an online order goes to the first pay page"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/actions.test.ts` `online checkout returns the first pay page without creating a payment`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-the-pay-page-creates-a-missing-transaction
+    title: "Checkout coherence: the pay page creates a missing transaction"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: the pay page creates a missing transaction"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `creates a missing transaction for a pending online order`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-the-pay-page-does-not-create-a-payment-where-none-is-due
+    title: "Checkout coherence: the pay page does not create a payment where none is due"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: the pay page does not create a payment where none is due"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `no transaction is created for COD or closed orders`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-another-buyer-s-order-is-never-paid
+    title: "Checkout coherence: another buyer's order is never paid"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: another buyer's order is never paid"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `an order of another buyer is not found and not paid`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-the-next-unpaid-order-of-the-checkout-is-offered
+    title: "Checkout coherence: the next unpaid order of the checkout is offered"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: the next unpaid order of the checkout is offered"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/payment/PaymentSimulator.test.tsx` `offers the next unpaid order of the checkout`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-a-failed-lookup-of-the-next-order-does-not-break-the-pay-page
+    title: "Checkout coherence: a failed lookup of the next order does not break the pay page"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: a failed lookup of the next order does not break the pay page"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/pay/[id]/page.test.tsx` `next order lookup failure degrades to no link`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-both-orders-of-a-two-shop-checkout-are-payable
+    title: "Checkout coherence: both orders of a two-shop checkout are payable"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-checkout-coherence (initiative q11-checkout-coherence)."
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-payment, team-promotion, team-identity]
+    acceptance:
+      - "Checkout coherence: both orders of a two-shop checkout are payable"
+    tags: [buyer, checkout]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cc-pay-now-works-for-an-order-without-a-transaction
+    title: "Checkout coherence: pay now works for an order without a transaction"
+    persona: buyer
+    priority: P1
+    summary: "End-to-end scenario of change frontend-checkout-coherence (initiative q11-checkout-coherence)."
+    entry_route: /checkout
+    services: [team-frontend, team-gateway, team-order, team-payment, team-promotion, team-identity]
+    acceptance:
+      - "Checkout coherence: pay now works for an order without a transaction"
+    tags: [buyer, checkout]
+    status: planned
+    covered_by: null
+
+  - id: frontend.cc-items-survive-every-checkout-step
+    title: "Checkout coherence: items survive every checkout step"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: items survive every checkout step"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/checkoutParams.test.ts` `items are kept by checkoutHref`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-only-the-selected-lines-are-quoted-and-listed
+    title: "Checkout coherence: only the selected lines are quoted and listed"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: only the selected lines are quoted and listed"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `only the selected lines are quoted and listed`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-no-items-param-quotes-the-whole-cart
+    title: "Checkout coherence: no items param quotes the whole cart"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: no items param quotes the whole cart"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `no items param quotes the whole cart`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-checkout-calls-only-the-preview-for-figures
+    title: "Checkout coherence: checkout calls only the preview for figures"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: checkout calls only the preview for figures"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/app/(checkout)/checkout/(summary)/page.test.tsx` `figures come from the preview only`. Not producible end to end through the browser (unit level)."
+
+  - id: frontend.cc-a-legacy-voucher-link-is-ignored
+    title: "Checkout coherence: a legacy voucher link is ignored"
+    persona: buyer
+    priority: P1
+    summary: "Unit-verified scenario of change frontend-checkout-coherence."
+    entry_route: /checkout
+    services: [team-frontend]
+    acceptance:
+      - "Checkout coherence: a legacy voucher link is ignored"
+    tags: [buyer, checkout, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-frontend/src/features/order/checkoutParams.test.ts` `legacy voucher param is ignored`. Not producible end to end through the browser (unit level)."
