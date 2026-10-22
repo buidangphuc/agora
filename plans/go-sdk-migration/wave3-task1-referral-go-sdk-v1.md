@@ -22,6 +22,8 @@ Implement OpenSpec change `referral-go-sdk-v1` test-first per its tasks.md: migr
 - platform-gitops/argocd/apps/team-referral.yaml (widened at build: task 1.1)
 - platform-gitops/envs/staging/services/team-referral.yaml (widened at build: task 1.1)
 - platform-gitops/envs/prod/services/team-referral.yaml (widened at build: task 1.1)
+- team-referral/go.mod (widened at build: task 1.9)
+- team-referral/go.sum (widened at build: task 1.9)
 
 ## Verify
 - cd team-referral && go build ./... && go vet ./... && go test ./... -count=1
