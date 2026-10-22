@@ -14884,8 +14884,8 @@ features:
     acceptance:
       - "Cart selection: the cart first response still holds the line rows"
     tags: [buyer, checkout, cart-selection]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/cart_selection_ui.feature::Cart selection: the cart first response still holds the line rows"
 
   - id: frontend.cs-parsing-trims-drops-empties-and-de-duplicates
     title: "Cart selection: parsing trims, drops empties and de-duplicates"
@@ -15040,8 +15040,8 @@ features:
     acceptance:
       - "Cart selection: another buyer's line id places nothing"
     tags: [buyer, checkout, cart-selection]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/cart_selection_ui.feature::Cart selection: another buyer's line id places nothing"
 
   - id: frontend.cs-an-anonymous-visitor-is-sent-to-login
     title: "Cart selection: an anonymous visitor is sent to login"
@@ -15053,8 +15053,8 @@ features:
     acceptance:
       - "Cart selection: an anonymous visitor is sent to login"
     tags: [buyer, checkout, cart-selection]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/cart_selection_ui.feature::Cart selection: an anonymous visitor is sent to login"
 
   - id: frontend.cs-checking-out-some-lines-leaves-the-others-in-the-cart
     title: "Cart selection: checking out some lines leaves the others in the cart"
@@ -15066,8 +15066,8 @@ features:
     acceptance:
       - "Cart selection: checking out some lines leaves the others in the cart"
     tags: [buyer, checkout, cart-selection]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/cart_selection_ui.feature::Cart selection: checking out some lines leaves the others in the cart"
 
   - id: frontend.cs-a-shop-s-select-all-checks-out-that-shop-only
     title: "Cart selection: a shop's select-all checks out that shop only"
@@ -15079,8 +15079,8 @@ features:
     acceptance:
       - "Cart selection: a shop's select-all checks out that shop only"
     tags: [buyer, checkout, cart-selection]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/cart_selection_ui.feature::Cart selection: a shop's select-all checks out that shop only"
 
   - id: frontend.cs-mua-ngay-opens-checkout-with-the-new-line-only
     title: "Cart selection: Mua ngay opens checkout with the new line only"
@@ -15105,8 +15105,8 @@ features:
     acceptance:
       - "Cart selection: Mua ngay on an existing line checks out the merged quantity"
     tags: [buyer, checkout, cart-selection]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/cart_selection_ui.feature::Cart selection: Mua ngay on an existing line checks out the merged quantity"
 
   - id: frontend.cs-the-action-returns-the-matching-line-id
     title: "Cart selection: the action returns the matching line id"
@@ -15196,8 +15196,8 @@ features:
     acceptance:
       - "Cart selection: Mua ngay checks out only that line end to end"
     tags: [buyer, checkout, cart-selection]
-    status: planned
-    covered_by: null
+    status: automated
+    covered_by: "frontend/cart_selection_ui.feature::Cart selection: Mua ngay checks out only that line end to end"
 
   - id: frontend.cs-page-location-has-no-items-parameter
     title: "Cart selection: page_location has no items parameter"
