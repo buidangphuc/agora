@@ -61,6 +61,7 @@ func (c *DisputeConsumer) HandleRaw(ctx context.Context, value []byte) error {
 }
 
 func (c *DisputeConsumer) Run(ctx context.Context, reader RecordReader, dlq DeadLetterProducer, cfg RunConfig) error {
+	cfg.RetryTransientUntilApplied = true
 	return runLoop(ctx, c.logger, c.HandleRaw, reader, dlq, cfg)
 }
 
