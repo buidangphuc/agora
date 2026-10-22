@@ -681,7 +681,32 @@ func (s *OrderService) CancelOrderWithReason(ctx context.Context, id string, rea
 		s.releaseVoucher(bg, claimed.ID) // the hold id is the order id
 	}
 	s.releaseOrderFlashHolds(claimed)
+	s.releasePlatformVoucherIfCheckoutCancelled(bg, claimed)
 	return CancelResult{Order: claimed, ReleasePending: pending}, nil
+}
+
+func (s *OrderService) releasePlatformVoucherIfCheckoutCancelled(ctx context.Context, claimed repository.Order) {
+	if claimed.PlatformVoucherCode == "" || claimed.CheckoutID == "" {
+		return
+	}
+	lister, ok := s.orderRepo.(interface {
+		ListOrdersByCheckout(ctx context.Context, checkoutID string) ([]repository.Order, error)
+	})
+	if !ok {
+		return
+	}
+	siblings, err := lister.ListOrdersByCheckout(ctx, claimed.CheckoutID)
+	if err != nil {
+		s.logger.WarnContext(ctx, "platform voucher release skipped: cannot list checkout orders",
+			slog.String("checkout_id", claimed.CheckoutID), slog.Any("err", err))
+		return
+	}
+	for _, o := range siblings {
+		if o.Status != repository.OrderStatusCancelled || o.PaidAt != nil {
+			return
+		}
+	}
+	s.releaseVoucher(ctx, "platform:"+claimed.CheckoutID)
 }
 
 // releaseOrderReservations releases every reservation of the order that still
