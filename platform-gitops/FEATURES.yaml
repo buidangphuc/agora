@@ -566,3 +566,71 @@ features:
     status: automated
     covered_by: "ops/lci_local_compose_infra.feature::No compose infra image floats on latest"
     notes: "compose-infra-probes: ops/lci_local_compose_infra.feature::No compose infra image floats on latest"
+  - id: gitops.go-sdk-a-grpc-service-with-the-value-set-probes-liveness-by-name
+    title: "A gRPC service with the value set probes liveness by name"
+    persona: admin
+    priority: P1
+    summary: "A gRPC service with the value set probes liveness by name"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static `helm template` render of platform-gitops/charts/service."
+    acceptance:
+      - "When `charts/service` is rendered for team-verification (`grpcPort` 50064) with `--set probes.livenessService=liveness`"
+      - "Then the container `livenessProbe` is a `grpc:` probe with `service: liveness`, and the `readinessProbe` and `startupProbe` have no `service` key"
+    tags: [ops, go-sdk]
+    status: automated
+    covered_by: "ops/gitops_render.feature::A gRPC service with the value set probes liveness by name"
+    notes: "Scenario: ops/gitops_render.feature::A gRPC service with the value set probes liveness by name (go-sdk-v1-0-2). Red until the chart opt-in lands."
+  - id: gitops.go-sdk-the-default-render-is-unchanged
+    title: "The default render is unchanged"
+    persona: admin
+    priority: P1
+    summary: "The default render is unchanged"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static `helm template` render of platform-gitops/charts/service."
+    acceptance:
+      - "When `charts/service` is rendered for team-verification with its service values, without `probes.livenessService`"
+      - "Then the output is byte-identical to the golden render `platform-gitops/tests/golden/team-verification.pre-liveness.yaml` and no probe has a `service` key"
+    tags: [ops, go-sdk]
+    status: automated
+    covered_by: "ops/gitops_render.feature::The default render is unchanged"
+    notes: "Scenario: ops/gitops_render.feature::The default render is unchanged (go-sdk-v1-0-2). Red until the chart opt-in lands."
+  - id: gitops.go-sdk-an-http-service-ignores-the-value
+    title: "An HTTP service ignores the value"
+    persona: admin
+    priority: P1
+    summary: "An HTTP service ignores the value"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static `helm template` render of platform-gitops/charts/service."
+    acceptance:
+      - "When `charts/service` is rendered for team-gateway (`healthPath=/healthz`, no `grpcPort`) with `--set probes.livenessService=liveness`"
+      - "Then the container probes are `httpGet` probes and the rendered output contains no `service: liveness`"
+    tags: [ops, go-sdk]
+    status: automated
+    covered_by: "ops/gitops_render.feature::An HTTP service ignores the value"
+    notes: "Scenario: ops/gitops_render.feature::An HTTP service ignores the value (go-sdk-v1-0-2). Red until the chart opt-in lands."
+  - id: gitops.go-sdk-the-canary-rollout-renders-the-same-liveness-probe
+    title: "The canary Rollout renders the same liveness probe"
+    persona: admin
+    priority: P1
+    summary: "The canary Rollout renders the same liveness probe"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static `helm template` render of platform-gitops/charts/service."
+    acceptance:
+      - "When `charts/service` is rendered for team-verification with `--set rollout.enabled=true --set probes.livenessService=liveness`"
+      - "Then the Rollout container `livenessProbe` carries `service: liveness`"
+    tags: [ops, go-sdk]
+    status: automated
+    covered_by: "ops/gitops_render.feature::The canary Rollout renders the same liveness probe"
+    notes: "Scenario: ops/gitops_render.feature::The canary Rollout renders the same liveness probe (go-sdk-v1-0-2). Red until the chart opt-in lands."
