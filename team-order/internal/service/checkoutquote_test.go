@@ -78,6 +78,33 @@ func TestQuoteCheckoutRemainderTieLowestSellerID(t *testing.T) {
 	}
 }
 
+func TestQuoteCheckoutRemainderGoesToLargestGroupNotLowestID(t *testing.T) {
+	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 10001, groups: []quoteGroupInput{
+		{sellerID: "A", itemsSubtotal: 100000},
+		{sellerID: "B", itemsSubtotal: 300000},
+	}})
+	want := map[string]int64{"A": 2500, "B": 7501}
+	for s, w := range want {
+		if g := quoteGroupFor(t, r, s); g.platformDiscount != w {
+			t.Errorf("Multishop checkout: Platform discount splits across groups and sums back: %s share=%d want %d", s, g.platformDiscount, w)
+		}
+	}
+}
+
+func TestQuoteCheckoutRemainderTwoTieLowestSellerID(t *testing.T) {
+	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 100001, groups: []quoteGroupInput{
+		{sellerID: "seller-c", itemsSubtotal: 100000},
+		{sellerID: "seller-a", itemsSubtotal: 100000},
+		{sellerID: "seller-b", itemsSubtotal: 100000},
+	}})
+	want := map[string]int64{"seller-a": 33335, "seller-b": 33333, "seller-c": 33333}
+	for s, w := range want {
+		if g := quoteGroupFor(t, r, s); g.platformDiscount != w {
+			t.Errorf("Multishop checkout: Remainder ties go to the lowest seller id: %s share=%d want %d", s, g.platformDiscount, w)
+		}
+	}
+}
+
 func TestQuoteCheckoutSingleGroupWholeDiscount(t *testing.T) {
 	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 50000, groups: []quoteGroupInput{
 		{sellerID: "A", itemsSubtotal: 300000},
