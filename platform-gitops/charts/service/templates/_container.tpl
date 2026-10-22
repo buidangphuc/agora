@@ -46,6 +46,9 @@ The output is byte-identical to the pre-canary inline Deployment pod spec.
   livenessProbe:
     grpc:
       port: {{ .Values.grpcPort }}
+      {{- with .Values.probes.livenessService }}
+      service: {{ . | quote }}
+      {{- end }}
     initialDelaySeconds: {{ .Values.probes.initialDelaySeconds }}
     periodSeconds: {{ .Values.probes.periodSeconds }}
     failureThreshold: {{ .Values.probes.failureThreshold }}
