@@ -217,3 +217,43 @@ func TestMockDataAllowedWhenLocalOrEmpty(t *testing.T) {
 		}
 	})
 }
+
+type auditSettings struct {
+	config.Runtime
+	config.Audit
+}
+
+func TestStrictEnvRequiresAuditAddr(t *testing.T) {
+	for _, env := range []string{"prod", "staging"} {
+		t.Run(env+"/unset-or-empty", func(t *testing.T) {
+			t.Setenv("ENV", env)
+			t.Setenv("UPSTREAM_AUDIT_ADDR", "")
+			_, err := config.Load[auditSettings]()
+			if err == nil || !strings.Contains(err.Error(), "UPSTREAM_AUDIT_ADDR") {
+				t.Fatalf("ENV=%s: err = %v, want one naming UPSTREAM_AUDIT_ADDR", env, err)
+			}
+		})
+	}
+	t.Run("strict/set", func(t *testing.T) {
+		t.Setenv("ENV", "prod")
+		t.Setenv("UPSTREAM_AUDIT_ADDR", "team-audit:9090")
+		s, err := config.Load[auditSettings]()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if s.Addr != "team-audit:9090" {
+			t.Errorf("Addr = %q, want team-audit:9090", s.Addr)
+		}
+	})
+	t.Run("local", func(t *testing.T) {
+		t.Setenv("ENV", "local")
+		t.Setenv("UPSTREAM_AUDIT_ADDR", "")
+		s, err := config.Load[auditSettings]()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if s.Addr != "" {
+			t.Errorf("Addr = %q, want empty", s.Addr)
+		}
+	})
+}
