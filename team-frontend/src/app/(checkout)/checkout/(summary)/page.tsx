@@ -62,14 +62,19 @@ export default async function CheckoutPage(props: {
   const [cart, addresses] = await Promise.all([getCart(), listAddresses()]);
   if (cart.items.length === 0) redirect("/cart");
 
-  const state = resolveCheckout(searchParams, addresses);
-  if (state.needsRedirect) redirect(checkoutHref(state));
+  const resolved = resolveCheckout(searchParams, addresses);
+  if (resolved.needsRedirect) redirect(checkoutHref(resolved));
 
-  const address = addresses.find((a) => a.id === state.addr);
+  const address = addresses.find((a) => a.id === resolved.addr);
   const items =
-    state.items.length > 0
-      ? cart.items.filter((it) => state.items.includes(it.id))
+    resolved.items.length > 0
+      ? cart.items.filter((it) => resolved.items.includes(it.id))
       : cart.items;
+  if (items.length === 0) redirect("/cart");
+  const state = {
+    ...resolved,
+    items: resolved.items.length > 0 ? items.map((it) => it.id) : [],
+  };
 
   let quote: ViewCheckoutPreview;
   try {
@@ -198,7 +203,11 @@ export default async function CheckoutPage(props: {
             shipping={shipping}
             action={
               <Link
-                href="/cart"
+                href={
+                  state.items.length > 0
+                    ? `/cart?${new URLSearchParams({ items: state.items.join(",") })}`
+                    : "/cart"
+                }
                 className="block text-center text-xs text-text-secondary hover:text-action-primary"
               >
                 Quay lại giỏ hàng

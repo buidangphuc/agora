@@ -24,6 +24,8 @@ export interface OrderSummaryProps {
   mobileAction?: ReactNode;
   /** Optional notice above the action (kill-switch, saga failure slot). */
   notice?: ReactNode;
+  /** Omit the discount row (cart partial selection). */
+  hideDiscount?: boolean;
 }
 
 function SummaryRows({
@@ -33,6 +35,7 @@ function SummaryRows({
   total: serverTotal,
   voucherCode,
   shipping,
+  hideDiscount,
 }: Omit<OrderSummaryProps, "action" | "mobileAction" | "notice">) {
   const total = serverTotal ?? subtotal - discount;
   return (
@@ -45,21 +48,27 @@ function SummaryRows({
           label: `Tạm tính (${itemCount} sản phẩm)`,
           children: formatPrice(subtotal),
         },
-        {
-          key: "discount",
-          // Label is constant: a Tag in the 1/3-width <dt> wraps to a second
-          // line (+16px). The code chip sits in the value, in a fixed-height
-          // line box, so applying/removing a voucher never shifts layout.
-          label: "Giảm giá",
-          children: (
-            <span className="inline-flex h-4 items-center gap-1.5 whitespace-nowrap">
-              {voucherCode ? <Tag color="success">{voucherCode}</Tag> : null}
-              <span data-testid="voucher-discount">
-                {discount > 0 ? `-${formatPrice(discount)}` : "-"}
-              </span>
-            </span>
-          ),
-        },
+        ...(hideDiscount
+          ? []
+          : [
+              {
+                key: "discount",
+                // Label is constant: a Tag in the 1/3-width <dt> wraps to a second
+                // line (+16px). The code chip sits in the value, in a fixed-height
+                // line box, so applying/removing a voucher never shifts layout.
+                label: "Giảm giá",
+                children: (
+                  <span className="inline-flex h-4 items-center gap-1.5 whitespace-nowrap">
+                    {voucherCode ? (
+                      <Tag color="success">{voucherCode}</Tag>
+                    ) : null}
+                    <span data-testid="voucher-discount">
+                      {discount > 0 ? `-${formatPrice(discount)}` : "-"}
+                    </span>
+                  </span>
+                ),
+              },
+            ]),
         {
           key: "shipping",
           label: "Phí vận chuyển",

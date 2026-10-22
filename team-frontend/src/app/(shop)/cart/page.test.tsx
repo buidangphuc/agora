@@ -126,7 +126,7 @@ describe("/cart page", () => {
     ).toBeInTheDocument();
     expect(
       screen.getAllByRole("link", { name: "Mua hàng" })[0],
-    ).toHaveAttribute("href", "/checkout");
+    ).toHaveAttribute("href", "/checkout?items=a%2Cb");
   });
 
   it("disables Mua hàng and explains with an Alert when the kill-switch is off", async () => {
@@ -148,7 +148,7 @@ describe("/cart page", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("applies a server-previewed voucher to the summary and the checkout link", async () => {
+  it("applies a server-previewed voucher to the summary and keeps it out of the checkout link", async () => {
     vi.mocked(getCartWithShopNames).mockResolvedValue(
       cartOf([item("a", "s1", "Shop")]),
     );
@@ -166,10 +166,10 @@ describe("/cart page", () => {
     expect(screen.getByTestId("order-total")).toHaveTextContent("90.000");
     expect(
       screen.getAllByRole("link", { name: "Mua hàng" })[0],
-    ).toHaveAttribute("href", "/checkout?voucher=SAVE10");
+    ).toHaveAttribute("href", "/checkout?items=a");
   });
 
-  it("ignores an invalid ?voucher= (no discount, plain checkout link)", async () => {
+  it("ignores an invalid ?voucher= (no discount, selection-only checkout link)", async () => {
     vi.mocked(getCartWithShopNames).mockResolvedValue(
       cartOf([item("a", "s1", "Shop")]),
     );
@@ -177,7 +177,7 @@ describe("/cart page", () => {
     expect(screen.getByTestId("voucher-discount")).toHaveTextContent("-");
     expect(
       screen.getAllByRole("link", { name: "Mua hàng" })[0],
-    ).toHaveAttribute("href", "/checkout");
+    ).toHaveAttribute("href", "/checkout?items=a");
   });
 
   it("reserves bottom padding for the mobile bar and has the bar", async () => {
@@ -189,5 +189,72 @@ describe("/cart page", () => {
     expect(
       screen.getByRole("heading", { level: 1 }).closest("section"),
     ).toHaveClass("pb-24");
+  });
+
+  it("[Cart selection: the checkout kill switch keeps the buy action disabled] kill switch disables buy even with a selection", async () => {
+    vi.mocked(isCheckoutEnabled).mockResolvedValue(false);
+    vi.mocked(getCartWithShopNames).mockResolvedValue(
+      cartOf([item("a", "s1", "Shop"), item("b", "s1", "Shop")]),
+    );
+    await renderPage({ items: "a,b" });
+    expect(screen.getByTestId("cart-line-checkbox-a")).toBeChecked();
+    expect(
+      screen.queryByRole("link", { name: "Mua hàng" }),
+    ).not.toBeInTheDocument();
+    for (const b of screen.getAllByRole("button", { name: "Mua hàng" })) {
+      expect(b).toBeDisabled();
+    }
+    expect(
+      screen.getByText(/Thanh toán tạm thời không khả dụng/),
+    ).toBeInTheDocument();
+  });
+
+  it("[Cart selection: an anonymous visitor cannot reach the selectable cart] anonymous is redirected to login", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    await expect(renderPage({ items: "l1" })).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirect).toHaveBeenCalledWith(
+      "/login?returnUrl=%2Fcart%3Fitems%3Dl1",
+    );
+    expect(getCartWithShopNames).not.toHaveBeenCalled();
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  });
+
+  it("[Cart selection: the back link from checkout restores the selection] page seeds the island from ?items= and ignores unknown ids", async () => {
+    vi.mocked(getCartWithShopNames).mockResolvedValue(
+      cartOf([
+        item("a", "s1", "Shop"),
+        item("b", "s1", "Shop"),
+        item("c", "s2", "Shop 2"),
+      ]),
+    );
+    await renderPage({ items: "b,ghost" });
+    expect(screen.getByTestId("cart-line-checkbox-a")).not.toBeChecked();
+    expect(screen.getByTestId("cart-line-checkbox-b")).toBeChecked();
+    expect(screen.getByTestId("cart-line-checkbox-c")).not.toBeChecked();
+    expect(
+      screen.getAllByRole("link", { name: "Mua hàng" })[0],
+    ).toHaveAttribute("href", "/checkout?items=b");
+  });
+
+  it("[Cart selection: an items parameter with no current line ticks everything] page ticks every line when ?items= names no cart line", async () => {
+    vi.mocked(getCartWithShopNames).mockResolvedValue(
+      cartOf([item("a", "s1", "Shop"), item("b", "s2", "Shop 2")]),
+    );
+    await renderPage({ items: "ghost" });
+    expect(screen.getByTestId("cart-line-checkbox-a")).toBeChecked();
+    expect(screen.getByTestId("cart-line-checkbox-b")).toBeChecked();
+  });
+
+  it("[Cart selection: every line is ticked by default] page renders a row and a checkbox per line server-side", async () => {
+    vi.mocked(getCartWithShopNames).mockResolvedValue(
+      cartOf([
+        item("a", "s1", "Shop"),
+        item("b", "s1", "Shop"),
+        item("c", "s2", "Shop 2"),
+      ]),
+    );
+    await renderPage();
+    expect(screen.getAllByTestId(/^cart-line-checkbox-/)).toHaveLength(3);
+    expect(screen.getAllByTestId(/^cart-shop-checkbox-/)).toHaveLength(2);
   });
 });
