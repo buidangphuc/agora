@@ -543,3 +543,80 @@ func (r *InMemoryReturnRepository) ListAutoApprovable(_ context.Context, now tim
 	}
 	return res, nil
 }
+
+func (r *PostgresReturnRepository) ReapproveReturn(ctx context.Context, id string, orderTotal int64) (OrderReturn, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return OrderReturn{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var orderID string
+	if err := tx.QueryRow(ctx, `SELECT order_id FROM order_returns WHERE id = $1`, id).Scan(&orderID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return OrderReturn{}, ErrReturnNotFound
+		}
+		return OrderReturn{}, fmt.Errorf("read return %q: %w", id, err)
+	}
+	var locked string
+	if err := tx.QueryRow(ctx, `SELECT id FROM orders WHERE id = $1 FOR UPDATE`, orderID).Scan(&locked); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return OrderReturn{}, ErrOrderNotFound
+		}
+		return OrderReturn{}, fmt.Errorf("lock order %q: %w", orderID, err)
+	}
+	var amount int64
+	var status int32
+	if err := tx.QueryRow(ctx, `SELECT refund_amount, status FROM order_returns WHERE id = $1`, id).Scan(&amount, &status); err != nil {
+		return OrderReturn{}, fmt.Errorf("read return %q: %w", id, err)
+	}
+	if ReturnStatus(status) != ReturnStatusRejected {
+		return OrderReturn{}, ErrReturnStatusConflict
+	}
+	var taken int64
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(refund_amount), 0) FROM order_returns WHERE order_id = $1 AND status <> $2`,
+		orderID, int32(ReturnStatusRejected)).Scan(&taken); err != nil {
+		return OrderReturn{}, fmt.Errorf("sum returns of order %q: %w", orderID, err)
+	}
+	if _, err := returnRemainder(amount, orderTotal, taken); err != nil {
+		return OrderReturn{}, err
+	}
+	const q = `UPDATE order_returns SET status = $3, updated_at = now()
+		WHERE id = $1 AND status = $2 RETURNING ` + returnColumns
+	var ret OrderReturn
+	if err := scanReturn(tx.QueryRow(ctx, q, id, int32(ReturnStatusRejected), int32(ReturnStatusApproved)), &ret); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
+			return OrderReturn{}, ErrReturnStatusConflict
+		}
+		return OrderReturn{}, fmt.Errorf("reapprove return %q: %w", id, err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return OrderReturn{}, fmt.Errorf("commit tx: %w", err)
+	}
+	return ret, nil
+}
+
+func (r *InMemoryReturnRepository) ReapproveReturn(_ context.Context, id string, orderTotal int64) (OrderReturn, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	ret, ok := r.returns[id]
+	if !ok {
+		return OrderReturn{}, ErrReturnNotFound
+	}
+	if ret.Status != ReturnStatusRejected {
+		return OrderReturn{}, ErrReturnStatusConflict
+	}
+	var taken int64
+	for _, existing := range r.returns {
+		if existing.OrderID == ret.OrderID && existing.Status != ReturnStatusRejected {
+			taken += existing.RefundAmount
+		}
+	}
+	if _, err := returnRemainder(ret.RefundAmount, orderTotal, taken); err != nil {
+		return OrderReturn{}, err
+	}
+	ret.Status = ReturnStatusApproved
+	ret.UpdatedAt = time.Now()
+	r.returns[id] = ret
+	return ret, nil
+}
