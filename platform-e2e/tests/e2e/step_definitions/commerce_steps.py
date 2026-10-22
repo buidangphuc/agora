@@ -30,6 +30,7 @@ from src.api.services import (
 )
 from src.models import Listing
 from src.utils import get_test_data_manager
+from tests.e2e.support.voucher_seed import ensure_known_voucher
 from tests.e2e.support.world import World
 
 PASSWORD = "Sup3r-secret-pass!"
@@ -177,6 +178,7 @@ def admin_creates_voucher(world: World, percent: int, quota: int) -> None:
     )
 )
 def buyer_previews_own_namespace(world: World, code: str, subtotal: int) -> None:
+    ensure_known_voucher(code)
     buyer = _x(world)["buyer"]
     _x(world)["resp"] = _call(
         buyer["token"],
