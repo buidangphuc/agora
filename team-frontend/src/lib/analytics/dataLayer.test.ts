@@ -24,7 +24,7 @@ describe("pushDataLayer", () => {
       ],
     });
 
-    const dl = win.dataLayer!;
+    const dl = win.dataLayer ?? [];
     const i = dl.findIndex((e) => e.event === "view_item_list");
     expect(i).toBeGreaterThan(0);
     expect(dl[i - 1]).toEqual({ ecommerce: null });
@@ -39,7 +39,7 @@ describe("pushDataLayer", () => {
     pushDataLayer("view_item", { items: [{ itemId: "a" }] });
     pushDataLayer("add_to_cart", { items: [{ itemId: "a" }] });
 
-    const dl = win.dataLayer!;
+    const dl = win.dataLayer ?? [];
     const events = dl
       .map((e, idx) => ({ e, idx }))
       .filter(({ e }) => typeof e.event === "string");
@@ -78,7 +78,7 @@ describe("dataLayer consent gating", () => {
   beforeEach(() => {
     vi.resetModules();
     clearCookie();
-    delete (window as { dataLayer?: unknown }).dataLayer;
+    Reflect.deleteProperty(window, "dataLayer");
     vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
   });
   afterEach(() => {
@@ -117,7 +117,7 @@ describe("dataLayer consent gating", () => {
       personalization: false,
     };
     for (const cookie of [null, 0] as const) {
-      delete (window as { dataLayer?: unknown }).dataLayer;
+      Reflect.deleteProperty(window, "dataLayer");
       clearCookie();
       if (cookie === 0) setConsent(0);
       applyConsent(none);

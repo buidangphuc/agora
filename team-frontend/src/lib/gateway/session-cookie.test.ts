@@ -50,10 +50,14 @@ describe("session cookie helpers", () => {
 // x-forwarded-proto === "https". Used by setSession and the middleware.
 describe("isSecureRequest", () => {
   it("S2: https forwarded proto is secure", () => {
-    expect(isSecureRequest(new Headers({ "x-forwarded-proto": "https" }))).toBe(true);
+    expect(isSecureRequest(new Headers({ "x-forwarded-proto": "https" }))).toBe(
+      true,
+    );
   });
   it("S2: http forwarded proto is not secure", () => {
-    expect(isSecureRequest(new Headers({ "x-forwarded-proto": "http" }))).toBe(false);
+    expect(isSecureRequest(new Headers({ "x-forwarded-proto": "http" }))).toBe(
+      false,
+    );
   });
   it("S2: absent forwarded proto is not secure", () => {
     expect(isSecureRequest(new Headers())).toBe(false);
@@ -63,7 +67,8 @@ describe("isSecureRequest", () => {
 describe("isSecureRequest COOKIE_SECURE", () => {
   const original = process.env.COOKIE_SECURE;
   const restore = () => {
-    if (original === undefined) Reflect.deleteProperty(process.env, "COOKIE_SECURE");
+    if (original === undefined)
+      Reflect.deleteProperty(process.env, "COOKIE_SECURE");
     else process.env.COOKIE_SECURE = original;
   };
   beforeEach(() => {
@@ -78,11 +83,15 @@ describe("isSecureRequest COOKIE_SECURE", () => {
 
   it("Cookie secure: forced on beats a client header (permission)", () => {
     process.env.COOKIE_SECURE = "true";
-    expect(isSecureRequest(new Headers({ "x-forwarded-proto": "http" }))).toBe(true);
+    expect(isSecureRequest(new Headers({ "x-forwarded-proto": "http" }))).toBe(
+      true,
+    );
   });
 
   it("Cookie secure: unset keeps the proxy rule", () => {
-    expect(isSecureRequest(new Headers({ "x-forwarded-proto": "https" }))).toBe(true);
+    expect(isSecureRequest(new Headers({ "x-forwarded-proto": "https" }))).toBe(
+      true,
+    );
   });
 
   it("Cookie secure: unset and plain http (boundary)", () => {
@@ -94,7 +103,9 @@ describe("isSecureRequest COOKIE_SECURE", () => {
     (value) => {
       process.env.COOKIE_SECURE = value;
       expect(isSecureRequest(new Headers())).toBe(false);
-      expect(isSecureRequest(new Headers({ "x-forwarded-proto": "https" }))).toBe(true);
+      expect(
+        isSecureRequest(new Headers({ "x-forwarded-proto": "https" })),
+      ).toBe(true);
     },
   );
 

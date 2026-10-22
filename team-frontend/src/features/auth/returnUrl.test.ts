@@ -45,9 +45,12 @@ describe("safeReturnUrl", () => {
     "/x?next=%0D",
     "/x#%5c",
     "/a%0D%0Ab",
-  ])("[Percent-encoded tricks are rejected] rejects percent-encoded tricks %s", (raw) => {
-    expect(safeReturnUrl(raw)).toBe("/");
-  });
+  ])(
+    "[Percent-encoded tricks are rejected] rejects percent-encoded tricks %s",
+    (raw) => {
+      expect(safeReturnUrl(raw)).toBe("/");
+    },
+  );
 
   it("[Percent-encoded tricks are rejected] benign encodings are kept", () => {
     expect(safeReturnUrl("/a%20b")).toBe("/a%20b");
@@ -68,9 +71,12 @@ describe("safeReturnUrl", () => {
     "/login/x",
     "/register?a=1",
     "/Register/Foo",
-  ])("[Login and register targets are rejected to avoid a loop] rejects login and register targets %s", (raw) => {
-    expect(safeReturnUrl(raw)).toBe("/");
-  });
+  ])(
+    "[Login and register targets are rejected to avoid a loop] rejects login and register targets %s",
+    (raw) => {
+      expect(safeReturnUrl(raw)).toBe("/");
+    },
+  );
 
   it.each(["/loginfoo", "/registered", "/loginfoo?x=1", "/a/login"])(
     "[Paths merely prefixed by login or register are kept] keeps look-alike prefixes %s",

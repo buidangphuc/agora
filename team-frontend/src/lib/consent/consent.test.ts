@@ -64,25 +64,47 @@ describe("constants (scenario: Boundary at the 180-day lifetime)", () => {
 describe("serializeConsent", () => {
   it("Accept all writes the cookie: value v=1&a=1&m=1&p=1&ts=T", () => {
     expect(
-      serializeConsent({ analytics: true, marketing: true, personalization: true }, T),
+      serializeConsent(
+        { analytics: true, marketing: true, personalization: true },
+        T,
+      ),
     ).toBe(`v=1&a=1&m=1&p=1&ts=${T}`);
   });
   it("Reject all writes the cookie: value v=1&a=0&m=0&p=0&ts=T", () => {
     expect(
-      serializeConsent({ analytics: false, marketing: false, personalization: false }, T),
+      serializeConsent(
+        { analytics: false, marketing: false, personalization: false },
+        T,
+      ),
     ).toBe(`v=1&a=0&m=0&p=0&ts=${T}`);
   });
   it("Granular choice is stored per group: only personalization", () => {
     expect(
-      serializeConsent({ analytics: false, marketing: false, personalization: true }, T),
+      serializeConsent(
+        { analytics: false, marketing: false, personalization: true },
+        T,
+      ),
     ).toBe(`v=1&a=0&m=0&p=1&ts=${T}`);
   });
   it("Flags are independent: each group maps to its own key", () => {
-    expect(serializeConsent({ analytics: true, marketing: false, personalization: false }, T)).toBe(`v=1&a=1&m=0&p=0&ts=${T}`);
-    expect(serializeConsent({ analytics: false, marketing: true, personalization: false }, T)).toBe(`v=1&a=0&m=1&p=0&ts=${T}`);
+    expect(
+      serializeConsent(
+        { analytics: true, marketing: false, personalization: false },
+        T,
+      ),
+    ).toBe(`v=1&a=1&m=0&p=0&ts=${T}`);
+    expect(
+      serializeConsent(
+        { analytics: false, marketing: true, personalization: false },
+        T,
+      ),
+    ).toBe(`v=1&a=0&m=1&p=0&ts=${T}`);
   });
   it("Oversized cookie: serialized value stays within 256 bytes and has no ';'", () => {
-    const v = serializeConsent({ analytics: true, marketing: true, personalization: true }, T);
+    const v = serializeConsent(
+      { analytics: true, marketing: true, personalization: true },
+      T,
+    );
     expect(v.length).toBeLessThanOrEqual(256);
     expect(v).not.toContain(";");
   });
@@ -158,12 +180,25 @@ describe("parseConsent", () => {
 
 describe("writeConsent", () => {
   it("Accept all writes the cookie with ts = current unix seconds", () => {
-    const res = writeConsent({ analytics: true, marketing: true, personalization: true });
-    expect(res).toMatchObject({ analytics: true, marketing: true, personalization: true, version: 1 });
+    const res = writeConsent({
+      analytics: true,
+      marketing: true,
+      personalization: true,
+    });
+    expect(res).toMatchObject({
+      analytics: true,
+      marketing: true,
+      personalization: true,
+      version: 1,
+    });
     expect(document.cookie).toContain(`${COOKIE_NAME}=v=1&a=1&m=1&p=1&ts=${T}`);
   });
   it("Reject all writes the cookie", () => {
-    writeConsent({ analytics: false, marketing: false, personalization: false });
+    writeConsent({
+      analytics: false,
+      marketing: false,
+      personalization: false,
+    });
     expect(document.cookie).toContain(`${COOKIE_NAME}=v=1&a=0&m=0&p=0&ts=${T}`);
   });
   it("Granular choice is stored per group", () => {
@@ -173,7 +208,10 @@ describe("writeConsent", () => {
   it("Boundary at the 180-day lifetime: Path, Max-Age, SameSite=Lax, no HttpOnly, no Secure on http", () => {
     const cap = captureCookieWrites();
     try {
-      writeConsent({ analytics: true, marketing: false, personalization: false }, { secure: false });
+      writeConsent(
+        { analytics: true, marketing: false, personalization: false },
+        { secure: false },
+      );
     } finally {
       cap.restore();
     }
@@ -189,7 +227,10 @@ describe("writeConsent", () => {
   it("Boundary at the 180-day lifetime: Secure on https", () => {
     const cap = captureCookieWrites();
     try {
-      writeConsent({ analytics: true, marketing: true, personalization: true }, { secure: true });
+      writeConsent(
+        { analytics: true, marketing: true, personalization: true },
+        { secure: true },
+      );
     } finally {
       cap.restore();
     }
@@ -200,7 +241,11 @@ describe("writeConsent", () => {
   it("Revoking analytics saves a=0 rather than removing the cookie", () => {
     writeConsent({ analytics: true, marketing: true, personalization: true });
     writeConsent({ analytics: false, marketing: true, personalization: true });
-    expect(readConsent()).toMatchObject({ analytics: false, marketing: true, version: 1 });
+    expect(readConsent()).toMatchObject({
+      analytics: false,
+      marketing: true,
+      version: 1,
+    });
     expect(document.cookie).toContain(`${COOKIE_NAME}=v=1&a=0&m=1&p=1&ts=${T}`);
   });
   it("SSR-safe: no document -> no throw", () => {
@@ -231,7 +276,9 @@ describe("readConsent", () => {
     expect(readConsent()).toEqual(DENIED);
   });
   it("accepts a Cookie header string (server side) and ignores other cookies", () => {
-    expect(readConsent(`foo=bar; ${COOKIE_NAME}=v=1&a=1&m=0&p=0&ts=${T}; baz=1`)).toEqual({
+    expect(
+      readConsent(`foo=bar; ${COOKIE_NAME}=v=1&a=1&m=0&p=0&ts=${T}; baz=1`),
+    ).toEqual({
       analytics: true,
       marketing: false,
       personalization: false,

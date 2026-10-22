@@ -11,7 +11,7 @@ const ref = (id: string, key: string) =>
   createHmac("sha256", key).update(id).digest("hex");
 
 afterEach(() => {
-  delete process.env.GA4_USER_ID_HMAC_KEY;
+  Reflect.deleteProperty(process.env, "GA4_USER_ID_HMAC_KEY");
 });
 
 describe("ga4UserId (Logged-in buyer with analytics consent gets a stable HMAC)", () => {
@@ -39,7 +39,7 @@ describe("ga4UserId (Logged-in buyer with analytics consent gets a stable HMAC)"
 
 describe("ga4UserId (Missing key disables the feature)", () => {
   it("returns null when the env key is unset", () => {
-    delete process.env.GA4_USER_ID_HMAC_KEY;
+    Reflect.deleteProperty(process.env, "GA4_USER_ID_HMAC_KEY");
     expect(ga4UserId("user-123")).toBeNull();
   });
 

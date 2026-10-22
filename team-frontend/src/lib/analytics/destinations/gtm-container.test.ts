@@ -43,7 +43,9 @@ describe("GTM container maps page_location", () => {
     const fields = cfg?.parameter?.find((p) => p.key === "fieldsToSet");
     const entry = fields?.list
       ?.map((l) => l.map ?? [])
-      .find((m) => m.some((p) => p.key === "fieldName" && p.value === "page_location"));
+      .find((m) =>
+        m.some((p) => p.key === "fieldName" && p.value === "page_location"),
+      );
     expect(entry).toBeDefined();
     const value = entry?.find((p) => p.key === "value")?.value;
     expect(vars).toContain(value);

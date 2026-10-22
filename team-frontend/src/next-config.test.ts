@@ -24,12 +24,12 @@ async function cspFor(
     >;
   };
   expect(typeof cfg.headers).toBe("function");
-  const rules = await cfg.headers!();
+  const rules = (await cfg.headers?.()) ?? [];
   const csp = rules
     .flatMap((r) => r.headers)
     .find((h) => h.key.toLowerCase() === "content-security-policy");
   expect(csp, "Content-Security-Policy header present").toBeDefined();
-  return csp!.value;
+  return csp?.value ?? "";
 }
 
 function directive(csp: string, name: string): string[] {
@@ -38,7 +38,7 @@ function directive(csp: string, name: string): string[] {
     .map((s) => s.trim())
     .find((s) => s.startsWith(`${name} `));
   expect(d, `${name} directive present`).toBeDefined();
-  return d!.split(/\s+/).slice(1);
+  return (d ?? "").split(/\s+/).slice(1);
 }
 
 afterEach(() => vi.unstubAllEnvs());

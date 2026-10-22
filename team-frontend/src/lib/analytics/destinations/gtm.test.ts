@@ -35,7 +35,7 @@ describe("applyConsent (Consent Mode v2 basic gating)", () => {
   beforeEach(() => {
     document.head.innerHTML = "";
     document.body.innerHTML = "";
-    delete (window as { dataLayer?: unknown }).dataLayer;
+    Reflect.deleteProperty(window, "dataLayer");
     vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
   });
   afterEach(() => {
@@ -224,7 +224,7 @@ describe("applyConsent page_location (returnUrl stripping)", () => {
 
   beforeEach(() => {
     document.head.innerHTML = "";
-    delete (window as { dataLayer?: unknown }).dataLayer;
+    Reflect.deleteProperty(window, "dataLayer");
     vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
   });
   afterEach(() => {
@@ -246,11 +246,7 @@ describe("applyConsent page_location (returnUrl stripping)", () => {
   });
 
   it("[Other query parameters are not removed] keeps other params", () => {
-    window.history.replaceState(
-      null,
-      "",
-      "/search?q=ao&returnUrl=%2Fx&page=2",
-    );
+    window.history.replaceState(null, "", "/search?q=ao&returnUrl=%2Fx&page=2");
     applyConsent(ALL);
     expect(pageLocations()).toEqual([
       `${window.location.origin}/search?q=ao&page=2`,
@@ -276,7 +272,7 @@ describe("trackPageLocation (client-side navigation; NEW export of ./gtm)", () =
 
   beforeEach(() => {
     document.head.innerHTML = "";
-    delete (window as { dataLayer?: unknown }).dataLayer;
+    Reflect.deleteProperty(window, "dataLayer");
     vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
   });
   afterEach(() => {

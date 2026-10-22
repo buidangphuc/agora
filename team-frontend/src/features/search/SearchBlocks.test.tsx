@@ -1,14 +1,14 @@
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ViewListing } from "@/lib/gateway/listings";
+import type { FacetedSearchResult } from "@/lib/gateway/search";
 import {
   beginBeaconCapture,
   drain,
   endBeaconCapture,
   listEntries,
 } from "@/test/listBeacons";
-import type { ViewListing } from "@/lib/gateway/listings";
-import type { FacetedSearchResult } from "@/lib/gateway/search";
 
 const loadSearch = vi.hoisted(() => vi.fn());
 const loadCategories = vi.hoisted(() => vi.fn());

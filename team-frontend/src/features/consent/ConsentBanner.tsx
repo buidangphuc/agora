@@ -69,10 +69,10 @@ export function ConsentBanner() {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 p-4">
-      <div
-        role="dialog"
+      <dialog
+        open
         aria-labelledby="consent-title"
-        className="mx-auto max-w-2xl rounded-lg border bg-white p-4 shadow-xl text-sm text-gray-700"
+        className="static mx-auto w-full max-w-2xl rounded-lg border bg-white p-4 shadow-xl text-sm text-gray-700"
       >
         <h2 id="consent-title" className="font-bold text-gray-900 mb-2">
           Cookie preferences
@@ -125,7 +125,7 @@ export function ConsentBanner() {
             Accept all
           </button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }
