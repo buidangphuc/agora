@@ -125,6 +125,10 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 	if picked == nil || strings.TrimSpace(picked.GetCity()) == "" {
 		return nil, status.Error(codes.FailedPrecondition, "address not found")
 	}
+	if c := req.GetConfirmedAddress(); c != nil && !sameDeliveryAddress(c, picked) {
+		h.logger.Warn("checkout refused: address changed", slog.String("address_id", picked.GetId()))
+		return nil, status.Error(codes.FailedPrecondition, "address changed")
+	}
 	shippingAddr := toRepoAddress(picked)
 
 	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode(), service.WithIdempotencyKey(idemKey))
@@ -717,6 +721,15 @@ func (h *OrderHandler) GetShipmentTracking(ctx context.Context, req *orderv1.Get
 	return &orderv1.GetShipmentTrackingResponse{
 		Shipment: toWireShipment(shipment),
 	}, nil
+}
+
+func sameDeliveryAddress(a, b *identityv1.Address) bool {
+	return a.GetRecipientName() == b.GetRecipientName() &&
+		a.GetPhone() == b.GetPhone() &&
+		a.GetStreet() == b.GetStreet() &&
+		a.GetWard() == b.GetWard() &&
+		a.GetDistrict() == b.GetDistrict() &&
+		a.GetCity() == b.GetCity()
 }
 
 func toRepoAddress(a *identityv1.Address) repository.Address {
