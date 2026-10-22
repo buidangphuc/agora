@@ -20,6 +20,10 @@ type KafkaConfig struct {
 	Topic         string // payment.events (consumed)
 	DLQTopic      string
 	OrderTopic    string // order.events (produced by the outbox relayer)
+
+	EngagementTopic string
+	EngagementGroup string
+	EngagementDLQ   string
 }
 
 // KafkaConfigFromSettings derives the Kafka wiring from the loaded Settings.
@@ -31,6 +35,10 @@ func KafkaConfigFromSettings(s *config.Settings) KafkaConfig {
 		Topic:         s.Kafka.PaymentTopic,
 		DLQTopic:      s.Kafka.PaymentDLQ,
 		OrderTopic:    s.Kafka.OrderTopic,
+
+		EngagementTopic: s.Kafka.EngagementTopic,
+		EngagementGroup: s.Kafka.EngagementConsumerGroup,
+		EngagementDLQ:   s.Kafka.EngagementDLQ,
 	}
 }
 
@@ -162,4 +170,61 @@ type kafkaDLQ struct {
 func (d *kafkaDLQ) Produce(ctx context.Context, topic string, rec consumer.Record) error {
 	kr := &kgo.Record{Topic: topic, Key: []byte(rec.Key), Value: rec.Value}
 	return d.client.ProduceSync(ctx, kr).FirstErr()
+}
+
+// DisputeConsumerStartDecision reports whether the engagement.events dispute
+// consumer should start and, when it should not, why.
+func DisputeConsumerStartDecision(kafkaEnabled, auditClientPresent bool) (bool, string) {
+	if !kafkaEnabled {
+		return false, "kafka disabled"
+	}
+	if !auditClientPresent {
+		return false, "audit client not configured"
+	}
+	return true, ""
+}
+
+// DisputeKafka holds the franz-go handles backing the DisputeResolved consumer:
+// a consumer-group reader on engagement.events (auto-commit disabled) and a
+// producer for its DLQ topic.
+type DisputeKafka struct {
+	reader *kafkaReader
+	dlq    *kafkaDLQ
+}
+
+// NewDisputeKafka dials the brokers and joins the dispute consumer group.
+func NewDisputeKafka(cfg KafkaConfig) (*DisputeKafka, error) {
+	consumerClient, err := kgo.NewClient(
+		kgo.SeedBrokers(cfg.Brokers...),
+		kgo.ConsumerGroup(cfg.EngagementGroup),
+		kgo.ConsumeTopics(cfg.EngagementTopic),
+		kgo.DisableAutoCommit(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	dlqClient, err := kgo.NewClient(
+		kgo.SeedBrokers(cfg.Brokers...),
+		kgo.ProducerLinger(0),
+	)
+	if err != nil {
+		consumerClient.Close()
+		return nil, err
+	}
+	return &DisputeKafka{
+		reader: &kafkaReader{client: consumerClient},
+		dlq:    &kafkaDLQ{client: dlqClient},
+	}, nil
+}
+
+// Reader returns the consumer.RecordReader over engagement.events.
+func (k *DisputeKafka) Reader() consumer.RecordReader { return k.reader }
+
+// DLQ returns the consumer.DeadLetterProducer for parked records.
+func (k *DisputeKafka) DLQ() consumer.DeadLetterProducer { return k.dlq }
+
+// Close shuts both clients down.
+func (k *DisputeKafka) Close() {
+	k.reader.client.Close()
+	k.dlq.client.Close()
 }
