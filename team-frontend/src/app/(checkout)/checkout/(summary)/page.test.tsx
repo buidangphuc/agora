@@ -508,6 +508,133 @@ describe("/checkout items selection", () => {
   });
 });
 
+describe("/checkout cart selection", () => {
+  const lines = () =>
+    vi.mocked(getCart).mockResolvedValue({
+      userId: "u1",
+      items: [
+        item(100000, 1, { id: "l1", title: "Sản phẩm A" }),
+        item(100000, 1, { id: "l2", title: "Sản phẩm B" }),
+        item(100000, 1, { id: "l3", title: "Sản phẩm C", sellerId: "s2" }),
+      ],
+      subtotal: 300000,
+      totalItems: 3,
+    });
+
+  it("Cart selection: checkout uses only the selected ids: selected ids reach preview and beacon", async () => {
+    const { trackEcommerce } = await import("@/lib/analytics");
+    lines();
+    setPreview(preview({ groups: [group("s1", { itemIds: ["l2"] })] }));
+    await go({ step: "confirm", addr: "a2", items: "l2" });
+    expect(previewCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ itemIds: ["l2"] }),
+    );
+    expect(trackEcommerce).toHaveBeenCalledWith(
+      "begin_checkout",
+      expect.objectContaining({
+        items: [expect.objectContaining({ itemName: "Sản phẩm B" })],
+      }),
+    );
+    const beginItems = vi
+      .mocked(trackEcommerce)
+      .mock.calls.find((c) => c[0] === "begin_checkout")?.[1] as {
+      items: unknown[];
+    };
+    expect(beginItems.items).toHaveLength(1);
+    expect(screen.queryAllByText("Sản phẩm B").length).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(screen.queryAllByText("Sản phẩm A")).toHaveLength(0);
+    expect(screen.queryAllByText("Sản phẩm C")).toHaveLength(0);
+  });
+
+  it("Cart selection: placing the order sends the selected ids: confirm step submits only the selected lines", async () => {
+    const { checkoutAction } = await import("@/features/order/actions");
+    vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
+    lines();
+    setPreview(
+      preview({
+        groups: [
+          group("s1", { itemIds: ["l1"] }),
+          group("s2", { itemIds: ["l3"] }),
+        ],
+      }),
+    );
+    await go({ step: "confirm", addr: "a2", items: "l1,l3,ghost" });
+    const { setupUser } = await import("@/test/user");
+    await setupUser().click(
+      screen.getAllByRole("button", { name: "Đặt hàng" })[0] as HTMLElement,
+    );
+    expect(checkoutAction).toHaveBeenCalledTimes(1);
+    expect(checkoutAction).toHaveBeenCalledWith(
+      expect.objectContaining({ itemIds: ["l1", "l3"] }),
+    );
+  });
+
+  it.each(["ghost", "ghost1,ghost2"])(
+    "Cart selection: a selection naming no cart line returns to the cart: dead selection redirects to cart (%s)",
+    async (items) => {
+      lines();
+      expect(await redirectOf({ step: "confirm", addr: "a2", items })).toBe(
+        "/cart",
+      );
+      expect(previewCheckout).not.toHaveBeenCalled();
+      const { checkoutAction } = await import("@/features/order/actions");
+      expect(checkoutAction).not.toHaveBeenCalled();
+    },
+  );
+
+  it("Cart selection: ids not in the cart are ignored at checkout: ghost ids are ignored", async () => {
+    lines();
+    setPreview(preview({ groups: [group("s1", { itemIds: ["l1"] })] }));
+    await go({ step: "confirm", addr: "a2", items: "l1,ghost" });
+    expect(nav.redirect).not.toHaveBeenCalled();
+    expect(previewCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ itemIds: ["l1"] }),
+    );
+    expect(screen.queryAllByText("Sản phẩm A").length).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(screen.queryAllByText("Sản phẩm B")).toHaveLength(0);
+    expect(screen.queryAllByText("Sản phẩm C")).toHaveLength(0);
+  });
+
+  it("Cart selection: an empty items parameter is the whole cart, not a redirect: empty items param is the whole cart", async () => {
+    lines();
+    setPreview(
+      preview({
+        groups: [
+          group("s1", { itemIds: ["l1", "l2"] }),
+          group("s2", { itemIds: ["l3"] }),
+        ],
+      }),
+    );
+    await go({ step: "confirm", addr: "a2", items: "" });
+    expect(nav.redirect).not.toHaveBeenCalled();
+    expect(previewCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ itemIds: [] }),
+    );
+    for (const t of ["Sản phẩm A", "Sản phẩm B", "Sản phẩm C"])
+      expect(screen.queryAllByText(t).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("Cart selection: the back link keeps the selection: back link carries the selection", async () => {
+    lines();
+    await go({ step: "shipping", addr: "a2", items: "l1,l3" });
+    expect(
+      screen.getByRole("link", { name: "Quay lại giỏ hàng" }),
+    ).toHaveAttribute("href", "/cart?items=l1%2Cl3");
+  });
+
+  it("Cart selection: the back link keeps the selection: no selection links to the plain cart", async () => {
+    lines();
+    await go({ step: "shipping", addr: "a2" });
+    expect(
+      screen.getByRole("link", { name: "Quay lại giỏ hàng" }),
+    ).toHaveAttribute("href", "/cart");
+  });
+});
+
 describe("/checkout steps", () => {
   it("address step: default address selected, Tiếp tục carries addr into step=shipping", async () => {
     await go();

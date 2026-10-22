@@ -559,3 +559,22 @@ describe("PlaceOrderForm checkout coherence", () => {
     expect(nav.push).toHaveBeenCalledWith("/checkout/pay/o1");
   });
 });
+
+describe("PlaceOrderForm cart selection", () => {
+  it("Cart selection: placing the order sends the selected ids: submits the selected item ids", async () => {
+    const user = setupUser();
+    vi.mocked(checkoutAction).mockResolvedValue({ ok: false, error: "x" });
+    render(
+      <CheckoutPendingProvider>
+        <PlaceOrderForm {...props} itemIds={["l1", "l3"]} />
+      </CheckoutPendingProvider>,
+    );
+    await user.click(
+      screen.getAllByRole("button", { name: "Đặt hàng" })[0] as HTMLElement,
+    );
+    expect(checkoutAction).toHaveBeenCalledTimes(1);
+    const arg = vi.mocked(checkoutAction).mock.calls[0]?.[0];
+    expect(arg?.itemIds).toEqual(["l1", "l3"]);
+    expect(arg?.itemIds).not.toHaveLength(0);
+  });
+});
