@@ -18,6 +18,7 @@ from src.constants import timeouts
 from tests.e2e.flows import set_checkout_flag
 from tests.e2e.step_definitions.d2_cart_steps import digits, toast
 from tests.e2e.support import d2_support as d2
+from tests.e2e.support.voucher_seed import ensure_known_voucher
 from tests.e2e.support.world import World
 
 _MOBILE = {"width": 375, "height": 812}
@@ -217,6 +218,7 @@ def desktop_viewport(world: World) -> None:
 # ── Order summary ────────────────────────────────────────────────────────
 @when(parsers.parse('the buyer applies the code "{code}" on the payment step'))
 def apply_on_payment(world: World, code: str) -> None:
+    ensure_known_voucher(code)
     page = world.page
     world.state.extra["d2_cta_top"] = top(page.get_by_role("link", name="Tiếp tục").first)
     world.state.extra["d2_total_top"] = top(page.get_by_test_id("order-total"))
@@ -375,6 +377,7 @@ def no_browser_purchase_row_kept(world: World) -> None:
     parsers.parse('the buyer previews the codes "{first}" and then "{second}" on the payment step')
 )
 def preview_two_codes(world: World, first: str, second: str) -> None:
+    ensure_known_voucher(first)
     page = world.page
     page.wait_for_timeout(500)
     for i, code in enumerate((first, second)):
