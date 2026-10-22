@@ -1,56 +1,66 @@
 """Manifest checks for change frontend-cookie-secure, task 1.6.
 
-Run: python -m pytest -q platform-gitops/tests/test_frontend_cookie_secure_manifests.py
+stdlib unittest + `yq` (mikefarah), like the other platform-gitops manifest tests.
+Run: python3 -m unittest discover -s platform-gitops/tests -v   (from the repo root)
 """
+import json
+import subprocess
+import unittest
 from pathlib import Path
-
-import pytest
-import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 REPO = ROOT.parent
 BASE = ROOT / "envs/services/team-frontend.yaml"
+ENVS = ("staging", "prod")
 
 
 def load(path: Path) -> dict:
     assert path.exists(), f"{path} does not exist"
-    return yaml.safe_load(path.read_text()) or {}
+    out = subprocess.run(["yq", "-o=json", "-I=0", ".", str(path)],
+                         capture_output=True, text=True, check=True).stdout.strip()
+    return json.loads(out) if out and out != "null" else {}
+
+
+def overlay(env: str) -> dict:
+    return load(ROOT / f"envs/{env}/services/team-frontend.yaml")
 
 
 def merged_env(env: str) -> dict:
     """Helm-style map merge: overlay env keys layered over the base env."""
-    base = load(BASE).get("env") or {}
-    overlay = load(ROOT / f"envs/{env}/services/team-frontend.yaml").get("env") or {}
-    return {**base, **overlay}
+    return {**(load(BASE).get("env") or {}), **(overlay(env).get("env") or {})}
 
 
-@pytest.mark.parametrize("env", ["staging", "prod"])
-def test_scenario_cookie_secure_staging_and_prod_set_it(env):
-    overlay = load(ROOT / f"envs/{env}/services/team-frontend.yaml")
-    # Must be the string "true" (a YAML bool would render as a different env value type).
-    assert overlay.get("env", {}).get("COOKIE_SECURE") == "true"
+class FrontendCookieSecureManifest(unittest.TestCase):
+    def test_scenario_cookie_secure_staging_and_prod_set_it(self):
+        for env in ENVS:
+            with self.subTest(env=env):
+                # Must be the string "true" (a YAML bool would render as a different env value type).
+                self.assertEqual((overlay(env).get("env") or {}).get("COOKIE_SECURE"), "true")
+
+    def test_scenario_cookie_secure_overlay_keeps_base_env_merged(self):
+        base = load(BASE)["env"]
+        for env in ENVS:
+            with self.subTest(env=env):
+                merged = merged_env(env)
+                self.assertEqual(merged["COOKIE_SECURE"], "true")
+                for k, v in base.items():
+                    self.assertEqual(merged[k], v, f"base env {k} lost or changed by the {env} overlay")
+
+    def test_scenario_cookie_secure_overlay_keeps_existing_settings(self):
+        for env in ENVS:
+            with self.subTest(env=env):
+                ov = overlay(env)
+                self.assertIs(ov["ingress"]["enabled"], True)
+                self.assertTrue(ov["ingress"]["host"])
+
+    def test_scenario_cookie_secure_local_compose_leaves_it_unset_boundary(self):
+        self.assertNotIn("COOKIE_SECURE", load(BASE).get("env") or {})
+        self.assertNotIn("COOKIE_SECURE", (ROOT / "envs/local/values.yaml").read_text())
+        for name in ("docker-compose.services.yaml", "platform-e2e/docker-compose.e2e.yaml"):
+            p = REPO / name
+            if p.exists():
+                self.assertNotIn("COOKIE_SECURE", p.read_text(), name)
 
 
-@pytest.mark.parametrize("env", ["staging", "prod"])
-def test_scenario_cookie_secure_overlay_keeps_base_env_merged(env):
-    merged = merged_env(env)
-    base = load(BASE)["env"]
-    assert merged["COOKIE_SECURE"] == "true"
-    for k, v in base.items():
-        assert merged[k] == v, f"base env {k} lost or changed by the {env} overlay"
-
-
-@pytest.mark.parametrize("env", ["staging", "prod"])
-def test_scenario_cookie_secure_overlay_keeps_existing_settings(env):
-    overlay = load(ROOT / f"envs/{env}/services/team-frontend.yaml")
-    assert overlay["ingress"]["enabled"] is True
-    assert overlay["ingress"]["host"]
-
-
-def test_scenario_cookie_secure_local_compose_leaves_it_unset_boundary():
-    assert "COOKIE_SECURE" not in (load(BASE).get("env") or {})
-    assert "COOKIE_SECURE" not in (ROOT / "envs/local/values.yaml").read_text()
-    for name in ("docker-compose.services.yaml", "platform-e2e/docker-compose.e2e.yaml"):
-        p = REPO / name
-        if p.exists():
-            assert "COOKIE_SECURE" not in p.read_text(), name
+if __name__ == "__main__":
+    unittest.main()
