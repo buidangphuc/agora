@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -31,7 +30,7 @@ func (r failingRepo) CreateCode(context.Context, string, string) (string, error)
 func TestErrorTableMessagesAreStable(t *testing.T) {
 	user := auth.WithPrincipal(context.Background(), auth.Principal{ID: "bob", Type: auth.TypeUser})
 	repo := fake.NewInMemoryReferralRepo()
-	h, err := NewHandler(referral.NewService(repo), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h, err := NewHandler(referral.NewService(repo), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +49,7 @@ func TestErrorTableMessagesAreStable(t *testing.T) {
 func TestInternalErrorHidesCause(t *testing.T) {
 	user := auth.WithPrincipal(context.Background(), auth.Principal{ID: "bob", Type: auth.TypeUser})
 	repo := failingRepo{InMemoryReferralRepo: fake.NewInMemoryReferralRepo(), err: errors.New("pq: connection refused 10.0.0.5")}
-	h, err := NewHandler(referral.NewService(repo), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h, err := NewHandler(referral.NewService(repo), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}

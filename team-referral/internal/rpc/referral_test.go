@@ -2,7 +2,6 @@ package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net"
 	"strings"
@@ -103,7 +102,7 @@ func newFaulty() *faultyRepo {
 
 func handlerFor(t testing.TB, repo store.ReferralRepository) *rpc.Handler {
 	t.Helper()
-	h, err := rpc.NewHandler(referral.NewService(repo), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h, err := rpc.NewHandler(referral.NewService(repo), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}

@@ -2,6 +2,7 @@ package referral_test
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"testing"
 
@@ -90,7 +91,7 @@ func TestRedeemAttributesReferee(t *testing.T) {
 	}
 
 	// A double redemption by the same referee is rejected.
-	if err := svc.Redeem(ctx, "bob", code); err != referral.ErrAlreadyRedeemed {
+	if err := svc.Redeem(ctx, "bob", code); !errors.Is(err, referral.ErrAlreadyRedeemed) {
 		t.Fatalf("expected ErrAlreadyRedeemed on second redeem, got %v", err)
 	}
 }
@@ -104,13 +105,13 @@ func TestRedeemRejectsSelfAndUnknown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create code: %v", err)
 	}
-	if err := svc.Redeem(ctx, "alice", code); err != referral.ErrSelfReferral {
+	if err := svc.Redeem(ctx, "alice", code); !errors.Is(err, referral.ErrSelfReferral) {
 		t.Fatalf("expected ErrSelfReferral, got %v", err)
 	}
-	if err := svc.Redeem(ctx, "bob", "REFnope123"); err != referral.ErrCodeNotFound {
+	if err := svc.Redeem(ctx, "bob", "REFnope123"); !errors.Is(err, referral.ErrCodeNotFound) {
 		t.Fatalf("expected ErrCodeNotFound for unknown code, got %v", err)
 	}
-	if err := svc.Redeem(ctx, "bob", ""); err != referral.ErrEmptyCode {
+	if err := svc.Redeem(ctx, "bob", ""); !errors.Is(err, referral.ErrEmptyCode) {
 		t.Fatalf("expected ErrEmptyCode for empty code, got %v", err)
 	}
 }
@@ -158,16 +159,16 @@ func TestEmptyUserRejected(t *testing.T) {
 	svc := newReferralService()
 	ctx := context.Background()
 
-	if _, err := svc.CreateCode(ctx, ""); err != referral.ErrEmptyUser {
+	if _, err := svc.CreateCode(ctx, ""); !errors.Is(err, referral.ErrEmptyUser) {
 		t.Fatalf("CreateCode empty user: got %v", err)
 	}
-	if _, err := svc.GetMyReferral(ctx, ""); err != referral.ErrEmptyUser {
+	if _, err := svc.GetMyReferral(ctx, ""); !errors.Is(err, referral.ErrEmptyUser) {
 		t.Fatalf("GetMyReferral empty user: got %v", err)
 	}
-	if err := svc.Redeem(ctx, "", "REFx"); err != referral.ErrEmptyUser {
+	if err := svc.Redeem(ctx, "", "REFx"); !errors.Is(err, referral.ErrEmptyUser) {
 		t.Fatalf("Redeem empty referee: got %v", err)
 	}
-	if _, _, err := svc.ListRewards(ctx, "", nil); err != referral.ErrEmptyUser {
+	if _, _, err := svc.ListRewards(ctx, "", nil); !errors.Is(err, referral.ErrEmptyUser) {
 		t.Fatalf("ListRewards empty user: got %v", err)
 	}
 }
@@ -253,10 +254,10 @@ func TestRedeemRejectsSecondRedeem(t *testing.T) {
 	if err := svc.Redeem(ctx, "bob", aliceCode); err != nil {
 		t.Fatalf("first redeem: %v", err)
 	}
-	if err := svc.Redeem(ctx, "bob", carolCode); err != referral.ErrAlreadyRedeemed {
+	if err := svc.Redeem(ctx, "bob", carolCode); !errors.Is(err, referral.ErrAlreadyRedeemed) {
 		t.Fatalf("expected ErrAlreadyRedeemed redeeming a different code, got %v", err)
 	}
-	if err := svc.Redeem(ctx, "alice", aliceCode); err != referral.ErrSelfReferral {
+	if err := svc.Redeem(ctx, "alice", aliceCode); !errors.Is(err, referral.ErrSelfReferral) {
 		t.Fatalf("expected ErrSelfReferral, got %v", err)
 	}
 
