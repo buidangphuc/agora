@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 func TestRequestIDRoundTrip(t *testing.T) {

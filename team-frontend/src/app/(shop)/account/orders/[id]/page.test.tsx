@@ -89,6 +89,7 @@ describe("/account/orders/[id] page", () => {
         refundAmount: 50000,
         status: ReturnStatus.REFUNDED,
         statusText: "Đã hoàn tiền",
+        canEscalate: false,
       },
     ]);
     await renderPage("o1", "returns");

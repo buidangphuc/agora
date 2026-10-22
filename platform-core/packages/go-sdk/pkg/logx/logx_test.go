@@ -10,8 +10,8 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 func decode(t *testing.T, buf *bytes.Buffer) map[string]any {

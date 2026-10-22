@@ -299,6 +299,12 @@ func TestDisputeLifecycle(t *testing.T) {
 	}
 
 	// 3. Resolve dispute
+	if _, err := client.ResolveDispute(adminCtx, &engagementv1.ResolveDisputeRequest{
+		DisputeId: dispID,
+		Status:    engagementv1.DisputeStatus_DISPUTE_STATUS_INVESTIGATING,
+	}); err != nil {
+		t.Fatalf("ResolveDispute investigating: %v", err)
+	}
 	resResp, err := client.ResolveDispute(adminCtx, &engagementv1.ResolveDisputeRequest{
 		DisputeId:  dispID,
 		Status:     engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED,

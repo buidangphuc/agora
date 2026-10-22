@@ -35,6 +35,7 @@ describe("createReturnRequestAction", () => {
       refundAmount: 1000,
       status: ReturnStatus.PENDING,
       statusText: "Chờ duyệt",
+      canEscalate: false,
     });
     const res = await createReturnRequestAction("o1", " hỏng ", 1000);
     expect(createReturnRequest).toHaveBeenCalledWith("o1", "hỏng", 1000);

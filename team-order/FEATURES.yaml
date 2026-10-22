@@ -5276,3 +5276,419 @@ features:
     tags: [order, checkout, unit]
     status: not-testable
     notes: "VERIFIED BY team-gateway `internal/edge` `TestOrderForwarderPreviewCheckoutMapsError`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-rejected-return-of-an-online-paid-order-is-refunded
+    title: "Dispute refund: Rejected return of an online-paid order is refunded"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Rejected return of an online-paid order is refunded"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeBuyerFavourRejectedReturnRefunded`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-pending-escalated-return-of-an-online-paid-order-is-refunded
+    title: "Dispute refund: Pending escalated return of an online-paid order is refunded"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Pending escalated return of an online-paid order is refunded"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeBuyerFavourPendingReturnRefunded`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-already-approved-return-is-refunded-without-a-second-approval
+    title: "Dispute refund: Already approved return is refunded without a second approval"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Already approved return is refunded without a second approval"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeBuyerFavourApprovedReturnRefunded`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-cash-on-delivery-return-stops-at-approved
+    title: "Dispute refund: Cash-on-delivery return stops at approved"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Cash-on-delivery return stops at approved"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeBuyerFavourCODStopsAtApproved`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-return-already-refunded-is-left-unchanged
+    title: "Dispute refund: Return already refunded is left unchanged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Return already refunded is left unchanged"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeBuyerFavourAlreadyRefundedNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-ruling-reaches-the-refund-end-to-end
+    title: "Dispute refund: Ruling reaches the refund end to end"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order, team-engagement, team-payment, team-audit]
+    acceptance:
+      - "Dispute refund: Ruling reaches the refund end to end"
+    tags: [order, dispute, e2e]
+    status: automated
+    covered_by: "order/dispute_refund.feature::Dispute refund: Ruling reaches the refund end to end"
+
+  - id: order.dispute-refund-audit-event-names-the-resolving-admin
+    title: "Dispute refund: Audit event names the resolving admin"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Audit event names the resolving admin"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundWritesAuditBeforeChange`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-audit-unavailable-leaves-the-return-unchanged
+    title: "Dispute refund: Audit unavailable leaves the return unchanged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Audit unavailable leaves the return unchanged"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundAuditDownNoChangeRetried`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-missing-audit-client-refuses-the-change
+    title: "Dispute refund: Missing audit client refuses the change"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Missing audit client refuses the change"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundNilAuditWriterNoChange`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-recovery-after-audit-comes-back
+    title: "Dispute refund: Recovery after audit comes back"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order, team-engagement, team-payment, team-audit]
+    acceptance:
+      - "Dispute refund: Recovery after audit comes back"
+    tags: [order, dispute, e2e]
+    status: automated
+    covered_by: "order/dispute_refund.feature::Dispute refund: Recovery after audit comes back"
+
+  - id: order.dispute-refund-audit-outage-longer-than-the-retry-window-is-not-dead-lettered
+    title: "Dispute refund: Audit outage longer than the retry window is not dead-lettered"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Audit outage longer than the retry window is not dead-lettered"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRunRetriesTransientWithoutDLQ`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-event-without-resolver-is-a-permanent-error
+    title: "Dispute refund: Event without resolver is a permanent error"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Event without resolver is a permanent error"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundMissingResolverPermanent`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-rejected-return-that-still-fits-is-re-approved
+    title: "Dispute refund: Rejected return that still fits is re-approved"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Rejected return that still fits is re-approved"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestReapproveReturnFitsBoundary`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-rejected-return-that-no-longer-fits-stays-rejected
+    title: "Dispute refund: Rejected return that no longer fits stays rejected"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Rejected return that no longer fits stays rejected"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestReapproveReturnExceedsRemainderStaysRejected`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-non-fitting-return-is-dead-lettered-for-cs
+    title: "Dispute refund: Non-fitting return is dead-lettered for CS"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Non-fitting return is dead-lettered for CS"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundNoRemainderDeadLettered`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-re-approval-is-not-reachable-from-the-status-rpc
+    title: "Dispute refund: Re-approval is not reachable from the status RPC"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Re-approval is not reachable from the status RPC"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/handler` `TestUpdateReturnStatusRejectedStaysTerminal`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-two-returns-cannot-both-be-re-approved-past-the-total
+    title: "Dispute refund: Two returns cannot both be re-approved past the total"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Two returns cannot both be re-approved past the total"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/repository` `TestReapproveReturnConcurrentSerialised` (Postgres). Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-seller-favour-ruling-moves-no-return-and-no-money
+    title: "Dispute refund: Seller-favour ruling moves no return and no money"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Seller-favour ruling moves no return and no money"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeSellerFavourNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-rejected-dispute-moves-no-return-and-no-money
+    title: "Dispute refund: Rejected dispute moves no return and no money"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Rejected dispute moves no return and no money"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRejectedStatusNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-dispute-without-a-return-is-ignored
+    title: "Dispute refund: Dispute without a return is ignored"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Dispute without a return is ignored"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeNoReturnIdNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-other-event-types-are-ignored
+    title: "Dispute refund: Other event types are ignored"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Other event types are ignored"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeConsumerIgnoresOtherTypes`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-seller-favour-ruling-leaves-the-return-untouched-end-to-end
+    title: "Dispute refund: Seller-favour ruling leaves the return untouched end to end"
+    persona: admin
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order, team-engagement, team-payment, team-audit]
+    acceptance:
+      - "Dispute refund: Seller-favour ruling leaves the return untouched end to end"
+    tags: [order, dispute, e2e]
+    status: automated
+    covered_by: "order/dispute_refund.feature::Dispute refund: Seller-favour ruling leaves the return untouched end to end"
+
+  - id: order.dispute-refund-redelivered-event-refunds-once
+    title: "Dispute refund: Redelivered event refunds once"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Redelivered event refunds once"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRedeliveryRefundsOnce`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-second-ruling-event-on-a-refunded-return-is-acknowledged
+    title: "Dispute refund: Second ruling event on a refunded return is acknowledged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Second ruling event on a refunded return is acknowledged"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeSecondEventSameReturnRefundsOnce`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-auto-approve-winning-the-race-does-not-fail-the-event
+    title: "Dispute refund: Auto-approve winning the race does not fail the event"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Auto-approve winning the race does not fail the event"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputePendingCASLostContinues`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-seller-refund-winning-the-race-is-acknowledged
+    title: "Dispute refund: Seller refund winning the race is acknowledged"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Seller refund winning the race is acknowledged"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundCASLostAcknowledged`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-unknown-return-is-a-permanent-error
+    title: "Dispute refund: Unknown return is a permanent error"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Unknown return is a permanent error"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeUnknownReturnPermanent`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-malformed-envelope-is-dead-lettered
+    title: "Dispute refund: Malformed envelope is dead-lettered"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Malformed envelope is dead-lettered"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeMalformedRecordPermanent`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-config-exposes-the-consumer-settings
+    title: "Dispute refund: Config exposes the consumer settings"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Config exposes the consumer settings"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestKafkaEngagementConsumerSettings`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-consumer-does-not-start-without-an-audit-client
+    title: "Dispute refund: Consumer does not start without an audit client"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Consumer does not start without an audit client"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/bootstrap` `TestDisputeConsumerSkippedWithoutAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-offset-is-not-committed-when-the-dlq-write-fails
+    title: "Dispute refund: Offset is not committed when the DLQ write fails"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Offset is not committed when the DLQ write fails"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRunNoCommitWhenDLQFails`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.dispute-refund-return-linked-to-another-order-is-refused
+    title: "Dispute refund: Return linked to another order is refused"
+    persona: buyer
+    priority: P1
+    summary: "Scenario of change order-dispute-refund."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Dispute refund: Return linked to another order is refused"
+    tags: [order, dispute, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeOrderMismatchPermanent`. Not producible end to end through the gateway (unit level)."

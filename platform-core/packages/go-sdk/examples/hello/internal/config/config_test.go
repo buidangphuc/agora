@@ -3,9 +3,9 @@ package config_test
 import (
 	"testing"
 
-	sdkconfig "github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/examples/hello/internal/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/examples/hello/internal/config"
 )
 
 func TestEnvExampleInSync(t *testing.T) {

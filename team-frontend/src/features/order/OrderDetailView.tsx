@@ -13,6 +13,7 @@ import {
   OrderStatus,
 } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
+import type { ViewDispute } from "@/lib/gateway/disputes";
 import type { ViewOrder, ViewOrderItem } from "@/lib/gateway/orders";
 import { ConfirmReceiptButton } from "./ConfirmReceiptButton";
 import { OrderActions, ReviewButton } from "./OrderActions";
@@ -143,11 +144,15 @@ export function OrderDetailView({
   order,
   timeline,
   tab = "timeline",
+  disputes = [],
+  disputesFailed = false,
 }: {
   order: ViewOrder;
   /** The (Suspense-wrapped) order timeline. */
   timeline: React.ReactNode;
   tab?: OrderDetailTab;
+  disputes?: ViewDispute[];
+  disputesFailed?: boolean;
 }) {
   const cancelled = order.status === OrderStatus.CANCELLED;
   const steps = orderSteps(order.status);
@@ -341,6 +346,9 @@ export function OrderDetailView({
             orderId={order.id}
             orderTotal={order.totalAmount}
             canRequest={returnable}
+            sellerId={order.sellerId}
+            disputes={disputes}
+            disputesFailed={disputesFailed}
           />
         }
       />

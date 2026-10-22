@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -135,5 +137,154 @@ func TestVerifyPurchaseEmptyOrderIDIsError(t *testing.T) {
 	ok, _, err := newVerifyClient(t).VerifyPurchase(context.Background(), "buyer-1", "listing-1", "")
 	if ok || !errors.Is(err, ErrOrderIDRequired) {
 		t.Fatalf("empty order id: want ErrOrderIDRequired, got ok=%v err=%v", ok, err)
+	}
+}
+
+type returnOrders struct {
+	orderv1.UnimplementedOrderServiceServer
+	mu  sync.Mutex
+	md  metadata.MD
+	ids []string
+}
+
+func (r *returnOrders) GetReturnRequest(ctx context.Context, req *orderv1.GetReturnRequestRequest) (*orderv1.GetReturnRequestResponse, error) {
+	md, _ := metadata.FromIncomingContext(ctx)
+	r.mu.Lock()
+	r.md = md
+	r.ids = append(r.ids, req.GetId())
+	r.mu.Unlock()
+	switch req.GetId() {
+	case "ret-rejected":
+		return &orderv1.GetReturnRequestResponse{ReturnRequest: &orderv1.OrderReturn{Id: "ret-rejected", OrderId: "order-1",
+			Status: orderv1.ReturnStatus_RETURN_STATUS_REJECTED, CanEscalate: true}}, nil
+	case "ret-open":
+		return &orderv1.GetReturnRequestResponse{ReturnRequest: &orderv1.OrderReturn{Id: "ret-open", OrderId: "order-2",
+			Status: orderv1.ReturnStatus_RETURN_STATUS_PENDING, CanEscalate: false}}, nil
+	case "ret-boom":
+		return nil, status.Error(codes.Internal, "db password leaked")
+	case "ret-down":
+		return nil, status.Error(codes.Unavailable, "down")
+	case "ret-denied":
+		return nil, status.Error(codes.PermissionDenied, "no")
+	case "ret-hang":
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	return nil, status.Error(codes.NotFound, "no such return")
+}
+
+func newReturnClient(t *testing.T, timeout time.Duration) (*OrderClient, *returnOrders) {
+	t.Helper()
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := &returnOrders{}
+	srv := grpc.NewServer()
+	orderv1.RegisterOrderServiceServer(srv, fake)
+	go func() { _ = srv.Serve(lis) }()
+	t.Cleanup(srv.Stop)
+	c, err := NewOrderClient(lis.Addr().String(), timeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	return c, fake
+}
+
+// Scenario: Dispute escalation: Buyer escalates a rejected return
+func TestGetReturn_DisputeEscalation_ReturnsOrderStatusAndCanEscalate(t *testing.T) {
+	c, _ := newReturnClient(t, time.Second)
+	orderID, st, can, err := c.GetReturn(context.Background(), "ret-rejected")
+	if err != nil || orderID != "order-1" || st != orderv1.ReturnStatus_RETURN_STATUS_REJECTED || !can {
+		t.Fatalf("got order=%q status=%v can=%v err=%v", orderID, st, can, err)
+	}
+	orderID, st, can, err = c.GetReturn(context.Background(), "ret-open")
+	if err != nil || orderID != "order-2" || st != orderv1.ReturnStatus_RETURN_STATUS_PENDING || can {
+		t.Fatalf("not escalatable: got order=%q status=%v can=%v err=%v", orderID, st, can, err)
+	}
+}
+
+// Scenario: Dispute escalation: Buyer escalates a rejected return (service principal with order.read)
+func TestGetReturn_DisputeEscalation_UsesServicePrincipalNotCaller(t *testing.T) {
+	c, fake := newReturnClient(t, time.Second)
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+		"x-principal-id", "user-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
+	if _, _, _, err := c.GetReturn(ctx, "ret-rejected"); err != nil {
+		t.Fatal(err)
+	}
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	want := map[string]string{
+		"x-principal-id":     "service-team-engagement",
+		"x-principal-type":   "service",
+		"x-principal-scopes": "order.read",
+	}
+	for k, v := range want {
+		if vals := fake.md.Get(k); len(vals) != 1 || vals[0] != v {
+			t.Errorf("%s = %v, want [%s]", k, vals, v)
+		}
+	}
+}
+
+// Scenario: Dispute escalation: Buyer escalates a rejected return (unknown return maps to ErrReturnNotFound)
+func TestGetReturn_DisputeEscalation_NotFoundIsErrReturnNotFound(t *testing.T) {
+	c, _ := newReturnClient(t, time.Second)
+	if _, _, _, err := c.GetReturn(context.Background(), "ret-404"); !errors.Is(err, ErrReturnNotFound) {
+		t.Fatalf("want ErrReturnNotFound, got %v", err)
+	}
+	if _, _, _, err := c.GetReturn(context.Background(), ""); !errors.Is(err, ErrReturnNotFound) {
+		t.Fatalf("empty id: want ErrReturnNotFound, got %v", err)
+	}
+}
+
+// Scenario: Dispute escalation: Team-order unavailable fails closed
+func TestGetReturn_DisputeEscalation_UpstreamFailureFailsClosed(t *testing.T) {
+	c, _ := newReturnClient(t, time.Second)
+	for _, id := range []string{"ret-boom", "ret-down", "ret-denied"} {
+		orderID, _, can, err := c.GetReturn(context.Background(), id)
+		if err == nil {
+			t.Fatalf("%s: want error", id)
+		}
+		if errors.Is(err, ErrReturnNotFound) || errors.Is(err, ErrOrderClientNotConfigured) {
+			t.Errorf("%s: outage misclassified: %v", id, err)
+		}
+		if orderID != "" || can {
+			t.Errorf("%s: failure must not carry data: order=%q can=%v", id, orderID, can)
+		}
+		if strings.Contains(err.Error(), "password") {
+			t.Errorf("%s: upstream detail leaked: %v", id, err)
+		}
+	}
+}
+
+// Scenario: Dispute escalation: Team-order unavailable fails closed (bounded timeout)
+func TestGetReturn_DisputeEscalation_TimeoutIsBoundedError(t *testing.T) {
+	c, _ := newReturnClient(t, 150*time.Millisecond)
+	start := time.Now()
+	_, _, can, err := c.GetReturn(context.Background(), "ret-hang")
+	if err == nil || can {
+		t.Fatalf("timeout must be an error, got can=%v err=%v", can, err)
+	}
+	if errors.Is(err, ErrReturnNotFound) {
+		t.Fatal("timeout must not be classified as not-found")
+	}
+	if el := time.Since(start); el > 150*time.Millisecond+500*time.Millisecond {
+		t.Fatalf("not bounded: took %v", el)
+	}
+}
+
+// Scenario: Dispute escalation: Team-order unavailable fails closed (nil / unset address)
+func TestGetReturn_DisputeEscalation_NotConfiguredFailsClosed(t *testing.T) {
+	var nilClient *OrderClient
+	if _, _, can, err := nilClient.GetReturn(context.Background(), "ret-rejected"); !errors.Is(err, ErrOrderClientNotConfigured) || can {
+		t.Fatalf("nil client: got can=%v err=%v", can, err)
+	}
+	c, err := NewOrderClient("", time.Second)
+	if err != nil {
+		t.Skipf("empty address rejected at construction: %v", err)
+	}
+	if _, _, can, err := c.GetReturn(context.Background(), "ret-rejected"); !errors.Is(err, ErrOrderClientNotConfigured) || can {
+		t.Fatalf("unset address: got can=%v err=%v", can, err)
 	}
 }

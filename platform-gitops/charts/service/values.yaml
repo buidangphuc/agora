@@ -38,6 +38,7 @@ probes:
   initialDelaySeconds: 5
   periodSeconds: 5
   failureThreshold: 3     # readiness/liveness consecutive failures before acting
+  livenessService: ""    # gRPC services only: health service name the livenessProbe checks (e.g. liveness); empty = overall health
   startup:
     failureThreshold: 30  # 30 * periodSeconds (=150s) boot budget before liveness kicks in
 

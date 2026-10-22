@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -203,120 +202,7 @@ func (c *PaymentConsumer) apply(ctx context.Context, settled *paymentv1.PaymentS
 	return nil
 }
 
-// ── Transport loop (AD1 offset discipline) ──
-
-// ErrPermanent marks an error that will never succeed on retry (a poison record).
-// The loop routes such records to the DLQ instead of retrying indefinitely.
-var ErrPermanent = errors.New("permanent consumer error")
-
-// Record is one Kafka record the transport hands to the loop.
-type Record struct {
-	Key   string
-	Value []byte
-}
-
-// RecordReader is the transport the loop reads from. A real franz-go reader
-// satisfies it; tests use a fake. Fetch blocks until the next record (or ctx is
-// done); Commit advances the committed offset past rec.
-type RecordReader interface {
-	Fetch(ctx context.Context) (Record, error)
-	Commit(ctx context.Context, rec Record) error
-}
-
-// DeadLetterProducer publishes poison / max-retried records to a DLQ topic (AD1).
-type DeadLetterProducer interface {
-	Produce(ctx context.Context, topic string, rec Record) error
-}
-
-// RunConfig tunes the consume loop.
-type RunConfig struct {
-	DLQTopic    string        // e.g. "payment.events.dlq"
-	MaxAttempts int           // in-process attempts before DLQ (default 5)
-	BaseBackoff time.Duration // first retry delay; doubles per attempt (default 200ms)
-	// FetchRetryBackoff spaces out retries after a failed fetch (default 1s).
-	FetchRetryBackoff time.Duration
-}
-
-func (c RunConfig) withDefaults() RunConfig {
-	if c.DLQTopic == "" {
-		c.DLQTopic = "payment.events.dlq"
-	}
-	if c.MaxAttempts <= 0 {
-		c.MaxAttempts = 5
-	}
-	if c.BaseBackoff <= 0 {
-		c.BaseBackoff = 200 * time.Millisecond
-	}
-	if c.FetchRetryBackoff <= 0 {
-		c.FetchRetryBackoff = time.Second
-	}
-	return c
-}
-
-// Run consumes until ctx is cancelled. Per record it applies the handler with
-// bounded in-process retries; on a permanent error or once retries are exhausted
-// it produces the record to the DLQ. Crucially it commits the offset ONLY after
-// the record is either applied or DLQ'd — it never advances past an unprocessed
-// record (AD1).
+// Run consumes until ctx is cancelled; see runLoop.
 func (c *PaymentConsumer) Run(ctx context.Context, reader RecordReader, dlq DeadLetterProducer, cfg RunConfig) error {
-	cfg = cfg.withDefaults()
-	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		rec, err := reader.Fetch(ctx)
-		if err != nil {
-			// Stop only when our own context is done. A fetch error that merely
-			// wraps a deadline (a Kafka request timing out under load) is transient;
-			// returning on it silently stopped the consumer and left orders PENDING.
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			c.logger.WarnContext(ctx, "fetch record failed; retrying", slog.Any("err", err))
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(cfg.FetchRetryBackoff):
-			}
-			continue
-		}
-
-		if perr := c.processWithRetry(ctx, rec, dlq, cfg); perr != nil {
-			// Could not process AND could not DLQ: do NOT commit — leave the offset so
-			// the record is redelivered (never lose it).
-			c.logger.ErrorContext(ctx, "record neither applied nor DLQ'd; not committing",
-				slog.Any("err", perr))
-			continue
-		}
-		if err := reader.Commit(ctx, rec); err != nil {
-			c.logger.WarnContext(ctx, "commit offset failed; record may redeliver", slog.Any("err", err))
-		}
-	}
-}
-
-func (c *PaymentConsumer) processWithRetry(ctx context.Context, rec Record, dlq DeadLetterProducer, cfg RunConfig) error {
-	var lastErr error
-	for attempt := 1; attempt <= cfg.MaxAttempts; attempt++ {
-		err := c.HandleRaw(ctx, rec.Value)
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-		if errors.Is(err, ErrPermanent) {
-			break // no point retrying a poison record
-		}
-		if attempt < cfg.MaxAttempts {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(cfg.BaseBackoff * time.Duration(attempt)):
-			}
-		}
-	}
-	c.logger.WarnContext(ctx, "routing record to DLQ",
-		slog.String("dlq_topic", cfg.DLQTopic), slog.Any("err", lastErr))
-	if err := dlq.Produce(ctx, cfg.DLQTopic, rec); err != nil {
-		return fmt.Errorf("produce to DLQ: %w (original: %v)", err, lastErr)
-	}
-	return nil
+	return runLoop(ctx, c.logger, c.HandleRaw, reader, dlq, cfg)
 }

@@ -89,6 +89,12 @@ def admin_resolves_dispute(world: World) -> None:
     admin = get_test_data_manager().get_user_by_role("admin")
     admin_token = world.service_factory.auth.login(admin.username, admin.password)
     world.service_factory.set_token(admin_token)
+    investigating = world.service_factory.engagement.resolve_dispute(
+        dispute_id=dispute_id,
+        status="DISPUTE_STATUS_INVESTIGATING",
+        resolution="Dang xem xet.",
+    )
+    assert investigating is not None
     res = world.service_factory.engagement.resolve_dispute(
         dispute_id=dispute_id,
         status="DISPUTE_STATUS_RESOLVED",

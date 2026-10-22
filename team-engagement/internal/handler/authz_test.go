@@ -336,6 +336,11 @@ func TestResolveDisputeIsAdminOnly(t *testing.T) {
 
 func TestAdminResolvesOnceThenFailedPrecondition(t *testing.T) {
 	f, id := newFixture(t)
+	if _, err := f.h.ResolveDispute(adminCtx(), &engagementv1.ResolveDisputeRequest{
+		DisputeId: id, Status: engagementv1.DisputeStatus_DISPUTE_STATUS_INVESTIGATING,
+	}); err != nil {
+		t.Fatalf("admin investigate: %v", err)
+	}
 	if err := resolve(f, adminCtx(), id); err != nil {
 		t.Fatalf("admin resolve: %v", err)
 	}
@@ -405,6 +410,34 @@ func TestInternalErrorsAreGeneric(t *testing.T) {
 			}
 			if status.Convert(err).Message() != "internal error" {
 				t.Fatalf("message leaks detail: %q", status.Convert(err).Message())
+			}
+		})
+	}
+}
+
+// Scenario: Dispute escalation: Non-admin cannot rule
+func TestResolveDisputeWithRulingIsAdminOnly(t *testing.T) {
+	for name, ctx := range map[string]context.Context{
+		"claimant buyer":   userCtx("buyer-1"),
+		"defendant seller": userCtx("seller-1"),
+		"anonymous":        anonCtx(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			f, id := newFixture(t)
+			_, err := f.h.ResolveDispute(ctx, &engagementv1.ResolveDisputeRequest{
+				DisputeId: id, Status: engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED,
+				Ruling: engagementv1.DisputeRuling_DISPUTE_RULING_BUYER_FAVOUR,
+			})
+			want := codes.PermissionDenied
+			if name == "anonymous" {
+				want = codes.Unauthenticated
+			}
+			if got := status.Code(err); got != want {
+				t.Fatalf("want %v, got %v", want, err)
+			}
+			d, gerr := f.disputes.GetDispute(context.Background(), id)
+			if gerr != nil || d.Status != repository.DisputeStatusOpen || d.Ruling != engagementv1.DisputeRuling_DISPUTE_RULING_UNSPECIFIED {
+				t.Fatalf("dispute must be unchanged: %+v %v", d, gerr)
 			}
 		})
 	}

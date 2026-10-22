@@ -119,6 +119,7 @@ func run() error {
 	handlerOpts = append(handlerOpts, handler.WithReportService(reportSvc))
 	if orderClient != nil {
 		handlerOpts = append(handlerOpts, handler.WithOrderParties(orderClient))
+		handlerOpts = append(handlerOpts, handler.WithReturnReader(orderClient))
 	}
 	h := handler.NewEngagementHandler(engagementRepo, reviewSvc, qaSvc, disputeSvc, collectionSvc, handlerOpts...)
 	srv := grpcserver.Build(settings, h, res.Health, logger)

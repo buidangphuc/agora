@@ -299,6 +299,29 @@ func run() error {
 		}
 	}
 
+	if res.Pool != nil {
+		start, reason := bootstrap.DisputeConsumerStartDecision(kcfg.Enabled, auditClient != nil)
+		if !start {
+			logger.Info("dispute consumer not started", slog.String("reason", reason))
+		} else if disputeReturns, ok := returnRepo.(consumer.DisputeReturnStore); !ok {
+			logger.Warn("dispute consumer disabled: return repository cannot re-approve returns")
+		} else if dk, err := bootstrap.NewDisputeKafka(kcfg); err != nil {
+			logger.Warn("dispute consumer disabled: kafka client init failed", slog.Any("err", err))
+		} else {
+			defer dk.Close()
+			disputeConsumer := consumer.NewDisputeConsumer(orderRepo, disputeReturns, auditClient,
+				repository.NewPostgresProcessedEventRepository(res.Pool), logger)
+			go func() {
+				logger.Info("dispute consumer starting",
+					slog.String("topic", kcfg.EngagementTopic), slog.String("group", kcfg.EngagementGroup))
+				err := disputeConsumer.Run(ctx, dk.Reader(), dk.DLQ(), consumer.RunConfig{DLQTopic: kcfg.EngagementDLQ})
+				if ctx.Err() == nil {
+					logger.Error("dispute consumer stopped while the service is running", slog.Any("err", err))
+				}
+			}()
+		}
+	}
+
 	// Reservation sweeper (AD3): periodically release stock held past its TTL so a
 	// crashed checkout never leaks inventory. Gated on Postgres like the saga repo.
 	if res.Pool != nil {

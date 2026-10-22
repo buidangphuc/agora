@@ -7,21 +7,21 @@ run once you generate proto code and pin your dependencies.
 
 What's wired for you:
 
-- gRPC server with two chained interceptors — **auth** (bearer -> `Principal`)
-  and **tracing** (`x-request-id` bridge) — plus the otelgrpc stats handler.
-- gRPC **health** (serving) and **reflection** registered.
-- One **seed RPC**: `platform.listing.v1.ListingService` (`GetListing`,
-  `ListListings`) backed by an in-memory repository.
-- OTLP/gRPC tracer, graceful shutdown on SIGINT/SIGTERM.
+- gRPC server, interceptors (auth, request id, tracing, recovery), health and
+  graceful shutdown all come from the go-sdk packages (`grpcx`, `healthx`,
+  `otelx`, `lifecycle`); the template holds no platform copies.
+- One **seed RPC**: `team.v1.Listing/GetListing` backed by an in-memory
+  repository.
 - Clean layering: `handler` (wire adapter) -> `service` (logic) -> `repository`
   (storage port + in-memory stub).
 
 ## Layout
 
 ```
-cmd/server/main.go          entrypoint: server, interceptors, health, reflection
-internal/interceptor/       auth.go (bearer+scopes), tracing.go (otel+request-id)
-internal/handler/           gRPC adapter implementing the generated server
+cmd/server/main.go          entrypoint: signals, settings, exit code
+internal/app/               composition root wiring the SDK packages
+internal/config/            settings bound from the environment
+internal/handler/           gRPC adapter
 internal/service/           business logic (storage-agnostic)
 internal/repository/        storage port + in-memory stub
 proto-vendor/               pinned proto submodule (codegen input) — see its README
@@ -80,8 +80,7 @@ installed, `go test`). CI runs the same target — keep them identical.
   Other services reach this data over **gRPC**, never by sharing the database.
 - **Cross-service calls are gRPC**, against the proto contract — no direct DB or
   in-process coupling across service boundaries.
-- **Auth** is resolved to a `platform.common.v1.Principal` at the interceptor; handlers
-  enforce coarse RBAC with `interceptor.RequireScopes(...)`. Bearer is a stub —
-  real JWT/cookie handling lands per ADR-0003.
+- **Auth** is resolved to a principal by the SDK interceptors; handlers
+  call `auth.RequirePrincipal(ctx)` from the SDK.
 - **Tracing** is W3C trace-context via OpenTelemetry; the exporter is swappable
   (ADR-0004).
