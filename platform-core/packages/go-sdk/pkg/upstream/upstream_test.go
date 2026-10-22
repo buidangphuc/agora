@@ -14,8 +14,8 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/auth"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 // withBufconn routes the client to an in-memory listener; test-only.

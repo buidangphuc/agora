@@ -1,10 +1,12 @@
 # go-sdk
 
+Version: v1.0.1
+
 Shared platform layer for Go services: config, logging, tracing, auth, health,
 lifecycle, Postgres, migrations, retries and the gRPC server chain.
 
 Design and rules: [ADR-0016](../../docs/ADR/0016-go-service-convention-and-sdk.md).
-Module: `github.com/buidangphuc/platform-core/packages/go-sdk`.
+Module: `github.com/buidangphuc/agora/platform-core/packages/go-sdk`.
 
 ## Packages
 
@@ -37,19 +39,19 @@ All under `pkg/`.
 
 ## How a service adopts it
 
-1. Pick a release tag, for example `go-sdk/v1.0.0`.
-2. From the repo root, sync the SDK into the service:
+1. Pick a release tag, for example `go-sdk/v1.0.1`.
+2. Require it in the service `go.mod`:
 
    ```sh
-   platform-core/tools/sync-go-sdk.sh go-sdk/v1.0.0 team-<svc>
+   go get github.com/buidangphuc/agora/platform-core/packages/go-sdk@v1.0.1
    ```
 
-   This writes `third_party/go-sdk` (with `VERSION`), adds the `replace` to `go.mod`, copies `make/go-service.mk` and `.golangci.yml` (lines between `# BEGIN service-local` and `# END service-local` in the service's file are kept), pins the golangci-lint `tool` directive to the SDK's version, and runs `go mod tidy`. It fails without changes if the tag does not exist. If the tag has no `.golangci.yml`, it prints a warning and skips that file.
+   No `replace` and no vendored copy. The service Makefile includes `../platform-core/make/go-service.mk` and passes `../platform-core/packages/go-sdk/.golangci.yml` as the lint config.
 3. Copy `examples/hello` as the starting layout: `cmd/<binary>/main.go`, `internal/app`, `internal/config`, `internal/rpc`.
-4. In the service `Makefile` set `SERVICE`, `GRPC_PORT` (and `BINARIES` if not `server`), then `include make/go-service.mk`. Run `make help` for the targets.
+4. In the service `Makefile` set `SERVICE`, `GRPC_PORT` (and `BINARIES` if not `server`), then `include ../platform-core/make/go-service.mk`. Run `make help` for the targets.
 5. Copy `platform-core/templates/go-service/Dockerfile` to the service root. Build with `--build-arg BIN=<binary>`.
 
-To upgrade, run the script again with the new tag and review the diff in a PR. Do not edit `third_party/go-sdk` by hand.
+To upgrade, `go get` the new tag and review the diff in a PR.
 
 ## Copying from examples/hello
 
@@ -80,7 +82,7 @@ The layout, wiring order and test conventions are in ADR-0016; `examples/hello` 
 
 ## Upgrading to v1
 
-v1 changes API and configuration on purpose; there are no deprecated aliases. The sections below list every breaking change since `go-sdk/v0.2.1` (what most services vendor). A service on `v0.1.1` also takes the "from v0.1.1" list. Re-run `platform-core/tools/sync-go-sdk.sh go-sdk/<tag> <service>` and fix the compile errors with this list.
+v1 changes API and configuration on purpose; there are no deprecated aliases. The sections below list every breaking change since `go-sdk/v0.2.1` (what most services vendor). A service on `v0.1.1` also takes the "from v0.1.1" list. Run `go get` for the new tag and fix the compile errors with this list.
 
 ### Renames
 
@@ -202,7 +204,7 @@ Everything above applies, plus these packages first appeared after v0.1.1 and ne
 
 `testkit` and the golangci-lint `tool` directive stay in the SDK module. Moving them to separate modules was evaluated (review finding m16) and rejected for v1:
 
-- `sync-go-sdk.sh` vendors the SDK directory at a tag into `third_party/go-sdk` with one `replace`, and reads the golangci-lint version from the `tool` directive in the SDK's `go.mod`. A second module for `testkit` would need its own `replace` and placeholder require in every service, and a second module for the tooling would need a different source for the lint version; both change `sync-go-sdk.sh`, `check-go-sdk-vendor.sh` and their tests beyond trivial edits.
+- A second module for `testkit` or the tooling would need its own require in every service and its own release tag.
 - The cost they would save is only module-graph size: `go mod tidy` in a service prunes what its packages do not import, so a service that does not import `testkit` does not build testcontainers.
 
 Revisit if the vendored graph causes real trouble.

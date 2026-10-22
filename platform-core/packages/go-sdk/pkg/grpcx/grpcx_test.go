@@ -22,10 +22,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/grpcx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/healthx"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 type syncBuffer struct {

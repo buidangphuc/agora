@@ -3,7 +3,7 @@ package pagination_test
 import (
 	"testing"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/pagination"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/pagination"
 )
 
 func TestOffsetToken(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 )
 
 type messagingSettings struct {

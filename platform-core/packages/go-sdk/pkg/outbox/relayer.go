@@ -12,9 +12,9 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel/propagation"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 // Publisher sends one built record and returns once the broker acknowledged it.

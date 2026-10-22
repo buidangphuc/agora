@@ -13,8 +13,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 // BatchHandler processes every record of one fetch at once, for example one
@@ -196,7 +196,7 @@ func batchContext(ctx context.Context, recs []*kgo.Record) (context.Context, tra
 			}
 		}
 	}
-	return otel.Tracer("github.com/buidangphuc/platform-core/packages/go-sdk/pkg/consume").Start(ctx, "consume batch",
+	return otel.Tracer("github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume").Start(ctx, "consume batch",
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithLinks(links...),
 		trace.WithAttributes(attribute.Int("messaging.batch.message_count", len(recs))))

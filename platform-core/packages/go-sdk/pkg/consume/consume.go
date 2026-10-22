@@ -14,8 +14,8 @@ import (
 	"github.com/twmb/franz-go/plugin/kotel"
 	"go.opentelemetry.io/otel"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/kafkax"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 )
 
 // Header is one record header. A record may carry several with the same key.

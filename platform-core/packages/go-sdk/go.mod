@@ -1,4 +1,4 @@
-module github.com/buidangphuc/platform-core/packages/go-sdk
+module github.com/buidangphuc/agora/platform-core/packages/go-sdk
 
 go 1.26.0
 

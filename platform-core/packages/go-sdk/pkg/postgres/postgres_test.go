@@ -11,9 +11,9 @@ import (
 	pgx "github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/postgres"
-	"github.com/buidangphuc/platform-core/packages/go-sdk/pkg/testkit"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 )
 
 func openPool(t *testing.T) *pgxpool.Pool {

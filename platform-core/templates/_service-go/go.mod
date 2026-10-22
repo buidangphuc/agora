@@ -13,6 +13,8 @@ module github.com/your-org/team-service
 go 1.26.0
 
 require (
+	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.1
+
 	// gRPC transport + server (health, reflection live in subpackages).
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.11
