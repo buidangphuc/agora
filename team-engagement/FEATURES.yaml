@@ -2413,7 +2413,8 @@ features:
     acceptance:
       - "Dispute escalation: Return that cannot be escalated is refused"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: Return that cannot be escalated is refused"
 
   - id: engagement.dispute-escalation.escalation-duplicate
     title: One open dispute per return
@@ -2429,7 +2430,8 @@ features:
     acceptance:
       - "Dispute escalation: Second dispute on the same return is refused while one is open"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: Second dispute on the same return is refused while one is open"
 
   - id: engagement.dispute-escalation.resolve-open-direct
     title: An open dispute cannot be resolved directly
@@ -2445,7 +2447,8 @@ features:
     acceptance:
       - "Dispute escalation: Open dispute cannot be resolved directly"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: Open dispute cannot be resolved directly"
 
   - id: engagement.dispute-escalation.resolve-audit-down
     title: Audit down blocks the ruling
@@ -2461,7 +2464,8 @@ features:
     acceptance:
       - "Dispute escalation: Audit down blocks the ruling"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: Audit down blocks the ruling"
 
   - id: engagement.dispute-escalation.resolved-fact
     title: DisputeResolved reaches engagement.events once
@@ -2477,7 +2481,8 @@ features:
     acceptance:
       - "Dispute escalation: The fact reaches Kafka once"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: The fact reaches Kafka once"
 
   - id: engagement.dispute-escalation.list-order-parties
     title: Parties list the disputes of an order newest first
@@ -2493,7 +2498,8 @@ features:
     acceptance:
       - "Dispute escalation: Buyer and seller list the order's disputes newest first"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: Buyer and seller list the order's disputes newest first"
 
   - id: engagement.dispute-escalation.list-order-non-party
     title: A non-party cannot list the disputes of an order
@@ -2509,7 +2515,8 @@ features:
     acceptance:
       - "Dispute escalation: Non-party is denied"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: Non-party is denied"
 
   - id: engagement.dispute-escalation.list-by-status
     title: Admin lists open disputes oldest first
@@ -2525,7 +2532,8 @@ features:
     acceptance:
       - "Dispute escalation: Admin lists open disputes oldest first"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: Admin lists open disputes oldest first"
 
   - id: engagement.dispute-escalation.end-to-end
     title: Rejected return to resolved dispute end to end
@@ -2541,7 +2549,8 @@ features:
     acceptance:
       - "Dispute escalation: Rejected return to resolved dispute end to end"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: Rejected return to resolved dispute end to end"
 
   - id: engagement.dispute-escalation.return-unchanged
     title: A dispute under investigation leaves the return status alone
@@ -2557,7 +2566,8 @@ features:
     acceptance:
       - "Dispute escalation: Return keeps its status until the refund consumer acts"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: Return keeps its status until the refund consumer acts"
 
   - id: engagement.dispute-escalation.buyer-cannot-rule
     title: A buyer cannot rule on their own dispute
@@ -2573,4 +2583,787 @@ features:
     acceptance:
       - "Dispute escalation: A buyer cannot rule on their own dispute end to end"
     tags: [engagement, order]
-    status: planned
+    status: automated
+    covered_by: "engagement/dispute_escalation.feature::Dispute escalation: A buyer cannot rule on their own dispute end to end"
+
+  # ---- engagement-dispute-escalation unit-verified scenarios
+
+  - id: engagement.dispute-escalation.unit-buyer-escalates-a-rejected-return
+    title: "Dispute escalation: Buyer escalates a rejected return"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Buyer escalates a rejected return"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Buyer escalates a rejected return (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeEscalatesRejectedReturn`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-buyer-escalates-a-return-the-seller-never-answered
+    title: "Dispute escalation: Buyer escalates a return the seller never answered"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Buyer escalates a return the seller never answered"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Buyer escalates a return the seller never answered (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: platform-e2e `engagement/dispute_escalation.feature` \"Dispute escalation: Buyer escalates a return the seller never answered\" (q10 compose overlay shortens the seller answer time). Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-concurrent-creates-leave-one-dispute
+    title: "Dispute escalation: Concurrent creates leave one dispute"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Concurrent creates leave one dispute"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Concurrent creates leave one dispute (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestCreateDisputeUniqueOpenPerReturnConcurrent`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-a-closed-dispute-lets-the-return-be-escalated-again
+    title: "Dispute escalation: A closed dispute lets the return be escalated again"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: A closed dispute lets the return be escalated again"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: A closed dispute lets the return be escalated again (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestCreateDisputeAfterClosedDisputeOnReturn`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-unknown-return-or-return-of-another-order
+    title: "Dispute escalation: Unknown return or return of another order"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Unknown return or return of another order"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Unknown return or return of another order (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeReturnNotFoundOrWrongOrder`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-not-the-buyer-of-the-order
+    title: "Dispute escalation: Not the buyer of the order"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Not the buyer of the order"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Not the buyer of the order (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeReturnForeignOrderNoReturnRead`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-escalation-naming-another-defendant-is-invalid
+    title: "Dispute escalation: Escalation naming another defendant is invalid"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Escalation naming another defendant is invalid"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Escalation naming another defendant is invalid (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeReturnWrongDefendantInvalid`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-team-order-unavailable-fails-closed
+    title: "Dispute escalation: Team-order unavailable fails closed"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Team-order unavailable fails closed"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Team-order unavailable fails closed (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeReturnUpstreamUnavailable`; team-engagement `internal/upstream` `TestGetReturnTimeout`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-dispute-without-return-id-is-unchanged
+    title: "Dispute escalation: Dispute without return_id is unchanged"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Dispute without return_id is unchanged"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Dispute without return_id is unchanged (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeWithoutReturnUnchanged`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-anonymous-caller-cannot-create-a-dispute
+    title: "Dispute escalation: Anonymous caller cannot create a dispute"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Anonymous caller cannot create a dispute"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Anonymous caller cannot create a dispute (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeReturnAnonymousDenied`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-existing-disputes-survive-the-migration
+    title: "Dispute escalation: Existing disputes survive the migration"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Existing disputes survive the migration"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Existing disputes survive the migration (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestDisputeMigrationKeepsExistingRows`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-getdispute-shows-the-link-and-the-ruling
+    title: "Dispute escalation: GetDispute shows the link and the ruling"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: GetDispute shows the link and the ruling"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: GetDispute shows the link and the ruling (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestGetDisputeCarriesReturnAndRuling`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-open-dispute-moves-to-investigating
+    title: "Dispute escalation: Open dispute moves to investigating"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Open dispute moves to investigating"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Open dispute moves to investigating (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/service` `TestResolveDisputeOpenToInvestigating`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-investigating-note-can-be-updated
+    title: "Dispute escalation: Investigating note can be updated"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Investigating note can be updated"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Investigating note can be updated (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/service` `TestResolveDisputeInvestigatingNoteUpdate`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-open-dispute-can-be-rejected-as-spam
+    title: "Dispute escalation: Open dispute can be rejected as spam"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Open dispute can be rejected as spam"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Open dispute can be rejected as spam (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeOpenToRejectedAllowed`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-closed-dispute-stays-closed
+    title: "Dispute escalation: Closed dispute stays closed"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Closed dispute stays closed"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Closed dispute stays closed (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeClosedRefused`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-return-linked-resolution-needs-a-ruling
+    title: "Dispute escalation: Return-linked resolution needs a ruling"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Return-linked resolution needs a ruling"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Return-linked resolution needs a ruling (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveReturnLinkedWithoutRulingInvalid`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-ruling-on-a-non-resolving-status-is-invalid
+    title: "Dispute escalation: Ruling on a non-resolving status is invalid"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Ruling on a non-resolving status is invalid"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Ruling on a non-resolving status is invalid (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveRulingWithNonResolvedStatusInvalid`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-dispute-without-a-return-resolves-without-a-ruling
+    title: "Dispute escalation: Dispute without a return resolves without a ruling"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Dispute without a return resolves without a ruling"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Dispute without a return resolves without a ruling (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/service` `TestResolveDisputeWithoutReturnNoRulingNeeded`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-concurrent-resolutions-apply-once
+    title: "Dispute escalation: Concurrent resolutions apply once"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Concurrent resolutions apply once"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Concurrent resolutions apply once (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestResolveDisputeCompareAndSetOnce`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-non-admin-cannot-rule
+    title: "Dispute escalation: Non-admin cannot rule"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Non-admin cannot rule"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Non-admin cannot rule (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeRulingNonAdminDenied`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-buyer-favour-ruling-writes-the-audit-event-and-one-fact
+    title: "Dispute escalation: Buyer-favour ruling writes the audit event and one fact"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Buyer-favour ruling writes the audit event and one fact"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Buyer-favour ruling writes the audit event and one fact (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeBuyerFavourAuditAndEvent`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-rejected-dispute-carries-no-ruling
+    title: "Dispute escalation: Rejected dispute carries no ruling"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Rejected dispute carries no ruling"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Rejected dispute carries no ruling (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeRejectedEventNoRuling`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-seller-favour-ruling-is-announced
+    title: "Dispute escalation: Seller-favour ruling is announced"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Seller-favour ruling is announced"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Seller-favour ruling is announced (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeSellerFavourEvent`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-audit-is-written-before-the-update
+    title: "Dispute escalation: Audit is written before the update"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Audit is written before the update"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Audit is written before the update (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/service` `TestResolveDisputeAuditBeforeUpdateAndEvent`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-a-failed-update-leaves-no-event
+    title: "Dispute escalation: A failed update leaves no event"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: A failed update leaves no event"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: A failed update leaves no event (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestResolveDisputeUpdateFailureWritesNoFact`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-a-refused-ruling-writes-no-audit-event-and-no-fact
+    title: "Dispute escalation: A refused ruling writes no audit event and no fact"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: A refused ruling writes no audit event and no fact"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: A refused ruling writes no audit event and no fact (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeDeniedWritesNoAuditNoFact`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-admin-lists-any-order-s-disputes
+    title: "Dispute escalation: Admin lists any order's disputes"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Admin lists any order's disputes"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Admin lists any order's disputes (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesAdminNoUpstream`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-unknown-order-gives-the-same-answer-as-a-foreign-order
+    title: "Dispute escalation: Unknown order gives the same answer as a foreign order"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Unknown order gives the same answer as a foreign order"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Unknown order gives the same answer as a foreign order (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesUnknownOrderDenied`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-order-without-disputes-lists-empty
+    title: "Dispute escalation: Order without disputes lists empty"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Order without disputes lists empty"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Order without disputes lists empty (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesEmpty`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-list-needs-an-order-id-and-a-login
+    title: "Dispute escalation: List needs an order id and a login"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: List needs an order id and a login"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: List needs an order id and a login (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesValidationAndAnonymous`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-list-without-engagement-read-scope-is-denied
+    title: "Dispute escalation: List without engagement read scope is denied"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: List without engagement read scope is denied"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: List without engagement read scope is denied (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesMissingScopeDenied`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-team-order-down-blocks-a-non-admin-list
+    title: "Dispute escalation: Team-order down blocks a non-admin list"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Team-order down blocks a non-admin list"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Team-order down blocks a non-admin list (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesUpstreamUnavailable`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-pagination-boundary
+    title: "Dispute escalation: Pagination boundary"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Pagination boundary"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Pagination boundary (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestListDisputesPagination`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-listing-writes-no-audit-event
+    title: "Dispute escalation: Listing writes no audit event"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Listing writes no audit event"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Listing writes no audit event (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListDisputesNotAudited`. Not producible end to end."
+
+  - id: engagement.dispute-escalation.unit-non-admin-and-anonymous-are-refused
+    title: "Dispute escalation: Non-admin and anonymous are refused"
+    persona: admin
+    priority: P2
+    summary: "Dispute escalation: Non-admin and anonymous are refused"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute escalation: Non-admin and anonymous are refused (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListDisputesNonAdminDenied`. Not producible end to end."
+
+  - id: engagement.return-read.unit-rr-service-principal-with-order-read-reads-a-return
+    title: "Return read: Service principal with order.read reads a return"
+    persona: admin
+    priority: P2
+    summary: "Return read: Service principal with order.read reads a return"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Return read: Service principal with order.read reads a return (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-order `internal/handler` `TestGetReturnRequestServicePrincipalOrderRead`. Not producible end to end."
+
+  - id: engagement.return-read.unit-rr-service-principal-without-order-read-is-denied
+    title: "Return read: Service principal without order.read is denied"
+    persona: admin
+    priority: P2
+    summary: "Return read: Service principal without order.read is denied"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Return read: Service principal without order.read is denied (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-order `internal/handler` `TestGetReturnRequestServiceWithoutScopeDenied`. Not producible end to end."
+
+  - id: engagement.return-read.unit-rr-a-user-principal-with-the-scope-string-is-not-a-service
+    title: "Return read: A user principal with the scope string is not a service"
+    persona: admin
+    priority: P2
+    summary: "Return read: A user principal with the scope string is not a service"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Return read: A user principal with the scope string is not a service (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-order `internal/handler` `TestGetReturnRequestUserWithOrderReadScopeDenied`. Not producible end to end."
+
+  - id: engagement.return-read.unit-rr-another-user-is-still-denied
+    title: "Return read: Another user is still denied"
+    persona: admin
+    priority: P2
+    summary: "Return read: Another user is still denied"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Return read: Another user is still denied (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-order `internal/handler` `TestGetReturnRequestStrangerDenied`. Not producible end to end."
+
+  - id: engagement.return-read.unit-rr-buyer-seller-and-admin-keep-access
+    title: "Return read: Buyer, seller and admin keep access"
+    persona: admin
+    priority: P2
+    summary: "Return read: Buyer, seller and admin keep access"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Return read: Buyer, seller and admin keep access (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-order `internal/handler` `TestGetReturnRequestPartiesAndAdminUnchanged`. Not producible end to end."
+
+  - id: engagement.return-read.unit-rr-anonymous-caller-is-unauthenticated
+    title: "Return read: Anonymous caller is unauthenticated"
+    persona: admin
+    priority: P2
+    summary: "Return read: Anonymous caller is unauthenticated"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Return read: Anonymous caller is unauthenticated (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-order `internal/handler` `TestGetReturnRequestAnonymousDenied`. Not producible end to end."
+
+  - id: engagement.return-read.unit-rr-unknown-return
+    title: "Return read: Unknown return"
+    persona: admin
+    priority: P2
+    summary: "Return read: Unknown return"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Return read: Unknown return (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-order `internal/handler` `TestGetReturnRequestServiceUnknownNotFound`. Not producible end to end."
+
+  - id: engagement.return-read.unit-rr-the-service-principal-cannot-change-a-return
+    title: "Return read: The service principal cannot change a return"
+    persona: admin
+    priority: P2
+    summary: "Return read: The service principal cannot change a return"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Return read: The service principal cannot change a return (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-order `internal/handler` `TestUpdateReturnStatusServicePrincipalDenied`. Not producible end to end."
+
+  - id: engagement.dispute-edge.unit-edge-anonymous-listdisputes-is-refused
+    title: "Dispute edge: Anonymous ListDisputes is refused"
+    persona: admin
+    priority: P2
+    summary: "Dispute edge: Anonymous ListDisputes is refused"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute edge: Anonymous ListDisputes is refused (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-gateway `internal/edge` `TestListDisputesAnonymousUnauthenticated`. Not producible end to end."
+
+  - id: engagement.dispute-edge.unit-edge-non-admin-listdisputes-is-refused
+    title: "Dispute edge: Non-admin ListDisputes is refused"
+    persona: admin
+    priority: P2
+    summary: "Dispute edge: Non-admin ListDisputes is refused"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute edge: Non-admin ListDisputes is refused (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-gateway `internal/edge` `TestListDisputesNonAdminPermissionDenied`. Not producible end to end."
+
+  - id: engagement.dispute-edge.unit-edge-admin-listdisputes-is-forwarded-once
+    title: "Dispute edge: Admin ListDisputes is forwarded once"
+    persona: admin
+    priority: P2
+    summary: "Dispute edge: Admin ListDisputes is forwarded once"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute edge: Admin ListDisputes is forwarded once (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-gateway `internal/edge` `TestListDisputesForwardedOnceNoRetry`. Not producible end to end."
+
+  - id: engagement.dispute-edge.unit-edge-listorderdisputes-carries-the-caller-s-principal
+    title: "Dispute edge: ListOrderDisputes carries the caller's principal"
+    persona: admin
+    priority: P2
+    summary: "Dispute edge: ListOrderDisputes carries the caller's principal"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute edge: ListOrderDisputes carries the caller's principal (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-gateway `internal/edge` `TestListOrderDisputesForwardsPrincipal`. Not producible end to end."
+
+  - id: engagement.dispute-edge.unit-edge-anonymous-listorderdisputes-is-refused
+    title: "Dispute edge: Anonymous ListOrderDisputes is refused"
+    persona: admin
+    priority: P2
+    summary: "Dispute edge: Anonymous ListOrderDisputes is refused"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute edge: Anonymous ListOrderDisputes is refused (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-gateway `internal/edge` `TestListOrderDisputesAnonymousUnauthenticated`. Not producible end to end."
+
+  - id: engagement.dispute-edge.unit-edge-return-id-and-ruling-pass-through
+    title: "Dispute edge: return_id and ruling pass through"
+    persona: admin
+    priority: P2
+    summary: "Dispute edge: return_id and ruling pass through"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute edge: return_id and ruling pass through (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-gateway `internal/edge` `TestDisputeFieldsPassThrough`. Not producible end to end."
+
+  - id: engagement.dispute-edge.unit-edge-the-admin-procedure-set-is-pinned
+    title: "Dispute edge: The admin procedure set is pinned"
+    persona: admin
+    priority: P2
+    summary: "Dispute edge: The admin procedure set is pinned"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute edge: The admin procedure set is pinned (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-gateway `internal/edge` `TestAdminProceduresPinnedSet`. Not producible end to end."
+
+  - id: engagement.dispute-edge.unit-edge-the-new-rpcs-are-not-left-unrouted
+    title: "Dispute edge: The new RPCs are not left unrouted"
+    persona: admin
+    priority: P2
+    summary: "Dispute edge: The new RPCs are not left unrouted"
+    entry_route: /account/orders
+    services: [team-engagement]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Dispute edge: The new RPCs are not left unrouted (unit-verified)"
+    tags: [engagement, unit]
+    status: not-testable
+    notes: "engagement-dispute-escalation: unit-verified: team-gateway `internal/edge` `TestUnroutedGuardCoversDisputeLists`. Not producible end to end."

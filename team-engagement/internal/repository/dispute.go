@@ -205,7 +205,7 @@ func (r *PostgresDisputeRepository) ResolveWithEvent(ctx context.Context, d Disp
 		return Dispute{}, ErrDisputeNotInState
 	}
 	if fact != nil {
-		if err := enqueueFact(ctx, tx, updated.OrderID, fact); err != nil {
+		if err := enqueueFact(ctx, tx, updated.ID, fact); err != nil {
 			return Dispute{}, err
 		}
 	}
