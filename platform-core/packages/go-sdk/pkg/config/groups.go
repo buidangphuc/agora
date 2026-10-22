@@ -165,3 +165,17 @@ func (m *MockData) ResolveFor(rt Runtime) error {
 	}
 	return nil
 }
+
+// Audit holds the audit-service address. Addr has no tag default: in a strict
+// environment an empty value is rejected, locally it stays empty.
+type Audit struct {
+	Addr string `env:"UPSTREAM_AUDIT_ADDR"`
+}
+
+// ResolveFor rejects an empty Addr when the environment is strict.
+func (a *Audit) ResolveFor(rt Runtime) error {
+	if rt.IsStrict() && strings.TrimSpace(a.Addr) == "" {
+		return errors.New("UPSTREAM_AUDIT_ADDR is required when ENV is staging or prod")
+	}
+	return nil
+}
