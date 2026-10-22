@@ -1,7 +1,7 @@
 # [W3-T1] frontend-referrer-hygiene
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-referrer-hygiene`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-frontend-referrer-hygiene`)
 
 ## Objective
 Implement OpenSpec change `frontend-referrer-hygiene` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -27,10 +27,10 @@ Implement OpenSpec change `frontend-referrer-hygiene` test-first per its tasks.m
 - team-frontend/e2e/referrer-hygiene.spec.ts
 - platform-e2e/tests/e2e/features/frontend/referrer_hygiene_ui.feature
 - platform-e2e/tests/e2e/step_definitions/test_referrer_hygiene_ui.py
-- openspec/changes/frontend-referrer-hygiene/**
+- openspec/changes/archive/2026-10-22-frontend-referrer-hygiene/**
 
 ## Read-only dependencies
-- openspec/changes/frontend-referrer-hygiene/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-frontend-referrer-hygiene/** is frozen by the LOCK.md digest (only task ticks change)
 - team-frontend/src/lib/analytics/scrub.ts (reuse scrubReferrer)
 - platform-e2e/tests/e2e/features/auth/login_return.feature and test_login_return.py (keep untouched and green)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md

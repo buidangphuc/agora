@@ -13693,7 +13693,7 @@ features:
     status: automated
     covered_by: "frontend/order_lifecycle_ui.feature::Order lifecycle: the payment reminder opens the pay page"
 
-  # ── frontend-cookie-secure (openspec/changes/frontend-cookie-secure) ──
+  # ── frontend-cookie-secure (openspec/changes/archive/2026-10-22-frontend-cookie-secure) ──
 
   - id: auth.cookie-secure-unset-keeps-the-proxy-rule
     title: "Cookie secure: unset keeps the proxy rule"
@@ -13872,7 +13872,7 @@ features:
     status: not-testable
     notes: "frontend-cookie-secure: unit-verified, not producible end to end (the e2e stack runs with COOKIE_SECURE unset by design). Verified by: `platform-gitops/tests/test_frontend_cookie_secure_manifests.py`"
 
-  # ── frontend-session-client-context (openspec/changes/frontend-session-client-context) ──
+  # ── frontend-session-client-context (openspec/changes/archive/2026-10-22-frontend-session-client-context) ──
 
   - id: auth.session-client-context-unit-middleware-refresh-forwards-ip-and-ua
     title: "Session client context: middleware refresh forwards IP and UA"

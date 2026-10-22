@@ -1,7 +1,7 @@
 # [W2-T3] frontend-session-client-context
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-session-client-context`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-frontend-session-client-context`)
 
 ## Objective
 Implement OpenSpec change `frontend-session-client-context` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -32,14 +32,14 @@ Implement OpenSpec change `frontend-session-client-context` test-first per its t
 - team-frontend/FEATURES.yaml
 - platform-e2e/tests/e2e/features/auth/session_client_context.feature
 - platform-e2e/tests/e2e/step_definitions/test_session_client_context.py
-- openspec/changes/frontend-session-client-context/**
+- openspec/changes/archive/2026-10-22-frontend-session-client-context/**
 - team-identity/internal/handler/auth_refresh_test.go (# widened at build: task 1.1)
 - plans/privacy-audit-hardening/wave2-task3-frontend-session-client-context.md (# widened at build: task 1.1; packet widening record)
 - team-identity/internal/service/auth_refresh_client_test.go (# widened at build: task 1.2)
 - team-identity/tests/readme_refresh_docs_test.sh (# widened at build: task 1.4)
 
 ## Read-only dependencies
-- openspec/changes/frontend-session-client-context/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-frontend-session-client-context/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/step_definitions/session_refresh_steps.py, session_revocation_steps.py (reuse)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md
 

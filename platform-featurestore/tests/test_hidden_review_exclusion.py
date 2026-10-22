@@ -1,7 +1,7 @@
 """Hidden review exclusion (featurestore-hidden-review-exclusion).
 
 Task 1 cases: the `facts` temp table always has a nullable VARCHAR `review_id`.
-Spec: openspec/changes/featurestore-hidden-review-exclusion/specs/hidden-review-exclusion/spec.md
+Spec: openspec/changes/archive/2026-10-22-featurestore-hidden-review-exclusion/specs/hidden-review-exclusion/spec.md
 """
 
 from datetime import timedelta

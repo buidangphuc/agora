@@ -1,7 +1,7 @@
 # [W1-T2] domain-consumer-key-redaction
 
 ## Role
-feature-run worker (change `openspec/changes/domain-consumer-key-redaction`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-domain-consumer-key-redaction`)
 
 ## Objective
 Implement OpenSpec change `domain-consumer-key-redaction` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -13,10 +13,10 @@ Implement OpenSpec change `domain-consumer-key-redaction` test-first per its tas
 - team-domain/internal/consumer/consumer_log_test.go
 - team-domain/README.md
 - team-domain/FEATURES.yaml
-- openspec/changes/domain-consumer-key-redaction/**
+- openspec/changes/archive/2026-10-22-domain-consumer-key-redaction/**
 
 ## Read-only dependencies
-- openspec/changes/domain-consumer-key-redaction/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-domain-consumer-key-redaction/** is frozen by the LOCK.md digest (only task ticks change)
 - team-domain/internal/consumer/identity_test.go (fakeDLQ to reuse)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md
 

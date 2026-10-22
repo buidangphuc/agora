@@ -1,7 +1,7 @@
 # [W2-T2] featurestore-hidden-review-exclusion
 
 ## Role
-feature-run worker (change `openspec/changes/featurestore-hidden-review-exclusion`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-featurestore-hidden-review-exclusion`)
 
 ## Objective
 Implement OpenSpec change `featurestore-hidden-review-exclusion` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -18,12 +18,12 @@ Implement OpenSpec change `featurestore-hidden-review-exclusion` test-first per 
 - platform-featurestore/tests/conftest.py
 - platform-featurestore/README.md
 - platform-featurestore/FEATURES.yaml
-- openspec/changes/featurestore-hidden-review-exclusion/**
+- openspec/changes/archive/2026-10-22-featurestore-hidden-review-exclusion/**
 - platform-featurestore/tests/test_materialize.py (# widened at build: task 4)
 - plans/privacy-audit-hardening/wave2-task2-featurestore-hidden-review-exclusion.md (# widened at build: task 4; packet widening record)
 
 ## Read-only dependencies
-- openspec/changes/featurestore-hidden-review-exclusion/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-featurestore-hidden-review-exclusion/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-featurestore/registry/sql/item_popularity_v1.sql, als_interactions_v2.sql (locked; never edit)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md
 

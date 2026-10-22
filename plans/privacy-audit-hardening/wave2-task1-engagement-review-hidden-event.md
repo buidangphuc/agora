@@ -1,7 +1,7 @@
 # [W2-T1] engagement-review-hidden-event
 
 ## Role
-feature-run worker (change `openspec/changes/engagement-review-hidden-event`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-engagement-review-hidden-event`)
 
 ## Objective
 Implement OpenSpec change `engagement-review-hidden-event` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -17,11 +17,11 @@ Implement OpenSpec change `engagement-review-hidden-event` test-first per its ta
 - team-engagement/FEATURES.yaml
 - platform-e2e/tests/e2e/features/engagement/review_hidden_event.feature
 - platform-e2e/tests/e2e/step_definitions/test_review_hidden_event.py
-- openspec/changes/engagement-review-hidden-event/**
+- openspec/changes/archive/2026-10-22-engagement-review-hidden-event/**
 - team-engagement/internal/docs/readme_test.go (widened at build: task 3)
 
 ## Read-only dependencies
-- openspec/changes/engagement-review-hidden-event/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-engagement-review-hidden-event/** is frozen by the LOCK.md digest (only task ticks change)
 - team-engagement/proto/platform/engagement/v1/events.proto (copied by pah-contract)
 - platform-e2e/tests/e2e/step_definitions/test_efe_facts.py, review_integrity_steps.py (reuse)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md

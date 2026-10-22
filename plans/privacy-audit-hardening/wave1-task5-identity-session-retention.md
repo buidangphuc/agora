@@ -1,7 +1,7 @@
 # [W1-T5] identity-session-retention
 
 ## Role
-feature-run worker (change `openspec/changes/identity-session-retention`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-identity-session-retention`)
 
 ## Objective
 Implement OpenSpec change `identity-session-retention` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -28,10 +28,10 @@ Implement OpenSpec change `identity-session-retention` test-first per its tasks.
 - platform-e2e/compose/README.md
 - platform-e2e/tests/e2e/features/auth/session_retention.feature
 - platform-e2e/tests/e2e/step_definitions/test_session_retention.py
-- openspec/changes/identity-session-retention/**
+- openspec/changes/archive/2026-10-22-identity-session-retention/**
 
 ## Read-only dependencies
-- openspec/changes/identity-session-retention/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-identity-session-retention/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/step_definitions/session_revocation_steps.py, session_refresh_steps.py (reuse)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md
 

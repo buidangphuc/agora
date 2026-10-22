@@ -1,7 +1,7 @@
 # [W1-T3] engagement-consumer-key-redaction
 
 ## Role
-feature-run worker (change `openspec/changes/engagement-consumer-key-redaction`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-engagement-consumer-key-redaction`)
 
 ## Objective
 Implement OpenSpec change `engagement-consumer-key-redaction` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -16,10 +16,10 @@ Implement OpenSpec change `engagement-consumer-key-redaction` test-first per its
 - team-engagement/FEATURES.yaml
 - platform-e2e/tests/e2e/features/engagement/consumer_key_redaction.feature
 - platform-e2e/tests/e2e/step_definitions/test_engagement_consumer_key_redaction.py
-- openspec/changes/engagement-consumer-key-redaction/**
+- openspec/changes/archive/2026-10-22-engagement-consumer-key-redaction/**
 
 ## Read-only dependencies
-- openspec/changes/engagement-consumer-key-redaction/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-engagement-consumer-key-redaction/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/step_definitions/test_efe_facts.py (Kafka helpers to reuse)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md
 

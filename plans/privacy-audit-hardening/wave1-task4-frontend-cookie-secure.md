@@ -1,7 +1,7 @@
 # [W1-T4] frontend-cookie-secure
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-cookie-secure`)
+feature-run worker (change `openspec/changes/archive/2026-10-22-frontend-cookie-secure`)
 
 ## Objective
 Implement OpenSpec change `frontend-cookie-secure` test-first per its tasks.md (scenario ids there); context in plans/privacy-audit-hardening/00-spec.md and LOCK.md "Open issues" decisions.
@@ -23,12 +23,12 @@ Implement OpenSpec change `frontend-cookie-secure` test-first per its tasks.md (
 - platform-gitops/tests/test_frontend_cookie_secure_manifests.py
 - platform-e2e/tests/e2e/features/auth/cookie_secure.feature
 - platform-e2e/tests/e2e/step_definitions/test_cookie_secure.py
-- openspec/changes/frontend-cookie-secure/**
+- openspec/changes/archive/2026-10-22-frontend-cookie-secure/**
 - team-frontend/src/docs/cookie-secure-docs.test.ts (# widened at build: task 1.5)
 - plans/privacy-audit-hardening/wave1-task4-frontend-cookie-secure.md (# widened at build: task 1.5; packet widening record)
 
 ## Read-only dependencies
-- openspec/changes/frontend-cookie-secure/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-22-frontend-cookie-secure/** is frozen by the LOCK.md digest (only task ticks change)
 - docker-compose.services.yaml, platform-e2e/docker-compose.e2e.yaml, platform-gitops/envs/local/values.yaml (must stay without COOKIE_SECURE)
 - plans/privacy-audit-hardening/00-spec.md, slices.yaml, LOCK.md
 
