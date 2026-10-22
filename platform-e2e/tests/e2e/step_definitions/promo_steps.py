@@ -20,6 +20,7 @@ from src.models import Listing, User
 from src.pages import CheckoutPage, ListingDetailPage
 from src.utils import data as fake
 from tests.e2e.flows import login_via_api
+from tests.e2e.support.voucher_seed import ensure_known_voucher
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -105,6 +106,7 @@ def promo_buyer_qualifying_cart(world: World) -> None:
 
 @when(parsers.parse('the buyer applies the voucher code "{code}" at checkout'))
 def buyer_applies_voucher(world: World, code: str) -> None:
+    ensure_known_voucher(code)
     # The voucher selector lives on the Thanh toán step of the checkout wizard.
     world.navigate_to(PageName.CHECKOUT)
     checkout: CheckoutPage = world.get_page(PageName.CHECKOUT)  # type: ignore[assignment]
