@@ -60,15 +60,16 @@ func TestSaveMessageIsAtomicWithOutbox(t *testing.T) {
 	if m, o := countRows(t, pool, "chat_messages"), countRows(t, pool, store.OutboxTable); m != 1 || o != 1 {
 		t.Fatalf("messages=%d outbox=%d, want 1/1", m, o)
 	}
-	var agg, status, payload string
+	var agg, status string
+	var payload []byte
 	var seq int64
-	if err := pool.QueryRow(ctx, `SELECT aggregate_id, status, payload::text, seq FROM `+store.OutboxTable+` WHERE event_id = $1`, "evt-"+saved.ID).Scan(&agg, &status, &payload, &seq); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT aggregate_id, status, payload, seq FROM `+store.OutboxTable+` WHERE event_id = $1`, "evt-"+saved.ID).Scan(&agg, &status, &payload, &seq); err != nil {
 		t.Fatalf("read outbox row: %v", err)
 	}
 	if agg != th.ID || status != "pending" || seq <= 0 {
 		t.Fatalf("outbox aggregate=%q status=%q seq=%d, want %q pending seq>0", agg, status, seq, th.ID)
 	}
-	if !strings.Contains(payload, "seller-1") {
+	if !strings.Contains(string(payload), "seller-1") {
 		t.Fatalf("payload %q lost the recipient/seller", payload)
 	}
 	var last string
