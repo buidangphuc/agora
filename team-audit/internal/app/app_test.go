@@ -221,7 +221,7 @@ func TestMigrateUpLeavesMigratedDatabaseUnchanged(t *testing.T) {
 	c := conn(t, url)
 	for _, id := range []string{"a1", "a2", "a3"} {
 		if _, err := c.Exec(context.Background(),
-			"INSERT INTO audit_events (id, actor_id, action) VALUES ($1, 'actor', 'act.'||$1)", id); err != nil {
+			"INSERT INTO audit_events (id, actor_id, action) VALUES ($1::text, 'actor', 'act.'||$1::text)", id); err != nil {
 			t.Fatal(err)
 		}
 	}
