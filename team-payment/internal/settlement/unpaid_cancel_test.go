@@ -1,12 +1,11 @@
-package consumer_test
+package settlement_test
 
 import (
 	"context"
 	"testing"
 
 	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
-	"github.com/buidangphuc/team-payment/internal/consumer"
-	"github.com/buidangphuc/team-payment/internal/repository"
+	"github.com/buidangphuc/team-payment/internal/store"
 )
 
 const (
@@ -14,14 +13,14 @@ const (
 	stPaid    = orderv1.OrderStatus_ORDER_STATUS_PAID
 )
 
-func (f fixture) open(t *testing.T, orderID string, amount int64, status repository.PaymentStatus) repository.PaymentTransaction {
+func (f fixture) open(t *testing.T, orderID string, amount int64, status store.PaymentStatus) store.PaymentTransaction {
 	t.Helper()
 	ctx := context.Background()
-	tx, err := f.payments.CreateTransaction(ctx, repository.PaymentTransaction{OrderID: orderID, BuyerID: "buyer", Amount: amount})
+	tx, err := f.payments.CreateTransaction(ctx, store.PaymentTransaction{OrderID: orderID, BuyerID: "buyer", Amount: amount})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status != repository.PaymentStatusPending {
+	if status != store.PaymentStatusPending {
 		if tx, err = f.payments.UpdateTransactionStatus(ctx, tx.ID, status, "MOCK"); err != nil {
 			t.Fatal(err)
 		}
@@ -30,7 +29,7 @@ func (f fixture) open(t *testing.T, orderID string, amount int64, status reposit
 }
 
 // refundRows returns the payment's refund rows as read through GetPayment.
-func (f fixture) refundRows(t *testing.T, txID string) []repository.Refund {
+func (f fixture) refundRows(t *testing.T, txID string) []store.Refund {
 	t.Helper()
 	tx, err := f.svc.GetPayment(context.Background(), txID, "")
 	if err != nil {
@@ -47,19 +46,12 @@ func (f fixture) wantRefund(t *testing.T, txID, key string, amount int64) {
 	}
 }
 
-func wantNoDLQ(t *testing.T, dlq *fakeDLQ) {
-	t.Helper()
-	if got := dlq.parked(); len(got) != 0 {
-		t.Fatalf("dlq %v", got)
-	}
-}
-
 // Scenario: Pending transaction is voided on unpaid cancel
 func TestCancelledPendingVoidsPendingTransaction(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
-		tx := f.open(t, "O-1", 500000, repository.PaymentStatusPending)
-		dlq := consume(t, f, cancelledRecord(t, "O-1", stPending, 500000))
-		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusCancelled || got.RefundedAmount != 0 {
+		tx := f.open(t, "O-1", 500000, store.PaymentStatusPending)
+		dlq := feed(t, f, cancelledRecord(t, "O-1", stPending, 500000))
+		if got := f.status(t, tx.ID); got.Status != store.PaymentStatusCancelled || got.RefundedAmount != 0 {
 			t.Fatalf("payment: %+v", got)
 		}
 		if n := len(f.refundRows(t, tx.ID)); n != 0 {
@@ -72,9 +64,9 @@ func TestCancelledPendingVoidsPendingTransaction(t *testing.T) {
 // Scenario: Failed transaction is voided on unpaid cancel
 func TestCancelledPendingVoidsFailedTransaction(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
-		tx := f.open(t, "O-2", 500000, repository.PaymentStatusFailed)
-		dlq := consume(t, f, cancelledRecord(t, "O-2", stPending, 500000))
-		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusCancelled {
+		tx := f.open(t, "O-2", 500000, store.PaymentStatusFailed)
+		dlq := feed(t, f, cancelledRecord(t, "O-2", stPending, 500000))
+		if got := f.status(t, tx.ID); got.Status != store.PaymentStatusCancelled {
 			t.Fatalf("payment: %+v", got)
 		}
 		wantNoDLQ(t, dlq)
@@ -84,10 +76,7 @@ func TestCancelledPendingVoidsFailedTransaction(t *testing.T) {
 // Scenario: Order without a transaction is a no-op
 func TestCancelledPendingWithoutTransactionIsNoop(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
-		rec := cancelledRecord(t, "O-cod", stPending, 1)
-		reader := &fakeReader{records: []consumer.Record{rec}}
-		dlq := &fakeDLQ{}
-		run(t, f.svc, reader, dlq, slow, committedN(reader, 1))
+		dlq := feed(t, f, cancelledRecord(t, "O-cod", stPending, 1))
 		wantNoDLQ(t, dlq)
 		if _, err := f.payments.GetTransactionByOrderID(context.Background(), "O-cod"); err == nil {
 			t.Fatal("a transaction was created")
@@ -98,10 +87,10 @@ func TestCancelledPendingWithoutTransactionIsNoop(t *testing.T) {
 // Scenario: Redelivered cancel leaves one end state
 func TestCancelledPendingRedeliveryIsIdempotent(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
-		tx := f.open(t, "O-1", 500000, repository.PaymentStatusPending)
+		tx := f.open(t, "O-1", 500000, store.PaymentStatusPending)
 		c := cancelledRecord(t, "O-1", stPending, 500000)
-		dlq := consume(t, f, c, c)
-		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusCancelled {
+		dlq := feed(t, f, c, c)
+		if got := f.status(t, tx.ID); got.Status != store.PaymentStatusCancelled {
 			t.Fatalf("payment: %+v", got)
 		}
 		if n := len(f.refundRows(t, tx.ID)); n != 0 {
@@ -115,8 +104,8 @@ func TestCancelledPendingRedeliveryIsIdempotent(t *testing.T) {
 func TestCancelledShippedLeavesTransactionUnchanged(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
 		tx := f.paid(t, "O-4", 500000)
-		dlq := consume(t, f, cancelledRecord(t, "O-4", orderv1.OrderStatus_ORDER_STATUS_SHIPPED, 500000))
-		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusPaid || got.RefundedAmount != 0 {
+		dlq := feed(t, f, cancelledRecord(t, "O-4", orderv1.OrderStatus_ORDER_STATUS_SHIPPED, 500000))
+		if got := f.status(t, tx.ID); got.Status != store.PaymentStatusPaid || got.RefundedAmount != 0 {
 			t.Fatalf("payment: %+v", got)
 		}
 		if n := len(f.refundRows(t, tx.ID)); n != 0 {
@@ -130,8 +119,8 @@ func TestCancelledShippedLeavesTransactionUnchanged(t *testing.T) {
 func TestCancelledPaidStillRefundsWithoutVoid(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
 		tx := f.paid(t, "O-5", 300000)
-		consume(t, f, paidRecord(t, "O-5", 300000, "s1"), cancelledRecord(t, "O-5", stPaid, 300000))
-		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusRefunded {
+		feed(t, f, paidRecord(t, "O-5", 300000, "s1"), cancelledRecord(t, "O-5", stPaid, 300000))
+		if got := f.status(t, tx.ID); got.Status != store.PaymentStatusRefunded {
 			t.Fatalf("payment: %+v", got)
 		}
 		f.wantRefund(t, tx.ID, "cancel:O-5", 300000)
@@ -141,11 +130,9 @@ func TestCancelledPaidStillRefundsWithoutVoid(t *testing.T) {
 // Scenario: Malformed cancel is parked
 func TestCancelledMissingOrderIDIsPermanent(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
-		rec := cancelledRecord(t, "", stPending, 1)
-		rec.Key = "malformed"
-		reader := &fakeReader{records: []consumer.Record{rec}}
-		dlq := &fakeDLQ{}
-		run(t, f.svc, reader, dlq, slow, committedN(reader, 1))
+		bad := cancelledRecord(t, "", stPending, 1)
+		bad.Key = "malformed"
+		dlq := feed(t, f, bad)
 		if got := dlq.parked(); len(got) != 1 || got[0] != "malformed" {
 			t.Fatalf("dlq %v", got)
 		}
@@ -156,8 +143,8 @@ func TestCancelledMissingOrderIDIsPermanent(t *testing.T) {
 func TestCancelledPendingRefundsLateSettledPayment(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
 		tx := f.paid(t, "O-3", 500000)
-		dlq := consume(t, f, cancelledRecord(t, "O-3", stPending, 500000))
-		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusRefunded || got.RefundedAmount != 500000 {
+		dlq := feed(t, f, cancelledRecord(t, "O-3", stPending, 500000))
+		if got := f.status(t, tx.ID); got.Status != store.PaymentStatusRefunded || got.RefundedAmount != 500000 {
 			t.Fatalf("payment: %+v", got)
 		}
 		f.wantRefund(t, tx.ID, "cancel:O-3", 500000)
@@ -173,8 +160,8 @@ func TestCancelledPendingLateRefundRedeliveryIsNoop(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
 		tx := f.paid(t, "O-3", 500000)
 		c := cancelledRecord(t, "O-3", stPending, 500000)
-		dlq := consume(t, f, c, c)
-		if got := f.status(t, tx.ID); got.RefundedAmount != 500000 || got.Status != repository.PaymentStatusRefunded {
+		dlq := feed(t, f, c, c)
+		if got := f.status(t, tx.ID); got.RefundedAmount != 500000 || got.Status != store.PaymentStatusRefunded {
 			t.Fatalf("payment: %+v", got)
 		}
 		f.wantRefund(t, tx.ID, "cancel:O-3", 500000)
@@ -190,8 +177,8 @@ func TestCancelledPendingPartiallyRefundedRefundsRemainderOnce(t *testing.T) {
 			t.Fatal(err)
 		}
 		c := cancelledRecord(t, "O-6", stPending, 500000)
-		dlq := consume(t, f, c, c)
-		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusRefunded || got.RefundedAmount != 500000 {
+		dlq := feed(t, f, c, c)
+		if got := f.status(t, tx.ID); got.Status != store.PaymentStatusRefunded || got.RefundedAmount != 500000 {
 			t.Fatalf("payment: %+v", got)
 		}
 		var n int

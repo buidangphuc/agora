@@ -1,24 +1,14 @@
-package consumer_test
+package settlement_test
 
 import (
 	"context"
 	"testing"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
-	"github.com/buidangphuc/team-payment/internal/consumer"
-	"github.com/buidangphuc/team-payment/internal/repository"
+	"github.com/buidangphuc/team-payment/internal/store"
 )
 
-func cancelledRecord(t *testing.T, orderID string, from orderv1.OrderStatus, total int64) consumer.Record {
-	t.Helper()
-	return consumer.Record{Key: orderID + "-cancel", Value: envelope(t, consumer.OrderCancelledEventType, "cancel-"+orderID,
-		&orderv1.OrderCancelled{OrderId: orderID, BuyerId: "buyer", SellerId: "s1", PreviousStatus: from,
-			TotalAmount: total, Currency: "VND", CancelledAt: timestamppb.Now()})}
-}
-
-func (f fixture) status(t *testing.T, txID string) repository.PaymentTransaction {
+func (f fixture) status(t *testing.T, txID string) store.PaymentTransaction {
 	t.Helper()
 	tx, err := f.payments.GetTransaction(context.Background(), txID)
 	if err != nil {
@@ -33,7 +23,7 @@ func (f fixture) wantLedger(t *testing.T, seller, txID string, credit int64, ded
 	t.Helper()
 	got := f.entries(t, seller)
 	var n int
-	for _, e := range got[repository.LedgerTypeOrderSettlement] {
+	for _, e := range got[store.LedgerTypeOrderSettlement] {
 		if e.ReferenceID == txID {
 			n++
 			if e.Amount != credit {
@@ -44,7 +34,7 @@ func (f fixture) wantLedger(t *testing.T, seller, txID string, credit int64, ded
 	if (credit != 0 && n != 1) || (credit == 0 && n != 0) {
 		t.Fatalf("credits for %s: %d (want amount %d): %+v", txID, n, credit, got)
 	}
-	d := got[repository.LedgerTypeRefundDeduction]
+	d := got[store.LedgerTypeRefundDeduction]
 	if len(d) != len(deductions) {
 		t.Fatalf("deductions %+v, want %v", d, deductions)
 	}
@@ -64,19 +54,11 @@ func (f fixture) wantLedger(t *testing.T, seller, txID string, credit int64, ded
 	}
 }
 
-func consume(t *testing.T, f fixture, recs ...consumer.Record) *fakeDLQ {
-	t.Helper()
-	reader := &fakeReader{records: recs}
-	dlq := &fakeDLQ{}
-	run(t, f.svc, reader, dlq, slow, committedN(reader, len(recs)))
-	return dlq
-}
-
 func TestCancel_AfterCreditRefundsAndDeductsFullAmount(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
 		tx := f.paid(t, "o1", 500000)
-		dlq := consume(t, f, paidRecord(t, "o1", 500000, "s1"), cancelledRecord(t, "o1", orderv1.OrderStatus_ORDER_STATUS_PAID, 500000))
-		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusRefunded || got.RefundedAmount != 500000 ||
+		dlq := feed(t, f, paidRecord(t, "o1", 500000, "s1"), cancelledRecord(t, "o1", orderv1.OrderStatus_ORDER_STATUS_PAID, 500000))
+		if got := f.status(t, tx.ID); got.Status != store.PaymentStatusRefunded || got.RefundedAmount != 500000 ||
 			got.ProviderReference != "REFUND:order_cancelled" {
 			t.Fatalf("payment: %+v", got)
 		}
@@ -90,8 +72,8 @@ func TestCancel_AfterCreditRefundsAndDeductsFullAmount(t *testing.T) {
 func TestCancel_BeforeCreditEndsWithOneCreditOneDeduction(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
 		tx := f.paid(t, "o1", 500000)
-		consume(t, f, cancelledRecord(t, "o1", orderv1.OrderStatus_ORDER_STATUS_PAID, 500000), paidRecord(t, "o1", 500000, "s1"))
-		if f.status(t, tx.ID).Status != repository.PaymentStatusRefunded {
+		feed(t, f, cancelledRecord(t, "o1", orderv1.OrderStatus_ORDER_STATUS_PAID, 500000), paidRecord(t, "o1", 500000, "s1"))
+		if f.status(t, tx.ID).Status != store.PaymentStatusRefunded {
 			t.Fatal("payment not refunded")
 		}
 		f.wantLedger(t, "s1", tx.ID, 500000, map[string]int64{"cancel:o1": -500000})
@@ -102,7 +84,7 @@ func TestCancel_RedeliveredIsNoop(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
 		tx := f.paid(t, "o1", 500000)
 		c := cancelledRecord(t, "o1", orderv1.OrderStatus_ORDER_STATUS_PAID, 500000)
-		dlq := consume(t, f, paidRecord(t, "o1", 500000, "s1"), c, c, paidRecord(t, "o1", 500000, "s1"), c)
+		dlq := feed(t, f, paidRecord(t, "o1", 500000, "s1"), c, c, paidRecord(t, "o1", 500000, "s1"), c)
 		f.wantLedger(t, "s1", tx.ID, 500000, map[string]int64{"cancel:o1": -500000})
 		if len(dlq.parked()) != 0 {
 			t.Fatalf("dlq %v", dlq.parked())
@@ -113,13 +95,13 @@ func TestCancel_RedeliveredIsNoop(t *testing.T) {
 func TestCancel_AfterSellerPartialRefundRefundsTheRemainder(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
 		tx := f.paid(t, "o1", 500000)
-		consume(t, f, paidRecord(t, "o1", 500000, "s1"))
+		feed(t, f, paidRecord(t, "o1", 500000, "s1"))
 		if _, _, _, err := f.svc.RefundPayment(context.Background(), tx.ID, "R1", 200000, "seller"); err != nil {
 			t.Fatal(err)
 		}
-		consume(t, f, cancelledRecord(t, "o1", orderv1.OrderStatus_ORDER_STATUS_PAID, 500000))
+		feed(t, f, cancelledRecord(t, "o1", orderv1.OrderStatus_ORDER_STATUS_PAID, 500000))
 		// The cancel refunds the remainder (payment-refund-model D4).
-		if got := f.status(t, tx.ID); got.Status != repository.PaymentStatusRefunded || got.RefundedAmount != 500000 {
+		if got := f.status(t, tx.ID); got.Status != store.PaymentStatusRefunded || got.RefundedAmount != 500000 {
 			t.Fatalf("payment: %+v", got)
 		}
 		f.wantLedger(t, "s1", tx.ID, 500000, map[string]int64{"rpc:R1": -200000, "cancel:o1": -300000})
@@ -128,7 +110,7 @@ func TestCancel_AfterSellerPartialRefundRefundsTheRemainder(t *testing.T) {
 
 func TestCancel_WithoutSettledTransactionIsDeadLettered(t *testing.T) {
 	eachBackend(t, func(t *testing.T, f fixture) {
-		dlq := consume(t, f, cancelledRecord(t, "o-unknown", orderv1.OrderStatus_ORDER_STATUS_PAID, 1))
+		dlq := feed(t, f, cancelledRecord(t, "o-unknown", orderv1.OrderStatus_ORDER_STATUS_PAID, 1))
 		if got := dlq.parked(); len(got) != 1 || got[0] != "o-unknown-cancel" {
 			t.Fatalf("dlq %v", got)
 		}
