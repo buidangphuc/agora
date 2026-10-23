@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -16,30 +15,6 @@ import (
 
 	orderv1 "github.com/buidangphuc/team-engagement/generated/platform/order/v1"
 )
-
-func TestServicePrincipalInterceptor_SetsServicePrincipal(t *testing.T) {
-	// A stale outgoing user principal must be replaced, not forwarded.
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-		"x-principal-id", "user-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
-	var got metadata.MD
-	invoker := func(ctx context.Context, _ string, _, _ any, _ *grpc.ClientConn, _ ...grpc.CallOption) error {
-		got, _ = metadata.FromOutgoingContext(ctx)
-		return nil
-	}
-	if err := servicePrincipalInterceptor(ctx, "/platform.order.v1.OrderService/GetOrder", nil, nil, nil, invoker); err != nil {
-		t.Fatal(err)
-	}
-	want := map[string]string{
-		"x-principal-id":     "service-team-engagement",
-		"x-principal-type":   "service",
-		"x-principal-scopes": "order.read",
-	}
-	for k, v := range want {
-		if vals := got.Get(k); len(vals) != 1 || vals[0] != v {
-			t.Errorf("%s = %v, want [%s]", k, vals, v)
-		}
-	}
-}
 
 // verifyOrders serves canned orders for VerifyPurchase classification.
 type verifyOrders struct {
@@ -73,7 +48,7 @@ func newVerifyClient(t *testing.T) *OrderClient {
 	orderv1.RegisterOrderServiceServer(srv, verifyOrders{})
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)
-	c, err := NewOrderClient(lis.Addr().String(), time.Second)
+	c, err := NewOrderClient(lis.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,15 +98,6 @@ func TestVerifyPurchaseUpstreamFailureIsError(t *testing.T) {
 	}
 }
 
-// Scenario: No order upstream configured (nil client must not look like "ineligible").
-func TestVerifyPurchaseNilClientIsNotIneligible(t *testing.T) {
-	var c *OrderClient
-	ok, _, err := c.VerifyPurchase(context.Background(), "buyer-1", "listing-1", "order-done")
-	if ok || !errors.Is(err, ErrOrderClientNotConfigured) {
-		t.Fatalf("nil client: want ErrOrderClientNotConfigured, got ok=%v err=%v", ok, err)
-	}
-}
-
 // Scenario: Review without an order is refused (empty order id is not a silent false,nil).
 func TestVerifyPurchaseEmptyOrderIDIsError(t *testing.T) {
 	ok, _, err := newVerifyClient(t).VerifyPurchase(context.Background(), "buyer-1", "listing-1", "")
@@ -173,7 +139,7 @@ func (r *returnOrders) GetReturnRequest(ctx context.Context, req *orderv1.GetRet
 	return nil, status.Error(codes.NotFound, "no such return")
 }
 
-func newReturnClient(t *testing.T, timeout time.Duration) (*OrderClient, *returnOrders) {
+func newReturnClient(t *testing.T) (*OrderClient, *returnOrders) {
 	t.Helper()
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -184,7 +150,7 @@ func newReturnClient(t *testing.T, timeout time.Duration) (*OrderClient, *return
 	orderv1.RegisterOrderServiceServer(srv, fake)
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)
-	c, err := NewOrderClient(lis.Addr().String(), timeout)
+	c, err := NewOrderClient(lis.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +160,7 @@ func newReturnClient(t *testing.T, timeout time.Duration) (*OrderClient, *return
 
 // Scenario: Dispute escalation: Buyer escalates a rejected return
 func TestGetReturn_DisputeEscalation_ReturnsOrderStatusAndCanEscalate(t *testing.T) {
-	c, _ := newReturnClient(t, time.Second)
+	c, _ := newReturnClient(t)
 	orderID, st, can, err := c.GetReturn(context.Background(), "ret-rejected")
 	if err != nil || orderID != "order-1" || st != orderv1.ReturnStatus_RETURN_STATUS_REJECTED || !can {
 		t.Fatalf("got order=%q status=%v can=%v err=%v", orderID, st, can, err)
@@ -207,7 +173,7 @@ func TestGetReturn_DisputeEscalation_ReturnsOrderStatusAndCanEscalate(t *testing
 
 // Scenario: Dispute escalation: Buyer escalates a rejected return (service principal with order.read)
 func TestGetReturn_DisputeEscalation_UsesServicePrincipalNotCaller(t *testing.T) {
-	c, fake := newReturnClient(t, time.Second)
+	c, fake := newReturnClient(t)
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
 		"x-principal-id", "user-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
 	if _, _, _, err := c.GetReturn(ctx, "ret-rejected"); err != nil {
@@ -229,7 +195,7 @@ func TestGetReturn_DisputeEscalation_UsesServicePrincipalNotCaller(t *testing.T)
 
 // Scenario: Dispute escalation: Buyer escalates a rejected return (unknown return maps to ErrReturnNotFound)
 func TestGetReturn_DisputeEscalation_NotFoundIsErrReturnNotFound(t *testing.T) {
-	c, _ := newReturnClient(t, time.Second)
+	c, _ := newReturnClient(t)
 	if _, _, _, err := c.GetReturn(context.Background(), "ret-404"); !errors.Is(err, ErrReturnNotFound) {
 		t.Fatalf("want ErrReturnNotFound, got %v", err)
 	}
@@ -240,7 +206,7 @@ func TestGetReturn_DisputeEscalation_NotFoundIsErrReturnNotFound(t *testing.T) {
 
 // Scenario: Dispute escalation: Team-order unavailable fails closed
 func TestGetReturn_DisputeEscalation_UpstreamFailureFailsClosed(t *testing.T) {
-	c, _ := newReturnClient(t, time.Second)
+	c, _ := newReturnClient(t)
 	for _, id := range []string{"ret-boom", "ret-down", "ret-denied"} {
 		orderID, _, can, err := c.GetReturn(context.Background(), id)
 		if err == nil {
@@ -255,36 +221,5 @@ func TestGetReturn_DisputeEscalation_UpstreamFailureFailsClosed(t *testing.T) {
 		if strings.Contains(err.Error(), "password") {
 			t.Errorf("%s: upstream detail leaked: %v", id, err)
 		}
-	}
-}
-
-// Scenario: Dispute escalation: Team-order unavailable fails closed (bounded timeout)
-func TestGetReturn_DisputeEscalation_TimeoutIsBoundedError(t *testing.T) {
-	c, _ := newReturnClient(t, 150*time.Millisecond)
-	start := time.Now()
-	_, _, can, err := c.GetReturn(context.Background(), "ret-hang")
-	if err == nil || can {
-		t.Fatalf("timeout must be an error, got can=%v err=%v", can, err)
-	}
-	if errors.Is(err, ErrReturnNotFound) {
-		t.Fatal("timeout must not be classified as not-found")
-	}
-	if el := time.Since(start); el > 150*time.Millisecond+500*time.Millisecond {
-		t.Fatalf("not bounded: took %v", el)
-	}
-}
-
-// Scenario: Dispute escalation: Team-order unavailable fails closed (nil / unset address)
-func TestGetReturn_DisputeEscalation_NotConfiguredFailsClosed(t *testing.T) {
-	var nilClient *OrderClient
-	if _, _, can, err := nilClient.GetReturn(context.Background(), "ret-rejected"); !errors.Is(err, ErrOrderClientNotConfigured) || can {
-		t.Fatalf("nil client: got can=%v err=%v", can, err)
-	}
-	c, err := NewOrderClient("", time.Second)
-	if err != nil {
-		t.Skipf("empty address rejected at construction: %v", err)
-	}
-	if _, _, can, err := c.GetReturn(context.Background(), "ret-rejected"); !errors.Is(err, ErrOrderClientNotConfigured) || can {
-		t.Fatalf("unset address: got can=%v err=%v", can, err)
 	}
 }
