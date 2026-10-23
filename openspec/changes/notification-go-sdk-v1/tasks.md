@@ -48,7 +48,7 @@ Write-set: `team-notification/**` (fixes only), `openspec/changes/notification-g
 
 ## 2. e2e track
 Write-set: `team-notification/FEATURES.yaml`.
-- [ ] 2.1 [e2e] Update the existing entries `notification.center`, `notification.alerts`, `notification.alerts-delivery`, `notification.unread-badge` and the order-work and chat entries: keep their `covered_by` features, add `team-notification` restart-safety and readiness notes only where an entry's acceptance text mentions mock mode, `KAFKA_ENABLED` or in-memory state (remove that text). Add `notification.service-runtime` with `status: not-testable`, `covered_by` empty and a note that each scenario of `notification-service-runtime` names its Go test in `VERIFIED BY`. e2e runs once at the end of the migration; do not run it here.
+- [x] 2.1 [e2e] (capability: notification-service-runtime) Update the existing entries `notification.center`, `notification.alerts`, `notification.alerts-delivery`, `notification.unread-badge` and the order-work and chat entries: keep their `covered_by` features, add `team-notification` restart-safety and readiness notes only where an entry's acceptance text mentions mock mode, `KAFKA_ENABLED` or in-memory state (remove that text). Add `notification.service-runtime` with `status: not-testable`, `covered_by` empty and a note that each scenario of `notification-service-runtime` names its Go test in `VERIFIED BY`. e2e runs once at the end of the migration; do not run it here.
 
 ## 3. Deploy track (done by change deploy-go-sdk-v1)
 Not code tasks of this change. `deploy-go-sdk-v1` owns all of these edits and the shared deploy-runtime requirements; it merges together with this change. Exact edits, applied in the same merge as the service image.

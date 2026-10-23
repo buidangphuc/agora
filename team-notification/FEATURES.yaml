@@ -846,3 +846,675 @@ features:
     tags: [unit]
     status: not-testable
     notes: "VERIFIED BY team-notification internal/consumer TestLowStockStateDurableAcrossRestart. Not producible end to end through the gateway (unit level)."
+  - id: notification.service-runtime
+    title: Notification service runtime
+    persona: buyer
+    priority: P2
+    summary: Runtime behaviour of team-notification after the go-sdk migration (change notification-go-sdk-v1).
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - Each scenario of notification-service-runtime names its Go test in VERIFIED BY
+    tags: [notification, unit]
+    status: not-testable
+    notes: "Each scenario of notification-service-runtime names its Go test in VERIFIED BY. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.the-module-requires-the-sdk-tag-without-a-replace
+    title: "The module requires the SDK tag without a replace"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "The module requires the SDK tag without a replace"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestModuleRequiresSDKTagWithoutReplace`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-go-mod-with-a-replace-directive-is-rejected
+    title: "A go.mod with a replace directive is rejected"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A go.mod with a replace directive is rejected"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestModuleCheckRejectsReplaceAndWrongVersion`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.the-makefile-reuses-the-shared-targets
+    title: "The Makefile reuses the shared targets"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "The Makefile reuses the shared targets"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestMakefileIncludesSharedGoServiceMk`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-missing-database-url-fails-load
+    title: "A missing DATABASE_URL fails load"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A missing DATABASE_URL fails load"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/config` `TestLoadRejectsMissingDatabaseURL`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.kafka-brokers-and-the-key-fingerprint-secret-are-required-in-a-strict-env
+    title: "Kafka brokers and the key fingerprint secret are required in a strict ENV"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Kafka brokers and the key fingerprint secret are required in a strict ENV"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/config` `TestLoadRequiresKafkaBrokersAndKeyFPSecretInStrictEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.upstream-addresses-are-required-in-every-env
+    title: "Upstream addresses are required in every ENV"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Upstream addresses are required in every ENV"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/config` `TestLoadRequiresUpstreamAddrsInEveryEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.no-dependency-enable-flag-exists
+    title: "No dependency enable flag exists"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "No dependency enable flag exists"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/config` `TestNoDependencyEnableFlags`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.reflection-is-refused-in-a-strict-env-and-off-by-default
+    title: "Reflection is refused in a strict ENV and off by default"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Reflection is refused in a strict ENV and off by default"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/config` `TestLoadRefusesReflectionInStrictEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.the-low-stock-threshold-boundaries
+    title: "The low-stock threshold boundaries"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "The low-stock threshold boundaries"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/config` `TestLoadLowStockThreshold`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.env-example-matches-settings
+    title: ".env.example matches Settings"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - ".env.example matches Settings"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/config` `TestEnvExampleInSync`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.an-unreachable-database-fails-boot
+    title: "An unreachable database fails boot"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "An unreachable database fails boot"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestRunFailsWhenDatabaseUnreachable`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-failed-migration-fails-the-migrate-subcommand
+    title: "A failed migration fails the migrate subcommand"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A failed migration fails the migrate subcommand"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestMigrateUpFailsOnDirtyMigration`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.boot-never-migrates
+    title: "Boot never migrates"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Boot never migrates"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestRunDoesNotMigrate`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.migrate-then-boot-serves-every-rpc
+    title: "Migrate then boot serves every RPC"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Migrate then boot serves every RPC"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestMigrateThenRunServesAllRPCs`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-consumer-failure-stops-the-process
+    title: "A consumer failure stops the process"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A consumer failure stops the process"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestConsumerErrorStopsRun`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.postgres-open-is-bounded-and-fails-fast
+    title: "Postgres open is bounded and fails fast"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Postgres open is bounded and fails fast"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestRunFailsWhenDatabaseUnreachable`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.docker-backed-tests-never-skip
+    title: "Docker-backed tests never skip"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Docker-backed tests never skip"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestDockerRequiredNeverSkips`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.production-wiring-has-no-in-memory-fallback
+    title: "Production wiring has no in-memory fallback"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Production wiring has no in-memory fallback"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestNoRuntimeFallbacksInSource`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-database-outage-flips-readiness-but-not-liveness
+    title: "A database outage flips readiness but not liveness"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A database outage flips readiness but not liveness"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestReadinessFollowsPostgresLivenessDoesNot`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-broker-outage-does-not-flip-readiness
+    title: "A broker outage does not flip readiness"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A broker outage does not flip readiness"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestReadinessIgnoresKafka`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.liveness-answers-from-memory
+    title: "Liveness answers from memory"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Liveness answers from memory"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestLivenessCheckLatencyUnder5ms`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.shutdown-drains-health-first
+    title: "Shutdown drains health first"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Shutdown drains health first"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestShutdownDrainsHealthFirst`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.reflection-is-off-unless-enabled
+    title: "Reflection is off unless enabled"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Reflection is off unless enabled"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestReflectionOffByDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-panicking-handler-does-not-kill-the-process
+    title: "A panicking handler does not kill the process"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A panicking handler does not kill the process"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestPanicReturnsInternalAndServerKeepsServing`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-user-sees-only-their-own-notifications
+    title: "A user sees only their own notifications"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A user sees only their own notifications"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestUsersDoNotSeeEachOthersData`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.another-user-s-notification-id-is-notfound
+    title: "Another user's notification id is NotFound"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Another user's notification id is NotFound"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestMarkAsReadOtherUsersNotificationIsNotFound`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.an-empty-id-marks-all-of-the-caller-s-notifications-read
+    title: "An empty id marks all of the caller's notifications read"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "An empty id marks all of the caller's notifications read"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestMarkAsReadEmptyIDMarksAllOfCallerOnly`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.listing-stays-fast-at-10-000-rows-per-user
+    title: "Listing stays fast at 10,000 rows per user"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Listing stays fast at 10,000 rows per user"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/store` `TestInboxQueriesP95At10kRows`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.principal-types-are-enforced-on-every-per-user-rpc
+    title: "Principal types are enforced on every per-user RPC"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Principal types are enforced on every per-user RPC"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestPerUserRPCsRequireAUserPrincipal`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.the-page-size-is-clamped-at-the-boundaries
+    title: "The page size is clamped at the boundaries"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "The page size is clamped at the boundaries"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestListNotificationsPageSizeClamp`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-store-failure-is-not-leaked
+    title: "A store failure is not leaked"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A store failure is not leaked"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestMapErrsHideInternalCause`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-unique-key-violation-maps-to-alreadyexists
+    title: "A unique-key violation maps to AlreadyExists"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A unique-key violation maps to AlreadyExists"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestUniqueViolationMapsToAlreadyExists`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.subscribing-twice-returns-the-same-subscription
+    title: "Subscribing twice returns the same subscription"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Subscribing twice returns the same subscription"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestSubscribeAlertIsIdempotent`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.an-invalid-subscription-is-rejected
+    title: "An invalid subscription is rejected"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "An invalid subscription is rejected"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestSubscribeAlertValidationIsInvalidArgument`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.unsubscribing-another-user-s-subscription-changes-nothing
+    title: "Unsubscribing another user's subscription changes nothing"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Unsubscribing another user's subscription changes nothing"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestUnsubscribeForeignSubscriptionIsNoOp`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.preferences-default-and-round-trip-per-user
+    title: "Preferences default and round-trip per user"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Preferences default and round-trip per user"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/prefs` `TestUpdateRoundtripAndIsolation`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-missing-prefs-payload-is-rejected
+    title: "A missing prefs payload is rejected"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A missing prefs payload is rejected"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/prefs` `TestPrefsInputValidation`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-redelivered-event-notifies-once
+    title: "A redelivered event notifies once"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A redelivered event notifies once"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestRedeliveredEventNotifiesOnce_Postgres`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-failed-write-rolls-the-ledger-row-back
+    title: "A failed write rolls the ledger row back"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A failed write rolls the ledger row back"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestFailedWriteRollsBackLedgerAndRetryNotifies_Postgres`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-malformed-record-goes-to-the-dlq-and-the-offset-advances
+    title: "A malformed record goes to the DLQ and the offset advances"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A malformed record goes to the DLQ and the offset advances"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestMalformedRecordGoesToDLQAndAdvances`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-transient-failure-retries-without-committing
+    title: "A transient failure retries without committing"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A transient failure retries without committing"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestTransientFailureRetriesBeforeCommit`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.logs-show-the-key-fingerprint-not-the-key
+    title: "Logs show the key fingerprint, not the key"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Logs show the key fingerprint, not the key"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestConsumerLogsKeyFingerprintNotKey`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-chat-message-becomes-a-notification-within-30-seconds
+    title: "A chat message becomes a notification within 30 seconds"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A chat message becomes a notification within 30 seconds"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/app` `TestChatEventBecomesNotificationWithin30s`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.consumer-settings-keep-their-names-and-defaults
+    title: "Consumer settings keep their names and defaults"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Consumer settings keep their names and defaults"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/config` `TestConsumerSettingsDefaults`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-first-seen-listing-creates-nothing
+    title: "A first-seen listing creates nothing"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A first-seen listing creates nothing"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestPriceFirstSeen_CreatesNone`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-disabled-notification-type-is-skipped
+    title: "A disabled notification type is skipped"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A disabled notification type is skipped"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestChat_DisabledPreferenceSkips`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-disabled-order-notification-type-is-skipped
+    title: "A disabled order notification type is skipped"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A disabled order notification type is skipped"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestOrder_DisabledPreferenceSkips`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-listing-alert-ignores-preferences
+    title: "A listing alert ignores preferences"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A listing alert ignores preferences"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestListingAlertsIgnorePrefs`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.an-event-for-user-a-never-creates-a-row-for-user-b
+    title: "An event for user A never creates a row for user B"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "An event for user A never creates a row for user B"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestEventsNeverCreateRowsForOtherUsers`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.the-low-stock-state-survives-a-restart
+    title: "The low-stock state survives a restart"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "The low-stock state survives a restart"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestLowStockStateDurableAcrossRestart`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.only-the-buyer-of-a-shipped-order-is-notified
+    title: "Only the buyer of a shipped order is notified"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "Only the buyer of a shipped order is notified"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestOrderShipped_NotifiesBuyer`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.an-order-event-for-a-different-seller-notifies-nobody-else
+    title: "An order event for a different seller notifies nobody else"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "An order event for a different seller notifies nobody else"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/events` `TestOrderPlacedOtherSellerNotNotified`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.the-lookup-carries-the-read-only-service-principal
+    title: "The lookup carries the read-only service principal"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "The lookup carries the read-only service principal"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/names` `TestResolverSendsReadOnlyServicePrincipal`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.the-resolver-principal-cannot-use-the-per-user-rpcs
+    title: "The resolver principal cannot use the per-user RPCs"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "The resolver principal cannot use the per-user RPCs"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/rpc` `TestResolverPrincipalDeniedOnPerUserRPCs`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: notification-runtime.a-slow-upstream-is-cut-at-2-seconds
+    title: "A slow upstream is cut at 2 seconds"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change notification-go-sdk-v1.
+    entry_route: /
+    services: [team-notification]
+    acceptance:
+      - "A slow upstream is cut at 2 seconds"
+    tags: [notification, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-notification/internal/names` `TestResolverBoundedToTwoSeconds`. Not producible end to end through the gateway (unit, database, log or boot level)."
