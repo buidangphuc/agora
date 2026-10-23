@@ -1,19 +1,19 @@
-package service
+package payment
 
 import (
 	"context"
 	"errors"
 	"log/slog"
 
-	"github.com/buidangphuc/team-payment/internal/repository"
+	"github.com/buidangphuc/team-payment/internal/store"
 )
 
 // CreditSettlement credits sellerID for the order's payment, driven by team-order's
 // OrderPaidEvent (design D1/D2): one ORDER_SETTLEMENT of the payment transaction's
 // amount, referencing it, idempotent across redelivery. The transaction amount wins over
 // the event's total (a mismatch is logged). ErrNotSettled when the order has no
-// PAID/REFUNDED transaction; repository.ErrInvalidAmount for a non-positive amount.
-func (s *PaymentService) CreditSettlement(ctx context.Context, orderID, sellerID string, eventTotal int64) error {
+// PAID/REFUNDED transaction; store.ErrInvalidAmount for a non-positive amount.
+func (s *Service) CreditSettlement(ctx context.Context, orderID, sellerID string, eventTotal int64) error {
 	if s.settle == nil {
 		return ErrSettlementNotConfigured
 	}
@@ -37,7 +37,7 @@ func (s *PaymentService) CreditSettlement(ctx context.Context, orderID, sellerID
 // seller gets exactly one deduction for it whichever of the cancel and the credit is
 // applied first. A REFUNDED payment, a remainder of 0 and a redelivered cancel write
 // nothing. ErrNotSettled when the order has no settled transaction.
-func (s *PaymentService) RefundCancelledOrder(ctx context.Context, orderID string) error {
+func (s *Service) RefundCancelledOrder(ctx context.Context, orderID string) error {
 	if s.settle == nil {
 		return ErrSettlementNotConfigured
 	}
@@ -45,9 +45,9 @@ func (s *PaymentService) RefundCancelledOrder(ctx context.Context, orderID strin
 	if err != nil {
 		return err
 	}
-	_, err = s.refund(ctx, repository.RefundRequest{
-		PaymentID: tx.ID, Key: "cancel:" + orderID, Source: repository.RefundSourceOrderCancel,
-		SourceID: orderID, Reason: "order_cancelled", Mode: repository.RefundRemainder,
+	_, err = s.refund(ctx, store.RefundRequest{
+		PaymentID: tx.ID, Key: "cancel:" + orderID, Source: store.RefundSourceOrderCancel,
+		SourceID: orderID, Reason: "order_cancelled", Mode: store.RefundRemainder,
 	})
 	return err
 }
@@ -57,7 +57,7 @@ func (s *PaymentService) RefundCancelledOrder(ctx context.Context, orderID strin
 // mode. It refunds min(amount, remaining) and records the requested and applied amounts;
 // with nothing left it records an applied 0 and no deduction. A redelivered fact is a
 // no-op. ErrNotSettled when the order has no settled transaction.
-func (s *PaymentService) RefundReturn(ctx context.Context, orderID, returnID string, amount int64) error {
+func (s *Service) RefundReturn(ctx context.Context, orderID, returnID string, amount int64) error {
 	if s.settle == nil {
 		return ErrSettlementNotConfigured
 	}
@@ -71,23 +71,23 @@ func (s *PaymentService) RefundReturn(ctx context.Context, orderID, returnID str
 	if err != nil {
 		return err
 	}
-	_, err = s.refund(ctx, repository.RefundRequest{
-		PaymentID: tx.ID, Key: "return:" + returnID, Source: repository.RefundSourceReturn,
-		SourceID: returnID, Requested: amount, Reason: "return_refunded", Mode: repository.RefundClamp,
+	_, err = s.refund(ctx, store.RefundRequest{
+		PaymentID: tx.ID, Key: "return:" + returnID, Source: store.RefundSourceReturn,
+		SourceID: returnID, Requested: amount, Reason: "return_refunded", Mode: store.RefundClamp,
 	})
 	return err
 }
 
 // unpaidCanceller is the compare-and-set void both repository implementations provide.
 type unpaidCanceller interface {
-	CancelUnpaid(ctx context.Context, orderID string) (repository.CancelUnpaidOutcome, error)
+	CancelUnpaid(ctx context.Context, orderID string) (store.CancelUnpaidOutcome, error)
 }
 
 // VoidCancelledOrder applies team-order's OrderCancelled for an order cancelled unpaid:
 // a PENDING/FAILED transaction is voided (compare-and-set to CANCELLED, no money moves).
 // Absent and already-CANCELLED are no-ops. When the compare-and-set finds the payment
 // settled meanwhile, it falls back to the refund keyed cancel:<order_id>.
-func (s *PaymentService) VoidCancelledOrder(ctx context.Context, orderID string) error {
+func (s *Service) VoidCancelledOrder(ctx context.Context, orderID string) error {
 	canceller, ok := s.paymentRepo.(unpaidCanceller)
 	if !ok {
 		return errors.New("payment repository cannot void unpaid transactions")
@@ -96,7 +96,7 @@ func (s *PaymentService) VoidCancelledOrder(ctx context.Context, orderID string)
 	if err != nil {
 		return err
 	}
-	if outcome != repository.CancelOtherStatus {
+	if outcome != store.CancelOtherStatus {
 		return nil
 	}
 	return s.RefundCancelledOrder(ctx, orderID)

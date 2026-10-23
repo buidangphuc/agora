@@ -1,4 +1,4 @@
-package service
+package payment
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/buidangphuc/team-payment/internal/repository"
+	"github.com/buidangphuc/team-payment/internal/store"
 )
 
 // Pagination bounds for the wallet ledger list RPC.
@@ -24,7 +24,7 @@ var (
 )
 
 // GetWalletBalance returns the seller's mock wallet balance = SUM(ledger.amount).
-func (s *PaymentService) GetWalletBalance(ctx context.Context, sellerID string) (int64, error) {
+func (s *Service) GetWalletBalance(ctx context.Context, sellerID string) (int64, error) {
 	if sellerID == "" {
 		return 0, errors.New("seller id is required")
 	}
@@ -36,12 +36,12 @@ func (s *PaymentService) GetWalletBalance(ctx context.Context, sellerID string) 
 
 // ListLedgerEntries returns a page of the seller's ledger entries (newest first),
 // the opaque next-page cursor ("" when exhausted) and the seller's total entry count.
-func (s *PaymentService) ListLedgerEntries(
+func (s *Service) ListLedgerEntries(
 	ctx context.Context,
 	sellerID string,
 	cursor string,
 	pageSize int32,
-) ([]repository.LedgerEntry, string, int64, error) {
+) ([]store.LedgerEntry, string, int64, error) {
 	if sellerID == "" {
 		return nil, "", 0, errors.New("seller id is required")
 	}
@@ -78,59 +78,59 @@ func (s *PaymentService) ListLedgerEntries(
 // money moves). The debit reduces the seller's balance immediately (balance = sum of
 // ledger). Rejects non-positive amounts, payouts exceeding the current balance
 // (ErrInsufficientBalance) and payouts exceeding the withdrawable amount, i.e. proceeds
-// still inside the refund hold window (*repository.FundsOnHoldError).
-func (s *PaymentService) RequestWalletPayout(
+// still inside the refund hold window (*store.FundsOnHoldError).
+func (s *Service) RequestWalletPayout(
 	ctx context.Context,
 	sellerID string,
 	amount int64,
-) (repository.LedgerEntry, error) {
+) (store.LedgerEntry, error) {
 	if sellerID == "" {
-		return repository.LedgerEntry{}, errors.New("seller id is required")
+		return store.LedgerEntry{}, errors.New("seller id is required")
 	}
 	if amount <= 0 {
-		return repository.LedgerEntry{}, repository.ErrInvalidAmount
+		return store.LedgerEntry{}, store.ErrInvalidAmount
 	}
 	if s.ledgerRepo == nil {
-		return repository.LedgerEntry{}, ErrLedgerNotConfigured
+		return store.LedgerEntry{}, ErrLedgerNotConfigured
 	}
 
 	// Balance check and debit are one atomic repository step: a separate
 	// Balance-then-Append let concurrent payouts each pass the check and overdraw.
 	// The hold (design D7) is checked inside the same seller-locked step.
-	return s.ledgerRepo.AppendDebit(ctx, repository.LedgerEntry{
+	return s.ledgerRepo.AppendDebit(ctx, store.LedgerEntry{
 		SellerID: sellerID,
-		Type:     repository.LedgerTypePayout,
+		Type:     store.LedgerTypePayout,
 		Amount:   -amount, // debit
-		Status:   repository.LedgerStatusPending,
-	}, repository.Holdback{Window: s.holdWindow, Now: s.now()})
+		Status:   store.LedgerStatusPending,
+	}, store.Holdback{Window: s.holdWindow, Now: s.now()})
 }
 
 // CreditWallet records an unreferenced COMPLETED credit ledger entry for a seller.
 // Test seeding only: the settlement credit is CreditSettlement (referenced, idempotent),
 // and the Postgres store refuses an unreferenced ORDER_SETTLEMENT.
-func (s *PaymentService) CreditWallet(
+func (s *Service) CreditWallet(
 	ctx context.Context,
 	sellerID string,
 	amount int64,
 	entryType string,
-) (repository.LedgerEntry, error) {
+) (store.LedgerEntry, error) {
 	if sellerID == "" {
-		return repository.LedgerEntry{}, errors.New("seller id is required")
+		return store.LedgerEntry{}, errors.New("seller id is required")
 	}
 	if amount <= 0 {
-		return repository.LedgerEntry{}, repository.ErrInvalidAmount
+		return store.LedgerEntry{}, store.ErrInvalidAmount
 	}
 	if s.ledgerRepo == nil {
-		return repository.LedgerEntry{}, ErrLedgerNotConfigured
+		return store.LedgerEntry{}, ErrLedgerNotConfigured
 	}
 	if entryType == "" {
-		entryType = repository.LedgerTypeOrderSettlement
+		entryType = store.LedgerTypeOrderSettlement
 	}
-	return s.ledgerRepo.AppendEntry(ctx, repository.LedgerEntry{
+	return s.ledgerRepo.AppendEntry(ctx, store.LedgerEntry{
 		SellerID: sellerID,
 		Type:     entryType,
 		Amount:   amount, // credit
-		Status:   repository.LedgerStatusCompleted,
+		Status:   store.LedgerStatusCompleted,
 	})
 }
 
