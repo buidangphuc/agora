@@ -1,45 +1,38 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"testing"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-payment/generated/platform/common/v1"
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-payment/internal/handler"
-	"github.com/buidangphuc/team-payment/internal/interceptor"
-	"github.com/buidangphuc/team-payment/internal/repository"
-	"github.com/buidangphuc/team-payment/internal/service"
+	"github.com/buidangphuc/team-payment/internal/rpc"
+	"github.com/buidangphuc/team-payment/internal/store"
+	"github.com/buidangphuc/team-payment/internal/store/fake"
 )
 
-func setupLedgerHandler() (*handler.PaymentHandler, *repository.InMemoryLedgerRepository) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	ledger := repository.NewInMemoryLedgerRepository()
-	svc := service.NewPaymentService(nil, nil, nil, logger, service.WithLedgerRepo(ledger))
-	return handler.NewPaymentHandler(svc, logger, handler.WithMockPayments(true)), ledger
+func setupLedgerHandler(t *testing.T) (*rpc.Handler, *fake.InMemoryLedgerRepository) {
+	t.Helper()
+	st := newStores()
+	return newHandler(t, st.service(t, nil), permissiveAudit), st.ledger
 }
 
 func authCtx(id string) context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
-		Id:     id,
-		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"payment:read", "payment:write", "listing.write"},
-	})
+	return principalCtx(id, auth.TypeUser, "payment:read", "payment:write", "listing.write")
 }
 
 func TestPaymentHandler_WalletLedger(t *testing.T) {
-	h, ledger := setupLedgerHandler()
+	h, ledger := setupLedgerHandler(t)
 	ctx := authCtx("seller-1")
 
 	// Seed a credit directly via the repo, then defaulting seller_id to the principal.
-	if _, err := ledger.AppendEntry(ctx, repository.LedgerEntry{
-		SellerID: "seller-1", Type: repository.LedgerTypeOrderSettlement,
-		Amount: 1000000, Status: repository.LedgerStatusCompleted,
+	if _, err := ledger.AppendEntry(ctx, store.LedgerEntry{
+		SellerID: "seller-1", Type: store.LedgerTypeOrderSettlement,
+		Amount: 1000000, Status: store.LedgerStatusCompleted,
 	}); err != nil {
 		t.Fatalf("seed failed: %v", err)
 	}
@@ -58,7 +51,7 @@ func TestPaymentHandler_WalletLedger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RequestWalletPayout failed: %v", err)
 	}
-	if payoutResp.GetEntry().GetStatus() != repository.LedgerStatusPending {
+	if payoutResp.GetEntry().GetStatus() != store.LedgerStatusPending {
 		t.Errorf("want PENDING entry, got %s", payoutResp.GetEntry().GetStatus())
 	}
 	if payoutResp.GetEntry().GetAmount() != -250000 {
@@ -81,7 +74,7 @@ func TestPaymentHandler_WalletLedger(t *testing.T) {
 }
 
 func TestPaymentHandler_WalletLedger_AnonymousRejected(t *testing.T) {
-	h, _ := setupLedgerHandler()
+	h, _ := setupLedgerHandler(t)
 
 	// No principal in context => Unauthenticated, no panic.
 	_, err := h.GetWalletBalance(context.Background(), &paymentv1.GetWalletBalanceRequest{})
@@ -101,11 +94,11 @@ func TestPaymentHandler_WalletLedger_AnonymousRejected(t *testing.T) {
 }
 
 func TestPaymentHandler_WalletLedger_CrossSellerIsolation(t *testing.T) {
-	h, ledger := setupLedgerHandler()
+	h, ledger := setupLedgerHandler(t)
 	ctx := authCtx("seller-1")
 
-	_, _ = ledger.AppendEntry(ctx, repository.LedgerEntry{SellerID: "seller-1", Type: repository.LedgerTypeOrderSettlement, Amount: 100, Status: repository.LedgerStatusCompleted})
-	_, _ = ledger.AppendEntry(ctx, repository.LedgerEntry{SellerID: "seller-2", Type: repository.LedgerTypeOrderSettlement, Amount: 999, Status: repository.LedgerStatusCompleted})
+	_, _ = ledger.AppendEntry(ctx, store.LedgerEntry{SellerID: "seller-1", Type: store.LedgerTypeOrderSettlement, Amount: 100, Status: store.LedgerStatusCompleted})
+	_, _ = ledger.AppendEntry(ctx, store.LedgerEntry{SellerID: "seller-2", Type: store.LedgerTypeOrderSettlement, Amount: 999, Status: store.LedgerStatusCompleted})
 
 	// Explicit seller_id scopes the query; seller-1 never sees seller-2's entries.
 	resp, err := h.ListLedgerEntries(ctx, &paymentv1.ListLedgerEntriesRequest{

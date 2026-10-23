@@ -1,50 +1,20 @@
-package grpcserver_test
+package rpc_test
 
 import (
 	"context"
-	"io"
-	"log/slog"
-	"net"
 	"testing"
 	"time"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-payment/internal/config"
-	"github.com/buidangphuc/team-payment/internal/grpcserver"
-	"github.com/buidangphuc/team-payment/internal/handler"
-	"github.com/buidangphuc/team-payment/internal/repository"
-	"github.com/buidangphuc/team-payment/internal/service"
+	"github.com/buidangphuc/team-payment/internal/store"
 )
 
-type mockOrderClient struct {
-	orders map[string]*orderv1.Order
-}
-
-func (m *mockOrderClient) GetOrder(_ context.Context, req *orderv1.GetOrderRequest, _ ...grpc.CallOption) (*orderv1.GetOrderResponse, error) {
-	o, ok := m.orders[req.GetId()]
-	if !ok {
-		return nil, service.ErrOrderNotFound
-	}
-	return &orderv1.GetOrderResponse{Order: o}, nil
-}
-
-func (m *mockOrderClient) UpdateOrderStatus(_ context.Context, req *orderv1.UpdateOrderStatusRequest, _ ...grpc.CallOption) (*orderv1.UpdateOrderStatusResponse, error) {
-	o, ok := m.orders[req.GetId()]
-	if !ok {
-		return nil, service.ErrOrderNotFound
-	}
-	o.Status = req.GetStatus()
-	return &orderv1.UpdateOrderStatusResponse{Order: o}, nil
-}
-
-func principalCtx(t *testing.T, userID string) (context.Context, context.CancelFunc) {
+func clientCtx(t *testing.T, userID string) (context.Context, context.CancelFunc) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	md := metadata.Pairs(
@@ -55,9 +25,8 @@ func principalCtx(t *testing.T, userID string) (context.Context, context.CancelF
 	return metadata.NewOutgoingContext(ctx, md), cancel
 }
 
-func setupTestServer(t *testing.T) (paymentv1.PaymentServiceClient, *mockOrderClient, repository.PaymentRepository, repository.LedgerRepository) {
+func setupTestServer(t *testing.T) (paymentv1.PaymentServiceClient, *mockOrderClient, store.PaymentRepository, store.LedgerRepository) {
 	t.Helper()
-
 	mockOrder := &mockOrderClient{
 		orders: map[string]*orderv1.Order{
 			"order-123": {
@@ -77,43 +46,14 @@ func setupTestServer(t *testing.T) (paymentv1.PaymentServiceClient, *mockOrderCl
 			},
 		},
 	}
-
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	paymentRepo := repository.NewInMemoryPaymentRepository()
-	walletRepo := repository.NewInMemoryWalletRepository()
-	ledgerRepo := repository.NewInMemoryLedgerRepository()
-	paymentSvc := service.NewPaymentService(paymentRepo, walletRepo, mockOrder, logger, service.WithLedgerRepo(ledgerRepo),
-		service.WithSettlementLedger(repository.NewInMemorySettlementLedger(paymentRepo, ledgerRepo)))
-	paymentHdl := handler.NewPaymentHandler(paymentSvc, logger, handler.WithMockPayments(true))
-
-	cfg := &config.Settings{
-		Server: config.Server{Port: 0, ReflectionEnabled: true},
-	}
-	srv := grpcserver.Build(cfg, paymentHdl, nil, logger)
-
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	t.Cleanup(func() {
-		srv.GracefulStop()
-		_ = lis.Close()
-	})
-
-	go func() { _ = srv.Serve(lis) }()
-
-	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
-	t.Cleanup(func() { _ = conn.Close() })
-
-	return paymentv1.NewPaymentServiceClient(conn), mockOrder, paymentRepo, ledgerRepo
+	st := newStores()
+	h := newHandler(t, st.service(t, mockOrder), permissiveAudit)
+	return startServer(t, h), mockOrder, st.payments, st.ledger
 }
 
 func TestPaymentFlow_Success(t *testing.T) {
 	client, mockOrder, _, _ := setupTestServer(t)
-	ctx, cancel := principalCtx(t, "user-1")
+	ctx, cancel := clientCtx(t, "user-1")
 	defer cancel()
 
 	// 1. Create Payment Transaction
@@ -190,7 +130,7 @@ func TestPaymentFlow_Success(t *testing.T) {
 	}); status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("buyer refund: want PermissionDenied, got %v", err)
 	}
-	sellerCtx, sellerCancel := principalCtx(t, "seller-1")
+	sellerCtx, sellerCancel := clientCtx(t, "seller-1")
 	defer sellerCancel()
 	refundResp, err := client.RefundPayment(sellerCtx, &paymentv1.RefundPaymentRequest{
 		PaymentId: tx.GetId(),
@@ -211,7 +151,7 @@ func TestPaymentFlow_Success(t *testing.T) {
 
 func TestPaymentFlow_SimulateFailure(t *testing.T) {
 	client, mockOrder, _, _ := setupTestServer(t)
-	ctx, cancel := principalCtx(t, "user-1")
+	ctx, cancel := clientCtx(t, "user-1")
 	defer cancel()
 
 	// 1. Create Payment Transaction
@@ -247,7 +187,7 @@ func TestPaymentFlow_SimulateFailure(t *testing.T) {
 
 func TestSellerWallet_FullFlow(t *testing.T) {
 	client, _, _, ledgerRepo := setupTestServer(t)
-	ctx, cancel := principalCtx(t, "seller-99")
+	ctx, cancel := clientCtx(t, "seller-99")
 	defer cancel()
 
 	// 1. Get initial seller wallet
@@ -265,9 +205,9 @@ func TestSellerWallet_FullFlow(t *testing.T) {
 	}
 
 	// 2. Simulate order settlement: credit the wallet ledger directly
-	_, err = ledgerRepo.AppendEntry(ctx, repository.LedgerEntry{
-		SellerID: "seller-99", Type: repository.LedgerTypeOrderSettlement,
-		Amount: 1500000, Status: repository.LedgerStatusCompleted,
+	_, err = ledgerRepo.AppendEntry(ctx, store.LedgerEntry{
+		SellerID: "seller-99", Type: store.LedgerTypeOrderSettlement,
+		Amount: 1500000, Status: store.LedgerStatusCompleted,
 	})
 	if err != nil {
 		t.Fatalf("credit ledger: %v", err)
@@ -355,7 +295,7 @@ func TestCreatePayment_Errors(t *testing.T) {
 	})
 
 	t.Run("empty order id", func(t *testing.T) {
-		ctx, cancel := principalCtx(t, "user-1")
+		ctx, cancel := clientCtx(t, "user-1")
 		defer cancel()
 
 		_, err := client.CreatePayment(ctx, &paymentv1.CreatePaymentRequest{OrderId: ""})
@@ -365,7 +305,7 @@ func TestCreatePayment_Errors(t *testing.T) {
 	})
 
 	t.Run("order not found", func(t *testing.T) {
-		ctx, cancel := principalCtx(t, "user-1")
+		ctx, cancel := clientCtx(t, "user-1")
 		defer cancel()
 
 		_, err := client.CreatePayment(ctx, &paymentv1.CreatePaymentRequest{OrderId: "order-999"})
@@ -375,7 +315,7 @@ func TestCreatePayment_Errors(t *testing.T) {
 	})
 
 	t.Run("order not pending", func(t *testing.T) {
-		ctx, cancel := principalCtx(t, "user-1")
+		ctx, cancel := clientCtx(t, "user-1")
 		defer cancel()
 
 		_, err := client.CreatePayment(ctx, &paymentv1.CreatePaymentRequest{OrderId: "order-completed"})
@@ -387,7 +327,7 @@ func TestCreatePayment_Errors(t *testing.T) {
 
 func TestGetPayment_Errors(t *testing.T) {
 	client, _, _, _ := setupTestServer(t)
-	ctx, cancel := principalCtx(t, "user-1")
+	ctx, cancel := clientCtx(t, "user-1")
 	defer cancel()
 
 	t.Run("missing both params", func(t *testing.T) {
@@ -412,25 +352,19 @@ func TestGetPayment_Errors(t *testing.T) {
 	})
 }
 
-func TestProcessMockPayment_Errors(t *testing.T) {
+// Scenario: Anonymous callers are rejected through the SDK server chain
+func TestServerRejectsGatewayAnonymous(t *testing.T) {
 	client, _, _, _ := setupTestServer(t)
-	ctx, cancel := principalCtx(t, "user-1")
-	defer cancel()
-
-	t.Run("missing transaction id", func(t *testing.T) {
-		_, err := client.ProcessMockPayment(ctx, &paymentv1.ProcessMockPaymentRequest{})
-		if status.Code(err) != codes.InvalidArgument {
-			t.Fatalf("expected InvalidArgument, got %v", err)
+	for name, md := range map[string]metadata.MD{
+		"anonymous":    metadata.Pairs("x-principal-id", "anonymous", "x-principal-type", "anonymous"),
+		"no principal": {},
+	} {
+		ctx := metadata.NewOutgoingContext(context.Background(), md)
+		if _, err := client.RefundPayment(ctx, &paymentv1.RefundPaymentRequest{PaymentId: "p", RefundId: "r", Amount: 1}); status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("%s: RefundPayment: %v", name, err)
 		}
-	})
-
-	t.Run("not found transaction id", func(t *testing.T) {
-		_, err := client.ProcessMockPayment(ctx, &paymentv1.ProcessMockPaymentRequest{
-			TransactionId:   "non-existent-tx",
-			SimulateSuccess: true,
-		})
-		if status.Code(err) != codes.NotFound {
-			t.Fatalf("expected NotFound, got %v", err)
+		if _, err := client.GetSellerWallet(ctx, &paymentv1.GetSellerWalletRequest{}); status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("%s: GetSellerWallet: %v", name, err)
 		}
-	})
+	}
 }

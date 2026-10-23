@@ -1,22 +1,20 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"testing"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	commonv1 "github.com/buidangphuc/team-payment/generated/platform/common/v1"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-payment/internal/handler"
-	"github.com/buidangphuc/team-payment/internal/interceptor"
-	"github.com/buidangphuc/team-payment/internal/repository"
-	"github.com/buidangphuc/team-payment/internal/service"
+	"github.com/buidangphuc/team-payment/internal/payment"
+	"github.com/buidangphuc/team-payment/internal/rpc"
+	"github.com/buidangphuc/team-payment/internal/store"
+	"github.com/buidangphuc/team-payment/internal/store/fake"
 )
 
 type mockOrderClient struct {
@@ -27,7 +25,7 @@ func (m *mockOrderClient) GetOrder(_ context.Context, req *orderv1.GetOrderReque
 	if o, ok := m.orders[req.GetId()]; ok {
 		return &orderv1.GetOrderResponse{Order: o}, nil
 	}
-	return nil, service.ErrOrderNotFound
+	return nil, payment.ErrOrderNotFound
 }
 
 func (m *mockOrderClient) UpdateOrderStatus(_ context.Context, req *orderv1.UpdateOrderStatusRequest, _ ...grpc.CallOption) (*orderv1.UpdateOrderStatusResponse, error) {
@@ -35,21 +33,12 @@ func (m *mockOrderClient) UpdateOrderStatus(_ context.Context, req *orderv1.Upda
 		o.Status = req.GetStatus()
 		return &orderv1.UpdateOrderStatusResponse{Order: o}, nil
 	}
-	return nil, service.ErrOrderNotFound
+	return nil, payment.ErrOrderNotFound
 }
 
-// permissiveAudit accepts every admin-refund audit write (these tests are not about audit).
-type permissiveAudit struct{}
-
-func (permissiveAudit) WriteAdminRefund(context.Context, string, string, string, string, int64) error {
-	return nil
-}
-
-func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRepository, *repository.InMemoryLedgerRepository, *mockOrderClient) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	paymentRepo := repository.NewInMemoryPaymentRepository()
-	walletRepo := repository.NewInMemoryWalletRepository()
-	ledger := repository.NewInMemoryLedgerRepository()
+func setupHandlerTest(t *testing.T) (*rpc.Handler, *fake.InMemoryPaymentRepository, *fake.InMemoryLedgerRepository, *mockOrderClient) {
+	t.Helper()
+	st := newStores()
 	orderClient := &mockOrderClient{
 		orders: map[string]*orderv1.Order{
 			"order-1": {
@@ -61,21 +50,14 @@ func setupHandlerTest() (*handler.PaymentHandler, *repository.InMemoryPaymentRep
 			},
 		},
 	}
-	svc := service.NewPaymentService(paymentRepo, walletRepo, orderClient, logger, service.WithLedgerRepo(ledger),
-		service.WithSettlementLedger(repository.NewInMemorySettlementLedger(paymentRepo, ledger)))
-	h := handler.NewPaymentHandler(svc, logger, handler.WithMockPayments(true), handler.WithAuditWriter(permissiveAudit{}))
-	return h, paymentRepo, ledger, orderClient
+	h := newHandler(t, st.service(t, orderClient), permissiveAudit)
+	return h, st.payments, st.ledger, orderClient
 }
 
 func TestPaymentHandler_Payments(t *testing.T) {
-	h, _, _, _ := setupHandlerTest()
+	h, _, _, _ := setupHandlerTest(t)
 
-	principal := &commonv1.Principal{
-		Id:     "buyer-1",
-		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"payment:write", "payment:read"},
-	}
-	ctx := interceptor.ContextWithPrincipal(context.Background(), principal)
+	ctx := auth.WithPrincipal(context.Background(), auth.Principal{ID: "buyer-1", Type: auth.TypeUser, Scopes: []string{"payment:write", "payment:read"}})
 
 	t.Run("CreatePayment", func(t *testing.T) {
 		res, err := h.CreatePayment(ctx, &paymentv1.CreatePaymentRequest{
@@ -129,9 +111,9 @@ func TestPaymentHandler_Payments(t *testing.T) {
 }
 
 func TestPaymentHandler_CreatePaymentOwnership(t *testing.T) {
-	h, _, _, _ := setupHandlerTest()
+	h, _, _, _ := setupHandlerTest(t)
 	req := &paymentv1.CreatePaymentRequest{OrderId: "order-1", Method: paymentv1.PaymentMethod_PAYMENT_METHOD_COD}
-	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	user := auth.TypeUser
 
 	tests := []struct {
 		name string
@@ -157,8 +139,8 @@ func TestPaymentHandler_CreatePaymentOwnership(t *testing.T) {
 // neither the request ids nor the metadata alone; only the order's buyer or an
 // admin may read or settle a transaction.
 func TestPaymentHandler_TransactionAccess(t *testing.T) {
-	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
-	svc := commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+	user := auth.TypeUser
+	svc := auth.TypeService
 
 	tests := []struct {
 		name string
@@ -166,7 +148,7 @@ func TestPaymentHandler_TransactionAccess(t *testing.T) {
 		want codes.Code
 	}{
 		{"anonymous", context.Background(), codes.Unauthenticated},
-		{"gateway anonymous principal", principalCtx("anonymous", commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS), codes.Unauthenticated},
+		{"gateway anonymous principal", principalCtx("anonymous", auth.TypeAnonymous), codes.Unauthenticated},
 		{"other user", principalCtx("buyer-2", user), codes.PermissionDenied},
 		{"order's seller", principalCtx("seller-1", user), codes.PermissionDenied},
 		{"service principal", principalCtx("buyer-1", svc), codes.PermissionDenied},
@@ -175,7 +157,7 @@ func TestPaymentHandler_TransactionAccess(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run("GetPayment/"+tc.name, func(t *testing.T) {
-			h, repo, _, _ := setupHandlerTest()
+			h, repo, _, _ := setupHandlerTest(t)
 			seeded := seedTx(t, repo)
 			_, err := h.GetPayment(tc.ctx, &paymentv1.GetPaymentRequest{Id: seeded.ID})
 			if got := status.Code(err); got != tc.want {
@@ -187,7 +169,7 @@ func TestPaymentHandler_TransactionAccess(t *testing.T) {
 			}
 		})
 		t.Run("ProcessMockPayment/"+tc.name, func(t *testing.T) {
-			h, repo, _, _ := setupHandlerTest()
+			h, repo, _, _ := setupHandlerTest(t)
 			seeded := seedTx(t, repo)
 			_, err := h.ProcessMockPayment(tc.ctx, &paymentv1.ProcessMockPaymentRequest{
 				TransactionId: seeded.ID, SimulateSuccess: true,
@@ -199,7 +181,7 @@ func TestPaymentHandler_TransactionAccess(t *testing.T) {
 			if gerr != nil {
 				t.Fatalf("reload: %v", gerr)
 			}
-			settled := after.Status == repository.PaymentStatusPaid
+			settled := after.Status == store.PaymentStatusPaid
 			if settled != (tc.want == codes.OK) {
 				t.Fatalf("settled = %v for %s", settled, tc.name)
 			}
@@ -207,11 +189,11 @@ func TestPaymentHandler_TransactionAccess(t *testing.T) {
 	}
 }
 
-func seedTx(t *testing.T, repo *repository.InMemoryPaymentRepository) repository.PaymentTransaction {
+func seedTx(t *testing.T, repo *fake.InMemoryPaymentRepository) store.PaymentTransaction {
 	t.Helper()
-	tx, err := repo.CreateTransaction(context.Background(), repository.PaymentTransaction{
+	tx, err := repo.CreateTransaction(context.Background(), store.PaymentTransaction{
 		OrderID: "order-1", BuyerID: "buyer-1", Amount: 100000, Currency: "VND",
-		Method: repository.PaymentMethodMockBank, Status: repository.PaymentStatusPending,
+		Method: store.PaymentMethodMockBank, Status: store.PaymentStatusPending,
 	})
 	if err != nil {
 		t.Fatalf("seed tx: %v", err)
@@ -223,8 +205,8 @@ func seedTx(t *testing.T, repo *repository.InMemoryPaymentRepository) repository
 // only; the buyer, other users, service principals and anonymous callers are
 // rejected and the payment stays PAID.
 func TestPaymentHandler_RefundAccess(t *testing.T) {
-	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
-	svc := commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+	user := auth.TypeUser
+	svc := auth.TypeService
 
 	tests := []struct {
 		name string
@@ -245,10 +227,10 @@ func TestPaymentHandler_RefundAccess(t *testing.T) {
 				name += "/by-order-id"
 			}
 			t.Run(name, func(t *testing.T) {
-				h, repo, _, orders := setupHandlerTest()
+				h, repo, _, orders := setupHandlerTest(t)
 				orders.orders["order-1"].SellerId = "seller-1"
 				seeded := seedTx(t, repo)
-				if _, err := repo.UpdateTransactionStatus(context.Background(), seeded.ID, repository.PaymentStatusPaid, "ref"); err != nil {
+				if _, err := repo.UpdateTransactionStatus(context.Background(), seeded.ID, store.PaymentStatusPaid, "ref"); err != nil {
 					t.Fatalf("mark paid: %v", err)
 				}
 				ref := seeded.ID
@@ -270,14 +252,9 @@ func TestPaymentHandler_RefundAccess(t *testing.T) {
 }
 
 func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
-	h, _, ledger, _ := setupHandlerTest()
+	h, _, ledger, _ := setupHandlerTest(t)
 
-	principal := &commonv1.Principal{
-		Id:     "seller-1",
-		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"payment:write", "payment:read", "listing.write"},
-	}
-	ctx := interceptor.ContextWithPrincipal(context.Background(), principal)
+	ctx := auth.WithPrincipal(context.Background(), auth.Principal{ID: "seller-1", Type: auth.TypeUser, Scopes: []string{"payment:write", "payment:read", "listing.write"}})
 
 	t.Run("GetSellerWallet", func(t *testing.T) {
 		res, err := h.GetSellerWallet(ctx, &paymentv1.GetSellerWalletRequest{
@@ -296,9 +273,9 @@ func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
 
 	t.Run("RequestPayout and ListPayoutHistory", func(t *testing.T) {
 		// Settlement credit on the ledger
-		_, _ = ledger.AppendEntry(ctx, repository.LedgerEntry{
-			SellerID: "seller-1", Type: repository.LedgerTypeOrderSettlement,
-			Amount: 1000000, Status: repository.LedgerStatusCompleted,
+		_, _ = ledger.AppendEntry(ctx, store.LedgerEntry{
+			SellerID: "seller-1", Type: store.LedgerTypeOrderSettlement,
+			Amount: 1000000, Status: store.LedgerStatusCompleted,
 		})
 
 		// Request Payout
@@ -349,21 +326,16 @@ func TestPaymentHandler_SellerWalletAndPayout(t *testing.T) {
 }
 
 func TestPaymentHandler_RefundPayment(t *testing.T) {
-	h, paymentRepo, _, _ := setupHandlerTest()
+	h, paymentRepo, _, _ := setupHandlerTest(t)
 
-	principal := &commonv1.Principal{
-		Id:     "admin-1",
-		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"admin"},
-	}
-	ctx := interceptor.ContextWithPrincipal(context.Background(), principal)
+	ctx := auth.WithPrincipal(context.Background(), auth.Principal{ID: "admin-1", Type: auth.TypeUser, Scopes: []string{"admin"}})
 
 	// Create a PAID transaction
-	tx, _ := paymentRepo.CreateTransaction(ctx, repository.PaymentTransaction{
+	tx, _ := paymentRepo.CreateTransaction(ctx, store.PaymentTransaction{
 		ID:      "tx-refund-hdl",
 		OrderID: "order-refund-1",
 		Amount:  500000,
-		Status:  repository.PaymentStatusPaid,
+		Status:  store.PaymentStatusPaid,
 	})
 
 	t.Run("success refund", func(t *testing.T) {

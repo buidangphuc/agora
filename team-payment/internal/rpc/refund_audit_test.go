@@ -1,11 +1,8 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
-	"net"
 	"reflect"
 	"sort"
 	"strconv"
@@ -14,18 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	auditv1 "github.com/buidangphuc/team-payment/generated/platform/audit/v1"
-	commonv1 "github.com/buidangphuc/team-payment/generated/platform/common/v1"
-	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-payment/internal/handler"
-	"github.com/buidangphuc/team-payment/internal/repository"
-	"github.com/buidangphuc/team-payment/internal/service"
-	"github.com/buidangphuc/team-payment/internal/upstream"
+	"github.com/buidangphuc/team-payment/internal/store"
 )
 
 // ---- fakes -------------------------------------------------------------------------
@@ -48,43 +40,57 @@ type auditCall struct {
 	Amount                        int64
 }
 
-// fakeAudit is the AuditWriter at the true external boundary (team-audit).
+// fakeAudit is the auditx.Writer at the true external boundary (team-audit).
 type fakeAudit struct {
-	log   *callLog
-	mu    sync.Mutex
-	calls []auditCall
-	err   error
+	log    *callLog
+	mu     sync.Mutex
+	events []auditx.Event
+	err    error
+	block  bool
 }
 
-func (f *fakeAudit) WriteAdminRefund(_ context.Context, actorID, paymentID, orderID, refundID string, amount int64) error {
+func (f *fakeAudit) WriteAuditEvent(ctx context.Context, ev auditx.Event) error {
 	f.log.add("audit")
+	if f.block {
+		<-ctx.Done()
+		return ctx.Err()
+	}
 	if f.err != nil {
 		return f.err
 	}
 	f.mu.Lock()
-	f.calls = append(f.calls, auditCall{actorID, paymentID, orderID, refundID, amount})
+	f.events = append(f.events, ev)
 	f.mu.Unlock()
 	return nil
 }
 
-func (f *fakeAudit) written() []auditCall {
+func (f *fakeAudit) all() []auditx.Event {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]auditCall(nil), f.calls...)
+	return append([]auditx.Event(nil), f.events...)
+}
+
+func (f *fakeAudit) written() []auditCall {
+	var out []auditCall
+	for _, ev := range f.all() {
+		amount, _ := strconv.ParseInt(ev.Metadata["amount"], 10, 64)
+		out = append(out, auditCall{ev.ActorID, ev.TargetID, ev.Metadata["order_id"], ev.Metadata["refund_id"], amount})
+	}
+	return out
 }
 
 // flakyLedger fails ApplyRefund with a plain error while failN > 0 (-> Internal).
 type flakyLedger struct {
-	repository.SettlementLedger
+	store.SettlementLedger
 	log   *callLog
 	failN int
 }
 
-func (l *flakyLedger) ApplyRefund(ctx context.Context, req repository.RefundRequest) (repository.RefundResult, error) {
+func (l *flakyLedger) ApplyRefund(ctx context.Context, req store.RefundRequest) (store.RefundResult, error) {
 	l.log.add("refund")
 	if l.failN > 0 {
 		l.failN--
-		return repository.RefundResult{}, errors.New("ledger update failed")
+		return store.RefundResult{}, errors.New("ledger update failed")
 	}
 	return l.SettlementLedger.ApplyRefund(ctx, req)
 }
@@ -99,41 +105,28 @@ type auditFixture struct {
 }
 
 // newAuditFixture builds the ledger fixture (order-L, seller-L, buyer-L, 500000) with a
-// failure-injectable ledger and, when withWriter, the fake audit writer.
-func newAuditFixture(t *testing.T, writer func(*callLog) handler.AuditWriter) auditFixture {
+// failure-injectable ledger and the fake audit writer behind the SDK gate.
+func newAuditFixture(t *testing.T, writer func(*fakeAudit)) auditFixture {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	log := &callLog{}
-	f := ledgerFixture{
-		payments: repository.NewInMemoryPaymentRepository(),
-		ledger:   repository.NewInMemoryLedgerRepository(),
-		wallets:  repository.NewInMemoryWalletRepository(),
-	}
-	orders := &mockOrderClient{orders: map[string]*orderv1.Order{
-		"order-L": {Id: "order-L", BuyerId: "buyer-L", SellerId: "seller-L", TotalAmount: 500000, Status: orderv1.OrderStatus_ORDER_STATUS_PENDING},
-	}}
-	flaky := &flakyLedger{SettlementLedger: repository.NewInMemorySettlementLedger(f.payments, f.ledger), log: log}
-	f.svc = service.NewPaymentService(f.payments, f.wallets, orders, logger,
-		service.WithLedgerRepo(f.ledger), service.WithSettlementLedger(flaky), service.WithPayoutHold(0))
-	opts := []handler.Option{handler.WithMockPayments(true)}
-	var fa *fakeAudit
+	st := newStores()
+	flaky := &flakyLedger{SettlementLedger: st.settlement, log: log}
+	st.settlement = flaky
+	fa := &fakeAudit{log: log}
 	if writer != nil {
-		w := writer(log)
-		opts = append(opts, handler.WithAuditWriter(w))
-		fa, _ = w.(*fakeAudit)
+		writer(fa)
 	}
-	f.h = handler.NewPaymentHandler(f.svc, logger, opts...)
+	f := newLedgerFixtureWith(t, st, 0)
+	f.h = newHandler(t, f.svc, fa)
 	tx := f.payAndCredit(t)
 	log.events = nil // payment setup is not part of the refund call order
 	return auditFixture{ledgerFixture: f, log: log, audit: fa, flaky: flaky, txID: tx.GetId(), orderI: "order-L"}
 }
 
-func withFake(err error) func(*callLog) handler.AuditWriter {
-	return func(l *callLog) handler.AuditWriter { return &fakeAudit{log: l, err: err} }
-}
+func withErr(err error) func(*fakeAudit) { return func(f *fakeAudit) { f.err = err } }
 
 func admin(id string, extra ...string) context.Context {
-	return principalCtx(id, commonv1.PrincipalType_PRINCIPAL_TYPE_USER, append([]string{"admin"}, extra...)...)
+	return principalCtx(id, auth.TypeUser, append([]string{"admin"}, extra...)...)
 }
 
 func (f auditFixture) read(t *testing.T) *paymentv1.PaymentTransaction {
@@ -145,9 +138,9 @@ func (f auditFixture) read(t *testing.T) *paymentv1.PaymentTransaction {
 	return res.GetTransaction()
 }
 
-func (f auditFixture) deductions(t *testing.T) []repository.LedgerEntry {
+func (f auditFixture) deductions(t *testing.T) []store.LedgerEntry {
 	t.Helper()
-	return entriesOf(t, f.ledgerFixture, "seller-L")[repository.LedgerTypeRefundDeduction]
+	return entriesOf(t, f.ledgerFixture, "seller-L")[store.LedgerTypeRefundDeduction]
 }
 
 func (f auditFixture) assertUnchanged(t *testing.T) {
@@ -165,7 +158,7 @@ func (f auditFixture) assertUnchanged(t *testing.T) {
 
 // Scenario: Admin refund writes one audit event and refunds
 func TestAdminRefundWritesAuditEvent(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	res, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "R-1", 200000))
 	if err != nil {
 		t.Fatalf("refund: %v", err)
@@ -185,7 +178,7 @@ func TestAdminRefundWritesAuditEvent(t *testing.T) {
 
 // Scenario: Audit is written before the refund
 func TestAdminRefundAuditBeforeRefund(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	if _, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "R-1", 200000)); err != nil {
 		t.Fatal(err)
 	}
@@ -194,90 +187,54 @@ func TestAdminRefundAuditBeforeRefund(t *testing.T) {
 	}
 }
 
-// ---- metadata, through the real upstream client ------------------------------------
+// ---- metadata and bound ------------------------------------------------------------
 
-type captureAudit struct {
-	auditv1.UnimplementedAuditServiceServer
-	mu    sync.Mutex
-	reqs  []*auditv1.WriteAuditEventRequest
-	block bool
-}
-
-func (c *captureAudit) WriteAuditEvent(ctx context.Context, req *auditv1.WriteAuditEventRequest) (*auditv1.WriteAuditEventResponse, error) {
-	c.mu.Lock()
-	c.reqs = append(c.reqs, req)
-	c.mu.Unlock()
-	if c.block {
-		<-ctx.Done()
-		return nil, ctx.Err()
-	}
-	return &auditv1.WriteAuditEventResponse{}, nil
-}
-
-func startCapture(t *testing.T, c *captureAudit) string {
-	t.Helper()
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	srv := grpc.NewServer()
-	auditv1.RegisterAuditServiceServer(srv, c)
-	go func() { _ = srv.Serve(lis) }()
-	t.Cleanup(srv.Stop)
-	return lis.Addr().String()
-}
-
-func realClient(t *testing.T, addr string, timeout time.Duration) *upstream.AuditClient {
-	t.Helper()
-	c, err := upstream.NewAuditClient(addr, timeout)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
-	}
-	t.Cleanup(func() { _ = c.Close() })
-	return c
-}
-
-// Scenario: Reason is not copied into the audit event
+// Scenario: An admin refund writes one event with the SDK event shape
 func TestAdminRefundAuditMetadataKeys(t *testing.T) {
-	cap := &captureAudit{}
-	client := realClient(t, startCapture(t, cap), time.Second)
-	f := newAuditFixture(t, func(*callLog) handler.AuditWriter { return client })
+	f := newAuditFixture(t, nil)
 	_, err := f.h.RefundPayment(admin("adm-1"), &paymentv1.RefundPaymentRequest{
 		PaymentId: f.txID, RefundId: "R-1", Amount: 200000, Reason: "buyer complaint 123"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cap.reqs) != 1 {
-		t.Fatalf("want 1 audit event, got %d", len(cap.reqs))
+	evs := f.audit.all()
+	if len(evs) != 1 {
+		t.Fatalf("want 1 audit event, got %d", len(evs))
 	}
-	req := cap.reqs[0]
+	ev := evs[0]
 	keys := make([]string, 0, 3)
-	for k := range req.GetMetadata() {
+	for k := range ev.Metadata {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	if !reflect.DeepEqual(keys, []string{"amount", "order_id", "refund_id"}) {
 		t.Fatalf("metadata keys = %v, want exactly amount, order_id, refund_id", keys)
 	}
-	if req.GetMetadata()["amount"] != strconv.Itoa(200000) || req.GetMetadata()["order_id"] != "order-L" || req.GetMetadata()["refund_id"] != "R-1" ||
-		req.GetAction() != "payment.admin_refund" || req.GetTargetType() != "payment" ||
-		req.GetTargetId() != f.txID || req.GetActorId() != "adm-1" {
-		t.Fatalf("event = %+v", req)
+	if ev.Metadata["amount"] != strconv.Itoa(200000) || ev.Metadata["order_id"] != "order-L" || ev.Metadata["refund_id"] != "R-1" ||
+		ev.Action != "payment.admin_refund" || ev.TargetType != "payment" ||
+		ev.TargetID != f.txID || ev.ActorID != "adm-1" {
+		t.Fatalf("event = %+v", ev)
+	}
+	for _, v := range ev.Metadata {
+		if strings.Contains(v, "complaint") {
+			t.Fatalf("the reason leaked into metadata: %+v", ev.Metadata)
+		}
 	}
 }
 
-// Scenario: Audit timeout is bounded and refuses the refund (handler half, real client)
+// Scenario: A slow audit service is cut off
 func TestAdminRefundAuditTimeoutFailsClosed(t *testing.T) {
-	cap := &captureAudit{block: true}
-	client := realClient(t, startCapture(t, cap), 200*time.Millisecond)
-	f := newAuditFixture(t, func(*callLog) handler.AuditWriter { return client })
+	f := newAuditFixture(t, func(a *fakeAudit) { a.block = true })
 	start := time.Now()
 	_, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "R-1", 200000))
-	if status.Code(err) != codes.Unavailable {
-		t.Fatalf("want Unavailable, got %v", err)
+	if status.Code(err) != codes.Unavailable || status.Convert(err).Message() != "audit trail unavailable" {
+		t.Fatalf("want Unavailable \"audit trail unavailable\", got %v", err)
 	}
 	if el := time.Since(start); el > 3*time.Second {
 		t.Fatalf("not bounded: %v", el)
+	}
+	if got := f.log.all(); !reflect.DeepEqual(got, []string{"audit"}) {
+		t.Fatalf("calls = %v; the refund must not run after an audit timeout", got)
 	}
 	f.assertUnchanged(t)
 }
@@ -286,7 +243,7 @@ func TestAdminRefundAuditTimeoutFailsClosed(t *testing.T) {
 
 // Scenario: Refusal before the audit write writes no event
 func TestAdminRefundRefusedBeforeAuditWritesNothing(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	cases := []struct {
 		name string
 		req  *paymentv1.RefundPaymentRequest
@@ -316,7 +273,7 @@ func TestAdminRefundRefusedBeforeAuditWritesNothing(t *testing.T) {
 
 // Scenario: Unauthenticated caller writes no event
 func TestRefundPaymentAnonymousNoAudit(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	_, err := f.h.RefundPayment(context.Background(), refundReq(f.txID, "R-1", 100000))
 	if status.Code(err) != codes.Unauthenticated {
 		t.Fatalf("want Unauthenticated, got %v", err)
@@ -331,26 +288,13 @@ func TestRefundPaymentAnonymousNoAudit(t *testing.T) {
 
 // Scenario: Audit error leaves the ledger unchanged
 func TestAdminRefundAuditErrorFailsClosed(t *testing.T) {
-	f := newAuditFixture(t, withFake(status.Error(codes.Internal, "audit db down")))
+	f := newAuditFixture(t, withErr(status.Error(codes.Internal, "audit db down")))
 	_, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "R-1", 200000))
-	if status.Code(err) != codes.Unavailable {
-		t.Fatalf("want Unavailable, got %v", err)
+	if status.Code(err) != codes.Unavailable || status.Convert(err).Message() != "audit trail unavailable" {
+		t.Fatalf("want Unavailable \"audit trail unavailable\", got %v", err)
 	}
 	if got := f.log.all(); !reflect.DeepEqual(got, []string{"audit"}) {
 		t.Fatalf("calls = %v; the refund must not run after an audit failure", got)
-	}
-	f.assertUnchanged(t)
-}
-
-// Scenario: Payment audit: no audit upstream configured
-func TestAdminRefundNilAuditWriterUnavailable(t *testing.T) {
-	f := newAuditFixture(t, nil)
-	_, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "R-1", 200000))
-	if status.Code(err) != codes.Unavailable {
-		t.Fatalf("want Unavailable, got %v", err)
-	}
-	if got := f.log.all(); len(got) != 0 {
-		t.Fatalf("refund ran without an audit writer: %v", got)
 	}
 	f.assertUnchanged(t)
 }
@@ -359,7 +303,7 @@ func TestAdminRefundNilAuditWriterUnavailable(t *testing.T) {
 
 // Scenario: Retry after audit success and refund failure refunds once
 func TestAdminRefundRetryAfterFailureRefundsOnce(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	f.flaky.failN = 1
 	_, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "R-1", 200000))
 	if status.Code(err) != codes.Internal {
@@ -382,7 +326,7 @@ func TestAdminRefundRetryAfterFailureRefundsOnce(t *testing.T) {
 
 // Scenario: Replay of an applied refund id does not move money again
 func TestAdminRefundReplayIsIdempotent(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	first, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "R-1", 200000))
 	if err != nil {
 		t.Fatal(err)
@@ -408,7 +352,7 @@ func TestAdminRefundReplayIsIdempotent(t *testing.T) {
 
 // Scenario: Refund above the remainder is refused on the admin path
 func TestAdminRefundExceedsRemainderRefused(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	if _, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "R-1", 200000)); err != nil {
 		t.Fatal(err)
 	}
@@ -423,7 +367,7 @@ func TestAdminRefundExceedsRemainderRefused(t *testing.T) {
 
 // Scenario: Admin who is the order's seller is audited
 func TestAdminWhoIsSellerRefundIsAudited(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	if _, err := f.h.RefundPayment(admin("seller-L", "listing.write"), refundReq(f.txID, "R-1", 200000)); err != nil {
 		t.Fatal(err)
 	}
@@ -437,7 +381,7 @@ func TestAdminWhoIsSellerRefundIsAudited(t *testing.T) {
 
 // Scenario: Seller refund writes no audit event
 func TestSellerRefundWritesNoAudit(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	if _, err := f.h.RefundPayment(userCtx("seller-L"), refundReq(f.txID, "R-1", 200000)); err != nil {
 		t.Fatal(err)
 	}
@@ -451,23 +395,21 @@ func TestSellerRefundWritesNoAudit(t *testing.T) {
 
 // Scenario: Seller refund succeeds while audit is down
 func TestSellerRefundIgnoresAuditOutage(t *testing.T) {
-	for name, mk := range map[string]func(*callLog) handler.AuditWriter{
-		"audit errors":    withFake(status.Error(codes.Unavailable, "audit down")),
-		"no audit writer": nil,
-	} {
-		f := newAuditFixture(t, mk)
-		if _, err := f.h.RefundPayment(userCtx("seller-L"), refundReq(f.txID, "R-1", 200000)); err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if p := f.read(t); p.GetStatus() != paymentv1.PaymentStatus_PAYMENT_STATUS_PARTIALLY_REFUNDED || p.GetRefundedAmount() != 200000 {
-			t.Fatalf("%s: payment %v", name, p)
-		}
+	f := newAuditFixture(t, withErr(status.Error(codes.Unavailable, "audit down")))
+	if _, err := f.h.RefundPayment(userCtx("seller-L"), refundReq(f.txID, "R-1", 200000)); err != nil {
+		t.Fatal(err)
+	}
+	if p := f.read(t); p.GetStatus() != paymentv1.PaymentStatus_PAYMENT_STATUS_PARTIALLY_REFUNDED || p.GetRefundedAmount() != 200000 {
+		t.Fatalf("payment %v", p)
+	}
+	if got := f.log.all(); !reflect.DeepEqual(got, []string{"refund"}) {
+		t.Fatalf("calls = %v; a seller refund must make no audit call", got)
 	}
 }
 
 // Scenario: Non-seller non-admin is denied without an event
 func TestRefundPaymentNonSellerDeniedNoAudit(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	for _, ctx := range []context.Context{userCtx("someone-else"), userCtx("buyer-L")} {
 		_, err := f.h.RefundPayment(ctx, refundReq(f.txID, "R-1", 100000))
 		if status.Code(err) != codes.PermissionDenied {
@@ -482,27 +424,26 @@ func TestRefundPaymentNonSellerDeniedNoAudit(t *testing.T) {
 
 // Scenario: Refund audit id: Admin refund event carries refund_id
 func TestAdminRefundAuditCarriesRefundID(t *testing.T) {
-	cap := &captureAudit{}
-	client := realClient(t, startCapture(t, cap), time.Second)
-	f := newAuditFixture(t, func(*callLog) handler.AuditWriter { return client })
+	f := newAuditFixture(t, nil)
 	if _, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "rf-1", 200000)); err != nil {
 		t.Fatal(err)
 	}
-	if len(cap.reqs) != 1 {
-		t.Fatalf("want 1 audit event, got %d", len(cap.reqs))
+	evs := f.audit.all()
+	if len(evs) != 1 {
+		t.Fatalf("want 1 audit event, got %d", len(evs))
 	}
-	r := cap.reqs[0]
-	m := r.GetMetadata()
+	r := evs[0]
+	m := r.Metadata
 	if len(m) != 3 || m["refund_id"] != "rf-1" || m["order_id"] != "order-L" || m["amount"] != "200000" ||
-		r.GetAction() != "payment.admin_refund" || r.GetTargetType() != "payment" ||
-		r.GetTargetId() != f.txID || r.GetActorId() != "adm-1" {
+		r.Action != "payment.admin_refund" || r.TargetType != "payment" ||
+		r.TargetID != f.txID || r.ActorID != "adm-1" {
 		t.Fatalf("event = %+v", r)
 	}
 }
 
 // Scenario: Refund audit id: Retry with the same refund_id is distinguishable
 func TestAdminRefundRetryKeepsRefundID(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	f.flaky.failN = 1
 	if _, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "rf-1", 200000)); status.Code(err) != codes.Internal {
 		t.Fatalf("first call: want Internal, got %v", err)
@@ -527,7 +468,7 @@ func TestAdminRefundRetryKeepsRefundID(t *testing.T) {
 
 // Scenario: Refund audit id: Invalid refund_id writes no event
 func TestAdminRefundInvalidRefundIDWritesNoEvent(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	for _, id := range []string{"", strings.Repeat("x", 65), "has space"} {
 		_, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, id, 100))
 		if status.Code(err) != codes.InvalidArgument {
@@ -545,21 +486,19 @@ func TestAdminRefundInvalidRefundIDWritesNoEvent(t *testing.T) {
 
 // Scenario: Refund audit id: Boundary 64-character refund_id is recorded intact
 func TestAdminRefundAuditRefundIDMaxLength(t *testing.T) {
-	cap := &captureAudit{}
-	client := realClient(t, startCapture(t, cap), time.Second)
-	f := newAuditFixture(t, func(*callLog) handler.AuditWriter { return client })
+	f := newAuditFixture(t, nil)
 	id := strings.Repeat("a", 64)
 	if _, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, id, 200000)); err != nil {
 		t.Fatal(err)
 	}
-	if len(cap.reqs) != 1 || cap.reqs[0].GetMetadata()["refund_id"] != id {
-		t.Fatalf("events = %+v, want refund_id intact", cap.reqs)
+	if evs := f.audit.all(); len(evs) != 1 || evs[0].Metadata["refund_id"] != id {
+		t.Fatalf("events = %+v, want refund_id intact", evs)
 	}
 }
 
 // Scenario: Refund audit id: Audit failure still refuses the refund
 func TestAdminRefundAuditErrorLeavesLedgerUnchanged(t *testing.T) {
-	f := newAuditFixture(t, withFake(status.Error(codes.Internal, "audit db down")))
+	f := newAuditFixture(t, withErr(status.Error(codes.Internal, "audit db down")))
 	_, err := f.h.RefundPayment(admin("adm-1"), refundReq(f.txID, "rf-1", 200000))
 	if status.Code(err) != codes.Unavailable {
 		t.Fatalf("want Unavailable, got %v", err)
@@ -572,7 +511,7 @@ func TestAdminRefundAuditErrorLeavesLedgerUnchanged(t *testing.T) {
 
 // Scenario: Refund audit id: Seller refund writes no audit event
 func TestSellerRefundWritesNoAuditEvent(t *testing.T) {
-	f := newAuditFixture(t, withFake(nil))
+	f := newAuditFixture(t, nil)
 	if _, err := f.h.RefundPayment(userCtx("seller-L"), refundReq(f.txID, "rf-1", 200000)); err != nil {
 		t.Fatal(err)
 	}
@@ -587,5 +526,3 @@ func TestSellerRefundWritesNoAuditEvent(t *testing.T) {
 		t.Fatalf("denied caller wrote audit events: %+v", got)
 	}
 }
-
-var _ grpc.CallOption // keep grpc import tied to fakes above

@@ -1,9 +1,7 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -11,48 +9,42 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	commonv1 "github.com/buidangphuc/team-payment/generated/platform/common/v1"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-payment/internal/handler"
-	"github.com/buidangphuc/team-payment/internal/interceptor"
-	"github.com/buidangphuc/team-payment/internal/repository"
-	"github.com/buidangphuc/team-payment/internal/service"
+	"github.com/buidangphuc/team-payment/internal/payment"
+	"github.com/buidangphuc/team-payment/internal/rpc"
+	"github.com/buidangphuc/team-payment/internal/store"
+	"github.com/buidangphuc/team-payment/internal/store/fake"
 )
 
 type ledgerFixture struct {
-	h        *handler.PaymentHandler
-	svc      *service.PaymentService
-	payments *repository.InMemoryPaymentRepository
-	ledger   *repository.InMemoryLedgerRepository
-	wallets  *repository.InMemoryWalletRepository
+	h        *rpc.Handler
+	svc      *payment.Service
+	payments *fake.InMemoryPaymentRepository
+	ledger   *fake.InMemoryLedgerRepository
+	wallets  *fake.InMemoryWalletRepository
 }
 
-// newLedgerFixture wires the handler over in-memory stores with a 7-day hold and order
-// "order-L" (seller "seller-L", buyer "buyer-L").
-func newLedgerFixture(t *testing.T, hold time.Duration) ledgerFixture {
-	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	f := ledgerFixture{
-		payments: repository.NewInMemoryPaymentRepository(),
-		ledger:   repository.NewInMemoryLedgerRepository(),
-		wallets:  repository.NewInMemoryWalletRepository(),
-	}
-	orders := &mockOrderClient{orders: map[string]*orderv1.Order{
+func ledgerOrders() *mockOrderClient {
+	return &mockOrderClient{orders: map[string]*orderv1.Order{
 		"order-L": {Id: "order-L", BuyerId: "buyer-L", SellerId: "seller-L", TotalAmount: 500000, Status: orderv1.OrderStatus_ORDER_STATUS_PENDING},
 	}}
-	f.svc = service.NewPaymentService(f.payments, f.wallets, orders, logger,
-		service.WithLedgerRepo(f.ledger),
-		service.WithSettlementLedger(repository.NewInMemorySettlementLedger(f.payments, f.ledger)),
-		service.WithPayoutHold(hold))
-	f.h = handler.NewPaymentHandler(f.svc, logger, handler.WithMockPayments(true))
-	return f
+}
+
+func newLedgerFixtureWith(t *testing.T, st *stores, hold time.Duration) ledgerFixture {
+	t.Helper()
+	svc := st.service(t, ledgerOrders(), payment.WithPayoutHold(hold))
+	return ledgerFixture{h: newHandler(t, svc, permissiveAudit), svc: svc, payments: st.payments, ledger: st.ledger, wallets: st.wallets}
+}
+
+func newLedgerFixture(t *testing.T, hold time.Duration) ledgerFixture {
+	t.Helper()
+	return newLedgerFixtureWith(t, newStores(), hold)
 }
 
 func userCtx(id string) context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
-		Id: id, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"listing.write"},
-	})
+	return principalCtx(id, auth.TypeUser, "listing.write")
 }
 
 // payAndCredit pays order-L through the RPCs and applies its credit as the consumer would.
@@ -72,13 +64,13 @@ func (f ledgerFixture) payAndCredit(t *testing.T) *paymentv1.PaymentTransaction 
 	return created.GetTransaction()
 }
 
-func entriesOf(t *testing.T, f ledgerFixture, seller string) map[string][]repository.LedgerEntry {
+func entriesOf(t *testing.T, f ledgerFixture, seller string) map[string][]store.LedgerEntry {
 	t.Helper()
 	entries, _, err := f.ledger.ListEntries(context.Background(), seller, 0, 100)
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := map[string][]repository.LedgerEntry{}
+	out := map[string][]store.LedgerEntry{}
 	for _, e := range entries {
 		out[e.Type] = append(out[e.Type], e)
 	}
@@ -115,7 +107,7 @@ func TestRefundDeductsCreditedSellerOnce(t *testing.T) {
 		t.Fatalf("refund above the remainder: want FailedPrecondition, got %v", err)
 	}
 	got := entriesOf(t, f, "seller-L")
-	if d := got[repository.LedgerTypeRefundDeduction]; len(d) != 1 || d[0].Amount != -200000 || d[0].ReferenceID != "rpc:R1" {
+	if d := got[store.LedgerTypeRefundDeduction]; len(d) != 1 || d[0].Amount != -200000 || d[0].ReferenceID != "rpc:R1" {
 		t.Fatalf("deductions: %+v", d)
 	}
 	bal, err := f.h.GetWalletBalance(seller, &paymentv1.GetWalletBalanceRequest{})
@@ -188,7 +180,7 @@ func TestPayoutRefusalsHeldVsInsufficient(t *testing.T) {
 	if err != nil || len(history.GetPayouts()) != 0 {
 		t.Fatalf("a refused payout recorded a payout request: %v %v", history, err)
 	}
-	if p := entriesOf(t, f, "seller-L")[repository.LedgerTypePayout]; len(p) != 0 {
+	if p := entriesOf(t, f, "seller-L")[store.LedgerTypePayout]; len(p) != 0 {
 		t.Fatalf("a refused payout wrote ledger entries: %+v", p)
 	}
 	for _, rpc := range []func() (int64, error){

@@ -1,9 +1,7 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"strings"
 	"testing"
 
@@ -11,19 +9,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	commonv1 "github.com/buidangphuc/team-payment/generated/platform/common/v1"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	orderv1 "github.com/buidangphuc/team-payment/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-payment/internal/handler"
-	"github.com/buidangphuc/team-payment/internal/interceptor"
-	"github.com/buidangphuc/team-payment/internal/repository"
-	"github.com/buidangphuc/team-payment/internal/service"
+	"github.com/buidangphuc/team-payment/internal/store"
 )
 
 func adminCtx() context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
-		Id: "admin-1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin"},
-	})
+	return principalCtx("admin-1", auth.TypeUser, "admin")
 }
 
 func refundReq(paymentID, refundID string, amount int64) *paymentv1.RefundPaymentRequest {
@@ -72,18 +65,18 @@ func TestRefundPayment_ErrorCodes(t *testing.T) {
 
 // A refund id used on another payment is ALREADY_EXISTS (RPC keys are global).
 func TestRefundPayment_IDReusedOnAnotherPayment(t *testing.T) {
-	h, repo, _, orders := setupHandlerTest()
+	h, repo, _, orders := setupHandlerTest(t)
 	orders.orders["order-1"].SellerId = "seller-1"
 	orders.orders["order-2"] = &orderv1.Order{Id: "order-2", BuyerId: "buyer-1", SellerId: "seller-1", TotalAmount: 100000}
 	var ids []string
 	for _, o := range []string{"order-1", "order-2"} {
-		tx, err := repo.CreateTransaction(context.Background(), repository.PaymentTransaction{OrderID: o, BuyerID: "buyer-1", Amount: 100000, Status: repository.PaymentStatusPaid})
+		tx, err := repo.CreateTransaction(context.Background(), store.PaymentTransaction{OrderID: o, BuyerID: "buyer-1", Amount: 100000, Status: store.PaymentStatusPaid})
 		if err != nil {
 			t.Fatal(err)
 		}
 		ids = append(ids, tx.ID)
 	}
-	seller := principalCtx("seller-1", commonv1.PrincipalType_PRINCIPAL_TYPE_USER)
+	seller := principalCtx("seller-1", auth.TypeUser)
 	if _, err := h.RefundPayment(seller, refundReq(ids[0], "R", 1000)); err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +116,7 @@ func TestGetPayment_ReadersAndWireRefunds(t *testing.T) {
 	}
 	for name, ctx := range map[string]context.Context{
 		"another seller": userCtx("seller-X"),
-		"service":        interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: "seller-L", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE}),
+		"service":        principalCtx("seller-L", auth.TypeService),
 	} {
 		if _, err := f.h.GetPayment(ctx, &paymentv1.GetPaymentRequest{Id: tx.GetId()}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("%s: want PermissionDenied, got %v", name, err)
@@ -144,13 +137,9 @@ func (failingOrderClient) GetOrder(context.Context, *orderv1.GetOrderRequest, ..
 
 // A team-order lookup failure never lets a non-buyer through.
 func TestGetPayment_SellerLookupFailureIsNotSuccess(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	payments := repository.NewInMemoryPaymentRepository()
-	ledger := repository.NewInMemoryLedgerRepository()
-	svc := service.NewPaymentService(payments, repository.NewInMemoryWalletRepository(), failingOrderClient{}, logger,
-		service.WithSettlementLedger(repository.NewInMemorySettlementLedger(payments, ledger)))
-	h := handler.NewPaymentHandler(svc, logger)
-	tx, err := payments.CreateTransaction(context.Background(), repository.PaymentTransaction{OrderID: "o", BuyerID: "b", Amount: 10, Status: repository.PaymentStatusPaid})
+	st := newStores()
+	h := newHandler(t, st.service(t, failingOrderClient{}), permissiveAudit)
+	tx, err := st.payments.CreateTransaction(context.Background(), store.PaymentTransaction{OrderID: "o", BuyerID: "b", Amount: 10, Status: store.PaymentStatusPaid})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +169,7 @@ func TestListLedgerEntries_References(t *testing.T) {
 	for _, e := range res.GetEntries() {
 		refs[e.GetReferenceId()] = e.GetType()
 	}
-	want := map[string]string{tx.GetId(): repository.LedgerTypeOrderSettlement, "rpc:R1": repository.LedgerTypeRefundDeduction, "rpc:R2": repository.LedgerTypeRefundDeduction}
+	want := map[string]string{tx.GetId(): store.LedgerTypeOrderSettlement, "rpc:R1": store.LedgerTypeRefundDeduction, "rpc:R2": store.LedgerTypeRefundDeduction}
 	if len(refs) != len(want) {
 		t.Fatalf("references %v, want %v", refs, want)
 	}
@@ -188,5 +177,20 @@ func TestListLedgerEntries_References(t *testing.T) {
 		if refs[k] != v {
 			t.Fatalf("references %v, want %v", refs, want)
 		}
+	}
+}
+
+// Scenario: A refund exceeding the remainder keeps its refusal
+func TestRefundExceedsRemainderIsFailedPrecondition(t *testing.T) {
+	f := newLedgerFixture(t, 0)
+	tx := f.payAndCredit(t)
+	seller := userCtx("seller-L")
+	_, err := f.h.RefundPayment(seller, refundReq(tx.GetId(), "R-over", 500001))
+	if status.Code(err) != codes.FailedPrecondition || status.Convert(err).Message() != "refund amount exceeds the refundable remainder" {
+		t.Fatalf("got %v", err)
+	}
+	got, _ := f.h.GetPayment(seller, &paymentv1.GetPaymentRequest{Id: tx.GetId()})
+	if got.GetTransaction().GetRefundedAmount() != 0 || len(got.GetTransaction().GetRefunds()) != 0 {
+		t.Fatalf("a refused refund wrote something: %v", got)
 	}
 }
