@@ -32,7 +32,7 @@ NetworkPolicy SHALL allow ingress to it only from `team-ai` and `platform-recsys
 
 team-ai's cluster values SHALL point at the in-cluster Qdrant and valkey
 Services: the collection and cache contract the recsys job writes, featurestore online features on Redis DB 2, and nearline
-signals on Redis DB 0. team-ai's ingress allow-list SHALL stay `team-gateway`, `team-search-indexer` and `prometheus`.
+signals on Redis DB 0. team-ai's ingress allow-list SHALL stay `team-gateway`, `team-search-indexer`, `team-domain` and `prometheus`.
 
 #### Scenario: team-ai points at the cluster stores
 
@@ -44,7 +44,7 @@ signals on Redis DB 0. team-ai's ingress allow-list SHALL stay `team-gateway`, `
 #### Scenario: team-ai keeps its ingress allow-list
 
 - **WHEN** `charts/service` is rendered for team-ai with its service values
-- **THEN** its NetworkPolicy ingress sources are exactly `team-gateway`, `team-search-indexer` and `prometheus`
+- **THEN** its NetworkPolicy ingress sources are exactly `team-gateway`, `team-search-indexer`, `team-domain` and `prometheus`
 
 ### Requirement: A nearline consumer keeps CTR signals fresh in the cluster
 
