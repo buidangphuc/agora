@@ -2,6 +2,8 @@ package rpc_test
 
 import (
 	"context"
+	"errors"
+	"io"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -42,6 +44,9 @@ func TestReflectionOffByDefault(t *testing.T) {
 		err = stream.Send(&reflectionpb.ServerReflectionRequest{
 			MessageRequest: &reflectionpb.ServerReflectionRequest_ListServices{ListServices: ""},
 		})
+		if errors.Is(err, io.EOF) {
+			err = nil
+		}
 	}
 	if err == nil {
 		_, err = stream.Recv()
