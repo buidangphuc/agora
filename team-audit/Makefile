@@ -1,20 +1,8 @@
-# team-audit — append-only audit trail service.
-# Generated code is produced by `make proto` (buf) and is gitignored, not committed:
-# run it before build/test. Never hand-edit anything under generated/.
+SERVICE := team-audit
+GRPC_PORT := 50066
+LINT_CONFIG := ../platform-core/packages/go-sdk/.golangci.yml
+include ../platform-core/make/go-service.mk
 
-.PHONY: proto build test tidy run
-
-proto:
-	buf generate
-
-build:
-	go build ./...
-
-test:
-	go test ./...
-
+.PHONY: tidy
 tidy:
 	go mod tidy
-
-run:
-	go run ./cmd/server
