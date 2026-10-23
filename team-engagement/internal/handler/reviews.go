@@ -9,8 +9,8 @@ import (
 
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
 )
 
 // MarkReviewHelpful records the caller's "helpful" vote (idempotent per user).
@@ -29,7 +29,7 @@ func (h *EngagementHandler) MarkReviewHelpful(
 
 	count, err := h.reviewSvc.MarkHelpful(ctx, req.GetReviewId(), userID(ctx))
 	if err != nil {
-		if errors.Is(err, repository.ErrReviewNotFound) {
+		if errors.Is(err, store.ErrReviewNotFound) {
 			return nil, status.Error(codes.NotFound, "review not found")
 		}
 		return nil, status.Errorf(codes.Internal, "mark helpful: %v", err)
@@ -83,7 +83,7 @@ func (h *EngagementHandler) HideReview(
 		return &engagementv1.HideReviewResponse{}, nil
 	case errors.Is(err, service.ErrEmptyReviewID), errors.Is(err, service.ErrEmptyReason), errors.Is(err, service.ErrReasonTooLong):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, repository.ErrReviewNotFound):
+	case errors.Is(err, store.ErrReviewNotFound):
 		return nil, status.Error(codes.NotFound, "review not found")
 	case errors.Is(err, service.ErrAuditUnavailable):
 		return nil, status.Error(codes.Unavailable, "audit unavailable")

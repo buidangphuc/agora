@@ -1,4 +1,4 @@
-package repository
+package store
 
 import (
 	"context"
@@ -9,21 +9,25 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/pagination"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 )
 
 // PostgresRepository is the production store (engagement_db, Rule 3).
 type PostgresRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	outbox *outbox.Store
 }
 
-func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
-	return &PostgresRepository{pool: pool}
+func NewPostgresRepository(pool *pgxpool.Pool, ob *outbox.Store) *PostgresRepository {
+	return &PostgresRepository{pool: pool, outbox: ob}
 }
 
 func (r *PostgresRepository) AddFavorite(ctx context.Context, userID, listingID string) (bool, error) {
 	var added bool
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx,
 			`INSERT INTO favorites (user_id, listing_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 			userID, listingID)
@@ -39,7 +43,7 @@ func (r *PostgresRepository) AddFavorite(ctx context.Context, userID, listingID 
 			listingID); err != nil {
 			return fmt.Errorf("bump favorite_count: %w", err)
 		}
-		if err := enqueueFact(ctx, tx, listingID, &engagementv1.FavoriteAdded{UserId: userID, ListingId: listingID}); err != nil {
+		if err := enqueueFact(ctx, r.outbox, tx, "Listing", listingID, &engagementv1.FavoriteAdded{UserId: userID, ListingId: listingID}); err != nil {
 			return err
 		}
 		added = true
@@ -53,7 +57,7 @@ func (r *PostgresRepository) AddFavorite(ctx context.Context, userID, listingID 
 
 func (r *PostgresRepository) RemoveFavorite(ctx context.Context, userID, listingID string) (bool, error) {
 	var removed bool
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `DELETE FROM favorites WHERE user_id = $1 AND listing_id = $2`, userID, listingID)
 		if err != nil {
 			return fmt.Errorf("remove favorite: %w", err)
@@ -66,7 +70,7 @@ func (r *PostgresRepository) RemoveFavorite(ctx context.Context, userID, listing
 			listingID); err != nil {
 			return fmt.Errorf("drop favorite_count: %w", err)
 		}
-		if err := enqueueFact(ctx, tx, listingID, &engagementv1.FavoriteRemoved{UserId: userID, ListingId: listingID}); err != nil {
+		if err := enqueueFact(ctx, r.outbox, tx, "Listing", listingID, &engagementv1.FavoriteRemoved{UserId: userID, ListingId: listingID}); err != nil {
 			return err
 		}
 		removed = true
@@ -90,7 +94,7 @@ func (r *PostgresRepository) IsFavorite(ctx context.Context, userID, listingID s
 }
 
 func (r *PostgresRepository) ListFavorites(ctx context.Context, userID, cursor string, pageSize int32) ([]string, string, int64, error) {
-	limit := clampPageSize(pageSize)
+	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
 	rows, err := r.pool.Query(ctx,
 		`SELECT listing_id FROM favorites
 		 WHERE user_id = $1 AND ($2 = '' OR listing_id > $2)
@@ -154,7 +158,7 @@ func (r *PostgresRepository) GetRecentlyViewed(ctx context.Context, userID, curs
 	if userID == "" {
 		return []string{}, "", 0, nil
 	}
-	limit := clampPageSize(pageSize)
+	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
 	rows, err := r.pool.Query(ctx,
 		`SELECT listing_id, viewed_at FROM view_history
 		 WHERE user_id = $1 AND ($2 = '' OR viewed_at < $2::timestamptz)
@@ -213,7 +217,7 @@ func (r *PostgresRepository) GetStats(ctx context.Context, listingID string) (St
 
 func (r *PostgresRepository) Follow(ctx context.Context, userID, sellerID string) (bool, error) {
 	var added bool
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx,
 			`INSERT INTO follows (user_id, seller_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 			userID, sellerID)
@@ -223,7 +227,7 @@ func (r *PostgresRepository) Follow(ctx context.Context, userID, sellerID string
 		if tag.RowsAffected() == 0 {
 			return nil
 		}
-		if err := enqueueFact(ctx, tx, sellerID, &engagementv1.SellerFollowed{UserId: userID, SellerId: sellerID}); err != nil {
+		if err := enqueueFact(ctx, r.outbox, tx, "Seller", sellerID, &engagementv1.SellerFollowed{UserId: userID, SellerId: sellerID}); err != nil {
 			return err
 		}
 		added = true
@@ -237,7 +241,7 @@ func (r *PostgresRepository) Follow(ctx context.Context, userID, sellerID string
 
 func (r *PostgresRepository) Unfollow(ctx context.Context, userID, sellerID string) (bool, error) {
 	var removed bool
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `DELETE FROM follows WHERE user_id = $1 AND seller_id = $2`, userID, sellerID)
 		if err != nil {
 			return fmt.Errorf("unfollow: %w", err)
@@ -245,7 +249,7 @@ func (r *PostgresRepository) Unfollow(ctx context.Context, userID, sellerID stri
 		if tag.RowsAffected() == 0 {
 			return nil
 		}
-		if err := enqueueFact(ctx, tx, sellerID, &engagementv1.SellerUnfollowed{UserId: userID, SellerId: sellerID}); err != nil {
+		if err := enqueueFact(ctx, r.outbox, tx, "Seller", sellerID, &engagementv1.SellerUnfollowed{UserId: userID, SellerId: sellerID}); err != nil {
 			return err
 		}
 		removed = true
@@ -269,7 +273,7 @@ func (r *PostgresRepository) IsFollowing(ctx context.Context, userID, sellerID s
 }
 
 func (r *PostgresRepository) ListFollowedSellers(ctx context.Context, userID, cursor string, pageSize int32) ([]string, string, int64, error) {
-	limit := clampPageSize(pageSize)
+	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
 	rows, err := r.pool.Query(ctx,
 		`SELECT seller_id FROM follows
 		 WHERE user_id = $1 AND ($2 = '' OR seller_id > $2)
@@ -306,8 +310,8 @@ func (r *PostgresRepository) ListFollowedSellers(ctx context.Context, userID, cu
 }
 
 func (r *PostgresRepository) ListFollowedListings(ctx context.Context, userID, cursor string, pageSize int32) ([]string, string, int64, error) {
-	limit := clampPageSize(pageSize)
-	curAt, curID, hasCur, err := parseFeedCursor(cursor)
+	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
+	curAt, curID, hasCur, err := ParseFeedCursor(cursor)
 	if err != nil {
 		return nil, "", 0, err
 	}
@@ -345,7 +349,7 @@ func (r *PostgresRepository) ListFollowedListings(ctx context.Context, userID, c
 	var next string
 	if len(ids) > limit {
 		ids = ids[:limit]
-		next = feedCursor(ats[limit-1], ids[limit-1])
+		next = FeedCursor(ats[limit-1], ids[limit-1])
 	}
 
 	var total int64

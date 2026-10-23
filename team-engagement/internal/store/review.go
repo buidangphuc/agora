@@ -1,11 +1,9 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 )
 
@@ -81,14 +81,13 @@ type ReviewRepository interface {
 	HideReview(ctx context.Context, id, adminID, reason string) (bool, error)
 }
 
-// ── Postgres Implementation ──────────────────────────────────────────
-
 type PostgresReviewRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	outbox *outbox.Store
 }
 
-func NewPostgresReviewRepository(pool *pgxpool.Pool) *PostgresReviewRepository {
-	return &PostgresReviewRepository{pool: pool}
+func NewPostgresReviewRepository(pool *pgxpool.Pool, ob *outbox.Store) *PostgresReviewRepository {
+	return &PostgresReviewRepository{pool: pool, outbox: ob}
 }
 
 const reviewColumns = `id, listing_id, user_id, user_name, order_id, rating, comment, media_urls, helpful_count, verified_purchase, seller_id, created_at, hidden_at, hidden_by, hide_reason`
@@ -110,7 +109,7 @@ func (r *PostgresReviewRepository) CreateReview(ctx context.Context, review Revi
 
 	const q = `INSERT INTO reviews (id, listing_id, user_id, user_name, order_id, rating, comment, media_urls, helpful_count, verified_purchase, seller_id, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, q, review.ID, review.ListingID, review.UserID, review.UserName, review.OrderID,
 			review.Rating, review.Comment, review.MediaURLs, review.HelpfulCount, review.VerifiedPurchase,
 			review.SellerID, review.CreatedAt); err != nil {
@@ -130,7 +129,7 @@ func (r *PostgresReviewRepository) CreateReview(ctx context.Context, review Revi
 				return fmt.Errorf("lookup listing seller: %w", err)
 			}
 		}
-		return enqueueFact(ctx, tx, review.ListingID, &engagementv1.ReviewCreated{
+		return enqueueFact(ctx, r.outbox, tx, "Listing", review.ListingID, &engagementv1.ReviewCreated{
 			ReviewId: review.ID, UserId: review.UserID, ListingId: review.ListingID,
 			SellerId: sellerID, Rating: review.Rating,
 		})
@@ -273,7 +272,7 @@ func (r *PostgresReviewRepository) GetReview(ctx context.Context, id string) (Re
 
 func (r *PostgresReviewRepository) HideReview(ctx context.Context, id, adminID, reason string) (bool, error) {
 	changed := false
-	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
 		var listingID string
 		var hiddenAt time.Time
 		err := tx.QueryRow(ctx,
@@ -282,7 +281,7 @@ func (r *PostgresReviewRepository) HideReview(ctx context.Context, id, adminID, 
 		if err == nil {
 			changed = true
 			// Moderator identity and reason stay out of the fact.
-			return enqueueFact(ctx, tx, listingID, &engagementv1.ReviewHidden{
+			return enqueueFact(ctx, r.outbox, tx, "Listing", listingID, &engagementv1.ReviewHidden{
 				ReviewId: id, ListingId: listingID, HiddenAt: timestamppb.New(hiddenAt),
 			})
 		}
@@ -305,181 +304,3 @@ func (r *PostgresReviewRepository) HideReview(ctx context.Context, id, adminID, 
 }
 
 var _ ReviewRepository = (*PostgresReviewRepository)(nil)
-
-// ── InMemory Implementation ───────────────────────────────────────────
-
-type InMemoryReviewRepository struct {
-	mu    sync.RWMutex
-	data  []Review
-	votes map[string]map[string]struct{} // reviewID -> set(userID)
-}
-
-func NewInMemoryReviewRepository() *InMemoryReviewRepository {
-	return &InMemoryReviewRepository{
-		data:  make([]Review, 0),
-		votes: map[string]map[string]struct{}{},
-	}
-}
-
-func (r *InMemoryReviewRepository) CreateReview(_ context.Context, review Review) (Review, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if review.ID == "" {
-		review.ID = uuid.NewString()
-	}
-	review.CreatedAt = time.Now()
-	if review.MediaURLs == nil {
-		review.MediaURLs = []string{}
-	}
-	if review.VerifiedPurchase {
-		for _, e := range r.data {
-			if e.VerifiedPurchase && e.OrderID == review.OrderID && e.ListingID == review.ListingID {
-				return Review{}, ErrDuplicateReview
-			}
-		}
-	}
-	r.data = append(r.data, review)
-	return review, nil
-}
-
-func (r *InMemoryReviewRepository) ListReviews(_ context.Context, listingID string, ratingFilter int32, offset, limit int) ([]Review, int64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	var filtered []Review
-	for i := len(r.data) - 1; i >= 0; i-- {
-		rev := r.data[i]
-		if rev.ListingID == listingID && rev.HiddenAt == nil {
-			if ratingFilter == 0 || rev.Rating == ratingFilter {
-				filtered = append(filtered, rev)
-			}
-		}
-	}
-	// Same order as Postgres: newest first, id as the tiebreak.
-	sort.SliceStable(filtered, func(i, j int) bool {
-		if !filtered[i].CreatedAt.Equal(filtered[j].CreatedAt) {
-			return filtered[i].CreatedAt.After(filtered[j].CreatedAt)
-		}
-		return filtered[i].ID > filtered[j].ID
-	})
-
-	total := int64(len(filtered))
-	if offset > len(filtered) {
-		return []Review{}, total, nil
-	}
-	end := offset + limit
-	if end > len(filtered) {
-		end = len(filtered)
-	}
-	return filtered[offset:end], total, nil
-}
-
-func summarize(reviews []Review) (float64, int64, RatingBreakdown) {
-	var breakdown RatingBreakdown
-	var totalReviews, sumRatings int64
-	for _, rev := range reviews {
-		totalReviews++
-		sumRatings += int64(rev.Rating)
-		switch rev.Rating {
-		case 1:
-			breakdown.Star1++
-		case 2:
-			breakdown.Star2++
-		case 3:
-			breakdown.Star3++
-		case 4:
-			breakdown.Star4++
-		case 5:
-			breakdown.Star5++
-		}
-	}
-	var avg float64
-	if totalReviews > 0 {
-		avg = float64(sumRatings) / float64(totalReviews)
-	}
-	return avg, totalReviews, breakdown
-}
-
-func (r *InMemoryReviewRepository) GetRatingSummary(_ context.Context, listingID string) (RatingSummary, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var matched []Review
-	for _, rev := range r.data {
-		if rev.ListingID == listingID && rev.VerifiedPurchase && rev.HiddenAt == nil {
-			matched = append(matched, rev)
-		}
-	}
-	avg, total, breakdown := summarize(matched)
-	return RatingSummary{ListingID: listingID, AverageRating: avg, ReviewCount: total, Breakdown: breakdown}, nil
-}
-
-func (r *InMemoryReviewRepository) GetShopRatingSummary(_ context.Context, sellerID string) (ShopRatingSummary, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var matched []Review
-	for _, rev := range r.data {
-		if rev.SellerID == sellerID && rev.VerifiedPurchase && rev.HiddenAt == nil {
-			matched = append(matched, rev)
-		}
-	}
-	avg, total, breakdown := summarize(matched)
-	return ShopRatingSummary{SellerID: sellerID, AverageRating: avg, ReviewCount: total, Breakdown: breakdown}, nil
-}
-
-func (r *InMemoryReviewRepository) MarkHelpful(_ context.Context, reviewID, userID string) (int64, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	idx := -1
-	for i := range r.data {
-		if r.data[i].ID == reviewID && r.data[i].HiddenAt == nil {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		return 0, ErrReviewNotFound
-	}
-
-	set := r.votes[reviewID]
-	if set == nil {
-		set = map[string]struct{}{}
-		r.votes[reviewID] = set
-	}
-	if _, ok := set[userID]; ok {
-		return r.data[idx].HelpfulCount, nil // already voted — idempotent
-	}
-	set[userID] = struct{}{}
-	r.data[idx].HelpfulCount++
-	return r.data[idx].HelpfulCount, nil
-}
-
-func (r *InMemoryReviewRepository) GetReview(_ context.Context, id string) (Review, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	for _, rev := range r.data {
-		if rev.ID == id {
-			return rev, nil
-		}
-	}
-	return Review{}, ErrReviewNotFound
-}
-
-func (r *InMemoryReviewRepository) HideReview(_ context.Context, id, adminID, reason string) (bool, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i := range r.data {
-		if r.data[i].ID != id {
-			continue
-		}
-		if r.data[i].HiddenAt != nil {
-			return false, nil
-		}
-		now := time.Now()
-		r.data[i].HiddenAt, r.data[i].HiddenBy, r.data[i].HideReason = &now, adminID, reason
-		return true, nil
-	}
-	return false, ErrReviewNotFound
-}
-
-var _ ReviewRepository = (*InMemoryReviewRepository)(nil)

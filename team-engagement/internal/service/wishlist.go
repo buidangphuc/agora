@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/buidangphuc/team-engagement/internal/repository"
+	"github.com/buidangphuc/team-engagement/internal/store"
 )
 
 var (
@@ -16,25 +16,25 @@ var (
 // CollectionService owns wishlist-collection use cases (F3): named per-user
 // lists with idempotent add/remove of listing items.
 type CollectionService struct {
-	repo   repository.CollectionRepository
+	repo   store.CollectionRepository
 	logger *slog.Logger
 }
 
-func NewCollectionService(repo repository.CollectionRepository, logger *slog.Logger) *CollectionService {
+func NewCollectionService(repo store.CollectionRepository, logger *slog.Logger) *CollectionService {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &CollectionService{repo: repo, logger: logger}
 }
 
-func (s *CollectionService) CreateCollection(ctx context.Context, userID, name string) (repository.Collection, error) {
+func (s *CollectionService) CreateCollection(ctx context.Context, userID, name string) (store.Collection, error) {
 	if name == "" {
-		return repository.Collection{}, ErrEmptyCollectionName
+		return store.Collection{}, ErrEmptyCollectionName
 	}
 	return s.repo.CreateCollection(ctx, userID, name)
 }
 
-func (s *CollectionService) ListCollections(ctx context.Context, userID string) ([]repository.Collection, error) {
+func (s *CollectionService) ListCollections(ctx context.Context, userID string) ([]store.Collection, error) {
 	return s.repo.ListCollections(ctx, userID)
 }
 

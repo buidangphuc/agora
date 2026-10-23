@@ -12,8 +12,8 @@ import (
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
 )
 
 const (
@@ -68,7 +68,7 @@ func (h *EngagementHandler) ListReports(
 	if h.reportSvc == nil {
 		return nil, status.Error(codes.Unimplemented, "report service unavailable")
 	}
-	var st repository.ReportStatus
+	var st store.ReportStatus
 	if req.GetStatus() != engagementv1.ReportStatus_REPORT_STATUS_UNSPECIFIED {
 		st = toDomainReportStatus(req.GetStatus())
 		if st == "" {
@@ -121,7 +121,7 @@ func (h *EngagementHandler) ResolveReport(
 	case errors.Is(err, service.ErrEmptyReportID), errors.Is(err, service.ErrInvalidReportStatus),
 		errors.Is(err, service.ErrResolutionNoteRequired), errors.Is(err, service.ErrResolutionNoteTooLong):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, repository.ErrReportNotFound):
+	case errors.Is(err, store.ErrReportNotFound):
 		return nil, status.Error(codes.NotFound, "report not found")
 	case errors.Is(err, service.ErrReportClosed):
 		return nil, status.Error(codes.FailedPrecondition, "report is already closed")
@@ -131,31 +131,31 @@ func (h *EngagementHandler) ResolveReport(
 	return nil, internalError(ctx, "resolve report", err)
 }
 
-func toDomainReportStatus(s engagementv1.ReportStatus) repository.ReportStatus {
+func toDomainReportStatus(s engagementv1.ReportStatus) store.ReportStatus {
 	switch s {
 	case engagementv1.ReportStatus_REPORT_STATUS_OPEN:
-		return repository.ReportStatusOpen
+		return store.ReportStatusOpen
 	case engagementv1.ReportStatus_REPORT_STATUS_ACTIONED:
-		return repository.ReportStatusActioned
+		return store.ReportStatusActioned
 	case engagementv1.ReportStatus_REPORT_STATUS_DISMISSED:
-		return repository.ReportStatusDismissed
+		return store.ReportStatusDismissed
 	}
 	return ""
 }
 
-func toWireReportStatus(s repository.ReportStatus) engagementv1.ReportStatus {
+func toWireReportStatus(s store.ReportStatus) engagementv1.ReportStatus {
 	switch s {
-	case repository.ReportStatusOpen:
+	case store.ReportStatusOpen:
 		return engagementv1.ReportStatus_REPORT_STATUS_OPEN
-	case repository.ReportStatusActioned:
+	case store.ReportStatusActioned:
 		return engagementv1.ReportStatus_REPORT_STATUS_ACTIONED
-	case repository.ReportStatusDismissed:
+	case store.ReportStatusDismissed:
 		return engagementv1.ReportStatus_REPORT_STATUS_DISMISSED
 	}
 	return engagementv1.ReportStatus_REPORT_STATUS_UNSPECIFIED
 }
 
-func toWireReport(r repository.Report) *engagementv1.Report {
+func toWireReport(r store.Report) *engagementv1.Report {
 	out := &engagementv1.Report{
 		Id:             r.ID,
 		TargetType:     engagementv1.ReportTargetType_REPORT_TARGET_TYPE_LISTING,

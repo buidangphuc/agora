@@ -11,7 +11,7 @@ import (
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
-	"github.com/buidangphuc/team-engagement/internal/repository"
+	"github.com/buidangphuc/team-engagement/internal/store"
 )
 
 func (h *EngagementHandler) CreateCollection(
@@ -72,7 +72,7 @@ func (h *EngagementHandler) AddToCollection(
 	}
 
 	if _, err := h.collectionSvc.AddToCollection(ctx, userID(ctx), req.GetCollectionId(), req.GetListingId()); err != nil {
-		if errors.Is(err, repository.ErrCollectionNotFound) {
+		if errors.Is(err, store.ErrCollectionNotFound) {
 			return nil, status.Error(codes.NotFound, "collection not found")
 		}
 		return nil, status.Errorf(codes.Internal, "add to collection: %v", err)
@@ -97,7 +97,7 @@ func (h *EngagementHandler) RemoveFromCollection(
 	}
 
 	if _, err := h.collectionSvc.RemoveFromCollection(ctx, userID(ctx), req.GetCollectionId(), req.GetListingId()); err != nil {
-		if errors.Is(err, repository.ErrCollectionNotFound) {
+		if errors.Is(err, store.ErrCollectionNotFound) {
 			return nil, status.Error(codes.NotFound, "collection not found")
 		}
 		return nil, status.Errorf(codes.Internal, "remove from collection: %v", err)
@@ -127,7 +127,7 @@ func (h *EngagementHandler) ListCollectionItems(
 
 	ids, next, total, err := h.collectionSvc.ListCollectionItems(ctx, userID(ctx), req.GetCollectionId(), cursor, pageSize)
 	if err != nil {
-		if errors.Is(err, repository.ErrCollectionNotFound) {
+		if errors.Is(err, store.ErrCollectionNotFound) {
 			return nil, status.Error(codes.NotFound, "collection not found")
 		}
 		return nil, status.Errorf(codes.Internal, "list collection items: %v", err)
@@ -138,7 +138,7 @@ func (h *EngagementHandler) ListCollectionItems(
 	}, nil
 }
 
-func toWireCollection(c repository.Collection) *engagementv1.Collection {
+func toWireCollection(c store.Collection) *engagementv1.Collection {
 	return &engagementv1.Collection{
 		Id:        c.ID,
 		UserId:    c.UserID,

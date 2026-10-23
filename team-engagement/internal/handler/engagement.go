@@ -16,8 +16,8 @@ import (
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	orderv1 "github.com/buidangphuc/team-engagement/generated/platform/order/v1"
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
@@ -52,7 +52,7 @@ func WithOrderParties(r OrderPartiesReader) Option {
 // EngagementHandler implements engagementv1.EngagementServiceServer.
 type EngagementHandler struct {
 	engagementv1.UnimplementedEngagementServiceServer
-	repo          repository.Repository
+	repo          store.Repository
 	reviewSvc     *service.ReviewService
 	qaSvc         *service.QAService
 	disputeSvc    *service.DisputeService
@@ -63,7 +63,7 @@ type EngagementHandler struct {
 }
 
 func NewEngagementHandler(
-	repo repository.Repository,
+	repo store.Repository,
 	reviewSvc *service.ReviewService,
 	qaSvc *service.QAService,
 	disputeSvc *service.DisputeService,
@@ -251,7 +251,7 @@ func (h *EngagementHandler) ListFollowedListings(
 	}
 	ids, next, total, err := h.repo.ListFollowedListings(ctx, userID(ctx), cursor, pageSize)
 	if err != nil {
-		if errors.Is(err, repository.ErrInvalidCursor) {
+		if errors.Is(err, store.ErrInvalidCursor) {
 			return nil, status.Error(codes.InvalidArgument, "invalid cursor")
 		}
 		return nil, status.Error(codes.Internal, "internal error")
@@ -351,7 +351,7 @@ func (h *EngagementHandler) CreateReview(
 			return nil, status.Error(codes.FailedPrecondition, "order is not eligible for review")
 		case errors.Is(err, service.ErrOrderUnavailable):
 			return nil, status.Error(codes.Unavailable, "order verification unavailable")
-		case errors.Is(err, repository.ErrDuplicateReview):
+		case errors.Is(err, store.ErrDuplicateReview):
 			return nil, status.Error(codes.AlreadyExists, "review already exists for this order and listing")
 		}
 		return nil, status.Error(codes.Internal, "create review failed")
@@ -494,7 +494,7 @@ func (h *EngagementHandler) AnswerQuestion(
 	if req.GetIsShopReply() {
 		q, err := h.qaSvc.GetQuestion(ctx, req.GetQuestionId())
 		if err != nil {
-			if errors.Is(err, repository.ErrQuestionNotFound) {
+			if errors.Is(err, store.ErrQuestionNotFound) {
 				return nil, status.Error(codes.NotFound, "question not found")
 			}
 			return nil, internalError(ctx, "answer question", err)
@@ -508,7 +508,7 @@ func (h *EngagementHandler) AnswerQuestion(
 
 	ans, err := h.qaSvc.AnswerQuestion(ctx, req.GetQuestionId(), userID(ctx), req.GetAnswerText(), isShopReply)
 	if err != nil {
-		if errors.Is(err, repository.ErrQuestionNotFound) {
+		if errors.Is(err, store.ErrQuestionNotFound) {
 			return nil, status.Error(codes.NotFound, "question not found")
 		}
 		return nil, internalError(ctx, "answer question", err)
@@ -624,7 +624,7 @@ func (h *EngagementHandler) CreateDispute(
 
 	disp, err := h.disputeSvc.CreateDispute(ctx, req.GetOrderId(), claimantID, req.GetDefendantId(), req.GetReturnId(), req.GetReason(), req.GetEvidenceUrls())
 	if err != nil {
-		if errors.Is(err, repository.ErrOpenDisputeExists) {
+		if errors.Is(err, store.ErrOpenDisputeExists) {
 			return nil, status.Error(codes.AlreadyExists, "an open dispute already exists for this return")
 		}
 		if errors.Is(err, service.ErrSameClaimantAndDef) {
@@ -657,7 +657,7 @@ func (h *EngagementHandler) GetDispute(
 
 	disp, err := h.disputeSvc.GetDispute(ctx, req.GetDisputeId())
 	if err != nil {
-		if errors.Is(err, repository.ErrDisputeNotFound) {
+		if errors.Is(err, store.ErrDisputeNotFound) {
 			return nil, status.Error(codes.NotFound, "dispute not found")
 		}
 		return nil, internalError(ctx, "get dispute", err)
@@ -695,7 +695,7 @@ func (h *EngagementHandler) ResolveDispute(
 
 	disp, err := h.disputeSvc.ResolveDispute(ctx, userID(ctx), req.GetDisputeId(), statusDomain, req.GetRuling(), req.GetResolution())
 	if err != nil {
-		if errors.Is(err, repository.ErrDisputeNotFound) {
+		if errors.Is(err, store.ErrDisputeNotFound) {
 			return nil, status.Error(codes.NotFound, "dispute not found")
 		}
 		if errors.Is(err, service.ErrDisputeClosed) {
@@ -826,7 +826,7 @@ func (h *EngagementHandler) GetLoyalty(
 
 // ── Wire Mappers ──
 
-func toWireReview(r repository.Review) *engagementv1.Review {
+func toWireReview(r store.Review) *engagementv1.Review {
 	return &engagementv1.Review{
 		Id:               r.ID,
 		ListingId:        r.ListingID,
@@ -842,7 +842,7 @@ func toWireReview(r repository.Review) *engagementv1.Review {
 	}
 }
 
-func toWireQuestion(q repository.ProductQuestion) *engagementv1.ProductQuestion {
+func toWireQuestion(q store.ProductQuestion) *engagementv1.ProductQuestion {
 	answers := make([]*engagementv1.ProductAnswer, 0, len(q.Answers))
 	for _, a := range q.Answers {
 		answers = append(answers, toWireAnswer(a))
@@ -857,7 +857,7 @@ func toWireQuestion(q repository.ProductQuestion) *engagementv1.ProductQuestion 
 	}
 }
 
-func toWireAnswer(a repository.ProductAnswer) *engagementv1.ProductAnswer {
+func toWireAnswer(a store.ProductAnswer) *engagementv1.ProductAnswer {
 	return &engagementv1.ProductAnswer{
 		Id:          a.ID,
 		QuestionId:  a.QuestionID,
@@ -868,7 +868,7 @@ func toWireAnswer(a repository.ProductAnswer) *engagementv1.ProductAnswer {
 	}
 }
 
-func toWireDispute(d repository.Dispute) *engagementv1.Dispute {
+func toWireDispute(d store.Dispute) *engagementv1.Dispute {
 	return &engagementv1.Dispute{
 		Id:           d.ID,
 		OrderId:      d.OrderID,
@@ -885,30 +885,30 @@ func toWireDispute(d repository.Dispute) *engagementv1.Dispute {
 	}
 }
 
-func toDomainDisputeStatus(s engagementv1.DisputeStatus) repository.DisputeStatus {
+func toDomainDisputeStatus(s engagementv1.DisputeStatus) store.DisputeStatus {
 	switch s {
 	case engagementv1.DisputeStatus_DISPUTE_STATUS_OPEN:
-		return repository.DisputeStatusOpen
+		return store.DisputeStatusOpen
 	case engagementv1.DisputeStatus_DISPUTE_STATUS_INVESTIGATING:
-		return repository.DisputeStatusInvestigating
+		return store.DisputeStatusInvestigating
 	case engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED:
-		return repository.DisputeStatusResolved
+		return store.DisputeStatusResolved
 	case engagementv1.DisputeStatus_DISPUTE_STATUS_REJECTED:
-		return repository.DisputeStatusRejected
+		return store.DisputeStatusRejected
 	default:
 		return ""
 	}
 }
 
-func toProtoDisputeStatus(s repository.DisputeStatus) engagementv1.DisputeStatus {
+func toProtoDisputeStatus(s store.DisputeStatus) engagementv1.DisputeStatus {
 	switch s {
-	case repository.DisputeStatusOpen:
+	case store.DisputeStatusOpen:
 		return engagementv1.DisputeStatus_DISPUTE_STATUS_OPEN
-	case repository.DisputeStatusInvestigating:
+	case store.DisputeStatusInvestigating:
 		return engagementv1.DisputeStatus_DISPUTE_STATUS_INVESTIGATING
-	case repository.DisputeStatusResolved:
+	case store.DisputeStatusResolved:
 		return engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED
-	case repository.DisputeStatusRejected:
+	case store.DisputeStatusRejected:
 		return engagementv1.DisputeStatus_DISPUTE_STATUS_REJECTED
 	default:
 		return engagementv1.DisputeStatus_DISPUTE_STATUS_UNSPECIFIED

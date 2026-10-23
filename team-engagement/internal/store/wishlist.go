@@ -1,16 +1,16 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/pagination"
 )
 
 // ErrCollectionNotFound is returned when a collection does not exist or is not
@@ -131,7 +131,7 @@ func (r *PostgresCollectionRepository) ListCollectionItems(ctx context.Context, 
 	if err := r.ownsCollection(ctx, userID, collectionID); err != nil {
 		return nil, "", 0, err
 	}
-	limit := clampPageSize(pageSize)
+	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
 	rows, err := r.pool.Query(ctx,
 		`SELECT listing_id FROM collection_items
 		 WHERE collection_id = $1 AND ($2 = '' OR listing_id > $2)
@@ -169,109 +169,3 @@ func (r *PostgresCollectionRepository) ListCollectionItems(ctx context.Context, 
 }
 
 var _ CollectionRepository = (*PostgresCollectionRepository)(nil)
-
-// ── InMemory Implementation ───────────────────────────────────────────
-
-type InMemoryCollectionRepository struct {
-	mu    sync.Mutex
-	cols  map[string]Collection          // collectionID -> collection
-	items map[string]map[string]struct{} // collectionID -> set(listingID)
-}
-
-func NewInMemoryCollectionRepository() *InMemoryCollectionRepository {
-	return &InMemoryCollectionRepository{
-		cols:  map[string]Collection{},
-		items: map[string]map[string]struct{}{},
-	}
-}
-
-func (r *InMemoryCollectionRepository) CreateCollection(_ context.Context, userID, name string) (Collection, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	c := Collection{ID: uuid.NewString(), UserID: userID, Name: name, CreatedAt: time.Now()}
-	r.cols[c.ID] = c
-	r.items[c.ID] = map[string]struct{}{}
-	return c, nil
-}
-
-func (r *InMemoryCollectionRepository) ListCollections(_ context.Context, userID string) ([]Collection, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	var out []Collection
-	for id, c := range r.cols {
-		if c.UserID != userID {
-			continue
-		}
-		c.ItemCount = int64(len(r.items[id]))
-		out = append(out, c)
-	}
-	// newest first
-	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
-	return out, nil
-}
-
-func (r *InMemoryCollectionRepository) owns(userID, collectionID string) error {
-	c, ok := r.cols[collectionID]
-	if !ok || c.UserID != userID {
-		return ErrCollectionNotFound
-	}
-	return nil
-}
-
-func (r *InMemoryCollectionRepository) AddToCollection(_ context.Context, userID, collectionID, listingID string) (bool, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if err := r.owns(userID, collectionID); err != nil {
-		return false, err
-	}
-	set := r.items[collectionID]
-	if _, ok := set[listingID]; ok {
-		return false, nil
-	}
-	set[listingID] = struct{}{}
-	return true, nil
-}
-
-func (r *InMemoryCollectionRepository) RemoveFromCollection(_ context.Context, userID, collectionID, listingID string) (bool, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if err := r.owns(userID, collectionID); err != nil {
-		return false, err
-	}
-	set := r.items[collectionID]
-	if _, ok := set[listingID]; !ok {
-		return false, nil
-	}
-	delete(set, listingID)
-	return true, nil
-}
-
-func (r *InMemoryCollectionRepository) ListCollectionItems(_ context.Context, userID, collectionID, cursor string, pageSize int32) ([]string, string, int64, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if err := r.owns(userID, collectionID); err != nil {
-		return nil, "", 0, err
-	}
-	all := make([]string, 0, len(r.items[collectionID]))
-	for id := range r.items[collectionID] {
-		all = append(all, id)
-	}
-	sort.Strings(all)
-
-	limit := clampPageSize(pageSize)
-	ids := make([]string, 0, limit)
-	var next string
-	for _, id := range all {
-		if cursor != "" && id <= cursor {
-			continue
-		}
-		if len(ids) == limit {
-			next = ids[len(ids)-1]
-			break
-		}
-		ids = append(ids, id)
-	}
-	return ids, next, int64(len(all)), nil
-}
-
-var _ CollectionRepository = (*InMemoryCollectionRepository)(nil)

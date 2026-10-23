@@ -1,10 +1,9 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,9 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var (
-	ErrQuestionNotFound = errors.New("question not found")
-)
+var ErrQuestionNotFound = errors.New("question not found")
 
 type ProductAnswer struct {
 	ID          string
@@ -185,117 +182,4 @@ func (r *PostgresQARepository) getAnswersForQuestions(ctx context.Context, quest
 	return m, nil
 }
 
-// ── InMemory Implementation ───────────────────────────────────────────
-
-type InMemoryQARepository struct {
-	mu        sync.RWMutex
-	questions []ProductQuestion
-	answers   []ProductAnswer
-}
-
-func NewInMemoryQARepository() *InMemoryQARepository {
-	return &InMemoryQARepository{
-		questions: make([]ProductQuestion, 0),
-		answers:   make([]ProductAnswer, 0),
-	}
-}
-
-func (r *InMemoryQARepository) CreateQuestion(_ context.Context, q ProductQuestion) (ProductQuestion, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if q.ID == "" {
-		q.ID = uuid.NewString()
-	}
-	if q.CreatedAt.IsZero() {
-		q.CreatedAt = time.Now().UTC()
-	}
-	if q.Answers == nil {
-		q.Answers = make([]ProductAnswer, 0)
-	}
-	r.questions = append(r.questions, q)
-	return q, nil
-}
-
-func (r *InMemoryQARepository) GetQuestionByID(_ context.Context, id string) (ProductQuestion, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	for _, q := range r.questions {
-		if q.ID == id {
-			res := q
-			res.Answers = make([]ProductAnswer, 0)
-			for _, a := range r.answers {
-				if a.QuestionID == id {
-					res.Answers = append(res.Answers, a)
-				}
-			}
-			return res, nil
-		}
-	}
-	return ProductQuestion{}, ErrQuestionNotFound
-}
-
-func (r *InMemoryQARepository) CreateAnswer(_ context.Context, a ProductAnswer) (ProductAnswer, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	// Check if question exists
-	found := false
-	for _, q := range r.questions {
-		if q.ID == a.QuestionID {
-			found = true
-			if a.ListingID == "" {
-				a.ListingID = q.ListingID
-			}
-			break
-		}
-	}
-	if !found {
-		return ProductAnswer{}, ErrQuestionNotFound
-	}
-
-	if a.ID == "" {
-		a.ID = uuid.NewString()
-	}
-	if a.CreatedAt.IsZero() {
-		a.CreatedAt = time.Now().UTC()
-	}
-	r.answers = append(r.answers, a)
-	return a, nil
-}
-
-func (r *InMemoryQARepository) ListQuestionsByListing(_ context.Context, listingID string, offset, limit int) ([]ProductQuestion, int64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	var filtered []ProductQuestion
-	for i := len(r.questions) - 1; i >= 0; i-- {
-		q := r.questions[i]
-		if q.ListingID == listingID {
-			qCopy := q
-			qCopy.Answers = make([]ProductAnswer, 0)
-			for _, a := range r.answers {
-				if a.QuestionID == q.ID {
-					qCopy.Answers = append(qCopy.Answers, a)
-				}
-			}
-			filtered = append(filtered, qCopy)
-		}
-	}
-
-	total := int64(len(filtered))
-	if offset >= len(filtered) {
-		return make([]ProductQuestion, 0), total, nil
-	}
-	end := offset + limit
-	if end > len(filtered) {
-		end = len(filtered)
-	}
-	return filtered[offset:end], total, nil
-}
-
-var (
-	_ QARepository = (*PostgresQARepository)(nil)
-	_ QARepository = (*InMemoryQARepository)(nil)
-)
+var _ QARepository = (*PostgresQARepository)(nil)

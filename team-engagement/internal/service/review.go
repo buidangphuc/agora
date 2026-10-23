@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/buidangphuc/team-engagement/internal/repository"
+	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
@@ -41,7 +41,7 @@ type OrderVerifier interface {
 }
 
 type ReviewService struct {
-	repo     repository.ReviewRepository
+	repo     store.ReviewRepository
 	verifier OrderVerifier
 	audit    AuditWriter
 	logger   *slog.Logger
@@ -53,7 +53,7 @@ func (s *ReviewService) WithAudit(w AuditWriter) *ReviewService {
 	return s
 }
 
-func NewReviewService(repo repository.ReviewRepository, verifier OrderVerifier, logger *slog.Logger) *ReviewService {
+func NewReviewService(repo store.ReviewRepository, verifier OrderVerifier, logger *slog.Logger) *ReviewService {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -66,30 +66,30 @@ func (s *ReviewService) CreateReview(
 	rating int32,
 	comment string,
 	mediaURLs []string,
-) (repository.Review, error) {
+) (store.Review, error) {
 	if listingID == "" {
-		return repository.Review{}, ErrEmptyListing
+		return store.Review{}, ErrEmptyListing
 	}
 	if rating < 1 || rating > 5 {
-		return repository.Review{}, ErrInvalidRating
+		return store.Review{}, ErrInvalidRating
 	}
 
 	if orderID == "" {
-		return repository.Review{}, ErrEmptyOrderID
+		return store.Review{}, ErrEmptyOrderID
 	}
 	if s.verifier == nil {
-		return repository.Review{}, ErrOrderUnavailable
+		return store.Review{}, ErrOrderUnavailable
 	}
 	verified, sellerID, err := s.verifier.VerifyPurchase(ctx, userID, listingID, orderID)
 	if err != nil {
 		s.logger.Warn("verify purchase failed", slog.String("order_id", orderID), slog.Any("err", err))
-		return repository.Review{}, fmt.Errorf("%w: %v", ErrOrderUnavailable, err)
+		return store.Review{}, fmt.Errorf("%w: %v", ErrOrderUnavailable, err)
 	}
 	if !verified {
-		return repository.Review{}, ErrOrderNotEligible
+		return store.Review{}, ErrOrderNotEligible
 	}
 
-	review := repository.Review{
+	review := store.Review{
 		ListingID:        listingID,
 		UserID:           userID,
 		UserName:         userName,
@@ -103,7 +103,7 @@ func (s *ReviewService) CreateReview(
 
 	saved, err := s.repo.CreateReview(ctx, review)
 	if err != nil {
-		return repository.Review{}, fmt.Errorf("create review: %w", err)
+		return store.Review{}, fmt.Errorf("create review: %w", err)
 	}
 	return saved, nil
 }
@@ -123,7 +123,7 @@ func (s *ReviewService) ListReviews(
 	listingID string,
 	ratingFilter int32,
 	offset, limit int,
-) ([]repository.Review, int64, error) {
+) ([]store.Review, int64, error) {
 	if listingID == "" {
 		return nil, 0, ErrEmptyListing
 	}
@@ -139,9 +139,9 @@ func (s *ReviewService) ListReviews(
 	return s.repo.ListReviews(ctx, listingID, ratingFilter, offset, limit)
 }
 
-func (s *ReviewService) GetRatingSummary(ctx context.Context, listingID string) (repository.RatingSummary, error) {
+func (s *ReviewService) GetRatingSummary(ctx context.Context, listingID string) (store.RatingSummary, error) {
 	if listingID == "" {
-		return repository.RatingSummary{}, ErrEmptyListing
+		return store.RatingSummary{}, ErrEmptyListing
 	}
 	return s.repo.GetRatingSummary(ctx, listingID)
 }
@@ -156,9 +156,9 @@ func (s *ReviewService) MarkHelpful(ctx context.Context, reviewID, userID string
 }
 
 // GetShopRatingSummary aggregates ratings across all of a seller's listings.
-func (s *ReviewService) GetShopRatingSummary(ctx context.Context, sellerID string) (repository.ShopRatingSummary, error) {
+func (s *ReviewService) GetShopRatingSummary(ctx context.Context, sellerID string) (store.ShopRatingSummary, error) {
 	if sellerID == "" {
-		return repository.ShopRatingSummary{}, ErrEmptySeller
+		return store.ShopRatingSummary{}, ErrEmptySeller
 	}
 	return s.repo.GetShopRatingSummary(ctx, sellerID)
 }

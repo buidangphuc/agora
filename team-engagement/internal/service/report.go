@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/buidangphuc/team-engagement/internal/repository"
+	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
@@ -43,12 +43,12 @@ type ReportAuditWriter interface {
 }
 
 type ReportService struct {
-	repo   repository.ReportRepository
+	repo   store.ReportRepository
 	audit  ReportAuditWriter
 	logger *slog.Logger
 }
 
-func NewReportService(repo repository.ReportRepository, logger *slog.Logger) *ReportService {
+func NewReportService(repo store.ReportRepository, logger *slog.Logger) *ReportService {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -65,92 +65,92 @@ func (s *ReportService) WithAudit(w ReportAuditWriter) *ReportService {
 	return s
 }
 
-func (s *ReportService) CreateReport(ctx context.Context, reporterID, targetID, reasonCode, note string) (repository.Report, error) {
+func (s *ReportService) CreateReport(ctx context.Context, reporterID, targetID, reasonCode, note string) (store.Report, error) {
 	if _, err := uuid.Parse(targetID); err != nil {
-		return repository.Report{}, ErrInvalidReportTarget
+		return store.Report{}, ErrInvalidReportTarget
 	}
 	if !validReportReasons[reasonCode] {
-		return repository.Report{}, ErrInvalidReportReason
+		return store.Report{}, ErrInvalidReportReason
 	}
 	note = strings.TrimSpace(note)
 	if utf8.RuneCountInString(note) > maxReportNoteRunes {
-		return repository.Report{}, ErrReportNoteTooLong
+		return store.Report{}, ErrReportNoteTooLong
 	}
 	own, err := s.repo.HasSellerListing(ctx, reporterID, targetID)
 	if err != nil {
-		return repository.Report{}, fmt.Errorf("check listing owner: %w", err)
+		return store.Report{}, fmt.Errorf("check listing owner: %w", err)
 	}
 	if own {
-		return repository.Report{}, ErrOwnListing
+		return store.Report{}, ErrOwnListing
 	}
 	n, err := s.repo.CountOpenByReporter(ctx, reporterID)
 	if err != nil {
-		return repository.Report{}, fmt.Errorf("count open reports: %w", err)
+		return store.Report{}, fmt.Errorf("count open reports: %w", err)
 	}
 	if n >= maxOpenReports {
 		// A re-report of an already open pair is exempt from the cap.
-		open, _, err := s.repo.ListReports(ctx, repository.ReportStatusOpen, targetID, 0, 1000)
+		open, _, err := s.repo.ListReports(ctx, store.ReportStatusOpen, targetID, 0, 1000)
 		if err != nil {
-			return repository.Report{}, fmt.Errorf("list open reports: %w", err)
+			return store.Report{}, fmt.Errorf("list open reports: %w", err)
 		}
 		for _, r := range open {
 			if r.ReporterID == reporterID {
 				return r, nil
 			}
 		}
-		return repository.Report{}, ErrReportCapReached
+		return store.Report{}, ErrReportCapReached
 	}
-	got, err := s.repo.CreateReport(ctx, repository.Report{
+	got, err := s.repo.CreateReport(ctx, store.Report{
 		TargetType: "LISTING", TargetID: targetID, ReasonCode: reasonCode, Note: note, ReporterID: reporterID,
 	})
 	if err != nil {
-		return repository.Report{}, fmt.Errorf("create report: %w", err)
+		return store.Report{}, fmt.Errorf("create report: %w", err)
 	}
 	return got, nil
 }
 
-func (s *ReportService) ResolveReport(ctx context.Context, adminID, id string, status repository.ReportStatus, note string) (repository.Report, error) {
+func (s *ReportService) ResolveReport(ctx context.Context, adminID, id string, status store.ReportStatus, note string) (store.Report, error) {
 	if id == "" {
-		return repository.Report{}, ErrEmptyReportID
+		return store.Report{}, ErrEmptyReportID
 	}
-	if status != repository.ReportStatusActioned && status != repository.ReportStatusDismissed {
-		return repository.Report{}, ErrInvalidReportStatus
+	if status != store.ReportStatusActioned && status != store.ReportStatusDismissed {
+		return store.Report{}, ErrInvalidReportStatus
 	}
 	note = strings.TrimSpace(note)
 	if note == "" {
-		return repository.Report{}, ErrResolutionNoteRequired
+		return store.Report{}, ErrResolutionNoteRequired
 	}
 	if utf8.RuneCountInString(note) > maxReportNoteRunes {
-		return repository.Report{}, ErrResolutionNoteTooLong
+		return store.Report{}, ErrResolutionNoteTooLong
 	}
 	existing, err := s.repo.GetReport(ctx, id)
 	if err != nil {
-		return repository.Report{}, err
+		return store.Report{}, err
 	}
-	if existing.Status == repository.ReportStatusActioned || existing.Status == repository.ReportStatusDismissed {
-		return repository.Report{}, ErrReportClosed
+	if existing.Status == store.ReportStatusActioned || existing.Status == store.ReportStatusDismissed {
+		return store.Report{}, ErrReportClosed
 	}
 	if s.audit == nil {
-		return repository.Report{}, ErrAuditUnavailable
+		return store.Report{}, ErrAuditUnavailable
 	}
 	if err := s.audit.WriteReportResolveEvent(ctx, adminID, id, existing.TargetID, string(status), note); err != nil {
-		return repository.Report{}, fmt.Errorf("%w: %v", ErrAuditUnavailable, err)
+		return store.Report{}, fmt.Errorf("%w: %v", ErrAuditUnavailable, err)
 	}
 	ok, err := s.repo.CloseReport(ctx, id, adminID, status, note)
 	if err != nil {
-		return repository.Report{}, fmt.Errorf("close report: %w", err)
+		return store.Report{}, fmt.Errorf("close report: %w", err)
 	}
 	if !ok {
-		return repository.Report{}, ErrReportClosed
+		return store.Report{}, ErrReportClosed
 	}
 	got, err := s.repo.GetReport(ctx, id)
 	if err != nil {
-		return repository.Report{}, fmt.Errorf("reload report: %w", err)
+		return store.Report{}, fmt.Errorf("reload report: %w", err)
 	}
 	return got, nil
 }
 
 // ListReports passes through to the repository (status "" and targetID "" mean any).
-func (s *ReportService) ListReports(ctx context.Context, status repository.ReportStatus, targetID string, offset, limit int) ([]repository.Report, int64, error) {
+func (s *ReportService) ListReports(ctx context.Context, status store.ReportStatus, targetID string, offset, limit int) ([]store.Report, int64, error) {
 	return s.repo.ListReports(ctx, status, targetID, offset, limit)
 }

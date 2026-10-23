@@ -1,13 +1,11 @@
-package repository
+package store
 
 import (
 	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,6 +14,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/pagination"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 )
 
@@ -26,8 +27,8 @@ var (
 )
 
 const (
-	defaultDisputePageSize = 20
-	maxDisputePageSize     = 100
+	DefaultDisputePageSize = 20
+	MaxDisputePageSize     = 100
 )
 
 type DisputeStatus string
@@ -63,21 +64,11 @@ type DisputeRepository interface {
 	ListByStatus(ctx context.Context, status DisputeStatus, pageSize int, cursor string) ([]Dispute, string, error)
 }
 
-func clampDisputePageSize(n int) int {
-	if n <= 0 {
-		return defaultDisputePageSize
-	}
-	if n > maxDisputePageSize {
-		return maxDisputePageSize
-	}
-	return n
-}
-
-func encodeDisputeCursor(d Dispute) string {
+func EncodeDisputeCursor(d Dispute) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%d|%s", d.CreatedAt.UnixMicro(), d.ID)))
 }
 
-func decodeDisputeCursor(c string) (time.Time, string, error) {
+func DecodeDisputeCursor(c string) (time.Time, string, error) {
 	raw, err := base64.RawURLEncoding.DecodeString(c)
 	if err != nil {
 		return time.Time{}, "", fmt.Errorf("invalid cursor: %w", err)
@@ -93,14 +84,13 @@ func decodeDisputeCursor(c string) (time.Time, string, error) {
 	return time.UnixMicro(us).UTC(), parts[1], nil
 }
 
-// ── Postgres Implementation ──────────────────────────────────────────
-
 type PostgresDisputeRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	outbox *outbox.Store
 }
 
-func NewPostgresDisputeRepository(pool *pgxpool.Pool) *PostgresDisputeRepository {
-	return &PostgresDisputeRepository{pool: pool}
+func NewPostgresDisputeRepository(pool *pgxpool.Pool, ob *outbox.Store) *PostgresDisputeRepository {
+	return &PostgresDisputeRepository{pool: pool, outbox: ob}
 }
 
 const disputeColumns = `id, order_id, claimant_id, defendant_id, reason, evidence_urls, status, resolution, return_id, ruling, created_at, updated_at`
@@ -182,35 +172,32 @@ func (r *PostgresDisputeRepository) UpdateDispute(ctx context.Context, d Dispute
 }
 
 func (r *PostgresDisputeRepository) ResolveWithEvent(ctx context.Context, d Dispute, prev DisputeStatus, fact proto.Message) (Dispute, error) {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return Dispute{}, fmt.Errorf("begin resolve dispute: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	const query = `UPDATE disputes SET status = $1, resolution = $2, ruling = $3, updated_at = $4 WHERE id = $5 AND status = $6
+	var updated Dispute
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		const query = `UPDATE disputes SET status = $1, resolution = $2, ruling = $3, updated_at = $4 WHERE id = $5 AND status = $6
 		RETURNING ` + disputeColumns
-	updated, err := scanDispute(tx.QueryRow(ctx, query, string(d.Status), d.Resolution, int32(d.Ruling), time.Now().UTC(), d.ID, string(prev)))
+		var err error
+		updated, err = scanDispute(tx.QueryRow(ctx, query, string(d.Status), d.Resolution, int32(d.Ruling), time.Now().UTC(), d.ID, string(prev)))
+		if err != nil {
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("resolve dispute: %w", err)
+			}
+			var exists bool
+			if qerr := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM disputes WHERE id = $1)`, d.ID).Scan(&exists); qerr != nil {
+				return fmt.Errorf("resolve dispute: %w", qerr)
+			}
+			if !exists {
+				return ErrDisputeNotFound
+			}
+			return ErrDisputeNotInState
+		}
+		if fact != nil {
+			return enqueueFact(ctx, r.outbox, tx, "Dispute", updated.ID, fact)
+		}
+		return nil
+	})
 	if err != nil {
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return Dispute{}, fmt.Errorf("resolve dispute: %w", err)
-		}
-		var exists bool
-		if qerr := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM disputes WHERE id = $1)`, d.ID).Scan(&exists); qerr != nil {
-			return Dispute{}, fmt.Errorf("resolve dispute: %w", qerr)
-		}
-		if !exists {
-			return Dispute{}, ErrDisputeNotFound
-		}
-		return Dispute{}, ErrDisputeNotInState
-	}
-	if fact != nil {
-		if err := enqueueFact(ctx, tx, updated.ID, fact); err != nil {
-			return Dispute{}, err
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return Dispute{}, fmt.Errorf("commit resolve dispute: %w", err)
+		return Dispute{}, err
 	}
 	return updated, nil
 }
@@ -236,11 +223,11 @@ func (r *PostgresDisputeRepository) ListByOrder(ctx context.Context, orderID str
 }
 
 func (r *PostgresDisputeRepository) ListByStatus(ctx context.Context, status DisputeStatus, pageSize int, cursor string) ([]Dispute, string, error) {
-	size := clampDisputePageSize(pageSize)
+	size := pagination.Clamp(pageSize, DefaultDisputePageSize, MaxDisputePageSize)
 	var curAt *time.Time
 	curID := ""
 	if cursor != "" {
-		at, id, err := decodeDisputeCursor(cursor)
+		at, id, err := DecodeDisputeCursor(cursor)
 		if err != nil {
 			return nil, "", err
 		}
@@ -269,175 +256,9 @@ func (r *PostgresDisputeRepository) ListByStatus(ctx context.Context, status Dis
 	next := ""
 	if len(out) > size {
 		out = out[:size]
-		next = encodeDisputeCursor(out[size-1])
+		next = EncodeDisputeCursor(out[size-1])
 	}
 	return out, next, nil
 }
 
-// ── InMemory Implementation ───────────────────────────────────────────
-
-type InMemoryDisputeRepository struct {
-	mu   sync.RWMutex
-	data map[string]Dispute
-}
-
-func NewInMemoryDisputeRepository() *InMemoryDisputeRepository {
-	return &InMemoryDisputeRepository{
-		data: make(map[string]Dispute),
-	}
-}
-
-func disputeIsOpen(s DisputeStatus) bool {
-	return s == DisputeStatusOpen || s == DisputeStatusInvestigating
-}
-
-func (r *InMemoryDisputeRepository) CreateDispute(_ context.Context, d Dispute) (Dispute, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if d.ID == "" {
-		d.ID = uuid.NewString()
-	}
-	now := time.Now().UTC()
-	if d.CreatedAt.IsZero() {
-		d.CreatedAt = now
-	}
-	if d.UpdatedAt.IsZero() {
-		d.UpdatedAt = now
-	}
-	if d.Status == "" {
-		d.Status = DisputeStatusOpen
-	}
-	if d.EvidenceURLs == nil {
-		d.EvidenceURLs = make([]string, 0)
-	}
-	if d.ReturnID != "" && disputeIsOpen(d.Status) {
-		for _, e := range r.data {
-			if e.ReturnID == d.ReturnID && disputeIsOpen(e.Status) {
-				return Dispute{}, ErrOpenDisputeExists
-			}
-		}
-	}
-
-	r.data[d.ID] = d
-	return d, nil
-}
-
-func (r *InMemoryDisputeRepository) GetDispute(_ context.Context, id string) (Dispute, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	d, ok := r.data[id]
-	if !ok {
-		return Dispute{}, ErrDisputeNotFound
-	}
-	return d, nil
-}
-
-func (r *InMemoryDisputeRepository) UpdateDispute(_ context.Context, d Dispute) (Dispute, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	existing, ok := r.data[d.ID]
-	if !ok {
-		return Dispute{}, ErrDisputeNotFound
-	}
-
-	existing.Status = d.Status
-	existing.Resolution = d.Resolution
-	existing.Ruling = d.Ruling
-	existing.UpdatedAt = time.Now().UTC()
-	r.data[d.ID] = existing
-	return existing, nil
-}
-
-func (r *InMemoryDisputeRepository) ResolveWithEvent(_ context.Context, d Dispute, prev DisputeStatus, _ proto.Message) (Dispute, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	existing, ok := r.data[d.ID]
-	if !ok {
-		return Dispute{}, ErrDisputeNotFound
-	}
-	if existing.Status != prev {
-		return Dispute{}, ErrDisputeNotInState
-	}
-	existing.Status = d.Status
-	existing.Resolution = d.Resolution
-	existing.Ruling = d.Ruling
-	existing.UpdatedAt = time.Now().UTC()
-	r.data[d.ID] = existing
-	return existing, nil
-}
-
-func (r *InMemoryDisputeRepository) ListByOrder(_ context.Context, orderID string) ([]Dispute, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	out := make([]Dispute, 0)
-	for _, d := range r.data {
-		if d.OrderID == orderID {
-			out = append(out, d)
-		}
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].CreatedAt.After(out[j].CreatedAt)
-		}
-		return out[i].ID > out[j].ID
-	})
-	return out, nil
-}
-
-func (r *InMemoryDisputeRepository) ListByStatus(_ context.Context, status DisputeStatus, pageSize int, cursor string) ([]Dispute, string, error) {
-	size := clampDisputePageSize(pageSize)
-	var curAt time.Time
-	curID := ""
-	if cursor != "" {
-		at, id, err := decodeDisputeCursor(cursor)
-		if err != nil {
-			return nil, "", err
-		}
-		curAt, curID = at, id
-	}
-
-	r.mu.RLock()
-	all := make([]Dispute, 0, len(r.data))
-	for _, d := range r.data {
-		if status == "" || d.Status == status {
-			all = append(all, d)
-		}
-	}
-	r.mu.RUnlock()
-	sort.Slice(all, func(i, j int) bool {
-		if !all[i].CreatedAt.Equal(all[j].CreatedAt) {
-			return all[i].CreatedAt.Before(all[j].CreatedAt)
-		}
-		return all[i].ID < all[j].ID
-	})
-
-	out := make([]Dispute, 0, size+1)
-	for _, d := range all {
-		if cursor != "" {
-			at := d.CreatedAt.Truncate(time.Microsecond)
-			if at.Before(curAt) || (at.Equal(curAt) && d.ID <= curID) {
-				continue
-			}
-		}
-		out = append(out, d)
-		if len(out) > size {
-			break
-		}
-	}
-	next := ""
-	if len(out) > size {
-		out = out[:size]
-		next = encodeDisputeCursor(out[size-1])
-	}
-	return out, next, nil
-}
-
-var (
-	_ DisputeRepository = (*PostgresDisputeRepository)(nil)
-	_ DisputeRepository = (*InMemoryDisputeRepository)(nil)
-)
+var _ DisputeRepository = (*PostgresDisputeRepository)(nil)
