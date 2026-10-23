@@ -133,7 +133,7 @@ class ScratchDb:
             "DATABASE_URL": f"postgres://{_pg_creds()}@{pg_host()}:5432/{self.name}?sslmode=disable",
             "GRPC_PORT": str(GRPC_PORT),
             "ENV": "local",
-            "MOCK_PAYMENTS": "true",
+            "MOCK_DATA": "payment-provider",
             "UPSTREAM_AUDIT_ADDR": os.getenv("PRM_PAY_AUDIT_ADDR", "team-audit-svc:50066"),
         }
         args = ["run", "-d", "--name", name, "--network", stack.stack_network()]

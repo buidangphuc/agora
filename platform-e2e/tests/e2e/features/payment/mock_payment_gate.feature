@@ -1,6 +1,6 @@
 @fintech @buyer
 Feature: The local stack settles checkouts through the opt-in mock payment
-  ProcessMockPayment is refused unless team-payment runs with MOCK_PAYMENTS=true. The
+  ProcessMockPayment is refused unless team-payment runs with MOCK_DATA=payment-provider. The
   local compose stack enables it, so a checkout settles end to end.
 
   Scenario: The local stack settles a checkout through the mock payment

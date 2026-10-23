@@ -393,14 +393,14 @@ def seller_has_no_orders(world: World) -> None:
 
 # ── boot guard (black-box docker run) ────────────────────────────────────
 @when(
-    parsers.parse('the team-payment image is started with ENV "{env}" and MOCK_PAYMENTS "{mock}"')
+    parsers.parse('the team-payment image is started with ENV "{env}" and MOCK_DATA "{mock}"')
 )
 def start_payment_image(world: World, env: str, mock: str) -> None:
     image = os.getenv("PAYMENT_BOOT_IMAGE", "agora-team-payment:local")
     cmd = [
         "docker", "run", "--rm",
         "-e", f"ENV={env}",
-        "-e", f"MOCK_PAYMENTS={mock}",
+        "-e", f"MOCK_DATA={mock}",
         image,
     ]  # fmt: skip
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90, check=False)
@@ -417,9 +417,9 @@ def process_exits_nonzero(world: World) -> None:
     )
 
 
-@then("its log names MOCK_PAYMENTS")
+@then("its log names MOCK_DATA")
 def log_names_mock_payments(world: World) -> None:
     proc = _x(world)["boot"]
     assert (
-        "MOCK_PAYMENTS" in proc.stdout + proc.stderr
-    ), f"log does not name MOCK_PAYMENTS: {proc.stdout[-300:]} {proc.stderr[-300:]}"
+        "MOCK_DATA" in proc.stdout + proc.stderr
+    ), f"log does not name MOCK_DATA: {proc.stdout[-300:]} {proc.stderr[-300:]}"

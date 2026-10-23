@@ -1,0 +1,1 @@
+ALTER TABLE payment_outbox_events VALIDATE CONSTRAINT payment_outbox_events_seq_nn;

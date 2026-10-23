@@ -5,9 +5,7 @@
 package events
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -60,42 +58,3 @@ func BuildPaymentSettledEnvelope(
 	}
 	return value, nil
 }
-
-// RawProducer produces already-marshalled EventEnvelope bytes keyed for
-// ordering. The relayer depends on this interface; a real Kafka client (e.g.
-// franz-go) satisfies it in a later wiring step.
-type RawProducer interface {
-	ProduceRaw(ctx context.Context, key string, payload []byte) error
-}
-
-// LogProducer is the default RawProducer: it logs each produce instead of
-// talking to a broker. It keeps the outbox+relayer path exercisable without
-// pulling in a Kafka client dependency; swap it for a broker-backed producer
-// when Kafka is wired.
-type LogProducer struct {
-	logger *slog.Logger
-	topic  string
-}
-
-// NewLogProducer returns a producer that logs to logger for topic.
-func NewLogProducer(logger *slog.Logger, topic string) *LogProducer {
-	if logger == nil {
-		logger = slog.Default()
-	}
-	if topic == "" {
-		topic = PaymentEventsTopic
-	}
-	return &LogProducer{logger: logger, topic: topic}
-}
-
-// ProduceRaw records the intended produce; it always succeeds.
-func (p *LogProducer) ProduceRaw(ctx context.Context, key string, payload []byte) error {
-	p.logger.InfoContext(ctx, "outbox produce (log-only)",
-		slog.String("topic", p.topic),
-		slog.String("key", key),
-		slog.Int("bytes", len(payload)),
-	)
-	return nil
-}
-
-var _ RawProducer = (*LogProducer)(nil)
