@@ -2,7 +2,6 @@ package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net"
 	"testing"
@@ -24,7 +23,7 @@ import (
 	"github.com/buidangphuc/team-payment/internal/upstream"
 )
 
-func discardLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func discardLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func principalCtx(id string, ptype auth.PrincipalType, scopes ...string) context.Context {
 	return auth.WithPrincipal(context.Background(), auth.Principal{ID: id, Type: ptype, Scopes: scopes})

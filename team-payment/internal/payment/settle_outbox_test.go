@@ -2,7 +2,6 @@ package payment_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"testing"
 
@@ -21,7 +20,7 @@ import (
 // writer over the SAME payment repo, so settle exercises the atomic
 // status-write + outbox-enqueue path (AD4 / SA-H3).
 func setupOutboxService() (*payment.Service, *fake.InMemoryPaymentRepository, *fake.InMemoryTxWriter, *mockOrderClient) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	paymentRepo := fake.NewInMemoryPaymentRepository()
 	walletRepo := fake.NewInMemoryWalletRepository()
 	txWriter := fake.NewInMemoryTxWriter(paymentRepo)

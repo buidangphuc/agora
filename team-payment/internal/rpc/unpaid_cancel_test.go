@@ -49,8 +49,10 @@ func (f cancelHandlerFixture) seed(t *testing.T, st store.PaymentStatus) store.P
 
 func cancelledOrders() *mockOrderClient {
 	return &mockOrderClient{orders: map[string]*orderv1.Order{
-		"order-1": {Id: "order-1", BuyerId: "buyer-1", SellerId: "seller-1", TotalAmount: 100000, Currency: "VND",
-			Status: orderv1.OrderStatus_ORDER_STATUS_CANCELLED},
+		"order-1": {
+			Id: "order-1", BuyerId: "buyer-1", SellerId: "seller-1", TotalAmount: 100000, Currency: "VND",
+			Status: orderv1.OrderStatus_ORDER_STATUS_CANCELLED,
+		},
 	}}
 }
 

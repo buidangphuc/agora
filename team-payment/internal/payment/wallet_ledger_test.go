@@ -3,7 +3,6 @@ package payment_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -16,7 +15,7 @@ import (
 )
 
 func newLedgerService() (*payment.Service, *fake.InMemoryLedgerRepository) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	ledger := fake.NewInMemoryLedgerRepository()
 	svc := newSvc(nil, nil, nil, logger, withLedger(ledger))
 	return svc, ledger
@@ -189,7 +188,7 @@ func (l slowBalanceLedger) Balance(ctx context.Context, sellerID string) (int64,
 // payouts of 100, exactly 10 succeed and the rest are insufficient-balance.
 func TestWalletService_ConcurrentPayoutsDoNotOverdraw(t *testing.T) {
 	ctx := context.Background()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	ledger := slowBalanceLedger{fake.NewInMemoryLedgerRepository()}
 	svc := newSvc(nil, nil, nil, logger, withLedger(ledger))
 	if _, err := svc.CreditWallet(ctx, "seller-1", 1000, store.LedgerTypeOrderSettlement); err != nil {

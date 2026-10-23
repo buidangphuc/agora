@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/buidangphuc/team-payment/internal/store"
@@ -55,12 +56,12 @@ func TestInMemoryPaymentRepository_CreateAndGet(t *testing.T) {
 
 	// Get non-existent
 	_, err = repo.GetTransaction(ctx, "non-existent")
-	if err != store.ErrTransactionNotFound {
+	if !errors.Is(err, store.ErrTransactionNotFound) {
 		t.Fatalf("expected ErrTransactionNotFound, got %v", err)
 	}
 
 	_, err = repo.GetTransactionByOrderID(ctx, "non-existent-order")
-	if err != store.ErrTransactionNotFound {
+	if !errors.Is(err, store.ErrTransactionNotFound) {
 		t.Fatalf("expected ErrTransactionNotFound, got %v", err)
 	}
 }
@@ -90,7 +91,7 @@ func TestInMemoryPaymentRepository_UpdateStatus(t *testing.T) {
 
 	// Update non-existent
 	_, err = repo.UpdateTransactionStatus(ctx, "non-existent", store.PaymentStatusPaid, "")
-	if err != store.ErrTransactionNotFound {
+	if !errors.Is(err, store.ErrTransactionNotFound) {
 		t.Errorf("expected ErrTransactionNotFound")
 	}
 }

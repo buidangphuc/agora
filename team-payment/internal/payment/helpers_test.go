@@ -1,7 +1,6 @@
 package payment_test
 
 import (
-	"io"
 	"log/slog"
 
 	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
@@ -45,7 +44,7 @@ func newSvc(payments store.PaymentRepository, wallet store.WalletRepository, ord
 		orders = &mockOrderClient{orders: map[string]*orderv1.Order{}}
 	}
 	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+		logger = slog.New(slog.DiscardHandler)
 	}
 	if parts.writer == nil {
 		parts.writer = fake.NewInMemoryTxWriter(mem)

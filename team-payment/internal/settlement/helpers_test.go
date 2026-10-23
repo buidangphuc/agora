@@ -34,7 +34,7 @@ import (
 	"github.com/buidangphuc/team-payment/internal/store/fake"
 )
 
-var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
+var quiet = slog.New(slog.DiscardHandler)
 
 type syncBuffer struct {
 	mu  sync.Mutex
@@ -113,8 +113,10 @@ func startLoop(t *testing.T, brokers, topic, group string, h *settlement.Handler
 	if err != nil {
 		t.Fatal(err)
 	}
-	l := &loop{t: t, topic: topic, group: group, brokers: brokers, logs: &syncBuffer{}, fp: fp,
-		done: make(chan error, 1), reached: make(chan struct{}), attempts: map[string]int{}}
+	l := &loop{
+		t: t, topic: topic, group: group, brokers: brokers, logs: &syncBuffer{}, fp: fp,
+		done: make(chan error, 1), reached: make(chan struct{}), attempts: map[string]int{},
+	}
 	logger := slog.New(slog.NewTextHandler(l.logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	client, err := kafkax.NewConsumerClient(config.Kafka{Brokers: brokers}, group, []string{topic},
 		kgo.AllowAutoTopicCreation(), kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
@@ -348,15 +350,19 @@ func shippedRecord(t *testing.T, orderID string) rec {
 func cancelledRecord(t *testing.T, orderID string, from orderv1.OrderStatus, total int64) rec {
 	t.Helper()
 	return rec{Key: orderID + "-cancel", Value: envelope(t, settlement.OrderCancelledEventType, "cancel-"+orderID,
-		&orderv1.OrderCancelled{OrderId: orderID, BuyerId: "buyer", SellerId: "s1", PreviousStatus: from,
-			TotalAmount: total, Currency: "VND", CancelledAt: timestamppb.Now()})}
+		&orderv1.OrderCancelled{
+			OrderId: orderID, BuyerId: "buyer", SellerId: "s1", PreviousStatus: from,
+			TotalAmount: total, Currency: "VND", CancelledAt: timestamppb.Now(),
+		})}
 }
 
 func returnRecord(t *testing.T, orderID, returnID string, amount int64) rec {
 	t.Helper()
 	return rec{Key: orderID + "/" + returnID, Value: envelope(t, settlement.ReturnRefundedEventType, "rr-"+returnID,
-		&orderv1.ReturnRefunded{ReturnId: returnID, OrderId: orderID, BuyerId: "buyer", SellerId: "s1",
-			RefundAmount: amount, Currency: "VND", RefundedAt: timestamppb.Now()})}
+		&orderv1.ReturnRefunded{
+			ReturnId: returnID, OrderId: orderID, BuyerId: "buyer", SellerId: "s1",
+			RefundAmount: amount, Currency: "VND", RefundedAt: timestamppb.Now(),
+		})}
 }
 
 func slogTo(w io.Writer) *slog.Logger {

@@ -3,7 +3,6 @@ package payment_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -50,7 +49,7 @@ func (m *mockOrderClient) UpdateOrderStatus(_ context.Context, req *orderv1.Upda
 }
 
 func setupService() (*payment.Service, *fake.InMemoryPaymentRepository, *fake.InMemoryWalletRepository, *mockOrderClient) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	paymentRepo := fake.NewInMemoryPaymentRepository()
 	walletRepo := fake.NewInMemoryWalletRepository()
 	orderClient := &mockOrderClient{
@@ -64,16 +63,16 @@ func setupService() (*payment.Service, *fake.InMemoryPaymentRepository, *fake.In
 // setupWalletService wires a service with BOTH the payout-request store and the wallet
 // ledger (the single source of truth for seller money).
 func setupWalletService() (*payment.Service, *fake.InMemoryWalletRepository, *fake.InMemoryLedgerRepository) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	walletRepo := fake.NewInMemoryWalletRepository()
 	ledger := fake.NewInMemoryLedgerRepository()
 	svc := newSvc(fake.NewInMemoryPaymentRepository(), walletRepo, &mockOrderClient{orders: map[string]*orderv1.Order{}}, logger, withLedger(ledger))
 	return svc, walletRepo, ledger
 }
 
-func credit(t *testing.T, ledger *fake.InMemoryLedgerRepository, seller string, amount int64) {
+func credit(ctx context.Context, t *testing.T, ledger *fake.InMemoryLedgerRepository, seller string, amount int64) {
 	t.Helper()
-	if _, err := ledger.AppendEntry(context.Background(), store.LedgerEntry{
+	if _, err := ledger.AppendEntry(ctx, store.LedgerEntry{
 		SellerID: seller, Type: store.LedgerTypeOrderSettlement, Amount: amount, Status: store.LedgerStatusCompleted,
 	}); err != nil {
 		t.Fatalf("credit: %v", err)
@@ -442,9 +441,9 @@ func TestService_GetSellerWallet(t *testing.T) {
 
 	t.Run("balance equals the ledger sum", func(t *testing.T) {
 		svc, _, ledger := setupWalletService()
-		credit(t, ledger, "seller-existing", 1500000)
-		credit(t, ledger, "seller-existing", 250000)
-		credit(t, ledger, "other-seller", 999)
+		credit(ctx, t, ledger, "seller-existing", 1500000)
+		credit(ctx, t, ledger, "seller-existing", 250000)
+		credit(ctx, t, ledger, "other-seller", 999)
 		if _, err := svc.RequestWalletPayout(ctx, "seller-existing", 100000); err != nil {
 			t.Fatalf("payout: %v", err)
 		}
@@ -472,7 +471,7 @@ func TestService_RequestPayout(t *testing.T) {
 
 	t.Run("payout debits the ledger and links the bank details to the entry", func(t *testing.T) {
 		svc, walletRepo, ledger := setupWalletService()
-		credit(t, ledger, "seller-payout-1", 1000000)
+		credit(ctx, t, ledger, "seller-payout-1", 1000000)
 
 		payout, err := svc.RequestPayout(ctx, "seller-payout-1", 400000, "VCB", "1234567890", "NGUYEN VAN A")
 		if err != nil {
@@ -505,7 +504,7 @@ func TestService_RequestPayout(t *testing.T) {
 
 	t.Run("payout is limited by the ledger balance", func(t *testing.T) {
 		svc, walletRepo, ledger := setupWalletService()
-		credit(t, ledger, "seller-payout-2", 100000)
+		credit(ctx, t, ledger, "seller-payout-2", 100000)
 
 		_, err := svc.RequestPayout(ctx, "seller-payout-2", 500000, "VCB", "1234567890", "NGUYEN VAN A")
 		if !errors.Is(err, store.ErrInsufficientBalance) {
@@ -529,7 +528,7 @@ func TestService_RequestPayout(t *testing.T) {
 
 	t.Run("concurrent RequestPayout and RequestWalletPayout cannot overdraw", func(t *testing.T) {
 		svc, _, ledger := setupWalletService()
-		credit(t, ledger, "seller-race", 1000)
+		credit(ctx, t, ledger, "seller-race", 1000)
 
 		const workers = 40
 		var wg sync.WaitGroup
@@ -572,7 +571,7 @@ func TestService_RequestPayout(t *testing.T) {
 
 	t.Run("missing bank info error", func(t *testing.T) {
 		svc, _, ledger := setupWalletService()
-		credit(t, ledger, "seller-payout-4", 1000000)
+		credit(ctx, t, ledger, "seller-payout-4", 1000000)
 		for _, c := range [][3]string{{"", "1", "A"}, {"VCB", "", "A"}, {"VCB", "1", ""}} {
 			if _, err := svc.RequestPayout(ctx, "seller-payout-4", 100000, c[0], c[1], c[2]); err == nil {
 				t.Fatalf("expected error for %v", c)
@@ -596,7 +595,7 @@ func TestService_ListPayoutHistory(t *testing.T) {
 
 	t.Run("list multiple payouts", func(t *testing.T) {
 		svc, _, ledger := setupWalletService()
-		credit(t, ledger, "seller-hist", 2000000)
+		credit(ctx, t, ledger, "seller-hist", 2000000)
 
 		if _, err := svc.RequestPayout(ctx, "seller-hist", 300000, "VCB", "111", "ACC 1"); err != nil {
 			t.Fatalf("payout 1 failed: %v", err)
@@ -667,7 +666,7 @@ func TestService_OrderSellerID_UnreachableOrderServiceIsNotNotFound(t *testing.T
 		{codes.NotFound, payment.ErrOrderNotFound},
 	} {
 		svc := newSvc(fake.NewInMemoryPaymentRepository(), fake.NewInMemoryWalletRepository(),
-			&mockOrderClient{err: status.Error(c.code, "x")}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+			&mockOrderClient{err: status.Error(c.code, "x")}, slog.New(slog.DiscardHandler))
 		if _, err := svc.OrderSellerID(context.Background(), "o1"); !errors.Is(err, c.want) {
 			t.Fatalf("%v: %v, want %v", c.code, err, c.want)
 		}

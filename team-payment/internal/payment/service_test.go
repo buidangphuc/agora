@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -67,7 +66,7 @@ func newRig(t *testing.T, adapters string) *rig {
 		payments,
 		fake.NewInMemoryWalletRepository(),
 		orders,
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		slog.New(slog.DiscardHandler),
 		writer,
 		ledger,
 		fake.NewInMemorySettlementLedger(payments, ledger),
@@ -79,10 +78,10 @@ func newRig(t *testing.T, adapters string) *rig {
 	return &rig{svc: svc, payments: payments, writer: writer, orders: orders}
 }
 
-func (r *rig) pending(t *testing.T, orderID string) store.PaymentTransaction {
+func (r *rig) pending(ctx context.Context, t *testing.T, orderID string) store.PaymentTransaction {
 	t.Helper()
 	r.orders.orders[orderID] = &orderv1.Order{Id: orderID, Status: orderv1.OrderStatus_ORDER_STATUS_PENDING}
-	tx, err := r.payments.CreateTransaction(context.Background(), store.PaymentTransaction{
+	tx, err := r.payments.CreateTransaction(ctx, store.PaymentTransaction{
 		OrderID: orderID,
 		BuyerID: "buyer-1",
 		Amount:  300000,
@@ -101,7 +100,7 @@ func TestNewServiceRequiresTxWriter(t *testing.T) {
 		payments,
 		fake.NewInMemoryWalletRepository(),
 		&orderStub{},
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		slog.New(slog.DiscardHandler),
 		nil,
 		ledger,
 		fake.NewInMemorySettlementLedger(payments, ledger),
@@ -121,7 +120,7 @@ func TestNewServiceRequiresLedgerAndSettlementLedger(t *testing.T) {
 	payments := fake.NewInMemoryPaymentRepository()
 	ledger := fake.NewInMemoryLedgerRepository()
 	writer := fake.NewInMemoryTxWriter(payments)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 
 	if _, err := payment.NewService(payments, fake.NewInMemoryWalletRepository(), &orderStub{}, logger, writer, nil, fake.NewInMemorySettlementLedger(payments, ledger)); err == nil {
 		t.Error("scenario 'The service refuses a missing transaction writer': nil ledger must be refused")
@@ -134,7 +133,7 @@ func TestNewServiceRequiresLedgerAndSettlementLedger(t *testing.T) {
 func TestMockDataProviderSettlesThroughRealPath(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t, "payment-provider")
-	tx := r.pending(t, "order-fx-1")
+	tx := r.pending(ctx, t, "order-fx-1")
 
 	updated, ok, _, err := r.svc.ProcessMockPayment(ctx, tx.ID, true)
 	if err != nil || !ok {
@@ -162,7 +161,7 @@ func TestMockDataProviderSettlesThroughRealPath(t *testing.T) {
 func TestMockDataProviderFailureWritesNoOutbox(t *testing.T) {
 	ctx := context.Background()
 	r := newRig(t, "payment-provider")
-	tx := r.pending(t, "order-fx-2")
+	tx := r.pending(ctx, t, "order-fx-2")
 
 	updated, ok, _, err := r.svc.ProcessMockPayment(ctx, tx.ID, false)
 	if err != nil {
@@ -187,7 +186,7 @@ func TestLiveProviderRefusesMockPayment(t *testing.T) {
 	ctx := context.Background()
 	for _, simulate := range []bool{true, false} {
 		r := newRig(t, "")
-		tx := r.pending(t, "order-live")
+		tx := r.pending(ctx, t, "order-live")
 
 		_, _, _, err := r.svc.ProcessMockPayment(ctx, tx.ID, simulate)
 		if status.Code(err) != codes.FailedPrecondition {
@@ -211,7 +210,7 @@ func TestService_Settle_WritesPaymentAndOutboxAtomically(t *testing.T) {
 
 	t.Run("settle writes payment=PAID and a PaymentSettled outbox row in one tx", func(t *testing.T) {
 		r := newRig(t, "payment-provider")
-		tx := r.pending(t, "order-settle-1")
+		tx := r.pending(ctx, t, "order-settle-1")
 
 		updated, ok, _, err := r.svc.ProcessMockPayment(ctx, tx.ID, true)
 		if err != nil || !ok {
@@ -248,7 +247,7 @@ func TestService_Settle_WritesPaymentAndOutboxAtomically(t *testing.T) {
 	t.Run("a failed write leaves the payment PENDING and no outbox row", func(t *testing.T) {
 		r := newRig(t, "payment-provider")
 		r.writer.FailWrite = true
-		tx := r.pending(t, "order-settle-2")
+		tx := r.pending(ctx, t, "order-settle-2")
 
 		if _, _, _, err := r.svc.ProcessMockPayment(ctx, tx.ID, true); err == nil {
 			t.Fatal("expected an error when the transactional write fails")

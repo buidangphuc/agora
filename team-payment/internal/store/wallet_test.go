@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ func TestInMemoryWalletRepository_PayoutRequests(t *testing.T) {
 
 	// Get non-existent payout
 	_, err = repo.GetPayoutRequest(ctx, "missing-payout")
-	if err != store.ErrPayoutNotFound {
+	if !errors.Is(err, store.ErrPayoutNotFound) {
 		t.Errorf("expected ErrPayoutNotFound, got %v", err)
 	}
 

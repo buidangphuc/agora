@@ -3,7 +3,6 @@ package payment_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -20,14 +19,15 @@ type refundFixture struct {
 }
 
 // newRefundFixture wires a service whose order "o1" has a credited PAID payment of 500000.
-func newRefundFixture(t *testing.T) (refundFixture, store.PaymentTransaction) {
+func newRefundFixture(ctx context.Context, t *testing.T) (refundFixture, store.PaymentTransaction) {
 	t.Helper()
-	ctx := context.Background()
 	p := fake.NewInMemoryPaymentRepository()
 	l := fake.NewInMemoryLedgerRepository()
-	f := refundFixture{payments: p, ledger: l,
-		svc: newSvc(p, fake.NewInMemoryWalletRepository(), nil, slog.New(slog.NewTextHandler(io.Discard, nil)),
-			withLedger(l), withSettlement(fake.NewInMemorySettlementLedger(p, l)))}
+	f := refundFixture{
+		payments: p, ledger: l,
+		svc: newSvc(p, fake.NewInMemoryWalletRepository(), nil, slog.New(slog.DiscardHandler),
+			withLedger(l), withSettlement(fake.NewInMemorySettlementLedger(p, l))),
+	}
 	tx, err := p.CreateTransaction(ctx, store.PaymentTransaction{ID: "tx1", OrderID: "o1", BuyerID: "b", Amount: 500000, Status: store.PaymentStatusPaid})
 	if err != nil {
 		t.Fatal(err)
@@ -38,18 +38,18 @@ func newRefundFixture(t *testing.T) (refundFixture, store.PaymentTransaction) {
 	return f, tx
 }
 
-func (f refundFixture) payment(t *testing.T) store.PaymentTransaction {
+func (f refundFixture) payment(ctx context.Context, t *testing.T) store.PaymentTransaction {
 	t.Helper()
-	tx, err := f.svc.GetPayment(context.Background(), "", "o1")
+	tx, err := f.svc.GetPayment(ctx, "", "o1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	return tx
 }
 
-func (f refundFixture) deductions(t *testing.T) map[string]int64 {
+func (f refundFixture) deductions(ctx context.Context, t *testing.T) map[string]int64 {
 	t.Helper()
-	entries, _, err := f.ledger.ListEntries(context.Background(), "s1", 0, 100)
+	entries, _, err := f.ledger.ListEntries(ctx, "s1", 0, 100)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestValidRefundID(t *testing.T) {
 
 func TestRefundPayment_StrictMode(t *testing.T) {
 	ctx := context.Background()
-	f, tx := newRefundFixture(t)
+	f, tx := newRefundFixture(ctx, t)
 
 	for _, id := range []string{"", "bad id", strings.Repeat("x", 65)} {
 		if _, _, _, err := f.svc.RefundPayment(ctx, tx.ID, id, 1000, "r"); !errors.Is(err, payment.ErrInvalidRefundID) {
@@ -111,7 +111,7 @@ func TestRefundPayment_StrictMode(t *testing.T) {
 	if _, _, _, err := f.svc.RefundPayment(ctx, tx.ID, "R3", 1, "x"); !errors.Is(err, payment.ErrInvalidRefund) {
 		t.Fatalf("refund of a REFUNDED payment: want ErrInvalidRefund, got %v", err)
 	}
-	if p := f.payment(t); p.Status != store.PaymentStatusRefunded || len(p.Refunds) != 2 {
+	if p := f.payment(ctx, t); p.Status != store.PaymentStatusRefunded || len(p.Refunds) != 2 {
 		t.Fatalf("payment: %+v", p)
 	}
 }
@@ -119,14 +119,14 @@ func TestRefundPayment_StrictMode(t *testing.T) {
 func TestRefundCancelledOrder_RemainderMode(t *testing.T) {
 	ctx := context.Background()
 	t.Run("after a partial refund refunds the remainder", func(t *testing.T) {
-		f, tx := newRefundFixture(t)
+		f, tx := newRefundFixture(ctx, t)
 		if _, _, _, err := f.svc.RefundPayment(ctx, tx.ID, "R1", 200000, "x"); err != nil {
 			t.Fatal(err)
 		}
 		if err := f.svc.RefundCancelledOrder(ctx, "o1"); err != nil {
 			t.Fatal(err)
 		}
-		p := f.payment(t)
+		p := f.payment(ctx, t)
 		if p.Status != store.PaymentStatusRefunded || p.RefundedAmount != 500000 || len(p.Refunds) != 2 {
 			t.Fatalf("payment: %+v", p)
 		}
@@ -137,27 +137,27 @@ func TestRefundCancelledOrder_RemainderMode(t *testing.T) {
 		if err := f.svc.RefundCancelledOrder(ctx, "o1"); err != nil {
 			t.Fatal(err)
 		}
-		if d := f.deductions(t); len(d) != 2 || d["rpc:R1"] != -200000 || d["cancel:o1"] != -300000 {
+		if d := f.deductions(ctx, t); len(d) != 2 || d["rpc:R1"] != -200000 || d["cancel:o1"] != -300000 {
 			t.Fatalf("deductions %v", d)
 		}
 	})
 	t.Run("after a full refund is a no-op", func(t *testing.T) {
-		f, tx := newRefundFixture(t)
+		f, tx := newRefundFixture(ctx, t)
 		if _, _, _, err := f.svc.RefundPayment(ctx, tx.ID, "R1", 500000, "x"); err != nil {
 			t.Fatal(err)
 		}
 		if err := f.svc.RefundCancelledOrder(ctx, "o1"); err != nil {
 			t.Fatal(err)
 		}
-		if p := f.payment(t); p.Status != store.PaymentStatusRefunded || len(p.Refunds) != 1 {
+		if p := f.payment(ctx, t); p.Status != store.PaymentStatusRefunded || len(p.Refunds) != 1 {
 			t.Fatalf("payment: %+v", p)
 		}
-		if d := f.deductions(t); len(d) != 1 || d["rpc:R1"] != -500000 {
+		if d := f.deductions(ctx, t); len(d) != 1 || d["rpc:R1"] != -500000 {
 			t.Fatalf("deductions %v", d)
 		}
 	})
 	t.Run("without a settled payment", func(t *testing.T) {
-		f, _ := newRefundFixture(t)
+		f, _ := newRefundFixture(ctx, t)
 		if err := f.svc.RefundCancelledOrder(ctx, "o-none"); !errors.Is(err, payment.ErrNotSettled) {
 			t.Fatalf("want ErrNotSettled, got %v", err)
 		}
@@ -167,32 +167,32 @@ func TestRefundCancelledOrder_RemainderMode(t *testing.T) {
 func TestRefundReturn_ClampMode(t *testing.T) {
 	ctx := context.Background()
 	t.Run("refunds once", func(t *testing.T) {
-		f, _ := newRefundFixture(t)
+		f, _ := newRefundFixture(ctx, t)
 		for i := 0; i < 2; i++ {
 			if err := f.svc.RefundReturn(ctx, "o1", "ret-1", 200000); err != nil {
 				t.Fatal(err)
 			}
 		}
-		p := f.payment(t)
+		p := f.payment(ctx, t)
 		if p.Status != store.PaymentStatusPartiallyRefunded || p.RefundedAmount != 200000 || len(p.Refunds) != 1 {
 			t.Fatalf("payment: %+v", p)
 		}
 		if r := p.Refunds[0]; r.ID != "return:ret-1" || r.Source != store.RefundSourceReturn || r.SourceID != "ret-1" || r.Reason != "return_refunded" {
 			t.Fatalf("return refund: %+v", r)
 		}
-		if d := f.deductions(t); len(d) != 1 || d["return:ret-1"] != -200000 {
+		if d := f.deductions(ctx, t); len(d) != 1 || d["return:ret-1"] != -200000 {
 			t.Fatalf("deductions %v", d)
 		}
 	})
 	t.Run("clamps to what a direct refund left", func(t *testing.T) {
-		f, tx := newRefundFixture(t)
+		f, tx := newRefundFixture(ctx, t)
 		if _, _, _, err := f.svc.RefundPayment(ctx, tx.ID, "D", 400000, "x"); err != nil {
 			t.Fatal(err)
 		}
 		if err := f.svc.RefundReturn(ctx, "o1", "ret-1", 300000); err != nil {
 			t.Fatal(err)
 		}
-		p := f.payment(t)
+		p := f.payment(ctx, t)
 		if p.Status != store.PaymentStatusRefunded || p.RefundedAmount != 500000 {
 			t.Fatalf("payment: %+v", p)
 		}
@@ -201,26 +201,26 @@ func TestRefundReturn_ClampMode(t *testing.T) {
 		}
 	})
 	t.Run("after a full refund records an applied 0", func(t *testing.T) {
-		f, tx := newRefundFixture(t)
+		f, tx := newRefundFixture(ctx, t)
 		if _, _, _, err := f.svc.RefundPayment(ctx, tx.ID, "D", 500000, "x"); err != nil {
 			t.Fatal(err)
 		}
 		if err := f.svc.RefundReturn(ctx, "o1", "ret-1", 200000); err != nil {
 			t.Fatalf("an applied 0 is not an error: %v", err)
 		}
-		p := f.payment(t)
+		p := f.payment(ctx, t)
 		if p.Status != store.PaymentStatusRefunded || p.RefundedAmount != 500000 || len(p.Refunds) != 2 {
 			t.Fatalf("payment: %+v", p)
 		}
 		if r := p.Refunds[1]; r.RequestedAmount != 200000 || r.Amount != 0 {
 			t.Fatalf("return refund: %+v", r)
 		}
-		if d := f.deductions(t); len(d) != 1 {
+		if d := f.deductions(ctx, t); len(d) != 1 {
 			t.Fatalf("an applied 0 must not deduct: %v", d)
 		}
 	})
 	t.Run("invalid or unsettled", func(t *testing.T) {
-		f, _ := newRefundFixture(t)
+		f, _ := newRefundFixture(ctx, t)
 		if err := f.svc.RefundReturn(ctx, "o-none", "ret", 1); !errors.Is(err, payment.ErrNotSettled) {
 			t.Fatalf("no payment: want ErrNotSettled, got %v", err)
 		}

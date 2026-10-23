@@ -193,7 +193,8 @@ func TestAdminRefundAuditBeforeRefund(t *testing.T) {
 func TestAdminRefundAuditMetadataKeys(t *testing.T) {
 	f := newAuditFixture(t, nil)
 	_, err := f.h.RefundPayment(admin("adm-1"), &paymentv1.RefundPaymentRequest{
-		PaymentId: f.txID, RefundId: "R-1", Amount: 200000, Reason: "buyer complaint 123"})
+		PaymentId: f.txID, RefundId: "R-1", Amount: 200000, Reason: "buyer complaint 123",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
