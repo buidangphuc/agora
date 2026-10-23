@@ -2,83 +2,29 @@ package upstream
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"strconv"
-	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 
 	auditv1 "github.com/buidangphuc/team-payment/generated/platform/audit/v1"
 )
 
-// Scope team-payment presents to team-audit (WriteAuditEvent requires a service
-// principal holding audit.write).
-const auditServicePrincipalScopes = "audit.write"
-
-func auditMetadata() metadata.MD {
-	return metadata.Pairs(
-		"x-principal-id", servicePrincipalID,
-		"x-principal-type", "service",
-		"x-principal-scopes", auditServicePrincipalScopes,
-	)
+type auditWriter struct {
+	svc auditv1.AuditServiceClient
 }
 
-// auditPrincipalInterceptor replaces any outgoing principal with the service one.
-func auditPrincipalInterceptor(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	return invoker(metadata.NewOutgoingContext(ctx, auditMetadata()), method, req, reply, cc, opts...)
+func NewAuditWriter(conn *grpc.ClientConn) auditx.Writer {
+	return &auditWriter{svc: auditv1.NewAuditServiceClient(conn)}
 }
 
-// AuditClient writes audit events to team-audit over gRPC.
-type AuditClient struct {
-	conn    *grpc.ClientConn
-	svc     auditv1.AuditServiceClient
-	timeout time.Duration
-}
-
-// NewAuditClient dials addr (UPSTREAM_AUDIT_ADDR). Empty addr returns (nil, nil).
-func NewAuditClient(addr string, callTimeout time.Duration) (*AuditClient, error) {
-	if addr == "" {
-		return nil, nil
-	}
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithUnaryInterceptor(auditPrincipalInterceptor))
-	if err != nil {
-		return nil, fmt.Errorf("dial team-audit at %s: %w", addr, err)
-	}
-	return &AuditClient{conn: conn, svc: auditv1.NewAuditServiceClient(conn), timeout: callTimeout}, nil
-}
-
-// Close releases the underlying connection. Nil-safe.
-func (c *AuditClient) Close() error {
-	if c == nil || c.conn == nil {
-		return nil
-	}
-	return c.conn.Close()
-}
-
-// WriteAdminRefund records that actorID (an admin) refunded amount on paymentID
-// (order orderID). Single attempt, bounded by the call timeout.
-func (c *AuditClient) WriteAdminRefund(ctx context.Context, actorID, paymentID, orderID, refundID string, amount int64) error {
-	if c == nil || c.svc == nil {
-		return errors.New("audit client not configured")
-	}
-	callCtx := ctx
-	if c.timeout > 0 {
-		var cancel context.CancelFunc
-		callCtx, cancel = context.WithTimeout(ctx, c.timeout)
-		defer cancel()
-	}
-	_, err := c.svc.WriteAuditEvent(callCtx, &auditv1.WriteAuditEventRequest{
-		ActorId:    actorID,
-		Action:     "payment.admin_refund",
-		TargetType: "payment",
-		TargetId:   paymentID,
-		Metadata:   map[string]string{"order_id": orderID, "refund_id": refundID, "amount": strconv.FormatInt(amount, 10)},
+func (w *auditWriter) WriteAuditEvent(ctx context.Context, ev auditx.Event) error {
+	_, err := w.svc.WriteAuditEvent(ctx, &auditv1.WriteAuditEventRequest{
+		ActorId:    ev.ActorID,
+		Action:     ev.Action,
+		TargetType: ev.TargetType,
+		TargetId:   ev.TargetID,
+		Metadata:   ev.Metadata,
 	})
-	if err != nil {
-		return fmt.Errorf("write audit event: %w", err)
-	}
-	return nil
+	return err
 }
