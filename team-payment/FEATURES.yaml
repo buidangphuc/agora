@@ -193,7 +193,7 @@ features:
     persona: buyer
     priority: P0
     summary: >-
-      With MOCK_PAYMENTS=true (local compose) ProcessMockPayment settles and the order becomes paid.
+      With MOCK_DATA=payment-provider (local compose) ProcessMockPayment settles and the order becomes paid.
     entry_route: /
     services: [team-payment, team-order, team-gateway]
     preconditions:
@@ -213,7 +213,7 @@ features:
     persona: admin
     priority: P0
     summary: >-
-      The team-payment image started with ENV=production and MOCK_PAYMENTS=true exits non-zero and logs MOCK_PAYMENTS.
+      The team-payment image started with ENV=production and MOCK_DATA=payment-provider exits non-zero and logs MOCK_DATA.
     entry_route: /
     services: [team-payment]
     preconditions:
@@ -221,8 +221,8 @@ features:
     api:
       exercised: []
     acceptance:
-      - When the team-payment image is started with ENV=production and MOCK_PAYMENTS=true
-      - Then the process exits non-zero and its log names MOCK_PAYMENTS
+      - When the team-payment image is started with ENV=production and MOCK_DATA=payment-provider
+      - Then the process exits non-zero and its log names MOCK_DATA
     tags: [payment, ops]
     status: automated
     covered_by: "ops/boot_guard_payment.feature::team-payment refuses mock payments in production"
@@ -1332,7 +1332,7 @@ features:
       - "Admin refund writes one audit event and refunds (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundWritesAuditEvent`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundWritesAuditEvent`. Not producible end to end."
 
   - id: payment.praa-audit-is-written-before-the-refund
     title: "Audit is written before the refund"
@@ -1347,7 +1347,7 @@ features:
       - "Audit is written before the refund (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditBeforeRefund`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditBeforeRefund`. Not producible end to end."
 
   - id: payment.praa-admin-refund-is-audited-end-to-end
     title: "Admin refund is audited end to end"
@@ -1382,7 +1382,7 @@ features:
       - "Admin who is the order's seller is audited (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminWhoIsSellerRefundIsAudited`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminWhoIsSellerRefundIsAudited`. Not producible end to end."
 
   - id: payment.praa-audit-is-called-as-the-service-principal
     title: "Payment audit: Audit is called as the service principal"
@@ -1397,7 +1397,7 @@ features:
       - "Payment audit: Audit is called as the service principal (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestAuditClientUsesServicePrincipal`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestAuditWriterUsesServicePrincipal`. Not producible end to end."
 
   - id: payment.praa-reason-is-not-copied-into-the-audit-event
     title: "Reason is not copied into the audit event"
@@ -1412,7 +1412,7 @@ features:
       - "Reason is not copied into the audit event (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditMetadataKeys`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditMetadataKeys`. Not producible end to end."
 
   - id: payment.praa-refusal-before-the-audit-write-writes-no-event
     title: "Refusal before the audit write writes no event"
@@ -1427,7 +1427,7 @@ features:
       - "Refusal before the audit write writes no event (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundRefusedBeforeAuditWritesNothing`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundRefusedBeforeAuditWritesNothing`. Not producible end to end."
 
   - id: payment.praa-unauthenticated-caller-writes-no-event
     title: "Unauthenticated caller writes no event"
@@ -1442,7 +1442,7 @@ features:
       - "Unauthenticated caller writes no event (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestRefundPaymentAnonymousNoAudit`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestRefundPaymentAnonymousNoAudit`. Not producible end to end."
 
   - id: payment.praa-audit-error-leaves-the-ledger-unchanged
     title: "Audit error leaves the ledger unchanged"
@@ -1457,7 +1457,7 @@ features:
       - "Audit error leaves the ledger unchanged (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditErrorFailsClosed`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditErrorFailsClosed`. Not producible end to end."
 
   - id: payment.praa-audit-timeout-is-bounded-and-refuses-the-refund
     title: "Audit timeout is bounded and refuses the refund"
@@ -1472,22 +1472,7 @@ features:
       - "Audit timeout is bounded and refuses the refund (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestAuditClientTimeoutBounded`; team-payment `internal/handler` `TestAdminRefundAuditTimeoutFailsClosed`. Not producible end to end."
-
-  - id: payment.praa-payment-audit-no-audit-upstream-configured
-    title: "Payment audit: no audit upstream configured"
-    persona: admin
-    priority: P2
-    summary: "Payment audit: no audit upstream configured"
-    entry_route: /
-    services: [team-payment]
-    preconditions:
-      login: admin
-    acceptance:
-      - "Payment audit: no audit upstream configured (unit-verified)"
-    tags: [fintech, unit]
-    status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestNewAuditClientEmptyAddrIsNil`; team-payment `internal/handler` `TestAdminRefundNilAuditWriterUnavailable`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestAuditWriterHangIsBoundedByGate`; team-payment `internal/rpc` `TestAdminRefundAuditTimeoutFailsClosed`. Not producible end to end."
 
   - id: payment.praa-audit-down-refuses-the-admin-refund-end-to-end
     title: "Audit down refuses the admin refund end to end"
@@ -1522,7 +1507,7 @@ features:
       - "Retry after audit success and refund failure refunds once (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundRetryAfterFailureRefundsOnce`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundRetryAfterFailureRefundsOnce`. Not producible end to end."
 
   - id: payment.praa-replay-of-an-applied-refund-id-does-not-move-money-again
     title: "Replay of an applied refund id does not move money again"
@@ -1537,7 +1522,7 @@ features:
       - "Replay of an applied refund id does not move money again (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundReplayIsIdempotent`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundReplayIsIdempotent`. Not producible end to end."
 
   - id: payment.praa-refund-above-the-remainder-is-refused-on-the-admin-path
     title: "Refund above the remainder is refused on the admin path"
@@ -1552,7 +1537,7 @@ features:
       - "Refund above the remainder is refused on the admin path (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestAdminRefundExceedsRemainderRefused`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundExceedsRemainderRefused`. Not producible end to end."
 
   - id: payment.praa-seller-refund-writes-no-audit-event
     title: "Seller refund writes no audit event"
@@ -1587,7 +1572,7 @@ features:
       - "Seller refund succeeds while audit is down (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestSellerRefundIgnoresAuditOutage`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestSellerRefundIgnoresAuditOutage`. Not producible end to end."
 
   - id: payment.praa-non-seller-non-admin-is-denied-without-an-event
     title: "Non-seller non-admin is denied without an event"
@@ -1602,7 +1587,7 @@ features:
       - "Non-seller non-admin is denied without an event (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/handler` `TestRefundPaymentNonSellerDeniedNoAudit`. Not producible end to end."
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestRefundPaymentNonSellerDeniedNoAudit`. Not producible end to end."
 
   - id: payment.praa-non-admin-buyer-cannot-trigger-an-admin-audit
     title: "Non-admin buyer cannot trigger an admin audit"
@@ -2010,7 +1995,7 @@ features:
       - "Refund audit id: Admin refund event carries refund_id (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditCarriesRefundID`. Not producible end to end."
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditCarriesRefundID`. Not producible end to end."
 
   - id: payment.prai-audit-client-puts-refund-id-in-metadata
     title: "Refund audit id: Audit client puts refund_id in metadata"
@@ -2025,7 +2010,7 @@ features:
       - "Refund audit id: Audit client puts refund_id in metadata (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/upstream` `TestAuditClientRefundIDDistinctAndVerbatim`. Not producible end to end."
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/upstream` `TestAuditWriterRefundIDVerbatim`. Not producible end to end."
 
   - id: payment.prai-retry-with-the-same-refund-id-is-distinguishable
     title: "Refund audit id: Retry with the same refund_id is distinguishable"
@@ -2040,7 +2025,7 @@ features:
       - "Refund audit id: Retry with the same refund_id is distinguishable (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundRetryKeepsRefundID`. Not producible end to end."
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundRetryKeepsRefundID`. Not producible end to end."
 
   - id: payment.prai-audit-is-still-written-before-the-refund
     title: "Refund audit id: Audit is still written before the refund"
@@ -2055,7 +2040,7 @@ features:
       - "Refund audit id: Audit is still written before the refund (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditBeforeRefund`. Not producible end to end."
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditBeforeRefund`. Not producible end to end."
 
   - id: payment.prai-invalid-refund-id-writes-no-event
     title: "Refund audit id: Invalid refund_id writes no event"
@@ -2070,7 +2055,7 @@ features:
       - "Refund audit id: Invalid refund_id writes no event (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundInvalidRefundIDWritesNoEvent`. Not producible end to end."
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundInvalidRefundIDWritesNoEvent`. Not producible end to end."
 
   - id: payment.prai-boundary-64-character-refund-id-is-recorded-intact
     title: "Refund audit id: Boundary 64-character refund_id is recorded intact"
@@ -2085,7 +2070,7 @@ features:
       - "Refund audit id: Boundary 64-character refund_id is recorded intact (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditRefundIDMaxLength`. Not producible end to end."
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditRefundIDMaxLength`. Not producible end to end."
 
   - id: payment.prai-audit-failure-still-refuses-the-refund
     title: "Refund audit id: Audit failure still refuses the refund"
@@ -2100,4 +2085,1181 @@ features:
       - "Refund audit id: Audit failure still refuses the refund (unit-verified)"
     tags: [fintech, unit]
     status: not-testable
-    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/handler` `TestAdminRefundAuditErrorLeavesLedgerUnchanged`. Not producible end to end."
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditErrorLeavesLedgerUnchanged`. Not producible end to end."
+
+  - id: payment.runtime-liveness-independent-of-dependencies
+    title: A database outage makes the service not ready but alive
+    persona: admin
+    priority: P1
+    summary: >-
+      With the database down team-payment reports not ready on the readiness probe while the liveness probe stays healthy.
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    api:
+      exercised: []
+    acceptance:
+      - Given team-payment running with its database
+      - When the database becomes unreachable
+      - Then the readiness probe fails and the liveness probe still passes
+    tags: [payment, ops, unit]
+    status: not-testable
+    notes: >-
+      payment-service-runtime: unit-verified in team-payment `internal/app`; end-to-end coverage is a future gitops probe check (not producible in the compose e2e without stopping the shared database).
+
+  - id: admin-refund-audit.payment-audit-no-audit-upstream-configured
+    title: "Payment audit: no audit upstream configured"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Payment audit: no audit upstream configured"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestUpstreamAddrsRequiredInEveryEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-access-control.a-stack-without-the-adapter-refuses-the-mock-payment
+    title: "A stack without the adapter refuses the mock payment"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A stack without the adapter refuses the mock payment"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestProcessMockPayment_DisabledByDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.go-mod-requires-the-tag-and-nothing-local
+    title: "go.mod requires the tag and nothing local"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "go.mod requires the tag and nothing local"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestGoModRequiresTaggedSDK`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.shared-make-and-lint-files-are-referenced-not-copied
+    title: "Shared make and lint files are referenced, not copied"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Shared make and lint files are referenced, not copied"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestSharedMakeAndLintAreReferenced`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-replace-directive-or-a-copied-shared-file-fails-the-layout-checks
+    title: "A replace directive or a copied shared file fails the layout checks"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A replace directive or a copied shared file fails the layout checks"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestLayoutChecksRejectCopiesAndReplace`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.hand-rolled-infrastructure-packages-are-gone
+    title: "Hand-rolled infrastructure packages are gone"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Hand-rolled infrastructure packages are gone"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestLayoutHasNoLegacyPackages`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-missing-env-refuses-to-start
+    title: "A missing ENV refuses to start"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A missing ENV refuses to start"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestLoadRefusesMissingEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-empty-database-url-refuses-to-start-in-every-environment
+    title: "An empty database URL refuses to start in every environment"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An empty database URL refuses to start in every environment"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestLoadRefusesEmptyDatabaseURL`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.removed-keys-are-not-declared
+    title: "Removed keys are not declared"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Removed keys are not declared"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestRemovedKeysAreNotDeclared`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.reflection-is-off-by-default
+    title: "Reflection is off by default"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Reflection is off by default"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestReflectionOffByDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.reflection-is-refused-in-a-strict-environment
+    title: "Reflection is refused in a strict environment"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Reflection is refused in a strict environment"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestReflectionRefusedInStrictEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-strict-environment-requires-brokers-upstream-addresses-and-key-secret
+    title: "A strict environment requires brokers, upstream addresses and key secret"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A strict environment requires brokers, upstream addresses and key secret"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestStrictEnvRequiresBrokersAuditAndKeySecret`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.upstream-addresses-are-required-in-every-environment
+    title: "Upstream addresses are required in every environment"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Upstream addresses are required in every environment"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestUpstreamAddrsRequiredInEveryEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-invalid-payout-hold-window-still-refuses-to-start-and-names-its-key
+    title: "An invalid payout hold window still refuses to start and names its key"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An invalid payout hold window still refuses to start and names its key"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestPayoutHoldWindow`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.env-example-documents-every-key
+    title: ".env.example documents every key"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - ".env.example documents every key"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestEnvExampleInSync`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-fixture-provider-settles-through-the-real-path
+    title: "The fixture provider settles through the real path"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The fixture provider settles through the real path"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestMockDataProviderSettlesThroughRealPath`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-simulated-failure-sets-failed-and-writes-no-outbox-row
+    title: "A simulated failure sets FAILED and writes no outbox row"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A simulated failure sets FAILED and writes no outbox row"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestMockDataProviderFailureWritesNoOutbox`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.without-the-adapter-the-mock-rpc-is-refused
+    title: "Without the adapter the mock RPC is refused"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Without the adapter the mock RPC is refused"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestProcessMockPayment_DisabledByDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.mock-payments-no-longer-enables-anything
+    title: "MOCK_PAYMENTS no longer enables anything"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "MOCK_PAYMENTS no longer enables anything"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestMockPaymentsKeyIsIgnored`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-strict-environment-refuses-mock-data-before-validating-anything-else
+    title: "A strict environment refuses mock data before validating anything else"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A strict environment refuses mock data before validating anything else"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestMockDataRefusedBeforeValidation`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-unknown-adapter-refuses-startup
+    title: "An unknown adapter refuses startup"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An unknown adapter refuses startup"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestUnknownMockAdapterRefused`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.active-mock-data-is-logged-once
+    title: "Active mock data is logged once"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Active mock data is logged once"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestMockDataLoggedOnce`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-user-who-is-neither-the-buyer-nor-an-admin-cannot-use-the-mock-path
+    title: "A user who is neither the buyer nor an admin cannot use the mock path"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A user who is neither the buyer nor an admin cannot use the mock path"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestProcessMockPayment_Errors`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-unreachable-database-fails-startup
+    title: "An unreachable database fails startup"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An unreachable database fails startup"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestRunFailsWhenDatabaseUnreachable`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-service-refuses-a-missing-transaction-writer
+    title: "The service refuses a missing transaction writer"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The service refuses a missing transaction writer"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/payment` `TestNewServiceRequiresTxWriter`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.production-wiring-imports-no-in-memory-store
+    title: "Production wiring imports no in-memory store"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Production wiring imports no in-memory store"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestNoInMemoryStoreInProductionWiring`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.settle-writes-the-payment-and-its-outbox-row-in-one-transaction
+    title: "Settle writes the payment and its outbox row in one transaction"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Settle writes the payment and its outbox row in one transaction"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/payment` `TestService_Settle_WritesPaymentAndOutboxAtomically`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-broker-outage-does-not-make-the-service-not-ready
+    title: "A broker outage does not make the service not ready"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A broker outage does not make the service not ready"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestBrokerOutageKeepsServiceReady`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.recovery-restores-readiness
+    title: "Recovery restores readiness"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Recovery restores readiness"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestReadinessRecoversAfterOutage`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.shutdown-drains-health-first
+    title: "Shutdown drains health first"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Shutdown drains health first"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestShutdownDrainsHealthThenStops`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-migrate-subcommand-applies-every-embedded-migration
+    title: "The migrate subcommand applies every embedded migration"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The migrate subcommand applies every embedded migration"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `cmd/server` `TestMigrateUpAppliesEmbeddedMigrations`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-migrate-subcommand-fails-on-an-unreachable-database
+    title: "The migrate subcommand fails on an unreachable database"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The migrate subcommand fails on an unreachable database"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `cmd/server` `TestMigrateUpFailsWhenDatabaseUnreachable`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.booting-the-service-never-migrates
+    title: "Booting the service never migrates"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Booting the service never migrates"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestRunDoesNotMigrate`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-missing-docker-daemon-fails-the-suite
+    title: "A missing Docker daemon fails the suite"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A missing Docker daemon fails the suite"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestDockerRequiredFailsInsteadOfSkipping`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-settled-payment-is-published-once-with-its-envelope
+    title: "A settled payment is published once with its envelope"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A settled payment is published once with its envelope"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestSettleEventIsRelayedOnce`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-outbox-upgrade-keeps-pending-events-in-order
+    title: "The outbox upgrade keeps pending events in order"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The outbox upgrade keeps pending events in order"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestOutboxUpgradeKeepsPendingOrder`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-outbox-upgrade-requeues-rows-parked-as-failed
+    title: "The outbox upgrade requeues rows parked as failed"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The outbox upgrade requeues rows parked as failed"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestOutboxUpgradeRequeuesFailedRows`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.published-rows-older-than-7-days-are-purged
+    title: "Published rows older than 7 days are purged"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Published rows older than 7 days are purged"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestPurgeDeletesPublishedRowsOlderThanSevenDays`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-purge-runs-on-a-schedule-inside-the-service
+    title: "The purge runs on a schedule inside the service"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The purge runs on a schedule inside the service"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestOutboxPurgeRunsOnSchedule`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.events-of-one-order-stay-ordered-after-a-retry
+    title: "Events of one order stay ordered after a retry"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Events of one order stay ordered after a retry"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestClaimPendingKeepsCreationOrder_Postgres`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-broker-outage-delays-but-never-loses-the-event
+    title: "A broker outage delays but never loses the event"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A broker outage delays but never loses the event"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestRelayerRetriesTransientPublishErrors`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-row-that-cannot-be-encoded-is-parked
+    title: "A row that cannot be encoded is parked"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A row that cannot be encoded is parked"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestRelayerParksPermanentErrors`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-paid-order-event-credits-once-and-a-redelivery-changes-nothing
+    title: "A paid-order event credits once and a redelivery changes nothing"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A paid-order event credits once and a redelivery changes nothing"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumer_CreditsOnceAndRedeliveryIsNoop`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-cancelled-paid-order-is-refunded-once
+    title: "A cancelled paid order is refunded once"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A cancelled paid order is refunded once"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestCancel_RedeliveredIsNoop`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-cancelled-pending-order-voids-its-unpaid-transaction
+    title: "A cancelled pending order voids its unpaid transaction"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A cancelled pending order voids its unpaid transaction"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestCancelledPendingVoidsTransaction`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-return-refund-is-applied-once
+    title: "A return refund is applied once"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A return refund is applied once"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestReturnRefunded_RefundsOnceAndRedeliveryIsNoop`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-paid-order-event-naming-another-seller-s-items-is-parked
+    title: "A paid-order event naming another seller's items is parked"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A paid-order event naming another seller's items is parked"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumer_MultiSellerOrderIsPermanent`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-malformed-record-is-parked-after-one-attempt
+    title: "A malformed record is parked after one attempt"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A malformed record is parked after one attempt"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumer_PoisonRecordsGoToDLQAfterOneAttempt`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-transient-database-error-is-retried-and-then-parked
+    title: "A transient database error is retried and then parked"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A transient database error is retried and then parked"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumer_TransientErrorRetriedThenDLQ`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-dead-letter-outage-commits-nothing
+    title: "A dead-letter outage commits nothing"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A dead-letter outage commits nothing"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumer_DLQOutageCommitsNothingLater`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.logs-carry-a-key-fingerprint-and-never-the-raw-key
+    title: "Logs carry a key fingerprint and never the raw key"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Logs carry a key fingerprint and never the raw key"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumerLogsKeyFingerprintNotKey`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-new-group-starts-at-the-latest-offset
+    title: "A new group starts at the latest offset"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A new group starts at the latest offset"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestSettlementConsumerStartsAtEnd`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-admin-refund-writes-one-event-with-the-sdk-event-shape
+    title: "An admin refund writes one event with the SDK event shape"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An admin refund writes one event with the SDK event shape"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestAdminRefundAuditMetadataKeys`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-audit-write-precedes-the-refund
+    title: "The audit write precedes the refund"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The audit write precedes the refund"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestAdminRefundAuditBeforeRefund`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-failed-audit-write-refuses-the-refund
+    title: "A failed audit write refuses the refund"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A failed audit write refuses the refund"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestAdminRefundAuditErrorFailsClosed`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-slow-audit-service-is-cut-off
+    title: "A slow audit service is cut off"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A slow audit service is cut off"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestAdminRefundAuditTimeoutFailsClosed`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-audit-call-is-made-as-the-service-principal
+    title: "The audit call is made as the service principal"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The audit call is made as the service principal"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/upstream` `TestAuditWriterUsesServicePrincipal`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-seller-refund-is-not-audited-and-survives-an-audit-outage
+    title: "A seller refund is not audited and survives an audit outage"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A seller refund is not audited and survives an audit outage"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestSellerRefundIgnoresAuditOutage`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-caller-who-is-neither-the-seller-nor-an-admin-is-denied-without-an-event
+    title: "A caller who is neither the seller nor an admin is denied without an event"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A caller who is neither the seller nor an admin is denied without an event"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestRefundPaymentNonSellerDeniedNoAudit`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-anonymous-caller-is-rejected-before-any-audit
+    title: "An anonymous caller is rejected before any audit"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An anonymous caller is rejected before any audit"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestRefundPaymentAnonymousNoAudit`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-unique-key-violation-is-alreadyexists
+    title: "A unique-key violation is AlreadyExists"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A unique-key violation is AlreadyExists"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestUniqueViolationIsAlreadyExists`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-cancelled-or-timed-out-call-keeps-its-code
+    title: "A cancelled or timed-out call keeps its code"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A cancelled or timed-out call keeps its code"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestContextErrorsKeepTheirCodes`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-unexpected-error-is-not-echoed
+    title: "An unexpected error is not echoed"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An unexpected error is not echoed"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestInternalErrorsAreNotEchoed`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-refund-exceeding-the-remainder-keeps-its-refusal
+    title: "A refund exceeding the remainder keeps its refusal"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A refund exceeding the remainder keeps its refusal"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestRefundExceedsRemainderIsFailedPrecondition`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-cursor-from-the-previous-build-still-pages
+    title: "A cursor from the previous build still pages"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A cursor from the previous build still pages"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestLedgerCursorFormatIsUnchanged`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-page-size-is-clamped
+    title: "The page size is clamped"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The page size is clamped"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestLedgerPageSizeClamped`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-malformed-cursor-is-rejected
+    title: "A malformed cursor is rejected"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A malformed cursor is rejected"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestLedgerMalformedCursorInvalidArgument`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-seller-cannot-page-another-seller-s-ledger
+    title: "A seller cannot page another seller's ledger"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A seller cannot page another seller's ledger"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestWalletRPCAccess`. Not producible end to end through the gateway (unit, database, log or boot level)."
