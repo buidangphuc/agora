@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	listingv1 "github.com/buidangphuc/team-notification/generated/platform/listing/v1"
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
 	"github.com/buidangphuc/team-notification/internal/events"
