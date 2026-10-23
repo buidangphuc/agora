@@ -1,4 +1,4 @@
-package service_test
+package chat_test
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/buidangphuc/team-chat/internal/repository"
-	"github.com/buidangphuc/team-chat/internal/service"
+	"github.com/buidangphuc/team-chat/internal/chat"
+	"github.com/buidangphuc/team-chat/internal/store"
 )
 
-func setupTestService() (*service.ChatService, repository.ChatRepository) {
+func setupTestService() (*chat.Service, store.ChatRepository) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	repo := repository.NewInMemoryChatRepository()
-	svc := service.NewChatService(repo, logger)
+	repo := newFakeRepo(nil)
+	svc := chat.NewService(repo, logger)
 	return svc, repo
 }
 
@@ -45,7 +45,7 @@ func TestChatService_GetOrCreateThread(t *testing.T) {
 
 	// 4. Same buyer and seller (self chat)
 	_, err = svc.GetOrCreateThread(ctx, "user-1", "user-1", "listing-100", "Shoes", "")
-	if !errors.Is(err, service.ErrSelfChat) {
+	if !errors.Is(err, chat.ErrSelfChat) {
 		t.Fatalf("expected ErrSelfChat, got %v", err)
 	}
 }
@@ -81,7 +81,7 @@ func TestChatService_SearchMessages(t *testing.T) {
 	}
 
 	// 3. Empty userID → error.
-	if _, _, err := svc.SearchMessages(ctx, "", "sách", 1, 20); !errors.Is(err, service.ErrEmptySender) {
+	if _, _, err := svc.SearchMessages(ctx, "", "sách", 1, 20); !errors.Is(err, chat.ErrEmptySender) {
 		t.Fatalf("expected ErrEmptySender, got %v", err)
 	}
 }
@@ -106,31 +106,31 @@ func TestChatService_SendMessage(t *testing.T) {
 
 	// 2. Empty thread ID
 	_, err = svc.SendMessage(ctx, "", "buyer-1", "Buyer", "Hello")
-	if !errors.Is(err, service.ErrEmptyThreadID) {
+	if !errors.Is(err, chat.ErrEmptyThreadID) {
 		t.Fatalf("expected ErrEmptyThreadID, got %v", err)
 	}
 
 	// 3. Empty sender ID
 	_, err = svc.SendMessage(ctx, thread.ID, "", "Buyer", "Hello")
-	if !errors.Is(err, service.ErrEmptySender) {
+	if !errors.Is(err, chat.ErrEmptySender) {
 		t.Fatalf("expected ErrEmptySender, got %v", err)
 	}
 
 	// 4. Empty content
 	_, err = svc.SendMessage(ctx, thread.ID, "buyer-1", "Buyer", "")
-	if !errors.Is(err, service.ErrEmptyContent) {
+	if !errors.Is(err, chat.ErrEmptyContent) {
 		t.Fatalf("expected ErrEmptyContent, got %v", err)
 	}
 
 	// 5. Non-participant sends message
 	_, err = svc.SendMessage(ctx, thread.ID, "intruder-99", "Intruder", "Hey!")
-	if !errors.Is(err, service.ErrUnauthorizedChat) {
+	if !errors.Is(err, chat.ErrUnauthorizedChat) {
 		t.Fatalf("expected ErrUnauthorizedChat, got %v", err)
 	}
 
 	// 6. Non-existent thread
 	_, err = svc.SendMessage(ctx, "invalid-thread", "buyer-1", "Buyer", "Hey!")
-	if !errors.Is(err, repository.ErrThreadNotFound) {
+	if !errors.Is(err, store.ErrThreadNotFound) {
 		t.Fatalf("expected ErrThreadNotFound, got %v", err)
 	}
 }
@@ -167,13 +167,13 @@ func TestChatService_GetThreadMessages(t *testing.T) {
 
 	// 3. Unauthorized access
 	_, _, err = svc.GetThreadMessages(ctx, thread.ID, "intruder-99", 1, 10)
-	if !errors.Is(err, service.ErrUnauthorizedChat) {
+	if !errors.Is(err, chat.ErrUnauthorizedChat) {
 		t.Fatalf("expected ErrUnauthorizedChat, got %v", err)
 	}
 
 	// 4. Empty thread ID
 	_, _, err = svc.GetThreadMessages(ctx, "", "buyer-1", 1, 10)
-	if !errors.Is(err, service.ErrEmptyThreadID) {
+	if !errors.Is(err, chat.ErrEmptyThreadID) {
 		t.Fatalf("expected ErrEmptyThreadID, got %v", err)
 	}
 }
@@ -196,7 +196,7 @@ func TestChatService_ListThreads(t *testing.T) {
 
 	// 2. Empty user ID
 	_, _, err = svc.ListThreads(ctx, "", 1, 10)
-	if !errors.Is(err, service.ErrEmptySender) {
+	if !errors.Is(err, chat.ErrEmptySender) {
 		t.Fatalf("expected ErrEmptySender, got %v", err)
 	}
 }
@@ -221,7 +221,7 @@ func TestChatService_GetThreadAndMarkThreadRead(t *testing.T) {
 
 	// 2. GetThread unauthorized
 	_, err = svc.GetThread(ctx, thread.ID, "intruder")
-	if !errors.Is(err, service.ErrUnauthorizedChat) {
+	if !errors.Is(err, chat.ErrUnauthorizedChat) {
 		t.Fatalf("expected ErrUnauthorizedChat, got %v", err)
 	}
 
@@ -234,13 +234,13 @@ func TestChatService_GetThreadAndMarkThreadRead(t *testing.T) {
 
 	// 4. MarkThreadRead unauthorized
 	err = svc.MarkThreadRead(ctx, thread.ID, "intruder")
-	if !errors.Is(err, service.ErrUnauthorizedChat) {
+	if !errors.Is(err, chat.ErrUnauthorizedChat) {
 		t.Fatalf("expected ErrUnauthorizedChat, got %v", err)
 	}
 
 	// 5. MarkThreadRead empty thread
 	err = svc.MarkThreadRead(ctx, "", "seller-1")
-	if !errors.Is(err, service.ErrEmptyThreadID) {
+	if !errors.Is(err, chat.ErrEmptyThreadID) {
 		t.Fatalf("expected ErrEmptyThreadID, got %v", err)
 	}
 }
