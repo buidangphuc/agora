@@ -6,14 +6,14 @@ Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com
 
 ## Contract
 
-Served from `proto/platform/audit/v1/audit.proto` (vendored; see Gotchas): `platform.audit.v1.AuditService`. The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (`go-sdk` auth via `grpcx`). The interceptor never rejects; each handler authorizes as its first statement. `RequirePrincipal` rejects a missing, `anonymous` or ANONYMOUS-type principal with `Unauthenticated`.
+Served from `proto/platform/audit/v1/audit.proto` (vendored; see Gotchas): `platform.audit.v1.AuditService`. The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (`go-sdk` auth via `grpcx`). The `grpcx` auth interceptor only populates the principal; each handler authorizes as its first statement. `RequirePrincipal` rejects a missing, `anonymous` or ANONYMOUS-type principal with `Unauthenticated`.
 
 | RPC | Authorization and behaviour |
 |---|---|
 | `WriteAuditEvent` | Service-only: requires a `service` principal holding `audit.write` (`Unauthenticated` with no/anonymous principal, `PermissionDenied` for users incl. admins and scopeless services). The stored `actor_id` is the request's `actor_id` if set, else the service's own id. Empty `action` returns `InvalidArgument`. The response is empty (fire-and-forget); the server assigns `id` (`audit_` + 8 chars of a UUID) and `created_at`. Storage failures return a generic `Internal` ("internal error"); the cause is logged server-side. |
 | `QueryAuditLog` | Admin only: authenticated, then scope `admin` (`PermissionDenied` otherwise; a service principal also needs `admin`). Optional filters, combined with AND: `actor_id`, `target_type`, `target_id`, `action` (all exact match; absent or empty means no filter) and a `created_at` range (`created_after` inclusive, `created_before` exclusive; `created_after` later than `created_before` returns `InvalidArgument`, equal bounds match nothing). Newest first (`created_at DESC, id DESC`). The page cursor is a row offset as a decimal string; an empty or malformed cursor means the first page. `page_size` defaults to 20 and is capped at 100 (`internal/audit`). `next_cursor` is set only while more rows remain; `total` is the match count before paging. |
 
-Also served: gRPC health (`""` is SERVING) and server reflection (always on).
+Also served: gRPC health (`""` is SERVING) and server reflection (only when `GRPC_REFLECTION_ENABLED=true`, local use).
 
 Consumes: nothing (no upstream RPCs).
 
@@ -57,7 +57,7 @@ make proto                                    # once, writes generated/
 DATABASE_URL=postgres://... make run          # go run ./cmd/server
 ```
 
-Call it through the gateway (`POST /platform.audit.v1.AuditService/<Method>`), or directly with a gRPC client that sets the `x-principal-*` metadata; reflection is on.
+Call it through the gateway (`POST /platform.audit.v1.AuditService/<Method>`), or directly with a gRPC client that sets the `x-principal-*` metadata; reflection is available when `GRPC_REFLECTION_ENABLED=true`.
 
 ## Build, test and lint
 
