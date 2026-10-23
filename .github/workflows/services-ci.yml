@@ -70,7 +70,7 @@ jobs:
       - name: Install (no dev, no extras)
         run: uv sync --frozen --no-dev
       - name: Generate gRPC stubs (grpcio-tools is a dev dependency, so run it from uvx)
-        run: uvx --from grpcio-tools python -m scripts.gen_proto
+        run: uvx --from "grpcio-tools==$(uv run --no-dev python -c 'import grpc; print(grpc.__version__)')" python -m scripts.gen_proto
       - name: Import main
         run: uv run --no-dev --env-file .env.example python -c "import main; print('ok')"
 
