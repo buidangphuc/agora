@@ -52,7 +52,7 @@ func NewHandler(apply Applier, logger *slog.Logger) *Handler {
 func (h *Handler) Handle(ctx context.Context, r consume.Record) error {
 	err := h.handle(ctx, r.Value)
 	if errors.Is(err, errPermanent) {
-		h.logger.WarnContext(ctx, "settlement handler: permanent failure", slog.Any("err", err))
+		h.logger.WarnContext(ctx, "settlement handler: permanent failure", "err", err)
 	}
 	return err
 }

@@ -3,7 +3,6 @@ package payment
 import (
 	"context"
 	"errors"
-	"log/slog"
 
 	"github.com/buidangphuc/team-payment/internal/store"
 )
@@ -23,11 +22,11 @@ func (s *Service) CreditSettlement(ctx context.Context, orderID, sellerID string
 	}
 	if eventTotal != res.Transaction.Amount {
 		s.logger.WarnContext(ctx, "settlement amount differs from the order total; crediting the payment amount",
-			slog.String("order_id", orderID), slog.Int64("payment_amount", res.Transaction.Amount), slog.Int64("order_total", eventTotal))
+			"order_id", orderID, "payment_amount", res.Transaction.Amount, "order_total", eventTotal)
 	}
 	s.logger.InfoContext(ctx, "settlement credit applied",
-		slog.String("order_id", orderID), slog.String("payment_id", res.Transaction.ID),
-		slog.Bool("credited", res.Credited), slog.Bool("deducted", res.Deducted))
+		"order_id", orderID, "payment_id", res.Transaction.ID,
+		"credited", res.Credited, "deducted", res.Deducted)
 	return nil
 }
 

@@ -363,8 +363,10 @@ func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRe
 	}
 	// 5. The refund row. A concurrent call with the same key on another payment holds
 	// another row lock: ON CONFLICT waits for it and the loser reads the winner's row.
-	r := Refund{ID: req.Key, PaymentID: t.ID, Source: req.Source, SourceID: req.SourceID,
-		RequestedAmount: requested, Amount: applied, Reason: req.Reason}
+	r := Refund{
+		ID: req.Key, PaymentID: t.ID, Source: req.Source, SourceID: req.SourceID,
+		RequestedAmount: requested, Amount: applied, Reason: req.Reason,
+	}
 	err = tx.QueryRow(ctx, `INSERT INTO payment_refunds (id, payment_id, source, source_id, requested_amount, amount, reason)
 		VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING RETURNING created_at`,
 		r.ID, r.PaymentID, r.Source, r.SourceID, r.RequestedAmount, r.Amount, r.Reason).Scan(&r.CreatedAt)
@@ -415,6 +417,4 @@ func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRe
 	return res, nil
 }
 
-var (
-	_ SettlementLedger = (*PostgresSettlementLedger)(nil)
-)
+var _ SettlementLedger = (*PostgresSettlementLedger)(nil)

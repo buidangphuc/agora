@@ -165,8 +165,10 @@ func (s *InMemorySettlementLedger) ApplyRefund(_ context.Context, req store.Refu
 	if !write {
 		return store.RefundResult{Transaction: t}, nil
 	}
-	r := store.Refund{ID: req.Key, PaymentID: t.ID, Source: req.Source, SourceID: req.SourceID,
-		RequestedAmount: requested, Amount: applied, Reason: req.Reason, CreatedAt: time.Now()}
+	r := store.Refund{
+		ID: req.Key, PaymentID: t.ID, Source: req.Source, SourceID: req.SourceID,
+		RequestedAmount: requested, Amount: applied, Reason: req.Reason, CreatedAt: time.Now(),
+	}
 	s.refunds.put(r)
 	res := store.RefundResult{Transaction: t, Refund: r, Created: true}
 	if applied == 0 {
@@ -193,6 +195,4 @@ func (s *InMemorySettlementLedger) ApplyRefund(_ context.Context, req store.Refu
 	return res, nil
 }
 
-var (
-	_ store.SettlementLedger = (*InMemorySettlementLedger)(nil)
-)
+var _ store.SettlementLedger = (*InMemorySettlementLedger)(nil)

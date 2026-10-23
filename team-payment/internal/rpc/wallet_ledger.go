@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"math"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -61,7 +62,12 @@ func (h *Handler) ListLedgerEntries(ctx context.Context, req *paymentv1.ListLedg
 	if err != nil {
 		return nil, err
 	}
-	entries, next, total, err := h.svc.ListLedgerEntries(ctx, sellerID, req.GetPage().GetCursor(), int32(pagination.Clamp(int(req.GetPage().GetPageSize()), 20, 100)))
+	size := pagination.Clamp(int(req.GetPage().GetPageSize()), 20, 100)
+	if size > math.MaxInt32 {
+		size = math.MaxInt32
+	}
+	pageSize := int32(size)
+	entries, next, total, err := h.svc.ListLedgerEntries(ctx, sellerID, req.GetPage().GetCursor(), pageSize)
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}

@@ -149,6 +149,4 @@ func (r *InMemoryLedgerRepository) ListEntries(_ context.Context, sellerID strin
 	return page, total, nil
 }
 
-var (
-	_ store.LedgerRepository = (*InMemoryLedgerRepository)(nil)
-)
+var _ store.LedgerRepository = (*InMemoryLedgerRepository)(nil)

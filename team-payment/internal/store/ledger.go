@@ -291,6 +291,4 @@ func (r *PostgresLedgerRepository) ListEntries(ctx context.Context, sellerID str
 	return result, total, rows.Err()
 }
 
-var (
-	_ LedgerRepository = (*PostgresLedgerRepository)(nil)
-)
+var _ LedgerRepository = (*PostgresLedgerRepository)(nil)

@@ -109,7 +109,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	if err != nil {
 		return err
 	}
-	logger.Info("payout hold window", "window", s.Payout.Window.String(), "enabled", s.Payout.Window > 0)
+	logger.InfoContext(ctx, "payout hold window", "window", s.Payout.Window.String(), "enabled", s.Payout.Window > 0)
 
 	h, err := rpc.NewHandler(svc, auditx.NewGate(writer, logger), logger)
 	if err != nil {

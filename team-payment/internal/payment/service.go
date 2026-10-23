@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 
@@ -139,7 +139,7 @@ func (s *Service) CreatePayment(
 	// 1. Fetch order details from team-order
 	orderResp, err := s.orderClient.GetOrder(ctx, &orderv1.GetOrderRequest{Id: orderID})
 	if err != nil {
-		return store.PaymentTransaction{}, "", fmt.Errorf("%w: %v", ErrOrderNotFound, err)
+		return store.PaymentTransaction{}, "", fmt.Errorf("%w: %w", ErrOrderNotFound, err)
 	}
 	order := orderResp.GetOrder()
 	if order == nil {
@@ -255,9 +255,9 @@ func (s *Service) ProcessMockPayment(
 		if err != nil {
 			switch status.Code(err) {
 			case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled:
-				return store.PaymentTransaction{}, false, "", fmt.Errorf("%w: %v", ErrOrderServiceUnavailable, err)
+				return store.PaymentTransaction{}, false, "", fmt.Errorf("%w: %w", ErrOrderServiceUnavailable, err)
 			}
-			return store.PaymentTransaction{}, false, "", fmt.Errorf("%w: %v", ErrOrderNotFound, err)
+			return store.PaymentTransaction{}, false, "", fmt.Errorf("%w: %w", ErrOrderNotFound, err)
 		}
 		if resp.GetOrder().GetStatus() == orderv1.OrderStatus_ORDER_STATUS_CANCELLED {
 			if err := s.VoidCancelledOrder(ctx, tx.OrderID); err != nil {
@@ -366,9 +366,9 @@ func (s *Service) OrderSellerID(ctx context.Context, orderID string) (string, er
 		// an unreachable team-order is not a missing order: say so (503), never 404
 		switch status.Code(err) {
 		case codes.Unavailable, codes.DeadlineExceeded, codes.Canceled:
-			return "", fmt.Errorf("%w: %v", ErrOrderServiceUnavailable, err)
+			return "", fmt.Errorf("%w: %w", ErrOrderServiceUnavailable, err)
 		}
-		return "", fmt.Errorf("%w: %v", ErrOrderNotFound, err)
+		return "", fmt.Errorf("%w: %w", ErrOrderNotFound, err)
 	}
 	if resp.GetOrder() == nil {
 		return "", ErrOrderNotFound
@@ -448,10 +448,10 @@ func (s *Service) refund(ctx context.Context, req store.RefundRequest) (store.Pa
 		return store.PaymentTransaction{}, fmt.Errorf("refund payment: %w", err)
 	}
 	s.logger.InfoContext(ctx, "payment refund applied",
-		slog.String("payment_id", req.PaymentID), slog.String("order_id", res.Transaction.OrderID),
-		slog.String("refund_id", req.Key), slog.Int64("requested", res.Refund.RequestedAmount),
-		slog.Int64("applied", res.Refund.Amount), slog.Bool("created", res.Created),
-		slog.Bool("seller_deducted", res.Deducted))
+		"payment_id", req.PaymentID, "order_id", res.Transaction.OrderID,
+		"refund_id", req.Key, "requested", res.Refund.RequestedAmount,
+		"applied", res.Refund.Amount, "created", res.Created,
+		"seller_deducted", res.Deducted)
 	return s.withRefunds(ctx, res.Transaction)
 }
 
@@ -531,7 +531,7 @@ func (s *Service) RequestPayout(
 			Amount:   amount,
 			Status:   store.LedgerStatusRejected,
 		}); rbErr != nil {
-			s.logger.Error("payout compensation failed", "ledger_entry_id", entry.ID, "err", rbErr)
+			s.logger.ErrorContext(ctx, "payout compensation failed", "ledger_entry_id", entry.ID, "err", rbErr)
 		}
 		return store.PayoutRequest{}, fmt.Errorf("create payout request: %w", err)
 	}
