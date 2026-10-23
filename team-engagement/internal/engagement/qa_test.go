@@ -1,31 +1,31 @@
-package service_test
+package engagement_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 func TestQAService(t *testing.T) {
 	ctx := context.Background()
 	repo := storetest.NewFakeQARepository()
-	svc := service.NewQAService(repo, nil)
+	svc := engagement.NewQAService(repo, nil)
 
 	t.Run("AskQuestion Validations", func(t *testing.T) {
 		_, err := svc.AskQuestion(ctx, "", "user-1", "Hỏi câu gì đó")
-		if err != service.ErrEmptyListing {
+		if err != engagement.ErrEmptyListing {
 			t.Fatalf("expected ErrEmptyListing, got %v", err)
 		}
 
 		_, err = svc.AskQuestion(ctx, "listing-1", "", "Hỏi câu gì đó")
-		if err != service.ErrEmptyUserID {
+		if err != engagement.ErrEmptyUserID {
 			t.Fatalf("expected ErrEmptyUserID, got %v", err)
 		}
 
 		_, err = svc.AskQuestion(ctx, "listing-1", "user-1", "   ")
-		if err != service.ErrEmptyQuestionText {
+		if err != engagement.ErrEmptyQuestionText {
 			t.Fatalf("expected ErrEmptyQuestionText, got %v", err)
 		}
 	})
@@ -41,17 +41,17 @@ func TestQAService(t *testing.T) {
 
 		// Answer validations
 		_, err = svc.AnswerQuestion(ctx, "", "seller-1", "Bảo hành 1 năm", true)
-		if err != service.ErrEmptyQuestionID {
+		if err != engagement.ErrEmptyQuestionID {
 			t.Fatalf("expected ErrEmptyQuestionID, got %v", err)
 		}
 
 		_, err = svc.AnswerQuestion(ctx, q.ID, "", "Bảo hành 1 năm", true)
-		if err != service.ErrEmptyUserID {
+		if err != engagement.ErrEmptyUserID {
 			t.Fatalf("expected ErrEmptyUserID, got %v", err)
 		}
 
 		_, err = svc.AnswerQuestion(ctx, q.ID, "seller-1", "", true)
-		if err != service.ErrEmptyAnswerText {
+		if err != engagement.ErrEmptyAnswerText {
 			t.Fatalf("expected ErrEmptyAnswerText, got %v", err)
 		}
 
@@ -82,7 +82,7 @@ func TestQAService(t *testing.T) {
 
 	t.Run("ListQuestions Validations", func(t *testing.T) {
 		_, _, err := svc.ListQuestionsByListing(ctx, "", 1, 10)
-		if err != service.ErrEmptyListing {
+		if err != engagement.ErrEmptyListing {
 			t.Fatalf("expected ErrEmptyListing, got %v", err)
 		}
 	})

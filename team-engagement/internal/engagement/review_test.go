@@ -1,26 +1,26 @@
-package service_test
+package engagement_test
 
 import (
 	"context"
 	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/migrate"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 
-	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
-	"github.com/buidangphuc/team-engagement/internal/interceptor"
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
 	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
-	"github.com/buidangphuc/team-engagement/internal/upstream"
+	"github.com/buidangphuc/team-engagement/migrations"
 )
 
 // fakeVerifier is a stand-in for internal/upstream.OrderClient (true external
@@ -61,7 +61,7 @@ func TestCreateReviewVerifiedStoresVerified(t *testing.T) {
 	ctx := context.Background()
 	repo := storetest.NewFakeReviewRepository()
 	verifier := eligible("seller-1", "buyer-1|order-1|listing-1")
-	svc := service.NewReviewService(repo, verifier, nil)
+	svc := engagement.NewReviewService(repo, verifier, quietGate(), nil)
 
 	rev, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "Buyer", "order-1", 5, "Tuyệt vời",
 		[]string{"https://cdn/x.jpg", "https://cdn/y.jpg"})
@@ -83,9 +83,9 @@ func TestCreateReviewVerifiedStoresVerified(t *testing.T) {
 func TestCreateReviewEmptyOrderIDRejected(t *testing.T) {
 	repo := storetest.NewFakeReviewRepository()
 	verifier := eligible("s", "buyer-1||listing-1")
-	svc := service.NewReviewService(repo, verifier, nil)
+	svc := engagement.NewReviewService(repo, verifier, quietGate(), nil)
 	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "", 5, "", nil)
-	if !errors.Is(err, service.ErrEmptyOrderID) {
+	if !errors.Is(err, engagement.ErrEmptyOrderID) {
 		t.Fatalf("want ErrEmptyOrderID, got %v", err)
 	}
 	if verifier.calls != 0 || total(t, repo, "listing-1") != 0 {
@@ -95,9 +95,9 @@ func TestCreateReviewEmptyOrderIDRejected(t *testing.T) {
 
 func TestCreateReviewIneligibleOrderFailedPrecondition(t *testing.T) {
 	repo := storetest.NewFakeReviewRepository()
-	svc := service.NewReviewService(repo, eligible("s"), nil) // nothing eligible
+	svc := engagement.NewReviewService(repo, eligible("s"), quietGate(), nil) // nothing eligible
 	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
-	if !errors.Is(err, service.ErrOrderNotEligible) {
+	if !errors.Is(err, engagement.ErrOrderNotEligible) {
 		t.Fatalf("want ErrOrderNotEligible, got %v", err)
 	}
 	if total(t, repo, "listing-1") != 0 {
@@ -108,40 +108,47 @@ func TestCreateReviewIneligibleOrderFailedPrecondition(t *testing.T) {
 func TestCreateReviewVerifierErrorUnavailable(t *testing.T) {
 	repo := storetest.NewFakeReviewRepository()
 	verifier := &fakeVerifier{err: errors.New("order unavailable")}
-	svc := service.NewReviewService(repo, verifier, nil)
+	svc := engagement.NewReviewService(repo, verifier, quietGate(), nil)
 
 	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
-	if !errors.Is(err, service.ErrOrderUnavailable) {
+	if !errors.Is(err, engagement.ErrOrderUnavailable) {
 		t.Fatalf("want ErrOrderUnavailable, got %v", err)
 	}
-	if errors.Is(err, service.ErrOrderNotEligible) {
+	if errors.Is(err, engagement.ErrOrderNotEligible) {
 		t.Fatal("outage must not read as ineligible")
 	}
 	if total(t, repo, "listing-1") != 0 {
 		t.Fatal("review stored despite verifier error")
 	}
-}
 
-func TestCreateReviewNilVerifierUnavailable(t *testing.T) {
-	repo := storetest.NewFakeReviewRepository()
-	svc := service.NewReviewService(repo, nil, nil)
-	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
-	if !errors.Is(err, service.ErrOrderUnavailable) {
-		t.Fatalf("want ErrOrderUnavailable, got %v", err)
+	pool := migratedPool(t)
+	pgRepo := store.NewPostgresReviewRepository(pool, mustFactStore(t, pool))
+	pgSvc := engagement.NewReviewService(pgRepo, verifier, quietGate(), nil)
+	_, err = pgSvc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
+	if !errors.Is(err, engagement.ErrOrderUnavailable) {
+		t.Fatalf("postgres: want ErrOrderUnavailable, got %v", err)
 	}
-	if total(t, repo, "listing-1") != 0 {
-		t.Fatal("review stored with nil verifier")
+	var rows, facts int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM reviews`).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM engagement_outbox_events WHERE event_type = 'platform.engagement.v1.ReviewCreated'`).Scan(&facts); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 0 || facts != 0 {
+		t.Fatalf("reviews = %d, ReviewCreated rows = %d, want 0 and 0", rows, facts)
 	}
 }
 
 func TestCreateReviewRatingBounds(t *testing.T) {
 	ctx := context.Background()
 	repo := storetest.NewFakeReviewRepository()
-	svc := service.NewReviewService(repo,
-		eligible("seller-1", "buyer-1|order-1|listing-1", "buyer-1|order-1|listing-2"), nil)
+	svc := engagement.NewReviewService(repo,
+		eligible("seller-1", "buyer-1|order-1|listing-1", "buyer-1|order-1|listing-2"), quietGate(), nil)
 
 	for _, bad := range []int32{0, 6} {
-		if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", "order-1", bad, "", nil); !errors.Is(err, service.ErrInvalidRating) {
+		if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", "order-1", bad, "", nil); !errors.Is(err, engagement.ErrInvalidRating) {
 			t.Fatalf("rating %d: want ErrInvalidRating, got %v", bad, err)
 		}
 	}
@@ -159,8 +166,8 @@ func TestCreateReviewRatingBounds(t *testing.T) {
 func TestCreateReviewSameOrderTwoListings(t *testing.T) {
 	ctx := context.Background()
 	repo := storetest.NewFakeReviewRepository()
-	svc := service.NewReviewService(repo,
-		eligible("seller-1", "buyer-1|order-1|listing-1", "buyer-1|order-1|listing-2"), nil)
+	svc := engagement.NewReviewService(repo,
+		eligible("seller-1", "buyer-1|order-1|listing-1", "buyer-1|order-1|listing-2"), quietGate(), nil)
 	for _, l := range []string{"listing-1", "listing-2"} {
 		if _, err := svc.CreateReview(ctx, l, "buyer-1", "B", "order-1", 4, "", nil); err != nil {
 			t.Fatalf("%s: %v", l, err)
@@ -171,7 +178,7 @@ func TestCreateReviewSameOrderTwoListings(t *testing.T) {
 func TestCreateReviewDuplicateOrderListingRefused(t *testing.T) {
 	ctx := context.Background()
 	repo := storetest.NewFakeReviewRepository()
-	svc := service.NewReviewService(repo, eligible("seller-1", "buyer-1|order-1|listing-1"), nil)
+	svc := engagement.NewReviewService(repo, eligible("seller-1", "buyer-1|order-1|listing-1"), quietGate(), nil)
 	if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", "order-1", 4, "", nil); err != nil {
 		t.Fatal(err)
 	}
@@ -189,21 +196,20 @@ func TestCreateReviewRefusedWritesNoOutbox(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		name     string
-		verifier service.OrderVerifier
+		verifier engagement.OrderVerifier
 		order    string
 		rating   int32
 		want     error
 	}{
-		{"unavailable", &fakeVerifier{err: errors.New("down")}, "order-1", 5, service.ErrOrderUnavailable},
-		{"nil verifier", nil, "order-1", 5, service.ErrOrderUnavailable},
-		{"ineligible", eligible("s"), "order-1", 5, service.ErrOrderNotEligible},
-		{"invalid rating", eligible("s", "buyer-1|order-1|listing-1"), "order-1", 9, service.ErrInvalidRating},
-		{"empty order", eligible("s", "buyer-1||listing-1"), "", 5, service.ErrEmptyOrderID},
+		{"unavailable", &fakeVerifier{err: errors.New("down")}, "order-1", 5, engagement.ErrOrderUnavailable},
+		{"ineligible", eligible("s"), "order-1", 5, engagement.ErrOrderNotEligible},
+		{"invalid rating", eligible("s", "buyer-1|order-1|listing-1"), "order-1", 9, engagement.ErrInvalidRating},
+		{"empty order", eligible("s", "buyer-1||listing-1"), "", 5, engagement.ErrEmptyOrderID},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			repo := storetest.NewFakeReviewRepository()
-			svc := service.NewReviewService(repo, c.verifier, nil)
+			svc := engagement.NewReviewService(repo, c.verifier, quietGate(), nil)
 			if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", c.order, c.rating, "", nil); !errors.Is(err, c.want) {
 				t.Fatalf("want %v, got %v", c.want, err)
 			}
@@ -223,20 +229,19 @@ type callLog struct{ calls []string }
 type spyAudit struct {
 	log    *callLog
 	events []hideEvent
+	raw    []auditx.Event
 	err    error
 }
 
-func (a *spyAudit) WriteHideEvent(_ context.Context, actorID, reviewID, listingID, reason string) error {
+func (a *spyAudit) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
 	a.log.calls = append(a.log.calls, "audit")
 	if a.err != nil {
 		return a.err
 	}
-	a.events = append(a.events, hideEvent{actorID, reviewID, listingID, reason})
+	a.raw = append(a.raw, ev)
+	a.events = append(a.events, hideEvent{ev.ActorID, ev.TargetID, ev.Metadata["listing_id"], ev.Metadata["reason"]})
 	return nil
 }
-
-// WriteEvent satisfies the extended AuditWriter; review tests never use it.
-func (a *spyAudit) WriteEvent(context.Context, upstream.AuditEvent) error { return nil }
 
 // spyRepo records the hide call order and can fail the hide update.
 type spyRepo struct {
@@ -254,7 +259,7 @@ func (r *spyRepo) HideReview(ctx context.Context, id, adminID, reason string) (b
 }
 
 type hideFixture struct {
-	svc    *service.ReviewService
+	svc    *engagement.ReviewService
 	repo   *spyRepo
 	audit  *spyAudit
 	log    *callLog
@@ -274,7 +279,7 @@ func newHideFixture(t *testing.T) *hideFixture {
 	}
 	repo := &spyRepo{FakeReviewRepository: mem, log: log}
 	audit := &spyAudit{log: log}
-	return &hideFixture{svc: service.NewReviewService(repo, nil, nil).WithAudit(audit), repo: repo, audit: audit, log: log, review: rev}
+	return &hideFixture{svc: engagement.NewReviewService(repo, &fakeVerifier{}, auditx.NewGate(audit, nil), nil), repo: repo, audit: audit, log: log, review: rev}
 }
 
 func (f *hideFixture) hiddenAt(t *testing.T) *time.Time {
@@ -308,9 +313,7 @@ func TestHideReviewAuditFailureFailsClosed(t *testing.T) {
 	f := newHideFixture(t)
 	f.audit.err = errors.New("audit down")
 	err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam")
-	if !errors.Is(err, service.ErrAuditUnavailable) {
-		t.Fatalf("want ErrAuditUnavailable, got %v", err)
-	}
+	requireAuditUnavailable(t, err)
 	if f.hiddenAt(t) != nil {
 		t.Fatal("review hidden although audit failed")
 	}
@@ -324,24 +327,6 @@ func TestHideReviewAuditFailureFailsClosed(t *testing.T) {
 	}
 }
 
-func TestHideReviewNilAuditClientUnavailable(t *testing.T) {
-	f := newHideFixture(t)
-	for name, svc := range map[string]*service.ReviewService{
-		"never wired": service.NewReviewService(f.repo, nil, nil),
-		"nil writer":  service.NewReviewService(f.repo, nil, nil).WithAudit(nil),
-	} {
-		t.Run(name, func(t *testing.T) {
-			err := svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam")
-			if !errors.Is(err, service.ErrAuditUnavailable) {
-				t.Fatalf("want ErrAuditUnavailable, got %v", err)
-			}
-			if f.hiddenAt(t) != nil {
-				t.Fatal("review hidden without an audit upstream")
-			}
-		})
-	}
-}
-
 func TestHideReviewUpdateFailureInternalThenRetry(t *testing.T) {
 	f := newHideFixture(t)
 	boom := errors.New("db down")
@@ -350,7 +335,10 @@ func TestHideReviewUpdateFailureInternalThenRetry(t *testing.T) {
 	if err == nil || !errors.Is(err, boom) {
 		t.Fatalf("want the raw repository error (mapped to Internal by the handler), got %v", err)
 	}
-	for _, s := range []error{service.ErrAuditUnavailable, service.ErrEmptyReason, service.ErrReasonTooLong, service.ErrEmptyReviewID, store.ErrReviewNotFound} {
+	if status.Code(err) == codes.Unavailable {
+		t.Fatalf("update failure must not look like an audit outage: %v", err)
+	}
+	for _, s := range []error{engagement.ErrEmptyReason, engagement.ErrReasonTooLong, engagement.ErrEmptyReviewID, store.ErrReviewNotFound} {
 		if errors.Is(err, s) {
 			t.Fatalf("update failure must not be classified as %v", s)
 		}
@@ -405,13 +393,13 @@ func TestHideReviewReasonValidation(t *testing.T) {
 		reason string
 		want   error
 	}{
-		{"empty", "", service.ErrEmptyReason},
-		{"whitespace", "   \t", service.ErrEmptyReason},
+		{"empty", "", engagement.ErrEmptyReason},
+		{"whitespace", "   \t", engagement.ErrEmptyReason},
 		{"500 ascii ok", strings.Repeat("a", 500), nil},
 		{"500 runes multibyte ok", strings.Repeat("ạ", 500), nil},
 		{"500 runes padded with spaces ok", "  " + strings.Repeat("a", 500) + "  ", nil},
-		{"501 ascii", strings.Repeat("a", 501), service.ErrReasonTooLong},
-		{"501 runes multibyte", strings.Repeat("ạ", 501), service.ErrReasonTooLong},
+		{"501 ascii", strings.Repeat("a", 501), engagement.ErrReasonTooLong},
+		{"501 runes multibyte", strings.Repeat("ạ", 501), engagement.ErrReasonTooLong},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -432,7 +420,7 @@ func TestHideReviewUnknownAndEmptyID(t *testing.T) {
 	if err := f.svc.HideReview(context.Background(), "adm-1", "nope", "spam"); !errors.Is(err, store.ErrReviewNotFound) {
 		t.Fatalf("want ErrReviewNotFound, got %v", err)
 	}
-	if err := f.svc.HideReview(context.Background(), "adm-1", "", "spam"); !errors.Is(err, service.ErrEmptyReviewID) {
+	if err := f.svc.HideReview(context.Background(), "adm-1", "", "spam"); !errors.Is(err, engagement.ErrEmptyReviewID) {
 		t.Fatalf("want ErrEmptyReviewID, got %v", err)
 	}
 	if len(f.audit.events) != 0 {
@@ -443,7 +431,7 @@ func TestHideReviewUnknownAndEmptyID(t *testing.T) {
 func TestMarkHelpfulIdempotentPerUser(t *testing.T) {
 	ctx := context.Background()
 	repo := storetest.NewFakeReviewRepository()
-	svc := service.NewReviewService(repo, nil, nil)
+	svc := engagement.NewReviewService(repo, &fakeVerifier{}, quietGate(), nil)
 
 	rev, err := repo.CreateReview(ctx, store.Review{ListingID: "listing-1", UserID: "buyer-1", Rating: 5})
 	if err != nil {
@@ -486,7 +474,7 @@ func TestGetShopRatingSummaryAcrossListings(t *testing.T) {
 	repo := storetest.NewFakeReviewRepository()
 	verifier := eligible("seller-1",
 		"b1|o1|listing-1", "b2|o2|listing-1", "b3|o3|listing-2")
-	svc := service.NewReviewService(repo, verifier, nil)
+	svc := engagement.NewReviewService(repo, verifier, quietGate(), nil)
 
 	// Two listings, same seller, ratings 5,3 (listing-1) and 4 (listing-2).
 	if _, err := svc.CreateReview(ctx, "listing-1", "b1", "B1", "o1", 5, "", nil); err != nil {
@@ -500,7 +488,7 @@ func TestGetShopRatingSummaryAcrossListings(t *testing.T) {
 	}
 	// A review for a different seller must not leak in.
 	other := eligible("seller-2", "b9|o9|listing-9")
-	otherSvc := service.NewReviewService(repo, other, nil)
+	otherSvc := engagement.NewReviewService(repo, other, quietGate(), nil)
 	if _, err := otherSvc.CreateReview(ctx, "listing-9", "b9", "B9", "o9", 1, "", nil); err != nil {
 		t.Fatalf("review-other: %v", err)
 	}
@@ -520,56 +508,9 @@ func TestGetShopRatingSummaryAcrossListings(t *testing.T) {
 	}
 
 	// Validation
-	if _, err := svc.GetShopRatingSummary(ctx, ""); !errors.Is(err, service.ErrEmptySeller) {
+	if _, err := svc.GetShopRatingSummary(ctx, ""); !errors.Is(err, engagement.ErrEmptySeller) {
 		t.Fatalf("expected ErrEmptySeller, got %v", err)
 	}
-}
-
-// pgSchemaPool returns a pool on a private, freshly migrated schema of the
-// throwaway TEST_DATABASE_URL database (skipped when unset). A private schema
-// keeps parallel package test binaries from dropping each other's tables.
-func pgSchemaPool(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("TEST_DATABASE_URL not set")
-	}
-	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	schema := fmt.Sprintf("hide_%s_%d", "svc", time.Now().UnixNano())
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
-		admin.Close()
-		t.Fatal(err)
-	}
-	cfg, err := pgxpool.ParseConfig(url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.ConnConfig.RuntimeParams["search_path"] = schema
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		pool.Close()
-		_, _ = admin.Exec(ctx, "DROP SCHEMA "+schema+" CASCADE")
-		admin.Close()
-	})
-	files, _ := filepath.Glob("../../migrations/*.up.sql")
-	sort.Strings(files)
-	for _, f := range files {
-		b, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := pool.Exec(ctx, string(b)); err != nil {
-			t.Fatalf("migrate %s: %v", filepath.Base(f), err)
-		}
-	}
-	return pool
 }
 
 func reviewHiddenCount(t *testing.T, pool *pgxpool.Pool) int {
@@ -584,36 +525,28 @@ func reviewHiddenCount(t *testing.T, pool *pgxpool.Pool) int {
 
 // Scenario: Review hidden event: audit failure emits nothing
 func TestHideReviewAuditFailureNoFact(t *testing.T) {
-	pool := pgSchemaPool(t)
-	ctx := interceptor.ContextWithPrincipal(context.Background(),
-		&commonv1.Principal{Id: "adm-1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin"}})
+	pool := migratedPool(t)
+	ctx := auth.WithPrincipal(context.Background(),
+		auth.Principal{ID: "adm-1", Type: auth.TypeUser, Scopes: []string{"engagement:admin"}})
 	repo := store.NewPostgresReviewRepository(pool, mustFactStore(t, pool))
 	rev, err := repo.CreateReview(ctx, store.Review{ID: "r1", ListingID: "L1", UserID: "u1", OrderID: "O1", Rating: 2, VerifiedPurchase: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	cases := map[string]*service.ReviewService{
-		"audit write fails": service.NewReviewService(repo, nil, nil).WithAudit(&spyAudit{log: &callLog{}, err: errors.New("audit down")}),
-		"no audit upstream": service.NewReviewService(repo, nil, nil),
+	failing := engagement.NewReviewService(repo, &fakeVerifier{},
+		auditx.NewGate(&spyAudit{log: &callLog{}, err: errors.New("audit down")}, nil), nil)
+	err = failing.HideReview(ctx, "adm-1", rev.ID, "spam")
+	requireAuditUnavailable(t, err)
+	got, err := repo.GetReview(ctx, rev.ID)
+	if err != nil || got.HiddenAt != nil {
+		t.Fatalf("review must stay visible: %+v %v", got, err)
 	}
-	for name, svc := range cases {
-		t.Run(name, func(t *testing.T) {
-			err := svc.HideReview(ctx, "adm-1", rev.ID, "spam")
-			if !errors.Is(err, service.ErrAuditUnavailable) {
-				t.Fatalf("want ErrAuditUnavailable, got %v", err)
-			}
-			got, err := repo.GetReview(ctx, rev.ID)
-			if err != nil || got.HiddenAt != nil {
-				t.Fatalf("review must stay visible: %+v %v", got, err)
-			}
-			if n := reviewHiddenCount(t, pool); n != 0 {
-				t.Fatalf("ReviewHidden outbox rows = %d, want 0", n)
-			}
-		})
+	if n := reviewHiddenCount(t, pool); n != 0 {
+		t.Fatalf("ReviewHidden outbox rows = %d, want 0", n)
 	}
 	// Control: with a working audit the same review hides and emits exactly one fact,
-	// so the zero counts above are not a vacuous result of a broken outbox query.
-	ok := service.NewReviewService(repo, nil, nil).WithAudit(&spyAudit{log: &callLog{}})
+	// so the zero count above is not a vacuous result of a broken outbox query.
+	ok := engagement.NewReviewService(repo, &fakeVerifier{}, auditx.NewGate(&spyAudit{log: &callLog{}}, nil), nil)
 	if err := ok.HideReview(ctx, "adm-1", rev.ID, "spam"); err != nil {
 		t.Fatal(err)
 	}
@@ -629,4 +562,22 @@ func mustFactStore(t *testing.T, pool *pgxpool.Pool) *outbox.Store {
 		t.Fatal(err)
 	}
 	return st
+}
+
+func migratedPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	url := testkit.Schema(t, testkit.SharedPostgres(t))
+	if err := migrate.Up(context.Background(), url, migrations.FS); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	pool, err := pgxpool.New(context.Background(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
+}
+
+func quietGate() *auditx.Gate {
+	return auditx.NewGate(&spyAudit{log: &callLog{}}, nil)
 }

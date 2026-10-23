@@ -1,4 +1,4 @@
-package service_test
+package engagement_test
 
 import (
 	"context"
@@ -6,48 +6,51 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
 	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
-	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 func TestDisputeService(t *testing.T) {
 	ctx := context.Background()
 	repo := storetest.NewFakeDisputeRepository()
-	svc := service.NewDisputeService(repo, nil).WithAudit(&disputeAuditFake{log: &disputeCallLog{}})
+	svc := engagement.NewDisputeService(repo, auditx.NewGate(&disputeAuditFake{log: &disputeCallLog{}}, nil), nil)
 
 	t.Run("CreateDispute Validations", func(t *testing.T) {
 		// Empty order ID
 		_, err := svc.CreateDispute(ctx, "", "buyer-1", "seller-1", "", "Hỏng hàng", nil)
-		if err != service.ErrEmptyOrderID {
+		if err != engagement.ErrEmptyOrderID {
 			t.Fatalf("expected ErrEmptyOrderID, got %v", err)
 		}
 
 		// Empty claimant ID
 		_, err = svc.CreateDispute(ctx, "order-1", "", "seller-1", "", "Hỏng hàng", nil)
-		if err != service.ErrEmptyClaimantID {
+		if err != engagement.ErrEmptyClaimantID {
 			t.Fatalf("expected ErrEmptyClaimantID, got %v", err)
 		}
 
 		// Empty defendant ID
 		_, err = svc.CreateDispute(ctx, "order-1", "buyer-1", "", "", "Hỏng hàng", nil)
-		if err != service.ErrEmptyDefendantID {
+		if err != engagement.ErrEmptyDefendantID {
 			t.Fatalf("expected ErrEmptyDefendantID, got %v", err)
 		}
 
 		// Claimant and Defendant same
 		_, err = svc.CreateDispute(ctx, "order-1", "user-1", "user-1", "", "Hỏng hàng", nil)
-		if err != service.ErrSameClaimantAndDef {
+		if err != engagement.ErrSameClaimantAndDef {
 			t.Fatalf("expected ErrSameClaimantAndDef, got %v", err)
 		}
 
 		// Empty reason
 		_, err = svc.CreateDispute(ctx, "order-1", "buyer-1", "seller-1", "", "   ", nil)
-		if err != service.ErrEmptyReason {
+		if err != engagement.ErrEmptyReason {
 			t.Fatalf("expected ErrEmptyReason, got %v", err)
 		}
 	})
@@ -66,7 +69,7 @@ func TestDisputeService(t *testing.T) {
 
 		// Get dispute validation
 		_, err = svc.GetDispute(ctx, "")
-		if err != service.ErrEmptyDisputeID {
+		if err != engagement.ErrEmptyDisputeID {
 			t.Fatalf("expected ErrEmptyDisputeID, got %v", err)
 		}
 
@@ -81,12 +84,12 @@ func TestDisputeService(t *testing.T) {
 
 		// Resolve dispute validation
 		_, err = svc.ResolveDispute(ctx, "adm-1", "", store.DisputeStatusResolved, 0, "Xong")
-		if err != service.ErrEmptyDisputeID {
+		if err != engagement.ErrEmptyDisputeID {
 			t.Fatalf("expected ErrEmptyDisputeID, got %v", err)
 		}
 
 		_, err = svc.ResolveDispute(ctx, "adm-1", disp.ID, store.DisputeStatus("INVALID_STATUS"), 0, "Xong")
-		if err != service.ErrInvalidDisputeStatus {
+		if err != engagement.ErrInvalidDisputeStatus {
 			t.Fatalf("expected ErrInvalidDisputeStatus, got %v", err)
 		}
 
@@ -108,7 +111,7 @@ func TestDisputeService(t *testing.T) {
 
 		// Try resolving already closed dispute -> ErrDisputeClosed
 		_, err = svc.ResolveDispute(ctx, "adm-1", disp.ID, store.DisputeStatusRejected, 0, "Từ chối sau khi đã đóng")
-		if !errors.Is(err, service.ErrInvalidTransition) && !errors.Is(err, service.ErrDisputeClosed) {
+		if !errors.Is(err, engagement.ErrInvalidTransition) && !errors.Is(err, engagement.ErrDisputeClosed) {
 			t.Fatalf("expected ErrDisputeClosed, got %v", err)
 		}
 	})
@@ -121,15 +124,11 @@ type disputeCallLog struct{ calls []string }
 // disputeAuditFake is the true external boundary (team-audit).
 type disputeAuditFake struct {
 	log    *disputeCallLog
-	events []upstream.AuditEvent
+	events []auditx.Event
 	err    error
 }
 
-func (a *disputeAuditFake) WriteHideEvent(context.Context, string, string, string, string) error {
-	return nil
-}
-
-func (a *disputeAuditFake) WriteEvent(_ context.Context, ev upstream.AuditEvent) error {
+func (a *disputeAuditFake) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
 	a.log.calls = append(a.log.calls, "audit")
 	if a.err != nil {
 		return a.err
@@ -171,7 +170,7 @@ func (r *disputeSpyRepo) ResolveWithEvent(ctx context.Context, d store.Dispute, 
 }
 
 type disputeFixture struct {
-	svc   *service.DisputeService
+	svc   *engagement.DisputeService
 	repo  *disputeSpyRepo
 	audit *disputeAuditFake
 	log   *disputeCallLog
@@ -181,7 +180,7 @@ func newDisputeFixture() *disputeFixture {
 	log := &disputeCallLog{}
 	repo := &disputeSpyRepo{FakeDisputeRepository: storetest.NewFakeDisputeRepository(), log: log}
 	audit := &disputeAuditFake{log: log}
-	return &disputeFixture{svc: service.NewDisputeService(repo, nil).WithAudit(audit), repo: repo, audit: audit, log: log}
+	return &disputeFixture{svc: engagement.NewDisputeService(repo, auditx.NewGate(audit, nil), nil), repo: repo, audit: audit, log: log}
 }
 
 func (f *disputeFixture) seed(t *testing.T, status store.DisputeStatus, returnID string) string {
@@ -359,12 +358,14 @@ func TestResolveDisputeOpenToRejectedService(t *testing.T) {
 
 // Scenario: Dispute escalation: Audit down blocks the ruling
 func TestResolveDisputeAuditDownNoEvent(t *testing.T) {
-	for name, mk := range map[string]func(f *disputeFixture) *service.DisputeService{
-		"audit error": func(f *disputeFixture) *service.DisputeService { f.audit.err = errors.New("audit down"); return f.svc },
-		"timeout":     func(f *disputeFixture) *service.DisputeService { f.audit.err = context.DeadlineExceeded; return f.svc },
-		"never wired": func(f *disputeFixture) *service.DisputeService { return service.NewDisputeService(f.repo, nil) },
-		"nil writer": func(f *disputeFixture) *service.DisputeService {
-			return service.NewDisputeService(f.repo, nil).WithAudit(nil)
+	for name, mk := range map[string]func(f *disputeFixture) *engagement.DisputeService{
+		"audit error": func(f *disputeFixture) *engagement.DisputeService {
+			f.audit.err = errors.New("audit down")
+			return f.svc
+		},
+		"timeout": func(f *disputeFixture) *engagement.DisputeService {
+			f.audit.err = context.DeadlineExceeded
+			return f.svc
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -372,9 +373,7 @@ func TestResolveDisputeAuditDownNoEvent(t *testing.T) {
 			id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
 			svc := mk(f)
 			_, err := svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, buyerFavour, "x")
-			if !errors.Is(err, service.ErrAuditUnavailable) {
-				t.Fatalf("want ErrAuditUnavailable, got %v", err)
-			}
+			requireAuditUnavailable(t, err)
 			f.assertUntouched(t, id, store.DisputeStatusInvestigating)
 			for _, c := range f.log.calls {
 				if c == "update" || c == "resolve" {
@@ -391,7 +390,7 @@ func TestResolveDisputeUpdateFailureNoFactThenRetry(t *testing.T) {
 	id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
 	f.repo.resolveErr = errors.New("db down")
 	_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, buyerFavour, "x")
-	if err == nil || errors.Is(err, service.ErrAuditUnavailable) || errors.Is(err, service.ErrInvalidTransition) {
+	if err == nil || status.Code(err) == codes.Unavailable || errors.Is(err, engagement.ErrInvalidTransition) {
 		t.Fatalf("want a plain internal error, got %v", err)
 	}
 	if len(f.repo.facts) != 0 || f.get(t, id).Status != store.DisputeStatusInvestigating {
@@ -413,7 +412,7 @@ func TestResolveDisputeOpenToResolvedRefusedService(t *testing.T) {
 		f := newDisputeFixture()
 		id := f.seed(t, store.DisputeStatusOpen, "r-1")
 		_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, ruling, "x")
-		if !errors.Is(err, service.ErrInvalidTransition) {
+		if !errors.Is(err, engagement.ErrInvalidTransition) {
 			t.Fatalf("ruling %v: want ErrInvalidTransition, got %v", ruling, err)
 		}
 		f.assertUntouched(t, id, store.DisputeStatusOpen)
@@ -427,7 +426,7 @@ func TestResolveDisputeClosedStaysClosedService(t *testing.T) {
 			f := newDisputeFixture()
 			id := f.seed(t, closed, "")
 			_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, to, 0, "x")
-			if !errors.Is(err, service.ErrInvalidTransition) && !errors.Is(err, service.ErrDisputeClosed) {
+			if !errors.Is(err, engagement.ErrInvalidTransition) && !errors.Is(err, engagement.ErrDisputeClosed) {
 				t.Fatalf("%s->%s: want invalid transition, got %v", closed, to, err)
 			}
 			f.assertUntouched(t, id, closed)
@@ -440,7 +439,7 @@ func TestResolveReturnLinkedWithoutRulingService(t *testing.T) {
 	f := newDisputeFixture()
 	id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
 	_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, 0, "x")
-	if !errors.Is(err, service.ErrRulingRequired) {
+	if !errors.Is(err, engagement.ErrRulingRequired) {
 		t.Fatalf("want ErrRulingRequired, got %v", err)
 	}
 	f.assertUntouched(t, id, store.DisputeStatusInvestigating)
@@ -458,7 +457,7 @@ func TestResolveRulingWithNonResolvedStatusService(t *testing.T) {
 		f := newDisputeFixture()
 		id := f.seed(t, c.from, "r-1")
 		_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, c.to, buyerFavour, "x")
-		if !errors.Is(err, service.ErrRulingNotAllowed) {
+		if !errors.Is(err, engagement.ErrRulingNotAllowed) {
 			t.Fatalf("%s->%s: want ErrRulingNotAllowed, got %v", c.from, c.to, err)
 		}
 		f.assertUntouched(t, id, c.from)
@@ -469,10 +468,10 @@ func TestResolveRulingWithNonResolvedStatusService(t *testing.T) {
 func TestResolveDisputeInputValidationService(t *testing.T) {
 	f := newDisputeFixture()
 	id := f.seed(t, store.DisputeStatusInvestigating, "")
-	if _, err := f.svc.ResolveDispute(context.Background(), "adm-1", "", store.DisputeStatusResolved, 0, "x"); !errors.Is(err, service.ErrEmptyDisputeID) {
+	if _, err := f.svc.ResolveDispute(context.Background(), "adm-1", "", store.DisputeStatusResolved, 0, "x"); !errors.Is(err, engagement.ErrEmptyDisputeID) {
 		t.Fatalf("empty id: %v", err)
 	}
-	if _, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusOpen, 0, "x"); !errors.Is(err, service.ErrInvalidDisputeStatus) {
+	if _, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusOpen, 0, "x"); !errors.Is(err, engagement.ErrInvalidDisputeStatus) {
 		t.Fatalf("OPEN target: %v", err)
 	}
 	if _, err := f.svc.ResolveDispute(context.Background(), "adm-1", "missing", store.DisputeStatusResolved, 0, "x"); !errors.Is(err, store.ErrDisputeNotFound) {
@@ -550,7 +549,7 @@ func TestListOrderDisputesNewestFirst(t *testing.T) {
 	if err != nil || len(empty) != 0 {
 		t.Fatalf("empty = %v, %v", empty, err)
 	}
-	if _, err := f.svc.ListOrderDisputes(ctx, "  "); !errors.Is(err, service.ErrEmptyOrderID) {
+	if _, err := f.svc.ListOrderDisputes(ctx, "  "); !errors.Is(err, engagement.ErrEmptyOrderID) {
 		t.Fatalf("blank order id: %v", err)
 	}
 }

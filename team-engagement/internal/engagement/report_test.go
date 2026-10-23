@@ -1,4 +1,4 @@
-package service_test
+package engagement_test
 
 import (
 	"context"
@@ -9,10 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+
+	"github.com/buidangphuc/team-engagement/internal/engagement"
 	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
-	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 const (
@@ -40,17 +44,15 @@ func (l *rptLog) snapshot() []string {
 	return append([]string(nil), l.events...)
 }
 
-// rptAudit is the true external boundary (team-audit). It satisfies
-// service.AuditWriter whichever audit method the service chooses to call.
+// rptAudit is the true external boundary (team-audit).
 type rptAudit struct {
-	log   *rptLog
-	err   error
-	mu    sync.Mutex
-	evs   []upstream.AuditEvent
-	other int // hide-event calls (must stay 0)
+	log *rptLog
+	err error
+	mu  sync.Mutex
+	evs []auditx.Event
 }
 
-func (a *rptAudit) record(ev upstream.AuditEvent) error {
+func (a *rptAudit) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
 	if a.log != nil {
 		a.log.add("audit")
 	}
@@ -63,26 +65,10 @@ func (a *rptAudit) record(ev upstream.AuditEvent) error {
 	return nil
 }
 
-func (a *rptAudit) WriteHideEvent(_ context.Context, _, _, _, _ string) error {
-	a.mu.Lock()
-	a.other++
-	a.mu.Unlock()
-	return nil
-}
-
-func (a *rptAudit) WriteEvent(_ context.Context, ev upstream.AuditEvent) error { return a.record(ev) }
-
-func (a *rptAudit) WriteReportResolveEvent(_ context.Context, actorID, reportID, listingID, status, resolutionNote string) error {
-	return a.record(upstream.AuditEvent{
-		ActorID: actorID, Action: "report.resolve", TargetType: "report", TargetID: reportID,
-		Metadata: map[string]string{"status": status, "listing_id": listingID, "resolution_note": resolutionNote},
-	})
-}
-
-func (a *rptAudit) events() []upstream.AuditEvent {
+func (a *rptAudit) events() []auditx.Event {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return append([]upstream.AuditEvent(nil), a.evs...)
+	return append([]auditx.Event(nil), a.evs...)
 }
 
 // rptRepo wraps the in-memory repository to log ordering, inject a close
@@ -114,7 +100,7 @@ type rptEnv struct {
 	repo  *rptRepo
 	audit *rptAudit
 	log   *rptLog
-	svc   *service.ReportService
+	svc   *engagement.ReportService
 }
 
 func newRptEnv() *rptEnv {
@@ -122,7 +108,7 @@ func newRptEnv() *rptEnv {
 	mem := storetest.NewFakeReportRepository()
 	repo := &rptRepo{FakeReportRepository: mem, log: l}
 	au := &rptAudit{log: l}
-	return &rptEnv{mem: mem, repo: repo, audit: au, log: l, svc: service.NewReportService(repo, nil).WithAudit(au)}
+	return &rptEnv{mem: mem, repo: repo, audit: au, log: l, svc: engagement.NewReportService(repo, auditx.NewGate(au, nil), nil)}
 }
 
 func (e *rptEnv) openReports(t *testing.T) []store.Report {
@@ -217,7 +203,7 @@ func TestCreateReportNoteLengthBoundary_Service(t *testing.T) {
 		t.Errorf("500 runes: %v", err)
 	}
 	_, err := e.svc.CreateReport(ctx, "u1", rptListingB, "other", strings.Repeat("ạ", 501))
-	if !errors.Is(err, service.ErrReportNoteTooLong) {
+	if !errors.Is(err, engagement.ErrReportNoteTooLong) {
 		t.Errorf("501 runes err = %v, want ErrReportNoteTooLong", err)
 	}
 	if n := len(e.openReports(t)); n != 1 {
@@ -229,7 +215,7 @@ func TestCreateReportNoteLengthBoundary_Service(t *testing.T) {
 func TestCreateReportUnknownReasonRejected(t *testing.T) {
 	e := newRptEnv()
 	for _, bad := range []string{"spam", "", "SCAM"} {
-		if _, err := e.svc.CreateReport(context.Background(), "u1", rptListingA, bad, ""); !errors.Is(err, service.ErrInvalidReportReason) {
+		if _, err := e.svc.CreateReport(context.Background(), "u1", rptListingA, bad, ""); !errors.Is(err, engagement.ErrInvalidReportReason) {
 			t.Errorf("reason %q err = %v, want ErrInvalidReportReason", bad, err)
 		}
 	}
@@ -247,7 +233,7 @@ func TestCreateReportUnknownReasonRejected(t *testing.T) {
 func TestCreateReportTargetIDValidated(t *testing.T) {
 	e := newRptEnv()
 	for _, bad := range []string{"", "not-a-uuid"} {
-		if _, err := e.svc.CreateReport(context.Background(), "u1", bad, "scam", ""); !errors.Is(err, service.ErrInvalidReportTarget) {
+		if _, err := e.svc.CreateReport(context.Background(), "u1", bad, "scam", ""); !errors.Is(err, engagement.ErrInvalidReportTarget) {
 			t.Errorf("target %q err = %v, want ErrInvalidReportTarget", bad, err)
 		}
 	}
@@ -261,7 +247,7 @@ func TestCreateReportOwnListingRefused(t *testing.T) {
 	e := newRptEnv()
 	e.mem.SeedSellerListing("seller-1", rptListingA)
 	_, err := e.svc.CreateReport(context.Background(), "seller-1", rptListingA, "scam", "")
-	if !errors.Is(err, service.ErrOwnListing) {
+	if !errors.Is(err, engagement.ErrOwnListing) {
 		t.Fatalf("err = %v, want ErrOwnListing", err)
 	}
 	if n := e.allReports(t); n != 0 {
@@ -281,7 +267,7 @@ func TestCreateReportOpenCapPerReporter(t *testing.T) {
 		e.seedOpen(fmt.Sprintf("rp-%d", i), "u1", rptListing(i))
 	}
 	_, err := e.svc.CreateReport(ctx, "u1", rptListing(21), "scam", "")
-	if !errors.Is(err, service.ErrReportCapReached) {
+	if !errors.Is(err, engagement.ErrReportCapReached) {
 		t.Fatalf("21st err = %v, want ErrReportCapReached", err)
 	}
 	if n, _ := e.mem.CountOpenByReporter(ctx, "u1"); n != 20 {
@@ -395,9 +381,7 @@ func TestResolveReportAuditFailureFailsClosed(t *testing.T) {
 	e.seedOpen("rp-1", "u1", rptListingA)
 	e.audit.err = errors.New("audit down")
 	_, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", store.ReportStatusDismissed, "no")
-	if !errors.Is(err, service.ErrAuditUnavailable) {
-		t.Fatalf("err = %v, want ErrAuditUnavailable", err)
-	}
+	requireAuditUnavailable(t, err)
 	if e.repo.closes != 0 {
 		t.Errorf("CloseReport called %d times, want 0", e.repo.closes)
 	}
@@ -407,28 +391,6 @@ func TestResolveReportAuditFailureFailsClosed(t *testing.T) {
 	}
 	if len(e.openReports(t)) != 1 {
 		t.Error("report must still be listed OPEN")
-	}
-}
-
-// Scenario: Listing reports: No audit upstream configured
-func TestResolveReportNilAuditClientUnavailable(t *testing.T) {
-	ctx := context.Background()
-	for name, mk := range map[string]func(r store.ReportRepository) *service.ReportService{
-		"no WithAudit": func(r store.ReportRepository) *service.ReportService { return service.NewReportService(r, nil) },
-		"typed nil client": func(r store.ReportRepository) *service.ReportService {
-			return service.NewReportService(r, nil).WithAudit((*upstream.AuditClient)(nil))
-		},
-	} {
-		mem := storetest.NewFakeReportRepository()
-		mem.SeedReport(store.Report{ID: "rp-1", TargetID: rptListingA, ReporterID: "u1"})
-		_, err := mk(mem).ResolveReport(ctx, "adm-1", "rp-1", store.ReportStatusActioned, "n")
-		if !errors.Is(err, service.ErrAuditUnavailable) {
-			t.Errorf("%s: err = %v, want ErrAuditUnavailable", name, err)
-		}
-		got, _ := mem.GetReport(ctx, "rp-1")
-		if got.Status != store.ReportStatusOpen {
-			t.Errorf("%s: status = %s, want OPEN", name, got.Status)
-		}
 	}
 }
 
@@ -442,10 +404,13 @@ func TestResolveReportCloseFailureInternalThenRetry(t *testing.T) {
 	if err == nil {
 		t.Fatal("first call must fail")
 	}
-	for _, s := range []error{service.ErrAuditUnavailable, service.ErrReportClosed, store.ErrReportNotFound} {
+	for _, s := range []error{engagement.ErrReportClosed, store.ErrReportNotFound} {
 		if errors.Is(err, s) {
 			t.Errorf("close failure must be Internal (unclassified), got sentinel %v", s)
 		}
+	}
+	if status.Code(err) == codes.Unavailable {
+		t.Errorf("close failure must not look like an audit outage: %v", err)
 	}
 	if got, _ := e.mem.GetReport(ctx, "rp-1"); got.Status != store.ReportStatusOpen {
 		t.Errorf("status after failed close = %s, want OPEN", got.Status)
@@ -471,7 +436,7 @@ func TestResolveReportSameStatusReCloseRefused(t *testing.T) {
 	}
 	first, _ := e.mem.GetReport(ctx, "rp-1")
 	_, err := e.svc.ResolveReport(ctx, "adm-2", "rp-1", store.ReportStatusDismissed, "second")
-	if !errors.Is(err, service.ErrReportClosed) {
+	if !errors.Is(err, engagement.ErrReportClosed) {
 		t.Fatalf("err = %v, want ErrReportClosed", err)
 	}
 	after, _ := e.mem.GetReport(ctx, "rp-1")
@@ -492,7 +457,7 @@ func TestResolveReportConflictingStatusRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := e.svc.ResolveReport(ctx, "adm-2", "rp-1", store.ReportStatusActioned, "second")
-	if !errors.Is(err, service.ErrReportClosed) {
+	if !errors.Is(err, engagement.ErrReportClosed) {
 		t.Fatalf("err = %v, want ErrReportClosed", err)
 	}
 	if got, _ := e.mem.GetReport(ctx, "rp-1"); got.Status != store.ReportStatusDismissed {
@@ -510,11 +475,9 @@ func TestResolveReportTouchesOnlyAudit(t *testing.T) {
 	if _, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", store.ReportStatusActioned, "n"); err != nil {
 		t.Fatal(err)
 	}
-	if e.audit.other != 0 {
-		t.Errorf("hide-event calls = %d, want 0", e.audit.other)
-	}
-	if n := len(e.audit.events()); n != 1 {
-		t.Errorf("audit events = %d, want exactly 1", n)
+	evs := e.audit.events()
+	if len(evs) != 1 || evs[0].Action != "report.resolve" {
+		t.Errorf("audit events = %+v, want exactly one report.resolve", evs)
 	}
 	if order := e.log.snapshot(); len(order) != 2 {
 		t.Errorf("side effects = %v, want only audit then close", order)
@@ -531,12 +494,12 @@ func TestResolveReportValidationNeverAudits(t *testing.T) {
 		note   string
 		want   error
 	}{
-		{"status OPEN", "rp-1", store.ReportStatusOpen, "n", service.ErrInvalidReportStatus},
-		{"status empty", "rp-1", "", "n", service.ErrInvalidReportStatus},
-		{"empty note", "rp-1", store.ReportStatusActioned, "", service.ErrResolutionNoteRequired},
-		{"whitespace note", "rp-1", store.ReportStatusActioned, "   ", service.ErrResolutionNoteRequired},
-		{"501 runes", "rp-1", store.ReportStatusActioned, strings.Repeat("ạ", 501), service.ErrResolutionNoteTooLong},
-		{"empty id", "", store.ReportStatusActioned, "n", service.ErrEmptyReportID},
+		{"status OPEN", "rp-1", store.ReportStatusOpen, "n", engagement.ErrInvalidReportStatus},
+		{"status empty", "rp-1", "", "n", engagement.ErrInvalidReportStatus},
+		{"empty note", "rp-1", store.ReportStatusActioned, "", engagement.ErrResolutionNoteRequired},
+		{"whitespace note", "rp-1", store.ReportStatusActioned, "   ", engagement.ErrResolutionNoteRequired},
+		{"501 runes", "rp-1", store.ReportStatusActioned, strings.Repeat("ạ", 501), engagement.ErrResolutionNoteTooLong},
+		{"empty id", "", store.ReportStatusActioned, "n", engagement.ErrEmptyReportID},
 		{"unknown id", "rp-404", store.ReportStatusActioned, "n", store.ErrReportNotFound},
 	}
 	for _, c := range cases {

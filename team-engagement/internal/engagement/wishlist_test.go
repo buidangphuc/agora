@@ -1,26 +1,26 @@
-package service_test
+package engagement_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 func TestCollectionService(t *testing.T) {
 	ctx := context.Background()
-	svc := service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil)
+	svc := engagement.NewCollectionService(storetest.NewFakeCollectionRepository(), nil)
 
 	// Validation
-	if _, err := svc.CreateCollection(ctx, "u1", ""); !errors.Is(err, service.ErrEmptyCollectionName) {
+	if _, err := svc.CreateCollection(ctx, "u1", ""); !errors.Is(err, engagement.ErrEmptyCollectionName) {
 		t.Fatalf("expected ErrEmptyCollectionName, got %v", err)
 	}
-	if _, err := svc.AddToCollection(ctx, "u1", "", "l1"); !errors.Is(err, service.ErrEmptyCollectionID) {
+	if _, err := svc.AddToCollection(ctx, "u1", "", "l1"); !errors.Is(err, engagement.ErrEmptyCollectionID) {
 		t.Fatalf("expected ErrEmptyCollectionID, got %v", err)
 	}
-	if _, err := svc.AddToCollection(ctx, "u1", "c1", ""); !errors.Is(err, service.ErrEmptyListing) {
+	if _, err := svc.AddToCollection(ctx, "u1", "c1", ""); !errors.Is(err, engagement.ErrEmptyListing) {
 		t.Fatalf("expected ErrEmptyListing, got %v", err)
 	}
 
