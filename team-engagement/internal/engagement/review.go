@@ -1,4 +1,4 @@
-package service
+package engagement
 
 import (
 	"context"
@@ -8,8 +8,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+
 	"github.com/buidangphuc/team-engagement/internal/store"
-	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 var (
@@ -21,21 +22,13 @@ var (
 	ErrOrderUnavailable = errors.New("order verification unavailable")
 	ErrOrderNotEligible = errors.New("order not eligible for review")
 	ErrReasonTooLong    = errors.New("reason must be at most 500 characters")
-	ErrAuditUnavailable = errors.New("audit unavailable")
 )
 
 // maxHideReasonRunes bounds the moderation reason after trimming.
 const maxHideReasonRunes = 500
 
-// AuditWriter is the slice of internal/upstream.AuditClient the service needs.
-type AuditWriter interface {
-	WriteHideEvent(ctx context.Context, actorID, reviewID, listingID, reason string) error
-	WriteEvent(ctx context.Context, ev upstream.AuditEvent) error
-}
-
 // OrderVerifier consults team-order to confirm a buyer completed an order for a
-// listing. Implemented by internal/upstream.OrderClient; a nil verifier makes
-// CreateReview fail closed with ErrOrderUnavailable.
+// listing. Implemented by internal/upstream.OrderClient.
 type OrderVerifier interface {
 	VerifyPurchase(ctx context.Context, buyerID, listingID, orderID string) (verified bool, sellerID string, err error)
 }
@@ -43,21 +36,15 @@ type OrderVerifier interface {
 type ReviewService struct {
 	repo     store.ReviewRepository
 	verifier OrderVerifier
-	audit    AuditWriter
+	gate     *auditx.Gate
 	logger   *slog.Logger
 }
 
-// WithAudit wires the audit writer. Without one, HideReview fails closed.
-func (s *ReviewService) WithAudit(w AuditWriter) *ReviewService {
-	s.audit = w
-	return s
-}
-
-func NewReviewService(repo store.ReviewRepository, verifier OrderVerifier, logger *slog.Logger) *ReviewService {
+func NewReviewService(repo store.ReviewRepository, verifier OrderVerifier, gate *auditx.Gate, logger *slog.Logger) *ReviewService {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &ReviewService{repo: repo, verifier: verifier, logger: logger}
+	return &ReviewService{repo: repo, verifier: verifier, gate: gate, logger: logger}
 }
 
 func (s *ReviewService) CreateReview(
@@ -76,9 +63,6 @@ func (s *ReviewService) CreateReview(
 
 	if orderID == "" {
 		return store.Review{}, ErrEmptyOrderID
-	}
-	if s.verifier == nil {
-		return store.Review{}, ErrOrderUnavailable
 	}
 	verified, sellerID, err := s.verifier.VerifyPurchase(ctx, userID, listingID, orderID)
 	if err != nil {
@@ -183,14 +167,14 @@ func (s *ReviewService) HideReview(ctx context.Context, adminID, reviewID, reaso
 	if review.HiddenAt != nil {
 		return nil
 	}
-	if s.audit == nil {
-		return ErrAuditUnavailable
-	}
-	if err := s.audit.WriteHideEvent(ctx, adminID, reviewID, review.ListingID, reason); err != nil {
-		return fmt.Errorf("%w: %v", ErrAuditUnavailable, err)
-	}
-	if _, err := s.repo.HideReview(ctx, reviewID, adminID, reason); err != nil {
+	return s.gate.Do(ctx, auditx.Event{
+		ActorID:    adminID,
+		Action:     "review.hide",
+		TargetType: "review",
+		TargetID:   reviewID,
+		Metadata:   map[string]string{"reason": reason, "listing_id": review.ListingID},
+	}, func(ctx context.Context) error {
+		_, err := s.repo.HideReview(ctx, reviewID, adminID, reason)
 		return err
-	}
-	return nil
+	})
 }

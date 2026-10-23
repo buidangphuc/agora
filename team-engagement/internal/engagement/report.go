@@ -1,4 +1,4 @@
-package service
+package engagement
 
 import (
 	"context"
@@ -10,8 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+
 	"github.com/buidangphuc/team-engagement/internal/store"
-	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 var (
@@ -37,32 +38,17 @@ var validReportReasons = map[string]bool{
 	"misleading": true, "inappropriate": true, "other": true,
 }
 
-// ReportAuditWriter is the slice of upstream.AuditClient ReportService needs.
-type ReportAuditWriter interface {
-	WriteReportResolveEvent(ctx context.Context, actorID, reportID, listingID, status, resolutionNote string) error
-}
-
 type ReportService struct {
 	repo   store.ReportRepository
-	audit  ReportAuditWriter
+	gate   *auditx.Gate
 	logger *slog.Logger
 }
 
-func NewReportService(repo store.ReportRepository, logger *slog.Logger) *ReportService {
+func NewReportService(repo store.ReportRepository, gate *auditx.Gate, logger *slog.Logger) *ReportService {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &ReportService{repo: repo, logger: logger}
-}
-
-// WithAudit wires the audit writer. Without one (or with a nil client),
-// ResolveReport fails closed.
-func (s *ReportService) WithAudit(w ReportAuditWriter) *ReportService {
-	if c, ok := w.(*upstream.AuditClient); ok && c == nil {
-		w = nil
-	}
-	s.audit = w
-	return s
+	return &ReportService{repo: repo, gate: gate, logger: logger}
 }
 
 func (s *ReportService) CreateReport(ctx context.Context, reporterID, targetID, reasonCode, note string) (store.Report, error) {
@@ -130,18 +116,24 @@ func (s *ReportService) ResolveReport(ctx context.Context, adminID, id string, s
 	if existing.Status == store.ReportStatusActioned || existing.Status == store.ReportStatusDismissed {
 		return store.Report{}, ErrReportClosed
 	}
-	if s.audit == nil {
-		return store.Report{}, ErrAuditUnavailable
-	}
-	if err := s.audit.WriteReportResolveEvent(ctx, adminID, id, existing.TargetID, string(status), note); err != nil {
-		return store.Report{}, fmt.Errorf("%w: %v", ErrAuditUnavailable, err)
-	}
-	ok, err := s.repo.CloseReport(ctx, id, adminID, status, note)
+	err = s.gate.Do(ctx, auditx.Event{
+		ActorID:    adminID,
+		Action:     "report.resolve",
+		TargetType: "report",
+		TargetID:   id,
+		Metadata:   map[string]string{"status": string(status), "listing_id": existing.TargetID, "resolution_note": note},
+	}, func(ctx context.Context) error {
+		ok, err := s.repo.CloseReport(ctx, id, adminID, status, note)
+		if err != nil {
+			return fmt.Errorf("close report: %w", err)
+		}
+		if !ok {
+			return ErrReportClosed
+		}
+		return nil
+	})
 	if err != nil {
-		return store.Report{}, fmt.Errorf("close report: %w", err)
-	}
-	if !ok {
-		return store.Report{}, ErrReportClosed
+		return store.Report{}, err
 	}
 	got, err := s.repo.GetReport(ctx, id)
 	if err != nil {

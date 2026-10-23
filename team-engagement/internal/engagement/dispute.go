@@ -1,4 +1,4 @@
-package service
+package engagement
 
 import (
 	"context"
@@ -10,9 +10,10 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
+
 	"github.com/buidangphuc/team-engagement/internal/store"
-	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 var (
@@ -31,21 +32,15 @@ var (
 
 type DisputeService struct {
 	repo   store.DisputeRepository
-	audit  AuditWriter
+	gate   *auditx.Gate
 	logger *slog.Logger
 }
 
-// WithAudit wires the audit writer. Without one, ResolveDispute fails closed.
-func (s *DisputeService) WithAudit(w AuditWriter) *DisputeService {
-	s.audit = w
-	return s
-}
-
-func NewDisputeService(repo store.DisputeRepository, logger *slog.Logger) *DisputeService {
+func NewDisputeService(repo store.DisputeRepository, gate *auditx.Gate, logger *slog.Logger) *DisputeService {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &DisputeService{repo: repo, logger: logger}
+	return &DisputeService{repo: repo, gate: gate, logger: logger}
 }
 
 func (s *DisputeService) CreateDispute(
@@ -184,10 +179,7 @@ func (s *DisputeService) ResolveDispute(
 	existing.Resolution = strings.TrimSpace(resolution)
 	existing.Ruling = ruling
 
-	if s.audit == nil {
-		return store.Dispute{}, ErrAuditUnavailable
-	}
-	if err := s.audit.WriteEvent(ctx, upstream.AuditEvent{
+	ev := auditx.Event{
 		ActorID:    actorID,
 		Action:     "dispute.resolve",
 		TargetType: "dispute",
@@ -199,33 +191,39 @@ func (s *DisputeService) ResolveDispute(
 			"ruling":     rulingLabel(ruling),
 			"return_id":  existing.ReturnID,
 		},
-	}); err != nil {
-		return store.Dispute{}, fmt.Errorf("%w: %v", ErrAuditUnavailable, err)
 	}
 
-	if status == store.DisputeStatusInvestigating {
-		updated, err := s.repo.UpdateDispute(ctx, existing)
-		if err != nil {
-			return store.Dispute{}, fmt.Errorf("update dispute: %w", err)
+	var updated store.Dispute
+	err = s.gate.Do(ctx, ev, func(ctx context.Context) error {
+		if status == store.DisputeStatusInvestigating {
+			u, err := s.repo.UpdateDispute(ctx, existing)
+			if err != nil {
+				return fmt.Errorf("update dispute: %w", err)
+			}
+			updated = u
+			return nil
 		}
-		return updated, nil
-	}
-
-	factStatus := engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED
-	if status == store.DisputeStatusRejected {
-		factStatus = engagementv1.DisputeStatus_DISPUTE_STATUS_REJECTED
-	}
-	updated, err := s.repo.ResolveWithEvent(ctx, existing, prev, &engagementv1.DisputeResolved{
-		DisputeId:  id,
-		OrderId:    existing.OrderID,
-		ReturnId:   existing.ReturnID,
-		Status:     factStatus,
-		Ruling:     ruling,
-		ResolverId: actorID,
-		ResolvedAt: timestamppb.New(time.Now().UTC()),
+		factStatus := engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED
+		if status == store.DisputeStatusRejected {
+			factStatus = engagementv1.DisputeStatus_DISPUTE_STATUS_REJECTED
+		}
+		u, err := s.repo.ResolveWithEvent(ctx, existing, prev, &engagementv1.DisputeResolved{
+			DisputeId:  id,
+			OrderId:    existing.OrderID,
+			ReturnId:   existing.ReturnID,
+			Status:     factStatus,
+			Ruling:     ruling,
+			ResolverId: actorID,
+			ResolvedAt: timestamppb.New(time.Now().UTC()),
+		})
+		if err != nil {
+			return fmt.Errorf("resolve dispute: %w", err)
+		}
+		updated = u
+		return nil
 	})
 	if err != nil {
-		return store.Dispute{}, fmt.Errorf("resolve dispute: %w", err)
+		return store.Dispute{}, err
 	}
 	return updated, nil
 }

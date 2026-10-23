@@ -15,6 +15,7 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/buidangphuc/team-engagement/internal/config"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
 )
 
 func OpenResources(ctx context.Context, s *config.Settings, logger *slog.Logger) (*Resources, error) {
@@ -95,36 +96,11 @@ func (res *Resources) startDBHealthCheck(logger *slog.Logger) {
 	}()
 }
 
-// ReportSweeper pseudonymises closed reports older than a cutoff, one bounded
-// batch at a time.
-type ReportSweeper interface {
-	SweepClosedBefore(ctx context.Context, cutoff time.Time, batch int) (int64, error)
-}
-
-const reportSweepBatch = 500
-
-// SweepReports redacts eligible reports in batches until a short batch signals
-// none remain. Earlier batches stay committed if a later one fails; the next run
-// resumes. It returns the rows redacted so far alongside any error.
-func SweepReports(ctx context.Context, repo ReportSweeper, cutoff time.Time) (int64, error) {
-	var total int64
-	for {
-		n, err := repo.SweepClosedBefore(ctx, cutoff, reportSweepBatch)
-		total += n
-		if err != nil {
-			return total, err
-		}
-		if n < reportSweepBatch {
-			return total, nil
-		}
-	}
-}
-
 // RunReportSweepLoop sweeps once at startup, then on every tick, until ctx ends.
 // A failing run is logged and does not stop the loop.
-func RunReportSweepLoop(ctx context.Context, repo ReportSweeper, retention time.Duration, ticks <-chan time.Time, now func() time.Time, logger *slog.Logger) {
+func RunReportSweepLoop(ctx context.Context, repo engagement.ReportSweeper, retention time.Duration, ticks <-chan time.Time, now func() time.Time, logger *slog.Logger) {
 	run := func() {
-		n, err := SweepReports(ctx, repo, now().Add(-retention))
+		n, err := engagement.SweepReports(ctx, repo, now().Add(-retention))
 		if err != nil {
 			logger.Error("report retention sweep failed", slog.Int64("redacted", n), slog.Any("err", err))
 			return
