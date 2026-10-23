@@ -1,8 +1,7 @@
-package handler
+package rpc
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -10,43 +9,36 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
-	"github.com/buidangphuc/team-engagement/internal/interceptor"
 	"github.com/buidangphuc/team-engagement/internal/store"
 )
 
-func (h *EngagementHandler) CreateCollection(
+func (h *Handler) CreateCollection(
 	ctx context.Context, req *engagementv1.CreateCollectionRequest,
 ) (*engagementv1.CreateCollectionResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "engagement:write"); err != nil {
+	if err := requireScopes(ctx, "engagement:write"); err != nil {
 		return nil, err
 	}
 	if req.GetName() == "" {
 		return nil, status.Error(codes.InvalidArgument, "name is required")
 	}
-	if h.collectionSvc == nil {
-		return nil, status.Error(codes.Unimplemented, "collections service unavailable")
-	}
 
 	col, err := h.collectionSvc.CreateCollection(ctx, userID(ctx), req.GetName())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "create collection: %v", err)
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.CreateCollectionResponse{Collection: toWireCollection(col)}, nil
 }
 
-func (h *EngagementHandler) ListCollections(
+func (h *Handler) ListCollections(
 	ctx context.Context, _ *engagementv1.ListCollectionsRequest,
 ) (*engagementv1.ListCollectionsResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "engagement:read"); err != nil {
+	if err := requireScopes(ctx, "engagement:read"); err != nil {
 		return nil, err
-	}
-	if h.collectionSvc == nil {
-		return &engagementv1.ListCollectionsResponse{}, nil
 	}
 
 	cols, err := h.collectionSvc.ListCollections(ctx, userID(ctx))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "list collections: %v", err)
+		return nil, h.fail(ctx, err)
 	}
 	wire := make([]*engagementv1.Collection, 0, len(cols))
 	for _, c := range cols {
@@ -55,10 +47,10 @@ func (h *EngagementHandler) ListCollections(
 	return &engagementv1.ListCollectionsResponse{Collections: wire}, nil
 }
 
-func (h *EngagementHandler) AddToCollection(
+func (h *Handler) AddToCollection(
 	ctx context.Context, req *engagementv1.AddToCollectionRequest,
 ) (*engagementv1.AddToCollectionResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "engagement:write"); err != nil {
+	if err := requireScopes(ctx, "engagement:write"); err != nil {
 		return nil, err
 	}
 	if req.GetCollectionId() == "" {
@@ -67,23 +59,17 @@ func (h *EngagementHandler) AddToCollection(
 	if req.GetListingId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
 	}
-	if h.collectionSvc == nil {
-		return nil, status.Error(codes.Unimplemented, "collections service unavailable")
-	}
 
 	if _, err := h.collectionSvc.AddToCollection(ctx, userID(ctx), req.GetCollectionId(), req.GetListingId()); err != nil {
-		if errors.Is(err, store.ErrCollectionNotFound) {
-			return nil, status.Error(codes.NotFound, "collection not found")
-		}
-		return nil, status.Errorf(codes.Internal, "add to collection: %v", err)
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.AddToCollectionResponse{}, nil
 }
 
-func (h *EngagementHandler) RemoveFromCollection(
+func (h *Handler) RemoveFromCollection(
 	ctx context.Context, req *engagementv1.RemoveFromCollectionRequest,
 ) (*engagementv1.RemoveFromCollectionResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "engagement:write"); err != nil {
+	if err := requireScopes(ctx, "engagement:write"); err != nil {
 		return nil, err
 	}
 	if req.GetCollectionId() == "" {
@@ -92,30 +78,21 @@ func (h *EngagementHandler) RemoveFromCollection(
 	if req.GetListingId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
 	}
-	if h.collectionSvc == nil {
-		return nil, status.Error(codes.Unimplemented, "collections service unavailable")
-	}
 
 	if _, err := h.collectionSvc.RemoveFromCollection(ctx, userID(ctx), req.GetCollectionId(), req.GetListingId()); err != nil {
-		if errors.Is(err, store.ErrCollectionNotFound) {
-			return nil, status.Error(codes.NotFound, "collection not found")
-		}
-		return nil, status.Errorf(codes.Internal, "remove from collection: %v", err)
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.RemoveFromCollectionResponse{}, nil
 }
 
-func (h *EngagementHandler) ListCollectionItems(
+func (h *Handler) ListCollectionItems(
 	ctx context.Context, req *engagementv1.ListCollectionItemsRequest,
 ) (*engagementv1.ListCollectionItemsResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "engagement:read"); err != nil {
+	if err := requireScopes(ctx, "engagement:read"); err != nil {
 		return nil, err
 	}
 	if req.GetCollectionId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "collection_id is required")
-	}
-	if h.collectionSvc == nil {
-		return &engagementv1.ListCollectionItemsResponse{}, nil
 	}
 
 	var cursor string
@@ -127,10 +104,7 @@ func (h *EngagementHandler) ListCollectionItems(
 
 	ids, next, total, err := h.collectionSvc.ListCollectionItems(ctx, userID(ctx), req.GetCollectionId(), cursor, pageSize)
 	if err != nil {
-		if errors.Is(err, store.ErrCollectionNotFound) {
-			return nil, status.Error(codes.NotFound, "collection not found")
-		}
-		return nil, status.Errorf(codes.Internal, "list collection items: %v", err)
+		return nil, h.fail(ctx, err)
 	}
 	return &engagementv1.ListCollectionItemsResponse{
 		ListingIds: ids,
