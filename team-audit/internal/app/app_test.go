@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"os/exec"
 	"path/filepath"
@@ -286,7 +287,7 @@ func TestMigrateUpSubcommandExitsNonZeroOnUnreachableDatabase(t *testing.T) {
 	if err == nil {
 		t.Fatalf("migrate up exited 0 against an unreachable database\n%s", out)
 	}
-	if _, ok := err.(*exec.ExitError); !ok {
+	if exitErr := (*exec.ExitError)(nil); !errors.As(err, &exitErr) {
 		t.Fatalf("migrate up failed to run: %v", err)
 	}
 	l, lerr := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))

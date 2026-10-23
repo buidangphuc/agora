@@ -67,8 +67,8 @@ func TestPanicIsRecoveredAsInternal(t *testing.T) {
 func TestQueryFiltersAreNotLogged(t *testing.T) {
 	var buf safeBuf
 	logger := capturedLogger(&buf)
-	h, repo := newHandler(t)
-	h = newHandlerOn(t, repo, logger)
+	_, repo := newHandler(t)
+	h := newHandlerOn(t, repo, logger)
 	repo.queryErr = errors.New("db down")
 	c := dial(t, h, logger)
 	action, target := "secret-action", "secret-target"

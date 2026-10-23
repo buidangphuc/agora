@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"sync"
@@ -51,7 +50,7 @@ func capturedLogger(buf *safeBuf) *slog.Logger {
 	return logx.NewTo(buf, config.Runtime{Env: "test", LogLevel: "debug", LogJSON: true}, "team-audit")
 }
 
-func quiet() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func quiet() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 type faultRepo struct {
 	audit.Repository
