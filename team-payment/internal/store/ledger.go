@@ -1,11 +1,9 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -89,7 +87,7 @@ const insertLedgerSQL = `INSERT INTO wallet_ledger (id, seller_id, type, amount,
 const insertLedgerOnceSQL = insertLedgerSQL + `
 	ON CONFLICT (type, reference_id) WHERE reference_id IS NOT NULL DO NOTHING`
 
-func normalizeEntry(e LedgerEntry) LedgerEntry {
+func NormalizeEntry(e LedgerEntry) LedgerEntry {
 	if e.ID == "" {
 		e.ID = uuid.NewString()
 	}
@@ -132,7 +130,7 @@ func insertLedgerOnce(ctx context.Context, q DBTX, e LedgerEntry) (LedgerEntry, 
 	if e.ReferenceID == "" {
 		return LedgerEntry{}, false, ErrReferenceRequired
 	}
-	e = normalizeEntry(e)
+	e = NormalizeEntry(e)
 	tag, err := q.Exec(ctx, insertLedgerOnceSQL, e.ID, e.SellerID, e.Type, e.Amount, e.Status, e.ReferenceID, e.CreatedAt)
 	if err != nil {
 		return LedgerEntry{}, false, fmt.Errorf("insert ledger entry once: %w", err)
@@ -165,7 +163,7 @@ func entryByReference(ctx context.Context, q DBTX, typ, ref string) (LedgerEntry
 var ErrLedgerEntryNotFound = errors.New("ledger entry not found")
 
 func (r *PostgresLedgerRepository) AppendEntry(ctx context.Context, e LedgerEntry) (LedgerEntry, error) {
-	e = normalizeEntry(e)
+	e = NormalizeEntry(e)
 	if err := insertLedger(ctx, r.pool, e); err != nil {
 		return LedgerEntry{}, fmt.Errorf("insert ledger entry: %w", err)
 	}
@@ -185,7 +183,7 @@ func (r *PostgresLedgerRepository) AppendDebit(ctx context.Context, e LedgerEntr
 	if e.Amount >= 0 {
 		return LedgerEntry{}, ErrInvalidAmount
 	}
-	e = normalizeEntry(e)
+	e = NormalizeEntry(e)
 
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -204,7 +202,7 @@ func (r *PostgresLedgerRepository) AppendDebit(ctx context.Context, e LedgerEntr
 	if err != nil {
 		return LedgerEntry{}, err
 	}
-	if err := checkWithdrawable(balance, -e.Amount, credits, hold); err != nil {
+	if err := CheckWithdrawable(balance, -e.Amount, credits, hold); err != nil {
 		return LedgerEntry{}, err
 	}
 	if err := insertLedger(ctx, tx, e); err != nil {
@@ -227,7 +225,7 @@ const heldCreditsSQL = `SELECT c.created_at,
 	FROM wallet_ledger c
 	WHERE c.seller_id = $1 AND c.type = 'ORDER_SETTLEMENT' AND c.status = 'COMPLETED' AND c.created_at > $2`
 
-func loadHeldCredits(ctx context.Context, q DBTX, sellerID string, h Holdback) ([]heldCredit, error) {
+func loadHeldCredits(ctx context.Context, q DBTX, sellerID string, h Holdback) ([]HeldCredit, error) {
 	if !h.Enabled() {
 		return nil, nil // a window of 0 skips the query
 	}
@@ -236,9 +234,9 @@ func loadHeldCredits(ctx context.Context, q DBTX, sellerID string, h Holdback) (
 		return nil, fmt.Errorf("load held credits: %w", err)
 	}
 	defer rows.Close()
-	var out []heldCredit
+	var out []HeldCredit
 	for rows.Next() {
-		var c heldCredit
+		var c HeldCredit
 		if err := rows.Scan(&c.CreatedAt, &c.Net); err != nil {
 			return nil, fmt.Errorf("scan held credit: %w", err)
 		}
@@ -293,150 +291,6 @@ func (r *PostgresLedgerRepository) ListEntries(ctx context.Context, sellerID str
 	return result, total, rows.Err()
 }
 
-// ── InMemory Implementation ───────────────────────────────────────────
-
-type InMemoryLedgerRepository struct {
-	mu      sync.RWMutex
-	entries []LedgerEntry
-	seq     int64 // monotonic tiebreaker so ordering is deterministic in tests
-	seqByID map[string]int64
-	// refunds is the settlement ledger's refund table (set by NewInMemorySettlementLedger):
-	// hold-back maps a deduction to its payment through it.
-	refunds *refundIndex
-}
-
-func NewInMemoryLedgerRepository() *InMemoryLedgerRepository {
-	return &InMemoryLedgerRepository{seqByID: make(map[string]int64)}
-}
-
-// appendLocked appends e; callers hold r.mu for writing.
-func (r *InMemoryLedgerRepository) appendLocked(e LedgerEntry) LedgerEntry {
-	e = normalizeEntry(e)
-	r.seq++
-	r.seqByID[e.ID] = r.seq
-	r.entries = append(r.entries, e)
-	return e
-}
-
-// byReferenceLocked finds the entry of type typ for ref; callers hold r.mu.
-func (r *InMemoryLedgerRepository) byReferenceLocked(typ, ref string) (LedgerEntry, bool) {
-	for _, x := range r.entries {
-		if ref != "" && x.Type == typ && x.ReferenceID == ref {
-			return x, true
-		}
-	}
-	return LedgerEntry{}, false
-}
-
-// appendOnceLocked mirrors insertLedgerOnce; callers hold r.mu for writing.
-func (r *InMemoryLedgerRepository) appendOnceLocked(e LedgerEntry) (LedgerEntry, bool, error) {
-	if e.ReferenceID == "" {
-		return LedgerEntry{}, false, ErrReferenceRequired
-	}
-	if existing, ok := r.byReferenceLocked(e.Type, e.ReferenceID); ok {
-		return existing, false, nil
-	}
-	return r.appendLocked(e), true, nil
-}
-
-func (r *InMemoryLedgerRepository) AppendEntry(_ context.Context, e LedgerEntry) (LedgerEntry, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.appendLocked(e), nil
-}
-
-func (r *InMemoryLedgerRepository) AppendEntryOnce(_ context.Context, e LedgerEntry) (LedgerEntry, bool, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.appendOnceLocked(e)
-}
-
-// heldCreditsLocked mirrors heldCreditsSQL; callers hold r.mu.
-func (r *InMemoryLedgerRepository) heldCreditsLocked(sellerID string, h Holdback) []heldCredit {
-	if !h.Enabled() {
-		return nil
-	}
-	var out []heldCredit
-	for _, c := range r.entries {
-		if c.SellerID != sellerID || c.Type != LedgerTypeOrderSettlement || c.Status != LedgerStatusCompleted || !c.CreatedAt.After(h.Cutoff()) {
-			continue
-		}
-		net := c.Amount
-		for _, d := range r.entries {
-			if c.ReferenceID == "" || d.Type != LedgerTypeRefundDeduction || r.refunds == nil {
-				continue
-			}
-			if pid, ok := r.refunds.paymentOf(d.ReferenceID); ok && pid == c.ReferenceID {
-				net += d.Amount
-			}
-		}
-		out = append(out, heldCredit{CreatedAt: c.CreatedAt, Net: net})
-	}
-	return out
-}
-
-// AppendDebit checks the balance and the hold and appends the debit under one write lock.
-func (r *InMemoryLedgerRepository) AppendDebit(_ context.Context, e LedgerEntry, hold Holdback) (LedgerEntry, error) {
-	if e.Amount >= 0 {
-		return LedgerEntry{}, ErrInvalidAmount
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	var balance int64
-	for _, x := range r.entries {
-		if x.SellerID == e.SellerID {
-			balance += x.Amount
-		}
-	}
-	if err := checkWithdrawable(balance, -e.Amount, r.heldCreditsLocked(e.SellerID, hold), hold); err != nil {
-		return LedgerEntry{}, err
-	}
-	return r.appendLocked(e), nil
-}
-
-func (r *InMemoryLedgerRepository) Balance(_ context.Context, sellerID string) (int64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	var balance int64
-	for _, e := range r.entries {
-		if e.SellerID == sellerID {
-			balance += e.Amount
-		}
-	}
-	return balance, nil
-}
-
-func (r *InMemoryLedgerRepository) ListEntries(_ context.Context, sellerID string, offset, limit int) ([]LedgerEntry, int64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	var owned []LedgerEntry
-	for _, e := range r.entries {
-		if e.SellerID == sellerID {
-			owned = append(owned, e)
-		}
-	}
-	// Newest first: higher insertion sequence sorts earlier (matches created_at DESC).
-	sort.SliceStable(owned, func(i, j int) bool {
-		return r.seqByID[owned[i].ID] > r.seqByID[owned[j].ID]
-	})
-
-	total := int64(len(owned))
-	if offset >= len(owned) {
-		return nil, total, nil
-	}
-	end := offset + limit
-	if end > len(owned) {
-		end = len(owned)
-	}
-	page := make([]LedgerEntry, end-offset)
-	copy(page, owned[offset:end])
-	return page, total, nil
-}
-
 var (
 	_ LedgerRepository = (*PostgresLedgerRepository)(nil)
-	_ LedgerRepository = (*InMemoryLedgerRepository)(nil)
 )

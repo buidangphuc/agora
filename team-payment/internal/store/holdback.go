@@ -1,4 +1,4 @@
-package repository
+package store
 
 import (
 	"errors"
@@ -38,8 +38,8 @@ func (h Holdback) Enabled() bool { return h.Window > 0 }
 // Cutoff is Now-Window: a credit is held only when created strictly after it.
 func (h Holdback) Cutoff() time.Time { return h.Now.Add(-h.Window) }
 
-// heldCredit is one in-window credit net of the refund deductions booked against it.
-type heldCredit struct {
+// HeldCredit is one in-window credit net of the refund deductions booked against it.
+type HeldCredit struct {
 	CreatedAt time.Time
 	Net       int64
 }
@@ -54,7 +54,7 @@ type Withdrawal struct {
 // computeWithdrawal derives the split (design D7). Each credit is held for its
 // unrefunded remainder only (never below 0), so refunding a held sale consumes the money
 // held for it instead of free money; payouts never lower Held.
-func computeWithdrawal(balance int64, credits []heldCredit) Withdrawal {
+func computeWithdrawal(balance int64, credits []HeldCredit) Withdrawal {
 	var held int64
 	for _, c := range credits {
 		if c.Net > 0 {
@@ -70,8 +70,8 @@ func computeWithdrawal(balance int64, credits []heldCredit) Withdrawal {
 
 // releaseInstant is when enough held credits have left the window (oldest first, each at
 // CreatedAt+Window) for amount to be withdrawable (design D8).
-func releaseInstant(balance, amount int64, credits []heldCredit, h Holdback) time.Time {
-	sorted := append([]heldCredit(nil), credits...)
+func releaseInstant(balance, amount int64, credits []HeldCredit, h Holdback) time.Time {
+	sorted := append([]HeldCredit(nil), credits...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].CreatedAt.Before(sorted[j].CreatedAt) })
 	held := computeWithdrawal(balance, credits).Held
 	until := h.Now
@@ -87,9 +87,9 @@ func releaseInstant(balance, amount int64, credits []heldCredit, h Holdback) tim
 	return until
 }
 
-// checkWithdrawable returns nil when amount may be paid out, ErrInsufficientBalance when
+// CheckWithdrawable returns nil when amount may be paid out, ErrInsufficientBalance when
 // it exceeds the balance, and a *FundsOnHoldError when it exceeds the withdrawable amount.
-func checkWithdrawable(balance, amount int64, credits []heldCredit, h Holdback) error {
+func CheckWithdrawable(balance, amount int64, credits []HeldCredit, h Holdback) error {
 	if balance < amount {
 		return ErrInsufficientBalance
 	}

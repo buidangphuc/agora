@@ -1,10 +1,9 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -182,121 +181,4 @@ func (r *PostgresPaymentRepository) CancelUnpaid(ctx context.Context, orderID st
 		return CancelAlreadyCancelled, nil
 	}
 	return CancelOtherStatus, nil
-}
-
-// ── InMemory Implementation ───────────────────────────────────────────
-
-type InMemoryPaymentRepository struct {
-	mu   sync.RWMutex
-	data map[string]PaymentTransaction
-}
-
-func NewInMemoryPaymentRepository() *InMemoryPaymentRepository {
-	return &InMemoryPaymentRepository{
-		data: make(map[string]PaymentTransaction),
-	}
-}
-
-func (r *InMemoryPaymentRepository) CreateTransaction(_ context.Context, t PaymentTransaction) (PaymentTransaction, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if t.ID == "" {
-		t.ID = uuid.NewString()
-	}
-	if t.Currency == "" {
-		t.Currency = "VND"
-	}
-	if t.Status == 0 {
-		t.Status = PaymentStatusPending
-	}
-	t.CreatedAt = time.Now()
-	t.UpdatedAt = time.Now()
-	r.data[t.ID] = t
-	return t, nil
-}
-
-func (r *InMemoryPaymentRepository) GetTransaction(_ context.Context, id string) (PaymentTransaction, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	t, ok := r.data[id]
-	if !ok {
-		return PaymentTransaction{}, ErrTransactionNotFound
-	}
-	return t, nil
-}
-
-func (r *InMemoryPaymentRepository) GetTransactionByOrderID(_ context.Context, orderID string) (PaymentTransaction, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	for _, t := range r.data {
-		if t.OrderID == orderID {
-			return t, nil
-		}
-	}
-	return PaymentTransaction{}, ErrTransactionNotFound
-}
-
-func (r *InMemoryPaymentRepository) UpdateStatus(_ context.Context, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	t, ok := r.data[id]
-	if !ok {
-		return PaymentTransaction{}, ErrTransactionNotFound
-	}
-	t.Status = status
-	t.ProviderReference = providerRef
-	t.UpdatedAt = time.Now()
-	r.data[id] = t
-	return t, nil
-}
-
-func (r *InMemoryPaymentRepository) UpdateTransactionStatus(_ context.Context, id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
-	return r.updateStatusFromSettleable(id, status, providerRef)
-}
-
-// updateStatusFromSettleable is the compare-and-set the Postgres writer runs:
-// the write applies only to a PENDING or FAILED payment.
-func (r *InMemoryPaymentRepository) updateStatusFromSettleable(id string, status PaymentStatus, providerRef string) (PaymentTransaction, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	t, ok := r.data[id]
-	if !ok {
-		return PaymentTransaction{}, ErrTransactionNotFound
-	}
-	if t.Status != PaymentStatusPending && t.Status != PaymentStatusFailed {
-		return PaymentTransaction{}, ErrNotSettleable
-	}
-	t.Status = status
-	t.ProviderReference = providerRef
-	t.UpdatedAt = time.Now()
-	r.data[id] = t
-	return t, nil
-}
-
-// CancelUnpaid is the in-memory compare-and-set PENDING|FAILED -> CANCELLED.
-func (r *InMemoryPaymentRepository) CancelUnpaid(_ context.Context, orderID string) (CancelUnpaidOutcome, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	outcome := CancelAbsent
-	for id, t := range r.data {
-		if t.OrderID != orderID {
-			continue
-		}
-		switch t.Status {
-		case PaymentStatusPending, PaymentStatusFailed:
-			t.Status = PaymentStatusCancelled
-			t.UpdatedAt = time.Now()
-			r.data[id] = t
-			outcome = CancelVoided
-		case PaymentStatusCancelled:
-			if outcome == CancelAbsent {
-				outcome = CancelAlreadyCancelled
-			}
-		default:
-			if outcome == CancelAbsent {
-				outcome = CancelOtherStatus
-			}
-		}
-	}
-	return outcome, nil
 }

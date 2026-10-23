@@ -1,10 +1,9 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -118,7 +117,7 @@ type SettlementLedger interface {
 	ListRefunds(ctx context.Context, paymentID string) ([]Refund, error)
 }
 
-func validateRefundRequest(req RefundRequest) error {
+func ValidateRefundRequest(req RefundRequest) error {
 	if req.PaymentID == "" || req.Key == "" || req.Source == "" || req.SourceID == "" {
 		return errors.New("refund payment id, key, source and source id are required")
 	}
@@ -134,9 +133,9 @@ func validateRefundRequest(req RefundRequest) error {
 	return nil
 }
 
-// replayOf decides what an existing row with the request's key means: a replay (nil) or
+// ReplayOf decides what an existing row with the request's key means: a replay (nil) or
 // a conflict.
-func replayOf(existing Refund, req RefundRequest) error {
+func ReplayOf(existing Refund, req RefundRequest) error {
 	if existing.PaymentID != req.PaymentID {
 		return ErrRefundIDConflict
 	}
@@ -146,9 +145,9 @@ func replayOf(existing Refund, req RefundRequest) error {
 	return nil
 }
 
-// plan applies the mode to the locked payment (design D1 steps 3-4). write=false means
+// Plan applies the mode to the locked payment (design D1 steps 3-4). write=false means
 // nothing is to be written (remainder mode with nothing left).
-func plan(t PaymentTransaction, req RefundRequest) (requested, applied int64, write bool, err error) {
+func Plan(t PaymentTransaction, req RefundRequest) (requested, applied int64, write bool, err error) {
 	refundable := t.Status == PaymentStatusPaid || t.Status == PaymentStatusPartiallyRefunded
 	remaining := t.Amount - t.RefundedAmount
 	if remaining < 0 {
@@ -180,15 +179,15 @@ func plan(t PaymentTransaction, req RefundRequest) (requested, applied int64, wr
 	}
 }
 
-// refundedStatus is the status once refunded of amount has been refunded.
-func refundedStatus(amount, refunded int64) PaymentStatus {
+// RefundedStatus is the status once refunded of amount has been refunded.
+func RefundedStatus(amount, refunded int64) PaymentStatus {
 	if refunded >= amount {
 		return PaymentStatusRefunded
 	}
 	return PaymentStatusPartiallyRefunded
 }
 
-func refundDeduction(sellerID, refundKey string, applied int64) LedgerEntry {
+func RefundDeduction(sellerID, refundKey string, applied int64) LedgerEntry {
 	return LedgerEntry{
 		SellerID:    sellerID,
 		Type:        LedgerTypeRefundDeduction,
@@ -315,7 +314,7 @@ func (s *PostgresSettlementLedger) CreditSettlement(ctx context.Context, orderID
 			}
 			lockedOwner = true
 		}
-		_, deducted, err := insertLedgerOnce(ctx, tx, refundDeduction(credit.SellerID, r.ID, r.Amount))
+		_, deducted, err := insertLedgerOnce(ctx, tx, RefundDeduction(credit.SellerID, r.ID, r.Amount))
 		if err != nil {
 			return CreditResult{}, err
 		}
@@ -328,7 +327,7 @@ func (s *PostgresSettlementLedger) CreditSettlement(ctx context.Context, orderID
 }
 
 func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRequest) (RefundResult, error) {
-	if err := validateRefundRequest(req); err != nil {
+	if err := ValidateRefundRequest(req); err != nil {
 		return RefundResult{}, err
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -349,13 +348,13 @@ func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRe
 	if existing, ok, err := refundByKey(ctx, tx, req.Key); err != nil {
 		return RefundResult{}, err
 	} else if ok {
-		if err := replayOf(existing, req); err != nil {
+		if err := ReplayOf(existing, req); err != nil {
 			return RefundResult{}, err
 		}
 		return RefundResult{Transaction: t, Refund: existing}, nil
 	}
 	// 3-4. Status and mode.
-	requested, applied, write, err := plan(t, req)
+	requested, applied, write, err := Plan(t, req)
 	if err != nil {
 		return RefundResult{}, err
 	}
@@ -374,7 +373,7 @@ func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRe
 		if lerr != nil {
 			return RefundResult{}, lerr
 		}
-		if ok && replayOf(existing, req) == nil {
+		if ok && ReplayOf(existing, req) == nil {
 			return RefundResult{Transaction: t, Refund: existing}, nil
 		}
 		return RefundResult{}, ErrRefundIDConflict
@@ -389,7 +388,7 @@ func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRe
 			SET refunded_amount = $2, status = $3, provider_reference = $4, updated_at = NOW()
 			WHERE id = $1
 			RETURNING ` + txColumns
-		if err := scanTransaction(tx.QueryRow(ctx, upd, t.ID, refunded, int32(refundedStatus(t.Amount, refunded)), "REFUND:"+req.Reason), &res.Transaction); err != nil {
+		if err := scanTransaction(tx.QueryRow(ctx, upd, t.ID, refunded, int32(RefundedStatus(t.Amount, refunded)), "REFUND:"+req.Reason), &res.Transaction); err != nil {
 			return RefundResult{}, fmt.Errorf("refund payment tx: %w", err)
 		}
 		// 6. The deduction for a credited payment, keyed by the refund.
@@ -403,7 +402,7 @@ func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRe
 			if err := lockSeller(ctx, tx, credit.SellerID); err != nil {
 				return RefundResult{}, err
 			}
-			_, deducted, err := insertLedgerOnce(ctx, tx, refundDeduction(credit.SellerID, r.ID, applied))
+			_, deducted, err := insertLedgerOnce(ctx, tx, RefundDeduction(credit.SellerID, r.ID, applied))
 			if err != nil {
 				return RefundResult{}, err
 			}
@@ -416,193 +415,6 @@ func (s *PostgresSettlementLedger) ApplyRefund(ctx context.Context, req RefundRe
 	return res, nil
 }
 
-// ── InMemory Implementation ───────────────────────────────────────────
-
-// refundIndex is the in-memory payment_refunds table. Its mutex is a leaf lock: the
-// ledger's hold-back reads it while holding the ledger lock.
-type refundIndex struct {
-	mu    sync.RWMutex
-	byKey map[string]Refund
-	order []string // insertion order = created_at order
-}
-
-func newRefundIndex() *refundIndex { return &refundIndex{byKey: map[string]Refund{}} }
-
-func (ix *refundIndex) get(key string) (Refund, bool) {
-	ix.mu.RLock()
-	defer ix.mu.RUnlock()
-	r, ok := ix.byKey[key]
-	return r, ok
-}
-
-func (ix *refundIndex) put(r Refund) {
-	ix.mu.Lock()
-	defer ix.mu.Unlock()
-	ix.byKey[r.ID] = r
-	ix.order = append(ix.order, r.ID)
-}
-
-func (ix *refundIndex) list(paymentID string) []Refund {
-	ix.mu.RLock()
-	defer ix.mu.RUnlock()
-	var out []Refund
-	for _, k := range ix.order {
-		if r := ix.byKey[k]; r.PaymentID == paymentID {
-			out = append(out, r)
-		}
-	}
-	return out
-}
-
-// paymentOf maps a refund key to its payment (the hold-back join of design D3).
-func (ix *refundIndex) paymentOf(key string) (string, bool) {
-	r, ok := ix.get(key)
-	return r.PaymentID, ok
-}
-
-// InMemorySettlementLedger is the in-memory SettlementLedger over the in-memory payment
-// and ledger stores. One mutex plays the payment-row lock; the ledger's own mutex plays
-// the seller lock (lock order: s.mu, payments.mu, ledger.mu, refunds.mu).
-type InMemorySettlementLedger struct {
-	mu       sync.Mutex
-	payments *InMemoryPaymentRepository
-	ledger   *InMemoryLedgerRepository
-	refunds  *refundIndex
-}
-
-func NewInMemorySettlementLedger(payments *InMemoryPaymentRepository, ledger *InMemoryLedgerRepository) *InMemorySettlementLedger {
-	ix := newRefundIndex()
-	ledger.mu.Lock()
-	ledger.refunds = ix
-	ledger.mu.Unlock()
-	return &InMemorySettlementLedger{payments: payments, ledger: ledger, refunds: ix}
-}
-
-func settledStatus(st PaymentStatus) bool {
-	return st == PaymentStatusPaid || st == PaymentStatusPartiallyRefunded || st == PaymentStatusRefunded
-}
-
-func (s *InMemorySettlementLedger) settledLocked(orderID string) (PaymentTransaction, bool) {
-	s.payments.mu.RLock()
-	defer s.payments.mu.RUnlock()
-	var best PaymentTransaction
-	found := false
-	for _, t := range s.payments.data {
-		if t.OrderID != orderID || !settledStatus(t.Status) {
-			continue
-		}
-		if !found || t.CreatedAt.After(best.CreatedAt) {
-			best, found = t, true
-		}
-	}
-	return best, found
-}
-
-func (s *InMemorySettlementLedger) SettledTransaction(_ context.Context, orderID string) (PaymentTransaction, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	t, ok := s.settledLocked(orderID)
-	if !ok {
-		return PaymentTransaction{}, ErrNotSettled
-	}
-	return t, nil
-}
-
-func (s *InMemorySettlementLedger) ListRefunds(_ context.Context, paymentID string) ([]Refund, error) {
-	return s.refunds.list(paymentID), nil
-}
-
-func (s *InMemorySettlementLedger) CreditSettlement(_ context.Context, orderID, sellerID string) (CreditResult, error) {
-	if sellerID == "" {
-		return CreditResult{}, errors.New("seller id is required")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	t, ok := s.settledLocked(orderID)
-	if !ok {
-		return CreditResult{}, ErrNotSettled
-	}
-	if t.Amount <= 0 {
-		return CreditResult{}, ErrInvalidAmount
-	}
-	s.ledger.mu.Lock()
-	defer s.ledger.mu.Unlock()
-	credit, credited, err := s.ledger.appendOnceLocked(LedgerEntry{
-		SellerID: sellerID, Type: LedgerTypeOrderSettlement, Amount: t.Amount,
-		Status: LedgerStatusCompleted, ReferenceID: t.ID,
-	})
-	if err != nil {
-		return CreditResult{}, err
-	}
-	res := CreditResult{Transaction: t, Credit: credit, Credited: credited}
-	for _, r := range s.refunds.list(t.ID) {
-		if r.Amount <= 0 {
-			continue
-		}
-		_, deducted, err := s.ledger.appendOnceLocked(refundDeduction(credit.SellerID, r.ID, r.Amount))
-		if err != nil {
-			return CreditResult{}, err
-		}
-		res.Deducted = res.Deducted || deducted
-	}
-	return res, nil
-}
-
-func (s *InMemorySettlementLedger) ApplyRefund(_ context.Context, req RefundRequest) (RefundResult, error) {
-	if err := validateRefundRequest(req); err != nil {
-		return RefundResult{}, err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.payments.mu.RLock()
-	t, ok := s.payments.data[req.PaymentID]
-	s.payments.mu.RUnlock()
-	if !ok {
-		return RefundResult{}, ErrTransactionNotFound
-	}
-	if existing, ok := s.refunds.get(req.Key); ok {
-		if err := replayOf(existing, req); err != nil {
-			return RefundResult{}, err
-		}
-		return RefundResult{Transaction: t, Refund: existing}, nil
-	}
-	requested, applied, write, err := plan(t, req)
-	if err != nil {
-		return RefundResult{}, err
-	}
-	if !write {
-		return RefundResult{Transaction: t}, nil
-	}
-	r := Refund{ID: req.Key, PaymentID: t.ID, Source: req.Source, SourceID: req.SourceID,
-		RequestedAmount: requested, Amount: applied, Reason: req.Reason, CreatedAt: time.Now()}
-	s.refunds.put(r)
-	res := RefundResult{Transaction: t, Refund: r, Created: true}
-	if applied == 0 {
-		return res, nil
-	}
-	t.RefundedAmount += applied
-	t.Status = refundedStatus(t.Amount, t.RefundedAmount)
-	t.ProviderReference = "REFUND:" + req.Reason
-	t.UpdatedAt = time.Now()
-	s.payments.mu.Lock()
-	s.payments.data[t.ID] = t
-	s.payments.mu.Unlock()
-	res.Transaction = t
-
-	s.ledger.mu.Lock()
-	defer s.ledger.mu.Unlock()
-	if credit, ok := s.ledger.byReferenceLocked(LedgerTypeOrderSettlement, t.ID); ok {
-		_, deducted, err := s.ledger.appendOnceLocked(refundDeduction(credit.SellerID, r.ID, applied))
-		if err != nil {
-			return RefundResult{}, err
-		}
-		res.Deducted = deducted
-	}
-	return res, nil
-}
-
 var (
 	_ SettlementLedger = (*PostgresSettlementLedger)(nil)
-	_ SettlementLedger = (*InMemorySettlementLedger)(nil)
 )
