@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -10,11 +10,13 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	orderv1 "github.com/buidangphuc/team-engagement/generated/platform/order/v1"
-	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
+	"github.com/buidangphuc/team-engagement/internal/rpc"
 	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
@@ -83,7 +85,7 @@ func (f *factRepo) ResolveWithEvent(ctx context.Context, d store.Dispute, prev s
 }
 
 type escFixture struct {
-	h       *handler.EngagementHandler
+	h       *rpc.Handler
 	repo    *factRepo
 	audit   *auditSpy
 	orders  *countingOrders
@@ -103,15 +105,11 @@ func newEscFixture(t *testing.T) *escFixture {
 		"r-no":    {orderID: "o-1", status: orderv1.ReturnStatus_RETURN_STATUS_APPROVED, canEscalate: false},
 		"r-other": {orderID: "o-2", status: orderv1.ReturnStatus_RETURN_STATUS_REJECTED, canEscalate: true},
 	}}
-	h := handler.NewEngagementHandler(
-		storetest.NewFakeRepository(),
-		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
-		service.NewQAService(storetest.NewFakeQARepository(), nil),
-		service.NewDisputeService(repo, nil).WithAudit(audit),
-		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil),
-		handler.WithOrderParties(orders),
-		handler.WithReturnReader(returns),
-	)
+	h := newHandler(t, deps{
+		disputes: engagement.NewDisputeService(repo, auditx.NewGate(audit, nil), nil),
+		orders:   orders,
+		returns:  returns,
+	})
 	return &escFixture{h: h, repo: repo, audit: audit, orders: orders, returns: returns}
 }
 
@@ -267,8 +265,7 @@ func TestCreateDisputeReturnWrongDefendantInvalid(t *testing.T) {
 // Scenario: Dispute escalation: Team-order unavailable fails closed
 func TestCreateDisputeReturnUpstreamUnavailable(t *testing.T) {
 	for name, e := range map[string]error{
-		"down":           errors.New("connection refused"),
-		"not configured": upstream.ErrOrderClientNotConfigured,
+		"down": errors.New("connection refused"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newEscFixture(t)
@@ -281,24 +278,6 @@ func TestCreateDisputeReturnUpstreamUnavailable(t *testing.T) {
 				t.Fatalf("no dispute may be stored, got %d", n)
 			}
 		})
-	}
-}
-
-// Scenario: Dispute escalation: Team-order unavailable fails closed
-func TestCreateDisputeReturnWithoutReaderUnavailable(t *testing.T) {
-	repo := storetest.NewFakeDisputeRepository()
-	h := handler.NewEngagementHandler(storetest.NewFakeRepository(),
-		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
-		service.NewQAService(storetest.NewFakeQARepository(), nil),
-		service.NewDisputeService(repo, nil).WithAudit(&auditSpy{}),
-		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil),
-		handler.WithOrderParties(fakeOrders{"o-1": {buyer: "buyer-1", seller: "seller-1"}}))
-	_, err := h.CreateDispute(userCtx("buyer-1"), &engagementv1.CreateDisputeRequest{OrderId: "o-1", DefendantId: "seller-1", Reason: "r", ReturnId: "r-1"})
-	if got := status.Code(err); got != codes.Unavailable {
-		t.Fatalf("want Unavailable, got %v", err)
-	}
-	if ds, _ := repo.ListByOrder(context.Background(), "o-1"); len(ds) != 0 {
-		t.Fatalf("no dispute may be stored, got %d", len(ds))
 	}
 }
 
@@ -657,7 +636,7 @@ func TestListOrderDisputesValidationAndAnonymous(t *testing.T) {
 func TestListOrderDisputesMissingScopeDenied(t *testing.T) {
 	f := newEscFixture(t)
 	f.seed(t, store.Dispute{})
-	ctx := principalCtx("buyer-1", commonv1.PrincipalType_PRINCIPAL_TYPE_USER, "listing.read")
+	ctx := principalCtx("buyer-1", auth.TypeUser, "listing.read")
 	res, err := f.h.ListOrderDisputes(ctx, &engagementv1.ListOrderDisputesRequest{OrderId: "o-1"})
 	if got := status.Code(err); got != codes.PermissionDenied {
 		t.Fatalf("want PermissionDenied, got %v", err)

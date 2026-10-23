@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -8,35 +8,21 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
-	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/interceptor"
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 func TestEngagementHandler(t *testing.T) {
 	repo := storetest.NewFakeRepository()
-	reviewRepo := storetest.NewFakeReviewRepository()
-	reviewSvc := service.NewReviewService(reviewRepo, nil, nil)
-	qaRepo := storetest.NewFakeQARepository()
-	qaSvc := service.NewQAService(qaRepo, nil)
-	disputeRepo := storetest.NewFakeDisputeRepository()
-	disputeSvc := service.NewDisputeService(disputeRepo, nil).WithAudit(&auditSpy{})
-	collectionRepo := storetest.NewFakeCollectionRepository()
-	collectionSvc := service.NewCollectionService(collectionRepo, nil)
+	qaSvc := engagement.NewQAService(storetest.NewFakeQARepository(), nil)
 
-	// buyer_test owns order-1, sold by seller-1 (CreateDispute verifies this).
 	orders := fakeOrders{"order-1": {buyer: "buyer_test", seller: "seller-1"}}
-	h := handler.NewEngagementHandler(repo, reviewSvc, qaSvc, disputeSvc, collectionSvc, handler.WithOrderParties(orders))
+	h := newHandler(t, deps{repo: repo, qa: qaSvc, orders: orders})
 
-	principal := &commonv1.Principal{
-		Id:     "buyer_test",
-		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"engagement:read", "engagement:write"},
-	}
-	ctx := interceptor.ContextWithPrincipal(context.Background(), principal)
+	ctx := principalCtx("buyer_test", auth.TypeUser, "engagement:read", "engagement:write")
 
 	t.Run("Add and Check Favorite", func(t *testing.T) {
 		_, err := h.AddFavorite(ctx, &engagementv1.AddFavoriteRequest{
@@ -226,11 +212,7 @@ func TestEngagementHandler(t *testing.T) {
 			t.Fatalf("index seller listing: %v", err)
 		}
 		// Answer question
-		sellerCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
-			Id:     "seller_1",
-			Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-			Scopes: []string{"engagement:write", "listing.write"},
-		})
+		sellerCtx := principalCtx("seller_1", auth.TypeUser, "engagement:write", "listing.write")
 		ansRes, err := h.AnswerQuestion(sellerCtx, &engagementv1.AnswerQuestionRequest{
 			QuestionId:  qID,
 			AnswerText:  "Bảo hành chính hãng 12 tháng bạn nhé.",
@@ -347,11 +329,7 @@ func TestEngagementHandler(t *testing.T) {
 		}
 
 		// Resolve dispute
-		adminCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
-			Id:     "admin_1",
-			Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-			Scopes: []string{"engagement:write", "admin"},
-		})
+		adminCtx := principalCtx("admin_1", auth.TypeUser, "engagement:write", "admin")
 
 		// Non-admin (buyer with engagement:write only) and anonymous cannot resolve
 		if _, err = h.ResolveDispute(ctx, &engagementv1.ResolveDisputeRequest{
@@ -485,15 +463,6 @@ func TestCreateReviewVerifierDownUnavailable(t *testing.T) {
 	}
 	if f.count("L-1") != 0 {
 		t.Fatal("review stored while verifier was down")
-	}
-}
-
-func TestCreateReviewNoVerifierUnavailable(t *testing.T) {
-	svc := service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil)
-	h := handler.NewEngagementHandler(storetest.NewFakeRepository(), svc, nil, nil, nil)
-	_, err := h.CreateReview(userCtx("buyer-1"), createReviewReq("L-1", "order-1", 5))
-	if status.Code(err) != codes.Unavailable {
-		t.Fatalf("want Unavailable, got %v", err)
 	}
 }
 

@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"bytes"
@@ -14,10 +14,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
-	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
+	"github.com/buidangphuc/team-engagement/internal/rpc"
 	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
@@ -29,11 +31,11 @@ type reportAuditSpy struct {
 	err   error
 }
 
-func (a *reportAuditSpy) WriteReportResolveEvent(_ context.Context, actorID, reportID, listingID, st, note string) error {
+func (a *reportAuditSpy) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
 	if a.err != nil {
 		return a.err
 	}
-	a.calls = append(a.calls, reportAuditCall{actorID, reportID, listingID, st, note})
+	a.calls = append(a.calls, reportAuditCall{ev.ActorID, ev.TargetID, ev.Metadata["listing_id"], ev.Metadata["status"], ev.Metadata["resolution_note"]})
 	return nil
 }
 
@@ -69,7 +71,7 @@ func (r *reportRepoSpy) CloseReport(ctx context.Context, id, adm string, s store
 }
 
 type reportFixture struct {
-	h     *handler.EngagementHandler
+	h     *rpc.Handler
 	repo  *reportRepoSpy
 	audit *reportAuditSpy
 	logs  *bytes.Buffer
@@ -85,8 +87,8 @@ func newReportFixture(t *testing.T) *reportFixture {
 
 	repo := &reportRepoSpy{FakeReportRepository: storetest.NewFakeReportRepository()}
 	audit := &reportAuditSpy{}
-	svc := service.NewReportService(repo, logger).WithAudit(audit)
-	h := handler.NewEngagementHandler(storetest.NewFakeRepository(), nil, nil, nil, nil, handler.WithReportService(svc))
+	svc := engagement.NewReportService(repo, auditx.NewGate(audit, logger), logger)
+	h := newHandler(t, deps{reports: svc, logger: logger})
 	return &reportFixture{h: h, repo: repo, audit: audit, logs: logs}
 }
 
@@ -158,7 +160,7 @@ func TestCreateReportAnonymousUnauthenticated(t *testing.T) { // LR Listing repo
 
 func TestCreateReportMissingWriteScopeDenied(t *testing.T) { // LR Listing reports: Caller without the write scope is denied
 	f := newReportFixture(t)
-	ctx := principalCtx("buyer-1", commonv1.PrincipalType_PRINCIPAL_TYPE_USER, "engagement:read")
+	ctx := principalCtx("buyer-1", auth.TypeUser, "engagement:read")
 	if _, err := f.create(ctx, newListingID(), "scam", ""); status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("want PermissionDenied, got %v", err)
 	}
@@ -264,7 +266,7 @@ func TestListReportsSellerDenied(t *testing.T) { // LR Listing reports: Seller c
 	f := newReportFixture(t)
 	l := newListingID()
 	f.seedOpen("rp-1", l, time.Now())
-	ctx := principalCtx("seller-1", commonv1.PrincipalType_PRINCIPAL_TYPE_USER, append(append([]string{}, userScopes...), "listing.write")...)
+	ctx := principalCtx("seller-1", auth.TypeUser, append(append([]string{}, userScopes...), "listing.write")...)
 	res, err := f.h.ListReports(ctx, &engagementv1.ListReportsRequest{TargetId: l})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("want PermissionDenied, got %v", err)

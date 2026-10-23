@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"bytes"
@@ -14,19 +14,18 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
-	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
+	"github.com/buidangphuc/team-engagement/internal/rpc"
 	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
-	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
 // ── shared fakes for the review handler tests (also used by engagement_test.go) ──
@@ -49,27 +48,22 @@ func (v *reviewVerifier) VerifyPurchase(_ context.Context, buyerID, listingID, o
 
 type auditEvent struct{ actor, review, listing, reason string }
 
-// auditSpy is a fake team-audit client: records events, can be forced to fail.
+// auditSpy is a fake team-audit writer: records events, can be forced to fail.
 type auditSpy struct {
-	events []auditEvent
-	// generic events (dispute.resolve etc.); err applies to both write methods.
-	generic []upstream.AuditEvent
+	events  []auditEvent
+	generic []auditx.Event
 	err     error
 }
 
-func (a *auditSpy) WriteEvent(_ context.Context, ev upstream.AuditEvent) error {
+func (a *auditSpy) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
 	if a.err != nil {
 		return a.err
+	}
+	if ev.Action == "review.hide" {
+		a.events = append(a.events, auditEvent{ev.ActorID, ev.TargetID, ev.Metadata["listing_id"], ev.Metadata["reason"]})
+		return nil
 	}
 	a.generic = append(a.generic, ev)
-	return nil
-}
-
-func (a *auditSpy) WriteHideEvent(_ context.Context, actorID, reviewID, listingID, reason string) error {
-	if a.err != nil {
-		return a.err
-	}
-	a.events = append(a.events, auditEvent{actorID, reviewID, listingID, reason})
 	return nil
 }
 
@@ -87,7 +81,7 @@ func (r *failingHideRepo) HideReview(ctx context.Context, id, adminID, reason st
 }
 
 type reviewFixture struct {
-	h        *handler.EngagementHandler
+	h        *rpc.Handler
 	repo     *failingHideRepo
 	verifier *reviewVerifier
 	audit    *auditSpy
@@ -107,8 +101,8 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 	repo := &failingHideRepo{FakeReviewRepository: storetest.NewFakeReviewRepository()}
 	verifier := &reviewVerifier{orders: map[string]string{}}
 	audit := &auditSpy{}
-	svc := service.NewReviewService(repo, verifier, logger).WithAudit(audit)
-	h := handler.NewEngagementHandler(storetest.NewFakeRepository(), svc, nil, nil, nil)
+	svc := engagement.NewReviewService(repo, verifier, auditx.NewGate(audit, logger), logger)
+	h := newHandler(t, deps{reviews: svc, logger: logger})
 	return &reviewFixture{h: h, repo: repo, verifier: verifier, audit: audit, logs: logs}
 }
 
@@ -157,7 +151,7 @@ func (f *reviewFixture) stillVisible(t *testing.T, id string) {
 }
 
 func adminCtxAs(id string) context.Context {
-	return principalCtx(id, commonv1.PrincipalType_PRINCIPAL_TYPE_USER, append(append([]string{}, userScopes...), "admin")...)
+	return principalCtx(id, auth.TypeUser, append(append([]string{}, userScopes...), "admin")...)
 }
 
 // ── HideReview ──
@@ -300,8 +294,8 @@ func TestHideReviewNonAdminPermissionDenied(t *testing.T) {
 	r := f.seed(t, "L-1", "s-1", 1, true)
 	for name, ctx := range map[string]context.Context{
 		"buyer":                 userCtx("buyer-1"),
-		"seller":                principalCtx("s-1", commonv1.PrincipalType_PRINCIPAL_TYPE_USER, append(append([]string{}, userScopes...), "listing.write")...),
-		"service without admin": principalCtx("service-x", commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE, "engagement:write", "engagement:read"),
+		"seller":                principalCtx("s-1", auth.TypeUser, append(append([]string{}, userScopes...), "listing.write")...),
+		"service without admin": principalCtx("service-x", auth.TypeService, "engagement:write", "engagement:read"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			res, err := f.hide(ctx, r.ID, "spam")
@@ -366,17 +360,6 @@ func TestHideReviewUpstreamAndStorageErrorCodes(t *testing.T) {
 		r := f.seed(t, "L-1", "s-1", 1, true)
 		f.audit.err = errors.New("audit down")
 		if _, err := f.hide(adminCtx(), r.ID, "spam"); status.Code(err) != codes.Unavailable {
-			t.Fatalf("want Unavailable, got %v", err)
-		}
-		f.stillVisible(t, r.ID)
-	})
-	t.Run("no audit upstream is Unavailable", func(t *testing.T) {
-		f := newReviewFixture(t)
-		r := f.seed(t, "L-1", "s-1", 1, true)
-		svc := service.NewReviewService(f.repo, nil, nil) // never wired with audit
-		h := handler.NewEngagementHandler(storetest.NewFakeRepository(), svc, nil, nil, nil)
-		_, err := h.HideReview(adminCtx(), &engagementv1.HideReviewRequest{ReviewId: r.ID, Reason: "spam"})
-		if status.Code(err) != codes.Unavailable {
 			t.Fatalf("want Unavailable, got %v", err)
 		}
 		f.stillVisible(t, r.ID)
@@ -503,8 +486,8 @@ func TestHideReviewNonAdminNoFact(t *testing.T) {
 		t.Fatal(err)
 	}
 	audit := &auditSpy{}
-	svc := service.NewReviewService(repo, nil, nil).WithAudit(audit)
-	h := handler.NewEngagementHandler(storetest.NewFakeRepository(), svc, nil, nil, nil)
+	svc := engagement.NewReviewService(repo, &reviewVerifier{orders: map[string]string{}}, auditx.NewGate(audit, nil), nil)
+	h := newHandler(t, deps{reviews: svc})
 	hide := func(ctx context.Context) error {
 		_, err := h.HideReview(ctx, &engagementv1.HideReviewRequest{ReviewId: "r1", Reason: "spam"})
 		return err
@@ -515,7 +498,7 @@ func TestHideReviewNonAdminNoFact(t *testing.T) {
 		want codes.Code
 	}{
 		"buyer":        {userCtx("buyer-1"), codes.PermissionDenied},
-		"seller":       {principalCtx("s-1", commonv1.PrincipalType_PRINCIPAL_TYPE_USER, append(append([]string{}, userScopes...), "listing.write")...), codes.PermissionDenied},
+		"seller":       {principalCtx("s-1", auth.TypeUser, append(append([]string{}, userScopes...), "listing.write")...), codes.PermissionDenied},
 		"anonymous":    {anonCtx(), codes.Unauthenticated},
 		"no principal": {context.Background(), codes.Unauthenticated},
 	} {

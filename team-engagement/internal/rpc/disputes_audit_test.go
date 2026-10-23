@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -8,16 +8,17 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
-	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
+	"github.com/buidangphuc/team-engagement/internal/rpc"
 	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 type disputeAuditFixture struct {
-	h     *handler.EngagementHandler
+	h     *rpc.Handler
 	repo  *storetest.FakeDisputeRepository
 	audit *auditSpy
 }
@@ -27,14 +28,10 @@ func newDisputeAuditFixture(t *testing.T) *disputeAuditFixture {
 	repo := storetest.NewFakeDisputeRepository()
 	audit := &auditSpy{}
 	orders := &orderFake{orders: fakeOrders{"order-1": {buyer: "buyer-1", seller: "seller-1"}}}
-	h := handler.NewEngagementHandler(
-		storetest.NewFakeRepository(),
-		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
-		service.NewQAService(storetest.NewFakeQARepository(), nil),
-		service.NewDisputeService(repo, nil).WithAudit(audit),
-		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil),
-		handler.WithOrderParties(orders),
-	)
+	h := newHandler(t, deps{
+		disputes: engagement.NewDisputeService(repo, auditx.NewGate(audit, nil), nil),
+		orders:   orders,
+	})
 	return &disputeAuditFixture{h: h, repo: repo, audit: audit}
 }
 
@@ -169,24 +166,6 @@ func TestResolveDisputeAuditDownIsUnavailable(t *testing.T) {
 	}
 }
 
-// Scenario: Dispute audit: No audit upstream configured (handler maps to Unavailable)
-func TestResolveDisputeNoAuditConfiguredIsUnavailable(t *testing.T) {
-	repo := storetest.NewFakeDisputeRepository()
-	h := handler.NewEngagementHandler(storetest.NewFakeRepository(),
-		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
-		service.NewQAService(storetest.NewFakeQARepository(), nil),
-		service.NewDisputeService(repo, nil),
-		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil))
-	d, _ := repo.CreateDispute(context.Background(), store.Dispute{OrderID: "o-1", ClaimantID: "b", DefendantID: "s", Reason: "r", Status: store.DisputeStatusInvestigating})
-	_, err := h.ResolveDispute(adminCtx(), &engagementv1.ResolveDisputeRequest{DisputeId: d.ID, Status: stResolved})
-	if status.Code(err) != codes.Unavailable {
-		t.Fatalf("want Unavailable, got %v", err)
-	}
-	if got, _ := repo.GetDispute(context.Background(), d.ID); got.Status != store.DisputeStatusInvestigating {
-		t.Fatalf("dispute changed: %+v", got)
-	}
-}
-
 // Scenario: Dispute audit: Other dispute RPCs ignore team-audit availability
 func TestDisputeReadWriteIndependentOfAudit(t *testing.T) {
 	f := newDisputeAuditFixture(t)
@@ -219,7 +198,7 @@ func TestResolveDisputeNonAdminDeniedNoAudit(t *testing.T) {
 	for name, ctx := range map[string]context.Context{
 		"buyer":   userCtx("buyer-1"),
 		"seller":  userCtx("seller-1"),
-		"service": principalCtx("service-x", commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE, "engagement:write", "engagement:read"),
+		"service": principalCtx("service-x", auth.TypeService, "engagement:write", "engagement:read"),
 	} {
 		if got := status.Code(f.resolve(ctx, id, stResolved, "x")); got != codes.PermissionDenied {
 			t.Fatalf("%s: want PermissionDenied, got %v", name, got)

@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 // Round-trip guard for the vendored Report contract (openspec change
 // engagement-listing-reports, task 6). Mirrors hidereview_roundtrip_test.go:

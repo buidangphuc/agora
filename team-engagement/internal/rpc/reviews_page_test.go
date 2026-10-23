@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -10,16 +10,16 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
-	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/engagement"
+	"github.com/buidangphuc/team-engagement/internal/rpc"
 	"github.com/buidangphuc/team-engagement/internal/store"
 	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
-func seedReviews(t *testing.T, n int) *handler.EngagementHandler {
+func seedReviews(t *testing.T, n int) *rpc.Handler {
 	t.Helper()
 	repo := storetest.NewFakeReviewRepository()
-	svc := service.NewReviewService(repo, nil, nil)
+	svc := engagement.NewReviewService(repo, &reviewVerifier{orders: map[string]string{}}, permissiveGate(), nil)
 	// Seeded straight into the repository: CreateReview now needs a completed order.
 	for i := 1; i <= n; i++ {
 		rating := int32(i%5) + 1
@@ -30,10 +30,10 @@ func seedReviews(t *testing.T, n int) *handler.EngagementHandler {
 			t.Fatal(err)
 		}
 	}
-	return handler.NewEngagementHandler(storetest.NewFakeRepository(), svc, nil, nil, nil)
+	return newHandler(t, deps{reviews: svc})
 }
 
-func listPage(t *testing.T, h *handler.EngagementHandler, cursor string, size int32, rating int32) *engagementv1.ListReviewsResponse {
+func listPage(t *testing.T, h *rpc.Handler, cursor string, size int32, rating int32) *engagementv1.ListReviewsResponse {
 	t.Helper()
 	res, err := h.ListReviews(context.Background(), &engagementv1.ListReviewsRequest{
 		ListingId: "l1", RatingFilter: rating,
@@ -107,6 +107,9 @@ func TestListReviewsRejectsMalformedCursor(t *testing.T) {
 		})
 		if status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("cursor %q: code = %v", c, status.Code(err))
+		}
+		if got := status.Convert(err).Message(); got != "invalid page cursor" {
+			t.Fatalf("cursor %q: message = %q, want invalid page cursor", c, got)
 		}
 	}
 }
