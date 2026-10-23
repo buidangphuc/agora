@@ -394,3 +394,41 @@ func TestOrderEventsIgnoreOtherTypesAndPoison(t *testing.T) {
 		t.Fatalf("want 0 notifications, got %d", got)
 	}
 }
+
+func TestOrderPaidRedeliveryNotifiesOnce(t *testing.T) {
+	pool := newDB(t)
+	h := events.NewOrderHandler(pool, nil)
+
+	raw := envelopeOf(t, "e-dup", orderPaidType, paid())
+	mustDeliver(t, h, raw)
+	mustDeliver(t, h, raw)
+
+	one(t, pool, "S1")
+}
+
+func TestReturnRequestedRedeliveryNotifiesOnce(t *testing.T) {
+	pool := newDB(t)
+	h := events.NewOrderHandler(pool, nil)
+
+	raw := envelopeOf(t, "e-dup", returnReqType, &orderv1.ReturnRequested{ReturnId: "R1", OrderId: "O1", BuyerId: "B1", SellerId: "S1"})
+	mustDeliver(t, h, raw)
+	mustDeliver(t, h, raw)
+
+	one(t, pool, "S1")
+}
+
+func TestOrderCompletedTransientFailureRetries(t *testing.T) {
+	pool := newDB(t)
+	h := events.NewOrderHandler(pool, nil)
+	raw := envelopeOf(t, "e-retry", orderDoneType, completed("O1", orderv1.CompletedBy_COMPLETED_BY_SYSTEM))
+
+	failInserts(t, pool)
+	requireTransient(t, deliver(h, raw))
+	if got := ledgerRows(t, pool, "e-retry"); got != 0 {
+		t.Fatalf("ledger rows = %d, want 0", got)
+	}
+
+	healInserts(t, pool)
+	mustDeliver(t, h, raw)
+	one(t, pool, "B1")
+}
