@@ -53,6 +53,7 @@ require (
 	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2 // indirect
 	github.com/butuzov/ireturn v0.4.1 // indirect
 	github.com/butuzov/mirror v1.3.3 // indirect
+	github.com/caarlos0/env/v11 v11.4.1 // indirect
 	github.com/catenacyber/perfsprint v0.10.1 // indirect
 	github.com/ccojocar/zxcvbn-go v1.0.4 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
