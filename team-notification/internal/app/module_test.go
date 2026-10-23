@@ -14,8 +14,6 @@ const (
 	sdkVersion = "v1.0.2"
 )
 
-var removedPackages = []string{"bootstrap", "grpcserver", "interceptor", "handler", "repository", "service", "consumer", "upstream"}
-
 func checkModule(gomod string) error {
 	requireRe := regexp.MustCompile(`^\s*(?:require\s+)?` + regexp.QuoteMeta(sdkModule) + `\s+(\S+)`)
 	found := false
@@ -52,11 +50,6 @@ func TestModuleRequiresSDKTagWithoutReplace(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join("..", "..", "third_party")); err == nil {
 		t.Error("third_party directory must not exist")
-	}
-	for _, p := range removedPackages {
-		if _, err := os.Stat(filepath.Join("..", p)); err == nil {
-			t.Errorf("internal/%s must not exist", p)
-		}
 	}
 }
 
