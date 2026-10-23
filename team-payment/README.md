@@ -15,23 +15,23 @@ Proto: `proto/platform/payment/v1/payment.proto`, service `platform.payment.v1.P
 
 The service does not verify tokens. The gateway verifies the JWT (ADR-0006) and forwards
 `x-principal-id`, `x-principal-type` (`user`/`service`/`anonymous`) and `x-principal-scopes`
-(comma separated); `internal/interceptor/auth.go` trusts them. `RequirePrincipal` rejects a missing
-principal, id `anonymous` and type ANONYMOUS with `Unauthenticated`.
+(comma separated); the SDK `auth` package (installed by `grpcx.NewServer`, handlers use `auth.RequirePrincipal`) trusts them. A missing
+principal, id `anonymous` and type ANONYMOUS are rejected with `Unauthenticated`.
 
 | RPC | Authorization (as implemented) | Notes |
 |---|---|---|
 | `CreatePayment` | Authenticated; caller must be the order's buyer as reported by team-order (`PermissionDenied` otherwise) | Calls `team-order.GetOrder`; order must be `PENDING`, else `FailedPrecondition`; unknown order gives `NotFound`. Returns the existing transaction if one exists for the order. `payment_url` is `/checkout/pay/<order_id>`. |
 | `GetPayment` | Authenticated; the transaction's buyer (user principal), a principal with scope `admin`, or the order's seller (user principal, resolved via `team-order.GetOrder` only for callers who are neither); else `PermissionDenied`. A failed seller lookup is `NotFound`/`Internal`, never success | By `id` or `order_id`. Carries `refunded_amount` and `refunds` (oldest first). |
-| `ProcessMockPayment` | Authenticated; the transaction's buyer or an admin (`requireBuyerOrAdmin`, no seller read) | `simulate_success=true` settles to PAID, `false` sets FAILED. Already PAID returns success without re-settling. Writes no ledger entry (the seller is credited from `OrderPaidEvent`, see Events). |
+| `ProcessMockPayment` | Authenticated; the transaction's buyer or an admin (`requireBuyerOrAdmin`, no seller read) | Served by the `payment-provider` adapter chosen with `MOCK_DATA`: without `MOCK_DATA=payment-provider` it returns `FailedPrecondition` `mock payments are disabled`. With it, `simulate_success=true` settles to PAID, `false` sets FAILED. Already PAID returns success without re-settling. Writes no ledger entry (the seller is credited from `OrderPaidEvent`, see Events). |
 | `RefundPayment` | Authenticated; the order's seller (user principal, seller id resolved via `team-order.GetOrder`) or a principal with scope `admin`, else `PermissionDenied` | `refund_id` is required (1-64 of `[A-Za-z0-9._:-]`, else `InvalidArgument`) and is the idempotency key, stored as `rpc:<refund_id>`. `amount` > 0 (`InvalidArgument`) and at most the refundable remainder (`FailedPrecondition` `refund amount exceeds the refundable remainder`); a `REFUNDED` or unpaid payment is `FailedPrecondition`; the same id with another payment or amount is `AlreadyExists`; the same id and amount again succeeds and writes nothing. See Refund model. Never blocked by balance or hold (the balance may go negative). `payment_id` may also be an order id. |
 | `GetSellerWallet` | `sellerAccess`, admin read allowed | Balance = `SUM(wallet_ledger.amount)`, currency VND. Same data as `GetWalletBalance`. |
 | `RequestPayout` | `sellerAccess`, owner only | Requires `bank_code`, `account_number`, `account_name`. Debits the ledger through the same atomic step as `RequestWalletPayout` (same refusals; a refused payout records nothing), then stores the bank details in `payout_requests` linked by `ledger_entry_id`. |
 | `ListPayoutHistory` | `sellerAccess`, admin read allowed | Reads `payout_requests`. |
 | `GetWalletBalance` | `sellerAccess`, admin read allowed | Ledger model: `SUM(wallet_ledger.amount)`. |
-| `ListLedgerEntries` | `sellerAccess`, admin read allowed | Ledger model, newest first, opaque offset cursor, page size default 20 and max 100. `reference_id`: the payment id for an `ORDER_SETTLEMENT`, the refund id (`rpc:`/`return:`/`cancel:`/`legacy:` key) for a `REFUND_DEDUCTION`, empty for a payout. |
-| `RequestWalletPayout` | `sellerAccess`, owner only | Ledger model: appends a negative PENDING `PAYOUT` row. Balance check, hold check and debit are one atomic step (Postgres: per-seller `pg_advisory_xact_lock` in one transaction; in-memory: mutex). Above the balance: `FailedPrecondition` `insufficient wallet balance`; within the balance but above the withdrawable amount: `FailedPrecondition` `amount is held until <RFC3339 UTC> (refund window)` (see Payout hold-back). |
+| `ListLedgerEntries` | `sellerAccess`, admin read allowed | Ledger model, newest first, opaque offset cursor (`o:<offset>`, base64; the page size is clamped by `pagination.Clamp`), page size default 20 and max 100. `reference_id`: the payment id for an `ORDER_SETTLEMENT`, the refund id (`rpc:`/`return:`/`cancel:`/`legacy:` key) for a `REFUND_DEDUCTION`, empty for a payout. |
+| `RequestWalletPayout` | `sellerAccess`, owner only | Ledger model: appends a negative PENDING `PAYOUT` row. Balance check, hold check and debit are one atomic step (per-seller `pg_advisory_xact_lock` in one transaction). Above the balance: `FailedPrecondition` `insufficient wallet balance`; within the balance but above the withdrawable amount: `FailedPrecondition` `amount is held until <RFC3339 UTC> (refund window)` (see Payout hold-back). |
 
-`sellerAccess` (`internal/handler/wallet_ledger.go`) never trusts the request `seller_id` alone:
+`sellerAccess` (`internal/rpc/wallet_ledger.go`) never trusts the request `seller_id` alone:
 
 - A `user` principal may act on its own wallet; an empty `seller_id` means "my wallet".
 - A principal with scope `admin` may read another seller's wallet (read RPCs only).
@@ -43,7 +43,7 @@ principal, id `anonymous` and type ANONYMOUS with `Unauthenticated`.
 `RefundPayment` and in `GetPayment` for non-buyer callers. The settlement credit makes no call: seller and amount come from the event and
 the own transaction. The
 call does not forward the caller's principal: `internal/upstream/order.go` sends the service principal
-`service-team-payment` (type `service`, scope `order.read`), which team-order's `GetOrder` requires.
+`service-team-payment` (type `service`, scope `order.read`), which team-order's `GetOrder` requires. Each upstream call is bounded by the SDK 2 s timeout. Audit writes go through `internal/upstream/audit.go` (SDK `auditx`).
 
 ## Events
 
@@ -55,15 +55,13 @@ call does not forward the caller's principal: `internal/upstream/order.go` sends
 - `event_id` (the outbox primary key) is the envelope `event_id`. Delivery is at-least-once, so
   consumers must dedupe on it. The consumer is `team-order`, which parks poison records on
   `payment.events.dlq` (owned by team-order, not this service). See ADR-0009.
-- The outbox row is written in the same DB transaction as `status = PAID` (`PgTxWriter.SettleTx`).
-- Relayer (`internal/events/relayer.go`): polls every 1s, claims up to 100 rows with
-  `FOR UPDATE SKIP LOCKED`, exponential backoff 1s doubling to 5m, parks a row as `failed` after 10
-  attempts. These relayer values are code defaults and not configurable via env.
-- The relayer runs only if `KAFKA_ENABLED=true` and the DB is enabled. Otherwise outbox rows are
-  recorded but never relayed.
-- Without a DB, settle degrades to a status-only update and emits no event (a warning is logged).
+- The outbox row is written in the same DB transaction as `status = PAID` (`PgTxWriter.SettleTx` in `internal/store`, via the SDK `outbox` store).
+- Relayer: the SDK `outbox` relayer over `payment_outbox_events` (`OUTBOX_POLL_INTERVAL`, `OUTBOX_BATCH_SIZE`,
+  `OUTBOX_CLAIM_LOCK`), produced with the shared Kafka producer to `payment.events`. Published rows are purged after 7 days
+  by an hourly job owned by `internal/app`. `internal/events` holds the envelope builder.
+- The relayer and the consumer always run; there are no enable flags. Kafka and Postgres are required dependencies.
 
-### Seller settlement credit (`internal/consumer`)
+### Seller settlement credit (`internal/settlement`)
 
 - `team-order` writes `OrderPaidEvent` once, in the same transaction as the only `Pending -> Paid`
   compare-and-set. For each one the consumer appends one `ORDER_SETTLEMENT` (`COMPLETED`) for the
@@ -71,14 +69,14 @@ call does not forward the caller's principal: `internal/upstream/order.go` sends
   for the order (a mismatch with `total_amount` is logged; the transaction wins), with
   `reference_id` = the transaction id. A late payment for an order team-order already cancelled
   produces no `OrderPaidEvent`, so it never credits. The credit appears a few seconds after the
-  payment (two outbox hops); with Kafka off there is no credit.
+  payment (two outbox hops); the credit needs Kafka and `team-order`.
 - At-least-once and idempotent: the unique `(type, reference_id)` index makes redelivery and
-  replays no-ops (no dedupe table). Up to 5 attempts (200 ms x attempt) for DB errors, then the
+  replays no-ops (no dedupe table). The SDK `consume` loop retries up to 5 attempts with backoff for DB errors, then the
   DLQ; malformed envelopes/payloads, missing ids, no or mixed seller and an order with no
   settled (`PAID`/`PARTIALLY_REFUNDED`/`REFUNDED`) transaction go straight to the DLQ. An offset is committed only after the
   write or a successful DLQ produce; if the DLQ produce fails the same record is retried and
   nothing later on the partition is committed. A DLQ'd record is replayed by producing it again.
-- Runs only with `KAFKA_ENABLED=true`, `PAYMENT_SETTLEMENT_CONSUMER_ENABLED=true` and the DB.
+- The consumer logs keys as `key_fp` (HMAC with `LOG_KEY_FP_SECRET`), never raw ids.
 - **First deploy:** a new group starts at the **latest** offset, because credits written by the
   old inline binary carry no reference and re-consuming their `OrderPaidEvent`s would credit
   them again. In the seconds-wide deploy window an order credited inline by the old binary whose
@@ -103,7 +101,7 @@ legacy single refund, see `0007`).
 The prefixes keep a seller-chosen `refund_id` from pre-empting a return's or a cancel's refund.
 RPC keys are global: reusing one on another payment is `AlreadyExists`.
 
-`ApplyRefund` (`internal/repository/settlement.go`) runs in one transaction: lock the payment row
+`ApplyRefund` (`internal/store/settlement.go`) runs in one transaction: lock the payment row
 (`SELECT ... FOR UPDATE`, the serialisation point of every refund path; lock order payment row,
 then seller lock); an existing key with the same payment and requested amount is a replay that
 returns the current state (any amount for the remainder mode), otherwise `AlreadyExists`; then the
@@ -180,7 +178,7 @@ ledger sum. The refusal message names the instant (oldest credits released first
 
 PostgreSQL database `payment_db` (compose: shared `postgres:5432`, user `payment_svc`).
 Migrations in `migrations/` (golang-migrate `NNNN_name.up/down.sql`). Compose applies them with the
-one-shot `team-payment-migrate` job, which the service depends on. The service does not migrate at
+one-shot `team-payment-migrate` job (the service image running `server migrate up`), which the service depends on. The service never migrates at
 startup.
 
 | Migration | Tables | Used by |
@@ -192,6 +190,7 @@ startup.
 | `0005_payout_ledger_link` | `payout_requests.ledger_entry_id` (nullable) | links a payout request to its ledger debit |
 | `0006_wallet_ledger_integrity` | `wallet_ledger.reference_id` + unique `(type, reference_id)`, type/sign CHECK, reference required for new settlement/refund rows (`NOT VALID`: legacy rows kept); `payment_transactions.refunded_amount` | settlement credit, refund deduction |
 | `0007_cumulative_refunds` | `payment_refunds`; `wallet_ledger.reference_id` widened to 96; LEGACY backfill and re-pointed legacy deductions; CHECKs `status <> 4 OR refunded_amount = amount` (`NOT VALID`) and `status <> 5 OR 0 < refunded_amount < amount` | refunds, refund deduction, hold-back |
+| `0008`-`0017` `outbox_v1_*` | `payment_outbox_events` gains `seq`, `topic`, `traceparent` (SDK `outbox.UpgradeSQL`, one file per step) | outbox relayer |
 
 The **wallet ledger is the single source of truth** for seller money:
 
@@ -234,41 +233,57 @@ expect zero rows.
 
 ## Configuration
 
-Read in `internal/config/config.go` (declared env keys) and `internal/bootstrap/kafka.go` (Kafka,
-read directly from the environment, not part of `Settings`).
+Settings are loaded by the SDK `config` package in `internal/config/config.go`; every key is also in `.env.example`
+(`internal/config` tests fail when they drift). Durations are Go durations (`10s`). There are no enable flags: Postgres,
+Kafka, `team-order` and `team-audit` are required.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ENV` | `local` | Environment name (`prod`/`production` count as prod) |
-| `LOG_LEVEL` | `info` | Only `debug` changes behaviour; anything else is info |
+| `ENV` | required | `local`, `test`, `staging` or `prod`; staging and prod are strict |
+| `LOG_LEVEL` | `info` | Log level |
 | `LOG_JSON` | `true` | JSON logs, else text |
 | `GRPC_HOST` | `0.0.0.0` | Bind host |
-| `GRPC_PORT` | `50056` | Bind port (1-65535) |
-| `GRPC_REFLECTION_ENABLED` | `true` | gRPC reflection |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | Graceful-stop timeout before forced stop |
-| `DATABASE_ENABLED` | `true` | `false` switches to in-memory repositories |
-| `DATABASE_URL` | empty | Required when `DATABASE_ENABLED=true` (startup fails otherwise) |
+| `GRPC_PORT` | `50056` | Bind port |
+| `GRPC_REFLECTION_ENABLED` | `false` | gRPC reflection; refused unless `ENV` is local or test |
+| `SHUTDOWN_GRACE` | `10s` | Graceful-stop timeout before forced stop |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Wait between going NOT_SERVING and stopping the server |
+| `DATABASE_URL` | required | Postgres connection string |
 | `DB_MAX_CONNS` | `10` | pgx pool size |
-| `UPSTREAM_ORDER_ADDR` | `localhost:50055` | team-order gRPC address (insecure channel) |
-| `UPSTREAM_AUDIT_ADDR` | empty | team-audit gRPC address. Every admin `RefundPayment` writes a `payment.admin_refund` audit event (target `payment/<id>`, metadata `order_id`, `amount`) before the refund; unset or audit failure returns `UNAVAILABLE` and no refund happens. Seller refunds are not audited |
-| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Bound on each audit call (single attempt) |
-| `MOCK_PAYMENTS` | `false` | Enables `ProcessMockPayment`; startup is refused when true and `ENV` is staging/stage/prod/production |
-| `OTEL_ENABLED` | `false` | Loaded but unused; see Known gaps |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | Loaded but unused; see Known gaps |
-| `OTEL_SERVICE_NAME` | `team-payment` | Loaded but unused; see Known gaps |
+| `KAFKA_BROKERS` | `localhost:9092` in local | Comma-separated brokers; required in staging and prod |
+| `LOG_KEY_FP_SECRET` | empty | HMAC secret for the `key_fp` log field; required in staging and prod |
+| `OTEL_ENABLED` | `false` | Turns on the SDK telemetry exporter |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | OTLP endpoint |
+| `OTEL_SERVICE_NAME` | `team-payment` | Service name in traces |
+| `UPSTREAM_ORDER_ADDR` | required | team-order gRPC address |
+| `UPSTREAM_AUDIT_ADDR` | required | team-audit gRPC address. Every admin `RefundPayment` writes a `payment.admin_refund` audit event (target `payment/<id>`, metadata `order_id`, `refund_id`, `amount`) before the refund; an audit failure returns `UNAVAILABLE` and no refund happens. Seller refunds are not audited |
+| `MOCK_DATA` | empty | Comma-separated mock adapters; `MOCK_DATA=payment-provider` enables the fixture adapter behind `ProcessMockPayment`. Refused in staging and prod |
 | `PAYOUT_HOLD_DAYS` | `7` | Payout hold window in days, 0-3650; `0` disables the hold. Invalid refuses startup |
-| `PAYOUT_HOLD_WINDOW` | empty | Optional Go duration (0 to 3650 days, e.g. `20s`) overriding `PAYOUT_HOLD_DAYS`; invalid refuses startup. The effective window is logged at startup |
-| `KAFKA_ENABLED` | `false` | Starts the outbox relayer and (with the DB) the settlement consumer |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated brokers |
+| `PAYOUT_HOLD_WINDOW` | empty | Optional Go duration (0 to 3650 days, e.g. `20s`) overriding `PAYOUT_HOLD_DAYS`; invalid refuses startup |
 | `PAYMENT_EVENTS_TOPIC` | `payment.events` | Topic the relayer produces to |
 | `ORDER_EVENTS_TOPIC` | `order.events` | Topic the settlement consumer reads |
-| `PAYMENT_SETTLEMENT_CONSUMER_ENABLED` | `true` | Turns the settlement consumer off when `false` |
 | `PAYMENT_SETTLEMENT_CONSUMER_GROUP` | `team-payment.settlement` | Consumer group (new group starts at the latest offset) |
 | `PAYMENT_SETTLEMENT_DLQ_TOPIC` | `order.events.payment-settlement.dlq` | Dead-letter topic (not `order.events.dlq`, which is team-notification's) |
+| `OUTBOX_POLL_INTERVAL` | `1s` | Outbox relayer poll interval |
+| `OUTBOX_BATCH_SIZE` | `100` | Rows claimed per poll |
+| `OUTBOX_CLAIM_LOCK` | `60s` | How long a claimed row stays locked |
 
-`.env.example` documents every key; `internal/bootstrap/env_drift_test.go` fails when a
-`Settings` key or a Kafka key is missing from it. The `.env.example` `DATABASE_URL` uses port
-`5438`, a standalone Postgres of your own, not the compose one.
+The `.env.example` `DATABASE_URL` uses port `5438`, a standalone Postgres of your own, not the compose one.
+
+## Health
+
+`grpc.health.v1.Health` has two services. Readiness (the empty service name) reports `NOT_SERVING` while draining and
+whenever the `postgres` check fails; it is the only readiness check. Kafka is not a check: the outbox retries and the
+consumer reconnects. `team-order` and `team-audit` are not checks either (the order client dials lazily, and an audit
+outage must not stop seller refunds). Liveness is the service `liveness`, independent of Postgres and Kafka.
+
+## Migrate and deploy order
+
+`server migrate up` applies the embedded `migrations/` (SDK `migrate`) and exits. The service never migrates at boot.
+Compose runs it as `team-payment-migrate`; gitops runs it as a PreSync Job.
+
+Outbox upgrade (migrations `0008`-`0017` rebuild `payment_outbox_events` for the SDK relayer, requeue rows parked as
+`failed`, and keep pending rows in order). Old and new pods must never both run a relayer, so on the first rollout:
+scale the old pods to 0, run `server migrate up`, then start the new image. Never roll the new image over running old pods.
 
 ## Run locally
 
@@ -289,13 +304,16 @@ its 7-day default; the e2e overlay `platform-e2e/compose/payment-ledger.override
 docker compose -f docker-compose.yaml -f platform-e2e/compose/payment-ledger.override.yaml up -d team-payment
 ```
 
-Standalone (needs your own Postgres with migrations applied, and `generated/` present):
+Standalone (needs your own Postgres, Kafka, team-order and team-audit, and `generated/` present). `ProcessMockPayment` needs `MOCK_DATA=payment-provider`:
 
 ```bash
 cd team-payment
 cp .env.example .env     # the service does not load .env itself; export the variables
-go run ./cmd/server
+go run ./cmd/server migrate up
+MOCK_DATA=payment-provider go run ./cmd/server
 ```
+
+Before pushing, run `make check` (format, vet, lint, build, unit tests).
 
 Smoke test (grpcurl, reflection on). The gateway normally sets the principal headers; set them by
 hand here. Wallet calls need `x-principal-type: user`:
@@ -305,7 +323,7 @@ grpcurl -plaintext -H 'x-principal-id: buyer_1' -H 'x-principal-type: user' \
   -d '{"order_id":"<pending order id>","method":4}' \
   localhost:50056 platform.payment.v1.PaymentService/CreatePayment
 
-grpcurl -plaintext -d '{"transaction_id":"<tx id>","simulate_success":true}' \
+grpcurl -plaintext -H 'x-principal-id: buyer_1' -H 'x-principal-type: user' -d '{"transaction_id":"<tx id>","simulate_success":true}' \
   localhost:50056 platform.payment.v1.PaymentService/ProcessMockPayment
 
 grpcurl -plaintext -H 'x-principal-id: seller_1' -H 'x-principal-type: user' \
@@ -316,21 +334,20 @@ grpcurl -plaintext localhost:50056 grpc.health.v1.Health/Check
 
 ## Build, test and lint
 
-There is no Makefile and no CI workflow inside this repository. Run the equivalent by hand:
-
 ```bash
 cd team-payment
 buf generate            # only if generated/ is missing or proto/ changed
-gofmt -l .              # must print nothing
-go vet ./...
-go build ./cmd/server
-go test -race ./...
-# Postgres-backed tests (fresh schema per test, all migrations applied); skipped without it:
-TEST_DATABASE_URL=postgres://postgres:pg@127.0.0.1:<port>/postgres?sslmode=disable go test -race ./...
+make check              # format, vet, lint, build, unit tests (shared ../platform-core/make/go-service.mk)
+GO_SDK_REQUIRE_DOCKER=1 go test -race ./... -count=1   # Postgres-backed tests start a container; a skip fails
 ```
 
+Layout (ADR-0016): `cmd/server` (`server` and `server migrate up`), `internal/app` (composition root),
+`internal/config`, `internal/rpc` (gRPC handlers), `internal/payment` (domain service), `internal/settlement`
+(order-event consumer handler), `internal/store` (Postgres stores; `internal/store/fake` for tests),
+`internal/upstream` (order and audit clients), `internal/events` (envelope builder).
+
 Docker build: `Dockerfile` (Go 1.26, static binary, distroless nonroot, exposes 50056). It builds
-from `COPY . .`, so `generated/` must exist in the build context.
+from `COPY . .`, so `generated/` must exist in the build context; the SDK module is fetched from the public proxy.
 
 ## Spec and verification
 
@@ -353,8 +370,6 @@ from `COPY . .`, so `generated/` must exist in the build context.
 - `ProcessMockPayment`'s status write is not a compare-and-set: a racing failure call can
   overwrite `PAID` with `FAILED`, and that order's credit then goes to the DLQ (no settled
   transaction).
-- With `DATABASE_ENABLED=false` everything is in memory and lost on restart, and there is no
-  outbox, so no events.
 - `coverage.out` and `coverage.summary` in the directory are local test artifacts.
 
 ## Known gaps
@@ -364,9 +379,6 @@ from `COPY . .`, so `generated/` must exist in the build context.
   harmless while it carries only `PaymentSettled`, but it must be fixed before a second event
   type is added.
 - Ledger payouts stay `PENDING`; nothing transitions them.
-- `OTEL_*` settings are loaded but nothing in `cmd/` or `internal/bootstrap` reads them, so no
-  trace exporter is initialised; only the otelgrpc stats handler and request-id interceptors are
-  wired.
 - The outbox payload carries ids and status only, not the amount.
 - Main specs still describe a late payment after an unpaid cancel as succeeding (`PAID`):
   `openspec/specs/seller-settlement-credit/spec.md:41` and `openspec/specs/seller-refund-deduction/spec.md:57`,
