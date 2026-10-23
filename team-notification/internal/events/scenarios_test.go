@@ -134,8 +134,10 @@ func TestEventsNeverCreateRowsForOtherUsers(t *testing.T) {
 		raw  func(t *testing.T) []byte
 		want string
 	}{
-		{"chat", func(p *pgxpool.Pool) consume.Handler { return events.NewChatHandler(p, nil, nil) },
-			func(t *testing.T) []byte { return chatEnvelope(t, "e1", sellerReply()) }, "buyer-1"},
+		{
+			"chat", func(p *pgxpool.Pool) consume.Handler { return events.NewChatHandler(p, nil, nil) },
+			func(t *testing.T) []byte { return chatEnvelope(t, "e1", sellerReply()) }, "buyer-1",
+		},
 		{"shipped", order, func(t *testing.T) []byte { return envelopeOf(t, "e1", orderShippedType, shipped()) }, "buyer-1"},
 		{"placed COD", order, func(t *testing.T) []byte {
 			return envelopeOf(t, "e1", orderPlacedType, placed(paymentv1.PaymentMethod_PAYMENT_METHOD_COD))

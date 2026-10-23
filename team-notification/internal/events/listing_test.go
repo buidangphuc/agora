@@ -240,12 +240,16 @@ func TestListingAlertsIgnorePrefs(t *testing.T) {
 		seed  func(t *testing.T) []byte
 		fire  func(t *testing.T) []byte
 	}{
-		{"price drop", priceDrop, notificationv1.NotificationType_NOTIFICATION_TYPE_PRICE_DROP,
+		{
+			"price drop", priceDrop, notificationv1.NotificationType_NOTIFICATION_TYPE_PRICE_DROP,
 			func(t *testing.T) []byte { return priceEvent(t, "evt_1", "listing_1", 100) },
-			func(t *testing.T) []byte { return priceEvent(t, "evt_2", "listing_1", 80) }},
-		{"back in stock", backInStock, notificationv1.NotificationType_NOTIFICATION_TYPE_BACK_IN_STOCK,
+			func(t *testing.T) []byte { return priceEvent(t, "evt_2", "listing_1", 80) },
+		},
+		{
+			"back in stock", backInStock, notificationv1.NotificationType_NOTIFICATION_TYPE_BACK_IN_STOCK,
 			func(t *testing.T) []byte { return stockEvent(t, "evt_1", "listing_1", 0) },
-			func(t *testing.T) []byte { return stockEvent(t, "evt_2", "listing_1", 5) }},
+			func(t *testing.T) []byte { return stockEvent(t, "evt_2", "listing_1", 5) },
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -309,11 +309,20 @@ func TestEveryRPCIsServedOverTheWire(t *testing.T) {
 	c := dial(t, e.h)
 	ctx := wireUser("u1")
 	calls := map[string]func() error{
-		"ListNotifications":      func() error { _, err := c.ListNotifications(ctx, &notificationv1.ListNotificationsRequest{}); return err },
-		"MarkAsRead":             func() error { _, err := c.MarkAsRead(ctx, &notificationv1.MarkAsReadRequest{}); return err },
-		"GetUnreadCount":         func() error { _, err := c.GetUnreadCount(ctx, &notificationv1.GetUnreadCountRequest{}); return err },
-		"ListAlertSubscriptions": func() error { _, err := c.ListAlertSubscriptions(ctx, &notificationv1.ListAlertSubscriptionsRequest{}); return err },
-		"GetNotificationPrefs":   func() error { _, err := c.GetNotificationPrefs(ctx, &notificationv1.GetNotificationPrefsRequest{}); return err },
+		"ListNotifications": func() error {
+			_, err := c.ListNotifications(ctx, &notificationv1.ListNotificationsRequest{})
+			return err
+		},
+		"MarkAsRead":     func() error { _, err := c.MarkAsRead(ctx, &notificationv1.MarkAsReadRequest{}); return err },
+		"GetUnreadCount": func() error { _, err := c.GetUnreadCount(ctx, &notificationv1.GetUnreadCountRequest{}); return err },
+		"ListAlertSubscriptions": func() error {
+			_, err := c.ListAlertSubscriptions(ctx, &notificationv1.ListAlertSubscriptionsRequest{})
+			return err
+		},
+		"GetNotificationPrefs": func() error {
+			_, err := c.GetNotificationPrefs(ctx, &notificationv1.GetNotificationPrefsRequest{})
+			return err
+		},
 		"UpdateNotificationPrefs": func() error {
 			_, err := c.UpdateNotificationPrefs(ctx, &notificationv1.UpdateNotificationPrefsRequest{Prefs: &notificationv1.NotificationPrefs{}})
 			return err

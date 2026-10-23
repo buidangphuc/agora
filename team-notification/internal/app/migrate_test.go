@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -140,8 +141,8 @@ func TestMigrateSubcommandRunsMigrationsAndFailsNonZero(t *testing.T) {
 	bad := exec.Command(bin, "migrate", "up")
 	bad.Env = append(os.Environ(), "ENV=local", "DATABASE_URL="+url)
 	err := bad.Run()
-	ee, ok := err.(*exec.ExitError)
-	if !ok || ee.ExitCode() == 0 {
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) || ee.ExitCode() == 0 {
 		t.Fatalf("migrate up on a dirty schema: %v, want a non-zero exit", err)
 	}
 }

@@ -22,9 +22,7 @@ import (
 	"github.com/buidangphuc/team-notification/internal/store"
 )
 
-var (
-	_ store.Querier = (*pgxpool.Pool)(nil)
-)
+var _ store.Querier = (*pgxpool.Pool)(nil)
 
 func migrationFiles(t *testing.T) fs.FS {
 	t.Helper()

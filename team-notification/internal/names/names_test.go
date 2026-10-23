@@ -3,7 +3,6 @@ package names_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -67,7 +66,7 @@ type identityFake struct {
 	md       metadata.MD
 }
 
-func (f *identityFake) GetPublicProfiles(ctx context.Context, in *identityv1.GetPublicProfilesRequest) (*identityv1.GetPublicProfilesResponse, error) {
+func (f *identityFake) GetPublicProfiles(ctx context.Context, _ *identityv1.GetPublicProfilesRequest) (*identityv1.GetPublicProfilesResponse, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
@@ -101,7 +100,7 @@ func newResolver(t *testing.T, lf *listingFake, pf *identityFake) *names.Resolve
 	t.Helper()
 	domain := serve(t, func(s *grpc.Server) { listingv1.RegisterListingServiceServer(s, lf) })
 	identity := serve(t, func(s *grpc.Server) { identityv1.RegisterPublicProfileServiceServer(s, pf) })
-	r, err := names.New(domain, identity, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	r, err := names.New(domain, identity, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatalf("names.New: %v", err)
 	}
@@ -171,7 +170,7 @@ func TestResolve_UnreachableUpstreamYieldsEmpty(t *testing.T) {
 	}
 	addr := lis.Addr().String()
 	_ = lis.Close()
-	r, err := names.New(addr, addr, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	r, err := names.New(addr, addr, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatalf("dialing is lazy, names.New must not fail: %v", err)
 	}
