@@ -3,6 +3,7 @@ module github.com/buidangphuc/team-verification
 go 1.26.0
 
 require (
+	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
 	google.golang.org/grpc v1.84.0
@@ -47,9 +48,9 @@ require (
 	github.com/bombsimon/wsl/v5 v5.9.0 // indirect
 	github.com/breml/bidichk v0.3.4 // indirect
 	github.com/breml/errchkjson v0.4.1 // indirect
-	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2 // indirect
 	github.com/butuzov/ireturn v0.4.1 // indirect
 	github.com/butuzov/mirror v1.3.3 // indirect
+	github.com/caarlos0/env/v11 v11.4.1 // indirect
 	github.com/catenacyber/perfsprint v0.10.1 // indirect
 	github.com/ccojocar/zxcvbn-go v1.0.4 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
