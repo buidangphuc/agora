@@ -62,16 +62,18 @@ func (s *countingStore) RemoveSellerListing(ctx context.Context, listingID strin
 }
 
 type listingRun struct {
-	logs *syncBuffer
-	fp   *kafkax.Fingerprinter
-	done chan error
-	stop func()
+	logs     *syncBuffer
+	fp       *kafkax.Fingerprinter
+	done     chan error
+	finished bool
+	stop     func()
 }
 
 func (r *listingRun) wait(t *testing.T) error {
 	t.Helper()
 	select {
 	case err := <-r.done:
+		r.finished = true
 		return err
 	case <-time.After(waitFor):
 		t.Fatal("consumer did not stop")
@@ -114,6 +116,10 @@ func startListing(t *testing.T, brokers, group, secret string, store events.Feed
 		}
 		stopped = true
 		cancel()
+		if run.finished {
+			client.Close()
+			return
+		}
 		select {
 		case <-run.done:
 		case <-time.After(30 * time.Second):
