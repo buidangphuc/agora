@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
 	commonv1 "github.com/buidangphuc/team-chat/generated/platform/common/v1"
