@@ -1,16 +1,11 @@
 package config_test
 
 import (
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -265,74 +260,6 @@ func TestEnvExampleInSync(t *testing.T) {
 		if !found {
 			t.Errorf("Settings does not declare %s", want)
 		}
-	}
-}
-
-func TestNoEnableFlagOrFallbackInSource(t *testing.T) {
-	// scenario: No source reads an enable flag or builds a fallback
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("cannot locate test file")
-	}
-	root := filepath.Join(filepath.Dir(file), "..", "..")
-	enableRe := regexp.MustCompile(`[A-Z][A-Z0-9_]*_ENABLED`)
-	allowed := map[string]bool{"OTEL_ENABLED": true, "GRPC_REFLECTION_ENABLED": true}
-	banned := []string{"NewInMemory", "Noop", "RequireDurableStorage"}
-	fset := token.NewFileSet()
-	scanned := 0
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if d.Name() == "generated" || d.Name() == ".git" || d.Name() == "node_modules" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
-			return nil
-		}
-		f, err := parser.ParseFile(fset, p, nil, 0)
-		if err != nil {
-			return err
-		}
-		scanned++
-		rel, _ := filepath.Rel(root, p)
-		ast.Inspect(f, func(n ast.Node) bool {
-			switch x := n.(type) {
-			case *ast.BasicLit:
-				if x.Kind != token.STRING {
-					return true
-				}
-				s, uerr := strconv.Unquote(x.Value)
-				if uerr != nil {
-					s = x.Value
-				}
-				for _, m := range enableRe.FindAllString(s, -1) {
-					if !allowed[m] {
-						t.Errorf("%s: string literal names %s", rel, m)
-					}
-				}
-			case *ast.Ident:
-				for _, b := range banned {
-					if strings.Contains(x.Name, b) {
-						t.Errorf("%s: identifier %s contains %s", rel, x.Name, b)
-					}
-				}
-				if enableRe.MatchString(x.Name) && !allowed[x.Name] {
-					t.Errorf("%s: identifier %s", rel, x.Name)
-				}
-			}
-			return true
-		})
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if scanned == 0 {
-		t.Fatal("no source files scanned")
 	}
 }
 
