@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -9,8 +9,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/buidangphuc/team-payment/internal/pgtest"
 )
 
 // signPrecheck is the migration plan's pre-check: rows that would violate the 0006 sign
@@ -27,13 +25,6 @@ func pgCode(err error) string {
 	return ""
 }
 
-func mustExec(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) {
-	t.Helper()
-	if _, err := pool.Exec(context.Background(), sql, args...); err != nil {
-		t.Fatalf("exec %q: %v", sql, err)
-	}
-}
-
 func wantCode(t *testing.T, pool *pgxpool.Pool, code, what, sql string, args ...any) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), sql, args...)
@@ -46,10 +37,10 @@ func wantCode(t *testing.T, pool *pgxpool.Pool, code, what, sql string, args ...
 // REJECTED +amount payout reversal, keeps them readable and counted, enforces the
 // uniqueness / sign / reference rules for new rows, and its down migration reverses it.
 func TestMigration0006_LegacyDataAndRules_Postgres(t *testing.T) {
-	pool := pgtest.EmptyPool(t)
+	pool := schemaPool(t)
 	ctx := context.Background()
 	var m0006up, m0006down string
-	for _, f := range pgtest.UpFiles(t) {
+	for _, f := range migrationFiles(t, 1, 17) {
 		base := filepath.Base(f)
 		if strings.HasPrefix(base, "0006_") {
 			m0006up = f
@@ -57,7 +48,7 @@ func TestMigration0006_LegacyDataAndRules_Postgres(t *testing.T) {
 			continue
 		}
 		if base < "0006_" {
-			pgtest.Apply(t, pool, f)
+			applyFile(t, pool, f)
 		}
 	}
 	if m0006up == "" {
@@ -85,7 +76,7 @@ func TestMigration0006_LegacyDataAndRules_Postgres(t *testing.T) {
 		t.Fatalf("sign precheck returned %d rows, want 0", n)
 	}
 
-	pgtest.Apply(t, pool, m0006up)
+	applyFile(t, pool, m0006up)
 
 	var bal int64
 	if err := pool.QueryRow(ctx, `SELECT SUM(amount) FROM wallet_ledger WHERE seller_id = 's-legacy'`).Scan(&bal); err != nil || bal != 300 {
@@ -119,7 +110,7 @@ func TestMigration0006_LegacyDataAndRules_Postgres(t *testing.T) {
 		`UPDATE payment_transactions SET refunded_amount = -1 WHERE id = 'tx-legacy'`)
 
 	// Down reverses it; up applies again over the same data.
-	pgtest.Apply(t, pool, m0006down)
+	applyFile(t, pool, m0006down)
 	var cols int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.columns
 		WHERE table_schema = current_schema() AND (table_name, column_name) IN
@@ -128,5 +119,5 @@ func TestMigration0006_LegacyDataAndRules_Postgres(t *testing.T) {
 	}
 	mustExec(t, pool, `INSERT INTO wallet_ledger (id, seller_id, type, amount, status) VALUES ('d1', 's', 'ORDER_SETTLEMENT', -5, 'COMPLETED')`)
 	mustExec(t, pool, `DELETE FROM wallet_ledger WHERE id = 'd1'`)
-	pgtest.Apply(t, pool, m0006up)
+	applyFile(t, pool, m0006up)
 }

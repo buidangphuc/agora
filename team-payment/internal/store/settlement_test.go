@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -7,46 +7,46 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/buidangphuc/team-payment/internal/pgtest"
-	"github.com/buidangphuc/team-payment/internal/repository"
+	"github.com/buidangphuc/team-payment/internal/store"
+	"github.com/buidangphuc/team-payment/internal/store/fake"
 )
 
 // stores is one backend under test: the settlement ledger plus the stores it writes.
 type stores struct {
-	settle   repository.SettlementLedger
-	ledger   repository.LedgerRepository
-	payments repository.PaymentRepository
+	settle   store.SettlementLedger
+	ledger   store.LedgerRepository
+	payments store.PaymentRepository
 }
 
 func inMemoryStores(*testing.T) stores {
-	p := repository.NewInMemoryPaymentRepository()
-	l := repository.NewInMemoryLedgerRepository()
-	return stores{settle: repository.NewInMemorySettlementLedger(p, l), ledger: l, payments: p}
+	p := fake.NewInMemoryPaymentRepository()
+	l := fake.NewInMemoryLedgerRepository()
+	return stores{settle: fake.NewInMemorySettlementLedger(p, l), ledger: l, payments: p}
 }
 
 func postgresStores(t *testing.T) stores {
-	pool := pgtest.Pool(t)
+	pool := migratedPool(t)
 	return stores{
-		settle:   repository.NewPostgresSettlementLedger(pool),
-		ledger:   repository.NewPostgresLedgerRepository(pool),
-		payments: repository.NewPostgresPaymentRepository(pool),
+		settle:   store.NewPostgresSettlementLedger(pool),
+		ledger:   store.NewPostgresLedgerRepository(pool),
+		payments: store.NewPostgresPaymentRepository(pool),
 	}
 }
 
-// eachBackend runs fn against the in-memory stores and, with TEST_DATABASE_URL, Postgres.
+// eachBackend runs fn against the in-memory stores and and the testkit Postgres.
 func eachBackend(t *testing.T, fn func(t *testing.T, s stores)) {
 	t.Run("memory", func(t *testing.T) { fn(t, inMemoryStores(t)) })
 	t.Run("postgres", func(t *testing.T) { fn(t, postgresStores(t)) })
 }
 
-func paidTx(t *testing.T, s stores, orderID string, amount int64) repository.PaymentTransaction {
+func paidTx(t *testing.T, s stores, orderID string, amount int64) store.PaymentTransaction {
 	t.Helper()
 	ctx := context.Background()
-	tx, err := s.payments.CreateTransaction(ctx, repository.PaymentTransaction{OrderID: orderID, BuyerID: "buyer", Amount: amount})
+	tx, err := s.payments.CreateTransaction(ctx, store.PaymentTransaction{OrderID: orderID, BuyerID: "buyer", Amount: amount})
 	if err != nil {
 		t.Fatalf("create tx: %v", err)
 	}
-	tx, err = s.payments.UpdateTransactionStatus(ctx, tx.ID, repository.PaymentStatusPaid, "MOCK-REF")
+	tx, err = s.payments.UpdateTransactionStatus(ctx, tx.ID, store.PaymentStatusPaid, "MOCK-REF")
 	if err != nil {
 		t.Fatalf("pay tx: %v", err)
 	}
@@ -54,14 +54,14 @@ func paidTx(t *testing.T, s stores, orderID string, amount int64) repository.Pay
 }
 
 // countByType counts the seller's entries of typ referencing ref, and sums the balance.
-func ledgerOf(t *testing.T, s stores, seller string) (map[string][]repository.LedgerEntry, int64) {
+func ledgerOf(t *testing.T, s stores, seller string) (map[string][]store.LedgerEntry, int64) {
 	t.Helper()
 	ctx := context.Background()
 	entries, _, err := s.ledger.ListEntries(ctx, seller, 0, 1000)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
-	out := map[string][]repository.LedgerEntry{}
+	out := map[string][]store.LedgerEntry{}
 	for _, e := range entries {
 		out[e.Type] = append(out[e.Type], e)
 	}
@@ -72,22 +72,22 @@ func ledgerOf(t *testing.T, s stores, seller string) (map[string][]repository.Le
 	return out, bal
 }
 
-func wantOne(t *testing.T, got []repository.LedgerEntry, amount int64, ref string) {
+func wantOne(t *testing.T, got []store.LedgerEntry, amount int64, ref string) {
 	t.Helper()
 	if len(got) != 1 || got[0].Amount != amount || got[0].ReferenceID != ref {
 		t.Fatalf("want exactly one entry of %d ref %s, got %+v", amount, ref, got)
 	}
 }
 
-func rpcRefund(ctx context.Context, s stores, txID, id string, amount int64) (repository.RefundResult, error) {
-	return s.settle.ApplyRefund(ctx, repository.RefundRequest{
-		PaymentID: txID, Key: "rpc:" + id, Source: repository.RefundSourceSellerOrAdmin, SourceID: id,
-		Requested: amount, Reason: "x", Mode: repository.RefundStrict,
+func rpcRefund(ctx context.Context, s stores, txID, id string, amount int64) (store.RefundResult, error) {
+	return s.settle.ApplyRefund(ctx, store.RefundRequest{
+		PaymentID: txID, Key: "rpc:" + id, Source: store.RefundSourceSellerOrAdmin, SourceID: id,
+		Requested: amount, Reason: "x", Mode: store.RefundStrict,
 	})
 }
 
 // wantRefunds asserts the payment's refunded amount, status and number of refund rows.
-func wantRefunds(t *testing.T, s stores, txID string, refunded int64, st repository.PaymentStatus, n int) []repository.Refund {
+func wantRefunds(t *testing.T, s stores, txID string, refunded int64, st store.PaymentStatus, n int) []store.Refund {
 	t.Helper()
 	ctx := context.Background()
 	tx, err := s.payments.GetTransaction(ctx, txID)
@@ -124,8 +124,8 @@ func TestCreditSettlement_DuplicateIsNoop(t *testing.T) {
 			t.Fatalf("second credit must be a no-op: %+v %v", r2, err)
 		}
 		got, bal := ledgerOf(t, s, "seller")
-		wantOne(t, got[repository.LedgerTypeOrderSettlement], 500000, tx.ID)
-		if got[repository.LedgerTypeOrderSettlement][0].Status != repository.LedgerStatusCompleted || bal != 500000 {
+		wantOne(t, got[store.LedgerTypeOrderSettlement], 500000, tx.ID)
+		if got[store.LedgerTypeOrderSettlement][0].Status != store.LedgerStatusCompleted || bal != 500000 {
 			t.Fatalf("balance %d, entries %+v", bal, got)
 		}
 	})
@@ -134,13 +134,13 @@ func TestCreditSettlement_DuplicateIsNoop(t *testing.T) {
 func TestCreditSettlement_NoSettledTransaction(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		ctx := context.Background()
-		if _, err := s.settle.CreditSettlement(ctx, "o-none", "seller"); !errors.Is(err, repository.ErrNotSettled) {
+		if _, err := s.settle.CreditSettlement(ctx, "o-none", "seller"); !errors.Is(err, store.ErrNotSettled) {
 			t.Fatalf("no tx: want ErrNotSettled, got %v", err)
 		}
-		if _, err := s.payments.CreateTransaction(ctx, repository.PaymentTransaction{OrderID: "o-pending", BuyerID: "b", Amount: 10}); err != nil {
+		if _, err := s.payments.CreateTransaction(ctx, store.PaymentTransaction{OrderID: "o-pending", BuyerID: "b", Amount: 10}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := s.settle.CreditSettlement(ctx, "o-pending", "seller"); !errors.Is(err, repository.ErrNotSettled) {
+		if _, err := s.settle.CreditSettlement(ctx, "o-pending", "seller"); !errors.Is(err, store.ErrNotSettled) {
 			t.Fatalf("pending tx: want ErrNotSettled, got %v", err)
 		}
 		if got, bal := ledgerOf(t, s, "seller"); len(got) != 0 || bal != 0 {
@@ -157,7 +157,7 @@ func TestCreditThenRefund_OneCreditOneDeduction(t *testing.T) {
 			t.Fatal(err)
 		}
 		res, err := rpcRefund(ctx, s, tx.ID, "r1", 200000)
-		if err != nil || !res.Deducted || res.Transaction.Status != repository.PaymentStatusPartiallyRefunded || res.Transaction.RefundedAmount != 200000 {
+		if err != nil || !res.Deducted || res.Transaction.Status != store.PaymentStatusPartiallyRefunded || res.Transaction.RefundedAmount != 200000 {
 			t.Fatalf("refund: %+v %v", res, err)
 		}
 		// Redelivered credit after the refund writes nothing more.
@@ -165,12 +165,12 @@ func TestCreditThenRefund_OneCreditOneDeduction(t *testing.T) {
 			t.Fatalf("redelivered credit: %+v %v", r, err)
 		}
 		got, bal := ledgerOf(t, s, "seller")
-		wantOne(t, got[repository.LedgerTypeOrderSettlement], 500000, tx.ID)
-		wantOne(t, got[repository.LedgerTypeRefundDeduction], -200000, "rpc:r1")
+		wantOne(t, got[store.LedgerTypeOrderSettlement], 500000, tx.ID)
+		wantOne(t, got[store.LedgerTypeRefundDeduction], -200000, "rpc:r1")
 		if bal != 300000 {
 			t.Fatalf("balance %d, want 300000", bal)
 		}
-		if _, err := rpcRefund(ctx, s, tx.ID, "r2", 300001); !errors.Is(err, repository.ErrExceedsRemainder) {
+		if _, err := rpcRefund(ctx, s, tx.ID, "r2", 300001); !errors.Is(err, store.ErrExceedsRemainder) {
 			t.Fatalf("refund above the remainder: want ErrExceedsRemainder, got %v", err)
 		}
 	})
@@ -195,8 +195,8 @@ func TestRefundThenCredit_OneCreditOneDeduction(t *testing.T) {
 			t.Fatalf("redelivered credit: %+v %v", r, err)
 		}
 		got, bal := ledgerOf(t, s, "seller")
-		wantOne(t, got[repository.LedgerTypeOrderSettlement], 500000, tx.ID)
-		wantOne(t, got[repository.LedgerTypeRefundDeduction], -500000, "rpc:r1")
+		wantOne(t, got[store.LedgerTypeOrderSettlement], 500000, tx.ID)
+		wantOne(t, got[store.LedgerTypeRefundDeduction], -500000, "rpc:r1")
 		if bal != 0 {
 			t.Fatalf("balance %d, want 0", bal)
 		}
@@ -213,7 +213,7 @@ func TestRefundWithoutCredit_WritesNoDeduction(t *testing.T) {
 		if got, bal := ledgerOf(t, s, "seller"); len(got) != 0 || bal != 0 {
 			t.Fatalf("got %+v (%d), want an empty ledger", got, bal)
 		}
-		if _, err := rpcRefund(ctx, s, "no-such-tx", "r2", 1); !errors.Is(err, repository.ErrTransactionNotFound) {
+		if _, err := rpcRefund(ctx, s, "no-such-tx", "r2", 1); !errors.Is(err, store.ErrTransactionNotFound) {
 			t.Fatalf("unknown tx: want ErrTransactionNotFound, got %v", err)
 		}
 	})
@@ -250,9 +250,9 @@ func TestConcurrentRefunds_SameKeyWritesOnce(t *testing.T) {
 		if created.Load() != 1 {
 			t.Fatalf("created=%d, want 1", created.Load())
 		}
-		wantRefunds(t, s, tx.ID, 100000, repository.PaymentStatusPartiallyRefunded, 1)
+		wantRefunds(t, s, tx.ID, 100000, store.PaymentStatusPartiallyRefunded, 1)
 		got, bal := ledgerOf(t, s, "seller")
-		wantOne(t, got[repository.LedgerTypeRefundDeduction], -100000, "rpc:same")
+		wantOne(t, got[store.LedgerTypeRefundDeduction], -100000, "rpc:same")
 		if bal != 400000 {
 			t.Fatalf("balance %d, want 400000", bal)
 		}
@@ -284,9 +284,9 @@ func TestConcurrentCreditAndRefund(t *testing.T) {
 			wg.Wait()
 		}
 		got, bal := ledgerOf(t, s, "seller-cr")
-		if len(got[repository.LedgerTypeOrderSettlement]) != 10 || len(got[repository.LedgerTypeRefundDeduction]) != 10 || bal != 0 {
+		if len(got[store.LedgerTypeOrderSettlement]) != 10 || len(got[store.LedgerTypeRefundDeduction]) != 10 || bal != 0 {
 			t.Fatalf("credits=%d deductions=%d balance=%d, want 10/10/0",
-				len(got[repository.LedgerTypeOrderSettlement]), len(got[repository.LedgerTypeRefundDeduction]), bal)
+				len(got[store.LedgerTypeOrderSettlement]), len(got[store.LedgerTypeRefundDeduction]), bal)
 		}
 	})
 }
@@ -294,7 +294,7 @@ func TestConcurrentCreditAndRefund(t *testing.T) {
 func TestAppendEntryOnce(t *testing.T) {
 	eachBackend(t, func(t *testing.T, s stores) {
 		ctx := context.Background()
-		e := repository.LedgerEntry{SellerID: "s1", Type: repository.LedgerTypeOrderSettlement, Amount: 7, ReferenceID: "ref-1"}
+		e := store.LedgerEntry{SellerID: "s1", Type: store.LedgerTypeOrderSettlement, Amount: 7, ReferenceID: "ref-1"}
 		first, created, err := s.ledger.AppendEntryOnce(ctx, e)
 		if err != nil || !created {
 			t.Fatalf("first: %v %v", created, err)
@@ -303,7 +303,7 @@ func TestAppendEntryOnce(t *testing.T) {
 		if err != nil || created || again.ID != first.ID {
 			t.Fatalf("second: created=%v id=%s/%s err=%v", created, again.ID, first.ID, err)
 		}
-		if _, _, err := s.ledger.AppendEntryOnce(ctx, repository.LedgerEntry{SellerID: "s1", Type: repository.LedgerTypeOrderSettlement, Amount: 7}); !errors.Is(err, repository.ErrReferenceRequired) {
+		if _, _, err := s.ledger.AppendEntryOnce(ctx, store.LedgerEntry{SellerID: "s1", Type: store.LedgerTypeOrderSettlement, Amount: 7}); !errors.Is(err, store.ErrReferenceRequired) {
 			t.Fatalf("no reference: want ErrReferenceRequired, got %v", err)
 		}
 	})
@@ -320,12 +320,12 @@ func TestLedgerStoreRejectsInvalidRows_Postgres(t *testing.T) {
 	}
 	cases := []struct {
 		name string
-		e    repository.LedgerEntry
+		e    store.LedgerEntry
 		code string
 	}{
-		{"second settlement for one payment", repository.LedgerEntry{SellerID: "seller", Type: repository.LedgerTypeOrderSettlement, Amount: 500, ReferenceID: tx.ID}, "23505"},
-		{"settlement that is not positive", repository.LedgerEntry{SellerID: "seller", Type: repository.LedgerTypeOrderSettlement, Amount: -1, ReferenceID: "fresh-ref"}, "23514"},
-		{"refund deduction without reference", repository.LedgerEntry{SellerID: "seller", Type: repository.LedgerTypeRefundDeduction, Amount: -1}, "23514"},
+		{"second settlement for one payment", store.LedgerEntry{SellerID: "seller", Type: store.LedgerTypeOrderSettlement, Amount: 500, ReferenceID: tx.ID}, "23505"},
+		{"settlement that is not positive", store.LedgerEntry{SellerID: "seller", Type: store.LedgerTypeOrderSettlement, Amount: -1, ReferenceID: "fresh-ref"}, "23514"},
+		{"refund deduction without reference", store.LedgerEntry{SellerID: "seller", Type: store.LedgerTypeRefundDeduction, Amount: -1}, "23514"},
 	}
 	for _, c := range cases {
 		if _, err := s.ledger.AppendEntry(ctx, c.e); pgCode(err) != c.code {

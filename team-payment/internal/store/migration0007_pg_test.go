@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/buidangphuc/team-payment/internal/pgtest"
 )
 
 // precheck0007 is design D9's pre-check: both queries must return zero rows before 0007
@@ -50,13 +48,13 @@ func scalar[T any](t *testing.T, pool *pgxpool.Pool, sql string, args ...any) T 
 // migration0007Files applies every migration before 0007 and returns 0007's up/down.
 func migration0007Files(t *testing.T, pool *pgxpool.Pool) (up, down string) {
 	t.Helper()
-	for _, f := range pgtest.UpFiles(t) {
+	for _, f := range migrationFiles(t, 1, 17) {
 		base := filepath.Base(f)
 		switch {
 		case strings.HasPrefix(base, "0007_"):
 			up, down = f, strings.TrimSuffix(f, ".up.sql")+".down.sql"
 		case base < "0007_":
-			pgtest.Apply(t, pool, f)
+			applyFile(t, pool, f)
 		}
 	}
 	if up == "" {
@@ -69,7 +67,7 @@ func migration0007Files(t *testing.T, pool *pgxpool.Pool) (up, down string) {
 // statement plans would otherwise refer to the column types before it.
 func applyReset(t *testing.T, pool *pgxpool.Pool, file string) {
 	t.Helper()
-	pgtest.Apply(t, pool, file)
+	applyFile(t, pool, file)
 	pool.Reset()
 }
 
@@ -77,7 +75,7 @@ func applyReset(t *testing.T, pool *pgxpool.Pool, file string) {
 // (payment-cumulative-refunds: "Payments refunded under the single-refund model keep their
 // outcome after the upgrade").
 func TestMigration0007_LegacyRefunds_Postgres(t *testing.T) {
-	pool := pgtest.EmptyPool(t)
+	pool := schemaPool(t)
 	up, down := migration0007Files(t, pool)
 
 	// Written by the 0006 binary.
@@ -239,9 +237,9 @@ func TestMigration0007_LegacyRefunds_Postgres(t *testing.T) {
 
 // The down migration keeps reference_id at 96 when a longer reference exists.
 func TestMigration0007_DownKeepsWideReferences_Postgres(t *testing.T) {
-	pool := pgtest.EmptyPool(t)
+	pool := schemaPool(t)
 	up, down := migration0007Files(t, pool)
-	pgtest.Apply(t, pool, up)
+	applyFile(t, pool, up)
 	long := "rpc:" + strings.Repeat("x", 64)
 	mustExec(t, pool, `INSERT INTO wallet_ledger (id, seller_id, type, amount, status, reference_id) VALUES ('w', 's', 'REFUND_DEDUCTION', -1, 'COMPLETED', $1)`, long)
 	applyReset(t, pool, down)

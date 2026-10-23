@@ -1,18 +1,19 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-payment/internal/repository"
+	"github.com/buidangphuc/team-payment/internal/store"
+	"github.com/buidangphuc/team-payment/internal/store/fake"
 )
 
 func TestInMemoryWalletRepository_PayoutRequests(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryWalletRepository()
+	repo := fake.NewInMemoryWalletRepository()
 
-	req1 := repository.PayoutRequest{
+	req1 := store.PayoutRequest{
 		SellerID:      "seller-1",
 		Amount:        100000,
 		BankCode:      "VCB",
@@ -28,7 +29,7 @@ func TestInMemoryWalletRepository_PayoutRequests(t *testing.T) {
 	if created.ID == "" {
 		t.Fatal("expected non-empty payout ID")
 	}
-	if created.Status != repository.PayoutStatusPending {
+	if created.Status != store.PayoutStatusPending {
 		t.Errorf("want status PENDING, got %v", created.Status)
 	}
 
@@ -43,13 +44,13 @@ func TestInMemoryWalletRepository_PayoutRequests(t *testing.T) {
 
 	// Get non-existent payout
 	_, err = repo.GetPayoutRequest(ctx, "missing-payout")
-	if err != repository.ErrPayoutNotFound {
+	if err != store.ErrPayoutNotFound {
 		t.Errorf("expected ErrPayoutNotFound, got %v", err)
 	}
 
 	// Create second payout
 	time.Sleep(2 * time.Millisecond)
-	req2 := repository.PayoutRequest{
+	req2 := store.PayoutRequest{
 		SellerID:      "seller-1",
 		Amount:        200000,
 		BankCode:      "TCB",
@@ -62,7 +63,7 @@ func TestInMemoryWalletRepository_PayoutRequests(t *testing.T) {
 	}
 
 	// Create payout for different seller
-	req3 := repository.PayoutRequest{
+	req3 := store.PayoutRequest{
 		SellerID:      "seller-2",
 		Amount:        50000,
 		BankCode:      "MBB",

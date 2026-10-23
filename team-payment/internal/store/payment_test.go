@@ -1,23 +1,24 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/buidangphuc/team-payment/internal/repository"
+	"github.com/buidangphuc/team-payment/internal/store"
+	"github.com/buidangphuc/team-payment/internal/store/fake"
 )
 
 func TestInMemoryPaymentRepository_CreateAndGet(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryPaymentRepository()
+	repo := fake.NewInMemoryPaymentRepository()
 
-	tx := repository.PaymentTransaction{
+	tx := store.PaymentTransaction{
 		OrderID:  "order-1",
 		BuyerID:  "buyer-1",
 		Amount:   150000,
 		Currency: "VND",
-		Method:   repository.PaymentMethodMockMoMo,
-		Status:   repository.PaymentStatusPending,
+		Method:   store.PaymentMethodMockMoMo,
+		Status:   store.PaymentStatusPending,
 	}
 
 	created, err := repo.CreateTransaction(ctx, tx)
@@ -30,7 +31,7 @@ func TestInMemoryPaymentRepository_CreateAndGet(t *testing.T) {
 	if created.Currency != "VND" {
 		t.Fatalf("expected VND currency, got %s", created.Currency)
 	}
-	if created.Status != repository.PaymentStatusPending {
+	if created.Status != store.PaymentStatusPending {
 		t.Fatalf("expected PENDING status, got %v", created.Status)
 	}
 
@@ -54,21 +55,21 @@ func TestInMemoryPaymentRepository_CreateAndGet(t *testing.T) {
 
 	// Get non-existent
 	_, err = repo.GetTransaction(ctx, "non-existent")
-	if err != repository.ErrTransactionNotFound {
+	if err != store.ErrTransactionNotFound {
 		t.Fatalf("expected ErrTransactionNotFound, got %v", err)
 	}
 
 	_, err = repo.GetTransactionByOrderID(ctx, "non-existent-order")
-	if err != repository.ErrTransactionNotFound {
+	if err != store.ErrTransactionNotFound {
 		t.Fatalf("expected ErrTransactionNotFound, got %v", err)
 	}
 }
 
 func TestInMemoryPaymentRepository_UpdateStatus(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryPaymentRepository()
+	repo := fake.NewInMemoryPaymentRepository()
 
-	tx := repository.PaymentTransaction{
+	tx := store.PaymentTransaction{
 		OrderID: "order-2",
 		BuyerID: "buyer-2",
 		Amount:  500000,
@@ -79,17 +80,17 @@ func TestInMemoryPaymentRepository_UpdateStatus(t *testing.T) {
 	}
 
 	// Update status
-	updated, err := repo.UpdateTransactionStatus(ctx, created.ID, repository.PaymentStatusPaid, "gateway-ref-123")
+	updated, err := repo.UpdateTransactionStatus(ctx, created.ID, store.PaymentStatusPaid, "gateway-ref-123")
 	if err != nil {
 		t.Fatalf("UpdateTransactionStatus failed: %v", err)
 	}
-	if updated.Status != repository.PaymentStatusPaid {
+	if updated.Status != store.PaymentStatusPaid {
 		t.Errorf("expected PAID status")
 	}
 
 	// Update non-existent
-	_, err = repo.UpdateTransactionStatus(ctx, "non-existent", repository.PaymentStatusPaid, "")
-	if err != repository.ErrTransactionNotFound {
+	_, err = repo.UpdateTransactionStatus(ctx, "non-existent", store.PaymentStatusPaid, "")
+	if err != store.ErrTransactionNotFound {
 		t.Errorf("expected ErrTransactionNotFound")
 	}
 }

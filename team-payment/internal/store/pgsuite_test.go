@@ -156,3 +156,14 @@ func (p *scriptedPublisher) callCount(v string) int {
 	defer p.mu.Unlock()
 	return p.calls[v]
 }
+
+func applyFile(t *testing.T, pool *pgxpool.Pool, file string) {
+	t.Helper()
+	body, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("read %s: %v", file, err)
+	}
+	if _, err := pool.Exec(context.Background(), string(body)); err != nil {
+		t.Fatalf("apply %s: %v", filepath.Base(file), err)
+	}
+}
