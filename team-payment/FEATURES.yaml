@@ -2157,7 +2157,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestGoModRequiresTaggedSDK`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestModuleRequiresSDKTagWithoutReplace`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.shared-make-and-lint-files-are-referenced-not-copied
     title: "Shared make and lint files are referenced, not copied"
@@ -2174,7 +2174,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestSharedMakeAndLintAreReferenced`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestMakefileIncludesSharedGoServiceMk`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.a-replace-directive-or-a-copied-shared-file-fails-the-layout-checks
     title: "A replace directive or a copied shared file fails the layout checks"
@@ -2191,7 +2191,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestLayoutChecksRejectCopiesAndReplace`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestModuleCheckRejectsReplaceAndWrongVersion`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.hand-rolled-infrastructure-packages-are-gone
     title: "Hand-rolled infrastructure packages are gone"
@@ -2208,7 +2208,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestLayoutHasNoLegacyPackages`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestHandRolledInfrastructurePackagesAreGone`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.a-missing-env-refuses-to-start
     title: "A missing ENV refuses to start"
@@ -2429,7 +2429,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestMockPaymentsKeyIsIgnored`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestMockPaymentsEnvIsNotReadAnywhere`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.a-strict-environment-refuses-mock-data-before-validating-anything-else
     title: "A strict environment refuses mock data before validating anything else"
@@ -2463,7 +2463,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestUnknownMockAdapterRefused`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestRunRefusesUnknownMockAdapter`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.active-mock-data-is-logged-once
     title: "Active mock data is logged once"
@@ -2480,7 +2480,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestMockDataLoggedOnce`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestActiveMockDataIsLoggedOnce`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.a-user-who-is-neither-the-buyer-nor-an-admin-cannot-use-the-mock-path
     title: "A user who is neither the buyer nor an admin cannot use the mock path"
@@ -2548,7 +2548,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestNoInMemoryStoreInProductionWiring`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestProductionWiringImportsNoInMemoryStore`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.settle-writes-the-payment-and-its-outbox-row-in-one-transaction
     title: "Settle writes the payment and its outbox row in one transaction"
@@ -2582,7 +2582,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestBrokerOutageKeepsServiceReady`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestReadinessIgnoresKafka`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.recovery-restores-readiness
     title: "Recovery restores readiness"
@@ -2599,7 +2599,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestReadinessRecoversAfterOutage`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestRecoveryRestoresReadiness`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.shutdown-drains-health-first
     title: "Shutdown drains health first"
@@ -2616,7 +2616,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestShutdownDrainsHealthThenStops`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestShutdownDrainsHealthFirst`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.the-migrate-subcommand-applies-every-embedded-migration
     title: "The migrate subcommand applies every embedded migration"
@@ -2633,7 +2633,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `cmd/server` `TestMigrateUpAppliesEmbeddedMigrations`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `cmd/server` `TestMigrateUpAppliesEveryEmbeddedMigration`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.the-migrate-subcommand-fails-on-an-unreachable-database
     title: "The migrate subcommand fails on an unreachable database"
@@ -2650,7 +2650,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `cmd/server` `TestMigrateUpFailsWhenDatabaseUnreachable`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `cmd/server` `TestMigrateUpFailsOnUnreachableDatabase`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.booting-the-service-never-migrates
     title: "Booting the service never migrates"
@@ -2769,7 +2769,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestOutboxPurgeRunsOnSchedule`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestPurgeRunsInsideTheService`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.events-of-one-order-stay-ordered-after-a-retry
     title: "Events of one order stay ordered after a retry"
@@ -2871,7 +2871,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/settlement` `TestCancelledPendingVoidsTransaction`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestCancelledPendingVoidsPendingTransaction`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.a-return-refund-is-applied-once
     title: "A return refund is applied once"
@@ -2990,7 +2990,7 @@ features:
     - go-sdk
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-payment `internal/app` `TestSettlementConsumerStartsAtEnd`. Not producible end to end through the gateway (unit, database, log or boot level)."
+    notes: "VERIFIED BY team-payment `internal/app` `TestNewConsumerGroupStartsAtLatestOffset`. Not producible end to end through the gateway (unit, database, log or boot level)."
 
   - id: payment-service-runtime.an-admin-refund-writes-one-event-with-the-sdk-event-shape
     title: "An admin refund writes one event with the SDK event shape"

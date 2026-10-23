@@ -1,0 +1,3265 @@
+# Feature manifest for team-payment (mock payment + seller wallet/payouts).
+# Schema: platform-e2e/schemas/features.schema.json
+repo: team-payment
+owner: payment-team
+
+features:
+  - id: payment.mock-pay
+    title: Mock payment for an order
+    persona: buyer
+    priority: P0
+    summary: A buyer completes a demo payment and the order becomes PAID.
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order, team-frontend]
+    preconditions:
+      login: buyer
+      data: An order in PENDING state awaiting payment.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.CreatePayment, payment.v1.GetPayment]
+    acceptance:
+      - Given a buyer has a pending order
+      - When the buyer completes the demo payment
+      - Then the order status becomes PAID
+    tags: [buyer]
+    status: automated
+    covered_by: "payment/mock_pay.feature::Buyer completes mock payment for an order"
+    notes: >
+      Hardened: on settle, team-payment writes payment=PAID and a
+      platform.payment.v1.PaymentSettled event to payment.events in the SAME
+      transaction (transactional outbox), instead of a fire-and-forget
+      order.UpdateOrderStatus RPC; team-order consumes it idempotently to reach PAID.
+      No more payment=PAID + order=PENDING dual-write (SA-H3). See ADR-0009
+      (payment↔order event integration), ADR-0007 (durable saga).
+
+  - id: payment.seller-wallet
+    title: Seller wallet balance
+    persona: seller
+    priority: P1
+    summary: A seller views wallet balance accrued from completed orders.
+    entry_route: /seller/analytics
+    services: [team-payment, team-frontend]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.GetSellerWallet]
+    ui:
+      key_elements:
+        wallet_balance: "text:Số dư ví"
+    acceptance:
+      - Given a seller is logged in
+      - When the seller opens analytics
+      - Then the wallet balance is shown
+    tags: [seller]
+    status: automated
+    covered_by: "seller/fulfillment_and_payout.feature::Seller views analytics and requests wallet payout"
+
+  - id: payment.payout
+    title: Request a bank payout
+    persona: seller
+    priority: P2
+    summary: A seller withdraws wallet balance and sees it in payout history.
+    entry_route: /seller/analytics
+    services: [team-payment, team-frontend]
+    preconditions:
+      login: seller
+    api:
+      exercised: [payment.v1.RequestPayout, payment.v1.ListPayoutHistory]
+    acceptance:
+      - Given a seller has a positive wallet balance whose newest credit has left the payout hold window
+      - When the seller requests a payout
+      - Then the payout appears in payout history
+    tags: [seller]
+    status: automated
+    covered_by: "fintech/seller_payout.feature::Seller requests a bank payout from wallet balance"
+    notes: Fresh sale proceeds are held for the refund window (seller-payout-holdback), so the step waits the window out; needs compose/payment-ledger.override.yaml (20s) or it fails fast naming it.
+
+  - id: payment.refund
+    title: Refund on approved return
+    persona: buyer
+    priority: P2
+    summary: An approved RMA triggers a refund back to the buyer.
+    entry_route: /account/orders
+    services: [team-payment, team-order]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [payment.v1.RefundPayment]
+    acceptance:
+      - Given a return request is approved
+      - When the refund is processed
+      - Then the buyer is refunded and the transaction is recorded
+    tags: [buyer]
+    status: automated
+    covered_by: "payment/refund.feature::Refund payment is processed on approved return"
+    notes: >
+      payment-refund-model changed the refund model: a payment is refunded cumulatively
+      (PARTIALLY_REFUNDED, then REFUNDED) as one payment_refunds row per refund, keyed
+      rpc:<refund_id> / return:<return_id> / cancel:<order_id> / legacy:<payment_id>, each
+      with its own REFUND_DEDUCTION. RefundPayment now requires refund_id (INVALID_ARGUMENT
+      without it, ALREADY_EXISTS on reuse with another payment or amount, FAILED_PRECONDITION
+      above the remainder). An approved return is refunded by team-order's ReturnRefunded
+      fact, not by a storefront RefundPayment call; it is clamped to the payment's remainder
+      (requested vs applied recorded). GetPayment is readable by the order's seller and
+      carries refunded_amount and refunds. Covered in detail by payment.cumulative-refunds
+      and the seller-refund-deduction / return-refund-settlement entries.
+
+  - id: payment.seller-reads-own-wallet
+    title: A seller reads their own wallet
+    persona: seller
+    priority: P0
+    summary: >-
+      GetSellerWallet for the caller's own seller id is served.
+    entry_route: /seller/wallet
+    services: [team-payment, team-gateway]
+    preconditions:
+      login: seller
+    acceptance:
+      - Given a signed-in seller
+      - When the seller requests their wallet
+      - Then the wallet call returns 200
+    tags: [payment, seller, authz]
+    status: automated
+    covered_by: "payment/seller_wallet_access.feature::A seller reads their own wallet"
+    notes: >
+      IDOR regression: the wallet RPCs used to trust the request seller_id, so any
+      signed-in user could read a seller's wallet or book a payout from it to their
+      own bank account.
+  - id: payment.buyer-cannot-pay-out-seller-wallet
+    title: A buyer cannot request a payout from a seller's wallet
+    persona: buyer
+    priority: P0
+    summary: >-
+      RequestPayout with another seller's id is denied by team-payment (403) and no payout is booked.
+    entry_route: /seller/wallet
+    services: [team-payment, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - Given a signed-in seller and a signed-in buyer
+      - When the buyer requests a payout from the seller's wallet to their own bank account
+      - Then the wallet call returns 403 and the seller's payout history has no payout
+    tags: [payment, seller, authz]
+    status: automated
+    covered_by: "payment/seller_wallet_access.feature::A buyer cannot request a payout from a seller's wallet"
+    notes: >
+      IDOR regression: the wallet RPCs used to trust the request seller_id, so any
+      signed-in user could read a seller's wallet or book a payout from it to their
+      own bank account.
+  - id: payment.user-cannot-read-other-ledger
+    title: A user cannot read another seller's ledger
+    persona: buyer
+    priority: P0
+    summary: >-
+      ListLedgerEntries with another seller's id is denied with 403.
+    entry_route: /seller/wallet
+    services: [team-payment, team-gateway]
+    preconditions:
+      login: buyer
+    acceptance:
+      - Given a signed-in seller and a signed-in buyer
+      - When the buyer requests the seller's ledger
+      - Then the wallet call returns 403
+    tags: [payment, seller, authz]
+    status: automated
+    covered_by: "payment/seller_wallet_access.feature::A user cannot read another seller's ledger"
+    notes: >
+      IDOR regression: the wallet RPCs used to trust the request seller_id, so any
+      signed-in user could read a seller's wallet or book a payout from it to their
+      own bank account.
+  - id: payment.admin-reads-but-cannot-pay-out
+    title: An admin reads a seller's wallet but cannot pay it out
+    persona: admin
+    priority: P0
+    summary: >-
+      An admin may read any seller's wallet; payouts are owner-only, so an admin's RequestPayout is denied with 403.
+    entry_route: /seller/wallet
+    services: [team-payment, team-gateway]
+    preconditions:
+      login: admin
+    acceptance:
+      - Given a signed-in seller and an admin
+      - When the admin requests the seller's wallet, then a payout
+      - Then the read returns 200 and the payout returns 403
+    tags: [payment, seller, authz]
+    status: automated
+    covered_by: "payment/seller_wallet_access.feature::An admin reads a seller's wallet but cannot pay it out"
+    notes: >
+      IDOR regression: the wallet RPCs used to trust the request seller_id, so any
+      signed-in user could read a seller's wallet or book a payout from it to their
+      own bank account.
+
+  - id: payment.local-stack-settles-through-mock-payment
+    title: The local stack settles a checkout through the mock payment
+    persona: buyer
+    priority: P0
+    summary: >-
+      With MOCK_DATA=payment-provider (local compose) ProcessMockPayment settles and the order becomes paid.
+    entry_route: /
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: buyer
+    api:
+      exercised: [payment.v1.CreatePayment, payment.v1.ProcessMockPayment]
+    acceptance:
+      - Given a buyer with a pending MOCK_BANK order
+      - When the buyer pays with the mock payment
+      - Then the payment succeeds and the order becomes paid
+    tags: [payment, saga]
+    status: automated
+    covered_by: "payment/mock_payment_gate.feature::The local stack settles a checkout through the mock payment"
+
+  - id: payment.boot-guard-refuses-mock-in-production
+    title: team-payment refuses mock payments in production
+    persona: admin
+    priority: P0
+    summary: >-
+      The team-payment image started with ENV=production and MOCK_DATA=payment-provider exits non-zero and logs MOCK_DATA.
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    api:
+      exercised: []
+    acceptance:
+      - When the team-payment image is started with ENV=production and MOCK_DATA=payment-provider
+      - Then the process exits non-zero and its log names MOCK_DATA
+    tags: [payment, ops]
+    status: automated
+    covered_by: "ops/boot_guard_payment.feature::team-payment refuses mock payments in production"
+    notes: >-
+      Standalone docker run --rm of agora-team-payment:local (override with PAYMENT_BOOT_IMAGE); not destructive.
+
+  # ---- port-payment-ledger-integrity / seller-settlement-credit (written from the spec; planned until the code lands).
+
+  - id: payment.plp-settlement-paying-an-order-credits-its-seller-with-the-paid
+    title: "Paying an order credits its seller with the paid amount"
+    persona: seller
+    priority: P1
+    summary: "Paying an order credits its seller with the paid amount"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer pays a `Pending` order of 500000 with the mock payment and the order becomes `Paid`"
+      - "Then within the settle window the seller's `ListLedgerEntries` through the gateway shows exactly one new `ORDER_SETTLEMENT` entry of +500000 with status `COMPLETED`, and `GetWalletBalance` grew by 500000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::Paying an order credits its seller with the paid amount"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-settlement-paying-an-already-paid-order-again-does-not-cred
+    title: "Paying an already paid order again does not credit twice"
+    persona: seller
+    priority: P1
+    summary: "Paying an already paid order again does not credit twice"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the buyer calls the mock payment again for the same, already credited order"
+      - "Then the call reports the order already paid, and after a later sentinel order of the same seller is credited the seller still has exactly one `ORDER_SETTLEMENT` entry for the first order's amount"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::Paying an already paid order again does not credit twice"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-settlement-concurrent-settlements-of-one-order-credit-the-s
+    title: "Concurrent settlements of one order credit the seller once"
+    persona: seller
+    priority: P1
+    summary: "Concurrent settlements of one order credit the seller once"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the buyer sends eight concurrent successful mock payments for one `Pending` order"
+      - "Then the order is `Paid` and, after a sentinel order of the same seller is credited, the seller has exactly one `ORDER_SETTLEMENT` entry for that order"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::Concurrent settlements of one order credit the seller once"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-settlement-a-late-payment-for-a-cancelled-order-does-not-cr
+    title: "A late payment for a cancelled order does not credit the seller"
+    persona: seller
+    priority: P1
+    summary: "A late payment for a cancelled order does not credit the seller"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer opens a payment for a `Pending` order, cancels the order, and then pays it with the mock payment"
+      - "Then the payment call fails with `failed_precondition`, the order stays `Cancelled`, the payment reads `CANCELLED`, and after a sentinel order of the same seller is credited the seller's ledger has no entry for the cancelled order's amount and the balance equals the sentinel's amount"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::A late payment for a cancelled order does not credit the seller"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-settlement-replaying-a-paid-order-event-does-not-credit-aga
+    title: "Replaying a paid-order event does not credit again"
+    persona: seller
+    priority: P1
+    summary: "Replaying a paid-order event does not credit again"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has been credited for a paid order and that order's `OrderPaidEvent` record is produced to `order.events` again, byte for byte"
+      - "Then after a sentinel order of the same seller is credited, the seller has exactly one `ORDER_SETTLEMENT` entry for the replayed order and the balance equals the two orders' amounts"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::Replaying a paid-order event does not credit again"
+    notes: "@destructive (serial lane): produces a record onto the shared order.events topic (replay); serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-settlement-re-consuming-order-events-after-a-restart-does-n
+    title: "Re-consuming order events after a restart does not credit again"
+    persona: seller
+    priority: P1
+    summary: "Re-consuming order events after a restart does not credit again"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has been credited for two paid orders, `team-payment` is stopped, its consumer group is moved back to before those orders' events, and `team-payment` is started again"
+      - "Then once the group has caught up the seller's ledger entries and balance are unchanged, and an order the seller is paid for after the restart is credited once"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::Re-consuming order events after a restart does not credit again"
+    notes: "@destructive (serial lane): stops team-payment, moves its consumer group back with rpk and starts it again; serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-settlement-a-malformed-order-event-is-dead-lettered-and-lat
+    title: "A malformed order event is dead-lettered and later credits still apply"
+    persona: seller
+    priority: P1
+    summary: "A malformed order event is dead-lettered and later credits still apply"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a record whose value is not a valid event envelope is produced to `order.events`, followed by a paid order"
+      - "Then the malformed record appears on `order.events.payment-settlement.dlq` and the paid order's seller is credited once"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::A malformed order event is dead-lettered and later credits still apply"
+    notes: "@destructive (serial lane): produces a malformed record onto the shared order.events topic; serial lane only. Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-settlement-a-shipped-order-event-does-not-touch-the-ledger
+    title: "A shipped-order event does not touch the ledger"
+    persona: seller
+    priority: P1
+    summary: "A shipped-order event does not touch the ledger"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a credited order is shipped by its seller, so an `OrderShipped` event follows on `order.events`"
+      - "Then after a sentinel order of the same seller is credited the seller's ledger holds only the two settlement credits"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::A shipped-order event does not touch the ledger"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-settlement-the-ledger-store-refuses-a-second-settlement-cre
+    title: "The ledger store refuses a second settlement credit for one payment"
+    persona: seller
+    priority: P1
+    summary: "The ledger store refuses a second settlement credit for one payment"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a second `ORDER_SETTLEMENT` row with the reference of an already credited payment is inserted directly into `team-payment`'s database"
+      - "Then the insert fails with a unique violation and the seller's balance through the gateway is unchanged"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::The ledger store refuses a second settlement credit for one payment"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-settlement-the-ledger-store-refuses-a-settlement-credit-tha
+    title: "The ledger store refuses a settlement credit that is not positive"
+    persona: seller
+    priority: P1
+    summary: "The ledger store refuses a settlement credit that is not positive"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When an `ORDER_SETTLEMENT` row of -1 with a fresh reference is inserted directly into `team-payment`'s database"
+      - "Then the insert fails with a check violation"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::The ledger store refuses a settlement credit that is not positive"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-settlement-the-ledger-store-refuses-a-refund-deduction-with
+    title: "The ledger store refuses a refund deduction without a reference"
+    persona: seller
+    priority: P1
+    summary: "The ledger store refuses a refund deduction without a reference"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a `REFUND_DEDUCTION` row of -1 without a reference is inserted directly into `team-payment`'s database"
+      - "Then the insert fails with a check violation"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_settlement_credit.feature::The ledger store refuses a refund deduction without a reference"
+    notes: "Written from the spec ahead of the code (plp_settlement_credit.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  # ---- port-payment-ledger-integrity / seller-refund-deduction (written from the spec; planned until the code lands).
+
+  - id: payment.plp-refund-refunding-a-credited-payment-deducts-the-refunde
+    title: "Refunding a credited payment deducts the refunded amount from the seller"
+    persona: seller
+    priority: P1
+    summary: "Refunding a credited payment deducts the refunded amount from the seller"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller was credited 500000 for a paid order and the seller refunds 200000 of that payment through the gateway with a fresh refund id"
+      - "Then the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 200000, the seller's ledger has exactly one `REFUND_DEDUCTION` of -200000 whose reference is that refund's id, and `GetWalletBalance` is 300000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Refunding a credited payment deducts the refunded amount from the seller"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-a-second-refund-of-the-same-payment-deducts-its
+    title: "A second refund of the same payment deducts its own amount"
+    persona: seller
+    priority: P1
+    summary: "A second refund of the same payment deducts its own amount"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the seller then refunds a further 300000 of the same payment with another fresh refund id"
+      - "Then the payment reads `REFUNDED` with a refunded amount of 500000, the seller's ledger has two `REFUND_DEDUCTION` entries of -200000 and -300000 each referencing its own refund, and `GetWalletBalance` is 0"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A second refund of the same payment deducts its own amount"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-a-second-refund-of-the-same-payment-is-refused-a
+    title: "A second refund of the same payment is refused and deducts nothing more"
+    persona: seller
+    priority: P1
+    summary: "A second refund of the same payment is refused and deducts nothing more"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a credited payment of 500000 has been refunded in full by one refund and the seller refunds it again with a fresh refund id"
+      - "Then the call fails with `FAILED_PRECONDITION`, and the seller still has exactly one `REFUND_DEDUCTION` for the payment, of -500000, and the same balance"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A second refund of the same payment is refused and deducts nothing more"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-concurrent-refunds-of-one-payment-deduct-once
+    title: "Concurrent refunds of one payment deduct once"
+    persona: seller
+    priority: P1
+    summary: "Concurrent refunds of one payment deduct once"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the seller of a credited payment of 500000 sends eight concurrent refunds of 100000, all with the same refund id"
+      - "Then every call succeeds, the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 100000, and the seller has exactly one `REFUND_DEDUCTION` of -100000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Concurrent refunds of one payment deduct once"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-refunding-a-payment-whose-order-was-cancelled-de
+    title: "Refunding a payment whose order was cancelled deducts nothing"
+    persona: seller
+    priority: P1
+    summary: "Refunding a payment whose order was cancelled deducts nothing"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer's payment for an order was refused because the order was `Cancelled`, and the order's seller refunds it in full"
+      - "Then the refund fails with `failed_precondition` and the payment reads `CANCELLED`, and after a sentinel order of the same seller is credited the seller's ledger has no entry for the cancelled order and the balance equals the sentinel's amount"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Refunding a payment whose order was cancelled deducts nothing"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-a-refund-issued-right-after-payment-ends-with-on
+    title: "A refund issued right after payment ends with one credit and one deduction"
+    persona: seller
+    priority: P1
+    summary: "A refund issued right after payment ends with one credit and one deduction"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer pays an order of 500000 and its seller refunds 500000 immediately after the payment call returns, before the credit is observed"
+      - "Then once the order's credit is written, the seller has exactly one `ORDER_SETTLEMENT` entry of +500000 and one `REFUND_DEDUCTION` entry of -500000 for it, and the balance contribution of that order is 0"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A refund issued right after payment ends with one credit and one deduction"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-two-refunds-issued-before-the-credit-end-with-on
+    title: "Two refunds issued before the credit end with one deduction each"
+    persona: seller
+    priority: P1
+    summary: "Two refunds issued before the credit end with one deduction each"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer pays an order of 500000 and its seller refunds 100000 and then 150000 of it, with two refund ids, immediately after the payment call returns and before the credit is observed"
+      - "Then once the order's credit is written, the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 250000, and the seller has exactly one `ORDER_SETTLEMENT` of +500000 and two `REFUND_DEDUCTION` entries, -100000 and -150000, each referencing its own refund"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Two refunds issued before the credit end with one deduction each"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-a-refund-after-the-proceeds-were-paid-out-takes
+    title: "A refund after the proceeds were paid out takes the balance negative"
+    persona: seller
+    priority: P1
+    summary: "A refund after the proceeds were paid out takes the balance negative"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller's 500000 credit has passed the hold window and been paid out in full, and the seller then refunds 200000 of that payment"
+      - "Then the refund succeeds, the seller's ledger has one `REFUND_DEDUCTION` of -200000, and `GetWalletBalance` is -200000"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A refund after the proceeds were paid out takes the balance negative"
+    notes: "@destructive (serial lane): waits out the payout hold window, so it needs the short-window overlay platform-e2e/compose/payment-ledger.override.yaml (PAYOUT_HOLD_WINDOW=20s on team-payment). Serial lane only. Written from the spec ahead of the code (plp_refund_deduction.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-refund-cancelling-a-credited-paid-order-refunds-the-buy
+    title: "Cancelling a credited paid order refunds the buyer and deducts the seller"
+    persona: seller
+    priority: P1
+    summary: "Cancelling a credited paid order refunds the buyer and deducts the seller"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer pays an order of 500000, its seller's credit of +500000 is observed, and the buyer cancels the order through the gateway"
+      - "Then within the settle window the buyer's `GetPayment` reads `REFUNDED` with a refunded amount of 500000, the seller's ledger has exactly one `REFUND_DEDUCTION` of -500000 referencing `cancel:<order_id>`, and the seller's balance is back to its value before the payment"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling a credited paid order refunds the buyer and deducts the seller"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-cancelling-a-paid-order-before-its-credit-is-obs
+    title: "Cancelling a paid order before its credit is observed ends with one credit and one deduction"
+    persona: seller
+    priority: P1
+    summary: "Cancelling a paid order before its credit is observed ends with one credit and one deduction"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a buyer pays an order of 500000 and cancels it as soon as the order reads `Paid`, before the seller's credit is observed"
+      - "Then once both are applied the payment reads `REFUNDED`, and the seller has exactly one `ORDER_SETTLEMENT` of +500000 and one `REFUND_DEDUCTION` of -500000 for the order"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling a paid order before its credit is observed ends with one credit and one deduction"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-a-cancel-while-team-payment-is-stopped-is-refund
+    title: "A cancel while team-payment is stopped is refunded when it restarts"
+    persona: seller
+    priority: P1
+    summary: "A cancel while team-payment is stopped is refunded when it restarts"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a credited paid order is cancelled by its buyer while `team-payment` is stopped, and `team-payment` is then started again"
+      - "Then the buyer's payment reads `REFUNDED` and the seller has exactly one `REFUND_DEDUCTION` of minus the payment amount"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A cancel while team-payment is stopped is refunded when it restarts"
+    notes: "@destructive (serial lane). Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-a-redelivered-cancellation-does-not-refund-or-de
+    title: "A redelivered cancellation does not refund or deduct again"
+    persona: seller
+    priority: P1
+    summary: "A redelivered cancellation does not refund or deduct again"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a cancelled paid order has been refunded and deducted, and its cancellation record is produced to `order.events` again, byte for byte"
+      - "Then after a sentinel order of the same seller is credited, the seller still has exactly one `REFUND_DEDUCTION` for the cancelled order, and the payment lists exactly one refund with source `ORDER_CANCEL`"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::A redelivered cancellation does not refund or deduct again"
+    notes: "@destructive (serial lane). Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-cancelling-a-partially-refunded-order-refunds-th
+    title: "Cancelling a partially refunded order refunds the remainder"
+    persona: seller
+    priority: P1
+    summary: "Cancelling a partially refunded order refunds the remainder"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the seller of a credited paid order of 500000 refunds 200000, and the buyer then cancels the order"
+      - "Then within the settle window the payment reads `REFUNDED` with a refunded amount of 500000, lists two refunds (200000 from the seller and 300000 with source `ORDER_CANCEL`), and the seller has exactly two `REFUND_DEDUCTION` entries for the order, -200000 and -300000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling a partially refunded order refunds the remainder"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.plp-refund-cancelling-an-order-its-seller-already-refunded
+    title: "Cancelling an order its seller already refunded deducts nothing more"
+    persona: seller
+    priority: P1
+    summary: "Cancelling an order its seller already refunded deducts nothing more"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the seller of a credited paid order of 500000 refunds 500000, and the buyer then cancels the order"
+      - "Then the payment stays `REFUNDED` with one refund, and after a sentinel order of the same seller is credited the seller has exactly one `REFUND_DEDUCTION` of -500000 for the order"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_refund_deduction.feature::Cancelling an order its seller already refunded deducts nothing more"
+    notes: "Modified by payment-refund-model (plp_refund_deduction.feature); written from the spec ahead of the code, red until team-payment cumulative refunds land; integrator flips to automated."
+
+  # ---- port-payment-ledger-integrity / seller-payout-holdback (written from the spec; planned until the code lands).
+
+  - id: payment.plp-holdback-fresh-sale-proceeds-cannot-be-paid-out
+    title: "Fresh sale proceeds cannot be paid out"
+    persona: seller
+    priority: P1
+    summary: "Fresh sale proceeds cannot be paid out"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller's only entry is a 500000 credit written moments ago and the seller requests a wallet payout of 100000"
+      - "Then the call fails with `FAILED_PRECONDITION`, the ledger has no `PAYOUT` entry, and both `GetWalletBalance` and `GetSellerWallet` still return 500000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::Fresh sale proceeds cannot be paid out"
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-holdback-proceeds-can-be-paid-out-once-the-hold-window-pa
+    title: "Proceeds can be paid out once the hold window passes"
+    persona: seller
+    priority: P1
+    summary: "Proceeds can be paid out once the hold window passes"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the same seller waits until the credit is older than the hold window and requests a wallet payout of 500000"
+      - "Then the payout is accepted with a `PENDING` `PAYOUT` entry of -500000 and the balance becomes 0"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::Proceeds can be paid out once the hold window passes"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-holdback-only-the-proceeds-inside-the-window-are-held
+    title: "Only the proceeds inside the window are held"
+    persona: seller
+    priority: P1
+    summary: "Only the proceeds inside the window are held"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has a 300000 credit older than the hold window and a 500000 credit written moments ago, and requests a wallet payout of 300000 and then one of 1"
+      - "Then the first payout is accepted and the second fails with `FAILED_PRECONDITION` as held"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::Only the proceeds inside the window are held"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-holdback-a-bank-payout-of-held-proceeds-is-refused-and-re
+    title: "A bank payout of held proceeds is refused and records nothing"
+    persona: seller
+    priority: P1
+    summary: "A bank payout of held proceeds is refused and records nothing"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller whose only proceeds are inside the hold window requests a bank payout through `RequestPayout`"
+      - "Then the call fails with `FAILED_PRECONDITION` as held, `ListPayoutHistory` has no new payout, and the ledger has no `PAYOUT` entry"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::A bank payout of held proceeds is refused and records nothing"
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-holdback-concurrent-payouts-cannot-overdraw-the-withdrawa
+    title: "Concurrent payouts cannot overdraw the withdrawable amount"
+    persona: seller
+    priority: P1
+    summary: "Concurrent payouts cannot overdraw the withdrawable amount"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has 100000 withdrawable and a further 500000 held, and sends eight concurrent wallet payouts of 40000"
+      - "Then exactly two succeed, the others fail with `FAILED_PRECONDITION`, and the balance is 520000"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::Concurrent payouts cannot overdraw the withdrawable amount"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-holdback-a-refund-of-a-held-sale-leaves-older-proceeds-wi
+    title: "A refund of a held sale leaves older proceeds withdrawable"
+    persona: seller
+    priority: P1
+    summary: "A refund of a held sale leaves older proceeds withdrawable"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has a 300000 credit older than the hold window and a 500000 credit written moments ago, and the recent sale is refunded in full"
+      - "Then a wallet payout of 300000 is accepted"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::A refund of a held sale leaves older proceeds withdrawable"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-holdback-a-refund-of-a-sale-past-the-window-reduces-what
+    title: "A refund of a sale past the window reduces what can be paid out"
+    persona: seller
+    priority: P1
+    summary: "A refund of a sale past the window reduces what can be paid out"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller's only credit is a 500000 sale older than the hold window and 200000 of it is refunded"
+      - "Then a wallet payout of 300001 fails with `FAILED_PRECONDITION` `insufficient wallet balance` and a payout of 300000 is accepted"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::A refund of a sale past the window reduces what can be paid out"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Serial lane only. Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-holdback-two-partial-refunds-of-a-held-sale-both-reduce-i
+    title: "Two partial refunds of a held sale both reduce its held amount"
+    persona: seller
+    priority: P1
+    summary: "Two partial refunds of a held sale both reduce its held amount"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller has a 300000 credit older than the hold window and a 500000 credit written moments ago, the recent sale is refunded 200000 and then 100000 with two refund ids, and the seller requests a wallet payout of 300000 and then one of 1"
+      - "Then the first payout is accepted and the second fails with `FAILED_PRECONDITION` as held, because 200000 of the recent sale is still held"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::Two partial refunds of a held sale both reduce its held amount"
+    notes: "@destructive (serial lane): waits the hold window out (needs payment-ledger.override.yaml). Modified by payment-refund-model (a deduction belongs to the payment through its refund); written from the spec ahead of the code (plp_payout_holdback.feature); integrator flips to automated."
+
+  - id: payment.plp-holdback-a-payout-above-the-balance-is-refused-as-insuffi
+    title: "A payout above the balance is refused as insufficient"
+    persona: seller
+    priority: P1
+    summary: "A payout above the balance is refused as insufficient"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller with a balance of 500000 requests a wallet payout of 500001"
+      - "Then the call fails with `FAILED_PRECONDITION` and message `insufficient wallet balance`"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::A payout above the balance is refused as insufficient"
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-holdback-a-held-payout-names-when-the-amount-is-released
+    title: "A held payout names when the amount is released"
+    persona: seller
+    priority: P1
+    summary: "A held payout names when the amount is released"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When a seller whose 500000 credit was written at time T, inside a hold window W, requests a wallet payout of 100000"
+      - "Then the message starts with `amount is held until `, ends with ` (refund window)`, carries an RFC3339 timestamp within a few seconds of T + W, and contains neither 100000 nor 500000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::A held payout names when the amount is released"
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  - id: payment.plp-holdback-an-invalid-hold-window-refuses-to-start
+    title: "An invalid hold window refuses to start"
+    persona: seller
+    priority: P1
+    summary: "An invalid hold window refuses to start"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.ListLedgerEntries, payment.v1.GetWalletBalance]
+    acceptance:
+      - "When the `team-payment` image is started with `PAYOUT_HOLD_DAYS=-1`, with `PAYOUT_HOLD_DAYS=abc`, or with `PAYOUT_HOLD_WINDOW=soon`"
+      - "Then each container exits non-zero and its log names the offending key"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/plp_payout_holdback.feature::An invalid hold window refuses to start"
+    notes: "Written from the spec ahead of the code (plp_payout_holdback.feature); red on the pre-change stack, green after the code landed (2026-10-08)."
+
+  # ---- payment-refund-model / payment-cumulative-refunds (written from the spec; planned until the code lands).
+
+  - id: payment.prm-cum-two-partial-refunds-leave-the-payment-partially
+    title: "Two partial refunds leave the payment partially refunded and then refunded"
+    persona: seller
+    priority: P1
+    summary: "Two partial refunds leave the payment partially refunded and then refunded"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When the seller of a paid order of 500000 refunds 200000 and then 300000 through the gateway, each with its own refund id"
+      - "Then after the first refund the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 200000, and after the second it reads `REFUNDED` with a refunded amount of 500000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Two partial refunds leave the payment partially refunded and then refunded"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-a-refunded-payment-cannot-be-paid-again
+    title: "A refunded payment cannot be paid again"
+    persona: buyer
+    priority: P1
+    summary: "A refunded payment cannot be paid again"
+    entry_route: /account/orders
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment]
+    acceptance:
+      - "When a credited 500000 payment has been partly refunded by 200000 and its buyer calls the mock payment again for the same order through the gateway"
+      - "Then the call fails with `FAILED_PRECONDITION` and the payment still reads `PARTIALLY_REFUNDED` with a refunded amount of 200000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A refunded payment cannot be paid again"
+    notes: "Found by the team-payment code track (ProcessMockPayment re-settled refunded payments); added to the spec during integration."
+
+  - id: payment.prm-cum-a-refund-above-the-remainder-is-refused-and-writ
+    title: "A refund above the remainder is refused and writes nothing"
+    persona: seller
+    priority: P1
+    summary: "A refund above the remainder is refused and writes nothing"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When 200000 of a paid order of 500000 has been refunded and the seller refunds 300001 with a fresh refund id"
+      - "Then the call fails with `FAILED_PRECONDITION` and message `refund amount exceeds the refundable remainder`, and the payment still reads `PARTIALLY_REFUNDED` with a refunded amount of 200000 and one refund"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A refund above the remainder is refused and writes nothing"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-two-partial-refunds-racing-near-the-cap-cannot-o
+    title: "Two partial refunds racing near the cap cannot over-refund"
+    persona: seller
+    priority: P1
+    summary: "Two partial refunds racing near the cap cannot over-refund"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When 300000 of a credited payment of 500000 has been refunded and the seller sends two concurrent refunds of 150000 with different refund ids"
+      - "Then exactly one succeeds and the other fails with `FAILED_PRECONDITION`, the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 450000, and the seller has exactly two `REFUND_DEDUCTION` entries for the payment, -300000 and -150000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Two partial refunds racing near the cap cannot over-refund"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-concurrent-refunds-with-their-own-ids-refund-at
+    title: "Concurrent refunds with their own ids refund at most the payment amount"
+    persona: seller
+    priority: P1
+    summary: "Concurrent refunds with their own ids refund at most the payment amount"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When the seller of a credited payment of 500000 sends eight concurrent refunds of 125000, each with its own refund id"
+      - "Then exactly four succeed and the other four fail with `FAILED_PRECONDITION`, the payment reads `REFUNDED` with a refunded amount of 500000 and four refunds, and the seller has exactly four `REFUND_DEDUCTION` entries of -125000, each referencing one of the successful refunds"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Concurrent refunds with their own ids refund at most the payment amount"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-retrying-a-refund-with-the-same-refund-id-refund
+    title: "Retrying a refund with the same refund id refunds once"
+    persona: seller
+    priority: P1
+    summary: "Retrying a refund with the same refund id refunds once"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When the seller of a credited paid order of 500000 refunds 200000 with refund id R and then sends the same call again"
+      - "Then both calls succeed, the payment reads `PARTIALLY_REFUNDED` with a refunded amount of 200000 and one refund, and the seller has exactly one `REFUND_DEDUCTION` of -200000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Retrying a refund with the same refund id refunds once"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-reusing-a-refund-id-for-a-different-amount-is-re
+    title: "Reusing a refund id for a different amount is refused"
+    persona: seller
+    priority: P1
+    summary: "Reusing a refund id for a different amount is refused"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When a refund of 200000 with refund id R was applied and the seller refunds 100000 of the same payment with refund id R"
+      - "Then the call fails with `ALREADY_EXISTS` and the payment's refunded amount stays 200000"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Reusing a refund id for a different amount is refused"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-a-refund-without-a-refund-id-is-refused
+    title: "A refund without a refund id is refused"
+    persona: seller
+    priority: P1
+    summary: "A refund without a refund id is refused"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When the seller of a paid order refunds 100000 without a refund id"
+      - "Then the call fails with `INVALID_ARGUMENT` and the payment reads `PAID` with no refund"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A refund without a refund id is refused"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-a-partially-refunded-payment-lists-its-refunds-t
+    title: "A partially refunded payment lists its refunds through the gateway"
+    persona: seller
+    priority: P1
+    summary: "A partially refunded payment lists its refunds through the gateway"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When the seller of a paid order of 500000 refunds 200000 with refund id R1 and reason `damaged`, and 100000 with refund id R2"
+      - "Then the buyer's `GetPayment` through the gateway reads `PARTIALLY_REFUNDED` with a refunded amount of 300000 and lists two refunds in that order, each with source `SELLER_OR_ADMIN`, source ids R1 and R2, and requested and applied amounts of 200000 and 100000, the first with reason `damaged`"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A partially refunded payment lists its refunds through the gateway"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-the-seller-s-ledger-entries-name-the-refund-each
+    title: "The seller's ledger entries name the refund each deduction belongs to"
+    persona: seller
+    priority: P1
+    summary: "The seller's ledger entries name the refund each deduction belongs to"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When a credited payment of 500000 has two refunds, R1 of 200000 and R2 of 100000"
+      - "Then the seller's `ListLedgerEntries` shows the `ORDER_SETTLEMENT` referencing the payment id and two `REFUND_DEDUCTION` entries whose references are the two refunds' ids"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::The seller's ledger entries name the refund each deduction belongs to"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-the-order-s-seller-reads-the-payment-of-their-or
+    title: "The order's seller reads the payment of their order"
+    persona: seller
+    priority: P1
+    summary: "The order's seller reads the payment of their order"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When the seller of a paid order calls `GetPayment` with the order id through the gateway"
+      - "Then the call returns the order's payment with its status, refunded amount and refunds"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::The order's seller reads the payment of their order"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-another-seller-cannot-read-the-payment-of-an-ord
+    title: "Another seller cannot read the payment of an order"
+    persona: seller
+    priority: P1
+    summary: "Another seller cannot read the payment of an order"
+    entry_route: /seller/analytics
+    services: [team-payment, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.ProcessMockPayment, payment.v1.RefundPayment, payment.v1.GetPayment, payment.v1.ListLedgerEntries]
+    acceptance:
+      - "When a seller who does not sell the order calls `GetPayment` with that order's id through the gateway"
+      - "Then the call fails with `PERMISSION_DENIED`"
+    tags: [fintech]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Another seller cannot read the payment of an order"
+    notes: "Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-a-legacy-partial-refund-becomes-one-legacy-refun
+    title: "A legacy partial refund becomes one legacy refund and stays closed"
+    persona: seller
+    priority: P1
+    summary: "A legacy partial refund becomes one legacy refund and stays closed"
+    entry_route: /seller/analytics
+    services: [team-payment]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment]
+    acceptance:
+      - "When a scratch payment database at the previous schema holds a payment of 500000 refunded under the old model (status `REFUNDED`, refunded amount 200000, a credit of +500000 and a `REFUND_DEDUCTION` of -200000 referencing the payment), and the migration is applied with the migrate image"
+      - "Then the database holds one `LEGACY` refund `legacy:<payment id>` of 200000, the deduction references it, and the payment is still `REFUNDED` with a refunded amount of 200000 and the seller's ledger sum is still 300000"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A legacy partial refund becomes one legacy refund and stays closed"
+    notes: "@destructive (serial lane): scratch payment database on the stack postgres + a throwaway team-payment container (migrate/migrate image on team-payment/migrations). Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-a-legacy-partially-refunded-payment-refuses-a-fu
+    title: "A legacy partially refunded payment refuses a further refund"
+    persona: seller
+    priority: P1
+    summary: "A legacy partially refunded payment refuses a further refund"
+    entry_route: /seller/analytics
+    services: [team-payment]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment]
+    acceptance:
+      - "When the `team-payment` image runs against that migrated scratch database and an admin refunds 100000 of the legacy payment with a fresh refund id"
+      - "Then the call fails with `FAILED_PRECONDITION` and the payment still has one refund"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A legacy partially refunded payment refuses a further refund"
+    notes: "@destructive (serial lane): scratch payment database on the stack postgres + a throwaway team-payment container (migrate/migrate image on team-payment/migrations). Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-a-payment-refunded-before-refunded-amounts-were
+    title: "A payment refunded before refunded amounts were recorded is left as it was"
+    persona: seller
+    priority: P1
+    summary: "A payment refunded before refunded amounts were recorded is left as it was"
+    entry_route: /seller/analytics
+    services: [team-payment]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment]
+    acceptance:
+      - "When the scratch database also holds a `REFUNDED` payment with a refunded amount of 0 and no deduction, and the migration is applied"
+      - "Then that payment has no refund, keeps status `REFUNDED` and a refunded amount of 0, and no ledger row changed"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::A payment refunded before refunded amounts were recorded is left as it was"
+    notes: "@destructive (serial lane): scratch payment database on the stack postgres + a throwaway team-payment container (migrate/migrate image on team-payment/migrations). Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  - id: payment.prm-cum-rolling-back-the-migration-restores-the-payment
+    title: "Rolling back the migration restores the payment-id references"
+    persona: seller
+    priority: P1
+    summary: "Rolling back the migration restores the payment-id references"
+    entry_route: /seller/analytics
+    services: [team-payment]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment]
+    acceptance:
+      - "When the down migration is applied to the migrated scratch database"
+      - "Then the legacy deduction references the payment id again and the seller's ledger sum is still 300000"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/cumulative_refunds.feature::Rolling back the migration restores the payment-id references"
+    notes: "@destructive (serial lane): scratch payment database on the stack postgres + a throwaway team-payment container (migrate/migrate image on team-payment/migrations). Written from the spec ahead of the code (cumulative_refunds.feature); red until team-payment cumulative refunds land; integrator flips to automated."
+
+  # ---- port-edge-authz-residuals (written from the spec; planned until the code lands).
+
+  - id: payment.pear-buyer-cannot-request-a-payout
+    title: "A buyer cannot request a payout"
+    persona: buyer
+    priority: P0
+    summary: "A buyer cannot request a payout"
+    entry_route: /seller/analytics
+    services: [team-gateway, team-payment]
+    preconditions:
+      login: buyer
+      data: Registers its own buyer through the gateway.
+    api:
+      exercised: [payment.v1.RequestWalletPayout, payment.v1.ListPayoutHistory]
+    acceptance:
+      - "When a logged-in buyer, who holds no `listing.write`, calls `RequestWalletPayout` for their own id through the gateway"
+      - "Then the call fails with `permission_denied` and the buyer's wallet ledger has no `PAYOUT` entry"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/payout_scope.feature::A buyer cannot request a payout"
+    notes: "Scenario: payment/payout_scope.feature::A buyer cannot request a payout. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated."
+  - id: payment.pear-seller-can-still-request-a-payout
+    title: "A seller can still request a payout"
+    persona: seller
+    priority: P1
+    summary: "A seller can still request a payout"
+    entry_route: /seller/analytics
+    services: [team-gateway, team-payment, team-order, team-domain]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RequestWalletPayout, payment.v1.ListPayoutHistory]
+    acceptance:
+      - "When a seller with an available balance calls `RequestWalletPayout` for part of it through the gateway"
+      - "Then a `PAYOUT` entry for that amount appears in the seller's wallet ledger"
+    tags: [fintech, destructive]
+    status: automated
+    covered_by: "payment/payout_scope.feature::A seller can still request a payout"
+    notes: "Scenario: payment/payout_scope.feature::A seller can still request a payout. Written from the spec ahead of the code (port-edge-authz-residuals); red until that change is merged; the integrator flips it to automated. Serial lane (@destructive): waits the payout hold window out, needs platform-e2e/compose/payment-ledger.override.yaml (PAYOUT_HOLD_WINDOW=20s); stops nothing."
+
+  # ---- payment-admin-refund-audit (initiative q3-audit-log): written from the spec; e2e red until team-payment audits admin refunds.
+  - id: payment.praa-admin-refund-writes-one-audit-event-and-refunds
+    title: "Admin refund writes one audit event and refunds"
+    persona: admin
+    priority: P2
+    summary: "Admin refund writes one audit event and refunds"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Admin refund writes one audit event and refunds (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundWritesAuditEvent`. Not producible end to end."
+
+  - id: payment.praa-audit-is-written-before-the-refund
+    title: "Audit is written before the refund"
+    persona: admin
+    priority: P2
+    summary: "Audit is written before the refund"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit is written before the refund (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditBeforeRefund`. Not producible end to end."
+
+  - id: payment.praa-admin-refund-is-audited-end-to-end
+    title: "Admin refund is audited end to end"
+    persona: admin
+    priority: P1
+    summary: "Admin refund is audited end to end"
+    entry_route: /seller/analytics
+    services: [team-payment, team-audit, team-order, team-gateway]
+    preconditions:
+      login: admin
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment, payment.v1.GetPayment, audit.v1.QueryAuditLog]
+    acceptance:
+      - "When an admin refunds 200000 of a PAID payment through the gateway"
+      - "Then the call succeeds and QueryAuditLog by target_type `payment` and the payment id returns exactly one event with action `payment.admin_refund`, the admin's user id as actor and metadata `amount`=\"200000\""
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Admin refund is audited end to end"
+    notes: "Written from the spec ahead of the code (payment-admin-refund-audit); red on the pre-change stack."
+
+  - id: payment.praa-admin-who-is-the-order-s-seller-is-audited
+    title: "Admin who is the order's seller is audited"
+    persona: admin
+    priority: P2
+    summary: "Admin who is the order's seller is audited"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Admin who is the order's seller is audited (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminWhoIsSellerRefundIsAudited`. Not producible end to end."
+
+  - id: payment.praa-audit-is-called-as-the-service-principal
+    title: "Payment audit: Audit is called as the service principal"
+    persona: admin
+    priority: P2
+    summary: "Payment audit: Audit is called as the service principal"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Payment audit: Audit is called as the service principal (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestAuditWriterUsesServicePrincipal`. Not producible end to end."
+
+  - id: payment.praa-reason-is-not-copied-into-the-audit-event
+    title: "Reason is not copied into the audit event"
+    persona: admin
+    priority: P2
+    summary: "Reason is not copied into the audit event"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Reason is not copied into the audit event (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditMetadataKeys`. Not producible end to end."
+
+  - id: payment.praa-refusal-before-the-audit-write-writes-no-event
+    title: "Refusal before the audit write writes no event"
+    persona: admin
+    priority: P2
+    summary: "Refusal before the audit write writes no event"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refusal before the audit write writes no event (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundRefusedBeforeAuditWritesNothing`. Not producible end to end."
+
+  - id: payment.praa-unauthenticated-caller-writes-no-event
+    title: "Unauthenticated caller writes no event"
+    persona: admin
+    priority: P2
+    summary: "Unauthenticated caller writes no event"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Unauthenticated caller writes no event (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestRefundPaymentAnonymousNoAudit`. Not producible end to end."
+
+  - id: payment.praa-audit-error-leaves-the-ledger-unchanged
+    title: "Audit error leaves the ledger unchanged"
+    persona: admin
+    priority: P2
+    summary: "Audit error leaves the ledger unchanged"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit error leaves the ledger unchanged (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditErrorFailsClosed`. Not producible end to end."
+
+  - id: payment.praa-audit-timeout-is-bounded-and-refuses-the-refund
+    title: "Audit timeout is bounded and refuses the refund"
+    persona: admin
+    priority: P2
+    summary: "Audit timeout is bounded and refuses the refund"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit timeout is bounded and refuses the refund (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/upstream` `TestAuditWriterHangIsBoundedByGate`; team-payment `internal/rpc` `TestAdminRefundAuditTimeoutFailsClosed`. Not producible end to end."
+
+  - id: payment.praa-audit-down-refuses-the-admin-refund-end-to-end
+    title: "Audit down refuses the admin refund end to end"
+    persona: admin
+    priority: P1
+    summary: "Audit down refuses the admin refund end to end"
+    entry_route: /seller/analytics
+    services: [team-payment, team-audit, team-order, team-gateway]
+    preconditions:
+      login: admin
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment, payment.v1.GetPayment, audit.v1.QueryAuditLog]
+    acceptance:
+      - "When team-audit is stopped and an admin refunds 200000 of a PAID payment through the gateway"
+      - "Then the call fails with `unavailable`, and after team-audit is started again the payment reads PAID with refunded amount 0 and no audit event exists for the payment"
+    tags: [fintech, security, destructive]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Audit down refuses the admin refund end to end"
+    notes: "Written from the spec ahead of the code (payment-admin-refund-audit). Serial lane (@destructive): stops team-audit and restores it in teardown."
+
+  - id: payment.praa-retry-after-audit-success-and-refund-failure-refunds-once
+    title: "Retry after audit success and refund failure refunds once"
+    persona: admin
+    priority: P2
+    summary: "Retry after audit success and refund failure refunds once"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Retry after audit success and refund failure refunds once (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundRetryAfterFailureRefundsOnce`. Not producible end to end."
+
+  - id: payment.praa-replay-of-an-applied-refund-id-does-not-move-money-again
+    title: "Replay of an applied refund id does not move money again"
+    persona: admin
+    priority: P2
+    summary: "Replay of an applied refund id does not move money again"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Replay of an applied refund id does not move money again (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundReplayIsIdempotent`. Not producible end to end."
+
+  - id: payment.praa-refund-above-the-remainder-is-refused-on-the-admin-path
+    title: "Refund above the remainder is refused on the admin path"
+    persona: admin
+    priority: P2
+    summary: "Refund above the remainder is refused on the admin path"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund above the remainder is refused on the admin path (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestAdminRefundExceedsRemainderRefused`. Not producible end to end."
+
+  - id: payment.praa-seller-refund-writes-no-audit-event
+    title: "Seller refund writes no audit event"
+    persona: seller
+    priority: P1
+    summary: "Seller refund writes no audit event"
+    entry_route: /seller/analytics
+    services: [team-payment, team-audit, team-order, team-gateway]
+    preconditions:
+      login: seller
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment, payment.v1.GetPayment, audit.v1.QueryAuditLog]
+    acceptance:
+      - "When the order's seller refunds 200000 of a PAID payment"
+      - "Then the call returns success, the payment reads PARTIALLY_REFUNDED, and zero audit events exist for the payment"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Seller refund writes no audit event"
+    notes: "Written from the spec ahead of the code (payment-admin-refund-audit); red on the pre-change stack."
+
+  - id: payment.praa-seller-refund-succeeds-while-audit-is-down
+    title: "Seller refund succeeds while audit is down"
+    persona: admin
+    priority: P2
+    summary: "Seller refund succeeds while audit is down"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Seller refund succeeds while audit is down (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestSellerRefundIgnoresAuditOutage`. Not producible end to end."
+
+  - id: payment.praa-non-seller-non-admin-is-denied-without-an-event
+    title: "Non-seller non-admin is denied without an event"
+    persona: admin
+    priority: P2
+    summary: "Non-seller non-admin is denied without an event"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Non-seller non-admin is denied without an event (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-admin-refund-audit: unit-verified: team-payment `internal/rpc` `TestRefundPaymentNonSellerDeniedNoAudit`. Not producible end to end."
+
+  - id: payment.praa-non-admin-buyer-cannot-trigger-an-admin-audit
+    title: "Non-admin buyer cannot trigger an admin audit"
+    persona: buyer
+    priority: P1
+    summary: "Non-admin buyer cannot trigger an admin audit"
+    entry_route: /seller/analytics
+    services: [team-payment, team-audit, team-order, team-gateway]
+    preconditions:
+      login: buyer
+      data: Registers its own seller, buyer(s) and listing through the gateway.
+    api:
+      exercised: [payment.v1.RefundPayment, payment.v1.GetPayment, audit.v1.QueryAuditLog]
+    acceptance:
+      - "When the buyer of the payment calls RefundPayment"
+      - "Then the call fails with `permission_denied`, the payment is unchanged and no audit event exists for the payment"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Non-admin buyer cannot trigger an admin audit"
+    notes: "Written from the spec ahead of the code (payment-admin-refund-audit); red on the pre-change stack."
+
+  - id: payment.puc-pending-transaction-is-voided-on-unpaid-cancel
+    title: "Pending transaction is voided on unpaid cancel"
+    persona: buyer
+    priority: P1
+    summary: "Pending transaction is voided on unpaid cancel"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Pending transaction is voided on unpaid cancel"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-failed-transaction-is-voided-on-unpaid-cancel
+    title: "Failed transaction is voided on unpaid cancel"
+    persona: buyer
+    priority: P1
+    summary: "Failed transaction is voided on unpaid cancel"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Failed transaction is voided on unpaid cancel"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-order-without-a-transaction-is-a-no-op
+    title: "Order without a transaction is a no-op"
+    persona: buyer
+    priority: P1
+    summary: "Order without a transaction is a no-op"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Order without a transaction is a no-op"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-redelivered-cancel-leaves-one-end-state
+    title: "Redelivered cancel leaves one end state"
+    persona: buyer
+    priority: P1
+    summary: "Redelivered cancel leaves one end state"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Redelivered cancel leaves one end state"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-shipped-order-cancel-changes-no-transaction
+    title: "Shipped-order cancel changes no transaction"
+    persona: buyer
+    priority: P1
+    summary: "Shipped-order cancel changes no transaction"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Shipped-order cancel changes no transaction"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-paid-order-cancel-still-refunds-without-voiding
+    title: "Paid-order cancel still refunds without voiding"
+    persona: buyer
+    priority: P1
+    summary: "Paid-order cancel still refunds without voiding"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Paid-order cancel still refunds without voiding"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-malformed-cancel-is-parked
+    title: "Malformed cancel is parked"
+    persona: buyer
+    priority: P1
+    summary: "Malformed cancel is parked"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Malformed cancel is parked"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-paying-a-cancelled-transaction-is-refused
+    title: "Paying a cancelled transaction is refused"
+    persona: buyer
+    priority: P1
+    summary: "Paying a cancelled transaction is refused"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Paying a cancelled transaction is refused"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-simulated-failure-on-a-cancelled-transaction-is-refused
+    title: "Simulated failure on a cancelled transaction is refused"
+    persona: buyer
+    priority: P1
+    summary: "Simulated failure on a cancelled transaction is refused"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Simulated failure on a cancelled transaction is refused"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-non-owner-is-denied-before-the-cancelled-check
+    title: "Non-owner is denied before the cancelled check"
+    persona: buyer
+    priority: P1
+    summary: "Non-owner is denied before the cancelled check"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Non-owner is denied before the cancelled check"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-settle-that-loses-the-race-to-the-void-is-refused
+    title: "Settle that loses the race to the void is refused"
+    persona: buyer
+    priority: P1
+    summary: "Settle that loses the race to the void is refused"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Settle that loses the race to the void is refused"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-settle-on-an-order-already-cancelled-upstream-is-refused-and-voided
+    title: "Settle on an order already cancelled upstream is refused and voided"
+    persona: buyer
+    priority: P1
+    summary: "Settle on an order already cancelled upstream is refused and voided"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Settle on an order already cancelled upstream is refused and voided"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-settle-is-not-attempted-when-team-order-is-unreachable
+    title: "Settle is not attempted when team-order is unreachable"
+    persona: buyer
+    priority: P1
+    summary: "Settle is not attempted when team-order is unreachable"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Settle is not attempted when team-order is unreachable"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-retry-payment-still-works-before-the-cancel
+    title: "Retry payment still works before the cancel"
+    persona: buyer
+    priority: P1
+    summary: "Retry payment still works before the cancel"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Retry payment still works before the cancel"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-cancelled-order-cannot-open-a-new-transaction
+    title: "Cancelled order cannot open a new transaction"
+    persona: buyer
+    priority: P1
+    summary: "Cancelled order cannot open a new transaction"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Cancelled order cannot open a new transaction"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-late-payment-is-refunded-in-full
+    title: "Late payment is refunded in full"
+    persona: buyer
+    priority: P1
+    summary: "Late payment is refunded in full"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Late payment is refunded in full"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-redelivery-after-a-late-payment-refund-moves-no-money-again
+    title: "Redelivery after a late-payment refund moves no money again"
+    persona: buyer
+    priority: P1
+    summary: "Redelivery after a late-payment refund moves no money again"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Redelivery after a late-payment refund moves no money again"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-void-that-loses-the-compare-and-set-falls-back-to-the-refund
+    title: "Void that loses the compare-and-set falls back to the refund"
+    persona: buyer
+    priority: P1
+    summary: "Void that loses the compare-and-set falls back to the refund"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Void that loses the compare-and-set falls back to the refund"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-concurrent-settle-and-cancel-converge
+    title: "Concurrent settle and cancel converge"
+    persona: buyer
+    priority: P1
+    summary: "Concurrent settle and cancel converge"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Concurrent settle and cancel converge"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-already-refunded-payment-gets-no-second-refund
+    title: "Already refunded payment gets no second refund"
+    persona: buyer
+    priority: P1
+    summary: "Already refunded payment gets no second refund"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Already refunded payment gets no second refund"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-partially-refunded-late-payment-is-refunded-the-remainder-once
+    title: "Partially refunded late payment is refunded the remainder once"
+    persona: buyer
+    priority: P1
+    summary: "Partially refunded late payment is refunded the remainder once"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Partially refunded late payment is refunded the remainder once"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-buyer-cannot-trigger-the-late-payment-refund-by-rpc
+    title: "Buyer cannot trigger the late-payment refund by RPC"
+    persona: buyer
+    priority: P1
+    summary: "Buyer cannot trigger the late-payment refund by RPC"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Buyer cannot trigger the late-payment refund by RPC"
+    tags: [payment, unpaid-cancel]
+    status: not-testable
+    notes: "payment-unpaid-cancel: verified by a unit test named on the spec scenario's VERIFIED BY line."
+
+  - id: payment.puc-expired-order-s-payment-is-cancelled-and-cannot-be-paid
+    title: "Expired order's payment is cancelled and cannot be paid"
+    persona: buyer
+    priority: P1
+    summary: "Expired order's payment is cancelled and cannot be paid"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Expired order's payment is cancelled and cannot be paid"
+    tags: [payment, unpaid-cancel]
+    status: automated
+    covered_by: "payment/unpaid_cancel.feature::Expired order's payment is cancelled and cannot be paid"
+    notes: "payment-unpaid-cancel e2e."
+
+  - id: payment.puc-buyer-cancelled-pending-order-voids-its-failed-payment
+    title: "Buyer-cancelled pending order voids its failed payment"
+    persona: buyer
+    priority: P1
+    summary: "Buyer-cancelled pending order voids its failed payment"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Buyer-cancelled pending order voids its failed payment"
+    tags: [payment, unpaid-cancel]
+    status: automated
+    covered_by: "payment/unpaid_cancel.feature::Buyer-cancelled pending order voids its failed payment"
+    notes: "payment-unpaid-cancel e2e."
+
+  - id: payment.puc-another-buyer-cannot-pay-a-cancelled-order-s-transaction
+    title: "Another buyer cannot pay a cancelled order's transaction"
+    persona: buyer
+    priority: P1
+    summary: "Another buyer cannot pay a cancelled order's transaction"
+    entry_route: "/checkout/pay/{order_id}"
+    services: [team-payment, team-order]
+    acceptance:
+      - "Another buyer cannot pay a cancelled order's transaction"
+    tags: [payment, unpaid-cancel]
+    status: automated
+    covered_by: "payment/unpaid_cancel.feature::Another buyer cannot pay a cancelled order's transaction"
+    notes: "payment-unpaid-cancel e2e."
+
+  - id: payment.prai-admin-refund-audit-row-exposes-refund-id-end-to-end
+    title: "Refund audit id: Admin refund audit row exposes refund_id end to end"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Admin refund audit row exposes refund_id end to end"
+    entry_route: /
+    services: [team-payment, team-audit]
+    acceptance:
+      - "Refund audit id: Admin refund audit row exposes refund_id end to end"
+      - "Then QueryAuditLog by payment id returns exactly one payment.admin_refund event with metadata refund_id and amount 200000"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Refund audit id: Admin refund audit row exposes refund_id end to end"
+    notes: "payment-refund-audit-id e2e; green against the rebuilt stack."
+
+  - id: payment.prai-replayed-refund-id-is-traceable-end-to-end
+    title: "Refund audit id: Replayed refund_id is traceable end to end"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Replayed refund_id is traceable end to end"
+    entry_route: /
+    services: [team-payment, team-audit]
+    acceptance:
+      - "Refund audit id: Replayed refund_id is traceable end to end"
+      - "Then every payment.admin_refund event carries refund_id rf-e2e-2 or rf-e2e-3, refunded total counts rf-e2e-2 once"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Refund audit id: Replayed refund_id is traceable end to end"
+    notes: "payment-refund-audit-id e2e; green against the rebuilt stack."
+
+  - id: payment.prai-non-admin-cannot-read-the-refund-audit-row-end-to-end
+    title: "Refund audit id: Non-admin cannot read the refund audit row end to end"
+    persona: buyer
+    priority: P2
+    summary: "Refund audit id: Non-admin cannot read the refund audit row end to end"
+    entry_route: /
+    services: [team-payment, team-audit]
+    acceptance:
+      - "Refund audit id: Non-admin cannot read the refund audit row end to end"
+      - "Then the buyer's QueryAuditLog is denied with permission_denied and returns no events"
+    tags: [fintech, security]
+    status: automated
+    covered_by: "payment/admin_refund_audit.feature::Refund audit id: Non-admin cannot read the refund audit row end to end"
+    notes: "payment-refund-audit-id e2e; green against the rebuilt stack."
+
+  - id: payment.prai-admin-refund-event-carries-refund-id
+    title: "Refund audit id: Admin refund event carries refund_id"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Admin refund event carries refund_id"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Admin refund event carries refund_id (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditCarriesRefundID`. Not producible end to end."
+
+  - id: payment.prai-audit-client-puts-refund-id-in-metadata
+    title: "Refund audit id: Audit client puts refund_id in metadata"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Audit client puts refund_id in metadata"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Audit client puts refund_id in metadata (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/upstream` `TestAuditWriterRefundIDVerbatim`. Not producible end to end."
+
+  - id: payment.prai-retry-with-the-same-refund-id-is-distinguishable
+    title: "Refund audit id: Retry with the same refund_id is distinguishable"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Retry with the same refund_id is distinguishable"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Retry with the same refund_id is distinguishable (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundRetryKeepsRefundID`. Not producible end to end."
+
+  - id: payment.prai-audit-is-still-written-before-the-refund
+    title: "Refund audit id: Audit is still written before the refund"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Audit is still written before the refund"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Audit is still written before the refund (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditBeforeRefund`. Not producible end to end."
+
+  - id: payment.prai-invalid-refund-id-writes-no-event
+    title: "Refund audit id: Invalid refund_id writes no event"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Invalid refund_id writes no event"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Invalid refund_id writes no event (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundInvalidRefundIDWritesNoEvent`. Not producible end to end."
+
+  - id: payment.prai-boundary-64-character-refund-id-is-recorded-intact
+    title: "Refund audit id: Boundary 64-character refund_id is recorded intact"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Boundary 64-character refund_id is recorded intact"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Boundary 64-character refund_id is recorded intact (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditRefundIDMaxLength`. Not producible end to end."
+
+  - id: payment.prai-audit-failure-still-refuses-the-refund
+    title: "Refund audit id: Audit failure still refuses the refund"
+    persona: admin
+    priority: P2
+    summary: "Refund audit id: Audit failure still refuses the refund"
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Refund audit id: Audit failure still refuses the refund (unit-verified)"
+    tags: [fintech, unit]
+    status: not-testable
+    notes: "payment-refund-audit-id: unit-verified: team-payment `internal/rpc` `TestAdminRefundAuditErrorLeavesLedgerUnchanged`. Not producible end to end."
+
+  - id: payment.runtime-liveness-independent-of-dependencies
+    title: A database outage makes the service not ready but alive
+    persona: admin
+    priority: P1
+    summary: >-
+      With the database down team-payment reports not ready on the readiness probe while the liveness probe stays healthy.
+    entry_route: /
+    services: [team-payment]
+    preconditions:
+      login: admin
+    api:
+      exercised: []
+    acceptance:
+      - Given team-payment running with its database
+      - When the database becomes unreachable
+      - Then the readiness probe fails and the liveness probe still passes
+    tags: [payment, ops, unit]
+    status: not-testable
+    notes: >-
+      payment-service-runtime: unit-verified in team-payment `internal/app`; end-to-end coverage is a future gitops probe check (not producible in the compose e2e without stopping the shared database).
+
+  - id: admin-refund-audit.payment-audit-no-audit-upstream-configured
+    title: "Payment audit: no audit upstream configured"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Payment audit: no audit upstream configured"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestUpstreamAddrsRequiredInEveryEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-access-control.a-stack-without-the-adapter-refuses-the-mock-payment
+    title: "A stack without the adapter refuses the mock payment"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A stack without the adapter refuses the mock payment"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestProcessMockPayment_DisabledByDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.go-mod-requires-the-tag-and-nothing-local
+    title: "go.mod requires the tag and nothing local"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "go.mod requires the tag and nothing local"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestGoModRequiresTaggedSDK`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.shared-make-and-lint-files-are-referenced-not-copied
+    title: "Shared make and lint files are referenced, not copied"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Shared make and lint files are referenced, not copied"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestSharedMakeAndLintAreReferenced`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-replace-directive-or-a-copied-shared-file-fails-the-layout-checks
+    title: "A replace directive or a copied shared file fails the layout checks"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A replace directive or a copied shared file fails the layout checks"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestLayoutChecksRejectCopiesAndReplace`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.hand-rolled-infrastructure-packages-are-gone
+    title: "Hand-rolled infrastructure packages are gone"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Hand-rolled infrastructure packages are gone"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestLayoutHasNoLegacyPackages`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-missing-env-refuses-to-start
+    title: "A missing ENV refuses to start"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A missing ENV refuses to start"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestLoadRefusesMissingEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-empty-database-url-refuses-to-start-in-every-environment
+    title: "An empty database URL refuses to start in every environment"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An empty database URL refuses to start in every environment"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestLoadRefusesEmptyDatabaseURL`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.removed-keys-are-not-declared
+    title: "Removed keys are not declared"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Removed keys are not declared"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestRemovedKeysAreNotDeclared`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.reflection-is-off-by-default
+    title: "Reflection is off by default"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Reflection is off by default"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestReflectionOffByDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.reflection-is-refused-in-a-strict-environment
+    title: "Reflection is refused in a strict environment"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Reflection is refused in a strict environment"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestReflectionRefusedInStrictEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-strict-environment-requires-brokers-upstream-addresses-and-key-secret
+    title: "A strict environment requires brokers, upstream addresses and key secret"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A strict environment requires brokers, upstream addresses and key secret"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestStrictEnvRequiresBrokersAuditAndKeySecret`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.upstream-addresses-are-required-in-every-environment
+    title: "Upstream addresses are required in every environment"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Upstream addresses are required in every environment"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestUpstreamAddrsRequiredInEveryEnv`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-invalid-payout-hold-window-still-refuses-to-start-and-names-its-key
+    title: "An invalid payout hold window still refuses to start and names its key"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An invalid payout hold window still refuses to start and names its key"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestPayoutHoldWindow`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.env-example-documents-every-key
+    title: ".env.example documents every key"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - ".env.example documents every key"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestEnvExampleInSync`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-fixture-provider-settles-through-the-real-path
+    title: "The fixture provider settles through the real path"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The fixture provider settles through the real path"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestMockDataProviderSettlesThroughRealPath`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-simulated-failure-sets-failed-and-writes-no-outbox-row
+    title: "A simulated failure sets FAILED and writes no outbox row"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A simulated failure sets FAILED and writes no outbox row"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestMockDataProviderFailureWritesNoOutbox`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.without-the-adapter-the-mock-rpc-is-refused
+    title: "Without the adapter the mock RPC is refused"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Without the adapter the mock RPC is refused"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestProcessMockPayment_DisabledByDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.mock-payments-no-longer-enables-anything
+    title: "MOCK_PAYMENTS no longer enables anything"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "MOCK_PAYMENTS no longer enables anything"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestMockPaymentsKeyIsIgnored`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-strict-environment-refuses-mock-data-before-validating-anything-else
+    title: "A strict environment refuses mock data before validating anything else"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A strict environment refuses mock data before validating anything else"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/config` `TestMockDataRefusedBeforeValidation`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-unknown-adapter-refuses-startup
+    title: "An unknown adapter refuses startup"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An unknown adapter refuses startup"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestUnknownMockAdapterRefused`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.active-mock-data-is-logged-once
+    title: "Active mock data is logged once"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Active mock data is logged once"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestMockDataLoggedOnce`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-user-who-is-neither-the-buyer-nor-an-admin-cannot-use-the-mock-path
+    title: "A user who is neither the buyer nor an admin cannot use the mock path"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A user who is neither the buyer nor an admin cannot use the mock path"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestProcessMockPayment_Errors`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-unreachable-database-fails-startup
+    title: "An unreachable database fails startup"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An unreachable database fails startup"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestRunFailsWhenDatabaseUnreachable`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-service-refuses-a-missing-transaction-writer
+    title: "The service refuses a missing transaction writer"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The service refuses a missing transaction writer"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/payment` `TestNewServiceRequiresTxWriter`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.production-wiring-imports-no-in-memory-store
+    title: "Production wiring imports no in-memory store"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Production wiring imports no in-memory store"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestNoInMemoryStoreInProductionWiring`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.settle-writes-the-payment-and-its-outbox-row-in-one-transaction
+    title: "Settle writes the payment and its outbox row in one transaction"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Settle writes the payment and its outbox row in one transaction"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/payment` `TestService_Settle_WritesPaymentAndOutboxAtomically`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-broker-outage-does-not-make-the-service-not-ready
+    title: "A broker outage does not make the service not ready"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A broker outage does not make the service not ready"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestBrokerOutageKeepsServiceReady`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.recovery-restores-readiness
+    title: "Recovery restores readiness"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Recovery restores readiness"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestReadinessRecoversAfterOutage`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.shutdown-drains-health-first
+    title: "Shutdown drains health first"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Shutdown drains health first"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestShutdownDrainsHealthThenStops`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-migrate-subcommand-applies-every-embedded-migration
+    title: "The migrate subcommand applies every embedded migration"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The migrate subcommand applies every embedded migration"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `cmd/server` `TestMigrateUpAppliesEmbeddedMigrations`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-migrate-subcommand-fails-on-an-unreachable-database
+    title: "The migrate subcommand fails on an unreachable database"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The migrate subcommand fails on an unreachable database"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `cmd/server` `TestMigrateUpFailsWhenDatabaseUnreachable`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.booting-the-service-never-migrates
+    title: "Booting the service never migrates"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Booting the service never migrates"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestRunDoesNotMigrate`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-missing-docker-daemon-fails-the-suite
+    title: "A missing Docker daemon fails the suite"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A missing Docker daemon fails the suite"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestDockerRequiredFailsInsteadOfSkipping`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-settled-payment-is-published-once-with-its-envelope
+    title: "A settled payment is published once with its envelope"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A settled payment is published once with its envelope"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestSettleEventIsRelayedOnce`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-outbox-upgrade-keeps-pending-events-in-order
+    title: "The outbox upgrade keeps pending events in order"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The outbox upgrade keeps pending events in order"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestOutboxUpgradeKeepsPendingOrder`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-outbox-upgrade-requeues-rows-parked-as-failed
+    title: "The outbox upgrade requeues rows parked as failed"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The outbox upgrade requeues rows parked as failed"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestOutboxUpgradeRequeuesFailedRows`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.published-rows-older-than-7-days-are-purged
+    title: "Published rows older than 7 days are purged"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Published rows older than 7 days are purged"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestPurgeDeletesPublishedRowsOlderThanSevenDays`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-purge-runs-on-a-schedule-inside-the-service
+    title: "The purge runs on a schedule inside the service"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The purge runs on a schedule inside the service"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestOutboxPurgeRunsOnSchedule`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.events-of-one-order-stay-ordered-after-a-retry
+    title: "Events of one order stay ordered after a retry"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Events of one order stay ordered after a retry"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestClaimPendingKeepsCreationOrder_Postgres`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-broker-outage-delays-but-never-loses-the-event
+    title: "A broker outage delays but never loses the event"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A broker outage delays but never loses the event"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestRelayerRetriesTransientPublishErrors`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-row-that-cannot-be-encoded-is-parked
+    title: "A row that cannot be encoded is parked"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A row that cannot be encoded is parked"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/store` `TestRelayerParksPermanentErrors`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-paid-order-event-credits-once-and-a-redelivery-changes-nothing
+    title: "A paid-order event credits once and a redelivery changes nothing"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A paid-order event credits once and a redelivery changes nothing"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumer_CreditsOnceAndRedeliveryIsNoop`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-cancelled-paid-order-is-refunded-once
+    title: "A cancelled paid order is refunded once"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A cancelled paid order is refunded once"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestCancel_RedeliveredIsNoop`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-cancelled-pending-order-voids-its-unpaid-transaction
+    title: "A cancelled pending order voids its unpaid transaction"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A cancelled pending order voids its unpaid transaction"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestCancelledPendingVoidsTransaction`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-return-refund-is-applied-once
+    title: "A return refund is applied once"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A return refund is applied once"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestReturnRefunded_RefundsOnceAndRedeliveryIsNoop`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-paid-order-event-naming-another-seller-s-items-is-parked
+    title: "A paid-order event naming another seller's items is parked"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A paid-order event naming another seller's items is parked"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumer_MultiSellerOrderIsPermanent`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-malformed-record-is-parked-after-one-attempt
+    title: "A malformed record is parked after one attempt"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A malformed record is parked after one attempt"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumer_PoisonRecordsGoToDLQAfterOneAttempt`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-transient-database-error-is-retried-and-then-parked
+    title: "A transient database error is retried and then parked"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A transient database error is retried and then parked"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumer_TransientErrorRetriedThenDLQ`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-dead-letter-outage-commits-nothing
+    title: "A dead-letter outage commits nothing"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A dead-letter outage commits nothing"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumer_DLQOutageCommitsNothingLater`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.logs-carry-a-key-fingerprint-and-never-the-raw-key
+    title: "Logs carry a key fingerprint and never the raw key"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "Logs carry a key fingerprint and never the raw key"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/settlement` `TestConsumerLogsKeyFingerprintNotKey`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-new-group-starts-at-the-latest-offset
+    title: "A new group starts at the latest offset"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A new group starts at the latest offset"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/app` `TestSettlementConsumerStartsAtEnd`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-admin-refund-writes-one-event-with-the-sdk-event-shape
+    title: "An admin refund writes one event with the SDK event shape"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An admin refund writes one event with the SDK event shape"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestAdminRefundAuditMetadataKeys`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-audit-write-precedes-the-refund
+    title: "The audit write precedes the refund"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The audit write precedes the refund"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestAdminRefundAuditBeforeRefund`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-failed-audit-write-refuses-the-refund
+    title: "A failed audit write refuses the refund"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A failed audit write refuses the refund"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestAdminRefundAuditErrorFailsClosed`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-slow-audit-service-is-cut-off
+    title: "A slow audit service is cut off"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A slow audit service is cut off"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestAdminRefundAuditTimeoutFailsClosed`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-audit-call-is-made-as-the-service-principal
+    title: "The audit call is made as the service principal"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The audit call is made as the service principal"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/upstream` `TestAuditWriterUsesServicePrincipal`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-seller-refund-is-not-audited-and-survives-an-audit-outage
+    title: "A seller refund is not audited and survives an audit outage"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A seller refund is not audited and survives an audit outage"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestSellerRefundIgnoresAuditOutage`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-caller-who-is-neither-the-seller-nor-an-admin-is-denied-without-an-event
+    title: "A caller who is neither the seller nor an admin is denied without an event"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A caller who is neither the seller nor an admin is denied without an event"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestRefundPaymentNonSellerDeniedNoAudit`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-anonymous-caller-is-rejected-before-any-audit
+    title: "An anonymous caller is rejected before any audit"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An anonymous caller is rejected before any audit"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestRefundPaymentAnonymousNoAudit`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-unique-key-violation-is-alreadyexists
+    title: "A unique-key violation is AlreadyExists"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A unique-key violation is AlreadyExists"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestUniqueViolationIsAlreadyExists`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-cancelled-or-timed-out-call-keeps-its-code
+    title: "A cancelled or timed-out call keeps its code"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A cancelled or timed-out call keeps its code"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestContextErrorsKeepTheirCodes`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.an-unexpected-error-is-not-echoed
+    title: "An unexpected error is not echoed"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "An unexpected error is not echoed"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestInternalErrorsAreNotEchoed`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-refund-exceeding-the-remainder-keeps-its-refusal
+    title: "A refund exceeding the remainder keeps its refusal"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A refund exceeding the remainder keeps its refusal"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestRefundExceedsRemainderIsFailedPrecondition`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-cursor-from-the-previous-build-still-pages
+    title: "A cursor from the previous build still pages"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A cursor from the previous build still pages"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestLedgerCursorFormatIsUnchanged`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.the-page-size-is-clamped
+    title: "The page size is clamped"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "The page size is clamped"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestLedgerPageSizeClamped`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-malformed-cursor-is-rejected
+    title: "A malformed cursor is rejected"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A malformed cursor is rejected"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestLedgerMalformedCursorInvalidArgument`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: payment-service-runtime.a-seller-cannot-page-another-seller-s-ledger
+    title: "A seller cannot page another seller's ledger"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change payment-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-payment
+    acceptance:
+    - "A seller cannot page another seller's ledger"
+    tags:
+    - payment
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY team-payment `internal/rpc` `TestWalletRPCAccess`. Not producible end to end through the gateway (unit, database, log or boot level)."
