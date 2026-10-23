@@ -121,7 +121,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-audit internal/service TestQueryOneSidedTimeBounds. Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-audit internal/audit TestQueryOneSidedTimeBounds. Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-equal-bounds-match-nothing
     title: Equal bounds match nothing
     persona: admin
@@ -137,7 +137,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-audit internal/service TestQueryEqualTimeBoundsIsEmpty. Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-audit internal/audit TestQueryEqualTimeBoundsIsEmpty. Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-no-match-returns-an-empty-page
     title: No match returns an empty page
     persona: admin
@@ -226,7 +226,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-audit internal/repository TestRepositoryFilterParity (Postgres half runs when TEST_DATABASE_URL is set). Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-audit internal/store TestRepositoryFilterParity. Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-created-before-earlier-than-created-after
     title: created_before earlier than created_after
     persona: admin
@@ -379,7 +379,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-audit internal/repository TestMigration002ActionIndex (runs when TEST_DATABASE_URL is set). Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-audit internal/store TestMigration002ActionIndex. Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-migration-up-is-re-runnable-without-failure
     title: Migration up is re-runnable without failure
     persona: admin
@@ -395,7 +395,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-audit internal/repository TestMigration002ActionIndex (runs when TEST_DATABASE_URL is set). Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-audit internal/store TestMigration002ActionIndex. Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-helper-finds-seeded-events-through-the-gateway
     title: Helper finds seeded events through the gateway
     persona: admin
