@@ -57,6 +57,10 @@ Existing specs (`seller-settlement-credit`, `unpaid-order-payment`, `return-refu
 - (human) Docker-backed tests must run: a skip is a gate failure.
 - (human) The agora repo is public: no GOPRIVATE or credentials are needed for the SDK module.
 
+### Round 3 — 2026-10-23
+
+- (derived from the human recipe "pagination (keep existing cursor formats)") SDK v1.0.2 `pagination.EncodeOffset` emits base64 of the bare offset and `DecodeOffset` rejects the legacy base64 of `o:<offset>`. Keeping the cursor format wins over using the SDK codec: `ListLedgerEntries` uses `pagination.Clamp` for the page size and keeps the service's own `o:<offset>` codec; a malformed cursor still fails with `InvalidArgument`.
+
 ## Risks
 
 - Outbox upgrade on a live table: mitigated by the stop-relayer-first order and the order-preservation test (scenario "The outbox upgrade keeps pending events in order").

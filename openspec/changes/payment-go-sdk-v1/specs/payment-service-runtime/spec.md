@@ -366,7 +366,7 @@ Handlers SHALL return errors through `grpcx.Status` with one `ErrorTable`. A sen
 
 ### Requirement: The ledger list keeps its cursor format on the SDK pagination helpers
 
-`ListLedgerEntries` SHALL clamp the page size with `pagination.Clamp(size, 20, 100)` and SHALL encode and decode the offset cursor with `pagination.EncodeOffset` and `pagination.DecodeOffset`. A cursor produced before this change SHALL decode to the same offset. A malformed cursor SHALL fail with `InvalidArgument`.
+`ListLedgerEntries` SHALL clamp the page size with `pagination.Clamp(size, 20, 100)` and SHALL keep its existing offset cursor format (base64 of `o:<offset>`) with the service's own codec, because SDK v1.0.2 `pagination.EncodeOffset` emits a different format. A cursor produced before this change SHALL decode to the same offset. A malformed cursor SHALL fail with `InvalidArgument`.
 
 #### Scenario: A cursor from the previous build still pages
 - **WHEN** a cursor string produced by the pre-migration encoder for offset 20 is passed to `ListLedgerEntries`
