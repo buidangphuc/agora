@@ -5,13 +5,11 @@ import (
 	"errors"
 
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
+	"github.com/buidangphuc/team-notification/internal/alerts"
 	"github.com/buidangphuc/team-notification/internal/store"
 )
 
-var (
-	ErrNilPrefs  = errors.New("prefs payload is required")
-	ErrEmptyUser = errors.New("user id is required")
-)
+var ErrNilPrefs = errors.New("prefs payload is required")
 
 type Repository interface {
 	Get(ctx context.Context, userID string) (*notificationv1.NotificationPrefs, error)
@@ -49,7 +47,7 @@ func NewService(repo Repository) *Service {
 
 func (s *Service) Get(ctx context.Context, userID string) (*notificationv1.NotificationPrefs, error) {
 	if userID == "" {
-		return nil, ErrEmptyUser
+		return nil, alerts.ErrEmptyUser
 	}
 	prefs, err := s.repo.Get(ctx, userID)
 	if errors.Is(err, store.ErrPrefsNotFound) {
@@ -63,7 +61,7 @@ func (s *Service) Get(ctx context.Context, userID string) (*notificationv1.Notif
 
 func (s *Service) Update(ctx context.Context, userID string, prefs *notificationv1.NotificationPrefs) (*notificationv1.NotificationPrefs, error) {
 	if userID == "" {
-		return nil, ErrEmptyUser
+		return nil, alerts.ErrEmptyUser
 	}
 	if prefs == nil {
 		return nil, ErrNilPrefs
