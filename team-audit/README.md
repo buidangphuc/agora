@@ -6,12 +6,12 @@ Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com
 
 ## Contract
 
-Served from `proto/platform/audit/v1/audit.proto` (vendored; see Gotchas): `platform.audit.v1.AuditService`. The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (`internal/interceptor/auth.go`). The interceptor never rejects; each handler authorizes as its first statement. `RequirePrincipal` rejects a missing, `anonymous` or ANONYMOUS-type principal with `Unauthenticated`.
+Served from `proto/platform/audit/v1/audit.proto` (vendored; see Gotchas): `platform.audit.v1.AuditService`. The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (`go-sdk` auth via `grpcx`). The interceptor never rejects; each handler authorizes as its first statement. `RequirePrincipal` rejects a missing, `anonymous` or ANONYMOUS-type principal with `Unauthenticated`.
 
 | RPC | Authorization and behaviour |
 |---|---|
 | `WriteAuditEvent` | Service-only: requires a `service` principal holding `audit.write` (`Unauthenticated` with no/anonymous principal, `PermissionDenied` for users incl. admins and scopeless services). The stored `actor_id` is the request's `actor_id` if set, else the service's own id. Empty `action` returns `InvalidArgument`. The response is empty (fire-and-forget); the server assigns `id` (`audit_` + 8 chars of a UUID) and `created_at`. Storage failures return a generic `Internal` ("internal error"); the cause is logged server-side. |
-| `QueryAuditLog` | Admin only: authenticated, then scope `admin` (`PermissionDenied` otherwise; a service principal also needs `admin`). Optional filters, combined with AND: `actor_id`, `target_type`, `target_id`, `action` (all exact match; absent or empty means no filter) and a `created_at` range (`created_after` inclusive, `created_before` exclusive; `created_after` later than `created_before` returns `InvalidArgument`, equal bounds match nothing). Newest first (`created_at DESC, id DESC`). The page cursor is a row offset as a decimal string; an empty or malformed cursor means the first page. `page_size` defaults to 20 and is capped at 100 (`internal/service/audit.go`). `next_cursor` is set only while more rows remain; `total` is the match count before paging. |
+| `QueryAuditLog` | Admin only: authenticated, then scope `admin` (`PermissionDenied` otherwise; a service principal also needs `admin`). Optional filters, combined with AND: `actor_id`, `target_type`, `target_id`, `action` (all exact match; absent or empty means no filter) and a `created_at` range (`created_after` inclusive, `created_before` exclusive; `created_after` later than `created_before` returns `InvalidArgument`, equal bounds match nothing). Newest first (`created_at DESC, id DESC`). The page cursor is a row offset as a decimal string; an empty or malformed cursor means the first page. `page_size` defaults to 20 and is capped at 100 (`internal/audit`). `next_cursor` is set only while more rows remain; `total` is the match count before paging. |
 
 Also served: gRPC health (`""` is SERVING) and server reflection (always on).
 
@@ -36,18 +36,11 @@ Database `audit_db` (role `audit_svc`) on the stack's shared Postgres. One table
 
 Indexes: `(actor_id, created_at DESC)`, `(target_type, target_id, created_at DESC)` and `(action, created_at DESC)` (migration `002_audit_action_created_index`). Rows are immutable: the code never issues `UPDATE` or `DELETE`, and there is no such RPC.
 
-Migrations are applied only by the compose one-shot `team-audit-migrate` (golang-migrate, `up`), which the service waits on. The service itself never migrates.
+The binary embeds the migrations: `server migrate up` (reads `DATABASE_URL`) applies them and exits non-zero on failure or a dirty state. `app.Run` never migrates and fails boot when Postgres is unreachable.
 
 ## Configuration
 
-The code reads only these two variables (`internal/config/config.go`); an empty value falls back to the default.
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `GRPC_PORT` | `50066` | gRPC listen port (also the Dockerfile `ENV` and `EXPOSE`) |
-| `DATABASE_URL` | `postgres://audit_svc:audit_pass@localhost:5447/audit_db?sslmode=disable` | Postgres DSN |
-
-`.env.example` also lists `ENV`, `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_REFLECTION_ENABLED`, `SHUTDOWN_GRACE_SECONDS`, `DATABASE_ENABLED`, `DB_MAX_CONNS` and `OTEL_*`. None of them is read: the logger is always JSON on stdout, reflection is always on, the server listens on all interfaces, and shutdown is `GracefulStop` with no timeout. The compose service sets `DATABASE_ENABLED` and `ENV`, which are equally inert. There is no `.env.example` drift gate for this repo.
+Loaded by the go-sdk config (`internal/config/config.go`): `GRPC_PORT` (required, Dockerfile default `50066`), `GRPC_HOST`, `SHUTDOWN_GRACE`, `SHUTDOWN_DRAIN_DELAY`, `DATABASE_URL` and the `ENV`, `LOG_*` and `OTEL_*` groups. Health is served as `""` (readiness, follows Postgres) and `liveness`; shutdown drains health first.
 
 ## Run locally
 
@@ -77,7 +70,7 @@ go vet ./...
 gofmt -l .      # should list nothing outside generated/
 ```
 
-There is no lint target, no `.github/workflows` and no other CI config here; run the commands above as the gate. Tests use the in-memory repository, so they need no database.
+There is no lint target, no `.github/workflows` and no other CI config here; run the commands above as the gate. Store and app tests run against a Postgres testcontainer (`GO_SDK_REQUIRE_DOCKER=1`).
 
 ## Spec and verification
 
@@ -89,15 +82,13 @@ There is no lint target, no `.github/workflows` and no other CI config here; run
 
 - `generated/` is gitignored (root `.gitignore`) and must be produced with `make proto`. The Dockerfile builds from the local directory, so the image build fails if `generated/` is absent. Never hand-edit it. The first comment line of the `Makefile` says the same.
 - `proto/` is vendored from platform-core. Never edit it here; change the contract in platform-core. Use the root `buf.gen.yaml`, which rewrites `go_package` to this module.
-- In-memory fallback: if `pgxpool.New` returns an error, `main.go` logs a warning and uses the in-memory repository, so events are lost on restart. `pgxpool.New` connects lazily, so a bad or unreachable DB usually does not trigger the fallback; the service starts with the Postgres repo and RPCs fail with `Internal`.
 - Pagination is an offset, so rows written between pages can shift results.
 - Principal metadata is trusted as forwarded; the service is meant to be reachable only through the gateway or from other services.
 - `coverage.out` and `coverage.summary` are gitignored test artifacts.
 
 ## Known gaps
 
-- `.env.example` documents many variables the code ignores (see Configuration).
-- No tracing: `OTEL_*` is declared but nothing configures a tracer.
+- None recorded.
 
 ## Links
 
