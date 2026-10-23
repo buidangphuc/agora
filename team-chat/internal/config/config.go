@@ -1,165 +1,32 @@
 package config
 
-import (
-	"fmt"
-	"os"
-	"strconv"
-	"strings"
-	"time"
-)
+import sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 
-type ServerConfig struct {
-	Host              string
-	Port              int
-	ShutdownGrace     float64
-	ReflectionEnabled bool
+type OTel struct {
+	Enabled     bool   `env:"OTEL_ENABLED" default:"false"`
+	Endpoint    string `env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
+	ServiceName string `env:"OTEL_SERVICE_NAME" default:"team-chat"`
 }
 
-type RuntimeConfig struct {
-	LogLevel string
-	LogJSON  bool
-}
-
-type PostgresConfig struct {
-	Host     string
-	Port     int
-	DB       string
-	User     string
-	Password string
-	SSLMode  string
-}
-
-type DatabaseConfig struct {
-	Enabled  bool
-	URL      string
-	MaxConns int32
-}
-
-type ObservabilityConfig struct {
-	Enabled      bool
-	OTLPEndpoint string
-	ServiceName  string
-}
-
-type EventsConfig struct {
-	KafkaEnabled bool
-	Brokers      string
-	ChatTopic    string
-}
-
-// OutboxConfig tunes the chat.events outbox relayer. Names match team-order's
-// Outbox group. The relayer runs only when Enabled, Kafka is enabled and
-// Postgres is on.
-type OutboxConfig struct {
-	Enabled          bool
-	PollInterval     time.Duration
-	BatchSize        int
-	ClaimLockSeconds int
-	MaxAttempts      int
-}
-
-type UpstreamConfig struct {
-	ListingAddr string
+type Events struct {
+	ChatTopic string `env:"KAFKA_CHAT_TOPIC" default:"chat.events"`
 }
 
 type Settings struct {
-	Server        ServerConfig
-	Runtime       RuntimeConfig
-	Postgres      PostgresConfig
-	Database      DatabaseConfig
-	Events        EventsConfig
-	Outbox        OutboxConfig
-	Observability ObservabilityConfig
-	Upstream      UpstreamConfig
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres sdkconfig.Postgres
+	Kafka    sdkconfig.Kafka
+	Outbox   sdkconfig.Outbox
+	Events   Events
+	OTel     OTel
 }
 
-func LoadSettings() (*Settings, error) {
-	port, _ := strconv.Atoi(getEnv("SERVER_PORT", "50057"))
-	pgPort, _ := strconv.Atoi(getEnv("POSTGRES_PORT", "5432"))
-	grace, _ := strconv.ParseFloat(getEnv("SERVER_SHUTDOWN_GRACE_SECONDS", "5.0"), 64)
-	reflection, _ := strconv.ParseBool(getEnv("SERVER_REFLECTION_ENABLED", "true"))
-	logJSON, _ := strconv.ParseBool(getEnv("RUNTIME_LOG_JSON", "false"))
+func Load() (Settings, error) { return sdkconfig.Load[Settings]() }
 
-	pgCfg := PostgresConfig{
-		Host:     getEnv("POSTGRES_HOST", "postgres-chat"),
-		Port:     pgPort,
-		DB:       getEnv("POSTGRES_DB", "chat_db"),
-		User:     getEnv("POSTGRES_USER", "chat_svc"),
-		Password: getEnv("POSTGRES_PASSWORD", "chat_pass"),
-		SSLMode:  getEnv("POSTGRES_SSLMODE", "disable"),
-	}
-
-	otelEndpoint := getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-	kafkaEnabled, _ := strconv.ParseBool(getEnv("KAFKA_ENABLED", "false"))
-
-	outboxEnabled, _ := strconv.ParseBool(getEnv("OUTBOX_ENABLED", "true"))
-	pollInterval, err := time.ParseDuration(strings.TrimSpace(getEnv("OUTBOX_POLL_INTERVAL", "1s")))
-	if err != nil || pollInterval <= 0 {
-		pollInterval = time.Second
-	}
-	batchSize, _ := strconv.Atoi(getEnv("OUTBOX_BATCH_SIZE", "100"))
-	claimLock, _ := strconv.Atoi(getEnv("OUTBOX_CLAIM_LOCK_SECONDS", "60"))
-	maxAttempts, _ := strconv.Atoi(getEnv("OUTBOX_MAX_ATTEMPTS", "10"))
-
-	return &Settings{
-		Server: ServerConfig{
-			Host:              getEnv("SERVER_HOST", "0.0.0.0"),
-			Port:              port,
-			ShutdownGrace:     grace,
-			ReflectionEnabled: reflection,
-		},
-		Runtime: RuntimeConfig{
-			LogLevel: getEnv("RUNTIME_LOG_LEVEL", "info"),
-			LogJSON:  logJSON,
-		},
-		Postgres: pgCfg,
-		Database: DatabaseConfig{
-			Enabled:  true,
-			URL:      pgCfg.DSN(),
-			MaxConns: 20,
-		},
-		Events: EventsConfig{
-			KafkaEnabled: kafkaEnabled,
-			Brokers:      getEnv("KAFKA_BROKERS", "localhost:9092"),
-			ChatTopic:    getEnv("KAFKA_CHAT_TOPIC", "chat.events"),
-		},
-		Outbox: OutboxConfig{
-			Enabled:          outboxEnabled,
-			PollInterval:     pollInterval,
-			BatchSize:        batchSize,
-			ClaimLockSeconds: claimLock,
-			MaxAttempts:      maxAttempts,
-		},
-		Observability: ObservabilityConfig{
-			Enabled:      otelEndpoint != "",
-			OTLPEndpoint: otelEndpoint,
-			ServiceName:  getEnv("OTEL_SERVICE_NAME", "team-chat"),
-		},
-		Upstream: UpstreamConfig{
-			ListingAddr: getEnv("UPSTREAM_LISTING_ADDR", "localhost:50051"),
-		},
-	}, nil
+type MigrateSettings struct {
+	sdkconfig.Runtime
+	Postgres sdkconfig.Postgres
 }
 
-func (s *Settings) KafkaBrokers() []string {
-	parts := strings.Split(s.Events.Brokers, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-func (p PostgresConfig) DSN() string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		p.User, p.Password, p.Host, p.Port, p.DB, p.SSLMode)
-}
-
-func getEnv(key, defaultVal string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return defaultVal
-}
+func LoadMigrate() (MigrateSettings, error) { return sdkconfig.Load[MigrateSettings]() }

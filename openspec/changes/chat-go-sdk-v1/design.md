@@ -90,6 +90,24 @@ Unit tests use the in-memory fakes. Postgres tests use `testkit` (throwaway data
 
 Filled while implementing task 1.7.2: each `Test*` of team-chat on main either appears in a scenario VERIFIED BY or is listed here as deleted with a reason. Replaced on purpose: the grpcserver reflection-flag cases (flag default flips; `TestReflectionOffByDefault`), the relayer attempt-limit cases (no attempt limit in the SDK outbox; `TestRelayerHasNoAttemptLimit`), tests of `KAFKA_ENABLED`, `OUTBOX_ENABLED` and the in-memory outbox (flags and fallbacks deleted).
 
+Kept, moved to `internal/chat` (same name): `TestChatService_GetOrCreateThread`, `TestChatService_GetThreadAndMarkThreadRead`, `TestChatService_GetThreadMessages`, `TestChatService_ListThreads`, `TestChatService_SearchMessages`, `TestChatService_SendMessage`, `TestSendMessageOutboxFailureStoresNothing`.
+
+Deleted or replaced, with reason:
+- `TestBuildMessageOutboxRow`: row building moved to the SDK outbox envelope; replaced by `TestEnvelopeCarriesPrincipalAndRequestID`.
+- `TestChatHandler_SearchMessages`: handler moved to `internal/rpc`; replaced by `TestSearchMessagesPagination`.
+- `TestChatHandler_SendMessageAndEventEmission`: event emission now goes through `Store.EnqueueTx`; replaced by `TestSaveMessageIsAtomicWithOutbox`.
+- `TestChatHandler_SendMessageEventCarriesRecipient`: replaced by `TestSendMessagePassesRecipientAndSellerToOutbox`.
+- `TestSendMessagePassesRecipientToOutbox`: replaced by `TestSendMessagePassesRecipientAndSellerToOutbox`.
+- `TestChatThreadAndMessageLifecycle`: grpcserver replaced by `internal/rpc`; replaced by `TestChatLifecycleOverGRPC`.
+- `TestClaimPendingKeepsCreationOrder_Postgres`: custom claim deleted with the in-house relayer; replaced by `TestOutboxUpgradeKeepsRowOrder`.
+- `TestInMemoryChatRepository_GetOrCreateThread`, `TestInMemoryChatRepository_ListThreadsForUser`, `TestInMemoryChatRepository_MessagesAndUnreadCounts`, `TestInMemoryChatRepository_SearchMessages`: in-memory repository is a deleted fallback; the Postgres store is covered by `TestUnreadCounts` and `TestSearchMessagesScopedToParticipant`.
+- `TestInternalErrIsGenericAndLogsCause`: replaced by `TestInternalErrorIsMasked`.
+- `TestOutboxDefaultsAndOverrides`: replaced by `TestOutboxOverrides` and `TestDefaults`.
+- `TestRelayerDeliversAfterKafkaRecovers`: replaced by `TestMessageSentWhileKafkaDownIsDeliveredAfterRecovery`.
+- `TestRelayerParksAfterMaxAttempts`: no attempt limit in the SDK outbox; replaced by `TestRelayerHasNoAttemptLimit`.
+- `TestRelayerPublishesKeyedByThreadAndOnlyOnce`: replaced by `TestThreadEventsPublishInSendOrder`.
+- `TestSaveMessageIsAtomicWithOutbox_Postgres`: replaced by `TestSaveMessageIsAtomicWithOutbox`.
+
 ### Round 2 — 2026-10-23
 - Migrations: every service gets a `migrate up` subcommand in its binary (SDK `pkg/migrate`, embedded migrations); the service never migrates at boot; compose keeps a `team-chat-migrate` service running the service image with `migrate up`; gitops gets an Argo PreSync migrate Job per service (in deploy-go-sdk-v1). (human)
 - Kafka is not a readiness check in any service (readiness = Postgres and required upstream checks only). team-chat has no upstream. (human)

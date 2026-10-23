@@ -56,9 +56,7 @@ Delivery is **at-least-once**. `event_id` is deterministic (`events.ChatMessageE
 UUIDv5 of the message id), so consumers dedupe on it. Per-thread order holds because the key
 is `thread_id` and claimed rows come back oldest-first.
 
-The relayer starts only when Postgres is on, a Kafka producer exists (`KAFKA_ENABLED=true`
-and the brokers dialed) and `OUTBOX_ENABLED=true`. Otherwise `main.go` logs a warning, rows
-keep being written and they pile up unpublished.
+The relayer is the go-sdk outbox relayer and always runs with the server; rows are written by `Store.EnqueueTx` in the message transaction.
 
 Known consumer: `team-notification` (group `team-notification.chat`, dead-letter topic
 `chat.events.dlq`), which creates a CHAT notification for the recipient.
@@ -75,43 +73,32 @@ in `migrations/` (each with a `.down.sql`) and are **not** applied by the servic
 | `quick_replies` | 0002 | Seller canned replies, ordered by `sort_order`. Nothing in this service writes it. |
 | `chat_outbox_events` | 0003 | Outbox: `event_id` PK, `aggregate_id` (thread id), `payload` (envelope bytes), `status` (`pending`/`published`/`failed`), `attempts`, `available_at`, `locked_until`, `error`. |
 
-Apply them with the `team-chat-migrate` compose service (golang-migrate `up`), or run
-golang-migrate yourself against `chat_db`. The Docker image copies `migrations/` but the
-service does not run them.
+## Deploying the go-sdk v1 outbox
+
+The binary embeds the migrations: `server migrate up` (reads `DATABASE_URL`) applies them and
+exits non-zero on failure or a dirty state. Migrations 0004-0012 upgrade `chat_outbox_events`
+to the go-sdk v1 outbox schema (the SDK `UpgradeSQL`). Deploy order: run `server migrate up`
+(compose `team-chat-migrate`) first, then start the new `server`. `app.Run` never migrates and
+fails boot when Postgres is unreachable. Rows still `pending` from the old schema are
+backfilled and published by the new relayer.
 
 ## 4. Configuration
 
-Read by `internal/config/config.go`; `.env.example` mirrors it. An unset or empty variable
-falls back to the default. There is no automated drift gate between `.env.example` and the code.
+Loaded by the go-sdk config (`internal/config/config.go`); `.env.example` mirrors it.
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `SERVER_HOST` | `0.0.0.0` | gRPC bind host |
-| `SERVER_PORT` | `50057` | gRPC port |
-| `SERVER_SHUTDOWN_GRACE_SECONDS` | `5.0` | Graceful-stop timeout |
-| `SERVER_REFLECTION_ENABLED` | `true` | gRPC reflection |
-| `RUNTIME_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
-| `RUNTIME_LOG_JSON` | `false` | JSON log output |
-| `POSTGRES_HOST` | `postgres-chat` | Compose overrides it to `postgres` |
-| `POSTGRES_PORT` | `5432` | |
-| `POSTGRES_DB` | `chat_db` | |
-| `POSTGRES_USER` | `chat_svc` | |
-| `POSTGRES_PASSWORD` | `chat_pass` | |
-| `POSTGRES_SSLMODE` | `disable` | |
-| `KAFKA_ENABLED` | `false` | Enables the producer and with it the relayer |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated seeds. `.env.example` uses `localhost:19092` (redpanda host port); compose uses `redpanda:9092`. |
-| `KAFKA_CHAT_TOPIC` | `chat.events` | |
-| `OUTBOX_ENABLED` | `true` | Run the relayer |
-| `OUTBOX_POLL_INTERVAL` | `1s` | Go duration; invalid or non-positive falls back to 1s |
-| `OUTBOX_BATCH_SIZE` | `100` | Rows claimed per sweep |
-| `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | Lease on claimed rows |
-| `OUTBOX_MAX_ATTEMPTS` | `10` | Attempts before a row is parked `failed` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | Tracing is on only when set |
-| `OTEL_SERVICE_NAME` | `team-chat` | |
-| `UPSTREAM_LISTING_ADDR` | `localhost:50051` | Parsed but unused (see Known gaps) |
+| Variable | Meaning |
+|---|---|
+| `GRPC_HOST`, `GRPC_PORT` | gRPC bind (`GRPC_PORT` default `50057`) |
+| `GRPC_REFLECTION_ENABLED` | gRPC reflection |
+| `SHUTDOWN_GRACE`, `SHUTDOWN_DRAIN_DELAY` | Graceful shutdown timings |
+| `ENV`, `LOG_LEVEL`, `LOG_JSON` | Runtime and logging |
+| `DATABASE_URL`, `DB_MAX_CONNS` | Postgres (`chat_db`) |
+| `KAFKA_BROKERS` | Comma-separated seeds |
+| `KAFKA_CHAT_TOPIC` | Event topic, default `chat.events` |
+| `OUTBOX_POLL_INTERVAL`, `OUTBOX_BATCH_SIZE`, `OUTBOX_CLAIM_LOCK` | Relayer tuning |
+| `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | Tracing |
 
-The database is always enabled (pool max 20); startup fails if Postgres is unreachable. If
-Kafka is enabled but the dial fails, the service only logs a warning and runs without a relayer.
+Startup fails if Postgres is unreachable.
 
 ## 5. Run locally
 
@@ -123,11 +110,9 @@ and `redpanda` services must be available from the compose files:
 docker compose -f docker-compose.services.yaml up -d --build team-chat
 ```
 
-Compose sets `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`, the `OUTBOX_*` values and
-`POSTGRES_HOST=postgres`. It also sets `DATABASE_ENABLED`, `DATABASE_URL`, `GRPC_PORT` and `ENV`,
-which the code does not read.
+Compose sets `KAFKA_BROKERS`, `DATABASE_URL`, `GRPC_PORT` and `ENV`.
 
-Standalone: apply the migrations to a reachable `chat_db`, copy `.env.example` to `.env` and
+Standalone: run `server migrate up` against a reachable `chat_db`, copy `.env.example` to `.env` and
 export it (the binary does not load `.env` itself), then `go run ./cmd/server`. Go and buf are
 not installed on the host per the root `AGENTS.md`, so use a Go 1.26 container.
 
@@ -165,8 +150,6 @@ lint command is defined here.
 - `proto/` is vendored from `platform-core/packages/proto`. Never edit it here; change it in
   platform-core (non-breaking) and re-vendor.
 - `recipient_id` and `seller_id` exist only on the event payload; RPC responses leave them empty.
-- No relayer means no events. With `KAFKA_ENABLED=false` (the default) or `OUTBOX_ENABLED=false`,
-  `chat_outbox_events` accumulates `pending` rows; enabling Kafka later publishes the backlog.
 - Search is `ILIKE '%query%'` with no supporting index.
 - Authorization is only the handler and service participant checks; there are no scope checks
   and no stream interceptor.
