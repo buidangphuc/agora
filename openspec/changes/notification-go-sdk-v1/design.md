@@ -114,3 +114,7 @@ The service never migrates at boot. The binary has a `migrate up` subcommand (`c
 - Docker-backed tests must run: a skip is a gate failure. (human)
 - The agora repository is public: no `GOPRIVATE` or credentials. (human)
 - Outbox, promotion, order, payment, gateway, engagement, search and analytics decisions of the same round do not apply to this service (it publishes no events). (human)
+
+### Round 2 — 2026-10-23
+- No named scope (such as `notification:read`) on notification RPCs: intended. Every RPC calls `auth.RequireUser` and acts only on the caller's own `p.ID`, so a scope would add no isolation; identity never strips notification access by account status. (human)
+- `internal/names` lookup-failure warnings no longer carry the raw `seller_id` / `user_id`; the error and the trace id are enough to debug an upstream lookup failure. (human)

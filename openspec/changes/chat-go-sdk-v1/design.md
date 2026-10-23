@@ -118,3 +118,6 @@ Deleted or replaced, with reason:
 - Accepted: the SDK 2 s upstream bound replaces any `UPSTREAM_CALL_TIMEOUT*`; team-chat has none. (human)
 - Docker-backed tests must run: a skip is a gate failure. (human)
 - The agora repo is public: no `GOPRIVATE` or credentials are needed to fetch the SDK. (human)
+
+### Round 3 — 2026-10-23
+- `ListQuickReplies` is readable by any authenticated principal for any `seller_id`: intended. The replies are buyer-facing chips the seller configures for buyers (proto comment on the RPC; `ChatView` loads them for the active thread's seller on the buyer side only). (human)
