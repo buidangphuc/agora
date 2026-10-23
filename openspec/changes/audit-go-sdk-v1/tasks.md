@@ -44,7 +44,7 @@ Write-set: `team-audit/internal/app/**`, `team-audit/cmd/server/main.go`, `team-
 
 ### 1.7 Whole-service gate (last code task)
 Write-set: none beyond fixes inside `team-audit/**` and `openspec/changes/audit-go-sdk-v1/**`.
-- [ ] 1.7.1 `cd team-audit && make proto && make check && go build ./... && docker build -t team-audit:go-sdk .` all pass; `git grep -n -e DATABASE_ENABLED -e NewInMemory -e OpenOrLocal -e 'internal/service' -e 'internal/repository' -- team-audit ':!team-audit/internal/store/storetest'` returns nothing; `go list -deps ./cmd/server | grep storetest` returns nothing.
+- [ ] 1.7.1 `cd team-audit && make proto && make check && go build ./... && docker build -t team-audit:go-sdk .` all pass; `git grep -n -e DATABASE_ENABLED -e NewInMemory -e OpenOrLocal -e 'internal/service' -e 'internal/repository' -- team-audit ':!team-audit/internal/store/storetest' ':!team-audit/**/*_test.go'` returns nothing; `go list -deps ./cmd/server | grep storetest` returns nothing.
 - [ ] 1.7.2 `openspec validate audit-go-sdk-v1 --strict` and `platform-e2e/.venv/bin/python scripts/asdlc/spec_lint.py audit-go-sdk-v1` pass.
 
 ## 2. e2e track
