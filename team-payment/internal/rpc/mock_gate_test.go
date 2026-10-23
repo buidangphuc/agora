@@ -53,6 +53,44 @@ func TestProcessMockPayment_DisabledByDefault(t *testing.T) {
 	}
 }
 
+// Scenario: Without the adapter the mock RPC is refused
+func TestProcessMockPayment_DisabledByDefault_RefusedBeforeOwnershipAndLookup(t *testing.T) {
+	st := newStores()
+	svc := st.service(t, nil, payment.WithProvider(liveProvider()))
+	h := newHandler(t, svc, permissiveAudit)
+
+	tx, err := st.payments.CreateTransaction(context.Background(), store.PaymentTransaction{
+		OrderID: "order-1", BuyerID: "buyer-1", Amount: 1000, Currency: "VND",
+		Status: store.PaymentStatusPending,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name string
+		ctx  context.Context
+		id   string
+	}{
+		{"non-buyer non-admin", principalCtx("buyer-2", auth.TypeUser, "payment:write"), tx.ID},
+		{"unknown transaction id", principalCtx("buyer-1", auth.TypeUser), "non-existent-tx"},
+	}
+	for _, c := range cases {
+		for _, simulate := range []bool{true, false} {
+			_, err := h.ProcessMockPayment(c.ctx, &paymentv1.ProcessMockPaymentRequest{TransactionId: c.id, SimulateSuccess: simulate})
+			if status.Code(err) != codes.FailedPrecondition {
+				t.Fatalf("%s simulate=%v: want FailedPrecondition, got %v", c.name, simulate, err)
+			}
+		}
+	}
+	got, _ := st.payments.GetTransaction(context.Background(), tx.ID)
+	if got.Status != store.PaymentStatusPending {
+		t.Fatalf("transaction changed while mock payments disabled: %v", got.Status)
+	}
+	if n := len(st.writer.Rows()); n != 0 {
+		t.Fatalf("outbox rows = %d, want 0", n)
+	}
+}
+
 // Scenario: The local stack settles a checkout through the mock payment
 func TestMockDataProviderSettlesThroughRealPath(t *testing.T) {
 	st := newStores()
