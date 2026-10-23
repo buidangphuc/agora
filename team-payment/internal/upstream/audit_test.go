@@ -2,8 +2,8 @@ package upstream
 
 import (
 	"context"
+	"log/slog"
 	"net"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +12,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 
 	auditv1 "github.com/buidangphuc/team-payment/generated/platform/audit/v1"
 )
@@ -54,46 +57,38 @@ func startAudit(t *testing.T, svc *recordingAudit) string {
 	return lis.Addr().String()
 }
 
-// Scenario: Payment audit: no audit upstream configured
-func TestNewAuditClientEmptyAddrIsNil(t *testing.T) {
-	c, err := NewAuditClient("", time.Second)
-	if err != nil || c != nil {
-		t.Fatalf("NewAuditClient(\"\") = %v, %v; want nil, nil", c, err)
+func dialWriter(t *testing.T, addr string) auditx.Writer {
+	t.Helper()
+	conn, err := auditx.Dial(config.Audit{Addr: addr}, "service-team-payment", "audit.write")
+	if err != nil || conn == nil {
+		t.Fatalf("auditx.Dial: %v, %v", conn, err)
 	}
-	if err := c.Close(); err != nil {
-		t.Fatalf("Close on nil client: %v", err)
-	}
-	// A nil client must fail closed, never succeed silently.
-	if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", "rf-1", 200000); err == nil {
-		t.Fatal("nil audit client must return an error")
+	t.Cleanup(func() { _ = conn.Close() })
+	return NewAuditWriter(conn)
+}
+
+func refundEvent(refundID string) auditx.Event {
+	return auditx.Event{
+		ActorID: "adm-1", Action: "payment.admin_refund", TargetType: "payment", TargetID: "P-1",
+		Metadata: map[string]string{"order_id": "O-1", "refund_id": refundID, "amount": "200000"},
 	}
 }
 
-// Scenario: Payment audit: Audit is called as the service principal (and the event carries the
-// action, target, actor and exactly order_id + amount).
-func TestAuditClientUsesServicePrincipal(t *testing.T) {
+// Scenario: The audit call is made as the service principal
+func TestAuditWriterUsesServicePrincipal(t *testing.T) {
 	rec := &recordingAudit{}
-	c, err := NewAuditClient(startAudit(t, rec), time.Second)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
-	}
-	defer func() { _ = c.Close() }()
+	w := dialWriter(t, startAudit(t, rec))
 
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
 		"x-principal-id", "adm-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
-	if err := c.WriteAdminRefund(ctx, "adm-1", "P-1", "O-1", "rf-1", 200000); err != nil {
-		t.Fatalf("WriteAdminRefund: %v", err)
+	if err := w.WriteAuditEvent(ctx, refundEvent("rf-1")); err != nil {
+		t.Fatalf("WriteAuditEvent: %v", err)
 	}
+
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
 	if len(rec.reqs) != 1 {
 		t.Fatalf("want exactly 1 WriteAuditEvent call, got %d", len(rec.reqs))
-	}
-	req := rec.reqs[0]
-	if req.GetActorId() != "adm-1" || req.GetAction() != "payment.admin_refund" ||
-		req.GetTargetType() != "payment" || req.GetTargetId() != "P-1" {
-		t.Errorf("unexpected event: %+v", req)
-	}
-	if m := req.GetMetadata(); len(m) != 3 || m["refund_id"] != "rf-1" || m["order_id"] != "O-1" || m["amount"] != "200000" {
-		t.Errorf("metadata = %v, want exactly refund_id+order_id+amount", m)
 	}
 	want := map[string]string{
 		"x-principal-id":     "service-team-payment",
@@ -107,64 +102,79 @@ func TestAuditClientUsesServicePrincipal(t *testing.T) {
 	}
 }
 
-// Scenario: Audit error leaves the ledger unchanged (client half: error is returned).
-func TestAuditClientUpstreamErrorIsReturned(t *testing.T) {
-	rec := &recordingAudit{err: status.Error(codes.Internal, "audit db down")}
-	c, err := NewAuditClient(startAudit(t, rec), time.Second)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
+// Scenario: An admin refund writes one event with the SDK event shape
+func TestAuditWriterMapsEventToRequest(t *testing.T) {
+	rec := &recordingAudit{}
+	w := dialWriter(t, startAudit(t, rec))
+	if err := w.WriteAuditEvent(context.Background(), refundEvent("rf-1")); err != nil {
+		t.Fatalf("WriteAuditEvent: %v", err)
 	}
-	defer func() { _ = c.Close() }()
-	if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", "rf-1", 1); err == nil {
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if len(rec.reqs) != 1 {
+		t.Fatalf("want exactly 1 event, got %d", len(rec.reqs))
+	}
+	req := rec.reqs[0]
+	if req.GetActorId() != "adm-1" || req.GetAction() != "payment.admin_refund" ||
+		req.GetTargetType() != "payment" || req.GetTargetId() != "P-1" {
+		t.Errorf("unexpected event: %+v", req)
+	}
+	m := req.GetMetadata()
+	if len(m) != 3 || m["order_id"] != "O-1" || m["refund_id"] != "rf-1" || m["amount"] != "200000" {
+		t.Errorf("metadata = %v, want exactly order_id+refund_id+amount", m)
+	}
+}
+
+// Scenario: An admin refund writes one event with the SDK event shape (distinct and repeated refund ids stay verbatim)
+func TestAuditWriterRefundIDVerbatim(t *testing.T) {
+	rec := &recordingAudit{}
+	w := dialWriter(t, startAudit(t, rec))
+	ids := []string{"rf-1", "rf-1", "rf-2", "a0123456789012345678901234567890123456789012345678901234567890z"}
+	for _, id := range ids {
+		if err := w.WriteAuditEvent(context.Background(), refundEvent(id)); err != nil {
+			t.Fatalf("WriteAuditEvent(%q): %v", id, err)
+		}
+	}
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if len(rec.reqs) != len(ids) {
+		t.Fatalf("want %d events, got %d", len(ids), len(rec.reqs))
+	}
+	for i, id := range ids {
+		if got := rec.reqs[i].GetMetadata()["refund_id"]; got != id {
+			t.Errorf("event %d refund_id = %q, want %q", i, got, id)
+		}
+	}
+}
+
+// Scenario: An admin refund writes one event with the SDK event shape (an upstream failure is returned, single attempt)
+func TestAuditWriterUpstreamErrorIsReturned(t *testing.T) {
+	rec := &recordingAudit{err: status.Error(codes.Internal, "audit db down")}
+	w := dialWriter(t, startAudit(t, rec))
+	if err := w.WriteAuditEvent(context.Background(), refundEvent("rf-1")); err == nil {
 		t.Fatal("an audit failure must be returned, not swallowed")
 	}
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
 	if len(rec.reqs) != 1 {
-		t.Fatalf("single attempt expected (no retry), got %d calls", len(rec.reqs))
+		t.Fatalf("single attempt expected, got %d calls", len(rec.reqs))
 	}
 }
 
-// Scenario: Audit timeout is bounded and refuses the refund (client half)
-func TestAuditClientTimeoutBounded(t *testing.T) {
-	rec := &recordingAudit{block: true}
-	c, err := NewAuditClient(startAudit(t, rec), 150*time.Millisecond)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
-	}
-	defer func() { _ = c.Close() }()
+// Scenario: The audit call is made as the service principal (the gate bounds a hanging audit and the action does not run)
+func TestAuditWriterHangIsBoundedByGate(t *testing.T) {
+	w := dialWriter(t, startAudit(t, &recordingAudit{block: true}))
+	gate := auditx.NewGate(w, slog.New(slog.DiscardHandler))
+	applied := false
 	start := time.Now()
-	if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", "rf-1", 1); err == nil {
-		t.Fatal("expected an error when team-audit hangs")
+	err := gate.Do(context.Background(), refundEvent("rf-1"), func(context.Context) error { applied = true; return nil })
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("code = %v (%v), want Unavailable", status.Code(err), err)
 	}
-	if el := time.Since(start); el > 1150*time.Millisecond {
-		t.Fatalf("audit call was not bounded by timeout+1s: took %v", el)
+	if applied {
+		t.Fatal("action must not run when the audit write times out")
 	}
-	if len(rec.reqs) != 1 {
-		t.Fatalf("no retry expected, got %d calls", len(rec.reqs))
-	}
-}
-
-// Scenario: Refund audit id: Audit client puts refund_id in metadata (distinct ids stay distinct;
-// a repeated id is carried verbatim, including the 64-char boundary).
-func TestAuditClientRefundIDDistinctAndVerbatim(t *testing.T) {
-	rec := &recordingAudit{}
-	c, err := NewAuditClient(startAudit(t, rec), time.Second)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
-	}
-	defer func() { _ = c.Close() }()
-	long := strings.Repeat("a", 64)
-	for _, id := range []string{"rf-1", "rf-1", "rf-2", long} {
-		if err := c.WriteAdminRefund(context.Background(), "adm-1", "P-1", "O-1", id, 100); err != nil {
-			t.Fatalf("WriteAdminRefund(%q): %v", id, err)
-		}
-	}
-	want := []string{"rf-1", "rf-1", "rf-2", long}
-	if len(rec.reqs) != len(want) {
-		t.Fatalf("want %d events, got %d", len(want), len(rec.reqs))
-	}
-	for i, w := range want {
-		if got := rec.reqs[i].GetMetadata()["refund_id"]; got != w {
-			t.Errorf("event %d refund_id = %q, want %q", i, got, w)
-		}
+	if el := time.Since(start); el > 4*time.Second {
+		t.Fatalf("audit call not bounded: took %v", el)
 	}
 }
