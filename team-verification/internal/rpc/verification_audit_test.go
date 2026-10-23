@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -11,10 +11,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	verificationv1 "github.com/buidangphuc/team-verification/generated/platform/verification/v1"
-	"github.com/buidangphuc/team-verification/internal/handler"
-	"github.com/buidangphuc/team-verification/internal/repository"
-	"github.com/buidangphuc/team-verification/internal/service"
+	"github.com/buidangphuc/team-verification/internal/rpc"
+	"github.com/buidangphuc/team-verification/internal/store"
+	"github.com/buidangphuc/team-verification/internal/store/storetest"
 )
 
 // auditCall is one recorded WriteKycReviewEvent invocation.
@@ -42,19 +43,21 @@ func (l *eventLog) snapshot() []string {
 
 // fakeAudit is the AuditWriter fake (team-audit is the external boundary).
 type fakeAudit struct {
-	mu    sync.Mutex
-	calls []auditCall
-	err   error
-	log   *eventLog
+	mu     sync.Mutex
+	calls  []auditCall
+	events []auditx.Event
+	err    error
+	log    *eventLog
 }
 
-func (f *fakeAudit) WriteKycReviewEvent(_ context.Context, actorID, submissionID, userID, decision string) error {
+func (f *fakeAudit) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
 	if f.log != nil {
 		f.log.add("audit")
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.calls = append(f.calls, auditCall{actorID, submissionID, userID, decision})
+	f.events = append(f.events, ev)
+	f.calls = append(f.calls, auditCall{ev.ActorID, ev.TargetID, ev.Metadata["user_id"], ev.Metadata["decision"]})
 	return f.err
 }
 
@@ -76,12 +79,12 @@ func (f *fakeAudit) first(t *testing.T) auditCall {
 
 // spyRepo wraps the in-memory repo, logging updates and optionally failing them.
 type spyRepo struct {
-	repository.KycRepository
+	store.KycRepository
 	log        *eventLog
 	failUpdate bool
 }
 
-func (r *spyRepo) UpdateStatus(ctx context.Context, id string, st repository.Status, at time.Time) (*repository.Submission, error) {
+func (r *spyRepo) UpdateStatus(ctx context.Context, id string, st store.Status, at time.Time) (*store.Submission, error) {
 	r.log.add("update")
 	if r.failUpdate {
 		return nil, errors.New("db down")
@@ -90,7 +93,7 @@ func (r *spyRepo) UpdateStatus(ctx context.Context, id string, st repository.Sta
 }
 
 type env struct {
-	h     *handler.VerificationHandler
+	h     *rpc.Handler
 	repo  *spyRepo
 	audit *fakeAudit
 	log   *eventLog
@@ -98,10 +101,9 @@ type env struct {
 
 func newEnv() *env {
 	log := &eventLog{}
-	repo := &spyRepo{KycRepository: repository.NewInMemoryKycRepo(), log: log}
+	repo := &spyRepo{KycRepository: storetest.NewInMemoryKycRepo(), log: log}
 	audit := &fakeAudit{log: log}
-	svc := service.NewVerificationService(repo)
-	return &env{h: handler.NewVerificationHandler(svc, audit), repo: repo, audit: audit, log: log}
+	return &env{h: buildHandler(nopT{}, repo, audit, quiet()), repo: repo, audit: audit, log: log}
 }
 
 func (e *env) review(ctx context.Context, id, decision string) (*verificationv1.ReviewKycResponse, error) {
@@ -115,7 +117,7 @@ func (e *env) assertPending(t *testing.T, id string) {
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
-	if sub.Status != repository.StatusPending || sub.ReviewedAt != nil {
+	if sub.Status != store.StatusPending || sub.ReviewedAt != nil {
 		t.Fatalf("submission changed: status=%v reviewed_at=%v", sub.Status, sub.ReviewedAt)
 	}
 }
@@ -146,6 +148,13 @@ func TestReviewKycWritesAuditEvent(t *testing.T) {
 	want := auditCall{ActorID: "adm-1", SubmissionID: id, UserID: "u-1", Decision: "approve"}
 	if got := e.audit.first(t); got != want {
 		t.Fatalf("audit call = %+v, want %+v", got, want)
+	}
+	ev := e.audit.events[0]
+	if ev.Action != "kyc.review" || ev.TargetType != "kyc_submission" || ev.TargetID != id || ev.ActorID != "adm-1" {
+		t.Fatalf("event shape = %+v", ev)
+	}
+	if len(ev.Metadata) != 2 || ev.Metadata["decision"] != "approve" || ev.Metadata["user_id"] != "u-1" {
+		t.Fatalf("event metadata = %v, want only decision and user_id", ev.Metadata)
 	}
 }
 
@@ -303,6 +312,7 @@ func TestReviewKycAuditErrorUnavailableNoChange(t *testing.T) {
 	id := submit(t, e.h, buyer("u-1"))
 	_, err := e.review(admin("adm-1"), id, "approve")
 	wantCode(t, err, codes.Unavailable)
+	wantMessage(t, err, "audit trail unavailable")
 	e.assertNoUpdate(t)
 	e.assertPending(t, id)
 	st, err := e.h.GetVerificationStatus(buyer("u-1"), &verificationv1.GetVerificationStatusRequest{})
@@ -327,21 +337,8 @@ func TestReviewKycAuditTimeoutUnavailableNoChange(t *testing.T) {
 		if status.Code(err) != codes.Unavailable {
 			t.Fatalf("%s: want Unavailable, got %v", name, err)
 		}
+		wantMessage(t, err, "audit trail unavailable")
 		e.assertPending(t, id)
-	}
-}
-
-// Scenario: KYC audit: no audit upstream configured.
-func TestReviewKycNilAuditUnavailable(t *testing.T) {
-	log := &eventLog{}
-	repo := &spyRepo{KycRepository: repository.NewInMemoryKycRepo(), log: log}
-	h := handler.NewVerificationHandler(service.NewVerificationService(repo), nil)
-	id := submit(t, h, buyer("u-1"))
-	_, err := h.ReviewKyc(admin("adm-1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
-	wantCode(t, err, codes.Unavailable)
-	sub, _ := repo.GetByID(context.Background(), id)
-	if sub.Status != repository.StatusPending || sub.ReviewedAt != nil {
-		t.Fatalf("submission changed: %+v", sub)
 	}
 }
 
@@ -369,9 +366,8 @@ func TestReviewKycUpdateFailureInternalThenRetry(t *testing.T) {
 func TestSubmitAndStatusIndependentOfAudit(t *testing.T) {
 	failing := newEnv()
 	failing.audit.err = status.Error(codes.Unavailable, "down")
-	nilAudit := handler.NewVerificationHandler(service.NewVerificationService(repository.NewInMemoryKycRepo()), nil)
 
-	for name, h := range map[string]*handler.VerificationHandler{"failing fake": failing.h, "nil writer": nilAudit} {
+	for name, h := range map[string]*rpc.Handler{"failing fake": failing.h} {
 		submit(t, h, buyer("u-1"))
 		st, err := h.GetVerificationStatus(buyer("u-1"), &verificationv1.GetVerificationStatusRequest{})
 		if err != nil {

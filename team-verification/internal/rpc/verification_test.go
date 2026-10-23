@@ -1,7 +1,9 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -9,25 +11,42 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	verificationv1 "github.com/buidangphuc/team-verification/generated/platform/verification/v1"
-	"github.com/buidangphuc/team-verification/internal/handler"
-	"github.com/buidangphuc/team-verification/internal/interceptor"
-	"github.com/buidangphuc/team-verification/internal/repository"
-	"github.com/buidangphuc/team-verification/internal/service"
+	"github.com/buidangphuc/team-verification/internal/rpc"
+	"github.com/buidangphuc/team-verification/internal/store"
+	"github.com/buidangphuc/team-verification/internal/store/storetest"
+	"github.com/buidangphuc/team-verification/internal/verification"
 )
 
-func newHandler() *handler.VerificationHandler {
-	svc := service.NewVerificationService(repository.NewInMemoryKycRepo())
-	return handler.NewVerificationHandler(svc, &fakeAudit{})
+func buildHandler(t testing.TB, repo store.KycRepository, w auditx.Writer, logger *slog.Logger) *rpc.Handler {
+	t.Helper()
+	h, err := rpc.NewHandler(verification.NewVerificationService(repo), w, logger)
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+	return h
 }
 
+func quiet() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+
+func newHandler() *rpc.Handler {
+	return buildHandler(nopT{}, storetest.NewInMemoryKycRepo(), &fakeAudit{}, quiet())
+}
+
+type nopT struct{ testing.TB }
+
+func (nopT) Helper()                   {}
+func (nopT) Fatalf(f string, a ...any) { panic("NewHandler failed") }
+
 // ctxAs resolves a principal exactly as the gRPC server does: forwarded
-// x-principal-* metadata run through the real unary interceptor.
+// x-principal-* metadata run through the SDK unary interceptor.
 func ctxAs(id, ptype, scopes string) context.Context {
 	md := metadata.Pairs("x-principal-id", id, "x-principal-type", ptype, "x-principal-scopes", scopes)
 	in := metadata.NewIncomingContext(context.Background(), md)
 	var out context.Context
-	_, _ = interceptor.UnaryServerInterceptor()(in, nil, &grpc.UnaryServerInfo{},
+	_, _ = auth.UnaryServerInterceptor()(in, nil, &grpc.UnaryServerInfo{},
 		func(c context.Context, _ any) (any, error) { out = c; return nil, nil })
 	return out
 }
@@ -46,7 +65,14 @@ func wantCode(t *testing.T, err error, want codes.Code) {
 	}
 }
 
-func submit(t *testing.T, h *handler.VerificationHandler, ctx context.Context) string {
+func wantMessage(t *testing.T, err error, want string) {
+	t.Helper()
+	if got := status.Convert(err).Message(); got != want {
+		t.Fatalf("message = %q, want %q", got, want)
+	}
+}
+
+func submit(t *testing.T, h *rpc.Handler, ctx context.Context) string {
 	t.Helper()
 	sub, err := h.SubmitKyc(ctx, &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "mock-ref"})
 	if err != nil {
@@ -56,6 +82,7 @@ func submit(t *testing.T, h *handler.VerificationHandler, ctx context.Context) s
 }
 
 // Submit -> PENDING, an admin approves -> VERIFIED + badge for the owner.
+// Scenario: Submit then review through the handler.
 func TestHandlerSubmitReviewFlow(t *testing.T) {
 	h := newHandler()
 	id := submit(t, h, buyer("seller_1"))
@@ -86,6 +113,7 @@ func TestHandlerSubmitReviewFlow(t *testing.T) {
 	}
 }
 
+// Scenario: Two users do not see each other's status.
 func TestTwoUsersDoNotSeeEachOthersStatus(t *testing.T) {
 	h := newHandler()
 	id := submit(t, h, buyer("alice"))
@@ -124,6 +152,7 @@ func TestAnonymousAndNoPrincipalAreUnauthenticated(t *testing.T) {
 	}
 }
 
+// Scenario: A service principal cannot submit.
 func TestServicePrincipalCannotSubmit(t *testing.T) {
 	_, err := newHandler().SubmitKyc(service1(), &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "r"})
 	wantCode(t, err, codes.PermissionDenied)
@@ -143,6 +172,7 @@ func TestBuyerCannotReview(t *testing.T) {
 	}
 }
 
+// Scenario: An admin can review someone else.
 func TestAdminCanReviewSomeoneElse(t *testing.T) {
 	h := newHandler()
 	id := submit(t, h, buyer("alice"))
@@ -198,6 +228,7 @@ func TestHandlerBadDecisionIsInvalidArgument(t *testing.T) {
 
 // A decision is final: a second review (or a concurrent one that loses) gets
 // FailedPrecondition and leaves the first decision in place.
+// Scenario: A review decision is final through the handler.
 func TestReviewIsFinal(t *testing.T) {
 	h := newHandler()
 	id := submit(t, h, buyer("alice"))
