@@ -1,16 +1,8 @@
-// Package repository holds team-verification's persistence layer for KYC
-// submissions. It defines the KycRepository boundary plus a Postgres and an
-// in-memory implementation, mirroring team-notification's repo split so the
-// service and handler are unit-testable without a live database.
-//
-// MOCK scope: only document *references* (opaque storage keys / strings) are
-// stored — no real documents ever live here.
-package repository
+package store
 
 import (
 	"context"
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -47,7 +39,7 @@ type Submission struct {
 
 // KycRepository stores KYC submissions. One user may submit multiple times;
 // GetLatestByUser returns the most recent for status lookups. Owned by
-// team-verification. Both a Postgres and an in-memory implementation satisfy it.
+// team-verification.
 type KycRepository interface {
 	// Create persists a new submission (id pre-assigned by the caller/service).
 	Create(ctx context.Context, s *Submission) (*Submission, error)
@@ -81,7 +73,7 @@ func (r *PostgresKycRepo) Create(ctx context.Context, s *Submission) (*Submissio
 	if err := row.Scan(&s.CreatedAt); err != nil {
 		return nil, err
 	}
-	return cloneSubmission(s), nil
+	return clone(s), nil
 }
 
 func (r *PostgresKycRepo) GetByID(ctx context.Context, id string) (*Submission, error) {
@@ -135,73 +127,7 @@ func (r *PostgresKycRepo) scanRow(row pgx.Row) (*Submission, error) {
 	return &s, nil
 }
 
-// ── In-memory implementation ──
-
-type InMemoryKycRepo struct {
-	mu    sync.Mutex
-	byID  map[string]*Submission
-	order []string // insertion order, for deterministic "latest by user"
-}
-
-func NewInMemoryKycRepo() *InMemoryKycRepo {
-	return &InMemoryKycRepo{byID: make(map[string]*Submission)}
-}
-
-func (r *InMemoryKycRepo) Create(_ context.Context, s *Submission) (*Submission, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	stored := cloneSubmission(s)
-	if stored.CreatedAt.IsZero() {
-		stored.CreatedAt = time.Now()
-	}
-	r.byID[stored.ID] = stored
-	r.order = append(r.order, stored.ID)
-	return cloneSubmission(stored), nil
-}
-
-func (r *InMemoryKycRepo) GetByID(_ context.Context, id string) (*Submission, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	s, ok := r.byID[id]
-	if !ok {
-		return nil, ErrNotFound
-	}
-	return cloneSubmission(s), nil
-}
-
-func (r *InMemoryKycRepo) GetLatestByUser(_ context.Context, userID string) (*Submission, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	var latest *Submission
-	// Walk insertion order; the last matching entry is the most recent.
-	for _, id := range r.order {
-		if s := r.byID[id]; s.UserID == userID {
-			latest = s
-		}
-	}
-	if latest == nil {
-		return nil, ErrNotFound
-	}
-	return cloneSubmission(latest), nil
-}
-
-func (r *InMemoryKycRepo) UpdateStatus(_ context.Context, id string, status Status, reviewedAt time.Time) (*Submission, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	s, ok := r.byID[id]
-	if !ok {
-		return nil, ErrNotFound
-	}
-	if s.Status != StatusPending {
-		return nil, ErrAlreadyReviewed
-	}
-	s.Status = status
-	rt := reviewedAt
-	s.ReviewedAt = &rt
-	return cloneSubmission(s), nil
-}
-
-func cloneSubmission(s *Submission) *Submission {
+func clone(s *Submission) *Submission {
 	out := *s
 	if s.ReviewedAt != nil {
 		rt := *s.ReviewedAt
