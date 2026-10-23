@@ -26,7 +26,7 @@ func (s *Service) CreditSettlement(ctx context.Context, orderID, sellerID string
 			slog.String("order_id", orderID), slog.Int64("payment_amount", res.Transaction.Amount), slog.Int64("order_total", eventTotal))
 	}
 	s.logger.InfoContext(ctx, "settlement credit applied",
-		slog.String("order_id", orderID), slog.String("payment_id", res.Transaction.ID), slog.String("seller_id", sellerID),
+		slog.String("order_id", orderID), slog.String("payment_id", res.Transaction.ID),
 		slog.Bool("credited", res.Credited), slog.Bool("deducted", res.Deducted))
 	return nil
 }
