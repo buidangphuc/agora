@@ -1,16 +1,20 @@
-package repository
+package store_test
 
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
+
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 // follow→list roundtrip: following a seller shows up in IsFollowing and the
 // followed-sellers list.
 func TestFollows_Roundtrip(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	added, err := r.Follow(ctx, "userA", "seller_1")
@@ -55,7 +59,7 @@ func TestFollows_Roundtrip(t *testing.T) {
 
 // unfollow: removes the edge; IsFollowing flips to false and the list empties.
 func TestFollows_Unfollow(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	if _, err := r.Follow(ctx, "userA", "seller_1"); err != nil {
@@ -95,7 +99,7 @@ func TestFollows_Unfollow(t *testing.T) {
 
 // cross-user isolation: one user's follow graph never leaks into another's.
 func TestFollows_CrossUserIsolation(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	if _, err := r.Follow(ctx, "userA", "seller_1"); err != nil {
@@ -130,7 +134,7 @@ func TestFollows_CrossUserIsolation(t *testing.T) {
 // follow feed: ListFollowedListings returns the deduped union of listings from
 // every followed seller, and only from followed sellers.
 func TestFollows_FollowedListingsFeed(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	// Seed the seller→listing index (populated by listing events in prod).
@@ -185,7 +189,7 @@ func TestFollows_FollowedListingsFeed(t *testing.T) {
 // feed ordering: newest first (created_at DESC, listing id DESC on ties), with
 // stable keyset paging across pages.
 func TestFollows_FeedNewestFirstAndPaging(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 	base := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 
@@ -244,31 +248,58 @@ func TestFollows_FeedNewestFirstAndPaging(t *testing.T) {
 		}
 	}
 
-	if _, _, _, err := r.ListFollowedListings(ctx, "u", "garbage", 2); !errors.Is(err, ErrInvalidCursor) {
+	if _, _, _, err := r.ListFollowedListings(ctx, "u", "garbage", 2); !errors.Is(err, store.ErrInvalidCursor) {
 		t.Fatalf("garbage cursor: err=%v, want ErrInvalidCursor", err)
 	}
 }
 
-// UpsertSellerListing keeps the first created_at and a single owner; Remove is
-// idempotent.
 func TestFollows_UpsertKeepsCreatedAtAndSingleOwner(t *testing.T) {
-	r := NewInMemoryRepository()
-	ctx := context.Background()
-	t1 := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	_ = r.UpsertSellerListing(ctx, "s1", "l", t1)
-	_ = r.UpsertSellerListing(ctx, "s1", "l", t1.Add(time.Hour)) // redelivery/update
-	if got := r.sellerLs["s1"]["l"]; !got.Equal(t1) {
-		t.Fatalf("created_at = %v, want %v", got, t1)
+	pool := testPool(t)
+	repos := map[string]store.Repository{
+		"memory":   storetest.NewFakeRepository(),
+		"postgres": store.NewPostgresRepository(pool, testOutbox(t, pool)),
 	}
-	_ = r.UpsertSellerListing(ctx, "s2", "l", t1) // ownership moved
-	if _, ok := r.sellerLs["s1"]["l"]; ok {
-		t.Fatal("listing must belong to one seller only")
-	}
-	_ = r.RemoveSellerListing(ctx, "l")
-	if err := r.RemoveSellerListing(ctx, "l"); err != nil {
-		t.Fatal(err)
-	}
-	if len(r.sellerLs["s2"]) != 0 {
-		t.Fatal("listing must be removed")
+	for name, r := range repos {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			feed := func(user string) []string {
+				ids, _, _, err := r.ListFollowedListings(ctx, user, "", 50)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return ids
+			}
+			t1 := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+			for _, f := range []struct{ user, seller string }{{"u", "s1"}, {"u2", "s2"}} {
+				if _, err := r.Follow(ctx, f.user, f.seller); err != nil {
+					t.Fatal(err)
+				}
+			}
+			_ = r.UpsertSellerListing(ctx, "s1", "l", t1)
+			_ = r.UpsertSellerListing(ctx, "s1", "m", t1.Add(30*time.Minute))
+			_ = r.UpsertSellerListing(ctx, "s1", "l", t1.Add(time.Hour))
+			if got := feed("u"); !reflect.DeepEqual(got, []string{"m", "l"}) {
+				t.Fatalf("feed after redelivery = %v, want [m l] (l keeps its first created_at)", got)
+			}
+
+			_ = r.UpsertSellerListing(ctx, "s2", "l", t1)
+			if seller, found, err := r.ListingSeller(ctx, "l"); err != nil || !found || seller != "s2" {
+				t.Fatalf("owner of l = %q found=%v err=%v, want s2", seller, found, err)
+			}
+			if got := feed("u"); !reflect.DeepEqual(got, []string{"m"}) {
+				t.Fatalf("feed of the first seller's follower = %v, want [m] (l moved to s2)", got)
+			}
+			if got := feed("u2"); !reflect.DeepEqual(got, []string{"l"}) {
+				t.Fatalf("feed of the second seller's follower = %v, want [l]", got)
+			}
+
+			_ = r.RemoveSellerListing(ctx, "l")
+			if err := r.RemoveSellerListing(ctx, "l"); err != nil {
+				t.Fatal(err)
+			}
+			if got := feed("u2"); len(got) != 0 {
+				t.Fatalf("feed after removal = %v, want empty", got)
+			}
+		})
 	}
 }

@@ -5,13 +5,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 func TestCollectionService(t *testing.T) {
 	ctx := context.Background()
-	svc := service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil)
+	svc := service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil)
 
 	// Validation
 	if _, err := svc.CreateCollection(ctx, "u1", ""); !errors.Is(err, service.ErrEmptyCollectionName) {

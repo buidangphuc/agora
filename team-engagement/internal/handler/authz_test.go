@@ -12,8 +12,9 @@ import (
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/handler"
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
@@ -43,13 +44,13 @@ type fixture struct {
 
 // countingDisputes records how many disputes the service tried to store.
 type countingDisputes struct {
-	*repository.InMemoryDisputeRepository
+	*storetest.FakeDisputeRepository
 	creates int
 }
 
-func (c *countingDisputes) CreateDispute(ctx context.Context, d repository.Dispute) (repository.Dispute, error) {
+func (c *countingDisputes) CreateDispute(ctx context.Context, d store.Dispute) (store.Dispute, error) {
 	c.creates++
-	return c.InMemoryDisputeRepository.CreateDispute(ctx, d)
+	return c.FakeDisputeRepository.CreateDispute(ctx, d)
 }
 
 type orderParties struct{ buyer, seller string }
@@ -83,18 +84,18 @@ func (f *orderFake) GetOrderParties(ctx context.Context, id string) (string, str
 // exercised independently of CreateDispute's order verification.
 func newFixture(t *testing.T) (*fixture, string) {
 	t.Helper()
-	disputes := &countingDisputes{InMemoryDisputeRepository: repository.NewInMemoryDisputeRepository()}
+	disputes := &countingDisputes{FakeDisputeRepository: storetest.NewFakeDisputeRepository()}
 	orders := &orderFake{orders: fakeOrders{"order-1": {buyer: "buyer-1", seller: "seller-1"}}}
 	h := handler.NewEngagementHandler(
-		repository.NewInMemoryRepository(),
-		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
-		service.NewQAService(repository.NewInMemoryQARepository(), nil),
+		storetest.NewFakeRepository(),
+		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
+		service.NewQAService(storetest.NewFakeQARepository(), nil),
 		service.NewDisputeService(disputes, nil).WithAudit(&auditSpy{}),
-		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil),
+		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil),
 		handler.WithOrderParties(orders),
 	)
-	d, err := disputes.InMemoryDisputeRepository.CreateDispute(context.Background(), repository.Dispute{
-		OrderID: "order-1", ClaimantID: "buyer-1", DefendantID: "seller-1", Reason: "r", Status: repository.DisputeStatusOpen,
+	d, err := disputes.FakeDisputeRepository.CreateDispute(context.Background(), store.Dispute{
+		OrderID: "order-1", ClaimantID: "buyer-1", DefendantID: "seller-1", Reason: "r", Status: store.DisputeStatusOpen,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -152,12 +153,12 @@ func TestCreateDisputeVerifiesTheOrder(t *testing.T) {
 
 // Without an order client CreateDispute fails closed instead of trusting the request.
 func TestCreateDisputeFailsClosedWithoutOrderClient(t *testing.T) {
-	disputes := &countingDisputes{InMemoryDisputeRepository: repository.NewInMemoryDisputeRepository()}
-	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(),
-		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
-		service.NewQAService(repository.NewInMemoryQARepository(), nil),
+	disputes := &countingDisputes{FakeDisputeRepository: storetest.NewFakeDisputeRepository()}
+	h := handler.NewEngagementHandler(storetest.NewFakeRepository(),
+		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
+		service.NewQAService(storetest.NewFakeQARepository(), nil),
 		service.NewDisputeService(disputes, nil).WithAudit(&auditSpy{}),
-		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil))
+		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil))
 	_, err := h.CreateDispute(userCtx("buyer-1"), &engagementv1.CreateDisputeRequest{OrderId: "o", DefendantId: "s", Reason: "r"})
 	if status.Code(err) != codes.Unavailable {
 		t.Fatalf("want UNAVAILABLE, got %v", err)
@@ -226,12 +227,12 @@ func TestIsAdminRequiresScopeAndAuthentication(t *testing.T) {
 // shopReplyFixture: question on listing-1, owned by seller-1 in the seller_listings projection.
 func shopReplyFixture(t *testing.T) (*handler.EngagementHandler, string) {
 	t.Helper()
-	repo := repository.NewInMemoryRepository()
-	qaSvc := service.NewQAService(repository.NewInMemoryQARepository(), nil)
+	repo := storetest.NewFakeRepository()
+	qaSvc := service.NewQAService(storetest.NewFakeQARepository(), nil)
 	h := handler.NewEngagementHandler(repo,
-		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil), qaSvc,
-		service.NewDisputeService(repository.NewInMemoryDisputeRepository(), nil).WithAudit(&auditSpy{}),
-		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil))
+		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil), qaSvc,
+		service.NewDisputeService(storetest.NewFakeDisputeRepository(), nil).WithAudit(&auditSpy{}),
+		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil))
 	if err := repo.IndexSellerListing(context.Background(), "seller-1", "listing-1"); err != nil {
 		t.Fatal(err)
 	}
@@ -276,12 +277,12 @@ func TestIsShopReplyDerivedFromListingOwnership(t *testing.T) {
 func TestIsShopReplyFailsClosedForUnknownListing(t *testing.T) {
 	h, _ := shopReplyFixture(t)
 	// Question on a listing absent from the projection.
-	repo := repository.NewInMemoryRepository()
-	qa := service.NewQAService(repository.NewInMemoryQARepository(), nil)
+	repo := storetest.NewFakeRepository()
+	qa := service.NewQAService(storetest.NewFakeQARepository(), nil)
 	h2 := handler.NewEngagementHandler(repo,
-		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil), qa,
-		service.NewDisputeService(repository.NewInMemoryDisputeRepository(), nil).WithAudit(&auditSpy{}),
-		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil))
+		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil), qa,
+		service.NewDisputeService(storetest.NewFakeDisputeRepository(), nil).WithAudit(&auditSpy{}),
+		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil))
 	q, err := qa.AskQuestion(context.Background(), "unindexed-listing", "buyer-1", "ok?")
 	if err != nil {
 		t.Fatal(err)
@@ -327,7 +328,7 @@ func TestResolveDisputeIsAdminOnly(t *testing.T) {
 				t.Fatalf("want %v, got %v", c.want, got)
 			}
 			d, err := f.disputes.GetDispute(context.Background(), id)
-			if err != nil || d.Status != repository.DisputeStatusOpen {
+			if err != nil || d.Status != store.DisputeStatusOpen {
 				t.Fatalf("dispute must stay OPEN: %v %v", d.Status, err)
 			}
 		})
@@ -351,35 +352,35 @@ func TestAdminResolvesOnceThenFailedPrecondition(t *testing.T) {
 
 // brokenDisputes fails every call with an error carrying storage details.
 type brokenDisputes struct {
-	*repository.InMemoryDisputeRepository
+	*storetest.FakeDisputeRepository
 }
 
 var errLeaky = errors.New(`pq: password authentication failed for user "engagement_svc" at db.internal:5432`)
 
-func (brokenDisputes) CreateDispute(context.Context, repository.Dispute) (repository.Dispute, error) {
-	return repository.Dispute{}, errLeaky
+func (brokenDisputes) CreateDispute(context.Context, store.Dispute) (store.Dispute, error) {
+	return store.Dispute{}, errLeaky
 }
-func (brokenDisputes) GetDispute(context.Context, string) (repository.Dispute, error) {
-	return repository.Dispute{}, errLeaky
+func (brokenDisputes) GetDispute(context.Context, string) (store.Dispute, error) {
+	return store.Dispute{}, errLeaky
 }
 
 type brokenQA struct {
-	*repository.InMemoryQARepository
+	*storetest.FakeQARepository
 }
 
-func (brokenQA) CreateAnswer(context.Context, repository.ProductAnswer) (repository.ProductAnswer, error) {
-	return repository.ProductAnswer{}, errLeaky
+func (brokenQA) CreateAnswer(context.Context, store.ProductAnswer) (store.ProductAnswer, error) {
+	return store.ProductAnswer{}, errLeaky
 }
 
 func TestInternalErrorsAreGeneric(t *testing.T) {
-	disputes := brokenDisputes{repository.NewInMemoryDisputeRepository()}
-	qa := brokenQA{repository.NewInMemoryQARepository()}
-	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(),
-		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
+	disputes := brokenDisputes{storetest.NewFakeDisputeRepository()}
+	qa := brokenQA{storetest.NewFakeQARepository()}
+	h := handler.NewEngagementHandler(storetest.NewFakeRepository(),
+		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
 		service.NewQAService(qa, nil), service.NewDisputeService(disputes, nil).WithAudit(&auditSpy{}),
-		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil),
+		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil),
 		handler.WithOrderParties(fakeOrders{"order-1": {buyer: "buyer-1", seller: "seller-1"}}))
-	q, err := qa.CreateQuestion(context.Background(), repository.ProductQuestion{ListingID: "l", UserID: "buyer-1", QuestionText: "q"})
+	q, err := qa.CreateQuestion(context.Background(), store.ProductQuestion{ListingID: "l", UserID: "buyer-1", QuestionText: "q"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -436,7 +437,7 @@ func TestResolveDisputeWithRulingIsAdminOnly(t *testing.T) {
 				t.Fatalf("want %v, got %v", want, err)
 			}
 			d, gerr := f.disputes.GetDispute(context.Background(), id)
-			if gerr != nil || d.Status != repository.DisputeStatusOpen || d.Ruling != engagementv1.DisputeRuling_DISPUTE_RULING_UNSPECIFIED {
+			if gerr != nil || d.Status != store.DisputeStatusOpen || d.Ruling != engagementv1.DisputeRuling_DISPUTE_RULING_UNSPECIFIED {
 				t.Fatalf("dispute must be unchanged: %+v %v", d, gerr)
 			}
 		})

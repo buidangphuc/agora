@@ -12,19 +12,19 @@ import (
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/handler"
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 func TestEngagementHandler(t *testing.T) {
-	repo := repository.NewInMemoryRepository()
-	reviewRepo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeRepository()
+	reviewRepo := storetest.NewFakeReviewRepository()
 	reviewSvc := service.NewReviewService(reviewRepo, nil, nil)
-	qaRepo := repository.NewInMemoryQARepository()
+	qaRepo := storetest.NewFakeQARepository()
 	qaSvc := service.NewQAService(qaRepo, nil)
-	disputeRepo := repository.NewInMemoryDisputeRepository()
+	disputeRepo := storetest.NewFakeDisputeRepository()
 	disputeSvc := service.NewDisputeService(disputeRepo, nil).WithAudit(&auditSpy{})
-	collectionRepo := repository.NewInMemoryCollectionRepository()
+	collectionRepo := storetest.NewFakeCollectionRepository()
 	collectionSvc := service.NewCollectionService(collectionRepo, nil)
 
 	// buyer_test owns order-1, sold by seller-1 (CreateDispute verifies this).
@@ -489,8 +489,8 @@ func TestCreateReviewVerifierDownUnavailable(t *testing.T) {
 }
 
 func TestCreateReviewNoVerifierUnavailable(t *testing.T) {
-	svc := service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil)
-	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(), svc, nil, nil, nil)
+	svc := service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil)
+	h := handler.NewEngagementHandler(storetest.NewFakeRepository(), svc, nil, nil, nil)
 	_, err := h.CreateReview(userCtx("buyer-1"), createReviewReq("L-1", "order-1", 5))
 	if status.Code(err) != codes.Unavailable {
 		t.Fatalf("want Unavailable, got %v", err)

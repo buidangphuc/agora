@@ -1,4 +1,4 @@
-package repository
+package store_test
 
 import (
 	"bytes"
@@ -13,14 +13,15 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
+	"github.com/buidangphuc/team-engagement/internal/store"
 )
 
 const reviewHiddenType = "platform.engagement.v1.ReviewHidden"
 
-func seedHideReview(t *testing.T, pool *pgxpool.Pool, id, listing string) *PostgresReviewRepository {
+func seedHideReview(t *testing.T, pool *pgxpool.Pool, id, listing string) *store.PostgresReviewRepository {
 	t.Helper()
-	repo := NewPostgresReviewRepository(pool)
-	if _, err := repo.CreateReview(callerCtx(), Review{ID: id, ListingID: listing, UserID: "u-" + id, OrderID: "O-" + id, Rating: 4, Comment: "nice", VerifiedPurchase: true}); err != nil {
+	repo := store.NewPostgresReviewRepository(pool, testOutbox(t, pool))
+	if _, err := repo.CreateReview(callerCtx(), store.Review{ID: id, ListingID: listing, UserID: "u-" + id, OrderID: "O-" + id, Rating: 4, Comment: "nice", VerifiedPurchase: true}); err != nil {
 		t.Fatal(err)
 	}
 	return repo
@@ -28,19 +29,12 @@ func seedHideReview(t *testing.T, pool *pgxpool.Pool, id, listing string) *Postg
 
 func hiddenRows(t *testing.T, pool *pgxpool.Pool) (keys []string, payloads [][]byte) {
 	t.Helper()
-	rows, err := pool.Query(context.Background(), `SELECT key, payload FROM outbox WHERE type=$1 ORDER BY seq`, reviewHiddenType)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var k string
-		var p []byte
-		if err := rows.Scan(&k, &p); err != nil {
-			t.Fatal(err)
+	for _, f := range factsOfType(t, pool, reviewHiddenType) {
+		if f.aggregateType != "Listing" {
+			t.Fatalf("ReviewHidden aggregate type = %q, want Listing", f.aggregateType)
 		}
-		keys = append(keys, k)
-		payloads = append(payloads, p)
+		keys = append(keys, f.aggregateID)
+		payloads = append(payloads, f.env.GetPayload())
 	}
 	return
 }
@@ -109,9 +103,9 @@ func TestHideReviewRollsBackWhenEnqueueFails(t *testing.T) {
 	ctx := context.Background()
 	if _, err := pool.Exec(ctx, `
 CREATE FUNCTION fail_review_hidden() RETURNS trigger AS $$ BEGIN
-  IF NEW.type = 'platform.engagement.v1.ReviewHidden' THEN RAISE EXCEPTION 'outbox down'; END IF;
+  IF NEW.event_type = 'platform.engagement.v1.ReviewHidden' THEN RAISE EXCEPTION 'outbox down'; END IF;
   RETURN NEW; END $$ LANGUAGE plpgsql;
-CREATE TRIGGER fail_review_hidden BEFORE INSERT ON outbox FOR EACH ROW EXECUTE FUNCTION fail_review_hidden();`); err != nil {
+CREATE TRIGGER fail_review_hidden BEFORE INSERT ON engagement_outbox_events FOR EACH ROW EXECUTE FUNCTION fail_review_hidden();`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := repo.HideReview(callerCtx(), "r1", "admin-1", "spam"); err == nil {
@@ -119,7 +113,7 @@ CREATE TRIGGER fail_review_hidden BEFORE INSERT ON outbox FOR EACH ROW EXECUTE F
 	}
 	var hidden, rows int
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM reviews WHERE hidden_at IS NOT NULL`).Scan(&hidden)
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM outbox WHERE type=$1`, reviewHiddenType).Scan(&rows)
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM engagement_outbox_events WHERE event_type=$1`, reviewHiddenType).Scan(&rows)
 	if hidden != 0 || rows != 0 {
 		t.Fatalf("hidden rows=%d outbox rows=%d, want 0/0", hidden, rows)
 	}
@@ -176,13 +170,54 @@ func TestHideReviewConcurrentEnqueuesOnce(t *testing.T) {
 // Scenario: Review hidden event: unknown review emits nothing
 func TestHideReviewUnknownEnqueuesNothing(t *testing.T) {
 	pool := testPool(t)
-	repo := NewPostgresReviewRepository(pool)
-	if _, err := repo.HideReview(callerCtx(), "missing", "admin-1", "x"); !errors.Is(err, ErrReviewNotFound) {
+	repo := store.NewPostgresReviewRepository(pool, testOutbox(t, pool))
+	if _, err := repo.HideReview(callerCtx(), "missing", "admin-1", "x"); !errors.Is(err, store.ErrReviewNotFound) {
 		t.Fatalf("err = %v, want ErrReviewNotFound", err)
 	}
 	var n int
-	_ = pool.QueryRow(context.Background(), `SELECT count(*) FROM outbox`).Scan(&n)
+	_ = pool.QueryRow(context.Background(), `SELECT count(*) FROM engagement_outbox_events`).Scan(&n)
 	if n != 0 {
 		t.Fatalf("outbox rows = %d, want 0", n)
+	}
+}
+
+// Scenario: Engagement SDK: Hiding a review writes ReviewHidden without moderator data
+func TestHideReviewEnqueuesReviewHiddenOnce(t *testing.T) {
+	pool := testPool(t)
+	repo := seedHideReview(t, pool, "R1", "L1")
+
+	changed, err := repo.HideReview(callerCtx(), "R1", "admin-1", "spam link")
+	if err != nil || !changed {
+		t.Fatalf("hide: changed=%v err=%v", changed, err)
+	}
+	rows := factsOfType(t, pool, reviewHiddenType)
+	if len(rows) != 1 {
+		t.Fatalf("ReviewHidden rows = %d, want 1", len(rows))
+	}
+	if rows[0].aggregateType != "Listing" || rows[0].aggregateID != "L1" {
+		t.Fatalf("row key = %s/%s, want Listing/L1", rows[0].aggregateType, rows[0].aggregateID)
+	}
+	if rows[0].env.GetType() != reviewHiddenType {
+		t.Fatalf("envelope type = %q", rows[0].env.GetType())
+	}
+	payload := rows[0].env.GetPayload()
+	var got engagementv1.ReviewHidden
+	if err := proto.Unmarshal(payload, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.GetReviewId() != "R1" || got.GetListingId() != "L1" || got.GetHiddenAt() == nil {
+		t.Fatalf("payload = %v, want review_id R1, listing_id L1 and hidden_at", &got)
+	}
+	for _, leak := range []string{"admin-1", "spam link", "u-R1", "nice"} {
+		if bytes.Contains(payload, []byte(leak)) {
+			t.Fatalf("payload leaks %q", leak)
+		}
+	}
+
+	if changed, err := repo.HideReview(callerCtx(), "R1", "admin-2", "again"); err != nil || changed {
+		t.Fatalf("second hide: changed=%v err=%v, want false,nil", changed, err)
+	}
+	if n := len(factsOfType(t, pool, reviewHiddenType)); n != 1 {
+		t.Fatalf("ReviewHidden rows after second hide = %d, want 1", n)
 	}
 }

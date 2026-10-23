@@ -11,35 +11,36 @@ import (
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 type disputeAuditFixture struct {
 	h     *handler.EngagementHandler
-	repo  *repository.InMemoryDisputeRepository
+	repo  *storetest.FakeDisputeRepository
 	audit *auditSpy
 }
 
 func newDisputeAuditFixture(t *testing.T) *disputeAuditFixture {
 	t.Helper()
-	repo := repository.NewInMemoryDisputeRepository()
+	repo := storetest.NewFakeDisputeRepository()
 	audit := &auditSpy{}
 	orders := &orderFake{orders: fakeOrders{"order-1": {buyer: "buyer-1", seller: "seller-1"}}}
 	h := handler.NewEngagementHandler(
-		repository.NewInMemoryRepository(),
-		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
-		service.NewQAService(repository.NewInMemoryQARepository(), nil),
+		storetest.NewFakeRepository(),
+		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
+		service.NewQAService(storetest.NewFakeQARepository(), nil),
 		service.NewDisputeService(repo, nil).WithAudit(audit),
-		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil),
+		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil),
 		handler.WithOrderParties(orders),
 	)
 	return &disputeAuditFixture{h: h, repo: repo, audit: audit}
 }
 
-func (f *disputeAuditFixture) seed(t *testing.T, st repository.DisputeStatus) string {
+func (f *disputeAuditFixture) seed(t *testing.T, st store.DisputeStatus) string {
 	t.Helper()
-	d, err := f.repo.CreateDispute(context.Background(), repository.Dispute{
+	d, err := f.repo.CreateDispute(context.Background(), store.Dispute{
 		OrderID: "o-1", ClaimantID: "buyer-1", DefendantID: "seller-1", Reason: "r", Status: st,
 	})
 	if err != nil {
@@ -53,7 +54,7 @@ func (f *disputeAuditFixture) resolve(ctx context.Context, id string, st engagem
 	return err
 }
 
-func (f *disputeAuditFixture) stored(t *testing.T, id string) repository.Dispute {
+func (f *disputeAuditFixture) stored(t *testing.T, id string) store.Dispute {
 	t.Helper()
 	d, err := f.repo.GetDispute(context.Background(), id)
 	if err != nil {
@@ -78,11 +79,11 @@ const (
 // Scenario: Dispute audit: Admin resolves a dispute and one event is written
 func TestResolveDisputeWritesAuditEvent(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusInvestigating)
+	id := f.seed(t, store.DisputeStatusInvestigating)
 	if err := f.resolve(adminCtxAs("adm-1"), id, stResolved, "refund buyer"); err != nil {
 		t.Fatalf("ResolveDispute: %v", err)
 	}
-	if f.stored(t, id).Status != repository.DisputeStatusResolved {
+	if f.stored(t, id).Status != store.DisputeStatusResolved {
 		t.Fatal("dispute must be resolved")
 	}
 	if len(f.audit.generic) != 1 {
@@ -100,7 +101,7 @@ func TestResolveDisputeWritesAuditEvent(t *testing.T) {
 // Scenario: Dispute audit: Investigating dispute can be updated again with one event each
 func TestResolveDisputeInvestigatingRepeatAudited(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusOpen)
+	id := f.seed(t, store.DisputeStatusOpen)
 	for i := 0; i < 2; i++ {
 		if err := f.resolve(adminCtx(), id, stInvestigating, "looking"); err != nil {
 			t.Fatalf("call %d: %v", i, err)
@@ -116,7 +117,7 @@ func TestResolveDisputeAuditsEveryStatus(t *testing.T) {
 	f := newDisputeAuditFixture(t)
 	for st, want := range map[engagementv1.DisputeStatus]string{stRejected: "rejected", stInvestigating: "investigating"} {
 		before := len(f.audit.generic)
-		if err := f.resolve(adminCtx(), f.seed(t, repository.DisputeStatusOpen), st, "n"); err != nil {
+		if err := f.resolve(adminCtx(), f.seed(t, store.DisputeStatusOpen), st, "n"); err != nil {
 			t.Fatalf("%v: %v", st, err)
 		}
 		if len(f.audit.generic) != before+1 || f.audit.generic[before].Metadata["status"] != want {
@@ -128,7 +129,7 @@ func TestResolveDisputeAuditsEveryStatus(t *testing.T) {
 // Scenario: Dispute audit: Resolution note is trimmed in the event
 func TestResolveDisputeAuditResolutionTrimmed(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusInvestigating)
+	id := f.seed(t, store.DisputeStatusInvestigating)
 	if err := f.resolve(adminCtx(), id, stResolved, "  refund  "); err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +144,7 @@ func TestResolveDisputeAuditResolutionTrimmed(t *testing.T) {
 // Scenario: Dispute audit: Empty resolution is audited as empty
 func TestResolveDisputeEmptyResolutionAudited(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusOpen)
+	id := f.seed(t, store.DisputeStatusOpen)
 	if err := f.resolve(adminCtx(), id, stInvestigating, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -158,30 +159,30 @@ func TestResolveDisputeEmptyResolutionAudited(t *testing.T) {
 // Scenario: Dispute audit: Audit error leaves the dispute open (handler maps to Unavailable)
 func TestResolveDisputeAuditDownIsUnavailable(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusInvestigating)
+	id := f.seed(t, store.DisputeStatusInvestigating)
 	f.audit.err = errors.New("team-audit down")
 	if got := status.Code(f.resolve(adminCtx(), id, stResolved, "x")); got != codes.Unavailable {
 		t.Fatalf("want Unavailable, got %v", got)
 	}
-	if d := f.stored(t, id); d.Status != repository.DisputeStatusInvestigating || d.Resolution != "" {
+	if d := f.stored(t, id); d.Status != store.DisputeStatusInvestigating || d.Resolution != "" {
 		t.Fatalf("dispute must be unchanged: %+v", d)
 	}
 }
 
 // Scenario: Dispute audit: No audit upstream configured (handler maps to Unavailable)
 func TestResolveDisputeNoAuditConfiguredIsUnavailable(t *testing.T) {
-	repo := repository.NewInMemoryDisputeRepository()
-	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(),
-		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
-		service.NewQAService(repository.NewInMemoryQARepository(), nil),
+	repo := storetest.NewFakeDisputeRepository()
+	h := handler.NewEngagementHandler(storetest.NewFakeRepository(),
+		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
+		service.NewQAService(storetest.NewFakeQARepository(), nil),
 		service.NewDisputeService(repo, nil),
-		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil))
-	d, _ := repo.CreateDispute(context.Background(), repository.Dispute{OrderID: "o-1", ClaimantID: "b", DefendantID: "s", Reason: "r", Status: repository.DisputeStatusInvestigating})
+		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil))
+	d, _ := repo.CreateDispute(context.Background(), store.Dispute{OrderID: "o-1", ClaimantID: "b", DefendantID: "s", Reason: "r", Status: store.DisputeStatusInvestigating})
 	_, err := h.ResolveDispute(adminCtx(), &engagementv1.ResolveDisputeRequest{DisputeId: d.ID, Status: stResolved})
 	if status.Code(err) != codes.Unavailable {
 		t.Fatalf("want Unavailable, got %v", err)
 	}
-	if got, _ := repo.GetDispute(context.Background(), d.ID); got.Status != repository.DisputeStatusInvestigating {
+	if got, _ := repo.GetDispute(context.Background(), d.ID); got.Status != store.DisputeStatusInvestigating {
 		t.Fatalf("dispute changed: %+v", got)
 	}
 }
@@ -202,7 +203,7 @@ func TestDisputeReadWriteIndependentOfAudit(t *testing.T) {
 // Scenario: Dispute audit: Anonymous caller is unauthenticated
 func TestResolveDisputeAnonymousNoAudit(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusOpen)
+	id := f.seed(t, store.DisputeStatusOpen)
 	for name, ctx := range map[string]context.Context{"anonymous": anonCtx(), "no principal": context.Background()} {
 		if got := status.Code(f.resolve(ctx, id, stResolved, "x")); got != codes.Unauthenticated {
 			t.Fatalf("%s: want Unauthenticated, got %v", name, got)
@@ -214,7 +215,7 @@ func TestResolveDisputeAnonymousNoAudit(t *testing.T) {
 // Scenario: Dispute audit: Non-admin is denied
 func TestResolveDisputeNonAdminDeniedNoAudit(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusOpen)
+	id := f.seed(t, store.DisputeStatusOpen)
 	for name, ctx := range map[string]context.Context{
 		"buyer":   userCtx("buyer-1"),
 		"seller":  userCtx("seller-1"),
@@ -225,7 +226,7 @@ func TestResolveDisputeNonAdminDeniedNoAudit(t *testing.T) {
 		}
 	}
 	f.assertNoEvent(t)
-	if d := f.stored(t, id); d.Status != repository.DisputeStatusOpen {
+	if d := f.stored(t, id); d.Status != store.DisputeStatusOpen {
 		t.Fatalf("dispute changed: %+v", d)
 	}
 }
@@ -251,7 +252,7 @@ func TestResolveDisputeEmptyIDNoAudit(t *testing.T) {
 // Scenario: Dispute audit: Invalid status is rejected
 func TestResolveDisputeInvalidStatusNoAudit(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	id := f.seed(t, repository.DisputeStatusOpen)
+	id := f.seed(t, store.DisputeStatusOpen)
 	for _, st := range []engagementv1.DisputeStatus{engagementv1.DisputeStatus_DISPUTE_STATUS_UNSPECIFIED, engagementv1.DisputeStatus_DISPUTE_STATUS_OPEN} {
 		if got := status.Code(f.resolve(adminCtx(), id, st, "x")); got != codes.InvalidArgument {
 			t.Fatalf("%v: want InvalidArgument, got %v", st, got)
@@ -276,7 +277,7 @@ func TestResolveDisputeNotFoundNoAudit(t *testing.T) {
 // Scenario: Dispute audit: Already closed dispute is not re-audited
 func TestResolveDisputeClosedNoAudit(t *testing.T) {
 	f := newDisputeAuditFixture(t)
-	for _, st := range []repository.DisputeStatus{repository.DisputeStatusResolved, repository.DisputeStatusRejected} {
+	for _, st := range []store.DisputeStatus{store.DisputeStatusResolved, store.DisputeStatusRejected} {
 		id := f.seed(t, st)
 		if got := status.Code(f.resolve(adminCtx(), id, stResolved, "x")); got != codes.FailedPrecondition {
 			t.Fatalf("%s: want FailedPrecondition, got %v", st, got)

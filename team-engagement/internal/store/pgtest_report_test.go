@@ -1,18 +1,20 @@
-package repository
+package store_test
 
 import (
 	"context"
-	"os"
+	"io/fs"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/team-engagement/migrations"
 )
 
 // Scenario: Listing reports: Migration creates the schema (files present; needs no database)
 func TestMigrationReportsFilesExist(t *testing.T) {
 	for _, f := range []string{"0012_reports.up.sql", "0012_reports.down.sql"} {
-		b, err := os.ReadFile("../../migrations/" + f)
+		b, err := fs.ReadFile(migrations.FS, f)
 		if err != nil || strings.TrimSpace(string(b)) == "" {
 			t.Fatalf("migration %s missing or empty: %v", f, err)
 		}
@@ -107,9 +109,9 @@ func TestMigrationReportsDown(t *testing.T) {
 		t.Fatal(err)
 	}
 	var tablesBefore int
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&tablesBefore)
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema=current_schema()`).Scan(&tablesBefore)
 
-	b, err := os.ReadFile("../../migrations/0012_reports.down.sql")
+	b, err := fs.ReadFile(migrations.FS, "0012_reports.down.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +122,7 @@ func TestMigrationReportsDown(t *testing.T) {
 	var tbl, idx, tablesAfter, reviews int
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_name='reports'`).Scan(&tbl)
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM pg_indexes WHERE tablename='reports'`).Scan(&idx)
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&tablesAfter)
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema=current_schema()`).Scan(&tablesAfter)
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM reviews`).Scan(&reviews)
 	if tbl != 0 || idx != 0 {
 		t.Fatalf("after down: reports table=%d indexes=%d, want 0/0", tbl, idx)

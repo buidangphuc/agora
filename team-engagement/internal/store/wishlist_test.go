@@ -1,16 +1,17 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	"github.com/buidangphuc/team-engagement/internal/repository"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 func TestInMemoryCollectionRepository(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryCollectionRepository()
+	repo := storetest.NewFakeCollectionRepository()
 
 	// 1. Create a collection
 	col, err := repo.CreateCollection(ctx, "user-1", "Nhà đẹp")
@@ -78,10 +79,10 @@ func TestInMemoryCollectionRepository(t *testing.T) {
 	}
 
 	// 6. Ownership: another user cannot touch the collection
-	if _, err := repo.AddToCollection(ctx, "user-2", col.ID, "listing-x"); !errors.Is(err, repository.ErrCollectionNotFound) {
+	if _, err := repo.AddToCollection(ctx, "user-2", col.ID, "listing-x"); !errors.Is(err, store.ErrCollectionNotFound) {
 		t.Fatalf("expected ErrCollectionNotFound for foreign add, got %v", err)
 	}
-	if _, _, _, err := repo.ListCollectionItems(ctx, "user-2", col.ID, "", 50); !errors.Is(err, repository.ErrCollectionNotFound) {
+	if _, _, _, err := repo.ListCollectionItems(ctx, "user-2", col.ID, "", 50); !errors.Is(err, store.ErrCollectionNotFound) {
 		t.Fatalf("expected ErrCollectionNotFound for foreign list, got %v", err)
 	}
 	// user-2 sees none of user-1's collections
@@ -92,7 +93,7 @@ func TestInMemoryCollectionRepository(t *testing.T) {
 
 func TestInMemoryCollectionItemsPagination(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryCollectionRepository()
+	repo := storetest.NewFakeCollectionRepository()
 	col, _ := repo.CreateCollection(ctx, "user-1", "Big")
 	for _, id := range []string{"l1", "l2", "l3", "l4"} {
 		if _, err := repo.AddToCollection(ctx, "user-1", col.ID, id); err != nil {

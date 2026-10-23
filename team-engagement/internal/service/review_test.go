@@ -13,10 +13,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	"github.com/buidangphuc/team-engagement/internal/interceptor"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
@@ -45,7 +48,7 @@ func (f *fakeVerifier) VerifyPurchase(_ context.Context, buyerID, listingID, ord
 	return ok, seller, nil
 }
 
-func total(t *testing.T, repo repository.ReviewRepository, listing string) int64 {
+func total(t *testing.T, repo store.ReviewRepository, listing string) int64 {
 	t.Helper()
 	_, n, err := repo.ListReviews(context.Background(), listing, 0, 0, 100)
 	if err != nil {
@@ -56,7 +59,7 @@ func total(t *testing.T, repo repository.ReviewRepository, listing string) int64
 
 func TestCreateReviewVerifiedStoresVerified(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	verifier := eligible("seller-1", "buyer-1|order-1|listing-1")
 	svc := service.NewReviewService(repo, verifier, nil)
 
@@ -78,7 +81,7 @@ func TestCreateReviewVerifiedStoresVerified(t *testing.T) {
 }
 
 func TestCreateReviewEmptyOrderIDRejected(t *testing.T) {
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	verifier := eligible("s", "buyer-1||listing-1")
 	svc := service.NewReviewService(repo, verifier, nil)
 	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "", 5, "", nil)
@@ -91,7 +94,7 @@ func TestCreateReviewEmptyOrderIDRejected(t *testing.T) {
 }
 
 func TestCreateReviewIneligibleOrderFailedPrecondition(t *testing.T) {
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	svc := service.NewReviewService(repo, eligible("s"), nil) // nothing eligible
 	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
 	if !errors.Is(err, service.ErrOrderNotEligible) {
@@ -103,7 +106,7 @@ func TestCreateReviewIneligibleOrderFailedPrecondition(t *testing.T) {
 }
 
 func TestCreateReviewVerifierErrorUnavailable(t *testing.T) {
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	verifier := &fakeVerifier{err: errors.New("order unavailable")}
 	svc := service.NewReviewService(repo, verifier, nil)
 
@@ -120,7 +123,7 @@ func TestCreateReviewVerifierErrorUnavailable(t *testing.T) {
 }
 
 func TestCreateReviewNilVerifierUnavailable(t *testing.T) {
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	svc := service.NewReviewService(repo, nil, nil)
 	_, err := svc.CreateReview(context.Background(), "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
 	if !errors.Is(err, service.ErrOrderUnavailable) {
@@ -133,7 +136,7 @@ func TestCreateReviewNilVerifierUnavailable(t *testing.T) {
 
 func TestCreateReviewRatingBounds(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	svc := service.NewReviewService(repo,
 		eligible("seller-1", "buyer-1|order-1|listing-1", "buyer-1|order-1|listing-2"), nil)
 
@@ -155,7 +158,7 @@ func TestCreateReviewRatingBounds(t *testing.T) {
 
 func TestCreateReviewSameOrderTwoListings(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	svc := service.NewReviewService(repo,
 		eligible("seller-1", "buyer-1|order-1|listing-1", "buyer-1|order-1|listing-2"), nil)
 	for _, l := range []string{"listing-1", "listing-2"} {
@@ -167,13 +170,13 @@ func TestCreateReviewSameOrderTwoListings(t *testing.T) {
 
 func TestCreateReviewDuplicateOrderListingRefused(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	svc := service.NewReviewService(repo, eligible("seller-1", "buyer-1|order-1|listing-1"), nil)
 	if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", "order-1", 4, "", nil); err != nil {
 		t.Fatal(err)
 	}
 	_, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", "order-1", 5, "", nil)
-	if !errors.Is(err, repository.ErrDuplicateReview) {
+	if !errors.Is(err, store.ErrDuplicateReview) {
 		t.Fatalf("want ErrDuplicateReview, got %v", err)
 	}
 	if total(t, repo, "listing-1") != 1 {
@@ -199,7 +202,7 @@ func TestCreateReviewRefusedWritesNoOutbox(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			repo := repository.NewInMemoryReviewRepository()
+			repo := storetest.NewFakeReviewRepository()
 			svc := service.NewReviewService(repo, c.verifier, nil)
 			if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", c.order, c.rating, "", nil); !errors.Is(err, c.want) {
 				t.Fatalf("want %v, got %v", c.want, err)
@@ -237,7 +240,7 @@ func (a *spyAudit) WriteEvent(context.Context, upstream.AuditEvent) error { retu
 
 // spyRepo records the hide call order and can fail the hide update.
 type spyRepo struct {
-	*repository.InMemoryReviewRepository
+	*storetest.FakeReviewRepository
 	log     *callLog
 	hideErr error
 }
@@ -247,7 +250,7 @@ func (r *spyRepo) HideReview(ctx context.Context, id, adminID, reason string) (b
 	if r.hideErr != nil {
 		return false, r.hideErr
 	}
-	return r.InMemoryReviewRepository.HideReview(ctx, id, adminID, reason)
+	return r.FakeReviewRepository.HideReview(ctx, id, adminID, reason)
 }
 
 type hideFixture struct {
@@ -255,21 +258,21 @@ type hideFixture struct {
 	repo   *spyRepo
 	audit  *spyAudit
 	log    *callLog
-	review repository.Review
+	review store.Review
 }
 
 func newHideFixture(t *testing.T) *hideFixture {
 	t.Helper()
 	log := &callLog{}
-	mem := repository.NewInMemoryReviewRepository()
-	rev, err := mem.CreateReview(context.Background(), repository.Review{
+	mem := storetest.NewFakeReviewRepository()
+	rev, err := mem.CreateReview(context.Background(), store.Review{
 		ListingID: "L-1", UserID: "buyer-1", OrderID: "order-1", Rating: 1,
 		VerifiedPurchase: true, SellerID: "seller-1",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := &spyRepo{InMemoryReviewRepository: mem, log: log}
+	repo := &spyRepo{FakeReviewRepository: mem, log: log}
 	audit := &spyAudit{log: log}
 	return &hideFixture{svc: service.NewReviewService(repo, nil, nil).WithAudit(audit), repo: repo, audit: audit, log: log, review: rev}
 }
@@ -347,7 +350,7 @@ func TestHideReviewUpdateFailureInternalThenRetry(t *testing.T) {
 	if err == nil || !errors.Is(err, boom) {
 		t.Fatalf("want the raw repository error (mapped to Internal by the handler), got %v", err)
 	}
-	for _, s := range []error{service.ErrAuditUnavailable, service.ErrEmptyReason, service.ErrReasonTooLong, service.ErrEmptyReviewID, repository.ErrReviewNotFound} {
+	for _, s := range []error{service.ErrAuditUnavailable, service.ErrEmptyReason, service.ErrReasonTooLong, service.ErrEmptyReviewID, store.ErrReviewNotFound} {
 		if errors.Is(err, s) {
 			t.Fatalf("update failure must not be classified as %v", s)
 		}
@@ -426,7 +429,7 @@ func TestHideReviewReasonValidation(t *testing.T) {
 
 func TestHideReviewUnknownAndEmptyID(t *testing.T) {
 	f := newHideFixture(t)
-	if err := f.svc.HideReview(context.Background(), "adm-1", "nope", "spam"); !errors.Is(err, repository.ErrReviewNotFound) {
+	if err := f.svc.HideReview(context.Background(), "adm-1", "nope", "spam"); !errors.Is(err, store.ErrReviewNotFound) {
 		t.Fatalf("want ErrReviewNotFound, got %v", err)
 	}
 	if err := f.svc.HideReview(context.Background(), "adm-1", "", "spam"); !errors.Is(err, service.ErrEmptyReviewID) {
@@ -439,10 +442,10 @@ func TestHideReviewUnknownAndEmptyID(t *testing.T) {
 
 func TestMarkHelpfulIdempotentPerUser(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	svc := service.NewReviewService(repo, nil, nil)
 
-	rev, err := repo.CreateReview(ctx, repository.Review{ListingID: "listing-1", UserID: "buyer-1", Rating: 5})
+	rev, err := repo.CreateReview(ctx, store.Review{ListingID: "listing-1", UserID: "buyer-1", Rating: 5})
 	if err != nil {
 		t.Fatalf("seed review: %v", err)
 	}
@@ -473,14 +476,14 @@ func TestMarkHelpfulIdempotentPerUser(t *testing.T) {
 	}
 
 	// Unknown review → not found.
-	if _, err := svc.MarkHelpful(ctx, "no-such-review", "user-a"); !errors.Is(err, repository.ErrReviewNotFound) {
+	if _, err := svc.MarkHelpful(ctx, "no-such-review", "user-a"); !errors.Is(err, store.ErrReviewNotFound) {
 		t.Fatalf("expected ErrReviewNotFound, got %v", err)
 	}
 }
 
 func TestGetShopRatingSummaryAcrossListings(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	verifier := eligible("seller-1",
 		"b1|o1|listing-1", "b2|o2|listing-1", "b3|o3|listing-2")
 	svc := service.NewReviewService(repo, verifier, nil)
@@ -573,7 +576,7 @@ func reviewHiddenCount(t *testing.T, pool *pgxpool.Pool) int {
 	t.Helper()
 	var n int
 	if err := pool.QueryRow(context.Background(),
-		`SELECT count(*) FROM outbox WHERE type = 'platform.engagement.v1.ReviewHidden'`).Scan(&n); err != nil {
+		`SELECT count(*) FROM engagement_outbox_events WHERE event_type = 'platform.engagement.v1.ReviewHidden'`).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	return n
@@ -584,8 +587,8 @@ func TestHideReviewAuditFailureNoFact(t *testing.T) {
 	pool := pgSchemaPool(t)
 	ctx := interceptor.ContextWithPrincipal(context.Background(),
 		&commonv1.Principal{Id: "adm-1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin"}})
-	repo := repository.NewPostgresReviewRepository(pool)
-	rev, err := repo.CreateReview(ctx, repository.Review{ID: "r1", ListingID: "L1", UserID: "u1", OrderID: "O1", Rating: 2, VerifiedPurchase: true})
+	repo := store.NewPostgresReviewRepository(pool, mustFactStore(t, pool))
+	rev, err := repo.CreateReview(ctx, store.Review{ID: "r1", ListingID: "L1", UserID: "u1", OrderID: "O1", Rating: 2, VerifiedPurchase: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -617,4 +620,13 @@ func TestHideReviewAuditFailureNoFact(t *testing.T) {
 	if n := reviewHiddenCount(t, pool); n != 1 {
 		t.Fatalf("control: ReviewHidden outbox rows = %d, want 1", n)
 	}
+}
+
+func mustFactStore(t *testing.T, pool *pgxpool.Pool) *outbox.Store {
+	t.Helper()
+	st, err := outbox.NewStore(pool, "engagement_outbox_events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
 }

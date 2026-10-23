@@ -17,8 +17,9 @@ import (
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 type reportAuditCall struct{ actor, report, listing, status, note string }
@@ -38,33 +39,33 @@ func (a *reportAuditSpy) WriteReportResolveEvent(_ context.Context, actorID, rep
 
 // reportRepoSpy counts reads/writes and can force failures.
 type reportRepoSpy struct {
-	*repository.InMemoryReportRepository
+	*storetest.FakeReportRepository
 	ops       int
 	createErr error
 	closeErr  error
 }
 
-func (r *reportRepoSpy) CreateReport(ctx context.Context, in repository.Report) (repository.Report, error) {
+func (r *reportRepoSpy) CreateReport(ctx context.Context, in store.Report) (store.Report, error) {
 	r.ops++
 	if r.createErr != nil {
-		return repository.Report{}, r.createErr
+		return store.Report{}, r.createErr
 	}
-	return r.InMemoryReportRepository.CreateReport(ctx, in)
+	return r.FakeReportRepository.CreateReport(ctx, in)
 }
-func (r *reportRepoSpy) GetReport(ctx context.Context, id string) (repository.Report, error) {
+func (r *reportRepoSpy) GetReport(ctx context.Context, id string) (store.Report, error) {
 	r.ops++
-	return r.InMemoryReportRepository.GetReport(ctx, id)
+	return r.FakeReportRepository.GetReport(ctx, id)
 }
-func (r *reportRepoSpy) ListReports(ctx context.Context, s repository.ReportStatus, t string, o, l int) ([]repository.Report, int64, error) {
+func (r *reportRepoSpy) ListReports(ctx context.Context, s store.ReportStatus, t string, o, l int) ([]store.Report, int64, error) {
 	r.ops++
-	return r.InMemoryReportRepository.ListReports(ctx, s, t, o, l)
+	return r.FakeReportRepository.ListReports(ctx, s, t, o, l)
 }
-func (r *reportRepoSpy) CloseReport(ctx context.Context, id, adm string, s repository.ReportStatus, n string) (bool, error) {
+func (r *reportRepoSpy) CloseReport(ctx context.Context, id, adm string, s store.ReportStatus, n string) (bool, error) {
 	r.ops++
 	if r.closeErr != nil {
 		return false, r.closeErr
 	}
-	return r.InMemoryReportRepository.CloseReport(ctx, id, adm, s, n)
+	return r.FakeReportRepository.CloseReport(ctx, id, adm, s, n)
 }
 
 type reportFixture struct {
@@ -82,10 +83,10 @@ func newReportFixture(t *testing.T) *reportFixture {
 	slog.SetDefault(logger)
 	t.Cleanup(func() { slog.SetDefault(prev) })
 
-	repo := &reportRepoSpy{InMemoryReportRepository: repository.NewInMemoryReportRepository()}
+	repo := &reportRepoSpy{FakeReportRepository: storetest.NewFakeReportRepository()}
 	audit := &reportAuditSpy{}
 	svc := service.NewReportService(repo, logger).WithAudit(audit)
-	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(), nil, nil, nil, nil, handler.WithReportService(svc))
+	h := handler.NewEngagementHandler(storetest.NewFakeRepository(), nil, nil, nil, nil, handler.WithReportService(svc))
 	return &reportFixture{h: h, repo: repo, audit: audit, logs: logs}
 }
 
@@ -99,9 +100,9 @@ func (f *reportFixture) resolve(ctx context.Context, id string, st engagementv1.
 	return f.h.ResolveReport(ctx, &engagementv1.ResolveReportRequest{ReportId: id, Status: st, ResolutionNote: note})
 }
 
-func (f *reportFixture) rows(t *testing.T) []repository.Report {
+func (f *reportFixture) rows(t *testing.T) []store.Report {
 	t.Helper()
-	got, _, err := f.repo.InMemoryReportRepository.ListReports(context.Background(), "", "", 0, 10000)
+	got, _, err := f.repo.FakeReportRepository.ListReports(context.Background(), "", "", 0, 10000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,13 +110,13 @@ func (f *reportFixture) rows(t *testing.T) []repository.Report {
 }
 
 func (f *reportFixture) seedOpen(id, target string, at time.Time) {
-	f.repo.SeedReport(repository.Report{ID: id, TargetID: target, ReporterID: "rep-" + id, Note: "n", CreatedAt: at, Status: repository.ReportStatusOpen})
+	f.repo.SeedReport(store.Report{ID: id, TargetID: target, ReporterID: "rep-" + id, Note: "n", CreatedAt: at, Status: store.ReportStatusOpen})
 }
 
 func (f *reportFixture) stillOpen(t *testing.T, id string) {
 	t.Helper()
-	got, err := f.repo.InMemoryReportRepository.GetReport(context.Background(), id)
-	if err != nil || got.Status != repository.ReportStatusOpen || got.ResolvedAt != nil {
+	got, err := f.repo.FakeReportRepository.GetReport(context.Background(), id)
+	if err != nil || got.Status != store.ReportStatusOpen || got.ResolvedAt != nil {
 		t.Fatalf("report must stay OPEN: %+v %v", got, err)
 	}
 }
@@ -236,7 +237,7 @@ func TestCreateReportUnknownListingAccepted(t *testing.T) { // LR Listing report
 func TestCreateReportOpenCapResourceExhausted(t *testing.T) { // LR Listing reports: Open report cap per reporter (sentinel mapping)
 	f := newReportFixture(t)
 	for i := 0; i < 20; i++ {
-		f.repo.SeedReport(repository.Report{ID: fmt.Sprintf("seed-%d", i), TargetID: newListingID(), ReporterID: "buyer-1", Status: repository.ReportStatusOpen})
+		f.repo.SeedReport(store.Report{ID: fmt.Sprintf("seed-%d", i), TargetID: newListingID(), ReporterID: "buyer-1", Status: store.ReportStatusOpen})
 	}
 	if _, err := f.create(userCtx("buyer-1"), newListingID(), "scam", ""); status.Code(err) != codes.ResourceExhausted {
 		t.Fatalf("want ResourceExhausted, got %v", err)
@@ -394,7 +395,7 @@ func TestResolveReportAuditEventFields(t *testing.T) { // RR Listing reports: Au
 	if len(f.audit.calls) != 1 || f.audit.calls[0] != want {
 		t.Fatalf("audit calls = %+v, want exactly %+v", f.audit.calls, want)
 	}
-	got, _ := f.repo.InMemoryReportRepository.GetReport(context.Background(), "rp-1")
+	got, _ := f.repo.FakeReportRepository.GetReport(context.Background(), "rp-1")
 	if got.ResolvedBy != "adm-1" {
 		t.Fatalf("resolved_by = %q, want principal id", got.ResolvedBy)
 	}
@@ -456,7 +457,7 @@ func TestResolveReportNotFoundAndEmptyID(t *testing.T) { // RR Listing reports: 
 
 func TestResolveReportAuthzMatrix(t *testing.T) { // RR Listing reports: Non-admin and anonymous callers cannot close
 	f := newReportFixture(t)
-	f.repo.SeedReport(repository.Report{ID: "rp-1", TargetID: "L", ReporterID: "reporter-1", Status: repository.ReportStatusOpen})
+	f.repo.SeedReport(store.Report{ID: "rp-1", TargetID: "L", ReporterID: "reporter-1", Status: store.ReportStatusOpen})
 	cases := map[string]struct {
 		ctx  context.Context
 		want codes.Code

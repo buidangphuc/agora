@@ -11,25 +11,26 @@ import (
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 func seedReviews(t *testing.T, n int) *handler.EngagementHandler {
 	t.Helper()
-	repo := repository.NewInMemoryReviewRepository()
+	repo := storetest.NewFakeReviewRepository()
 	svc := service.NewReviewService(repo, nil, nil)
 	// Seeded straight into the repository: CreateReview now needs a completed order.
 	for i := 1; i <= n; i++ {
 		rating := int32(i%5) + 1
-		if _, err := repo.CreateReview(context.Background(), repository.Review{
+		if _, err := repo.CreateReview(context.Background(), store.Review{
 			ListingID: "l1", UserID: fmt.Sprintf("u%d", i), UserName: "U", OrderID: fmt.Sprintf("o%d", i),
 			Rating: rating, Comment: fmt.Sprintf("c%03d", i), VerifiedPurchase: true,
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	return handler.NewEngagementHandler(repository.NewInMemoryRepository(), svc, nil, nil, nil)
+	return handler.NewEngagementHandler(storetest.NewFakeRepository(), svc, nil, nil, nil)
 }
 
 func listPage(t *testing.T, h *handler.EngagementHandler, cursor string, size int32, rating int32) *engagementv1.ListReviewsResponse {

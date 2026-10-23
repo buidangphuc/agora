@@ -1,4 +1,4 @@
-package repository
+package store_test
 
 import (
 	"context"
@@ -9,23 +9,26 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 // reportFixture hides the only differences between the two implementations:
 // how rows with arbitrary timestamps and seller_listings rows are seeded.
 type reportFixture struct {
 	name        string
-	repo        ReportRepository
-	seed        func(t *testing.T, r Report)
+	repo        store.ReportRepository
+	seed        func(t *testing.T, r store.Report)
 	seedListing func(t *testing.T, sellerID, listingID string)
 }
 
 func newMemReportFixture() reportFixture {
-	m := NewInMemoryReportRepository()
+	m := storetest.NewFakeReportRepository()
 	return reportFixture{
 		name:        "memory",
 		repo:        m,
-		seed:        func(_ *testing.T, r Report) { m.SeedReport(r) },
+		seed:        func(_ *testing.T, r store.Report) { m.SeedReport(r) },
 		seedListing: func(_ *testing.T, s, l string) { m.SeedSellerListing(s, l) },
 	}
 }
@@ -34,8 +37,8 @@ func newPGReportFixture(t *testing.T) reportFixture {
 	pool := testPool(t)
 	return reportFixture{
 		name: "postgres",
-		repo: NewPostgresReportRepository(pool),
-		seed: func(t *testing.T, r Report) { seedReportRow(t, pool, r) },
+		repo: store.NewPostgresReportRepository(pool),
+		seed: func(t *testing.T, r store.Report) { seedReportRow(t, pool, r) },
 		seedListing: func(t *testing.T, s, l string) {
 			if _, err := pool.Exec(context.Background(),
 				`INSERT INTO seller_listings (seller_id, listing_id) VALUES ($1,$2)`, s, l); err != nil {
@@ -45,7 +48,7 @@ func newPGReportFixture(t *testing.T) reportFixture {
 	}
 }
 
-func seedReportRow(t *testing.T, pool *pgxpool.Pool, r Report) {
+func seedReportRow(t *testing.T, pool *pgxpool.Pool, r store.Report) {
 	t.Helper()
 	if r.TargetType == "" {
 		r.TargetType = "LISTING"
@@ -54,7 +57,7 @@ func seedReportRow(t *testing.T, pool *pgxpool.Pool, r Report) {
 		r.ReasonCode = "SPAM"
 	}
 	if r.Status == "" {
-		r.Status = ReportStatusOpen
+		r.Status = store.ReportStatusOpen
 	}
 	if r.CreatedAt.IsZero() {
 		r.CreatedAt = time.Now().UTC()
@@ -76,11 +79,11 @@ func forEachReportRepo(t *testing.T, fn func(t *testing.T, f reportFixture)) {
 	t.Run("postgres", func(t *testing.T) { fn(t, newPGReportFixture(t)) })
 }
 
-func newReport(reporter, target string) Report {
-	return Report{TargetType: "LISTING", TargetID: target, ReasonCode: "SPAM", Note: "n", ReporterID: reporter}
+func newReport(reporter, target string) store.Report {
+	return store.Report{TargetType: "LISTING", TargetID: target, ReasonCode: "SPAM", Note: "n", ReporterID: reporter}
 }
 
-func mustCreate(t *testing.T, repo ReportRepository, r Report) Report {
+func mustCreate(t *testing.T, repo store.ReportRepository, r store.Report) store.Report {
 	t.Helper()
 	got, err := repo.CreateReport(context.Background(), r)
 	if err != nil {
@@ -122,7 +125,7 @@ func TestCreateReportConcurrentDuplicatesOneRow(t *testing.T) {
 			t.Fatalf("rows total=%d err=%v, want exactly 1", total, err)
 		}
 		got, err := f.repo.GetReport(ctx, ids[0])
-		if err != nil || got.Status != ReportStatusOpen || got.ReporterID != "u1" || got.TargetID != "L1" || got.CreatedAt.IsZero() {
+		if err != nil || got.Status != store.ReportStatusOpen || got.ReporterID != "u1" || got.TargetID != "L1" || got.CreatedAt.IsZero() {
 			t.Fatalf("stored report = %+v err=%v", got, err)
 		}
 	})
@@ -145,12 +148,12 @@ func TestCreateReportAfterCloseNewRow(t *testing.T) {
 	forEachReportRepo(t, func(t *testing.T, f reportFixture) {
 		ctx := context.Background()
 		first := mustCreate(t, f.repo, newReport("u1", "L1"))
-		ok, err := f.repo.CloseReport(ctx, first.ID, "admin-1", ReportStatusDismissed, "not an issue")
+		ok, err := f.repo.CloseReport(ctx, first.ID, "admin-1", store.ReportStatusDismissed, "not an issue")
 		if err != nil || !ok {
 			t.Fatalf("close: ok=%v err=%v", ok, err)
 		}
 		second := mustCreate(t, f.repo, newReport("u1", "L1"))
-		if second.ID == first.ID || second.Status != ReportStatusOpen {
+		if second.ID == first.ID || second.Status != store.ReportStatusOpen {
 			t.Fatalf("second = %+v, want new OPEN row (first %s)", second, first.ID)
 		}
 		again := mustCreate(t, f.repo, newReport("u1", "L1"))
@@ -158,7 +161,7 @@ func TestCreateReportAfterCloseNewRow(t *testing.T) {
 			t.Fatalf("re-report while open returned %s, want existing %s", again.ID, second.ID)
 		}
 		old, _ := f.repo.GetReport(ctx, first.ID)
-		if old.Status != ReportStatusDismissed {
+		if old.Status != store.ReportStatusDismissed {
 			t.Fatalf("first report status %s, want DISMISSED", old.Status)
 		}
 	})
@@ -176,7 +179,7 @@ func TestCountOpenByReporter(t *testing.T) {
 		if n, err := f.repo.CountOpenByReporter(ctx, "u1"); err != nil || n != 3 {
 			t.Fatalf("u1 open = %d err=%v, want 3", n, err)
 		}
-		if _, err := f.repo.CloseReport(ctx, ids[0], "a", ReportStatusActioned, "done"); err != nil {
+		if _, err := f.repo.CloseReport(ctx, ids[0], "a", store.ReportStatusActioned, "done"); err != nil {
 			t.Fatal(err)
 		}
 		if n, _ := f.repo.CountOpenByReporter(ctx, "u1"); n != 2 {
@@ -192,7 +195,7 @@ func TestCountOpenByReporter(t *testing.T) {
 func TestGetReportNotFound(t *testing.T) {
 	forEachReportRepo(t, func(t *testing.T, f reportFixture) {
 		_, err := f.repo.GetReport(context.Background(), "missing")
-		if !errors.Is(err, ErrReportNotFound) {
+		if !errors.Is(err, store.ErrReportNotFound) {
 			t.Fatalf("err = %v, want ErrReportNotFound", err)
 		}
 	})
@@ -203,10 +206,10 @@ func TestListReportsFilterByTarget(t *testing.T) {
 	forEachReportRepo(t, func(t *testing.T, f reportFixture) {
 		ctx := context.Background()
 		base := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
-		f.seed(t, Report{ID: "r-a1", TargetID: "A", ReporterID: "u1", Status: ReportStatusOpen, CreatedAt: base})
-		f.seed(t, Report{ID: "r-b1", TargetID: "B", ReporterID: "u1", Status: ReportStatusOpen, CreatedAt: base.Add(time.Minute)})
-		f.seed(t, Report{ID: "r-a2", TargetID: "A", ReporterID: "u2", Status: ReportStatusOpen, CreatedAt: base.Add(2 * time.Minute)})
-		got, total, err := f.repo.ListReports(ctx, ReportStatusOpen, "A", 0, 50)
+		f.seed(t, store.Report{ID: "r-a1", TargetID: "A", ReporterID: "u1", Status: store.ReportStatusOpen, CreatedAt: base})
+		f.seed(t, store.Report{ID: "r-b1", TargetID: "B", ReporterID: "u1", Status: store.ReportStatusOpen, CreatedAt: base.Add(time.Minute)})
+		f.seed(t, store.Report{ID: "r-a2", TargetID: "A", ReporterID: "u2", Status: store.ReportStatusOpen, CreatedAt: base.Add(2 * time.Minute)})
+		got, total, err := f.repo.ListReports(ctx, store.ReportStatusOpen, "A", 0, 50)
 		if err != nil || total != 2 || len(got) != 2 {
 			t.Fatalf("len=%d total=%d err=%v, want 2/2", len(got), total, err)
 		}
@@ -215,7 +218,7 @@ func TestListReportsFilterByTarget(t *testing.T) {
 				t.Fatalf("report %s for target %s leaked into filter A", r.ID, r.TargetID)
 			}
 		}
-		none, total, err := f.repo.ListReports(ctx, ReportStatusOpen, "ZZ", 0, 50)
+		none, total, err := f.repo.ListReports(ctx, store.ReportStatusOpen, "ZZ", 0, 50)
 		if err != nil || total != 0 || len(none) != 0 {
 			t.Fatalf("unknown target: len=%d total=%d err=%v", len(none), total, err)
 		}
@@ -228,15 +231,15 @@ func TestListReportsOldestFirstStatusAndPaging(t *testing.T) {
 		ctx := context.Background()
 		base := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
 		// Inserted newest first; ids tie on one timestamp to pin the (created_at, id) order.
-		f.seed(t, Report{ID: "r-3", TargetID: "A", ReporterID: "u3", CreatedAt: base.Add(2 * time.Minute)})
-		f.seed(t, Report{ID: "r-2b", TargetID: "A", ReporterID: "u2b", CreatedAt: base.Add(time.Minute)})
-		f.seed(t, Report{ID: "r-2a", TargetID: "A", ReporterID: "u2a", CreatedAt: base.Add(time.Minute)})
-		f.seed(t, Report{ID: "r-1", TargetID: "A", ReporterID: "u1", CreatedAt: base})
+		f.seed(t, store.Report{ID: "r-3", TargetID: "A", ReporterID: "u3", CreatedAt: base.Add(2 * time.Minute)})
+		f.seed(t, store.Report{ID: "r-2b", TargetID: "A", ReporterID: "u2b", CreatedAt: base.Add(time.Minute)})
+		f.seed(t, store.Report{ID: "r-2a", TargetID: "A", ReporterID: "u2a", CreatedAt: base.Add(time.Minute)})
+		f.seed(t, store.Report{ID: "r-1", TargetID: "A", ReporterID: "u1", CreatedAt: base})
 		closedAt := base.Add(time.Hour)
-		f.seed(t, Report{ID: "r-c", TargetID: "A", ReporterID: "u9", Status: ReportStatusDismissed,
+		f.seed(t, store.Report{ID: "r-c", TargetID: "A", ReporterID: "u9", Status: store.ReportStatusDismissed,
 			CreatedAt: base.Add(-time.Minute), ResolvedAt: &closedAt, ResolvedBy: "adm", ResolutionNote: "x"})
 
-		got, total, err := f.repo.ListReports(ctx, ReportStatusOpen, "", 0, 50)
+		got, total, err := f.repo.ListReports(ctx, store.ReportStatusOpen, "", 0, 50)
 		if err != nil || total != 4 {
 			t.Fatalf("open total=%d err=%v, want 4", total, err)
 		}
@@ -246,11 +249,11 @@ func TestListReportsOldestFirstStatusAndPaging(t *testing.T) {
 				t.Fatalf("order[%d] = %s, want %s (all %v)", i, r.ID, want[i], got)
 			}
 		}
-		page, total, err := f.repo.ListReports(ctx, ReportStatusOpen, "", 1, 2)
+		page, total, err := f.repo.ListReports(ctx, store.ReportStatusOpen, "", 1, 2)
 		if err != nil || total != 4 || len(page) != 2 || page[0].ID != "r-2a" || page[1].ID != "r-2b" {
 			t.Fatalf("page = %v total=%d err=%v", page, total, err)
 		}
-		closed, total, _ := f.repo.ListReports(ctx, ReportStatusDismissed, "", 0, 50)
+		closed, total, _ := f.repo.ListReports(ctx, store.ReportStatusDismissed, "", 0, 50)
 		if total != 1 || len(closed) != 1 || closed[0].ID != "r-c" || closed[0].ResolvedAt == nil || closed[0].ResolvedBy != "adm" {
 			t.Fatalf("dismissed = %+v total=%d", closed, total)
 		}
@@ -264,7 +267,7 @@ func TestListReportsOldestFirstStatusAndPaging(t *testing.T) {
 // Scenario: Listing reports: Empty result
 func TestListReportsEmpty(t *testing.T) {
 	forEachReportRepo(t, func(t *testing.T, f reportFixture) {
-		got, total, err := f.repo.ListReports(context.Background(), ReportStatusOpen, "", 0, 50)
+		got, total, err := f.repo.ListReports(context.Background(), store.ReportStatusOpen, "", 0, 50)
 		if err != nil || total != 0 || len(got) != 0 {
 			t.Fatalf("len=%d total=%d err=%v, want empty", len(got), total, err)
 		}
@@ -284,7 +287,7 @@ func TestCloseReportCompareAndSetOneWinner(t *testing.T) {
 		start := make(chan struct{})
 		out := make([]res, 2)
 		admins := []string{"adm-1", "adm-2"}
-		statuses := []ReportStatus{ReportStatusActioned, ReportStatusDismissed}
+		statuses := []store.ReportStatus{store.ReportStatusActioned, store.ReportStatusDismissed}
 		for i := 0; i < 2; i++ {
 			wg.Add(1)
 			go func(i int) {
@@ -327,17 +330,17 @@ func TestCloseReportSecondCloseChangesNothing(t *testing.T) {
 	forEachReportRepo(t, func(t *testing.T, f reportFixture) {
 		ctx := context.Background()
 		rep := mustCreate(t, f.repo, newReport("u1", "L1"))
-		if ok, err := f.repo.CloseReport(ctx, rep.ID, "adm-1", ReportStatusActioned, "first"); err != nil || !ok {
+		if ok, err := f.repo.CloseReport(ctx, rep.ID, "adm-1", store.ReportStatusActioned, "first"); err != nil || !ok {
 			t.Fatalf("first close ok=%v err=%v", ok, err)
 		}
-		for _, st := range []ReportStatus{ReportStatusActioned, ReportStatusDismissed} {
+		for _, st := range []store.ReportStatus{store.ReportStatusActioned, store.ReportStatusDismissed} {
 			ok, err := f.repo.CloseReport(ctx, rep.ID, "adm-2", st, "second")
 			if err != nil || ok {
 				t.Fatalf("second close(%s) ok=%v err=%v, want false,nil", st, ok, err)
 			}
 		}
 		got, _ := f.repo.GetReport(ctx, rep.ID)
-		if got.Status != ReportStatusActioned || got.ResolvedBy != "adm-1" || got.ResolutionNote != "first" {
+		if got.Status != store.ReportStatusActioned || got.ResolvedBy != "adm-1" || got.ResolutionNote != "first" {
 			t.Fatalf("stored = %+v, want first close preserved", got)
 		}
 	})
@@ -346,8 +349,8 @@ func TestCloseReportSecondCloseChangesNothing(t *testing.T) {
 // Scenario: Listing reports: Unknown report
 func TestCloseReportUnknown(t *testing.T) {
 	forEachReportRepo(t, func(t *testing.T, f reportFixture) {
-		ok, err := f.repo.CloseReport(context.Background(), "missing", "adm", ReportStatusActioned, "n")
-		if ok || !errors.Is(err, ErrReportNotFound) {
+		ok, err := f.repo.CloseReport(context.Background(), "missing", "adm", store.ReportStatusActioned, "n")
+		if ok || !errors.Is(err, store.ErrReportNotFound) {
 			t.Fatalf("ok=%v err=%v, want false, ErrReportNotFound", ok, err)
 		}
 	})
@@ -381,9 +384,9 @@ func sweepClock() (now, cutoff time.Time) {
 	return now, now.Add(-730 * 24 * time.Hour)
 }
 
-func closedReport(id string, resolvedAt time.Time) Report {
-	return Report{ID: id, TargetID: "L1", ReasonCode: "SPAM", Note: "my phone 0900", ReporterID: "u-" + id,
-		Status: ReportStatusActioned, CreatedAt: resolvedAt.Add(-time.Hour), ResolvedAt: &resolvedAt,
+func closedReport(id string, resolvedAt time.Time) store.Report {
+	return store.Report{ID: id, TargetID: "L1", ReasonCode: "SPAM", Note: "my phone 0900", ReporterID: "u-" + id,
+		Status: store.ReportStatusActioned, CreatedAt: resolvedAt.Add(-time.Hour), ResolvedAt: &resolvedAt,
 		ResolvedBy: "adm-1", ResolutionNote: "removed"}
 }
 
@@ -407,7 +410,7 @@ func TestSweepPseudonymisesOldClosedReports(t *testing.T) {
 		if got.ReporterID != "redacted" || got.Note != "" {
 			t.Fatalf("reporter=%q note=%q, want redacted and empty", got.ReporterID, got.Note)
 		}
-		if got.Status != ReportStatusActioned || got.TargetID != "L1" || got.ReasonCode != "SPAM" ||
+		if got.Status != store.ReportStatusActioned || got.TargetID != "L1" || got.ReasonCode != "SPAM" ||
 			got.ResolutionNote != "removed" || got.ResolvedAt == nil || !got.ResolvedAt.Equal(resolved) {
 			t.Fatalf("non-personal fields changed: %+v", got)
 		}
@@ -441,8 +444,8 @@ func TestSweepSkipsOpenReports(t *testing.T) {
 	forEachReportRepo(t, func(t *testing.T, f reportFixture) {
 		ctx := context.Background()
 		now, cutoff := sweepClock()
-		f.seed(t, Report{ID: "open-old", TargetID: "L1", ReporterID: "u-open", Note: "keep me",
-			Status: ReportStatusOpen, CreatedAt: now.Add(-800 * 24 * time.Hour)})
+		f.seed(t, store.Report{ID: "open-old", TargetID: "L1", ReporterID: "u-open", Note: "keep me",
+			Status: store.ReportStatusOpen, CreatedAt: now.Add(-800 * 24 * time.Hour)})
 		n, err := f.repo.SweepClosedBefore(ctx, cutoff, 500)
 		if err != nil || n != 0 {
 			t.Fatalf("sweep n=%d err=%v, want 0", n, err)
@@ -536,7 +539,7 @@ func TestCreateReportAfterSweepStoresRealReporter(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := mustCreate(t, f.repo, newReport("u-old", "L1"))
-		if got.ID == "old" || got.Status != ReportStatusOpen || got.ReporterID != "u-old" {
+		if got.ID == "old" || got.Status != store.ReportStatusOpen || got.ReporterID != "u-old" {
 			t.Fatalf("new report = %+v", got)
 		}
 	})
@@ -550,12 +553,12 @@ func TestReportRepositoryParity(t *testing.T) {
 		ctx := context.Background()
 		var log []string
 		rec := func(format string, a ...any) { log = append(log, fmt.Sprintf(format, a...)) }
-		norm := func(r Report, idx map[string]string) string {
+		norm := func(r store.Report, idx map[string]string) string {
 			return fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|resolved=%v", idx[r.ID], r.TargetType, r.TargetID,
 				r.ReasonCode, r.Note, r.ReporterID, r.Status, r.ResolvedBy, r.ResolutionNote, r.ResolvedAt != nil)
 		}
 		names := map[string]string{}
-		create := func(label string, r Report) {
+		create := func(label string, r store.Report) {
 			got, err := f.repo.CreateReport(ctx, r)
 			if _, seen := names[got.ID]; !seen && err == nil {
 				names[got.ID] = fmt.Sprintf("#%d", len(names)+1)
@@ -569,7 +572,7 @@ func TestReportRepositoryParity(t *testing.T) {
 		n, err := f.repo.CountOpenByReporter(ctx, "u1")
 		rec("count u1=%d err=%v", n, err != nil)
 
-		reps, total, err := f.repo.ListReports(ctx, ReportStatusOpen, "L1", 0, 10)
+		reps, total, err := f.repo.ListReports(ctx, store.ReportStatusOpen, "L1", 0, 10)
 		rec("list L1 total=%d err=%v", total, err != nil)
 		for _, r := range reps {
 			rec("  %s", norm(r, names))
@@ -578,20 +581,20 @@ func TestReportRepositoryParity(t *testing.T) {
 			t.Fatalf("%s: no open reports for L1", f.name)
 		}
 		first := reps[0]
-		ok1, e1 := f.repo.CloseReport(ctx, first.ID, "adm-1", ReportStatusDismissed, "nope")
-		ok2, e2 := f.repo.CloseReport(ctx, first.ID, "adm-2", ReportStatusActioned, "late")
-		ok3, e3 := f.repo.CloseReport(ctx, "missing", "adm-1", ReportStatusActioned, "x")
-		rec("close ok1=%v e1=%v ok2=%v e2=%v ok3=%v e3=%v", ok1, e1 != nil, ok2, e2 != nil, ok3, errors.Is(e3, ErrReportNotFound))
+		ok1, e1 := f.repo.CloseReport(ctx, first.ID, "adm-1", store.ReportStatusDismissed, "nope")
+		ok2, e2 := f.repo.CloseReport(ctx, first.ID, "adm-2", store.ReportStatusActioned, "late")
+		ok3, e3 := f.repo.CloseReport(ctx, "missing", "adm-1", store.ReportStatusActioned, "x")
+		rec("close ok1=%v e1=%v ok2=%v e2=%v ok3=%v e3=%v", ok1, e1 != nil, ok2, e2 != nil, ok3, errors.Is(e3, store.ErrReportNotFound))
 		create("a-again", newReport("u1", "L1"))
 		all, total, _ := f.repo.ListReports(ctx, "", "", 0, 10)
 		rec("list all total=%d", total)
 		for _, r := range all {
 			rec("  %s", norm(r, names))
 		}
-		pageOpen, total, _ := f.repo.ListReports(ctx, ReportStatusOpen, "", 1, 1)
+		pageOpen, total, _ := f.repo.ListReports(ctx, store.ReportStatusOpen, "", 1, 1)
 		rec("list open page total=%d len=%d", total, len(pageOpen))
 		_, err = f.repo.GetReport(ctx, "missing")
-		rec("get missing notfound=%v", errors.Is(err, ErrReportNotFound))
+		rec("get missing notfound=%v", errors.Is(err, store.ErrReportNotFound))
 		f.seedListing(t, "s1", "L1")
 		h1, _ := f.repo.HasSellerListing(ctx, "s1", "L1")
 		h2, _ := f.repo.HasSellerListing(ctx, "s1", "L2")

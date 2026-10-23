@@ -1,33 +1,36 @@
-package repository
+package store_test
 
 import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 var checkInDay = time.Date(2026, 9, 4, 10, 30, 0, 0, time.UTC)
 
 // first check-in: awards CheckInCoins, sets streak to 1, and records the day.
 func TestLoyalty_FirstCheckInAwardsAndStartsStreak(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	loy, earned, err := r.CheckIn(ctx, "userA", checkInDay)
 	if err != nil {
 		t.Fatalf("check-in: %v", err)
 	}
-	if earned != CheckInCoins {
-		t.Fatalf("expected %d coins earned, got %d", CheckInCoins, earned)
+	if earned != store.CheckInCoins {
+		t.Fatalf("expected %d coins earned, got %d", store.CheckInCoins, earned)
 	}
 	if loy.Streak != 1 {
 		t.Fatalf("expected streak 1, got %d", loy.Streak)
 	}
-	if loy.CoinBalance != CheckInCoins {
-		t.Fatalf("expected balance %d, got %d", CheckInCoins, loy.CoinBalance)
+	if loy.CoinBalance != store.CheckInCoins {
+		t.Fatalf("expected balance %d, got %d", store.CheckInCoins, loy.CoinBalance)
 	}
-	if !loy.LastCheckin.Equal(dayOf(checkInDay)) {
-		t.Fatalf("expected last_checkin %v, got %v", dayOf(checkInDay), loy.LastCheckin)
+	if !loy.LastCheckin.Equal(time.Date(checkInDay.Year(), checkInDay.Month(), checkInDay.Day(), 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("expected last_checkin %v, got %v", time.Date(checkInDay.Year(), checkInDay.Month(), checkInDay.Day(), 0, 0, 0, 0, time.UTC), loy.LastCheckin)
 	}
 
 	// GetLoyalty mirrors the snapshot returned by CheckIn.
@@ -35,7 +38,7 @@ func TestLoyalty_FirstCheckInAwardsAndStartsStreak(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get loyalty: %v", err)
 	}
-	if snap.Streak != 1 || snap.CoinBalance != CheckInCoins {
+	if snap.Streak != 1 || snap.CoinBalance != store.CheckInCoins {
 		t.Fatalf("snapshot mismatch: %+v", snap)
 	}
 }
@@ -43,7 +46,7 @@ func TestLoyalty_FirstCheckInAwardsAndStartsStreak(t *testing.T) {
 // same-day idempotency: a second check-in on the same calendar day is a no-op —
 // no extra coins, streak unchanged. Different clock time, same day.
 func TestLoyalty_SameDayCheckInIsIdempotent(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	if _, _, err := r.CheckIn(ctx, "userA", checkInDay); err != nil {
@@ -61,14 +64,14 @@ func TestLoyalty_SameDayCheckInIsIdempotent(t *testing.T) {
 	if loy.Streak != 1 {
 		t.Fatalf("expected streak still 1, got %d", loy.Streak)
 	}
-	if loy.CoinBalance != CheckInCoins {
-		t.Fatalf("expected balance unchanged at %d, got %d", CheckInCoins, loy.CoinBalance)
+	if loy.CoinBalance != store.CheckInCoins {
+		t.Fatalf("expected balance unchanged at %d, got %d", store.CheckInCoins, loy.CoinBalance)
 	}
 }
 
 // consecutive days advance the streak and keep accumulating coins.
 func TestLoyalty_ConsecutiveDaysAdvanceStreak(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	day1 := checkInDay
@@ -80,8 +83,8 @@ func TestLoyalty_ConsecutiveDaysAdvanceStreak(t *testing.T) {
 		if err != nil {
 			t.Fatalf("check-in day %d: %v", i+1, err)
 		}
-		if earned != CheckInCoins {
-			t.Fatalf("day %d: expected %d coins, got %d", i+1, CheckInCoins, earned)
+		if earned != store.CheckInCoins {
+			t.Fatalf("day %d: expected %d coins, got %d", i+1, store.CheckInCoins, earned)
 		}
 		if want := int32(i + 1); loy.Streak != want {
 			t.Fatalf("day %d: expected streak %d, got %d", i+1, want, loy.Streak)
@@ -89,14 +92,14 @@ func TestLoyalty_ConsecutiveDaysAdvanceStreak(t *testing.T) {
 	}
 
 	snap, _ := r.GetLoyalty(ctx, "userA")
-	if snap.CoinBalance != 3*CheckInCoins {
-		t.Fatalf("expected balance %d after 3 days, got %d", 3*CheckInCoins, snap.CoinBalance)
+	if snap.CoinBalance != 3*store.CheckInCoins {
+		t.Fatalf("expected balance %d after 3 days, got %d", 3*store.CheckInCoins, snap.CoinBalance)
 	}
 }
 
 // skipped day resets the streak to 1 (but still awards coins and keeps balance).
 func TestLoyalty_SkippedDayResetsStreak(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	if _, _, err := r.CheckIn(ctx, "userA", checkInDay); err != nil {
@@ -119,17 +122,17 @@ func TestLoyalty_SkippedDayResetsStreak(t *testing.T) {
 	if loy.Streak != 1 {
 		t.Fatalf("expected streak reset to 1 after skipped day, got %d", loy.Streak)
 	}
-	if earned != CheckInCoins {
-		t.Fatalf("expected %d coins on reset check-in, got %d", CheckInCoins, earned)
+	if earned != store.CheckInCoins {
+		t.Fatalf("expected %d coins on reset check-in, got %d", store.CheckInCoins, earned)
 	}
-	if loy.CoinBalance != 3*CheckInCoins {
-		t.Fatalf("expected balance %d (3 check-ins), got %d", 3*CheckInCoins, loy.CoinBalance)
+	if loy.CoinBalance != 3*store.CheckInCoins {
+		t.Fatalf("expected balance %d (3 check-ins), got %d", 3*store.CheckInCoins, loy.CoinBalance)
 	}
 }
 
 // cross-user isolation: one user's loyalty state never leaks into another's.
 func TestLoyalty_CrossUserIsolation(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	if _, _, err := r.CheckIn(ctx, "userA", checkInDay); err != nil {
@@ -155,7 +158,7 @@ func TestLoyalty_CrossUserIsolation(t *testing.T) {
 	}
 
 	aSnap, _ := r.GetLoyalty(ctx, "userA")
-	if aSnap.CoinBalance != CheckInCoins || aSnap.Streak != 1 {
+	if aSnap.CoinBalance != store.CheckInCoins || aSnap.Streak != 1 {
 		t.Fatalf("userA snapshot changed by userB activity: %+v", aSnap)
 	}
 }

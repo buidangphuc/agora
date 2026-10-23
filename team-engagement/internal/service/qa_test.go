@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 func TestQAService(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryQARepository()
+	repo := storetest.NewFakeQARepository()
 	svc := service.NewQAService(repo, nil)
 
 	t.Run("AskQuestion Validations", func(t *testing.T) {

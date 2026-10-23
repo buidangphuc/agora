@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
@@ -87,13 +88,13 @@ func (a *rptAudit) events() []upstream.AuditEvent {
 // rptRepo wraps the in-memory repository to log ordering, inject a close
 // failure and count calls that must not happen.
 type rptRepo struct {
-	*repository.InMemoryReportRepository
+	*storetest.FakeReportRepository
 	log       *rptLog
 	closeErrs []error // consumed one per CloseReport call
 	closes    int
 }
 
-func (r *rptRepo) CloseReport(ctx context.Context, id, adminID string, st repository.ReportStatus, note string) (bool, error) {
+func (r *rptRepo) CloseReport(ctx context.Context, id, adminID string, st store.ReportStatus, note string) (bool, error) {
 	if r.log != nil {
 		r.log.add("close")
 	}
@@ -105,11 +106,11 @@ func (r *rptRepo) CloseReport(ctx context.Context, id, adminID string, st reposi
 			return false, e
 		}
 	}
-	return r.InMemoryReportRepository.CloseReport(ctx, id, adminID, st, note)
+	return r.FakeReportRepository.CloseReport(ctx, id, adminID, st, note)
 }
 
 type rptEnv struct {
-	mem   *repository.InMemoryReportRepository
+	mem   *storetest.FakeReportRepository
 	repo  *rptRepo
 	audit *rptAudit
 	log   *rptLog
@@ -118,15 +119,15 @@ type rptEnv struct {
 
 func newRptEnv() *rptEnv {
 	l := &rptLog{}
-	mem := repository.NewInMemoryReportRepository()
-	repo := &rptRepo{InMemoryReportRepository: mem, log: l}
+	mem := storetest.NewFakeReportRepository()
+	repo := &rptRepo{FakeReportRepository: mem, log: l}
 	au := &rptAudit{log: l}
 	return &rptEnv{mem: mem, repo: repo, audit: au, log: l, svc: service.NewReportService(repo, nil).WithAudit(au)}
 }
 
-func (e *rptEnv) openReports(t *testing.T) []repository.Report {
+func (e *rptEnv) openReports(t *testing.T) []store.Report {
 	t.Helper()
-	rs, _, err := e.mem.ListReports(context.Background(), repository.ReportStatusOpen, "", 0, 1000)
+	rs, _, err := e.mem.ListReports(context.Background(), store.ReportStatusOpen, "", 0, 1000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +144,7 @@ func (e *rptEnv) allReports(t *testing.T) int64 {
 }
 
 func (e *rptEnv) seedOpen(id, reporter, listing string) {
-	e.mem.SeedReport(repository.Report{ID: id, TargetID: listing, ReporterID: reporter, Status: repository.ReportStatusOpen, Note: "secret-complaint"})
+	e.mem.SeedReport(store.Report{ID: id, TargetID: listing, ReporterID: reporter, Status: store.ReportStatusOpen, Note: "secret-complaint"})
 }
 
 // ---- CreateReport -------------------------------------------------------
@@ -156,7 +157,7 @@ func TestCreateReportIdempotentWhileOpen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first CreateReport: %v", err)
 	}
-	if a.Status != repository.ReportStatusOpen || a.ReporterID != "u1" || a.TargetID != rptListingA || a.ReasonCode != "scam" || a.ID == "" {
+	if a.Status != store.ReportStatusOpen || a.ReporterID != "u1" || a.TargetID != rptListingA || a.ReasonCode != "scam" || a.ID == "" {
 		t.Fatalf("unexpected report: %+v", a)
 	}
 	b, err := e.svc.CreateReport(ctx, "u1", rptListingA, "scam", "again")
@@ -308,13 +309,13 @@ func TestCreateReportAfterCloseCreatesNew(t *testing.T) {
 	e := newRptEnv()
 	ctx := context.Background()
 	old := time.Now().Add(-time.Hour)
-	e.mem.SeedReport(repository.Report{ID: "rp-old", TargetID: rptListingA, ReporterID: "u1",
-		Status: repository.ReportStatusDismissed, ResolvedAt: &old, ResolvedBy: "adm-1", ResolutionNote: "no"})
+	e.mem.SeedReport(store.Report{ID: "rp-old", TargetID: rptListingA, ReporterID: "u1",
+		Status: store.ReportStatusDismissed, ResolvedAt: &old, ResolvedBy: "adm-1", ResolutionNote: "no"})
 	got, err := e.svc.CreateReport(ctx, "u1", rptListingA, "scam", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ID == "rp-old" || got.Status != repository.ReportStatusOpen {
+	if got.ID == "rp-old" || got.Status != store.ReportStatusOpen {
 		t.Errorf("got %+v, want a new OPEN report", got)
 	}
 	if n := e.allReports(t); n != 2 {
@@ -327,8 +328,8 @@ func TestCreateReportAfterSweep(t *testing.T) {
 	e := newRptEnv()
 	ctx := context.Background()
 	old := time.Now().Add(-3 * 365 * 24 * time.Hour)
-	e.mem.SeedReport(repository.Report{ID: "rp-old", TargetID: rptListingA, ReporterID: "u1", Note: "x",
-		Status: repository.ReportStatusActioned, ResolvedAt: &old, ResolvedBy: "adm-1", ResolutionNote: "ok"})
+	e.mem.SeedReport(store.Report{ID: "rp-old", TargetID: rptListingA, ReporterID: "u1", Note: "x",
+		Status: store.ReportStatusActioned, ResolvedAt: &old, ResolvedBy: "adm-1", ResolutionNote: "ok"})
 	if n, err := e.mem.SweepClosedBefore(ctx, time.Now().Add(-2*365*24*time.Hour), 10); err != nil || n != 1 {
 		t.Fatalf("sweep = %d, %v; want 1, nil", n, err)
 	}
@@ -336,7 +337,7 @@ func TestCreateReportAfterSweep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Status != repository.ReportStatusOpen || got.ReporterID != "u1" || got.ID == "rp-old" {
+	if got.Status != store.ReportStatusOpen || got.ReporterID != "u1" || got.ID == "rp-old" {
 		t.Errorf("got %+v, want a new OPEN report with the real reporter id", got)
 	}
 }
@@ -347,18 +348,18 @@ func TestCreateReportAfterSweep(t *testing.T) {
 func TestResolveReportAuditBeforeClose(t *testing.T) {
 	e := newRptEnv()
 	e.seedOpen("rp-1", "u1", rptListingA)
-	got, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", repository.ReportStatusActioned, "đã gỡ tin")
+	got, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", store.ReportStatusActioned, "đã gỡ tin")
 	if err != nil {
 		t.Fatalf("ResolveReport: %v", err)
 	}
 	if order := e.log.snapshot(); len(order) != 2 || order[0] != "audit" || order[1] != "close" {
 		t.Errorf("order = %v, want [audit close]", order)
 	}
-	if got.Status != repository.ReportStatusActioned || got.ResolvedAt == nil || got.ResolutionNote != "đã gỡ tin" || got.ResolvedBy != "adm-1" {
+	if got.Status != store.ReportStatusActioned || got.ResolvedAt == nil || got.ResolutionNote != "đã gỡ tin" || got.ResolvedBy != "adm-1" {
 		t.Errorf("returned report = %+v", got)
 	}
 	stored, _ := e.mem.GetReport(context.Background(), "rp-1")
-	if stored.Status != repository.ReportStatusActioned || stored.ResolvedAt == nil {
+	if stored.Status != store.ReportStatusActioned || stored.ResolvedAt == nil {
 		t.Errorf("stored = %+v", stored)
 	}
 }
@@ -367,7 +368,7 @@ func TestResolveReportAuditBeforeClose(t *testing.T) {
 func TestResolveReportAuditEventFields_Service(t *testing.T) {
 	e := newRptEnv()
 	e.seedOpen("rp-1", "reporter-9", "L-1")
-	if _, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", repository.ReportStatusActioned, "đã gỡ tin"); err != nil {
+	if _, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", store.ReportStatusActioned, "đã gỡ tin"); err != nil {
 		t.Fatal(err)
 	}
 	evs := e.audit.events()
@@ -393,7 +394,7 @@ func TestResolveReportAuditFailureFailsClosed(t *testing.T) {
 	e := newRptEnv()
 	e.seedOpen("rp-1", "u1", rptListingA)
 	e.audit.err = errors.New("audit down")
-	_, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", repository.ReportStatusDismissed, "no")
+	_, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", store.ReportStatusDismissed, "no")
 	if !errors.Is(err, service.ErrAuditUnavailable) {
 		t.Fatalf("err = %v, want ErrAuditUnavailable", err)
 	}
@@ -401,7 +402,7 @@ func TestResolveReportAuditFailureFailsClosed(t *testing.T) {
 		t.Errorf("CloseReport called %d times, want 0", e.repo.closes)
 	}
 	got, _ := e.mem.GetReport(context.Background(), "rp-1")
-	if got.Status != repository.ReportStatusOpen || got.ResolvedAt != nil {
+	if got.Status != store.ReportStatusOpen || got.ResolvedAt != nil {
 		t.Errorf("report = %+v, want OPEN with no resolved_at", got)
 	}
 	if len(e.openReports(t)) != 1 {
@@ -412,20 +413,20 @@ func TestResolveReportAuditFailureFailsClosed(t *testing.T) {
 // Scenario: Listing reports: No audit upstream configured
 func TestResolveReportNilAuditClientUnavailable(t *testing.T) {
 	ctx := context.Background()
-	for name, mk := range map[string]func(r repository.ReportRepository) *service.ReportService{
-		"no WithAudit": func(r repository.ReportRepository) *service.ReportService { return service.NewReportService(r, nil) },
-		"typed nil client": func(r repository.ReportRepository) *service.ReportService {
+	for name, mk := range map[string]func(r store.ReportRepository) *service.ReportService{
+		"no WithAudit": func(r store.ReportRepository) *service.ReportService { return service.NewReportService(r, nil) },
+		"typed nil client": func(r store.ReportRepository) *service.ReportService {
 			return service.NewReportService(r, nil).WithAudit((*upstream.AuditClient)(nil))
 		},
 	} {
-		mem := repository.NewInMemoryReportRepository()
-		mem.SeedReport(repository.Report{ID: "rp-1", TargetID: rptListingA, ReporterID: "u1"})
-		_, err := mk(mem).ResolveReport(ctx, "adm-1", "rp-1", repository.ReportStatusActioned, "n")
+		mem := storetest.NewFakeReportRepository()
+		mem.SeedReport(store.Report{ID: "rp-1", TargetID: rptListingA, ReporterID: "u1"})
+		_, err := mk(mem).ResolveReport(ctx, "adm-1", "rp-1", store.ReportStatusActioned, "n")
 		if !errors.Is(err, service.ErrAuditUnavailable) {
 			t.Errorf("%s: err = %v, want ErrAuditUnavailable", name, err)
 		}
 		got, _ := mem.GetReport(ctx, "rp-1")
-		if got.Status != repository.ReportStatusOpen {
+		if got.Status != store.ReportStatusOpen {
 			t.Errorf("%s: status = %s, want OPEN", name, got.Status)
 		}
 	}
@@ -437,22 +438,22 @@ func TestResolveReportCloseFailureInternalThenRetry(t *testing.T) {
 	e.seedOpen("rp-1", "u1", rptListingA)
 	e.repo.closeErrs = []error{errors.New("db down")}
 	ctx := context.Background()
-	_, err := e.svc.ResolveReport(ctx, "adm-1", "rp-1", repository.ReportStatusActioned, "n")
+	_, err := e.svc.ResolveReport(ctx, "adm-1", "rp-1", store.ReportStatusActioned, "n")
 	if err == nil {
 		t.Fatal("first call must fail")
 	}
-	for _, s := range []error{service.ErrAuditUnavailable, service.ErrReportClosed, repository.ErrReportNotFound} {
+	for _, s := range []error{service.ErrAuditUnavailable, service.ErrReportClosed, store.ErrReportNotFound} {
 		if errors.Is(err, s) {
 			t.Errorf("close failure must be Internal (unclassified), got sentinel %v", s)
 		}
 	}
-	if got, _ := e.mem.GetReport(ctx, "rp-1"); got.Status != repository.ReportStatusOpen {
+	if got, _ := e.mem.GetReport(ctx, "rp-1"); got.Status != store.ReportStatusOpen {
 		t.Errorf("status after failed close = %s, want OPEN", got.Status)
 	}
-	if _, err := e.svc.ResolveReport(ctx, "adm-1", "rp-1", repository.ReportStatusActioned, "n"); err != nil {
+	if _, err := e.svc.ResolveReport(ctx, "adm-1", "rp-1", store.ReportStatusActioned, "n"); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
-	if got, _ := e.mem.GetReport(ctx, "rp-1"); got.Status != repository.ReportStatusActioned {
+	if got, _ := e.mem.GetReport(ctx, "rp-1"); got.Status != store.ReportStatusActioned {
 		t.Errorf("status after retry = %s, want ACTIONED", got.Status)
 	}
 	if n := len(e.audit.events()); n != 2 {
@@ -465,11 +466,11 @@ func TestResolveReportSameStatusReCloseRefused(t *testing.T) {
 	e := newRptEnv()
 	e.seedOpen("rp-1", "u1", rptListingA)
 	ctx := context.Background()
-	if _, err := e.svc.ResolveReport(ctx, "adm-1", "rp-1", repository.ReportStatusDismissed, "first"); err != nil {
+	if _, err := e.svc.ResolveReport(ctx, "adm-1", "rp-1", store.ReportStatusDismissed, "first"); err != nil {
 		t.Fatal(err)
 	}
 	first, _ := e.mem.GetReport(ctx, "rp-1")
-	_, err := e.svc.ResolveReport(ctx, "adm-2", "rp-1", repository.ReportStatusDismissed, "second")
+	_, err := e.svc.ResolveReport(ctx, "adm-2", "rp-1", store.ReportStatusDismissed, "second")
 	if !errors.Is(err, service.ErrReportClosed) {
 		t.Fatalf("err = %v, want ErrReportClosed", err)
 	}
@@ -487,14 +488,14 @@ func TestResolveReportConflictingStatusRefused(t *testing.T) {
 	e := newRptEnv()
 	e.seedOpen("rp-1", "u1", rptListingA)
 	ctx := context.Background()
-	if _, err := e.svc.ResolveReport(ctx, "adm-1", "rp-1", repository.ReportStatusDismissed, "first"); err != nil {
+	if _, err := e.svc.ResolveReport(ctx, "adm-1", "rp-1", store.ReportStatusDismissed, "first"); err != nil {
 		t.Fatal(err)
 	}
-	_, err := e.svc.ResolveReport(ctx, "adm-2", "rp-1", repository.ReportStatusActioned, "second")
+	_, err := e.svc.ResolveReport(ctx, "adm-2", "rp-1", store.ReportStatusActioned, "second")
 	if !errors.Is(err, service.ErrReportClosed) {
 		t.Fatalf("err = %v, want ErrReportClosed", err)
 	}
-	if got, _ := e.mem.GetReport(ctx, "rp-1"); got.Status != repository.ReportStatusDismissed {
+	if got, _ := e.mem.GetReport(ctx, "rp-1"); got.Status != store.ReportStatusDismissed {
 		t.Errorf("status = %s, want DISMISSED", got.Status)
 	}
 	if n := len(e.audit.events()); n != 1 {
@@ -506,7 +507,7 @@ func TestResolveReportConflictingStatusRefused(t *testing.T) {
 func TestResolveReportTouchesOnlyAudit(t *testing.T) {
 	e := newRptEnv()
 	e.seedOpen("rp-1", "u1", rptListingA)
-	if _, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", repository.ReportStatusActioned, "n"); err != nil {
+	if _, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", store.ReportStatusActioned, "n"); err != nil {
 		t.Fatal(err)
 	}
 	if e.audit.other != 0 {
@@ -526,17 +527,17 @@ func TestResolveReportValidationNeverAudits(t *testing.T) {
 	cases := []struct {
 		name   string
 		id     string
-		status repository.ReportStatus
+		status store.ReportStatus
 		note   string
 		want   error
 	}{
-		{"status OPEN", "rp-1", repository.ReportStatusOpen, "n", service.ErrInvalidReportStatus},
+		{"status OPEN", "rp-1", store.ReportStatusOpen, "n", service.ErrInvalidReportStatus},
 		{"status empty", "rp-1", "", "n", service.ErrInvalidReportStatus},
-		{"empty note", "rp-1", repository.ReportStatusActioned, "", service.ErrResolutionNoteRequired},
-		{"whitespace note", "rp-1", repository.ReportStatusActioned, "   ", service.ErrResolutionNoteRequired},
-		{"501 runes", "rp-1", repository.ReportStatusActioned, strings.Repeat("ạ", 501), service.ErrResolutionNoteTooLong},
-		{"empty id", "", repository.ReportStatusActioned, "n", service.ErrEmptyReportID},
-		{"unknown id", "rp-404", repository.ReportStatusActioned, "n", repository.ErrReportNotFound},
+		{"empty note", "rp-1", store.ReportStatusActioned, "", service.ErrResolutionNoteRequired},
+		{"whitespace note", "rp-1", store.ReportStatusActioned, "   ", service.ErrResolutionNoteRequired},
+		{"501 runes", "rp-1", store.ReportStatusActioned, strings.Repeat("ạ", 501), service.ErrResolutionNoteTooLong},
+		{"empty id", "", store.ReportStatusActioned, "n", service.ErrEmptyReportID},
+		{"unknown id", "rp-404", store.ReportStatusActioned, "n", store.ErrReportNotFound},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -549,7 +550,7 @@ func TestResolveReportValidationNeverAudits(t *testing.T) {
 			if n := len(e.audit.events()); n != 0 {
 				t.Errorf("audit events = %d, want 0", n)
 			}
-			if got, _ := e.mem.GetReport(context.Background(), "rp-1"); got.Status != repository.ReportStatusOpen {
+			if got, _ := e.mem.GetReport(context.Background(), "rp-1"); got.Status != store.ReportStatusOpen {
 				t.Errorf("status = %s, want OPEN", got.Status)
 			}
 		})
@@ -557,7 +558,7 @@ func TestResolveReportValidationNeverAudits(t *testing.T) {
 	// Boundary: exactly 500 runes (and a padded note trimmed) succeeds.
 	e := newRptEnv()
 	e.seedOpen("rp-1", "u1", rptListingA)
-	if _, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", repository.ReportStatusActioned, "  "+strings.Repeat("ạ", 500)+"  "); err != nil {
+	if _, err := e.svc.ResolveReport(context.Background(), "adm-1", "rp-1", store.ReportStatusActioned, "  "+strings.Repeat("ạ", 500)+"  "); err != nil {
 		t.Errorf("500 runes: %v", err)
 	}
 }

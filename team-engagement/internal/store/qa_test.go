@@ -1,18 +1,19 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/buidangphuc/team-engagement/internal/repository"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 func TestInMemoryQARepository(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryQARepository()
+	repo := storetest.NewFakeQARepository()
 
 	// 1. Create questions
-	q1, err := repo.CreateQuestion(ctx, repository.ProductQuestion{
+	q1, err := repo.CreateQuestion(ctx, store.ProductQuestion{
 		ListingID:    "listing-1",
 		UserID:       "user-1",
 		QuestionText: "Sản phẩm có sẵn hàng không?",
@@ -24,7 +25,7 @@ func TestInMemoryQARepository(t *testing.T) {
 		t.Fatal("expected generated question ID")
 	}
 
-	_, err = repo.CreateQuestion(ctx, repository.ProductQuestion{
+	_, err = repo.CreateQuestion(ctx, store.ProductQuestion{
 		ListingID:    "listing-1",
 		UserID:       "user-2",
 		QuestionText: "Có freeship không shop?",
@@ -43,7 +44,7 @@ func TestInMemoryQARepository(t *testing.T) {
 	}
 
 	// 3. Create answers
-	ans1, err := repo.CreateAnswer(ctx, repository.ProductAnswer{
+	ans1, err := repo.CreateAnswer(ctx, store.ProductAnswer{
 		QuestionID:  q1.ID,
 		UserID:      "seller-1",
 		AnswerText:  "Dạ shop sẵn hàng ạ!",
@@ -57,7 +58,7 @@ func TestInMemoryQARepository(t *testing.T) {
 	}
 
 	// Create answer for nonexistent question
-	_, err = repo.CreateAnswer(ctx, repository.ProductAnswer{
+	_, err = repo.CreateAnswer(ctx, store.ProductAnswer{
 		QuestionID: "nonexistent",
 		UserID:     "user-x",
 		AnswerText: "Test",

@@ -15,14 +15,17 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
@@ -72,7 +75,7 @@ func (a *auditSpy) WriteHideEvent(_ context.Context, actorID, reviewID, listingI
 
 // failingHideRepo fails only the hide update.
 type failingHideRepo struct {
-	*repository.InMemoryReviewRepository
+	*storetest.FakeReviewRepository
 	err error
 }
 
@@ -80,7 +83,7 @@ func (r *failingHideRepo) HideReview(ctx context.Context, id, adminID, reason st
 	if r.err != nil {
 		return false, r.err
 	}
-	return r.InMemoryReviewRepository.HideReview(ctx, id, adminID, reason)
+	return r.FakeReviewRepository.HideReview(ctx, id, adminID, reason)
 }
 
 type reviewFixture struct {
@@ -101,18 +104,18 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 	slog.SetDefault(logger)
 	t.Cleanup(func() { slog.SetDefault(prev) })
 
-	repo := &failingHideRepo{InMemoryReviewRepository: repository.NewInMemoryReviewRepository()}
+	repo := &failingHideRepo{FakeReviewRepository: storetest.NewFakeReviewRepository()}
 	verifier := &reviewVerifier{orders: map[string]string{}}
 	audit := &auditSpy{}
 	svc := service.NewReviewService(repo, verifier, logger).WithAudit(audit)
-	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(), svc, nil, nil, nil)
+	h := handler.NewEngagementHandler(storetest.NewFakeRepository(), svc, nil, nil, nil)
 	return &reviewFixture{h: h, repo: repo, verifier: verifier, audit: audit, logs: logs}
 }
 
 // seed stores a review directly in the repository.
-func (f *reviewFixture) seed(t *testing.T, listing, seller string, rating int32, verified bool) repository.Review {
+func (f *reviewFixture) seed(t *testing.T, listing, seller string, rating int32, verified bool) store.Review {
 	t.Helper()
-	rev, err := f.repo.InMemoryReviewRepository.CreateReview(context.Background(), repository.Review{
+	rev, err := f.repo.FakeReviewRepository.CreateReview(context.Background(), store.Review{
 		ListingID: listing, SellerID: seller, UserID: "u-seed",
 		OrderID: fmt.Sprintf("o-%s-%d-%v-%d", listing, rating, verified, f.count(listing)), Rating: rating,
 		VerifiedPurchase: verified,
@@ -124,7 +127,7 @@ func (f *reviewFixture) seed(t *testing.T, listing, seller string, rating int32,
 }
 
 func (f *reviewFixture) count(listing string) int64 {
-	_, n, _ := f.repo.InMemoryReviewRepository.ListReviews(context.Background(), listing, 0, 0, 1000)
+	_, n, _ := f.repo.FakeReviewRepository.ListReviews(context.Background(), listing, 0, 0, 1000)
 	return n
 }
 
@@ -371,7 +374,7 @@ func TestHideReviewUpstreamAndStorageErrorCodes(t *testing.T) {
 		f := newReviewFixture(t)
 		r := f.seed(t, "L-1", "s-1", 1, true)
 		svc := service.NewReviewService(f.repo, nil, nil) // never wired with audit
-		h := handler.NewEngagementHandler(repository.NewInMemoryRepository(), svc, nil, nil, nil)
+		h := handler.NewEngagementHandler(storetest.NewFakeRepository(), svc, nil, nil, nil)
 		_, err := h.HideReview(adminCtx(), &engagementv1.HideReviewRequest{ReviewId: r.ID, Reason: "spam"})
 		if status.Code(err) != codes.Unavailable {
 			t.Fatalf("want Unavailable, got %v", err)
@@ -486,7 +489,7 @@ func reviewHiddenCount(t *testing.T, pool *pgxpool.Pool) int {
 	t.Helper()
 	var n int
 	if err := pool.QueryRow(context.Background(),
-		`SELECT count(*) FROM outbox WHERE type = 'platform.engagement.v1.ReviewHidden'`).Scan(&n); err != nil {
+		`SELECT count(*) FROM engagement_outbox_events WHERE event_type = 'platform.engagement.v1.ReviewHidden'`).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	return n
@@ -495,13 +498,13 @@ func reviewHiddenCount(t *testing.T, pool *pgxpool.Pool) int {
 // Scenario: Review hidden event: non-admin cannot trigger a fact
 func TestHideReviewNonAdminNoFact(t *testing.T) {
 	pool := pgSchemaPool(t)
-	repo := repository.NewPostgresReviewRepository(pool)
-	if _, err := repo.CreateReview(adminCtx(), repository.Review{ID: "r1", ListingID: "L1", UserID: "u1", OrderID: "O1", Rating: 1, VerifiedPurchase: true}); err != nil {
+	repo := store.NewPostgresReviewRepository(pool, mustFactStore(t, pool))
+	if _, err := repo.CreateReview(adminCtx(), store.Review{ID: "r1", ListingID: "L1", UserID: "u1", OrderID: "O1", Rating: 1, VerifiedPurchase: true}); err != nil {
 		t.Fatal(err)
 	}
 	audit := &auditSpy{}
 	svc := service.NewReviewService(repo, nil, nil).WithAudit(audit)
-	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(), svc, nil, nil, nil)
+	h := handler.NewEngagementHandler(storetest.NewFakeRepository(), svc, nil, nil, nil)
 	hide := func(ctx context.Context) error {
 		_, err := h.HideReview(ctx, &engagementv1.HideReviewRequest{ReviewId: "r1", Reason: "spam"})
 		return err
@@ -540,4 +543,13 @@ func TestHideReviewNonAdminNoFact(t *testing.T) {
 	if n := reviewHiddenCount(t, pool); n != 1 {
 		t.Fatalf("control: ReviewHidden outbox rows = %d, want 1", n)
 	}
+}
+
+func mustFactStore(t *testing.T, pool *pgxpool.Pool) *outbox.Store {
+	t.Helper()
+	st, err := outbox.NewStore(pool, "engagement_outbox_events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
 }

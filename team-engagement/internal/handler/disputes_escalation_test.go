@@ -14,8 +14,9 @@ import (
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	orderv1 "github.com/buidangphuc/team-engagement/generated/platform/order/v1"
 	"github.com/buidangphuc/team-engagement/internal/handler"
-	"github.com/buidangphuc/team-engagement/internal/repository"
 	"github.com/buidangphuc/team-engagement/internal/service"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 	"github.com/buidangphuc/team-engagement/internal/upstream"
 )
 
@@ -66,12 +67,12 @@ func (r *returnFake) GetReturn(_ context.Context, id string) (string, orderv1.Re
 }
 
 type factRepo struct {
-	*repository.InMemoryDisputeRepository
+	*storetest.FakeDisputeRepository
 	facts []*engagementv1.DisputeResolved
 }
 
-func (f *factRepo) ResolveWithEvent(ctx context.Context, d repository.Dispute, prev repository.DisputeStatus, fact proto.Message) (repository.Dispute, error) {
-	out, err := f.InMemoryDisputeRepository.ResolveWithEvent(ctx, d, prev, fact)
+func (f *factRepo) ResolveWithEvent(ctx context.Context, d store.Dispute, prev store.DisputeStatus, fact proto.Message) (store.Dispute, error) {
+	out, err := f.FakeDisputeRepository.ResolveWithEvent(ctx, d, prev, fact)
 	if err != nil {
 		return out, err
 	}
@@ -91,7 +92,7 @@ type escFixture struct {
 
 func newEscFixture(t *testing.T) *escFixture {
 	t.Helper()
-	repo := &factRepo{InMemoryDisputeRepository: repository.NewInMemoryDisputeRepository()}
+	repo := &factRepo{FakeDisputeRepository: storetest.NewFakeDisputeRepository()}
 	audit := &auditSpy{}
 	orders := &countingOrders{orders: fakeOrders{
 		"o-1": {buyer: "buyer-1", seller: "seller-1"},
@@ -103,18 +104,18 @@ func newEscFixture(t *testing.T) *escFixture {
 		"r-other": {orderID: "o-2", status: orderv1.ReturnStatus_RETURN_STATUS_REJECTED, canEscalate: true},
 	}}
 	h := handler.NewEngagementHandler(
-		repository.NewInMemoryRepository(),
-		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
-		service.NewQAService(repository.NewInMemoryQARepository(), nil),
+		storetest.NewFakeRepository(),
+		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
+		service.NewQAService(storetest.NewFakeQARepository(), nil),
 		service.NewDisputeService(repo, nil).WithAudit(audit),
-		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil),
+		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil),
 		handler.WithOrderParties(orders),
 		handler.WithReturnReader(returns),
 	)
 	return &escFixture{h: h, repo: repo, audit: audit, orders: orders, returns: returns}
 }
 
-func (f *escFixture) seed(t *testing.T, d repository.Dispute) string {
+func (f *escFixture) seed(t *testing.T, d store.Dispute) string {
 	t.Helper()
 	if d.OrderID == "" {
 		d.OrderID = "o-1"
@@ -135,7 +136,7 @@ func (f *escFixture) seed(t *testing.T, d repository.Dispute) string {
 	return got.ID
 }
 
-func (f *escFixture) stored(t *testing.T, id string) repository.Dispute {
+func (f *escFixture) stored(t *testing.T, id string) store.Dispute {
 	t.Helper()
 	d, err := f.repo.GetDispute(context.Background(), id)
 	if err != nil {
@@ -162,7 +163,7 @@ func (f *escFixture) assertNoAuditNoFact(t *testing.T) {
 	}
 }
 
-func (f *escFixture) disputesOfOrder(t *testing.T, orderID string) []repository.Dispute {
+func (f *escFixture) disputesOfOrder(t *testing.T, orderID string) []store.Dispute {
 	t.Helper()
 	ds, err := f.repo.ListByOrder(context.Background(), orderID)
 	if err != nil {
@@ -186,7 +187,7 @@ func TestCreateDisputeEscalatesRejectedReturn(t *testing.T) {
 	if f.returns.calls != 1 || f.returns.ids[0] != "r-1" {
 		t.Fatalf("want exactly 1 return read of r-1, got %v", f.returns.ids)
 	}
-	if got := f.stored(t, d.GetId()); got.ReturnID != "r-1" || got.Status != repository.DisputeStatusOpen {
+	if got := f.stored(t, d.GetId()); got.ReturnID != "r-1" || got.Status != store.DisputeStatusOpen {
 		t.Fatalf("stored = %+v", got)
 	}
 }
@@ -205,10 +206,10 @@ func TestCreateDisputeReturnNotEscalatable(t *testing.T) {
 
 // Scenario: Dispute escalation: Second dispute on the same return is refused while one is open
 func TestCreateDisputeDuplicateOpenOnReturn(t *testing.T) {
-	for _, st := range []repository.DisputeStatus{repository.DisputeStatusOpen, repository.DisputeStatusInvestigating} {
+	for _, st := range []store.DisputeStatus{store.DisputeStatusOpen, store.DisputeStatusInvestigating} {
 		t.Run(string(st), func(t *testing.T) {
 			f := newEscFixture(t)
-			f.seed(t, repository.Dispute{ReturnID: "r-1", Status: st})
+			f.seed(t, store.Dispute{ReturnID: "r-1", Status: st})
 			_, err := f.create(userCtx("buyer-1"), "o-1", "seller-1", "r-1")
 			if got := status.Code(err); got != codes.AlreadyExists {
 				t.Fatalf("want AlreadyExists, got %v", err)
@@ -285,12 +286,12 @@ func TestCreateDisputeReturnUpstreamUnavailable(t *testing.T) {
 
 // Scenario: Dispute escalation: Team-order unavailable fails closed
 func TestCreateDisputeReturnWithoutReaderUnavailable(t *testing.T) {
-	repo := repository.NewInMemoryDisputeRepository()
-	h := handler.NewEngagementHandler(repository.NewInMemoryRepository(),
-		service.NewReviewService(repository.NewInMemoryReviewRepository(), nil, nil),
-		service.NewQAService(repository.NewInMemoryQARepository(), nil),
+	repo := storetest.NewFakeDisputeRepository()
+	h := handler.NewEngagementHandler(storetest.NewFakeRepository(),
+		service.NewReviewService(storetest.NewFakeReviewRepository(), nil, nil),
+		service.NewQAService(storetest.NewFakeQARepository(), nil),
 		service.NewDisputeService(repo, nil).WithAudit(&auditSpy{}),
-		service.NewCollectionService(repository.NewInMemoryCollectionRepository(), nil),
+		service.NewCollectionService(storetest.NewFakeCollectionRepository(), nil),
 		handler.WithOrderParties(fakeOrders{"o-1": {buyer: "buyer-1", seller: "seller-1"}}))
 	_, err := h.CreateDispute(userCtx("buyer-1"), &engagementv1.CreateDisputeRequest{OrderId: "o-1", DefendantId: "seller-1", Reason: "r", ReturnId: "r-1"})
 	if got := status.Code(err); got != codes.Unavailable {
@@ -336,7 +337,7 @@ func TestCreateDisputeReturnAnonymousDenied(t *testing.T) {
 // Scenario: Dispute escalation: GetDispute shows the link and the ruling
 func TestGetDisputeCarriesReturnAndRuling(t *testing.T) {
 	f := newEscFixture(t)
-	id := f.seed(t, repository.Dispute{ReturnID: "r-1", Status: repository.DisputeStatusResolved, Ruling: rulingBuyer})
+	id := f.seed(t, store.Dispute{ReturnID: "r-1", Status: store.DisputeStatusResolved, Ruling: rulingBuyer})
 	for _, who := range []string{"buyer-1", "seller-1"} {
 		res, err := f.h.GetDispute(userCtx(who), &engagementv1.GetDisputeRequest{DisputeId: id})
 		if err != nil {
@@ -353,12 +354,12 @@ func TestResolveDisputeOpenToResolvedRefused(t *testing.T) {
 	for name, ruling := range map[string]engagementv1.DisputeRuling{"without ruling": rulingNone, "with ruling": rulingBuyer} {
 		t.Run(name, func(t *testing.T) {
 			f := newEscFixture(t)
-			id := f.seed(t, repository.Dispute{Status: repository.DisputeStatusOpen})
+			id := f.seed(t, store.Dispute{Status: store.DisputeStatusOpen})
 			_, err := f.rule(adminCtx(), id, stResolved, ruling)
 			if got := status.Code(err); got != codes.FailedPrecondition {
 				t.Fatalf("want FailedPrecondition, got %v", err)
 			}
-			if f.stored(t, id).Status != repository.DisputeStatusOpen {
+			if f.stored(t, id).Status != store.DisputeStatusOpen {
 				t.Fatal("dispute must stay OPEN")
 			}
 			f.assertNoAuditNoFact(t)
@@ -369,7 +370,7 @@ func TestResolveDisputeOpenToResolvedRefused(t *testing.T) {
 // Scenario: Dispute escalation: Open dispute can be rejected as spam
 func TestResolveDisputeOpenToRejectedAllowed(t *testing.T) {
 	f := newEscFixture(t)
-	id := f.seed(t, repository.Dispute{Status: repository.DisputeStatusOpen})
+	id := f.seed(t, store.Dispute{Status: store.DisputeStatusOpen})
 	res, err := f.rule(adminCtxAs("adm-1"), id, stRejected, rulingNone)
 	if err != nil {
 		t.Fatalf("ResolveDispute: %v", err)
@@ -390,10 +391,10 @@ func TestResolveDisputeOpenToRejectedAllowed(t *testing.T) {
 
 // Scenario: Dispute escalation: Closed dispute stays closed
 func TestResolveDisputeClosedRefused(t *testing.T) {
-	for _, closed := range []repository.DisputeStatus{repository.DisputeStatusResolved, repository.DisputeStatusRejected} {
+	for _, closed := range []store.DisputeStatus{store.DisputeStatusResolved, store.DisputeStatusRejected} {
 		for _, target := range []engagementv1.DisputeStatus{stInvestigating, stResolved, stRejected} {
 			f := newEscFixture(t)
-			id := f.seed(t, repository.Dispute{Status: closed, Resolution: "done"})
+			id := f.seed(t, store.Dispute{Status: closed, Resolution: "done"})
 			ruling := rulingNone
 			if target == stResolved {
 				ruling = rulingBuyer
@@ -413,12 +414,12 @@ func TestResolveDisputeClosedRefused(t *testing.T) {
 // Scenario: Dispute escalation: Return-linked resolution needs a ruling
 func TestResolveReturnLinkedWithoutRulingInvalid(t *testing.T) {
 	f := newEscFixture(t)
-	id := f.seed(t, repository.Dispute{ReturnID: "r-1", Status: repository.DisputeStatusInvestigating})
+	id := f.seed(t, store.Dispute{ReturnID: "r-1", Status: store.DisputeStatusInvestigating})
 	_, err := f.rule(adminCtx(), id, stResolved, rulingNone)
 	if got := status.Code(err); got != codes.InvalidArgument {
 		t.Fatalf("want InvalidArgument, got %v", err)
 	}
-	if f.stored(t, id).Status != repository.DisputeStatusInvestigating {
+	if f.stored(t, id).Status != store.DisputeStatusInvestigating {
 		t.Fatal("dispute must stay INVESTIGATING")
 	}
 	f.assertNoAuditNoFact(t)
@@ -428,16 +429,16 @@ func TestResolveReturnLinkedWithoutRulingInvalid(t *testing.T) {
 func TestResolveRulingWithNonResolvedStatusInvalid(t *testing.T) {
 	cases := []struct {
 		name   string
-		from   repository.DisputeStatus
+		from   store.DisputeStatus
 		target engagementv1.DisputeStatus
 	}{
-		{"investigating from open", repository.DisputeStatusOpen, stInvestigating},
-		{"rejected from investigating", repository.DisputeStatusInvestigating, stRejected},
+		{"investigating from open", store.DisputeStatusOpen, stInvestigating},
+		{"rejected from investigating", store.DisputeStatusInvestigating, stRejected},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			f := newEscFixture(t)
-			id := f.seed(t, repository.Dispute{ReturnID: "r-1", Status: c.from})
+			id := f.seed(t, store.Dispute{ReturnID: "r-1", Status: c.from})
 			_, err := f.rule(adminCtx(), id, c.target, rulingBuyer)
 			if got := status.Code(err); got != codes.InvalidArgument {
 				t.Fatalf("want InvalidArgument, got %v", err)
@@ -463,12 +464,12 @@ func TestResolveDisputeRulingNonAdminDenied(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := newEscFixture(t)
-			id := f.seed(t, repository.Dispute{ReturnID: "r-1", Status: repository.DisputeStatusInvestigating})
+			id := f.seed(t, store.Dispute{ReturnID: "r-1", Status: store.DisputeStatusInvestigating})
 			_, err := f.rule(c.ctx, id, stResolved, rulingBuyer)
 			if got := status.Code(err); got != c.want {
 				t.Fatalf("want %v, got %v", c.want, err)
 			}
-			if d := f.stored(t, id); d.Status != repository.DisputeStatusInvestigating || d.Ruling != rulingNone {
+			if d := f.stored(t, id); d.Status != store.DisputeStatusInvestigating || d.Ruling != rulingNone {
 				t.Fatalf("dispute changed: %+v", d)
 			}
 		})
@@ -478,7 +479,7 @@ func TestResolveDisputeRulingNonAdminDenied(t *testing.T) {
 // Scenario: Dispute escalation: A refused ruling writes no audit event and no fact
 func TestResolveDisputeDeniedWritesNoAuditNoFact(t *testing.T) {
 	f := newEscFixture(t)
-	id := f.seed(t, repository.Dispute{ReturnID: "r-1", Status: repository.DisputeStatusInvestigating})
+	id := f.seed(t, store.Dispute{ReturnID: "r-1", Status: store.DisputeStatusInvestigating})
 	for _, ctx := range []context.Context{userCtx("buyer-1"), userCtx("seller-1"), anonCtx()} {
 		if _, err := f.rule(ctx, id, stResolved, rulingBuyer); err == nil {
 			t.Fatal("non-admin ruling must be refused")
@@ -490,7 +491,7 @@ func TestResolveDisputeDeniedWritesNoAuditNoFact(t *testing.T) {
 // Scenario: Dispute escalation: Buyer-favour ruling writes the audit event and one fact
 func TestResolveDisputeBuyerFavourAuditAndEvent(t *testing.T) {
 	f := newEscFixture(t)
-	id := f.seed(t, repository.Dispute{ReturnID: "r-1", Status: repository.DisputeStatusInvestigating})
+	id := f.seed(t, store.Dispute{ReturnID: "r-1", Status: store.DisputeStatusInvestigating})
 	before := time.Now().Add(-time.Minute)
 	res, err := f.rule(adminCtxAs("adm-1"), id, stResolved, rulingBuyer)
 	if err != nil {
@@ -499,7 +500,7 @@ func TestResolveDisputeBuyerFavourAuditAndEvent(t *testing.T) {
 	if res.GetDispute().GetStatus() != stResolved || res.GetDispute().GetRuling() != rulingBuyer || res.GetDispute().GetReturnId() != "r-1" {
 		t.Fatalf("response = %v", res.GetDispute())
 	}
-	if d := f.stored(t, id); d.Status != repository.DisputeStatusResolved || d.Ruling != rulingBuyer {
+	if d := f.stored(t, id); d.Status != store.DisputeStatusResolved || d.Ruling != rulingBuyer {
 		t.Fatalf("stored = %+v", d)
 	}
 	if len(f.audit.generic) != 1 {
@@ -526,7 +527,7 @@ func TestResolveDisputeBuyerFavourAuditAndEvent(t *testing.T) {
 // Scenario: Dispute escalation: Rejected dispute carries no ruling
 func TestResolveDisputeRejectedEventNoRuling(t *testing.T) {
 	f := newEscFixture(t)
-	id := f.seed(t, repository.Dispute{ReturnID: "r-1", Status: repository.DisputeStatusInvestigating})
+	id := f.seed(t, store.Dispute{ReturnID: "r-1", Status: store.DisputeStatusInvestigating})
 	if _, err := f.rule(adminCtx(), id, stRejected, rulingNone); err != nil {
 		t.Fatalf("ResolveDispute: %v", err)
 	}
@@ -541,7 +542,7 @@ func TestResolveDisputeRejectedEventNoRuling(t *testing.T) {
 // Scenario: Dispute escalation: Seller-favour ruling is announced
 func TestResolveDisputeSellerFavourEvent(t *testing.T) {
 	f := newEscFixture(t)
-	id := f.seed(t, repository.Dispute{ReturnID: "r-1", Status: repository.DisputeStatusInvestigating})
+	id := f.seed(t, store.Dispute{ReturnID: "r-1", Status: store.DisputeStatusInvestigating})
 	if _, err := f.rule(adminCtx(), id, stResolved, rulingSeller); err != nil {
 		t.Fatalf("ResolveDispute: %v", err)
 	}
@@ -556,11 +557,11 @@ func TestResolveDisputeSellerFavourEvent(t *testing.T) {
 // Scenario: Dispute escalation: Open dispute moves to investigating
 func TestResolveDisputeInvestigatingWritesNoFact(t *testing.T) {
 	f := newEscFixture(t)
-	id := f.seed(t, repository.Dispute{ReturnID: "r-1", Status: repository.DisputeStatusOpen})
+	id := f.seed(t, store.Dispute{ReturnID: "r-1", Status: store.DisputeStatusOpen})
 	if _, err := f.rule(adminCtx(), id, stInvestigating, rulingNone); err != nil {
 		t.Fatalf("ResolveDispute: %v", err)
 	}
-	if f.stored(t, id).Status != repository.DisputeStatusInvestigating || len(f.repo.facts) != 0 {
+	if f.stored(t, id).Status != store.DisputeStatusInvestigating || len(f.repo.facts) != 0 {
 		t.Fatalf("status/facts wrong: %+v %v", f.stored(t, id), f.repo.facts)
 	}
 }
@@ -569,9 +570,9 @@ func TestResolveDisputeInvestigatingWritesNoFact(t *testing.T) {
 func TestListOrderDisputesPartiesNewestFirst(t *testing.T) {
 	f := newEscFixture(t)
 	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	older := f.seed(t, repository.Dispute{Status: repository.DisputeStatusRejected, CreatedAt: base})
-	newer := f.seed(t, repository.Dispute{Status: repository.DisputeStatusOpen, CreatedAt: base.Add(time.Hour)})
-	f.seed(t, repository.Dispute{OrderID: "o-2", ClaimantID: "buyer-2", DefendantID: "seller-2", CreatedAt: base})
+	older := f.seed(t, store.Dispute{Status: store.DisputeStatusRejected, CreatedAt: base})
+	newer := f.seed(t, store.Dispute{Status: store.DisputeStatusOpen, CreatedAt: base.Add(time.Hour)})
+	f.seed(t, store.Dispute{OrderID: "o-2", ClaimantID: "buyer-2", DefendantID: "seller-2", CreatedAt: base})
 	for _, who := range []string{"buyer-1", "seller-1"} {
 		res, err := f.h.ListOrderDisputes(userCtx(who), &engagementv1.ListOrderDisputesRequest{OrderId: "o-1"})
 		if err != nil {
@@ -588,7 +589,7 @@ func TestListOrderDisputesPartiesNewestFirst(t *testing.T) {
 func TestListOrderDisputesAdminNoUpstream(t *testing.T) {
 	f := newEscFixture(t)
 	f.orders.err = errors.New("team-order down")
-	f.seed(t, repository.Dispute{})
+	f.seed(t, store.Dispute{})
 	res, err := f.h.ListOrderDisputes(adminCtx(), &engagementv1.ListOrderDisputesRequest{OrderId: "o-1"})
 	if err != nil {
 		t.Fatalf("ListOrderDisputes: %v", err)
@@ -604,7 +605,7 @@ func TestListOrderDisputesAdminNoUpstream(t *testing.T) {
 // Scenario: Dispute escalation: Non-party is denied
 func TestListOrderDisputesNonPartyDenied(t *testing.T) {
 	f := newEscFixture(t)
-	f.seed(t, repository.Dispute{})
+	f.seed(t, store.Dispute{})
 	res, err := f.h.ListOrderDisputes(userCtx("stranger"), &engagementv1.ListOrderDisputesRequest{OrderId: "o-1"})
 	if got := status.Code(err); got != codes.PermissionDenied {
 		t.Fatalf("want PermissionDenied, got %v", err)
@@ -655,7 +656,7 @@ func TestListOrderDisputesValidationAndAnonymous(t *testing.T) {
 // Scenario: Dispute escalation: List without engagement read scope is denied
 func TestListOrderDisputesMissingScopeDenied(t *testing.T) {
 	f := newEscFixture(t)
-	f.seed(t, repository.Dispute{})
+	f.seed(t, store.Dispute{})
 	ctx := principalCtx("buyer-1", commonv1.PrincipalType_PRINCIPAL_TYPE_USER, "listing.read")
 	res, err := f.h.ListOrderDisputes(ctx, &engagementv1.ListOrderDisputesRequest{OrderId: "o-1"})
 	if got := status.Code(err); got != codes.PermissionDenied {
@@ -669,7 +670,7 @@ func TestListOrderDisputesMissingScopeDenied(t *testing.T) {
 // Scenario: Dispute escalation: Team-order down blocks a non-admin list
 func TestListOrderDisputesUpstreamUnavailable(t *testing.T) {
 	f := newEscFixture(t)
-	f.seed(t, repository.Dispute{})
+	f.seed(t, store.Dispute{})
 	f.orders.err = errors.New("connection refused")
 	res, err := f.h.ListOrderDisputes(userCtx("buyer-1"), &engagementv1.ListOrderDisputesRequest{OrderId: "o-1"})
 	if got := status.Code(err); got != codes.Unavailable {
@@ -683,7 +684,7 @@ func TestListOrderDisputesUpstreamUnavailable(t *testing.T) {
 // Scenario: Dispute escalation: Listing writes no audit event
 func TestListDisputesNotAudited(t *testing.T) {
 	f := newEscFixture(t)
-	f.seed(t, repository.Dispute{})
+	f.seed(t, store.Dispute{})
 	if _, err := f.h.ListDisputes(adminCtx(), &engagementv1.ListDisputesRequest{}); err != nil {
 		t.Fatalf("ListDisputes: %v", err)
 	}
@@ -697,10 +698,10 @@ func TestListDisputesNotAudited(t *testing.T) {
 func TestListDisputesAdminFiltersAndOrders(t *testing.T) {
 	f := newEscFixture(t)
 	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	c := f.seed(t, repository.Dispute{Status: repository.DisputeStatusOpen, CreatedAt: base.Add(3 * time.Hour)})
-	a := f.seed(t, repository.Dispute{Status: repository.DisputeStatusOpen, CreatedAt: base.Add(1 * time.Hour)})
-	b := f.seed(t, repository.Dispute{Status: repository.DisputeStatusOpen, CreatedAt: base.Add(2 * time.Hour)})
-	f.seed(t, repository.Dispute{Status: repository.DisputeStatusResolved, CreatedAt: base})
+	c := f.seed(t, store.Dispute{Status: store.DisputeStatusOpen, CreatedAt: base.Add(3 * time.Hour)})
+	a := f.seed(t, store.Dispute{Status: store.DisputeStatusOpen, CreatedAt: base.Add(1 * time.Hour)})
+	b := f.seed(t, store.Dispute{Status: store.DisputeStatusOpen, CreatedAt: base.Add(2 * time.Hour)})
+	f.seed(t, store.Dispute{Status: store.DisputeStatusResolved, CreatedAt: base})
 	res, err := f.h.ListDisputes(adminCtx(), &engagementv1.ListDisputesRequest{Status: engagementv1.DisputeStatus_DISPUTE_STATUS_OPEN})
 	if err != nil {
 		t.Fatalf("ListDisputes: %v", err)
@@ -722,7 +723,7 @@ func TestListDisputesAdminFiltersAndOrders(t *testing.T) {
 // Scenario: Dispute escalation: Non-admin and anonymous are refused
 func TestListDisputesNonAdminDenied(t *testing.T) {
 	f := newEscFixture(t)
-	f.seed(t, repository.Dispute{})
+	f.seed(t, store.Dispute{})
 	for _, c := range []struct {
 		name string
 		ctx  context.Context

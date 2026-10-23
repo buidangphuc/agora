@@ -1,11 +1,9 @@
-package repository
+package store_test
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -18,6 +16,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
+	eventsv1 "github.com/buidangphuc/team-engagement/generated/platform/events/v1"
+	"github.com/buidangphuc/team-engagement/internal/store"
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 // Reviews created in the same instant must still page deterministically: the
@@ -33,7 +34,7 @@ func TestPostgresListReviewsStableOrderOnTimestampTies(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	repo := NewPostgresReviewRepository(pool)
+	repo := store.NewPostgresReviewRepository(pool, testOutbox(t, pool))
 	var seen []string
 	for off := 0; off < 25; off += 10 {
 		revs, total, err := repo.ListReviews(ctx, "l1", 0, off, 10)
@@ -59,72 +60,25 @@ func TestPostgresListReviewsStableOrderOnTimestampTies(t *testing.T) {
 // reviewRepo is the repository surface the integrity rules apply to; both the
 // Postgres and in-memory implementations must satisfy it.
 type reviewRepo interface {
-	CreateReview(ctx context.Context, r Review) (Review, error)
-	ListReviews(ctx context.Context, listingID string, ratingFilter int32, offset, limit int) ([]Review, int64, error)
-	GetRatingSummary(ctx context.Context, listingID string) (RatingSummary, error)
-	GetShopRatingSummary(ctx context.Context, sellerID string) (ShopRatingSummary, error)
+	CreateReview(ctx context.Context, r store.Review) (store.Review, error)
+	ListReviews(ctx context.Context, listingID string, ratingFilter int32, offset, limit int) ([]store.Review, int64, error)
+	GetRatingSummary(ctx context.Context, listingID string) (store.RatingSummary, error)
+	GetShopRatingSummary(ctx context.Context, sellerID string) (store.ShopRatingSummary, error)
 	MarkHelpful(ctx context.Context, reviewID, userID string) (int64, error)
-	GetReview(ctx context.Context, id string) (Review, error)
+	GetReview(ctx context.Context, id string) (store.Review, error)
 	HideReview(ctx context.Context, id, adminID, reason string) (bool, error)
 }
 
-func migrationFiles(t *testing.T, suffix string) []string {
-	t.Helper()
-	files, err := filepath.Glob("../../migrations/*." + suffix + ".sql")
-	if err != nil || len(files) == 0 {
-		t.Fatalf("no %s migrations found: %v", suffix, err)
-	}
-	sort.Strings(files)
-	return files
-}
-
-// poolBefore0011 returns a fresh database migrated up to 0010 only.
 func poolBefore0011(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("TEST_DATABASE_URL not set")
-	}
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
-	if _, err := pool.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
-		t.Fatal(err)
-	}
-	for _, f := range migrationFiles(t, "up") {
-		if strings.HasPrefix(filepath.Base(f), "0011") {
-			continue
-		}
-		b, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := pool.Exec(ctx, string(b)); err != nil {
-			t.Fatalf("migrate %s: %v", filepath.Base(f), err)
-		}
-	}
+	pool := emptyPool(t)
+	applyUp(t, pool, func(name string) bool { return !strings.HasPrefix(name, "0011") })
 	return pool
 }
 
 func run0011(t *testing.T, pool *pgxpool.Pool, suffix string) {
 	t.Helper()
-	for _, f := range migrationFiles(t, suffix) {
-		if !strings.HasPrefix(filepath.Base(f), "0011_review_integrity") {
-			continue
-		}
-		b, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := pool.Exec(context.Background(), string(b)); err != nil {
-			t.Fatalf("run %s: %v", filepath.Base(f), err)
-		}
-		return
-	}
-	t.Fatalf("migration 0011_review_integrity.%s.sql missing", suffix)
+	runMigrationFile(t, pool, "0011_review_integrity."+suffix+".sql")
 }
 
 func rawReview(t *testing.T, pool *pgxpool.Pool, id, listing, order string, verified bool, rating int, createdAt time.Time) {
@@ -230,13 +184,13 @@ func TestMigration0011Down(t *testing.T) {
 func TestPGCreateReviewDuplicateOrderListing(t *testing.T) {
 	pool := testPool(t)
 	ctx := callerCtx()
-	repo := NewPostgresReviewRepository(pool)
-	first := Review{ListingID: "L1", UserID: "b1", OrderID: "O1", Rating: 5, VerifiedPurchase: true, SellerID: "S1"}
+	repo := store.NewPostgresReviewRepository(pool, testOutbox(t, pool))
+	first := store.Review{ListingID: "L1", UserID: "b1", OrderID: "O1", Rating: 5, VerifiedPurchase: true, SellerID: "S1"}
 	if _, err := repo.CreateReview(ctx, first); err != nil {
 		t.Fatal(err)
 	}
 	_, err := repo.CreateReview(ctx, first)
-	if !errors.Is(err, ErrDuplicateReview) {
+	if !errors.Is(err, store.ErrDuplicateReview) {
 		t.Fatalf("second create err = %v, want ErrDuplicateReview", err)
 	}
 	var n int
@@ -251,7 +205,7 @@ func TestPGCreateReviewDuplicateOrderListing(t *testing.T) {
 		t.Fatalf("same order, other listing: %v", err)
 	}
 	// Unverified rows are outside the partial index.
-	legacy := Review{ListingID: "L1", UserID: "b2", OrderID: "O1", Rating: 2}
+	legacy := store.Review{ListingID: "L1", UserID: "b2", OrderID: "O1", Rating: 2}
 	if _, err := repo.CreateReview(ctx, legacy); err != nil {
 		t.Fatalf("unverified row must not collide: %v", err)
 	}
@@ -261,12 +215,12 @@ func TestPGCreateReviewDuplicateOrderListing(t *testing.T) {
 func TestPGCreateReviewOtherUniqueViolationIsNotDuplicate(t *testing.T) {
 	pool := testPool(t)
 	ctx := callerCtx()
-	repo := NewPostgresReviewRepository(pool)
-	if _, err := repo.CreateReview(ctx, Review{ID: "same-id", ListingID: "L1", UserID: "b1", OrderID: "O1", Rating: 5, VerifiedPurchase: true}); err != nil {
+	repo := store.NewPostgresReviewRepository(pool, testOutbox(t, pool))
+	if _, err := repo.CreateReview(ctx, store.Review{ID: "same-id", ListingID: "L1", UserID: "b1", OrderID: "O1", Rating: 5, VerifiedPurchase: true}); err != nil {
 		t.Fatal(err)
 	}
-	_, err := repo.CreateReview(ctx, Review{ID: "same-id", ListingID: "L9", UserID: "b1", OrderID: "O9", Rating: 5, VerifiedPurchase: true})
-	if err == nil || errors.Is(err, ErrDuplicateReview) {
+	_, err := repo.CreateReview(ctx, store.Review{ID: "same-id", ListingID: "L9", UserID: "b1", OrderID: "O9", Rating: 5, VerifiedPurchase: true})
+	if err == nil || errors.Is(err, store.ErrDuplicateReview) {
 		t.Fatalf("primary key violation err = %v, want a non-duplicate-review error", err)
 	}
 }
@@ -275,7 +229,7 @@ func TestPGCreateReviewOtherUniqueViolationIsNotDuplicate(t *testing.T) {
 func TestPGCreateReviewConcurrentDuplicates(t *testing.T) {
 	pool := testPool(t)
 	ctx := callerCtx()
-	repo := NewPostgresReviewRepository(pool)
+	repo := store.NewPostgresReviewRepository(pool, testOutbox(t, pool))
 	const n = 10
 	var wg sync.WaitGroup
 	var ok, dup, other atomic.Int32
@@ -285,11 +239,11 @@ func TestPGCreateReviewConcurrentDuplicates(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			_, err := repo.CreateReview(ctx, Review{ListingID: "L1", UserID: "b1", OrderID: "O1", Rating: 5, VerifiedPurchase: true, SellerID: "S1"})
+			_, err := repo.CreateReview(ctx, store.Review{ListingID: "L1", UserID: "b1", OrderID: "O1", Rating: 5, VerifiedPurchase: true, SellerID: "S1"})
 			switch {
 			case err == nil:
 				ok.Add(1)
-			case errors.Is(err, ErrDuplicateReview):
+			case errors.Is(err, store.ErrDuplicateReview):
 				dup.Add(1)
 			default:
 				other.Add(1)
@@ -303,7 +257,7 @@ func TestPGCreateReviewConcurrentDuplicates(t *testing.T) {
 	}
 	var rows, events int
 	_ = pool.QueryRow(ctx, `SELECT count(*) FROM reviews`).Scan(&rows)
-	_ = pool.QueryRow(ctx, `SELECT count(*) FROM outbox WHERE type LIKE '%ReviewCreated'`).Scan(&events)
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM engagement_outbox_events WHERE event_type LIKE '%ReviewCreated'`).Scan(&events)
 	if rows != 1 || events != 1 {
 		t.Fatalf("rows=%d outbox ReviewCreated=%d, want 1/1", rows, events)
 	}
@@ -313,16 +267,16 @@ func TestPGCreateReviewConcurrentDuplicates(t *testing.T) {
 func TestOutboxReviewCreated(t *testing.T) {
 	pool := testPool(t)
 	ctx := callerCtx()
-	repo := NewPostgresReviewRepository(pool)
-	rev, err := repo.CreateReview(ctx, Review{ListingID: "L1", UserID: "b1", OrderID: "O1", Rating: 4, VerifiedPurchase: true, SellerID: "S7"})
+	repo := store.NewPostgresReviewRepository(pool, testOutbox(t, pool))
+	rev, err := repo.CreateReview(ctx, store.Review{ListingID: "L1", UserID: "b1", OrderID: "O1", Rating: 4, VerifiedPurchase: true, SellerID: "S7"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repo.CreateReview(ctx, Review{ListingID: "L1", UserID: "b1", OrderID: "O1", Rating: 4, VerifiedPurchase: true, SellerID: "S7"}); !errors.Is(err, ErrDuplicateReview) {
+	if _, err := repo.CreateReview(ctx, store.Review{ListingID: "L1", UserID: "b1", OrderID: "O1", Rating: 4, VerifiedPurchase: true, SellerID: "S7"}); !errors.Is(err, store.ErrDuplicateReview) {
 		t.Fatalf("duplicate err = %v", err)
 	}
 	var payloads [][]byte
-	rows, err := pool.Query(ctx, `SELECT payload FROM outbox WHERE type LIKE '%ReviewCreated'`)
+	rows, err := pool.Query(ctx, `SELECT payload FROM engagement_outbox_events WHERE event_type LIKE '%ReviewCreated'`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,8 +291,12 @@ func TestOutboxReviewCreated(t *testing.T) {
 	if len(payloads) != 1 {
 		t.Fatalf("ReviewCreated rows = %d, want exactly 1 (refused duplicate emits nothing)", len(payloads))
 	}
+	var env eventsv1.EventEnvelope
+	if err := proto.Unmarshal(payloads[0], &env); err != nil {
+		t.Fatal(err)
+	}
 	var rc engagementv1.ReviewCreated
-	if err := proto.Unmarshal(payloads[0], &rc); err != nil {
+	if err := proto.Unmarshal(env.GetPayload(), &rc); err != nil {
 		t.Fatal(err)
 	}
 	if rc.GetReviewId() != rev.ID || rc.GetListingId() != "L1" || rc.GetSellerId() != "S7" || rc.GetRating() != 4 {
@@ -366,7 +324,7 @@ func seedMixed(t *testing.T, repo reviewRepo) {
 		{"h1", "L2", "O5", 1, true, true},
 		{"u2", "L2", "", 2, false, false},
 	} {
-		if _, err := repo.CreateReview(ctx, Review{ID: f.id, ListingID: f.listing, UserID: "b-" + f.id, OrderID: f.order,
+		if _, err := repo.CreateReview(ctx, store.Review{ID: f.id, ListingID: f.listing, UserID: "b-" + f.id, OrderID: f.order,
 			Rating: f.rating, VerifiedPurchase: f.verified, SellerID: "S1"}); err != nil {
 			t.Fatalf("create %s: %v", f.id, err)
 		}
@@ -376,12 +334,12 @@ func seedMixed(t *testing.T, repo reviewRepo) {
 			}
 		}
 	}
-	if _, err := repo.CreateReview(ctx, Review{ID: "x5", ListingID: "L9", UserID: "bx", OrderID: "OX", Rating: 5, VerifiedPurchase: true, SellerID: "S2"}); err != nil {
+	if _, err := repo.CreateReview(ctx, store.Review{ID: "x5", ListingID: "L9", UserID: "bx", OrderID: "OX", Rating: 5, VerifiedPurchase: true, SellerID: "S2"}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func idsOf(revs []Review) []string {
+func idsOf(revs []store.Review) []string {
 	var out []string
 	for _, r := range revs {
 		out = append(out, r.ID)
@@ -390,10 +348,16 @@ func idsOf(revs []Review) []string {
 	return out
 }
 
+func newPostgresReviews(t *testing.T) *store.PostgresReviewRepository {
+	t.Helper()
+	pool := testPool(t)
+	return store.NewPostgresReviewRepository(pool, testOutbox(t, pool))
+}
+
 func newReviewRepos(t *testing.T) map[string]reviewRepo {
 	return map[string]reviewRepo{
-		"postgres": NewPostgresReviewRepository(testPool(t)),
-		"memory":   NewInMemoryReviewRepository(),
+		"postgres": newPostgresReviews(t),
+		"memory":   storetest.NewFakeReviewRepository(),
 	}
 }
 
@@ -402,7 +366,7 @@ func TestPGRatingSummaryVerifiedOnly(t *testing.T) {
 	ctx := callerCtx()
 	for name, repo := range newReviewRepos(t) {
 		t.Run(name, func(t *testing.T) {
-			for _, r := range []Review{
+			for _, r := range []store.Review{
 				{ID: "a", ListingID: "L1", UserID: "u1", OrderID: "O1", Rating: 5, VerifiedPurchase: true},
 				{ID: "b", ListingID: "L1", UserID: "u2", OrderID: "O2", Rating: 3, VerifiedPurchase: true},
 				{ID: "c", ListingID: "L1", UserID: "u3", Rating: 1},
@@ -415,7 +379,7 @@ func TestPGRatingSummaryVerifiedOnly(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if s.AverageRating != 4.0 || s.ReviewCount != 2 || s.Breakdown != (RatingBreakdown{Star5: 1, Star3: 1}) {
+			if s.AverageRating != 4.0 || s.ReviewCount != 2 || s.Breakdown != (store.RatingBreakdown{Star5: 1, Star3: 1}) {
 				t.Fatalf("summary = %+v", s)
 			}
 		})
@@ -433,7 +397,7 @@ func TestPGShopSummaryVerifiedNonHidden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if s.ReviewCount != 3 || s.AverageRating != 4.0 || s.Breakdown != (RatingBreakdown{Star5: 1, Star4: 1, Star3: 1}) {
+			if s.ReviewCount != 3 || s.AverageRating != 4.0 || s.Breakdown != (store.RatingBreakdown{Star5: 1, Star4: 1, Star3: 1}) {
 				t.Fatalf("shop summary = %+v", s)
 			}
 		})
@@ -445,14 +409,14 @@ func TestRatingSummaryNoVerifiedIsZero(t *testing.T) {
 	ctx := callerCtx()
 	for name, repo := range newReviewRepos(t) {
 		t.Run(name, func(t *testing.T) {
-			if _, err := repo.CreateReview(ctx, Review{ID: "only", ListingID: "L1", UserID: "u", Rating: 1, SellerID: "S1"}); err != nil {
+			if _, err := repo.CreateReview(ctx, store.Review{ID: "only", ListingID: "L1", UserID: "u", Rating: 1, SellerID: "S1"}); err != nil {
 				t.Fatal(err)
 			}
 			s, err := repo.GetRatingSummary(ctx, "L1")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if s.ReviewCount != 0 || s.AverageRating != 0 || s.Breakdown != (RatingBreakdown{}) {
+			if s.ReviewCount != 0 || s.AverageRating != 0 || s.Breakdown != (store.RatingBreakdown{}) {
 				t.Fatalf("summary = %+v", s)
 			}
 			sh, err := repo.GetShopRatingSummary(ctx, "S1")
@@ -468,7 +432,7 @@ func TestPGListReviewsExcludesHidden(t *testing.T) {
 	ctx := callerCtx()
 	for name, repo := range newReviewRepos(t) {
 		t.Run(name, func(t *testing.T) {
-			for _, r := range []Review{
+			for _, r := range []store.Review{
 				{ID: "A", ListingID: "L1", UserID: "u1", OrderID: "O1", Rating: 5, VerifiedPurchase: true},
 				{ID: "B", ListingID: "L1", UserID: "u2", OrderID: "O2", Rating: 5, VerifiedPurchase: true},
 				{ID: "C", ListingID: "L1", UserID: "u3", OrderID: "O3", Rating: 3, VerifiedPurchase: true},
@@ -522,9 +486,9 @@ func TestReviewRepoParity(t *testing.T) {
 		}
 	}
 	// Duplicate refusal parity.
-	dup := Review{ListingID: "L9", UserID: "bx", OrderID: "OX", Rating: 5, VerifiedPurchase: true, SellerID: "S2"}
+	dup := store.Review{ListingID: "L9", UserID: "bx", OrderID: "OX", Rating: 5, VerifiedPurchase: true, SellerID: "S2"}
 	for name, repo := range repos {
-		if _, err := repo.CreateReview(ctx, dup); !errors.Is(err, ErrDuplicateReview) {
+		if _, err := repo.CreateReview(ctx, dup); !errors.Is(err, store.ErrDuplicateReview) {
 			t.Errorf("%s duplicate err = %v, want ErrDuplicateReview", name, err)
 		}
 	}
@@ -535,7 +499,7 @@ func TestReviewRepoHideReviewIdempotent(t *testing.T) {
 	ctx := callerCtx()
 	for name, repo := range newReviewRepos(t) {
 		t.Run(name, func(t *testing.T) {
-			if _, err := repo.CreateReview(ctx, Review{ID: "r1", ListingID: "L1", UserID: "u", OrderID: "O1", Rating: 5, VerifiedPurchase: true}); err != nil {
+			if _, err := repo.CreateReview(ctx, store.Review{ID: "r1", ListingID: "L1", UserID: "u", OrderID: "O1", Rating: 5, VerifiedPurchase: true}); err != nil {
 				t.Fatal(err)
 			}
 			before, err := repo.GetReview(ctx, "r1")
@@ -559,10 +523,10 @@ func TestReviewRepoHideReviewIdempotent(t *testing.T) {
 			if again.HiddenBy != "admin-1" || again.HideReason != "spam link" || !again.HiddenAt.Equal(firstAt) {
 				t.Fatalf("second hide overwrote state: %+v", again)
 			}
-			if _, err := repo.HideReview(ctx, "missing", "admin-1", "x"); !errors.Is(err, ErrReviewNotFound) {
+			if _, err := repo.HideReview(ctx, "missing", "admin-1", "x"); !errors.Is(err, store.ErrReviewNotFound) {
 				t.Fatalf("hide unknown err = %v, want ErrReviewNotFound", err)
 			}
-			if _, err := repo.GetReview(ctx, "missing"); !errors.Is(err, ErrReviewNotFound) {
+			if _, err := repo.GetReview(ctx, "missing"); !errors.Is(err, store.ErrReviewNotFound) {
 				t.Fatalf("get unknown err = %v, want ErrReviewNotFound", err)
 			}
 		})
@@ -574,7 +538,7 @@ func TestReviewRepoMarkHelpfulHiddenIsNotFound(t *testing.T) {
 	ctx := callerCtx()
 	for name, repo := range newReviewRepos(t) {
 		t.Run(name, func(t *testing.T) {
-			if _, err := repo.CreateReview(ctx, Review{ID: "r1", ListingID: "L1", UserID: "u", OrderID: "O1", Rating: 5, VerifiedPurchase: true}); err != nil {
+			if _, err := repo.CreateReview(ctx, store.Review{ID: "r1", ListingID: "L1", UserID: "u", OrderID: "O1", Rating: 5, VerifiedPurchase: true}); err != nil {
 				t.Fatal(err)
 			}
 			if n, err := repo.MarkHelpful(ctx, "r1", "voter-1"); err != nil || n != 1 {
@@ -583,7 +547,7 @@ func TestReviewRepoMarkHelpfulHiddenIsNotFound(t *testing.T) {
 			if _, err := repo.HideReview(ctx, "r1", "admin-1", "spam"); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := repo.MarkHelpful(ctx, "r1", "voter-2"); !errors.Is(err, ErrReviewNotFound) {
+			if _, err := repo.MarkHelpful(ctx, "r1", "voter-2"); !errors.Is(err, store.ErrReviewNotFound) {
 				t.Fatalf("hidden MarkHelpful err = %v, want ErrReviewNotFound", err)
 			}
 			got, _ := repo.GetReview(ctx, "r1")

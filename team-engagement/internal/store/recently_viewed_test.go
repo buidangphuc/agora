@@ -1,13 +1,15 @@
-package repository
+package store_test
 
 import (
 	"context"
 	"testing"
+
+	"github.com/buidangphuc/team-engagement/internal/store/storetest"
 )
 
 // record→read roundtrip: an authenticated view shows up in the caller's history.
 func TestRecentlyViewed_Roundtrip(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	if _, err := r.RecordView(ctx, "userA", "listing_1"); err != nil {
@@ -31,7 +33,7 @@ func TestRecentlyViewed_Roundtrip(t *testing.T) {
 
 // dedup bump: re-viewing a listing bumps it to the front without duplicating.
 func TestRecentlyViewed_DedupBump(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	for _, id := range []string{"listing_1", "listing_2", "listing_1"} {
@@ -61,7 +63,7 @@ func TestRecentlyViewed_DedupBump(t *testing.T) {
 
 // cross-user isolation: one user's history never leaks into another's.
 func TestRecentlyViewed_CrossUserIsolation(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	if _, err := r.RecordView(ctx, "userA", "listing_a"); err != nil {
@@ -91,7 +93,7 @@ func TestRecentlyViewed_CrossUserIsolation(t *testing.T) {
 // anonymous: counter still increments but no history is recorded, and a read
 // returns empty (no error).
 func TestRecentlyViewed_Anonymous(t *testing.T) {
-	r := NewInMemoryRepository()
+	r := storetest.NewFakeRepository()
 	ctx := context.Background()
 
 	count, err := r.RecordView(ctx, "", "listing_1")
