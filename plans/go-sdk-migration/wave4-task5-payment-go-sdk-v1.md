@@ -9,6 +9,8 @@ Implement OpenSpec change `payment-go-sdk-v1` test-first per its tasks.md: migra
 ## Write-set (EXCLUSIVE)
 - team-payment/**
 - openspec/changes/payment-go-sdk-v1/**
+- team-payment/internal/payment/wallet_ledger.go (widened at build: task 1.5)
+- team-payment/internal/payment/wallet_ledger_test.go (widened at build: task 1.5)
 
 ## Verify
 - cd team-payment && make proto && make check && go build ./... && GO_SDK_REQUIRE_DOCKER=1 go test -race ./... -count=1
