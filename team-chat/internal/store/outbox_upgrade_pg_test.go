@@ -34,7 +34,7 @@ func migrationVersion(name string) int {
 	return n
 }
 
-func migrationsUpTo(t *testing.T, max int) fs.FS {
+func migrationsUpTo(t *testing.T, maxVer int) fs.FS {
 	t.Helper()
 	dir := os.DirFS("../../migrations")
 	entries, err := fs.ReadDir(dir, ".")
@@ -47,7 +47,7 @@ func migrationsUpTo(t *testing.T, max int) fs.FS {
 			continue
 		}
 		v := migrationVersion(e.Name())
-		if v < 0 || v > max {
+		if v < 0 || v > maxVer {
 			continue
 		}
 		b, err := fs.ReadFile(dir, e.Name())
@@ -64,10 +64,10 @@ func freshSchema(t *testing.T) string {
 	return testkit.Schema(t, testkit.SharedPostgres(t))
 }
 
-func migrateTo(t *testing.T, url string, max int) {
+func migrateTo(t *testing.T, url string, maxVer int) {
 	t.Helper()
-	if err := migrate.Up(context.Background(), url, migrationsUpTo(t, max)); err != nil {
-		t.Fatalf("migrate up to %04d: %v", max, err)
+	if err := migrate.Up(context.Background(), url, migrationsUpTo(t, maxVer)); err != nil {
+		t.Fatalf("migrate up to %04d: %v", maxVer, err)
 	}
 }
 
@@ -148,7 +148,7 @@ func TestOutboxUpgradeKeepsRowOrder(t *testing.T) {
 	migrateTo(t, url, 12)
 
 	c, a, b := seqOf(t, pool, "evt-c"), seqOf(t, pool, "evt-a"), seqOf(t, pool, "evt-b")
-	if !(c < a && a < b) {
+	if c >= a || a >= b {
 		t.Fatalf("seq must follow created_at order, got c=%d a=%d b=%d", c, a, b)
 	}
 	got := relayAll(t, pool, 3)

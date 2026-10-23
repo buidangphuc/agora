@@ -3,7 +3,6 @@ package chat_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"testing"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/buidangphuc/team-chat/internal/store"
 )
 
-func quiet() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func quiet() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func okBuilder(_ context.Context, m store.ChatMessage) (outbox.Row, error) {
 	return outbox.Row{EventID: "evt-" + m.ID, AggregateType: "ChatThread", AggregateID: m.ThreadID, EventType: "T", Payload: []byte("x")}, nil

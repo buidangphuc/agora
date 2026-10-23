@@ -3,7 +3,6 @@ package chat_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"testing"
 
@@ -12,7 +11,7 @@ import (
 )
 
 func setupTestService() (*chat.Service, store.ChatRepository) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	repo := newFakeRepo(nil)
 	svc := chat.NewService(repo, logger)
 	return svc, repo
