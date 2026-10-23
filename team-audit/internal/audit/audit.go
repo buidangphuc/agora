@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/pagination"
 )
 
 var (
@@ -62,12 +64,7 @@ func (s *Service) Query(ctx context.Context, f Filter) ([]Event, int64, error) {
 	if !f.CreatedAfter.IsZero() && !f.CreatedBefore.IsZero() && f.CreatedAfter.After(f.CreatedBefore) {
 		return nil, 0, ErrInvalidTimeRange
 	}
-	if f.Limit <= 0 {
-		f.Limit = DefaultPageSize
-	}
-	if f.Limit > MaxPageSize {
-		f.Limit = MaxPageSize
-	}
+	f.Limit = pagination.Clamp(f.Limit, DefaultPageSize, MaxPageSize)
 	if f.Offset < 0 {
 		f.Offset = 0
 	}
