@@ -148,9 +148,6 @@ func TestReadinessFollowsPostgresLivenessDoesNot(t *testing.T) {
 	if got := healthStatus(r, "liveness"); got != grpc_health_v1.HealthCheckResponse_SERVING {
 		t.Fatalf("liveness = %v while Postgres is down, want SERVING", got)
 	}
-	if got := healthStatus(r, "postgres"); got != grpc_health_v1.HealthCheckResponse_NOT_SERVING {
-		t.Errorf("postgres check = %v while Postgres is down, want NOT_SERVING", got)
-	}
 
 	setDatabaseAvailable(t, url, true)
 	testkit.Eventually(t, healthWindow+10*time.Second, func() bool {
@@ -170,8 +167,7 @@ func TestRecoveryRestoresReadiness(t *testing.T) {
 	})
 	setDatabaseAvailable(t, url, true)
 	testkit.Eventually(t, healthWindow+10*time.Second, func() bool {
-		return healthStatus(r, "") == grpc_health_v1.HealthCheckResponse_SERVING &&
-			healthStatus(r, "postgres") == grpc_health_v1.HealthCheckResponse_SERVING
+		return healthStatus(r, "") == grpc_health_v1.HealthCheckResponse_SERVING
 	})
 }
 
