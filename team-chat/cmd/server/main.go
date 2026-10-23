@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/buidangphuc/team-chat/internal/app"
 	"github.com/buidangphuc/team-chat/internal/bootstrap"
 	"github.com/buidangphuc/team-chat/internal/config"
 	"github.com/buidangphuc/team-chat/internal/events"
@@ -27,6 +28,15 @@ import (
 )
 
 func main() {
+	if len(os.Args) == 3 && os.Args[1] == "migrate" && os.Args[2] == "up" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := app.Migrate(ctx); err != nil {
+			slog.Error("migrate up failed", slog.Any("err", err))
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(); err != nil {
 		slog.Error("server exited with error", slog.Any("err", err))
 		os.Exit(1)

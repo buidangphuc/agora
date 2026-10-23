@@ -23,3 +23,10 @@ type Settings struct {
 }
 
 func Load() (Settings, error) { return sdkconfig.Load[Settings]() }
+
+type MigrateSettings struct {
+	sdkconfig.Runtime
+	Postgres sdkconfig.Postgres
+}
+
+func LoadMigrate() (MigrateSettings, error) { return sdkconfig.Load[MigrateSettings]() }
