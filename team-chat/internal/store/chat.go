@@ -1,18 +1,19 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 )
+
+const OutboxTable = "chat_outbox_events"
 
 var ErrThreadNotFound = errors.New("chat thread not found")
 
@@ -54,27 +55,17 @@ type ChatMessage struct {
 // MessageOutboxBuilder turns a just-saved message into the chat.events outbox row
 // committed in the SAME transaction as the message. A builder error aborts the
 // whole save (no message, no event).
-type MessageOutboxBuilder func(ctx context.Context, msg ChatMessage) (OutboxRow, error)
+type MessageOutboxBuilder func(ctx context.Context, msg ChatMessage) (outbox.Row, error)
 
 // ChatRepoOption configures a chat repository.
 type ChatRepoOption func(*chatRepoConfig)
 
 type chatRepoConfig struct {
 	messageOutbox MessageOutboxBuilder
-	outbox        OutboxRepository // in-memory repo only
 }
 
-// WithMessageOutbox makes every saved message write an outbox row built by b in
-// the same transaction as the message.
 func WithMessageOutbox(b MessageOutboxBuilder) ChatRepoOption {
 	return func(c *chatRepoConfig) { c.messageOutbox = b }
-}
-
-// WithInMemoryOutbox sets the outbox store the in-memory repository enqueues to,
-// atomically with the message. Ignored by the Postgres repository, which always
-// writes to chat_outbox_events in its own transaction.
-func WithInMemoryOutbox(o OutboxRepository) ChatRepoOption {
-	return func(c *chatRepoConfig) { c.outbox = o }
 }
 
 func newChatRepoConfig(opts []ChatRepoOption) chatRepoConfig {
@@ -111,12 +102,17 @@ func defaultQuickReplies() []string {
 
 type PostgresChatRepository struct {
 	pool          *pgxpool.Pool
+	outbox        *outbox.Store
 	messageOutbox MessageOutboxBuilder
 }
 
 func NewPostgresChatRepository(pool *pgxpool.Pool, opts ...ChatRepoOption) *PostgresChatRepository {
 	cfg := newChatRepoConfig(opts)
-	return &PostgresChatRepository{pool: pool, messageOutbox: cfg.messageOutbox}
+	st, err := outbox.NewStore(pool, OutboxTable)
+	if err != nil {
+		panic(err)
+	}
+	return &PostgresChatRepository{pool: pool, outbox: st, messageOutbox: cfg.messageOutbox}
 }
 
 const threadColumns = `id, buyer_id, seller_id, listing_id, listing_title, listing_image_url, last_message_text, last_message_at, unread_count_buyer, unread_count_seller, created_at, updated_at`
@@ -248,7 +244,7 @@ func (r *PostgresChatRepository) SaveMessage(ctx context.Context, msg ChatMessag
 		if err != nil {
 			return ChatMessage{}, fmt.Errorf("build chat outbox row: %w", err)
 		}
-		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
 			return ChatMessage{}, err
 		}
 	}
@@ -343,208 +339,4 @@ func (r *PostgresChatRepository) MarkThreadRead(ctx context.Context, threadID, u
 		WHERE id = $2`
 	_, err := r.pool.Exec(ctx, q, userID, threadID)
 	return err
-}
-
-// ── InMemory Implementation ───────────────────────────────────────────
-
-type InMemoryChatRepository struct {
-	cfg          chatRepoConfig
-	mu           sync.RWMutex
-	threads      map[string]ChatThread
-	messages     map[string][]ChatMessage
-	quickReplies map[string][]string // sellerID -> canned replies
-}
-
-func NewInMemoryChatRepository(opts ...ChatRepoOption) *InMemoryChatRepository {
-	return &InMemoryChatRepository{
-		cfg:          newChatRepoConfig(opts),
-		threads:      make(map[string]ChatThread),
-		messages:     make(map[string][]ChatMessage),
-		quickReplies: make(map[string][]string),
-	}
-}
-
-// SetQuickReplies seeds a seller's canned replies (test/helper convenience).
-func (r *InMemoryChatRepository) SetQuickReplies(sellerID string, replies []string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.quickReplies[sellerID] = replies
-}
-
-func (r *InMemoryChatRepository) ListQuickReplies(_ context.Context, sellerID string) ([]string, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if replies, ok := r.quickReplies[sellerID]; ok && len(replies) > 0 {
-		return replies, nil
-	}
-	return defaultQuickReplies(), nil
-}
-
-func (r *InMemoryChatRepository) GetOrCreateThread(
-	_ context.Context,
-	buyerID, sellerID, listingID, listingTitle, listingImage string,
-) (ChatThread, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	for _, t := range r.threads {
-		if t.BuyerID == buyerID && t.SellerID == sellerID && t.ListingID == listingID {
-			return t, nil
-		}
-	}
-
-	now := time.Now()
-	t := ChatThread{
-		ID:              uuid.NewString(),
-		BuyerID:         buyerID,
-		SellerID:        sellerID,
-		ListingID:       listingID,
-		ListingTitle:    listingTitle,
-		ListingImageURL: listingImage,
-		CreatedAt:       now,
-		UpdatedAt:       now,
-	}
-	r.threads[t.ID] = t
-	return t, nil
-}
-
-func (r *InMemoryChatRepository) GetThreadByID(_ context.Context, threadID string) (ChatThread, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	t, ok := r.threads[threadID]
-	if !ok {
-		return ChatThread{}, ErrThreadNotFound
-	}
-	return t, nil
-}
-
-func (r *InMemoryChatRepository) ListThreadsForUser(_ context.Context, userID string, offset, limit int) ([]ChatThread, int64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	var userThreads []ChatThread
-	for _, t := range r.threads {
-		if t.BuyerID == userID || t.SellerID == userID {
-			userThreads = append(userThreads, t)
-		}
-	}
-
-	sort.Slice(userThreads, func(i, j int) bool {
-		return userThreads[i].UpdatedAt.After(userThreads[j].UpdatedAt)
-	})
-
-	total := int64(len(userThreads))
-	if offset > len(userThreads) {
-		return []ChatThread{}, total, nil
-	}
-	end := offset + limit
-	if end > len(userThreads) {
-		end = len(userThreads)
-	}
-	return userThreads[offset:end], total, nil
-}
-
-func (r *InMemoryChatRepository) SaveMessage(ctx context.Context, msg ChatMessage) (ChatMessage, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if msg.ID == "" {
-		msg.ID = uuid.NewString()
-	}
-	msg.CreatedAt = time.Now()
-	// Build and enqueue the event before storing anything, so a failure leaves
-	// neither the message nor an event (mirrors the Postgres transaction).
-	if r.cfg.messageOutbox != nil && r.cfg.outbox != nil {
-		row, err := r.cfg.messageOutbox(ctx, msg)
-		if err != nil {
-			return ChatMessage{}, fmt.Errorf("build chat outbox row: %w", err)
-		}
-		if err := r.cfg.outbox.Enqueue(ctx, row); err != nil {
-			return ChatMessage{}, err
-		}
-	}
-	r.messages[msg.ThreadID] = append(r.messages[msg.ThreadID], msg)
-
-	if t, ok := r.threads[msg.ThreadID]; ok {
-		t.LastMessageText = msg.Content
-		t.LastMessageAt = &msg.CreatedAt
-		t.UpdatedAt = msg.CreatedAt
-		if t.BuyerID != msg.SenderID {
-			t.UnreadCountBuyer++
-		}
-		if t.SellerID != msg.SenderID {
-			t.UnreadCountSeller++
-		}
-		r.threads[msg.ThreadID] = t
-	}
-
-	return msg, nil
-}
-
-func (r *InMemoryChatRepository) GetThreadMessages(_ context.Context, threadID string, offset, limit int) ([]ChatMessage, int64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	msgs := r.messages[threadID]
-	total := int64(len(msgs))
-	if offset > len(msgs) {
-		return []ChatMessage{}, total, nil
-	}
-	end := offset + limit
-	if end > len(msgs) {
-		end = len(msgs)
-	}
-	return msgs[offset:end], total, nil
-}
-
-func (r *InMemoryChatRepository) SearchMessages(_ context.Context, userID, query string, offset, limit int) ([]ChatMessage, int64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	q := strings.ToLower(query)
-	var matches []ChatMessage
-	for threadID, msgs := range r.messages {
-		t, ok := r.threads[threadID]
-		if !ok || (t.BuyerID != userID && t.SellerID != userID) {
-			continue // skip threads the caller does not participate in
-		}
-		for _, m := range msgs {
-			if strings.Contains(strings.ToLower(m.Content), q) {
-				matches = append(matches, m)
-			}
-		}
-	}
-
-	// Newest-first, mirroring the Postgres ORDER BY created_at DESC.
-	sort.Slice(matches, func(i, j int) bool {
-		return matches[i].CreatedAt.After(matches[j].CreatedAt)
-	})
-
-	total := int64(len(matches))
-	if offset > len(matches) {
-		return []ChatMessage{}, total, nil
-	}
-	end := offset + limit
-	if end > len(matches) {
-		end = len(matches)
-	}
-	return matches[offset:end], total, nil
-}
-
-func (r *InMemoryChatRepository) MarkThreadRead(_ context.Context, threadID, userID string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if t, ok := r.threads[threadID]; ok {
-		if t.BuyerID == userID {
-			t.UnreadCountBuyer = 0
-		}
-		if t.SellerID == userID {
-			t.UnreadCountSeller = 0
-		}
-		r.threads[threadID] = t
-	}
-	return nil
 }

@@ -17,7 +17,7 @@ func Migrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := migrate.Up(ctx, s.Postgres.URL, fs.FS(migrations.FS)); err != nil {
+	if err := migrate.Up(ctx, s.Postgres.URL, fs.FS(migrations.Files)); err != nil {
 		host := "unknown"
 		if u, perr := url.Parse(s.Postgres.URL); perr == nil && u.Host != "" {
 			host = u.Host

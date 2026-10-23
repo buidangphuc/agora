@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	"github.com/google/uuid"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
@@ -16,7 +17,7 @@ import (
 	chatv1 "github.com/buidangphuc/team-chat/generated/platform/chat/v1"
 	eventsv1 "github.com/buidangphuc/team-chat/generated/platform/events/v1"
 	"github.com/buidangphuc/team-chat/internal/interceptor"
-	"github.com/buidangphuc/team-chat/internal/repository"
+	"github.com/buidangphuc/team-chat/internal/store"
 )
 
 // Discriminator types carried in EventEnvelope.Type
@@ -40,7 +41,7 @@ func ChatMessageEventID(messageID string) string {
 // wraps the message (with recipient_id) in an EventEnvelope keyed by thread id,
 // ready to commit in the same transaction as the message. The caller's principal
 // and request id are read from ctx.
-func BuildMessageOutboxRow(ctx context.Context, msg repository.ChatMessage) (repository.OutboxRow, error) {
+func BuildMessageOutboxRow(ctx context.Context, msg store.ChatMessage) (outbox.Row, error) {
 	occurredAt := msg.CreatedAt
 	if occurredAt.IsZero() {
 		occurredAt = time.Now()
@@ -59,7 +60,7 @@ func BuildMessageOutboxRow(ctx context.Context, msg repository.ChatMessage) (rep
 		SellerId:    msg.SellerID,
 	})
 	if err != nil {
-		return repository.OutboxRow{}, fmt.Errorf("marshal ChatMessage: %w", err)
+		return outbox.Row{}, fmt.Errorf("marshal ChatMessage: %w", err)
 	}
 	reqID, _ := interceptor.RequestIDFromContext(ctx)
 	eventID := ChatMessageEventID(msg.ID)
@@ -75,9 +76,9 @@ func BuildMessageOutboxRow(ctx context.Context, msg repository.ChatMessage) (rep
 	}
 	value, err := proto.Marshal(envelope)
 	if err != nil {
-		return repository.OutboxRow{}, fmt.Errorf("marshal EventEnvelope: %w", err)
+		return outbox.Row{}, fmt.Errorf("marshal EventEnvelope: %w", err)
 	}
-	return repository.OutboxRow{
+	return outbox.Row{
 		EventID:       eventID,
 		AggregateType: "ChatThread",
 		AggregateID:   msg.ThreadID,
