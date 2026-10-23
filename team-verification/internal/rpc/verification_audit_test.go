@@ -134,7 +134,7 @@ func (e *env) assertNoUpdate(t *testing.T) {
 // Scenario: Admin approval writes one audit event.
 func TestReviewKycWritesAuditEvent(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("u-1"))
+	id := submit(buyer("u-1"), t, e.h)
 	rev, err := e.review(admin("adm-1"), id, "approve")
 	if err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
@@ -161,7 +161,7 @@ func TestReviewKycWritesAuditEvent(t *testing.T) {
 // Scenario: Decision alias is normalized in the event.
 func TestReviewKycAuditDecisionNormalized(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("u-1"))
+	id := submit(buyer("u-1"), t, e.h)
 	rev, err := e.review(admin("adm-1"), id, " Rejected ")
 	if err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
@@ -177,7 +177,7 @@ func TestReviewKycAuditDecisionNormalized(t *testing.T) {
 // Scenario: Audit is written before the review is applied.
 func TestReviewKycAuditBeforeUpdate(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("u-1"))
+	id := submit(buyer("u-1"), t, e.h)
 	if _, err := e.review(admin("adm-1"), id, "approve"); err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestReviewKycAuditBeforeUpdate(t *testing.T) {
 // Scenario: Actor comes from the principal, not the request.
 func TestReviewKycAuditActorAndNoDocumentData(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("u-1"))
+	id := submit(buyer("u-1"), t, e.h)
 	if _, err := e.review(admin("adm-1"), id, "approve"); err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestReviewKycAuditActorAndNoDocumentData(t *testing.T) {
 // Scenario: Non-admin caller is denied without an audit write; Non-admin is denied and nothing is written.
 func TestReviewKycNonAdminNoAudit(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("alice"))
+	id := submit(buyer("alice"), t, e.h)
 	_, err := e.review(buyer("bob"), id, "approve")
 	wantCode(t, err, codes.PermissionDenied)
 	if n := e.audit.count(); n != 0 {
@@ -222,7 +222,7 @@ func TestReviewKycNonAdminNoAudit(t *testing.T) {
 // Scenario: Anonymous and identity-less callers are refused.
 func TestReviewKycAnonymousNoAudit(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("alice"))
+	id := submit(buyer("alice"), t, e.h)
 	for name, ctx := range map[string]context.Context{
 		"anonymous":   anonymous(),
 		"no identity": context.Background(),
@@ -242,7 +242,7 @@ func TestReviewKycAnonymousNoAudit(t *testing.T) {
 // Scenario: Admin cannot review their own submission.
 func TestReviewKycSelfReviewNoAudit(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, admin("adm-1"))
+	id := submit(admin("adm-1"), t, e.h)
 	_, err := e.review(admin("adm-1"), id, "approve")
 	wantCode(t, err, codes.PermissionDenied)
 	if n := e.audit.count(); n != 0 {
@@ -274,7 +274,7 @@ func TestReviewKycEmptyIDNoAudit(t *testing.T) {
 // Scenario: Invalid decision is rejected before audit.
 func TestReviewKycInvalidDecisionNoAudit(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("u-1"))
+	id := submit(buyer("u-1"), t, e.h)
 	for _, d := range []string{"maybe", ""} {
 		_, err := e.review(admin("adm-1"), id, d)
 		wantCode(t, err, codes.InvalidArgument)
@@ -289,7 +289,7 @@ func TestReviewKycInvalidDecisionNoAudit(t *testing.T) {
 // Scenario: Already reviewed submission is refused before audit.
 func TestReviewKycAlreadyReviewedNoAudit(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("u-1"))
+	id := submit(buyer("u-1"), t, e.h)
 	if _, err := e.review(admin("adm-1"), id, "approve"); err != nil {
 		t.Fatalf("first review: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestReviewKycAlreadyReviewedNoAudit(t *testing.T) {
 func TestReviewKycAuditErrorUnavailableNoChange(t *testing.T) {
 	e := newEnv()
 	e.audit.err = status.Error(codes.Internal, "audit db down")
-	id := submit(t, e.h, buyer("u-1"))
+	id := submit(buyer("u-1"), t, e.h)
 	_, err := e.review(admin("adm-1"), id, "approve")
 	wantCode(t, err, codes.Unavailable)
 	wantMessage(t, err, "audit trail unavailable")
@@ -332,7 +332,7 @@ func TestReviewKycAuditTimeoutUnavailableNoChange(t *testing.T) {
 	} {
 		e := newEnv()
 		e.audit.err = aerr
-		id := submit(t, e.h, buyer("u-1"))
+		id := submit(buyer("u-1"), t, e.h)
 		_, err := e.review(admin("adm-1"), id, "approve")
 		if status.Code(err) != codes.Unavailable {
 			t.Fatalf("%s: want Unavailable, got %v", name, err)
@@ -345,7 +345,7 @@ func TestReviewKycAuditTimeoutUnavailableNoChange(t *testing.T) {
 // Scenario: Update failure after audit then retry.
 func TestReviewKycUpdateFailureInternalThenRetry(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("u-1"))
+	id := submit(buyer("u-1"), t, e.h)
 	e.repo.failUpdate = true
 	_, err := e.review(admin("adm-1"), id, "approve")
 	wantCode(t, err, codes.Internal)
@@ -368,7 +368,7 @@ func TestSubmitAndStatusIndependentOfAudit(t *testing.T) {
 	failing.audit.err = status.Error(codes.Unavailable, "down")
 
 	for name, h := range map[string]*rpc.Handler{"failing fake": failing.h} {
-		submit(t, h, buyer("u-1"))
+		submit(buyer("u-1"), t, h)
 		st, err := h.GetVerificationStatus(buyer("u-1"), &verificationv1.GetVerificationStatusRequest{})
 		if err != nil {
 			t.Fatalf("%s: status: %v", name, err)

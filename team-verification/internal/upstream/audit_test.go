@@ -2,10 +2,9 @@ package upstream
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"sync"
-	"io"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -108,7 +107,7 @@ func TestAuditClientUsesServicePrincipal(t *testing.T) {
 // Scenario: Audit client call is bounded by the timeout.
 func TestAuditClientTimeoutBounded(t *testing.T) {
 	w := dialWriter(t, startAudit(t, &recordingAudit{block: true}))
-	gate := auditx.NewGate(w, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	gate := auditx.NewGate(w, slog.New(slog.DiscardHandler))
 	applied := false
 	start := time.Now()
 	err := gate.Do(context.Background(), auditx.Event{

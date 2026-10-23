@@ -2,6 +2,7 @@ package verification_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/buidangphuc/team-verification/internal/store"
@@ -109,25 +110,25 @@ func TestValidation(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
 
-	if _, err := svc.Submit(ctx, "", "national_id", "ref"); err != verification.ErrEmptyUser {
+	if _, err := svc.Submit(ctx, "", "national_id", "ref"); !errors.Is(err, verification.ErrEmptyUser) {
 		t.Fatalf("expected ErrEmptyUser, got %v", err)
 	}
-	if _, err := svc.Submit(ctx, "u", "", "ref"); err != verification.ErrEmptyDocType {
+	if _, err := svc.Submit(ctx, "u", "", "ref"); !errors.Is(err, verification.ErrEmptyDocType) {
 		t.Fatalf("expected ErrEmptyDocType, got %v", err)
 	}
-	if _, err := svc.Submit(ctx, "u", "national_id", "  "); err != verification.ErrEmptyDocRef {
+	if _, err := svc.Submit(ctx, "u", "national_id", "  "); !errors.Is(err, verification.ErrEmptyDocRef) {
 		t.Fatalf("expected ErrEmptyDocRef, got %v", err)
 	}
-	if _, _, err := svc.GetStatus(ctx, ""); err != verification.ErrEmptyUser {
+	if _, _, err := svc.GetStatus(ctx, ""); !errors.Is(err, verification.ErrEmptyUser) {
 		t.Fatalf("expected ErrEmptyUser on GetStatus, got %v", err)
 	}
-	if _, err := svc.Review(ctx, "", "approve"); err != verification.ErrEmptyID {
+	if _, err := svc.Review(ctx, "", "approve"); !errors.Is(err, verification.ErrEmptyID) {
 		t.Fatalf("expected ErrEmptyID, got %v", err)
 	}
-	if _, err := svc.Review(ctx, "kyc_x", "maybe"); err != verification.ErrInvalidReview {
+	if _, err := svc.Review(ctx, "kyc_x", "maybe"); !errors.Is(err, verification.ErrInvalidReview) {
 		t.Fatalf("expected ErrInvalidReview, got %v", err)
 	}
-	if _, err := svc.Review(ctx, "kyc_missing", "approve"); err != store.ErrNotFound {
+	if _, err := svc.Review(ctx, "kyc_missing", "approve"); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound reviewing missing id, got %v", err)
 	}
 }

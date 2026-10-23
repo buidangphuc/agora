@@ -2,7 +2,6 @@ package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"testing"
 
@@ -29,7 +28,7 @@ func buildHandler(t testing.TB, repo store.KycRepository, w auditx.Writer, logge
 	return h
 }
 
-func quiet() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func quiet() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func newHandler() *rpc.Handler {
 	return buildHandler(nopT{}, storetest.NewInMemoryKycRepo(), &fakeAudit{}, quiet())
@@ -38,7 +37,7 @@ func newHandler() *rpc.Handler {
 type nopT struct{ testing.TB }
 
 func (nopT) Helper()                   {}
-func (nopT) Fatalf(f string, a ...any) { panic("NewHandler failed") }
+func (nopT) Fatalf(_ string, _ ...any) { panic("NewHandler failed") }
 
 // ctxAs resolves a principal exactly as the gRPC server does: forwarded
 // x-principal-* metadata run through the SDK unary interceptor.
@@ -72,7 +71,7 @@ func wantMessage(t *testing.T, err error, want string) {
 	}
 }
 
-func submit(t *testing.T, h *rpc.Handler, ctx context.Context) string {
+func submit(ctx context.Context, t *testing.T, h *rpc.Handler) string {
 	t.Helper()
 	sub, err := h.SubmitKyc(ctx, &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "mock-ref"})
 	if err != nil {
@@ -85,7 +84,7 @@ func submit(t *testing.T, h *rpc.Handler, ctx context.Context) string {
 // Scenario: Submit then review through the handler.
 func TestHandlerSubmitReviewFlow(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("seller_1"))
+	id := submit(buyer("seller_1"), t, h)
 
 	st, err := h.GetVerificationStatus(buyer("seller_1"), &verificationv1.GetVerificationStatusRequest{})
 	if err != nil {
@@ -116,7 +115,7 @@ func TestHandlerSubmitReviewFlow(t *testing.T) {
 // Scenario: Two users do not see each other's status.
 func TestTwoUsersDoNotSeeEachOthersStatus(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}
@@ -160,7 +159,7 @@ func TestServicePrincipalCannotSubmit(t *testing.T) {
 
 func TestBuyerCannotReview(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	// Not even their own submission.
 	_, err := h.ReviewKyc(buyer("alice"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
 	wantCode(t, err, codes.PermissionDenied)
@@ -175,7 +174,7 @@ func TestBuyerCannotReview(t *testing.T) {
 // Scenario: An admin can review someone else.
 func TestAdminCanReviewSomeoneElse(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	rev, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "reject"})
 	if err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
@@ -187,7 +186,7 @@ func TestAdminCanReviewSomeoneElse(t *testing.T) {
 
 func TestAdminCannotReviewOwnSubmission(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, admin("admin_1"))
+	id := submit(admin("admin_1"), t, h)
 	_, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
 	wantCode(t, err, codes.PermissionDenied)
 	st, _ := h.GetVerificationStatus(admin("admin_1"), &verificationv1.GetVerificationStatusRequest{})
@@ -198,7 +197,7 @@ func TestAdminCannotReviewOwnSubmission(t *testing.T) {
 
 func TestStatusForAnotherUser(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}
@@ -221,7 +220,7 @@ func TestHandlerReviewMissingIsNotFound(t *testing.T) {
 // An invalid review decision surfaces gRPC InvalidArgument.
 func TestHandlerBadDecisionIsInvalidArgument(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("u"))
+	id := submit(buyer("u"), t, h)
 	_, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "meh"})
 	wantCode(t, err, codes.InvalidArgument)
 }
@@ -231,7 +230,7 @@ func TestHandlerBadDecisionIsInvalidArgument(t *testing.T) {
 // Scenario: A review decision is final through the handler.
 func TestReviewIsFinal(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	if _, err := h.ReviewKyc(admin("admin_1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
 		t.Fatalf("first review: %v", err)
 	}

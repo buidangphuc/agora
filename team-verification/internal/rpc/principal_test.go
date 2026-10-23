@@ -11,11 +11,13 @@ import (
 
 var badTypes = map[string]string{"typeless": "", "unrecognised": "robot"}
 
-func attempts(h interface {
+type kycAPI interface {
 	SubmitKyc(context.Context, *verificationv1.SubmitKycRequest) (*verificationv1.SubmitKycResponse, error)
 	ReviewKyc(context.Context, *verificationv1.ReviewKycRequest) (*verificationv1.ReviewKycResponse, error)
 	GetVerificationStatus(context.Context, *verificationv1.GetVerificationStatusRequest) (*verificationv1.GetVerificationStatusResponse, error)
-}, ctx context.Context, id string) map[string]error {
+}
+
+func attempts(ctx context.Context, h kycAPI, id string) map[string]error {
 	_, s := h.SubmitKyc(ctx, &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: "r"})
 	_, r := h.ReviewKyc(ctx, &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"})
 	_, g := h.GetVerificationStatus(ctx, &verificationv1.GetVerificationStatusRequest{UserId: "alice"})
@@ -25,8 +27,8 @@ func attempts(h interface {
 // Scenario: A principal with no type is refused.
 func TestTypelessPrincipalUnauthenticated(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("alice"))
-	for name, err := range attempts(e.h, ctxAs("typeless-1", "", "admin,listing.read"), id) {
+	id := submit(buyer("alice"), t, e.h)
+	for name, err := range attempts(ctxAs("typeless-1", "", "admin,listing.read"), e.h, id) {
 		if err == nil {
 			t.Fatalf("%s: typeless principal with admin scope was accepted", name)
 		}
@@ -41,8 +43,8 @@ func TestTypelessPrincipalUnauthenticated(t *testing.T) {
 // Scenario: A principal with an unrecognised type is refused.
 func TestUnknownTypePrincipalUnauthenticated(t *testing.T) {
 	e := newEnv()
-	id := submit(t, e.h, buyer("alice"))
-	for name, err := range attempts(e.h, ctxAs("robot-1", "robot", "admin,listing.read"), id) {
+	id := submit(buyer("alice"), t, e.h)
+	for name, err := range attempts(ctxAs("robot-1", "robot", "admin,listing.read"), e.h, id) {
 		if err == nil {
 			t.Fatalf("%s: robot principal with admin scope was accepted", name)
 		}
@@ -72,7 +74,7 @@ func TestStatusServicePrincipalDenied(t *testing.T) {
 // Scenario: Non-admin cannot read another user's status.
 func TestStatusOtherUserNeedsAdmin(t *testing.T) {
 	h := newHandler()
-	submit(t, h, buyer("alice"))
+	submit(buyer("alice"), t, h)
 	_, err := h.GetVerificationStatus(buyer("bob"), &verificationv1.GetVerificationStatusRequest{UserId: "alice"})
 	wantCode(t, err, codes.PermissionDenied)
 }
@@ -80,7 +82,7 @@ func TestStatusOtherUserNeedsAdmin(t *testing.T) {
 // Scenario: Admin can read another user's status.
 func TestStatusAdminReadsOtherUser(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	if _, err := h.ReviewKyc(admin("adm-1"), &verificationv1.ReviewKycRequest{Id: id, Decision: "approve"}); err != nil {
 		t.Fatalf("ReviewKyc: %v", err)
 	}

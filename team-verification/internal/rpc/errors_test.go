@@ -60,7 +60,7 @@ func TestMapErrHidesInternalCause(t *testing.T) {
 // Scenario: Error table maps domain errors.
 func TestErrorTableMapsDomainErrors(t *testing.T) {
 	h := newHandler()
-	id := submit(t, h, buyer("alice"))
+	id := submit(buyer("alice"), t, h)
 	_, e1 := h.SubmitKyc(buyer("u"), &verificationv1.SubmitKycRequest{DocType: "", DocRef: "r"})
 	_, e2 := h.SubmitKyc(buyer("u"), &verificationv1.SubmitKycRequest{DocType: "national_id", DocRef: ""})
 	_, e3 := h.ReviewKyc(admin("adm"), &verificationv1.ReviewKycRequest{Id: "", Decision: "approve"})
