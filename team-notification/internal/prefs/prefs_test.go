@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	notificationv1 "github.com/buidangphuc/team-notification/generated/platform/notification/v1"
+	"github.com/buidangphuc/team-notification/internal/alerts"
 	"github.com/buidangphuc/team-notification/internal/prefs"
 	"github.com/buidangphuc/team-notification/internal/store"
 )
@@ -139,10 +140,10 @@ func TestPrefsInputValidation_AMissingPrefsPayloadIsRejected(t *testing.T) {
 	svc, repo := newService()
 	ctx := context.Background()
 
-	if _, err := svc.Get(ctx, ""); !errors.Is(err, prefs.ErrEmptyUser) {
+	if _, err := svc.Get(ctx, ""); !errors.Is(err, alerts.ErrEmptyUser) {
 		t.Fatalf("expected ErrEmptyUser on empty Get, got %v", err)
 	}
-	if _, err := svc.Update(ctx, "", &notificationv1.NotificationPrefs{}); !errors.Is(err, prefs.ErrEmptyUser) {
+	if _, err := svc.Update(ctx, "", &notificationv1.NotificationPrefs{}); !errors.Is(err, alerts.ErrEmptyUser) {
 		t.Fatalf("expected ErrEmptyUser on empty Update, got %v", err)
 	}
 	if _, err := svc.Update(ctx, "user_a", nil); !errors.Is(err, prefs.ErrNilPrefs) {
@@ -161,10 +162,10 @@ func TestPrefsInputValidation_AMissingPrefsPayloadIsRejected(t *testing.T) {
 }
 
 func TestSentinelErrorsAreDistinct_AMissingPrefsPayloadIsRejected(t *testing.T) {
-	if prefs.ErrNilPrefs == nil || prefs.ErrEmptyUser == nil {
+	if prefs.ErrNilPrefs == nil || alerts.ErrEmptyUser == nil {
 		t.Fatalf("sentinels must be non-nil")
 	}
-	if errors.Is(prefs.ErrNilPrefs, prefs.ErrEmptyUser) || errors.Is(prefs.ErrEmptyUser, prefs.ErrNilPrefs) {
+	if errors.Is(prefs.ErrNilPrefs, alerts.ErrEmptyUser) || errors.Is(alerts.ErrEmptyUser, prefs.ErrNilPrefs) {
 		t.Fatalf("sentinels must be distinct")
 	}
 }
