@@ -4,11 +4,18 @@ import (
 	"context"
 	"net"
 	"sync"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 
 	auditv1 "github.com/buidangphuc/team-verification/generated/platform/audit/v1"
 )
@@ -48,36 +55,33 @@ func startAudit(t *testing.T, svc *recordingAudit) string {
 	return lis.Addr().String()
 }
 
-// Scenario: Empty audit address yields no client.
-func TestNewAuditClientEmptyAddrNil(t *testing.T) {
-	c, err := NewAuditClient("", time.Second)
-	if err != nil || c != nil {
-		t.Fatalf("NewAuditClient(\"\") = %v, %v; want nil, nil", c, err)
+func dialWriter(t *testing.T, addr string) auditx.Writer {
+	t.Helper()
+	conn, err := auditx.Dial(config.Audit{Addr: addr}, "service-team-verification", "audit.write")
+	if err != nil || conn == nil {
+		t.Fatalf("auditx.Dial: %v, %v", conn, err)
 	}
-	if err := c.WriteKycReviewEvent(context.Background(), "adm-1", "kyc_1", "u-1", "approve"); err == nil {
-		t.Fatal("a nil client must return an error (fail closed)")
-	}
-	if err := c.Close(); err != nil {
-		t.Fatalf("Close on nil client: %v", err)
-	}
+	t.Cleanup(func() { _ = conn.Close() })
+	return NewAuditWriter(conn)
 }
 
 // Scenario: Audit call uses the service principal.
 func TestAuditClientUsesServicePrincipal(t *testing.T) {
 	rec := &recordingAudit{}
-	c, err := NewAuditClient(startAudit(t, rec), time.Second)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
-	}
-	defer func() { _ = c.Close() }()
+	w := dialWriter(t, startAudit(t, rec))
 
-	// The admin's own principal rides on the outgoing ctx; it must be replaced.
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
 		"x-principal-id", "adm-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
-	if err := c.WriteKycReviewEvent(ctx, "adm-1", "kyc_1", "u-1", "approve"); err != nil {
-		t.Fatalf("WriteKycReviewEvent: %v", err)
+	ev := auditx.Event{
+		ActorID: "adm-1", Action: "kyc.review", TargetType: "kyc_submission", TargetID: "kyc_1",
+		Metadata: map[string]string{"decision": "approve", "user_id": "u-1"},
+	}
+	if err := w.WriteAuditEvent(ctx, ev); err != nil {
+		t.Fatalf("WriteAuditEvent: %v", err)
 	}
 
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
 	if len(rec.reqs) != 1 {
 		t.Fatalf("want exactly 1 WriteAuditEvent call, got %d", len(rec.reqs))
 	}
@@ -103,16 +107,20 @@ func TestAuditClientUsesServicePrincipal(t *testing.T) {
 
 // Scenario: Audit client call is bounded by the timeout.
 func TestAuditClientTimeoutBounded(t *testing.T) {
-	c, err := NewAuditClient(startAudit(t, &recordingAudit{block: true}), 100*time.Millisecond)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
-	}
-	defer func() { _ = c.Close() }()
+	w := dialWriter(t, startAudit(t, &recordingAudit{block: true}))
+	gate := auditx.NewGate(w, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	applied := false
 	start := time.Now()
-	if err := c.WriteKycReviewEvent(context.Background(), "adm-1", "kyc_1", "u-1", "approve"); err == nil {
-		t.Fatal("expected an error when team-audit hangs")
+	err := gate.Do(context.Background(), auditx.Event{
+		ActorID: "adm-1", Action: "kyc.review", TargetType: "kyc_submission", TargetID: "kyc_1",
+	}, func(context.Context) error { applied = true; return nil })
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("code = %v (%v), want Unavailable", status.Code(err), err)
 	}
-	if el := time.Since(start); el > time.Second {
+	if applied {
+		t.Fatal("action must not run when the audit write times out")
+	}
+	if el := time.Since(start); el > 4*time.Second {
 		t.Fatalf("audit call not bounded: took %v", el)
 	}
 }
