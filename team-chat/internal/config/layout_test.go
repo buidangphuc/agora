@@ -109,3 +109,34 @@ func TestSharedMakeAndLintAreReferenced(t *testing.T) {
 		}
 	}
 }
+
+func TestMainOnlyCallsAppRun(t *testing.T) {
+	// scenario: main stays a thin entry point
+	b, err := os.ReadFile(filepath.Join(serviceRoot(t), "cmd", "server", "main.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	for _, want := range []string{"config.Load", "app.Run", "app.Migrate", "signal.NotifyContext"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("main.go lacks %s", want)
+		}
+	}
+	for _, bad := range []string{
+		"internal/bootstrap", "internal/observability", "internal/grpcserver", "internal/handler",
+		"internal/repository", "internal/service", "internal/events", "internal/store", "internal/rpc",
+		"pgxpool", "kafkax", "go-sdk/pkg/outbox", "google.golang.org/grpc\"",
+	} {
+		if strings.Contains(src, bad) {
+			t.Errorf("main.go references %s", bad)
+		}
+	}
+	if n := strings.Count(src, "\n"); n > 45 {
+		t.Errorf("main.go has %d lines, want the short ADR-0016 shape", n)
+	}
+	for _, gone := range []string{"bootstrap", "observability", "grpcserver"} {
+		if _, err := os.Stat(filepath.Join(serviceRoot(t), "internal", gone)); !os.IsNotExist(err) {
+			t.Errorf("internal/%s must be deleted", gone)
+		}
+	}
+}
