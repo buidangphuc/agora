@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/pagination"
 	commonv1 "github.com/buidangphuc/team-payment/generated/platform/common/v1"
 	paymentv1 "github.com/buidangphuc/team-payment/generated/platform/payment/v1"
 	"github.com/buidangphuc/team-payment/internal/store"
@@ -60,7 +61,7 @@ func (h *Handler) ListLedgerEntries(ctx context.Context, req *paymentv1.ListLedg
 	if err != nil {
 		return nil, err
 	}
-	entries, next, total, err := h.svc.ListLedgerEntries(ctx, sellerID, req.GetPage().GetCursor(), req.GetPage().GetPageSize())
+	entries, next, total, err := h.svc.ListLedgerEntries(ctx, sellerID, req.GetPage().GetCursor(), int32(pagination.Clamp(int(req.GetPage().GetPageSize()), 20, 100)))
 	if err != nil {
 		return nil, h.fail(ctx, err)
 	}
