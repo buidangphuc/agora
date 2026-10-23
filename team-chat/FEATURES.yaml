@@ -43,3 +43,1158 @@ features:
     tags: [buyer]
     status: automated
     covered_by: "buyer/consumer_pages.feature::Chat conversations render"
+  - id: chat-runtime.migrate-up-applies-all-migrations-and-is-idempotent
+    title: "migrate up applies all migrations and is idempotent"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "migrate up applies all migrations and is idempotent"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestMigrateUpAppliesAndIsIdempotent` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.migrate-up-fails-loudly-on-an-unreachable-database
+    title: "migrate up fails loudly on an unreachable database"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "migrate up fails loudly on an unreachable database"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestMigrateUpFailsOnUnreachableDatabase`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.service-boot-never-migrates
+    title: "Service boot never migrates"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Service boot never migrates"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestBootDoesNotMigrate` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-participant-sends-and-reads-a-message
+    title: "A participant sends and reads a message"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A participant sends and reads a message"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestChatLifecycleOverGRPC`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-non-participant-cannot-read-send-or-mark-read
+    title: "A non-participant cannot read, send or mark read"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A non-participant cannot read, send or mark read"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestNonParticipantIsDeniedOnEveryThreadRPC`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.search-is-limited-to-the-caller-s-threads
+    title: "Search is limited to the caller's threads"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Search is limited to the caller's threads"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/store` `TestSearchMessagesScopedToParticipant` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-blank-search-returns-nothing
+    title: "A blank search returns nothing"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A blank search returns nothing"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/chat` `TestSearchMessagesBlankQueryIsEmpty`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-thread-with-oneself-or-without-a-seller-is-rejected
+    title: "A thread with oneself or without a seller is rejected"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A thread with oneself or without a seller is rejected"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestGetOrCreateThreadRejectsEmptyAndSelfSeller`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.an-empty-message-is-rejected
+    title: "An empty message is rejected"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "An empty message is rejected"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestSendMessageRejectsEmptyContentAndThread`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.page-size-defaults-apply
+    title: "Page size defaults apply"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Page size defaults apply"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestPageSizeDefaults`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-page-size-that-exceeds-the-maximum-is-rejected-in-favour-of-the-default
+    title: "A page size that exceeds the maximum is rejected in favour of the default"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A page size that exceeds the maximum is rejected in favour of the default"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestPageSizeAboveMaximumUsesDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.next-cursor-uses-the-effective-page-size
+    title: "Next cursor uses the effective page size"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Next cursor uses the effective page size"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestNextCursorUsesEffectivePageSize`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.the-page-size-boundaries-are-1-and-100
+    title: "The page size boundaries are 1 and 100"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "The page size boundaries are 1 and 100"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestPageSizeBoundaries`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.listthreads-paginates-with-its-own-default
+    title: "ListThreads paginates with its own default"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "ListThreads paginates with its own default"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestListThreadsPagination`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.searchmessages-paginates-with-its-own-default
+    title: "SearchMessages paginates with its own default"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "SearchMessages paginates with its own default"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestSearchMessagesPagination`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.the-cursor-is-the-next-page-number
+    title: "The cursor is the next page number"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "The cursor is the next page number"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestNextCursorIsNextPageNumber`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.bad-cursor-and-negative-page-size-fall-back
+    title: "Bad cursor and negative page size fall back"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Bad cursor and negative page size fall back"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestBadCursorAndNegativePageSizeFallBack`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.quick-replies-default-to-the-caller-and-to-seeded-defaults
+    title: "Quick replies default to the caller and to seeded defaults"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Quick replies default to the caller and to seeded defaults"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestChatHandler_ListQuickReplies`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.listing-card-and-quick-reply-messages-round-trip
+    title: "Listing card and quick reply messages round-trip"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Listing card and quick reply messages round-trip"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestChatHandler_SendListingCardRoundtrip`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-plain-text-message-keeps-working
+    title: "A plain text message keeps working"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A plain text message keeps working"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestChatHandler_SendPlainTextBackCompat`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.marking-read-clears-the-unread-count
+    title: "Marking read clears the unread count"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Marking read clears the unread count"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestChatHandler_GetThreadMessagesAndMarkRead`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.thread-list-reports-last-message-and-unread
+    title: "Thread list reports last message and unread"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Thread list reports last message and unread"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestChatHandler_ListThreads`; `team-chat/internal/store` `TestUnreadCounts`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.the-same-thread-is-returned-for-the-same-triple
+    title: "The same thread is returned for the same triple"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "The same thread is returned for the same triple"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestChatHandler_GetOrCreateThread`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.an-unknown-thread-is-notfound-for-send-and-mark-read
+    title: "An unknown thread is NotFound for send and mark read"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "An unknown thread is NotFound for send and mark read"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestUnknownThreadIsNotFoundForSendAndMarkRead`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.the-sender-name-is-derived-from-the-id
+    title: "The sender name is derived from the id"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "The sender name is derived from the id"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestSenderNameIsDerivedFromID`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-short-id-gets-the-fallback-sender-name
+    title: "A short id gets the fallback sender name"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A short id gets the fallback sender name"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestSenderNameIsDerivedFromID`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-non-participant-cannot-change-another-pair-s-unread-count
+    title: "A non-participant cannot change another pair's unread count"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A non-participant cannot change another pair's unread count"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestNonParticipantIsDeniedOnEveryThreadRPC`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-message-and-its-event-commit-together
+    title: "A message and its event commit together"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A message and its event commit together"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/store` `TestSaveMessageIsAtomicWithOutbox` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-failed-outbox-insert-stores-nothing
+    title: "A failed outbox insert stores nothing"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A failed outbox insert stores nothing"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/store` `TestSaveMessageRollsBackWhenOutboxFails` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-message-sent-while-kafka-is-down-is-delivered-after-recovery
+    title: "A message sent while Kafka is down is delivered after recovery"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A message sent while Kafka is down is delivered after recovery"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestRelayerHasNoAttemptLimit` (Postgres, `testkit.Recorder`). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-permanent-record-error-parks-the-row-only
+    title: "A permanent record error parks the row only"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A permanent record error parks the row only"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestPermanentErrorParksOneRowOnly` (Postgres, `testkit.Recorder`). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.messages-of-one-thread-publish-in-send-order
+    title: "Messages of one thread publish in send order"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Messages of one thread publish in send order"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestThreadEventsPublishInSendOrder` (Postgres, `testkit.Recorder`). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-denied-sender-writes-no-event
+    title: "A denied sender writes no event"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A denied sender writes no event"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/chat` `TestDeniedSenderEnqueuesNoEvent`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.the-event-id-is-stable-per-message
+    title: "The event id is stable per message"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "The event id is stable per message"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/events` `TestEventIDIsDeterministicPerMessage`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.the-event-carries-the-caller-and-request-id
+    title: "The event carries the caller and request id"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "The event carries the caller and request id"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/events` `TestEnvelopeCarriesPrincipalAndRequestID`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.old-rows-keep-their-order-after-the-upgrade
+    title: "Old rows keep their order after the upgrade"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Old rows keep their order after the upgrade"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/store` `TestOutboxUpgradeKeepsRowOrder` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.the-backfill-of-10-000-rows-is-bounded
+    title: "The backfill of 10,000 rows is bounded"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "The backfill of 10,000 rows is bounded"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/store` `TestOutboxBackfillIsBounded` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.the-upgraded-table-matches-the-sdk-schema
+    title: "The upgraded table matches the SDK schema"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "The upgraded table matches the SDK schema"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/store` `TestOutboxSchemaMatchesSDK` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.rows-parked-as-failed-are-requeued-by-the-upgrade
+    title: "Rows parked as failed are requeued by the upgrade"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Rows parked as failed are requeued by the upgrade"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/store` `TestOutboxUpgradeRequeuesFailedRows` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-concurrent-index-migration-is-not-wrapped-in-a-transaction
+    title: "A concurrent index migration is not wrapped in a transaction"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A concurrent index migration is not wrapped in a transaction"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/migrations` `TestConcurrentIndexMigrationsAreSingleStatement`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.every-up-migration-has-a-down-migration
+    title: "Every up migration has a down migration"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Every up migration has a down migration"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/migrations` `TestEveryUpHasDown`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.published-rows-older-than-7-days-are-purged-on-a-schedule
+    title: "Published rows older than 7 days are purged on a schedule"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Published rows older than 7 days are purged on a schedule"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestPublishedRowsOlderThanSevenDaysArePurged` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-purge-failure-does-not-stop-the-service
+    title: "A purge failure does not stop the service"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A purge failure does not stop the service"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestPurgeFailureDoesNotStopService`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.an-unreachable-database-fails-boot-in-a-local-env
+    title: "An unreachable database fails boot in a local ENV"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "An unreachable database fails boot in a local ENV"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestRunFailsWhenDatabaseUnreachable`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-kafka-client-that-cannot-be-built-fails-boot
+    title: "A Kafka client that cannot be built fails boot"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A Kafka client that cannot be built fails boot"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestRunFailsWhenPublisherCannotBeBuilt`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.removed-enable-flags-are-ignored
+    title: "Removed enable flags are ignored"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Removed enable flags are ignored"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestRemovedEnableFlagsAreIgnored`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.no-source-reads-an-enable-flag-or-builds-a-fallback
+    title: "No source reads an enable flag or builds a fallback"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "No source reads an enable flag or builds a fallback"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestNoEnableFlagOrFallbackInSource`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.required-variables-are-enforced
+    title: "Required variables are enforced"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Required variables are enforced"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestRequiredVariables`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.defaults-match-the-documented-values
+    title: "Defaults match the documented values"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Defaults match the documented values"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestDefaults`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.strict-env-refuses-reflection-before-other-validation
+    title: "Strict ENV refuses reflection before other validation"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Strict ENV refuses reflection before other validation"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestStrictEnvRefusesReflectionFirst`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.strict-env-requires-kafka-brokers
+    title: "Strict ENV requires Kafka brokers"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Strict ENV requires Kafka brokers"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestStrictEnvRequiresKafkaBrokers`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-local-env-without-brokers-uses-the-sdk-default-broker
+    title: "A local ENV without brokers uses the SDK default broker"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A local ENV without brokers uses the SDK default broker"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestLocalEnvDefaultsKafkaBrokers`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.otel-names-keep-their-variables-and-the-service-name-default
+    title: "OTel names keep their variables and the service name default"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "OTel names keep their variables and the service name default"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestOTelNamesAndServiceNameDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.env-example-is-in-sync
+    title: ".env.example is in sync"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - ".env.example is in sync"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestEnvExampleInSync`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-kafka-outage-keeps-the-service-ready
+    title: "A Kafka outage keeps the service ready"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A Kafka outage keeps the service ready"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestKafkaOutageKeepsReadiness` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-postgres-outage-flips-readiness-but-not-liveness
+    title: "A Postgres outage flips readiness but not liveness"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A Postgres outage flips readiness but not liveness"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestPostgresOutageFlipsReadinessNotLiveness` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.shutdown-drains-health-before-stopping-grpc
+    title: "Shutdown drains health before stopping gRPC"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Shutdown drains health before stopping gRPC"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestShutdownOrder` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-database-error-is-masked
+    title: "A database error is masked"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A database error is masked"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestInternalErrorIsMasked`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.cancellation-and-deadline-are-not-internal
+    title: "Cancellation and deadline are not Internal"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Cancellation and deadline are not Internal"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestContextErrorsKeepTheirCodes`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-unique-violation-is-alreadyexists
+    title: "A unique violation is AlreadyExists"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A unique violation is AlreadyExists"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestUniqueViolationIsAlreadyExists`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-non-participant-gets-permissiondenied-without-thread-detail
+    title: "A non-participant gets PermissionDenied without thread detail"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A non-participant gets PermissionDenied without thread detail"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestPermissionDeniedLeaksNoParticipantIDs`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.an-unknown-thread-is-notfound
+    title: "An unknown thread is NotFound"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "An unknown thread is NotFound"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestUnknownThreadIsNotFound`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-sent-message-leaves-no-content-in-the-logs
+    title: "A sent message leaves no content in the logs"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A sent message leaves no content in the logs"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/app` `TestLogsNeverContainMessageContent` (Postgres). Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.go-mod-requires-the-tag-without-replace
+    title: "go.mod requires the tag without replace"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "go.mod requires the tag without replace"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestGoModRequiresTagWithoutReplace`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.make-and-lint-files-are-referenced-not-copied
+    title: "Make and lint files are referenced, not copied"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "Make and lint files are referenced, not copied"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestSharedMakeAndLintAreReferenced`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.main-stays-a-thin-entry-point
+    title: "main stays a thin entry point"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "main stays a thin entry point"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/config` `TestMainOnlyCallsAppRun`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.the-event-envelope-carries-no-more-than-today
+    title: "The event envelope carries no more than today"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "The event envelope carries no more than today"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/events` `TestEnvelopeCarriesNoMoreThanToday`. Not producible end to end through the gateway (unit, database, log or boot level)."
+
+  - id: chat-runtime.a-non-participant-cannot-obtain-message-content
+    title: "A non-participant cannot obtain message content"
+    persona: buyer
+    priority: P2
+    summary: Unit-verified scenario of change chat-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-chat
+    acceptance:
+    - "A non-participant cannot obtain message content"
+    tags:
+    - chat
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-chat/internal/rpc` `TestPermissionDeniedLeaksNoParticipantIDs`. Not producible end to end through the gateway (unit, database, log or boot level)."
