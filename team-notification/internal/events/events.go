@@ -85,7 +85,7 @@ func notifyRespectingPrefs(ctx context.Context, tx pgx.Tx, logger *slog.Logger, 
 		return fmt.Errorf("read prefs: %w", err)
 	}
 	if enabled, ok := prefs.GetTypeEnabled()[n.GetType().String()]; ok && !enabled {
-		logger.InfoContext(ctx, "notification skipped: type disabled by user", slog.String("type", n.GetType().String()))
+		logger.InfoContext(ctx, "notification skipped: type disabled by user", "type", n.GetType().String())
 		return nil
 	}
 	if _, err := store.NewNotifications(tx).CreateNotification(ctx, n); err != nil {

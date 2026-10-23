@@ -81,7 +81,7 @@ func orderNotification(user, title, body, link string) *notificationv1.Notificat
 // build maps a decoded order event to its notification; nil means nobody to notify.
 func buildOrderNotification(ctx context.Context, logger *slog.Logger, msg proto.Message) (*notificationv1.Notification, error) {
 	skip := func(what string) (*notificationv1.Notification, error) {
-		logger.WarnContext(ctx, "order event missing recipient; skipping", slog.String("event", what))
+		logger.WarnContext(ctx, "order event missing recipient; skipping", "event", what)
 		return nil, nil
 	}
 	switch e := msg.(type) {

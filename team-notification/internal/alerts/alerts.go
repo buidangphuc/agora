@@ -27,6 +27,7 @@ type Service struct {
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
+
 func (s *Service) Subscribe(ctx context.Context, userID, listingID string, alertType notificationv1.AlertType) (*notificationv1.AlertSubscription, error) {
 	if userID == "" {
 		return nil, ErrEmptyUser

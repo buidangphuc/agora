@@ -147,7 +147,7 @@ func notifySubscribers(ctx context.Context, tx pgx.Tx, logger *slog.Logger, list
 		if _, err := notifs.CreateNotification(ctx, n); err != nil {
 			return fmt.Errorf("create notification: %w", err)
 		}
-		logger.InfoContext(ctx, "alert notification created", slog.String("listing_id", listingID), slog.String("type", notiType.String()))
+		logger.InfoContext(ctx, "alert notification created", "listing_id", listingID, "type", notiType.String())
 	}
 	return nil
 }

@@ -68,7 +68,7 @@ func (r *Resolver) ResolveSenderName(ctx context.Context, senderID, sellerID str
 	if sellerID != "" && sellerID == senderID {
 		res, err := r.storefronts.BatchGetStorefronts(ctx, &listingv1.BatchGetStorefrontsRequest{SellerIds: []string{senderID}})
 		if err != nil {
-			r.logger.WarnContext(ctx, "shop name lookup failed", slog.String("seller_id", senderID), slog.Any("err", err))
+			r.logger.WarnContext(ctx, "shop name lookup failed", "seller_id", senderID, "err", err)
 		} else {
 			for _, shop := range res.GetShops() {
 				if shop.GetSellerId() == senderID {
@@ -81,7 +81,7 @@ func (r *Resolver) ResolveSenderName(ctx context.Context, senderID, sellerID str
 	}
 	res, err := r.profiles.GetPublicProfiles(ctx, &identityv1.GetPublicProfilesRequest{UserIds: []string{senderID}})
 	if err != nil {
-		r.logger.WarnContext(ctx, "user name lookup failed", slog.String("user_id", senderID), slog.Any("err", err))
+		r.logger.WarnContext(ctx, "user name lookup failed", "user_id", senderID, "err", err)
 		return ""
 	}
 	for _, p := range res.GetProfiles() {

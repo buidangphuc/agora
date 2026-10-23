@@ -83,8 +83,7 @@ Database `notification_db` on the shared Postgres (user `notification_svc`). Mig
 | 005 | `listing_low_stock_state` | Per listing: `seller_id`, `title`, and `low` (whether stock is currently at or below the threshold). |
 
 Consumer state is durable, so a restart neither re-notifies a redelivered event nor loses the price and stock
-baseline. In-memory variants (`InMemoryDeduper`, `InMemoryPriceStateStore`, `InMemoryStockStateStore`) are the
-code defaults and are used in unit tests only; `cmd/server/main.go` always wires the Postgres ones.
+baseline. The service always wires the Postgres stores.
 
 ## Configuration
 

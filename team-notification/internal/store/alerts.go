@@ -65,7 +65,7 @@ func scanSubscriptions(rows pgx.Rows) ([]*notificationv1.AlertSubscription, erro
 	var subs []*notificationv1.AlertSubscription
 	for rows.Next() {
 		var s notificationv1.AlertSubscription
-		var t int
+		var t int32
 		if err := rows.Scan(&s.Id, &s.UserId, &s.ListingId, &t); err != nil {
 			return nil, err
 		}

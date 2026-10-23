@@ -39,7 +39,7 @@ func NewChatHandler(pool TxBeginner, names SenderNames, logger *slog.Logger) con
 			}
 			recipient := m.GetRecipientId()
 			if recipient == "" {
-				logger.WarnContext(ctx, "chat event without recipient_id; skipping", slog.String("thread_id", m.GetThreadId()))
+				logger.WarnContext(ctx, "chat event without recipient_id; skipping", "thread_id", m.GetThreadId())
 				return nil
 			}
 			if recipient == m.GetSenderId() {
@@ -62,10 +62,10 @@ func NewChatHandler(pool TxBeginner, names SenderNames, logger *slog.Logger) con
 	}
 }
 
-func truncateRunes(s string, max int) string {
+func truncateRunes(s string, limit int) string {
 	r := []rune(s)
-	if len(r) <= max {
+	if len(r) <= limit {
 		return s
 	}
-	return string(r[:max])
+	return string(r[:limit])
 }

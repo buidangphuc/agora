@@ -46,7 +46,7 @@ func (r *Notifications) ListNotifications(ctx context.Context, userID string, li
 	var notis []*notificationv1.Notification
 	for rows.Next() {
 		var n notificationv1.Notification
-		var t int
+		var t int32
 		var createdAt time.Time
 		if err := rows.Scan(&n.Id, &n.UserId, &n.Title, &n.Body, &t, &n.LinkUrl, &n.IsRead, &createdAt); err != nil {
 			return nil, 0, err

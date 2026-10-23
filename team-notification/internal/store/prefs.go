@@ -16,7 +16,7 @@ func NewPrefs(q Querier) *Prefs { return &Prefs{q: q} }
 
 func (r *Prefs) Get(ctx context.Context, userID string) (*notificationv1.NotificationPrefs, error) {
 	var raw []byte
-	var freq int
+	var freq int32
 	err := r.q.QueryRow(ctx, `
 		SELECT prefs, digest_freq
 		FROM notification_prefs
