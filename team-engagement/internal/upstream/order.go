@@ -1,6 +1,3 @@
-// Package upstream holds thin gRPC clients team-engagement uses to consult
-// sibling services. It never touches their databases (Rule 3) — cross-service
-// reads go through their public gRPC API only.
 package upstream
 
 import (
@@ -8,70 +5,40 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	sdkupstream "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/upstream"
 
 	orderv1 "github.com/buidangphuc/team-engagement/generated/platform/order/v1"
 )
 
-// Service principal team-engagement presents to team-order. GetOrder requires a principal
-// and allows a service principal holding order.read; the caller's user principal
-// is deliberately not forwarded (the order may belong to someone else).
 const (
-	servicePrincipalID     = "service-team-engagement"
-	servicePrincipalType   = "service"
-	servicePrincipalScopes = "order.read"
+	servicePrincipalID    = "service-team-engagement"
+	servicePrincipalScope = "order.read"
 )
 
-// serviceMetadata returns the outgoing x-principal-* metadata for team-order calls.
-func serviceMetadata() metadata.MD {
-	return metadata.Pairs(
-		"x-principal-id", servicePrincipalID,
-		"x-principal-type", servicePrincipalType,
-		"x-principal-scopes", servicePrincipalScopes,
-	)
-}
-
-// servicePrincipalInterceptor replaces any outgoing principal with the service one.
-func servicePrincipalInterceptor(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	return invoker(metadata.NewOutgoingContext(ctx, serviceMetadata()), method, req, reply, cc, opts...)
-}
-
-// ErrOrderNotFound means team-order has no such order.
 var ErrOrderNotFound = errors.New("order not found")
 
-// ErrOrderClientNotConfigured means no team-order client is wired (verification cannot run).
 var ErrOrderClientNotConfigured = errors.New("order client not configured")
 
-// ErrOrderIDRequired means a purchase check was asked for without an order id.
 var ErrOrderIDRequired = errors.New("order id required")
 
-// OrderClient verifies purchases against team-order over gRPC.
 type OrderClient struct {
-	conn    *grpc.ClientConn
-	svc     orderv1.OrderServiceClient
-	timeout time.Duration
+	conn *grpc.ClientConn
+	svc  orderv1.OrderServiceClient
 }
 
-// NewOrderClient dials addr (e.g. UPSTREAM_ORDER_ADDR). If addr is empty it
-// returns (nil, nil) so callers degrade gracefully with verification disabled.
-func NewOrderClient(addr string, callTimeout time.Duration) (*OrderClient, error) {
-	if addr == "" {
-		return nil, nil
-	}
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithUnaryInterceptor(servicePrincipalInterceptor))
+func NewOrderClient(addr string) (*OrderClient, error) {
+	conn, err := sdkupstream.NewClient(addr, sdkupstream.AsService(servicePrincipalID, servicePrincipalScope))
 	if err != nil {
 		return nil, fmt.Errorf("dial team-order at %s: %w", addr, err)
 	}
-	return &OrderClient{conn: conn, svc: orderv1.NewOrderServiceClient(conn), timeout: callTimeout}, nil
+	return &OrderClient{conn: conn, svc: orderv1.NewOrderServiceClient(conn)}, nil
 }
 
-// Close releases the underlying connection.
 func (c *OrderClient) Close() error {
 	if c == nil || c.conn == nil {
 		return nil
@@ -79,9 +46,6 @@ func (c *OrderClient) Close() error {
 	return c.conn.Close()
 }
 
-// VerifyPurchase reports whether buyerID has a completed order (orderID) that
-// includes listingID, and returns the order's seller_id. It performs NO DB
-// join — it calls team-order.GetOrder and inspects the response.
 func (c *OrderClient) VerifyPurchase(ctx context.Context, buyerID, listingID, orderID string) (bool, string, error) {
 	if c == nil || c.svc == nil {
 		return false, "", ErrOrderClientNotConfigured
@@ -89,9 +53,7 @@ func (c *OrderClient) VerifyPurchase(ctx context.Context, buyerID, listingID, or
 	if orderID == "" {
 		return false, "", ErrOrderIDRequired
 	}
-	callCtx, cancel := boundedCtx(ctx, c.timeout)
-	defer cancel()
-	resp, err := c.svc.GetOrder(callCtx, &orderv1.GetOrderRequest{Id: orderID})
+	resp, err := c.svc.GetOrder(ctx, &orderv1.GetOrderRequest{Id: orderID})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return false, "", nil
@@ -116,11 +78,6 @@ func (c *OrderClient) VerifyPurchase(ctx context.Context, buyerID, listingID, or
 	return false, order.GetSellerId(), nil
 }
 
-// GetOrderParties returns the buyer and seller ids of an order, read from team-order
-// as team-engagement's service principal (the interceptor replaces any caller
-// principal). An unknown order is ErrOrderNotFound; any other upstream failure is
-// logged and returned wrapped so the caller can fail closed. It does NOT decide who
-// may see the order: the caller compares the ids with its own principal.
 func (c *OrderClient) GetOrderParties(ctx context.Context, orderID string) (buyerID, sellerID string, err error) {
 	if c == nil || c.svc == nil {
 		return "", "", errors.New("order client not configured")
@@ -128,9 +85,7 @@ func (c *OrderClient) GetOrderParties(ctx context.Context, orderID string) (buye
 	if orderID == "" {
 		return "", "", ErrOrderNotFound
 	}
-	callCtx, cancel := boundedCtx(ctx, c.timeout)
-	defer cancel()
-	resp, err := c.svc.GetOrder(callCtx, &orderv1.GetOrderRequest{Id: orderID})
+	resp, err := c.svc.GetOrder(ctx, &orderv1.GetOrderRequest{Id: orderID})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return "", "", ErrOrderNotFound
@@ -146,12 +101,8 @@ func (c *OrderClient) GetOrderParties(ctx context.Context, orderID string) (buye
 	return order.GetBuyerId(), order.GetSellerId(), nil
 }
 
-// ErrReturnNotFound means team-order has no such return request.
 var ErrReturnNotFound = errors.New("return not found")
 
-// GetReturn reads a return request from team-order as the service principal and
-// returns its order id, status and whether it can be escalated. Any failure other
-// than not-found is a generic wrapped error carrying no upstream detail.
 func (c *OrderClient) GetReturn(ctx context.Context, returnID string) (string, orderv1.ReturnStatus, bool, error) {
 	if c == nil || c.svc == nil {
 		return "", orderv1.ReturnStatus_RETURN_STATUS_UNSPECIFIED, false, ErrOrderClientNotConfigured
@@ -159,9 +110,7 @@ func (c *OrderClient) GetReturn(ctx context.Context, returnID string) (string, o
 	if returnID == "" {
 		return "", orderv1.ReturnStatus_RETURN_STATUS_UNSPECIFIED, false, ErrReturnNotFound
 	}
-	callCtx, cancel := boundedCtx(ctx, c.timeout)
-	defer cancel()
-	resp, err := c.svc.GetReturnRequest(callCtx, &orderv1.GetReturnRequestRequest{Id: returnID})
+	resp, err := c.svc.GetReturnRequest(ctx, &orderv1.GetReturnRequestRequest{Id: returnID})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			return "", orderv1.ReturnStatus_RETURN_STATUS_UNSPECIFIED, false, ErrReturnNotFound
