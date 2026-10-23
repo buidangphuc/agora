@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
-	"google.golang.org/grpc/health/grpc_health_v1"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
@@ -67,16 +66,7 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 		return fmt.Errorf("postgres: %w", err)
 	}
 	stack.Push(func(context.Context) error { pool.Close(); return nil })
-	pgCheck := postgres.Checker(pool)
-	health.Register("postgres", func(ctx context.Context) error {
-		err := pgCheck(ctx)
-		status := grpc_health_v1.HealthCheckResponse_SERVING
-		if err != nil {
-			status = grpc_health_v1.HealthCheckResponse_NOT_SERVING
-		}
-		health.Server().SetServingStatus("postgres", status)
-		return err
-	})
+	health.Register("postgres", postgres.Checker(pool))
 
 	orderClient, orderConn, err := upstream.DialOrderService(s.Upstream.OrderAddr)
 	if err != nil {
