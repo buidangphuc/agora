@@ -136,6 +136,9 @@ func (h *Handler) ProcessMockPayment(ctx context.Context, req *paymentv1.Process
 	if err != nil {
 		return nil, err
 	}
+	if !h.svc.MockSettlementEnabled() {
+		return nil, status.Error(codes.FailedPrecondition, "mock payments are disabled")
+	}
 	if req.GetTransactionId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "transaction_id is required")
 	}

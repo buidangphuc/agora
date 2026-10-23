@@ -215,6 +215,11 @@ func (s *Service) withRefunds(ctx context.Context, tx store.PaymentTransaction) 
 	return tx, nil
 }
 
+func (s *Service) MockSettlementEnabled() bool {
+	_, live := s.provider.(liveProvider)
+	return !live
+}
+
 func (s *Service) ProcessMockPayment(
 	ctx context.Context,
 	transactionID string,
