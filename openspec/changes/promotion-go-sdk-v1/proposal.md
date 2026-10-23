@@ -1,0 +1,69 @@
+## Why
+
+team-promotion is one of the Go services that still carries its own copy of the platform layer (ADR-0016): a hand-rolled config binder, slog setup, pgx pool, health server, gRPC interceptors, principal parsing, Kafka producer, Flipt wiring and an audit client. It also carries what the user rule of 2026-10-22 forbids: dependency enable flags (`DATABASE_ENABLED`, `KAFKA_ENABLED`, `FEATURE_FLAGS_ENABLED`) and runtime fallbacks (in-memory repositories when no pool exists, a nil Kafka producer that silently drops events, `featureflags.Disabled` after a failed boot, a warning instead of a failure when `UPSTREAM_DOMAIN_ADDR` is empty, a nil audit writer when `UPSTREAM_AUDIT_ADDR` is empty).
+
+Concrete defects this removes:
+
+- The service boots without a database and then serves from in-memory repositories (`cmd/server/main.go`), so a wrong `DATABASE_ENABLED` in a deployment loses vouchers on restart.
+- `VoucherChanged` and `FlashSaleChanged` are published after the insert, best effort (`service.CreateVoucher`, `service.CreateCampaign`): a Kafka blip or a crash between the insert and the publish loses the event for ever.
+- Health is a constant SERVING status; a pod with a dead database stays in rotation.
+- A duplicate voucher code surfaces as `Internal`, not `AlreadyExists`.
+- Migrations run only from a compose job and a Makefile target that mount SQL files outside the image; the binary that needs the schema cannot apply it.
+
+The SDK `github.com/buidangphuc/agora/platform-core/packages/go-sdk` at tag `v1.0.2` provides every one of these pieces. Decisions already taken by the user for this migration (recorded in `design.md`, Clarifications round 1) apply: require the tag with no `replace` and no `third_party`, ADR-0016 layout, no enable flags, no runtime fallbacks, mock data only through `pkg/mockdata`, behaviour of main wins.
+
+initiative: go-sdk-migration
+
+## What Changes
+
+- **Dependency and build**: `go.mod` requires `go-sdk@v1.0.2`; `Makefile` includes `../platform-core/make/go-service.mk` and the SDK `.golangci.yml`; `Dockerfile` follows the platform template without `third_party`; `golangci-lint` is pinned as a Go `tool`. The repository is public: the build needs no `GOPRIVATE` and no credential.
+- **Layout (ADR-0016)**: `cmd/server/main.go` calls `internal/app.Run(ctx, settings)`; packages `internal/config`, `internal/rpc`, `internal/voucher`, `internal/flashsale`, `internal/subscription`, `internal/sponsored`, `internal/listing`, `internal/store`, `internal/events`, `internal/upstream`. The old `bootstrap`, `interceptor`, `grpcserver`, `producer`, `featureflags`, `repository`, `service`, `handler` packages are removed.
+- **ADDED** capability `promotion-service-runtime`: settings, boot and the `migrate up` subcommand, health, outbox events, flags, error table, authorization on SDK auth, upstream clients, no in-memory production backends, unchanged page cursors.
+- **REMOVED and ADDED** `promotion-admin-audit` (the archive refuses to drop a scenario from a MODIFIED block): "Audit upstream is configured and wired only when set" is replaced by "Audit upstream is required and written through auditx", and "Platform voucher creation is audited and fails closed" by "Platform voucher creation is audited through the gate and fails closed". The new audit requirement: the audit client is `auditx.Dial`, the write is gated by `auditx.Gate`, `UPSTREAM_AUDIT_ADDR` is required in every ENV, the refusal text is `audit trail unavailable`. The fallback scenarios (empty address gives no client, nil writer refuses, seller denied with nil audit) are deleted. The flash-sale and ad-campaign requirements of that capability are MODIFIED only to drop "unset", "nil client" and `UPSTREAM_CALL_TIMEOUT_SECONDS` wording and to move citations to the new packages.
+- **REMOVED and ADDED** `promotion-shop-voucher-audit`, requirement "Admin-created shop vouchers are audited and fail closed" becomes "Admin-created shop vouchers are audited through the gate and fail closed": same removals (scenario "Shop voucher audit: audit not configured" deleted, timeout wording is the 2 s `auditx` bound).
+- **MODIFIED** `flash-stock-hold`, requirement "Holds are persisted in a migration-managed table": migrations are embedded and applied by `server migrate up`; database tests run against a real Postgres and a SKIP is a gate failure.
+- **Removed settings** (BREAKING for deployments, listed in the Deploy track of `tasks.md`): `DATABASE_ENABLED`, `KAFKA_ENABLED`, `FEATURE_FLAGS_ENABLED`; renamed `SHUTDOWN_GRACE_SECONDS` to `SHUTDOWN_GRACE` and `FEATURE_FLAGS_EVAL_TIMEOUT_MS` to `FEATURE_FLAGS_EVAL_TIMEOUT` (Go durations); `ENV` and `GRPC_PORT` have no default; `UPSTREAM_DOMAIN_ADDR` and `UPSTREAM_AUDIT_ADDR` are required in every ENV (no mode without the upstream); `UPSTREAM_CALL_TIMEOUT_SECONDS` is removed (upstream calls use the SDK 2 s bound); `GRPC_REFLECTION_ENABLED` defaults to false and is refused outside `local` and `test`.
+- **Accepted behaviour changes**: duplicate voucher code returns `AlreadyExists` (was `Internal`); a canceled or timed-out request returns `Canceled` or `DeadlineExceeded`; events leave through a transactional outbox (table `promotion_outbox`, migration `0005`); the audit refusal message is `audit trail unavailable` in every case; migrations are applied only by the subcommand `server migrate up` (SDK `pkg/migrate`, embedded SQL; the service never migrates at boot); the compose service `team-promotion-migrate` stays but runs the service image with `migrate up`, and gitops gets an Argo PreSync migrate Job (change `deploy-go-sdk-v1`); the Makefile `migrate` target is deleted; the Flipt kill-switch `flash-sale-enabled` becomes live in every cluster (gitops had `FEATURE_FLAGS_ENABLED: "false"`); the upstream call bound is the SDK 2 s (was `UPSTREAM_CALL_TIMEOUT_SECONDS`, default 2 s).
+- **No mock adapter**: team-promotion has no mock switch today, so no `MOCK_DATA` adapter is declared and `MOCK_DATA` is not part of its settings.
+- **Authorization is not widened**: every RPC keeps today's scope rule (table in `design.md` D7). `Subscribe` and `CreateAdCampaign` keep requiring exactly `listing.write`; an `admin`-only principal stays refused there. `GetEntitlements` keeps its cross-seller rule. The preview namespace of `ValidateAndReserve` keeps its rule.
+- **Event principal**: when the context has no principal or an empty principal id, the envelope is written without a principal, as `producer.principalFromContext` does today.
+- **Reflection**: the default flips from true to false. Local compose sets `GRPC_REFLECTION_ENABLED=true` for every service (human decision, Deploy track line); the refusal outside `local` and `test` still holds.
+- **Request id**: `grpcx` with `reqctx` replaces `interceptor/tracing.go`: it reuses an incoming `x-request-id` or generates one, logs each call, and the SDK's otelgrpc stats handler is installed by `grpcx.NewServer`; the id reaches the outbox envelope (scenario "A call without a request id still gets one").
+- Out of scope: any proto change, any change to voucher, flash-sale, subscription or sponsored business rules, `docker-compose.services.yaml` and `platform-gitops` edits (change `deploy-go-sdk-v1`), including the shared deploy-runtime requirement "Services refuse unsafe configuration in staging and production", which only `deploy-go-sdk-v1` MODIFIES.
+
+## Ordering against `promotion-voucher-scope`
+
+`promotion-voucher-scope` (unarchived) already has its service and handler code on this branch (`ValidateAndReserve` echoes `scope` and `seller_id`, the `preview:<principal id>:` namespace, replay and release scope reporting). Its remaining tasks still name `internal/service/voucher.go` and `internal/handler/*`, which this change deletes. Order: `promotion-voucher-scope` code tasks 2 and 3 must be merged first (they are, on this branch); this change then moves that code and its tests unchanged by name; any task of `promotion-voucher-scope` still open after this change applies to the new paths (`internal/service/voucher.go` becomes `internal/voucher/voucher.go`, `internal/handler/voucher.go` becomes `internal/rpc/voucher.go`). Its e2e and README tasks are not path-dependent on Go packages. Archiving `promotion-voucher-scope` before this change is safe; archiving after needs its `VERIFIED BY` package paths read through the map in task 1.8.3. Open issue in `design.md`.
+
+## Impact
+
+Code: `team-promotion/**` only. Specs: new `promotion-service-runtime`; deltas on `promotion-admin-audit`, `promotion-shop-voucher-audit` and `flash-stock-hold`. Deploy: `docker-compose.services.yaml`, `platform-gitops` (listed in `tasks.md`, done by `deploy-go-sdk-v1`). e2e: `team-promotion/FEATURES.yaml` entries only.
+
+## NFR
+
+- Latency: `ValidateAndReserve`, `ReserveFlashSaleStock` and `GetActiveFlashSale` keep their current p99 (no new network hop on the request path). The outbox insert adds one row to the write transaction of `CreateVoucher` and `CreateCampaign` only; budget under 5 ms extra at p99 on a local Postgres. This 5 ms is a design budget, not verified by a test; the verified property is atomicity (scenarios of the outbox requirement). Flag evaluation is an in-process lookup, bounded by `FEATURE_FLAGS_EVAL_TIMEOUT` (default 500 ms).
+- Availability: readiness follows the database only, checked every `healthx.DefaultInterval` (5 s), so NOT_SERVING appears within 10 s of the database failing (scenario "A failing database check flips readiness only", which polls with a 10 s bound); a Kafka or Flipt outage does not take the pod out of rotation. Liveness answers from memory and stays SERVING while a dependency is down. After a Kafka outage the relayer publishes the backlog in order per aggregate with capped backoff.
+- Boot: with the schema applied by `migrate up` beforehand, an unreachable database makes the process exit within the SDK ping bound of 5 s (plus startup), with no listener opened. Shutdown stays within `SHUTDOWN_GRACE` (default 10 s) after `SHUTDOWN_DRAIN_DELAY`.
+- Limits: `MAX_AD_BID` and `MAX_AD_BUDGET` stay positive minor-unit caps; reservation id length stays 200 bytes; list page size stays default 50, over 200 falls back to 50.
+- Data volume: `promotion_outbox` rows are purged 7 days after publish by a periodic component (see design).
+
+## Data classification
+
+| Field | Where | Class | Purpose | Basis | Retention |
+|---|---|---|---|---|---|
+| Voucher code, discount terms | `vouchers`, event payload | Business data, not personal | Promotion rules | Contract (service operation) | Life of the voucher |
+| `seller_id`, `buyer_id`, principal id in `x-principal-id`, event envelope `principal` | `vouchers`, `voucher_reservations`, `flash_sale_holds`, `ad_campaigns`, `promotion_outbox` payload, audit events | Pseudonymous user identifier (personal) | Ownership checks, idempotent redemption, audit trail | Legitimate interest (fraud prevention, accountability) | Reservations and holds per existing purge rules (released and expired holds 30 days after terminal); outbox rows 7 days after publish; audit events follow the platform audit retention |
+| `x-request-id`, `traceparent` | outbox headers, logs | Technical identifier | Tracing | Legitimate interest | Platform log retention |
+
+No new personal field is collected. The outbox copies data already in the voucher and campaign entities and the envelope principal that `EventEnvelope` already carries. Basis for every row: legitimate interest, retention bounded by platform log retention (user decision; no DPO sign-off needed). Voucher codes and ids are never interpolated into error text; they are logged as attributes only.
+
+## Threat model
+
+- Assets: voucher quota and discount integrity, flash-sale stock counters, the audit trail of admin-created promotions, the event stream `promotion.events`, the database credential.
+- Abuse case 1, anonymous or user caller reaches a service-only saga RPC (`ValidateAndReserve` with a non-preview namespace, `Reserve/Commit/ReleaseFlashSaleStock`): control stays the current handler rule on SDK auth: `auth.RequireService` demands principal type `service` and the exact scope `promotion.reserve`; anonymous gets `Unauthenticated`; a user holding the scope gets `PermissionDenied`.
+- Abuse case 2, an admin action succeeds without a trace: `auditx.Gate` writes the audit event first and refuses the action with `Unavailable` "audit trail unavailable" when the write fails or times out; `UPSTREAM_AUDIT_ADDR` is required in every ENV so the writer always exists.
+- Abuse case 3, unsafe configuration reaches production: reflection on, enable flags flipping a dependency off, `MOCK_DATA`-style switches. Control: no enable flags exist; reflection is refused outside `local` and `test` before validation; `ENV` is required so a missing value cannot default to `local`.
+- Abuse case 4, lost or forged events: events are written in the same transaction as the entity; a rollback leaves none; the envelope carries the verified principal, never a request-supplied one.
+- Abuse case 5, information leak through errors: unknown errors map to `Internal` "internal error"; SQLSTATE 23505 maps to `AlreadyExists` without constraint detail; ids are not formatted into error strings.
+- Abuse case 6, a dependency outage becomes a restart loop: liveness is the independent `liveness` health service (gitops value `probes.livenessService: liveness`).
+- Authz rule: unchanged. Platform vouchers and unspecified scope need `admin`; shop vouchers and campaigns need `listing.write` or `admin` and bind the seller to the caller id; flash-sale and ad campaigns by a seller need listing ownership verified against team-domain (fails closed); saga RPCs are service-only; public reads (`GetVoucher`, `ListVouchers`, `GetActiveFlashSale`, `ListActiveCampaigns`, `GetFlashSaleStock`, `ListPlans`, `ListSponsoredSlots`) need no principal, as today.
