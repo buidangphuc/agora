@@ -1,15 +1,17 @@
-package service_test
+package verification_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
-	"github.com/buidangphuc/team-verification/internal/repository"
-	"github.com/buidangphuc/team-verification/internal/service"
+	"github.com/buidangphuc/team-verification/internal/store"
+	"github.com/buidangphuc/team-verification/internal/store/storetest"
+	"github.com/buidangphuc/team-verification/internal/verification"
 )
 
-func newSvc() *service.VerificationService {
-	return service.NewVerificationService(repository.NewInMemoryKycRepo())
+func newSvc() *verification.VerificationService {
+	return verification.NewVerificationService(storetest.NewInMemoryKycRepo())
 }
 
 // Submitting a KYC document creates a PENDING record with no badge yet.
@@ -21,7 +23,7 @@ func TestSubmitCreatesPending(t *testing.T) {
 	if err != nil {
 		t.Fatalf("submit: %v", err)
 	}
-	if sub.Status != repository.StatusPending {
+	if sub.Status != store.StatusPending {
 		t.Fatalf("expected PENDING, got %s", sub.Status)
 	}
 	if sub.ID == "" {
@@ -32,7 +34,7 @@ func TestSubmitCreatesPending(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get status: %v", err)
 	}
-	if st != repository.StatusPending || badge {
+	if st != store.StatusPending || badge {
 		t.Fatalf("expected PENDING/no-badge, got %s badge=%v", st, badge)
 	}
 }
@@ -51,7 +53,7 @@ func TestReviewApproveSetsBadge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("review: %v", err)
 	}
-	if st != repository.StatusVerified {
+	if st != store.StatusVerified {
 		t.Fatalf("expected VERIFIED, got %s", st)
 	}
 
@@ -59,7 +61,7 @@ func TestReviewApproveSetsBadge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get status: %v", err)
 	}
-	if got != repository.StatusVerified || !badge {
+	if got != store.StatusVerified || !badge {
 		t.Fatalf("expected VERIFIED/badge=true, got %s badge=%v", got, badge)
 	}
 }
@@ -78,7 +80,7 @@ func TestReviewRejectPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("review: %v", err)
 	}
-	if st != repository.StatusRejected {
+	if st != store.StatusRejected {
 		t.Fatalf("expected REJECTED, got %s", st)
 	}
 
@@ -86,7 +88,7 @@ func TestReviewRejectPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get status: %v", err)
 	}
-	if got != repository.StatusRejected || badge {
+	if got != store.StatusRejected || badge {
 		t.Fatalf("expected REJECTED/no-badge, got %s badge=%v", got, badge)
 	}
 }
@@ -98,7 +100,7 @@ func TestGetStatusUnknownUserReturnsPending(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if st != repository.StatusPending || badge {
+	if st != store.StatusPending || badge {
 		t.Fatalf("expected PENDING/no-badge for unknown user, got %s badge=%v", st, badge)
 	}
 }
@@ -108,25 +110,25 @@ func TestValidation(t *testing.T) {
 	svc := newSvc()
 	ctx := context.Background()
 
-	if _, err := svc.Submit(ctx, "", "national_id", "ref"); err != service.ErrEmptyUser {
+	if _, err := svc.Submit(ctx, "", "national_id", "ref"); !errors.Is(err, verification.ErrEmptyUser) {
 		t.Fatalf("expected ErrEmptyUser, got %v", err)
 	}
-	if _, err := svc.Submit(ctx, "u", "", "ref"); err != service.ErrEmptyDocType {
+	if _, err := svc.Submit(ctx, "u", "", "ref"); !errors.Is(err, verification.ErrEmptyDocType) {
 		t.Fatalf("expected ErrEmptyDocType, got %v", err)
 	}
-	if _, err := svc.Submit(ctx, "u", "national_id", "  "); err != service.ErrEmptyDocRef {
+	if _, err := svc.Submit(ctx, "u", "national_id", "  "); !errors.Is(err, verification.ErrEmptyDocRef) {
 		t.Fatalf("expected ErrEmptyDocRef, got %v", err)
 	}
-	if _, _, err := svc.GetStatus(ctx, ""); err != service.ErrEmptyUser {
+	if _, _, err := svc.GetStatus(ctx, ""); !errors.Is(err, verification.ErrEmptyUser) {
 		t.Fatalf("expected ErrEmptyUser on GetStatus, got %v", err)
 	}
-	if _, err := svc.Review(ctx, "", "approve"); err != service.ErrEmptyID {
+	if _, err := svc.Review(ctx, "", "approve"); !errors.Is(err, verification.ErrEmptyID) {
 		t.Fatalf("expected ErrEmptyID, got %v", err)
 	}
-	if _, err := svc.Review(ctx, "kyc_x", "maybe"); err != service.ErrInvalidReview {
+	if _, err := svc.Review(ctx, "kyc_x", "maybe"); !errors.Is(err, verification.ErrInvalidReview) {
 		t.Fatalf("expected ErrInvalidReview, got %v", err)
 	}
-	if _, err := svc.Review(ctx, "kyc_missing", "approve"); err != repository.ErrNotFound {
+	if _, err := svc.Review(ctx, "kyc_missing", "approve"); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("expected ErrNotFound reviewing missing id, got %v", err)
 	}
 }

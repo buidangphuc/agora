@@ -2,45 +2,63 @@ package config
 
 import (
 	"errors"
-	"os"
+	"net"
 	"strconv"
+	"strings"
 	"time"
+
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 )
 
-type Config struct {
-	GRPCPort    int
-	DatabaseURL string
-	// AuditAddr is the team-audit gRPC address (UPSTREAM_AUDIT_ADDR); empty = no audit upstream.
-	AuditAddr string
-	// CallTimeout bounds each upstream call (UPSTREAM_CALL_TIMEOUT_SECONDS, float seconds).
-	CallTimeout time.Duration
+type Listener struct {
+	Host              string        `env:"GRPC_HOST"`
+	Port              int           `env:"GRPC_PORT,required"`
+	ShutdownGrace     time.Duration `env:"SHUTDOWN_GRACE" default:"10s"`
+	DrainDelay        time.Duration `env:"SHUTDOWN_DRAIN_DELAY" default:"0s"`
+	ReflectionEnabled bool          `env:"GRPC_REFLECTION_ENABLED" default:"false"`
 }
 
-func Load() Config {
-	port, _ := strconv.Atoi(getEnv("GRPC_PORT", "50064"))
-	secs, err := strconv.ParseFloat(getEnv("UPSTREAM_CALL_TIMEOUT_SECONDS", "2"), 64)
-	if err != nil {
-		secs = 2
-	}
-	return Config{
-		GRPCPort:    port,
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://verification_svc:verification_pass@localhost:5444/verification_db?sslmode=disable"),
-		AuditAddr:   os.Getenv("UPSTREAM_AUDIT_ADDR"),
-		CallTimeout: time.Duration(secs * float64(time.Second)),
-	}
-}
-
-// Validate rejects an unusable configuration.
-func (c Config) Validate() error {
-	if c.CallTimeout <= 0 {
-		return errors.New("UPSTREAM_CALL_TIMEOUT_SECONDS must be > 0")
+func (l *Listener) ResolveFor(rt sdkconfig.Runtime) error {
+	if l.ReflectionEnabled && !rt.IsLocal() {
+		return errors.New("GRPC_REFLECTION_ENABLED is only allowed when ENV is local or test")
 	}
 	return nil
 }
 
-func getEnv(key, def string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
+func (l Listener) Validate() error {
+	if l.Port <= 0 {
+		return errors.New("GRPC_PORT must be a positive port number")
 	}
-	return def
+	return nil
 }
+
+func (l Listener) Addr() string { return net.JoinHostPort(l.Host, strconv.Itoa(l.Port)) }
+
+type Audit struct {
+	Addr string `env:"UPSTREAM_AUDIT_ADDR"`
+}
+
+func (a Audit) Validate() error {
+	if strings.TrimSpace(a.Addr) == "" {
+		return errors.New("UPSTREAM_AUDIT_ADDR is required")
+	}
+	return nil
+}
+
+type Settings struct {
+	sdkconfig.Runtime
+	Listener
+	Postgres sdkconfig.Postgres
+	OTel     sdkconfig.OTel
+	Audit    Audit
+	MockData sdkconfig.MockData
+}
+
+func (s Settings) Validate() error {
+	if !s.IsLocal() && !s.IsStrict() {
+		return errors.New("ENV must be one of local, test, staging or prod")
+	}
+	return nil
+}
+
+func Load() (Settings, error) { return sdkconfig.Load[Settings]() }

@@ -131,7 +131,7 @@ features:
       - "Admin approval writes one audit event (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycWritesAuditEvent`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycWritesAuditEvent`. Not producible end to end."
 
   - id: verification.unit-decision-alias-is-normalized-in-the-event
     title: "Decision alias is normalized in the event"
@@ -146,7 +146,7 @@ features:
       - "Decision alias is normalized in the event (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAuditDecisionNormalized`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycAuditDecisionNormalized`. Not producible end to end."
 
   - id: verification.unit-audit-is-written-before-the-review-is-applied
     title: "Audit is written before the review is applied"
@@ -161,7 +161,7 @@ features:
       - "Audit is written before the review is applied (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAuditBeforeUpdate`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycAuditBeforeUpdate`. Not producible end to end."
 
   - id: verification.unit-actor-comes-from-the-principal-not-the-request
     title: "Actor comes from the principal, not the request"
@@ -176,7 +176,7 @@ features:
       - "Actor comes from the principal, not the request (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAuditActorAndNoDocumentData`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycAuditActorAndNoDocumentData`. Not producible end to end."
 
   - id: verification.unit-non-admin-caller-is-denied-without-an-audit-write
     title: "Non-admin caller is denied without an audit write"
@@ -191,7 +191,7 @@ features:
       - "Non-admin caller is denied without an audit write (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycNonAdminNoAudit`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycNonAdminNoAudit`. Not producible end to end."
 
   - id: verification.unit-audit-call-uses-the-service-principal
     title: "Audit call uses the service principal"
@@ -206,7 +206,7 @@ features:
       - "Audit call uses the service principal (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/upstream` `TestAuditClientUsesServicePrincipal`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/upstream` `TestAuditClientUsesServicePrincipal`. Not producible end to end."
 
   - id: verification.unit-audit-error-leaves-the-submission-pending
     title: "Audit error leaves the submission pending"
@@ -221,7 +221,7 @@ features:
       - "Audit error leaves the submission pending (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAuditErrorUnavailableNoChange`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycAuditErrorUnavailableNoChange`. Not producible end to end."
 
   - id: verification.unit-audit-client-call-is-bounded-by-the-timeout
     title: "Audit client call is bounded by the timeout"
@@ -236,7 +236,7 @@ features:
       - "Audit client call is bounded by the timeout (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/upstream` `TestAuditClientTimeoutBounded`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/upstream` `TestAuditClientTimeoutBounded`. Not producible end to end."
 
   - id: verification.unit-audit-timeout-error-is-unavailable
     title: "Audit timeout error is Unavailable"
@@ -251,7 +251,7 @@ features:
       - "Audit timeout error is Unavailable (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAuditTimeoutUnavailableNoChange`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycAuditTimeoutUnavailableNoChange`. Not producible end to end."
 
   - id: verification.unit-kyc-audit-no-audit-upstream-configured
     title: "KYC audit: no audit upstream configured"
@@ -266,7 +266,7 @@ features:
       - "KYC audit: no audit upstream configured (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycNilAuditUnavailable`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/config` `TestLoadRequiresAuditAddr`. Not producible end to end."
 
   - id: verification.unit-empty-audit-address-yields-no-client
     title: "Empty audit address yields no client"
@@ -281,7 +281,7 @@ features:
       - "Empty audit address yields no client (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/upstream` `TestNewAuditClientEmptyAddrNil`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/app` `TestRunRefusesEmptyAuditAddr`. Not producible end to end."
 
   - id: verification.unit-non-positive-call-timeout-is-rejected
     title: "Non-positive call timeout is rejected"
@@ -296,7 +296,7 @@ features:
       - "Non-positive call timeout is rejected (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/config` `TestCallTimeoutMustBePositive`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/config` `TestRetiredTimeoutKeyIgnored`. Not producible end to end."
 
   - id: verification.unit-non-admin-is-denied-and-nothing-is-written
     title: "Non-admin is denied and nothing is written"
@@ -311,7 +311,7 @@ features:
       - "Non-admin is denied and nothing is written (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycNonAdminNoAudit`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycNonAdminNoAudit`. Not producible end to end."
 
   - id: verification.unit-anonymous-and-identity-less-callers-are-refused
     title: "Anonymous and identity-less callers are refused"
@@ -326,7 +326,7 @@ features:
       - "Anonymous and identity-less callers are refused (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAnonymousNoAudit`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycAnonymousNoAudit`. Not producible end to end."
 
   - id: verification.unit-admin-cannot-review-their-own-submission
     title: "Admin cannot review their own submission"
@@ -341,7 +341,7 @@ features:
       - "Admin cannot review their own submission (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycSelfReviewNoAudit`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycSelfReviewNoAudit`. Not producible end to end."
 
   - id: verification.unit-unknown-submission
     title: "Unknown submission"
@@ -356,7 +356,7 @@ features:
       - "Unknown submission (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycNotFoundNoAudit`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycNotFoundNoAudit`. Not producible end to end."
 
   - id: verification.unit-empty-submission-id-is-rejected
     title: "Empty submission id is rejected"
@@ -371,7 +371,7 @@ features:
       - "Empty submission id is rejected (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycEmptyIDNoAudit`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycEmptyIDNoAudit`. Not producible end to end."
 
   - id: verification.unit-invalid-decision-is-rejected-before-audit
     title: "Invalid decision is rejected before audit"
@@ -386,7 +386,7 @@ features:
       - "Invalid decision is rejected before audit (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycInvalidDecisionNoAudit`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycInvalidDecisionNoAudit`. Not producible end to end."
 
   - id: verification.unit-already-reviewed-submission-is-refused-before-audit
     title: "Already reviewed submission is refused before audit"
@@ -401,7 +401,7 @@ features:
       - "Already reviewed submission is refused before audit (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycAlreadyReviewedNoAudit`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycAlreadyReviewedNoAudit`. Not producible end to end."
 
   - id: verification.unit-update-failure-after-audit-then-retry
     title: "Update failure after audit then retry"
@@ -416,7 +416,7 @@ features:
       - "Update failure after audit then retry (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestReviewKycUpdateFailureInternalThenRetry`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestReviewKycUpdateFailureInternalThenRetry`. Not producible end to end."
 
   - id: verification.unit-submit-and-status-work-with-audit-down
     title: "Submit and status work with audit down"
@@ -431,7 +431,7 @@ features:
       - "Submit and status work with audit down (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/handler` `TestSubmitAndStatusIndependentOfAudit`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/rpc` `TestSubmitAndStatusIndependentOfAudit`. Not producible end to end."
 
   - id: verification.unit-config-defaults-and-overrides
     title: "Config defaults and overrides"
@@ -446,4 +446,634 @@ features:
       - "Config defaults and overrides (unit-verified)"
     tags: [verification, audit, unit]
     status: not-testable
-    notes: "verification-kyc-audit: unit-verified: team-verification `internal/config` `TestAuditConfigDefaultsAndOverrides`. Not producible end to end."
+    notes: "kyc-audit: unit-verified: team-verification `internal/config` `TestAuditConfigDefaultsAndOverrides`. Not producible end to end."
+
+  - id: verification.unit-settings-declare-no-dependency-enable-flags
+    title: "Settings declare no dependency enable flags"
+    persona: admin
+    priority: P2
+    summary: "Settings declare no dependency enable flags (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Settings declare no dependency enable flags (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/config` `TestNoDependencyEnableFlags`. Not producible end to end."
+
+  - id: verification.unit-env-is-required
+    title: "ENV is required"
+    persona: admin
+    priority: P2
+    summary: "ENV is required (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "ENV is required (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/config` `TestLoadRequiresEnv`. Not producible end to end."
+
+  - id: verification.unit-defaults-and-overrides
+    title: "Defaults and overrides"
+    persona: admin
+    priority: P2
+    summary: "Defaults and overrides (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Defaults and overrides (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/config` `TestLoadDefaultsAndOverrides`. Not producible end to end."
+
+  - id: verification.unit-docker-backed-tests-run-never-skip
+    title: "Docker-backed tests run, never skip"
+    persona: admin
+    priority: P2
+    summary: "Docker-backed tests run, never skip (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Docker-backed tests run, never skip (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/store` `TestPostgresSubmitReviewRoundTrip` (run under `GO_SDK_REQUIRE_DOCKER=1`; the gate fails on any skip). Not producible end to end."
+
+  - id: verification.unit-missing-database-url-is-rejected-in-every-environment
+    title: "Missing database url is rejected in every environment"
+    persona: admin
+    priority: P2
+    summary: "Missing database url is rejected in every environment (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Missing database url is rejected in every environment (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/config` `TestLoadRequiresDatabaseURL`. Not producible end to end."
+
+  - id: verification.unit-env-example-matches-the-settings
+    title: "Env example matches the settings"
+    persona: admin
+    priority: P2
+    summary: "Env example matches the settings (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Env example matches the settings (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/config` `TestEnvExampleInSync`. Not producible end to end."
+
+  - id: verification.unit-audit-address-is-required-in-every-environment
+    title: "Audit address is required in every environment"
+    persona: admin
+    priority: P2
+    summary: "Audit address is required in every environment (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Audit address is required in every environment (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/config` `TestLoadRequiresAuditAddr`. Not producible end to end."
+
+  - id: verification.unit-the-runtime-binary-does-not-import-the-test-fake
+    title: "The runtime binary does not import the test fake"
+    persona: admin
+    priority: P2
+    summary: "The runtime binary does not import the test fake (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The runtime binary does not import the test fake (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/app` `TestRuntimeDoesNotImportStoreFake`. Not producible end to end."
+
+  - id: verification.unit-go-mod-uses-the-tag-without-replace
+    title: "go.mod uses the tag without replace"
+    persona: admin
+    priority: P2
+    summary: "go.mod uses the tag without replace (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "go.mod uses the tag without replace (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/app` `TestGoModRequiresSDKTagWithoutReplace`. Not producible end to end."
+
+  - id: verification.unit-an-unreachable-database-fails-boot-locally
+    title: "An unreachable database fails boot locally"
+    persona: admin
+    priority: P2
+    summary: "An unreachable database fails boot locally (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "An unreachable database fails boot locally (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/app` `TestRunFailsWhenDatabaseUnreachable`. Not producible end to end."
+
+  - id: verification.unit-migrate-up-applies-the-schema-and-boot-never-migrates
+    title: "migrate up applies the schema and boot never migrates"
+    persona: admin
+    priority: P2
+    summary: "migrate up applies the schema and boot never migrates (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "migrate up applies the schema and boot never migrates (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/app` `TestMigrateUpSubcommandAppliesSchema` and `TestRunDoesNotMigrate`. Not producible end to end."
+
+  - id: verification.unit-submit-and-review-round-trip-on-a-real-database
+    title: "Submit and review round trip on a real database"
+    persona: admin
+    priority: P2
+    summary: "Submit and review round trip on a real database (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Submit and review round trip on a real database (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/store` `TestPostgresSubmitReviewRoundTrip`. Not producible end to end."
+
+  - id: verification.unit-a-decision-is-final-in-the-store
+    title: "A decision is final in the store"
+    persona: admin
+    priority: P2
+    summary: "A decision is final in the store (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A decision is final in the store (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/store` `TestPostgresUpdateStatusIsFinal`. Not producible end to end."
+
+  - id: verification.unit-unknown-submission-in-the-store
+    title: "Unknown submission in the store"
+    persona: admin
+    priority: P2
+    summary: "Unknown submission in the store (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Unknown submission in the store (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/store` `TestPostgresNotFound`. Not producible end to end."
+
+  - id: verification.unit-one-user-s-status-is-not-another-s
+    title: "One user's status is not another's"
+    persona: admin
+    priority: P2
+    summary: "One user's status is not another's (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "One user's status is not another's (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/store` `TestPostgresStatusIsPerUser`. Not producible end to end."
+
+  - id: verification.unit-status-is-the-latest-submission-by-created-at
+    title: "Status is the latest submission by created_at"
+    persona: admin
+    priority: P2
+    summary: "Status is the latest submission by created_at (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Status is the latest submission by created_at (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/store` `TestPostgresLatestByCreatedAt`. Not producible end to end."
+
+  - id: verification.unit-a-user-with-no-submission-reports-pending-without-a-badge
+    title: "A user with no submission reports PENDING without a badge"
+    persona: admin
+    priority: P2
+    summary: "A user with no submission reports PENDING without a badge (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A user with no submission reports PENDING without a badge (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/verification` `TestGetStatusUnknownUserReturnsPending`. Not producible end to end."
+
+  - id: verification.unit-duplicate-submission-id-is-alreadyexists
+    title: "Duplicate submission id is AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: "Duplicate submission id is AlreadyExists (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Duplicate submission id is AlreadyExists (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestDuplicateIDIsAlreadyExists`. Not producible end to end."
+
+  - id: verification.unit-healthy-database-serves
+    title: "Healthy database serves"
+    persona: admin
+    priority: P2
+    summary: "Healthy database serves (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Healthy database serves (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/app` `TestHealthServingWhenDatabaseUp`. Not producible end to end."
+
+  - id: verification.unit-readiness-fails-when-the-database-is-lost-liveness-stays
+    title: "Readiness fails when the database is lost, liveness stays"
+    persona: admin
+    priority: P2
+    summary: "Readiness fails when the database is lost, liveness stays (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Readiness fails when the database is lost, liveness stays (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/app` `TestReadinessFollowsDatabaseLivenessIndependent`. Not producible end to end."
+
+  - id: verification.unit-context-cancel-shuts-down-within-the-grace
+    title: "Context cancel shuts down within the grace"
+    persona: admin
+    priority: P2
+    summary: "Context cancel shuts down within the grace (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Context cancel shuts down within the grace (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/app` `TestRunShutsDownWithinGrace`. Not producible end to end."
+
+  - id: verification.unit-reflection-is-off-by-default
+    title: "Reflection is off by default"
+    persona: admin
+    priority: P2
+    summary: "Reflection is off by default (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Reflection is off by default (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/app` `TestReflectionOffByDefault`. Not producible end to end."
+
+  - id: verification.unit-reflection-is-refused-in-a-strict-environment
+    title: "Reflection is refused in a strict environment"
+    persona: admin
+    priority: P2
+    summary: "Reflection is refused in a strict environment (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Reflection is refused in a strict environment (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/config` `TestStrictEnvRefusesReflection`. Not producible end to end."
+
+  - id: verification.unit-mock-data-is-refused-in-a-strict-environment-before-validation
+    title: "MOCK_DATA is refused in a strict environment before validation"
+    persona: admin
+    priority: P2
+    summary: "MOCK_DATA is refused in a strict environment before validation (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "MOCK_DATA is refused in a strict environment before validation (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/config` `TestStrictEnvRefusesMockDataFirst`. Not producible end to end."
+
+  - id: verification.unit-an-unknown-mock-adapter-fails-boot
+    title: "An unknown mock adapter fails boot"
+    persona: admin
+    priority: P2
+    summary: "An unknown mock adapter fails boot (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "An unknown mock adapter fails boot (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/app` `TestUnknownMockAdapterFailsBoot`. Not producible end to end."
+
+  - id: verification.unit-domain-errors-map-to-their-codes
+    title: "Domain errors map to their codes"
+    persona: admin
+    priority: P2
+    summary: "Domain errors map to their codes (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Domain errors map to their codes (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestErrorTableMapsDomainErrors`. Not producible end to end."
+
+  - id: verification.unit-internal-cause-is-hidden
+    title: "Internal cause is hidden"
+    persona: admin
+    priority: P2
+    summary: "Internal cause is hidden (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Internal cause is hidden (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestMapErrHidesInternalCause`. Not producible end to end."
+
+  - id: verification.unit-a-panic-does-not-stop-the-server
+    title: "A panic does not stop the server"
+    persona: admin
+    priority: P2
+    summary: "A panic does not stop the server (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A panic does not stop the server (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestPanicReturnsInternalAndKeepsServing`. Not producible end to end."
+
+  - id: verification.unit-anonymous-and-service-callers-are-refused
+    title: "Anonymous and service callers are refused"
+    persona: admin
+    priority: P2
+    summary: "Anonymous and service callers are refused (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Anonymous and service callers are refused (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestAnonymousAndNoPrincipalAreUnauthenticated`. Not producible end to end."
+
+  - id: verification.unit-a-principal-with-no-type-is-refused
+    title: "A principal with no type is refused"
+    persona: admin
+    priority: P2
+    summary: "A principal with no type is refused (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A principal with no type is refused (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestTypelessPrincipalUnauthenticated`. Not producible end to end."
+
+  - id: verification.unit-a-principal-with-an-unrecognised-type-is-refused
+    title: "A principal with an unrecognised type is refused"
+    persona: admin
+    priority: P2
+    summary: "A principal with an unrecognised type is refused (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A principal with an unrecognised type is refused (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestUnknownTypePrincipalUnauthenticated`. Not producible end to end."
+
+  - id: verification.unit-service-principal-cannot-read-own-status
+    title: "Service principal cannot read own status"
+    persona: admin
+    priority: P2
+    summary: "Service principal cannot read own status (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Service principal cannot read own status (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestStatusServicePrincipalDenied`. Not producible end to end."
+
+  - id: verification.unit-non-admin-cannot-read-another-user-s-status
+    title: "Non-admin cannot read another user's status"
+    persona: admin
+    priority: P2
+    summary: "Non-admin cannot read another user's status (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Non-admin cannot read another user's status (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestStatusOtherUserNeedsAdmin`. Not producible end to end."
+
+  - id: verification.unit-admin-can-read-another-user-s-status
+    title: "Admin can read another user's status"
+    persona: admin
+    priority: P2
+    summary: "Admin can read another user's status (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Admin can read another user's status (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestStatusAdminReadsOtherUser`. Not producible end to end."
+
+  - id: verification.unit-anonymous-caller-cannot-read-a-status
+    title: "Anonymous caller cannot read a status"
+    persona: admin
+    priority: P2
+    summary: "Anonymous caller cannot read a status (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Anonymous caller cannot read a status (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestStatusAnonymousUnauthenticated`. Not producible end to end."
+
+  - id: verification.unit-a-buyer-cannot-review
+    title: "A buyer cannot review"
+    persona: admin
+    priority: P2
+    summary: "A buyer cannot review (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A buyer cannot review (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestBuyerCannotReview`. Not producible end to end."
+
+  - id: verification.unit-submit-then-review-through-the-handler
+    title: "Submit then review through the handler"
+    persona: admin
+    priority: P2
+    summary: "Submit then review through the handler (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Submit then review through the handler (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestHandlerSubmitReviewFlow`. Not producible end to end."
+
+  - id: verification.unit-two-users-do-not-see-each-other-s-status
+    title: "Two users do not see each other's status"
+    persona: admin
+    priority: P2
+    summary: "Two users do not see each other's status (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Two users do not see each other's status (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestTwoUsersDoNotSeeEachOthersStatus`. Not producible end to end."
+
+  - id: verification.unit-a-service-principal-cannot-submit
+    title: "A service principal cannot submit"
+    persona: admin
+    priority: P2
+    summary: "A service principal cannot submit (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A service principal cannot submit (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestServicePrincipalCannotSubmit`. Not producible end to end."
+
+  - id: verification.unit-an-admin-can-review-someone-else
+    title: "An admin can review someone else"
+    persona: admin
+    priority: P2
+    summary: "An admin can review someone else (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "An admin can review someone else (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestAdminCanReviewSomeoneElse`. Not producible end to end."
+
+  - id: verification.unit-a-review-decision-is-final-through-the-handler
+    title: "A review decision is final through the handler"
+    persona: admin
+    priority: P2
+    summary: "A review decision is final through the handler (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A review decision is final through the handler (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestReviewIsFinal`. Not producible end to end."
+
+  - id: verification.unit-document-references-never-reach-the-logs
+    title: "Document references never reach the logs"
+    persona: admin
+    priority: P2
+    summary: "Document references never reach the logs (unit-verified)"
+    entry_route: /
+    services: [team-verification]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Document references never reach the logs (unit-verified)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "verification-runtime: unit-verified: team-verification `internal/rpc` `TestDocRefNeverLogged`. Not producible end to end."

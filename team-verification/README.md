@@ -1,13 +1,15 @@
 # team-verification
 
-Mock seller/user KYC verification service (Go, gRPC). Bounded context: **verification**. It
+Seller/user KYC verification service (Go, gRPC), built on `platform-core/packages/go-sdk` v1.0.2 (ADR-0016). Bounded context: **verification**. It
 owns the `verification_db` database (database-per-service) and the
 `platform.verification.v1.VerificationService` gRPC API on port **50064**: users submit a
 document *reference*, an admin approves or rejects it, and anyone authorized can read the
 resulting status and verified-badge flag.
 
-Status: deployed in the root compose stack. It is a **mock**: only an opaque `doc_ref`
-string (storage key) is stored, never real document bytes.
+Status: deployed in the root compose stack. Only an opaque `doc_ref` string (storage key) is
+stored, never real document bytes. The service always uses Postgres; there is no memory mode.
+
+Layout: `cmd/server` (config load, `migrate up` subcommand) -> `internal/app` (wiring: logx, otelx, healthx, mockdata, postgres, auditx, grpcx, lifecycle) -> `internal/rpc` -> `internal/verification` -> `internal/store`; `internal/upstream` adapts team-audit to `auditx.Writer`.
 
 ## Contract
 
@@ -29,14 +31,14 @@ Behavior notes:
 - A review is final: only a `PENDING` submission can be updated (guarded in the SQL `UPDATE`).
 - `badge` is `status == VERIFIED`. A user with no submission is reported as `PENDING`, no badge.
 - Status is that of the user's latest submission (by `created_at`).
-- gRPC health (`grpc.health.v1`) and server reflection are always enabled.
+- gRPC health (`grpc.health.v1`) is always enabled: the overall status is readiness (follows the database), the `liveness` service does not depend on the database. Server reflection is off unless `GRPC_REFLECTION_ENABLED=true` in a local or test `ENV`.
 
 Consumes: team-audit (`WriteAuditEvent`, service principal `service-team-verification` with scope
-`audit.write`, single attempt bounded by `UPSTREAM_CALL_TIMEOUT_SECONDS`).
+`audit.write`, single attempt bounded to 2 s by `auditx.Gate`).
 
 `ReviewKyc` writes a `kyc.review` audit event (target `kyc_submission`, metadata `decision` and
 `user_id`) after validation and before the decision is applied. It fails closed: any audit error,
-or no audit address configured, returns `Unavailable` and leaves the submission `PENDING`.
+returns `Unavailable` ("audit trail unavailable") and leaves the submission `PENDING`. `UPSTREAM_AUDIT_ADDR` is required in every ENV: boot fails without it.
 Submit and status do not depend on team-audit.
 
 ## Events
@@ -52,23 +54,29 @@ Database `verification_db` (role `verification_svc`), table `kyc_submissions`:
 
 Migrations: `migrations/001_create_kyc_submissions.{up,down}.sql` (golang-migrate). In compose
 they run via the one-shot `team-verification-migrate` job, which the service depends on.
-The service itself never migrates.
+The binary embeds the migrations: `server migrate up` (reads `DATABASE_URL`) applies them and exits. `app.Run` never migrates.
 
 ## Configuration
 
-Only these are read by the code (`internal/config/config.go`):
+`internal/config.Settings` is composed of the go-sdk config groups (`Runtime`, `GRPC`, `Postgres`, `OTel`, `MockData`) plus `UPSTREAM_AUDIT_ADDR`, loaded with `sdkconfig.Load`. `.env.example` lists these variables.
 
 | Var | Default | Meaning |
 |---|---|---|
-| `GRPC_PORT` | `50064` | gRPC listen port (same as the Dockerfile and compose) |
-| `DATABASE_URL` | `postgres://verification_svc:verification_pass@localhost:5444/verification_db?sslmode=disable` | Postgres DSN |
-| `UPSTREAM_AUDIT_ADDR` | empty | team-audit gRPC address; empty means `ReviewKyc` is refused (`Unavailable`) |
-| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Per-call audit timeout in seconds (float, must be > 0) |
-
-`.env.example` also lists `ENV`, `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`,
-`GRPC_REFLECTION_ENABLED`, `DATABASE_ENABLED`, `DB_MAX_CONNS`. **These are ignored** (see Known
-gaps); compose sets `DATABASE_ENABLED` and `ENV` to no effect. There is no env drift gate in
-this repo.
+| `ENV` | none | Required. `local`, `test`, `staging` or `prod`; strict environments refuse unsafe options |
+| `LOG_LEVEL` | `info` | Log level |
+| `LOG_JSON` | `true` | JSON log output |
+| `GRPC_HOST` | `0.0.0.0` | gRPC bind host |
+| `GRPC_PORT` | none | Required. gRPC listen port (`50064` in the Dockerfile and compose) |
+| `GRPC_REFLECTION_ENABLED` | `false` | gRPC reflection; only allowed when `ENV` is local or test |
+| `SHUTDOWN_GRACE` | `10s` | Graceful shutdown timeout |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Delay between NOT_SERVING and stop |
+| `DATABASE_URL` | none | Required. Postgres DSN; an unreachable database fails boot |
+| `DB_MAX_CONNS` | `10` | Postgres pool size |
+| `UPSTREAM_AUDIT_ADDR` | none | Required. team-audit gRPC address |
+| `MOCK_DATA` | empty | Mock-data adapters; the service has none, so any value fails boot (refused in strict ENV) |
+| `OTEL_ENABLED` | `false` | Enable OpenTelemetry export |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OTLP endpoint |
+| `OTEL_SERVICE_NAME` | `team-verification` | OTel service name |
 
 ## Run locally
 
@@ -85,6 +93,7 @@ Standalone (needs a migrated Postgres, e.g. the compose one):
 
 ```bash
 make proto   # first, see Gotchas
+go run ./cmd/server migrate up   # needs DATABASE_URL
 make run     # go run ./cmd/server
 ```
 
@@ -94,11 +103,11 @@ make run     # go run ./cmd/server
 |---|---|
 | `make proto` | `buf generate` into `generated/` |
 | `make build` | `go build ./...` |
-| `make test` | `go test ./...` (unit tests use the in-memory repo, no DB) |
+| `make check` | Local gate from `platform-core/make/go-service.mk` (format, lint, vet, build, tests) |
+| `make test` | `go test ./...` (store and app tests use Docker Postgres via testkit) |
 | `make tidy` | `go mod tidy` |
 
-There is no lint target and no CI config in this repo. Run `gofmt -l .` and `go vet ./...`
-manually.
+Lint config comes from the go-sdk `.golangci.yml`.
 
 ## Spec and verification
 
@@ -115,19 +124,13 @@ manually.
 - `generated/` is gitignored. Run `make proto` after cloning and after any proto change.
   `buf.gen.yaml` uses remote buf.build plugins, so it needs network access.
 - `proto/` is vendored from platform-core. Never edit it here.
-- The in-memory repo is only used when the DSN is malformed: `pgxpool.New` is lazy, so with a
-  valid DSN and an unreachable DB the service boots and queries fail at runtime. The
-  in-memory repo is not persisted.
 - Without gateway-forwarded principal metadata every RPC returns `Unauthenticated`.
 
 ## Known gaps
 
-- `GRPC_HOST`, `GRPC_REFLECTION_ENABLED`, `LOG_LEVEL`, `LOG_JSON`, `DB_MAX_CONNS`,
-  `DATABASE_ENABLED`, `ENV` appear in `.env.example` but are never read. Reflection is always
-  on, the listener binds all interfaces, and logging is always JSON.
 - Principal metadata is trusted as-is, so the service must only be reachable from the gateway
   (network-level zero trust, ADR-0010).
-- No `.github` CI and no lint config.
+- No `.github` CI in this repo.
 
 ## Links
 
