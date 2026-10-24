@@ -1,0 +1,10 @@
+ALTER TABLE outbox_events DROP CONSTRAINT IF EXISTS outbox_events_seq_nn;
+ALTER TABLE outbox_events ADD CONSTRAINT outbox_events_seq_nn CHECK (seq IS NOT NULL) NOT VALID;
+ALTER TABLE outbox_events VALIDATE CONSTRAINT outbox_events_seq_nn;
+ALTER TABLE outbox_events ALTER COLUMN seq SET NOT NULL;
+ALTER TABLE outbox_events DROP CONSTRAINT outbox_events_seq_nn;
+CREATE INDEX IF NOT EXISTS outbox_events_status_idx ON outbox_events (status);
+CREATE INDEX IF NOT EXISTS outbox_events_agg_idx ON outbox_events (aggregate_type, aggregate_id, seq) WHERE status <> 'published';
+CREATE INDEX IF NOT EXISTS outbox_events_pending_idx ON outbox_events (seq) WHERE status = 'pending';
+DROP INDEX IF EXISTS outbox_events_claim_idx;
+UPDATE outbox_events SET status = 'pending', attempts = 0, error = NULL, available_at = now(), locked_until = NULL WHERE status = 'failed';

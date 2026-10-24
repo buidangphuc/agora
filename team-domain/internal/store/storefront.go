@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"sync"
 	"time"
 )
 
@@ -47,75 +46,3 @@ type StorefrontRepository interface {
 	// Sellers without a storefront are omitted; order is unspecified.
 	GetBySellers(ctx context.Context, sellerIDs []string) ([]Storefront, error)
 }
-
-// InMemoryStorefrontRepository is a deterministic fake store for tests. It
-// enforces the same slug-uniqueness invariant as the Postgres unique index so
-// unit tests exercise the cross-seller conflict path without a database.
-type InMemoryStorefrontRepository struct {
-	mu       sync.RWMutex
-	bySeller map[string]Storefront
-}
-
-// NewInMemoryStorefrontRepository returns an empty fake store.
-func NewInMemoryStorefrontRepository(seed ...Storefront) *InMemoryStorefrontRepository {
-	bySeller := make(map[string]Storefront, len(seed))
-	for _, s := range seed {
-		bySeller[s.SellerID] = s
-	}
-	return &InMemoryStorefrontRepository{bySeller: bySeller}
-}
-
-// Upsert inserts or replaces the seller's storefront, rejecting a slug already
-// claimed by another seller.
-func (r *InMemoryStorefrontRepository) Upsert(_ context.Context, s Storefront) (Storefront, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	// Slug-uniqueness guard across sellers (mirrors storefronts_slug_key).
-	for sellerID, existing := range r.bySeller {
-		if existing.Slug == s.Slug && sellerID != s.SellerID {
-			return Storefront{}, ErrSlugTaken
-		}
-	}
-	s.UpdatedAt = time.Now().UTC()
-	r.bySeller[s.SellerID] = s
-	return s, nil
-}
-
-// GetBySeller returns the seller's storefront or ErrStorefrontNotFound.
-func (r *InMemoryStorefrontRepository) GetBySeller(_ context.Context, sellerID string) (Storefront, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	s, ok := r.bySeller[sellerID]
-	if !ok {
-		return Storefront{}, ErrStorefrontNotFound
-	}
-	return s, nil
-}
-
-// GetBySlug returns the storefront with the given slug or ErrStorefrontNotFound.
-func (r *InMemoryStorefrontRepository) GetBySlug(_ context.Context, slug string) (Storefront, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	for _, s := range r.bySeller {
-		if s.Slug == slug {
-			return s, nil
-		}
-	}
-	return Storefront{}, ErrStorefrontNotFound
-}
-
-// GetBySellers returns the storefronts that exist for the given seller ids.
-func (r *InMemoryStorefrontRepository) GetBySellers(_ context.Context, sellerIDs []string) ([]Storefront, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	out := make([]Storefront, 0, len(sellerIDs))
-	for _, id := range sellerIDs {
-		if s, ok := r.bySeller[id]; ok {
-			out = append(out, s)
-		}
-	}
-	return out, nil
-}
-
-// compile-time assertion that the fake satisfies the port.
-var _ StorefrontRepository = (*InMemoryStorefrontRepository)(nil)

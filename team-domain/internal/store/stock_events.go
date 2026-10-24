@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sort"
+
+	"github.com/jackc/pgx/v5"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 )
 
 // StockSnapshot is what a ListingStockChanged event announces: the listing's
@@ -58,7 +62,7 @@ func (c stockChanges) variants(listingID string) []string {
 // enqueue one ListingStockChanged row per affected listing on outbox, inside the
 // stock-change transaction. Without it (DB-only tests, outbox disabled) no event
 // is written. Returns the repo for chaining.
-func (r *PostgresListingRepository) WithStockEvents(outbox *OutboxStore, b StockEventBuilder) *PostgresListingRepository {
+func (r *PostgresListingRepository) WithStockEvents(outbox *outbox.Store, b StockEventBuilder) *PostgresListingRepository {
 	r.outbox, r.stockEvent = outbox, b
 	return r
 }
@@ -66,7 +70,7 @@ func (r *PostgresListingRepository) WithStockEvents(outbox *OutboxStore, b Stock
 // emitStockChanges enqueues one ListingStockChanged row per changed listing over
 // tx, reading the post-change stock inside the same transaction. A listing
 // deleted meanwhile announces nothing. No-op when events are not configured.
-func (r *PostgresListingRepository) emitStockChanges(ctx context.Context, tx DBTX, changes stockChanges) error {
+func (r *PostgresListingRepository) emitStockChanges(ctx context.Context, tx pgx.Tx, changes stockChanges) error {
 	if r.outbox == nil || r.stockEvent == nil {
 		return nil
 	}
@@ -105,71 +109,5 @@ func (r *PostgresListingRepository) emitStockChanges(ctx context.Context, tx DBT
 			return err
 		}
 	}
-	return nil
-}
-
-// WithStockEvents enables stock-change events on the in-memory repo and returns
-// it for chaining.
-func (r *InMemoryListingRepository) WithStockEvents(b StockEventBuilder) *InMemoryListingRepository {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.stockEvent = b
-	return r
-}
-
-// StockEventRows returns a copy of the stock-change outbox rows recorded so far
-// (the in-memory analogue of the pending rows the Postgres repo writes).
-func (r *InMemoryListingRepository) StockEventRows() []OutboxRow {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return append([]OutboxRow(nil), r.stockRows...)
-}
-
-// txLocked runs mutate as an all-or-nothing unit (the caller holds r.mu): the
-// listings and reservations are snapshotted, and a mutate or event-builder error
-// restores them and records no event, mirroring a rolled-back transaction.
-// mutate records every real stock change in changes; one event row per changed
-// listing is built after mutate succeeds.
-func (r *InMemoryListingRepository) txLocked(ctx context.Context, mutate func(changes stockChanges) error) error {
-	savedListings := make(map[string]Listing, len(r.byID))
-	for id, l := range r.byID {
-		l.Variants = append([]Variant(nil), l.Variants...)
-		savedListings[id] = l
-	}
-	savedRes := make(map[string]memReservation, len(r.reservations))
-	for id, v := range r.reservations {
-		savedRes[id] = v
-	}
-	rollback := func() { r.byID, r.reservations = savedListings, savedRes }
-
-	changes := stockChanges{}
-	if err := mutate(changes); err != nil {
-		rollback()
-		return err
-	}
-	if r.stockEvent == nil {
-		return nil
-	}
-	var rows []OutboxRow
-	for _, listingID := range changes.listings() {
-		l, ok := r.byID[listingID]
-		if !ok {
-			continue
-		}
-		snap := StockSnapshot{ListingID: listingID, Stock: l.Stock}
-		changed := changes[listingID]
-		for _, v := range l.Variants {
-			if changed[v.ID] {
-				snap.Variants = append(snap.Variants, v)
-			}
-		}
-		row, err := r.stockEvent(ctx, snap)
-		if err != nil {
-			rollback()
-			return err
-		}
-		rows = append(rows, row)
-	}
-	r.stockRows = append(r.stockRows, rows...)
 	return nil
 }

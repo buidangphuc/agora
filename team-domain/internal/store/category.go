@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -83,57 +81,6 @@ func (r *PostgresCategoryRepository) Get(ctx context.Context, id string) (Catego
 			return Category{}, ErrCategoryNotFound
 		}
 		return Category{}, fmt.Errorf("get category %q: %w", id, err)
-	}
-	return c, nil
-}
-
-// InMemoryCategoryRepository is a deterministic fake store for tests.
-type InMemoryCategoryRepository struct {
-	mu   sync.RWMutex
-	byID map[string]Category
-}
-
-// NewInMemoryCategoryRepository seeds standard categories for unit testing.
-func NewInMemoryCategoryRepository(seed ...Category) *InMemoryCategoryRepository {
-	if len(seed) == 0 {
-		seed = []Category{
-			{ID: "cat-electronics", Name: "Điện tử & Công nghệ", Slug: "dien-tu", DisplayOrder: 1, IconURL: "📱"},
-			{ID: "cat-fashion", Name: "Thời trang & Phụ kiện", Slug: "thoi-trang", DisplayOrder: 2, IconURL: "👕"},
-			{ID: "cat-home", Name: "Nhà cửa & Đời sống", Slug: "nha-cua", DisplayOrder: 3, IconURL: "🏠"},
-		}
-	}
-	byID := make(map[string]Category, len(seed))
-	for _, c := range seed {
-		byID[c.ID] = c
-	}
-	return &InMemoryCategoryRepository{byID: byID}
-}
-
-func (r *InMemoryCategoryRepository) List(_ context.Context, parentID string) ([]Category, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	var items []Category
-	for _, c := range r.byID {
-		if c.ParentID == parentID {
-			items = append(items, c)
-		}
-	}
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].DisplayOrder == items[j].DisplayOrder {
-			return items[i].Name < items[j].Name
-		}
-		return items[i].DisplayOrder < items[j].DisplayOrder
-	})
-	return items, nil
-}
-
-func (r *InMemoryCategoryRepository) Get(_ context.Context, id string) (Category, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	c, ok := r.byID[id]
-	if !ok {
-		return Category{}, ErrCategoryNotFound
 	}
 	return c, nil
 }

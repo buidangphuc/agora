@@ -3,8 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"sort"
-	"sync"
 	"time"
 )
 
@@ -42,76 +40,3 @@ type BundleRepository interface {
 	// ListBySeller returns a keyset page of the seller's bundles.
 	ListBySeller(ctx context.Context, sellerID, cursor string, pageSize int32) (BundlePage, error)
 }
-
-// InMemoryBundleRepository is a deterministic fake store for tests. Production
-// uses PostgresBundleRepository (bundle_pg.go).
-type InMemoryBundleRepository struct {
-	mu   sync.RWMutex
-	byID map[string]Bundle
-}
-
-// NewInMemoryBundleRepository returns a store seeded with the given rows (empty
-// by default).
-func NewInMemoryBundleRepository(seed ...Bundle) *InMemoryBundleRepository {
-	byID := make(map[string]Bundle, len(seed))
-	for _, b := range seed {
-		byID[b.ID] = b
-	}
-	return &InMemoryBundleRepository{byID: byID}
-}
-
-// Create inserts a new bundle (overwrites on duplicate id in this fake).
-func (r *InMemoryBundleRepository) Create(_ context.Context, b Bundle) (Bundle, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if b.CreatedAt.IsZero() {
-		b.CreatedAt = time.Now().UTC()
-	}
-	r.byID[b.ID] = b
-	return b, nil
-}
-
-// Get returns the bundle for id, or ErrBundleNotFound.
-func (r *InMemoryBundleRepository) Get(_ context.Context, id string) (Bundle, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	b, ok := r.byID[id]
-	if !ok {
-		return Bundle{}, ErrBundleNotFound
-	}
-	return b, nil
-}
-
-// ListBySeller returns a keyset page of the seller's bundles ordered by id.
-func (r *InMemoryBundleRepository) ListBySeller(_ context.Context, sellerID, cursor string, pageSize int32) (BundlePage, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	ids := make([]string, 0, len(r.byID))
-	var total int64
-	for id, b := range r.byID {
-		if b.SellerID == sellerID {
-			ids = append(ids, id)
-			total++
-		}
-	}
-	sort.Strings(ids)
-
-	limit := clampPageSize(pageSize)
-	items := make([]Bundle, 0, limit)
-	var next string
-	for _, id := range ids {
-		if cursor != "" && id <= cursor {
-			continue
-		}
-		if len(items) == limit {
-			next = items[len(items)-1].ID
-			break
-		}
-		items = append(items, r.byID[id])
-	}
-	return BundlePage{Items: items, NextCursor: next, Total: total}, nil
-}
-
-// compile-time assertion that the fake satisfies the port.
-var _ BundleRepository = (*InMemoryBundleRepository)(nil)

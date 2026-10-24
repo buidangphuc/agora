@@ -11,6 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/pagination"
 )
 
 // DBTX is the subset of pgx used by the write path. Both *pgxpool.Pool and
@@ -30,7 +33,7 @@ type PostgresListingRepository struct {
 	// outbox + stockEvent, when both set (WithStockEvents), make every real stock
 	// change (reserve, release, sweep) enqueue a ListingStockChanged row INSIDE
 	// the same transaction. Unset means no event.
-	outbox     *OutboxStore
+	outbox     *outbox.Store
 	stockEvent StockEventBuilder
 }
 
@@ -107,7 +110,7 @@ func loadVariants(ctx context.Context, q DBTX, listingID string) ([]Variant, err
 
 // List returns a keyset page ordered by id, optionally filtered by status.
 func (r *PostgresListingRepository) List(ctx context.Context, cursor string, pageSize int32, status string) (Page, error) {
-	limit := clampPageSize(pageSize)
+	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
 	const q = `SELECT ` + listingColumns + `
 		FROM listings
 		WHERE ($1 = '' OR id > $1) AND ($3 = '' OR status = $3)
@@ -126,7 +129,7 @@ func (r *PostgresListingRepository) List(ctx context.Context, cursor string, pag
 
 // ListByOwner returns a keyset page of the owner's listings.
 func (r *PostgresListingRepository) ListByOwner(ctx context.Context, ownerID, cursor string, pageSize int32) (Page, error) {
-	limit := clampPageSize(pageSize)
+	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
 	const q = `SELECT ` + listingColumns + `
 		FROM listings
 		WHERE seller_id = $3 AND ($1 = '' OR id > $1)
@@ -635,7 +638,7 @@ func moderateListing(ctx context.Context, q DBTX, id, fromStatus string, loadedU
 // ListModerationQueue returns pending_review listings, oldest submission first,
 // keyset-paginated on (submitted_at, id). The cursor is opaque.
 func (r *PostgresListingRepository) ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (Page, error) {
-	limit := clampPageSize(pageSize)
+	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
 	var (
 		rows pgx.Rows
 		err  error

@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/pagination"
 )
 
 // PostgresBundleRepository implements BundleRepository against a real pgxpool.
@@ -58,7 +60,7 @@ func (r *PostgresBundleRepository) Get(ctx context.Context, id string) (Bundle, 
 
 // ListBySeller returns a keyset page of the seller's bundles ordered by id.
 func (r *PostgresBundleRepository) ListBySeller(ctx context.Context, sellerID, cursor string, pageSize int32) (BundlePage, error) {
-	limit := clampPageSize(pageSize)
+	limit := pagination.Clamp(int(pageSize), DefaultPageSize, MaxPageSize)
 	const q = `SELECT ` + bundleColumns + `
 		FROM bundles
 		WHERE seller_id = $3 AND ($1 = '' OR id > $1)
