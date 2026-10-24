@@ -1,16 +1,4 @@
-package service
-
-// Service tests for the flash-stock hold RPCs (openspec change
-// promotion-flash-stock-hold). Interface assumed (implementer creates it):
-//
-//	func (s *FlashSaleService) WithHolds(h repository.FlashHoldRepository) *FlashSaleService
-//	func (s *FlashSaleService) ReserveFlashSaleStock(ctx, reservationID, campaignID, listingID,
-//	    variantID string, quantity, expectedSalePrice int64) (reserved bool, reason string, err error)
-//	func (s *FlashSaleService) CommitFlashSaleStock(ctx, reservationID string) (bool, error)
-//	func (s *FlashSaleService) ReleaseFlashSaleStock(ctx, reservationID string) (bool, error)
-//
-// The hold repository contract is described in internal/repository/flashsale_hold_test.go.
-// The service clock is the existing nowFn field, driven by a fake clock here.
+package flashsale
 
 import (
 	"context"
@@ -20,7 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-promotion/internal/repository"
+	"github.com/open-feature/go-sdk/openfeature"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/team-promotion/internal/store"
+	"github.com/buidangphuc/team-promotion/internal/store/storefake"
 )
 
 var svcT0 = time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
@@ -43,50 +35,58 @@ func (c *fakeClock) advance(d time.Duration) {
 }
 
 type holdEnv struct {
-	svc       *FlashSaleService
-	campaigns *repository.InMemoryFlashSaleRepository
-	holds     *repository.InMemoryFlashHoldRepository
+	svc       *Service
+	campaigns *storefake.InMemoryFlashSaleRepository
+	holds     *storefake.InMemoryFlashHoldRepository
 	clk       *fakeClock
 }
 
 func newHoldEnv(t *testing.T, killSwitchOn bool) holdEnv {
 	t.Helper()
-	campaigns := repository.NewInMemoryFlashSaleRepository()
-	holds := repository.NewInMemoryFlashHoldRepository(campaigns)
+	return newHoldEnvWith(t, flagProvider(killSwitchOn), nil)
+}
+
+func newHoldEnvWith(t *testing.T, p openfeature.FeatureProvider, wrap func(*storefake.InMemoryFlashHoldRepository) store.FlashHoldRepository) holdEnv {
+	t.Helper()
+	campaigns := storefake.NewInMemoryFlashSaleRepository()
+	holds := storefake.NewInMemoryFlashHoldRepository(campaigns)
+	var used store.FlashHoldRepository = holds
+	if wrap != nil {
+		used = wrap(holds)
+	}
 	clk := &fakeClock{t: svcT0}
-	svc := NewFlashSaleService(campaigns, nil, stubFlags{enabled: killSwitchOn}, nil, nil).WithHolds(holds)
+	svc := New(campaigns, used, newFlags(t, p), nil, auditx.NewGate(&recordingAuditWriter{}, nil), (&eventLog{}).build, nil)
 	svc.nowFn = clk.now
 	return holdEnv{svc: svc, campaigns: campaigns, holds: holds, clk: clk}
 }
 
-// campaign creates an active campaign (window around svcT0) for listing "l1".
-func (e holdEnv) campaign(t *testing.T, stockCap, stockSold int64) repository.FlashSaleCampaign {
+func (e holdEnv) campaign(t *testing.T, stockCap, stockSold int64) store.FlashSaleCampaign {
 	t.Helper()
-	return e.campaignWith(t, repository.FlashSaleCampaign{
+	return e.campaignWith(t, store.FlashSaleCampaign{
 		ListingID: "l1", SalePrice: 90000, StockCap: stockCap, StockSold: stockSold,
 		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(24 * time.Hour),
 	})
 }
 
-func (e holdEnv) campaignWith(t *testing.T, c repository.FlashSaleCampaign) repository.FlashSaleCampaign {
+func (e holdEnv) campaignWith(t *testing.T, c store.FlashSaleCampaign) store.FlashSaleCampaign {
 	t.Helper()
-	c, err := e.campaigns.Create(context.Background(), c)
+	c, err := e.campaigns.Create(t.Context(), c, noEvent)
 	if err != nil {
 		t.Fatalf("create campaign: %v", err)
 	}
 	return c
 }
 
-func (e holdEnv) reserve(t *testing.T, id string, c repository.FlashSaleCampaign, qty int64) (bool, string) {
+func (e holdEnv) reserve(t *testing.T, id string, c store.FlashSaleCampaign, qty int64) (bool, string) {
 	t.Helper()
-	ok, reason, err := e.svc.ReserveFlashSaleStock(context.Background(), id, c.ID, c.ListingID, c.VariantID, qty, c.SalePrice)
+	ok, reason, err := e.svc.ReserveFlashSaleStock(t.Context(), id, c.ID, c.ListingID, c.VariantID, qty, c.SalePrice)
 	if err != nil {
 		t.Fatalf("ReserveFlashSaleStock(%s): %v", id, err)
 	}
 	return ok, reason
 }
 
-func (e holdEnv) mustReserve(t *testing.T, id string, c repository.FlashSaleCampaign, qty int64) {
+func (e holdEnv) mustReserve(t *testing.T, id string, c store.FlashSaleCampaign, qty int64) {
 	t.Helper()
 	if ok, reason := e.reserve(t, id, c, qty); !ok {
 		t.Fatalf("reserve %s qty %d: refused with reason %q", id, qty, reason)
@@ -95,7 +95,7 @@ func (e holdEnv) mustReserve(t *testing.T, id string, c repository.FlashSaleCamp
 
 func (e holdEnv) commit(t *testing.T, id string) bool {
 	t.Helper()
-	ok, err := e.svc.CommitFlashSaleStock(context.Background(), id)
+	ok, err := e.svc.CommitFlashSaleStock(t.Context(), id)
 	if err != nil {
 		t.Fatalf("CommitFlashSaleStock(%s): %v", id, err)
 	}
@@ -104,25 +104,25 @@ func (e holdEnv) commit(t *testing.T, id string) bool {
 
 func (e holdEnv) release(t *testing.T, id string) bool {
 	t.Helper()
-	ok, err := e.svc.ReleaseFlashSaleStock(context.Background(), id)
+	ok, err := e.svc.ReleaseFlashSaleStock(t.Context(), id)
 	if err != nil {
 		t.Fatalf("ReleaseFlashSaleStock(%s): %v", id, err)
 	}
 	return ok
 }
 
-func (e holdEnv) remaining(t *testing.T, c repository.FlashSaleCampaign) int64 {
+func (e holdEnv) remaining(t *testing.T, c store.FlashSaleCampaign) int64 {
 	t.Helper()
-	r, _, err := e.svc.GetFlashSaleStock(context.Background(), c.ID)
+	r, _, err := e.svc.GetFlashSaleStock(t.Context(), c.ID)
 	if err != nil {
 		t.Fatalf("GetFlashSaleStock: %v", err)
 	}
 	return r
 }
 
-func (e holdEnv) sold(t *testing.T, c repository.FlashSaleCampaign) int64 {
+func (e holdEnv) sold(t *testing.T, c store.FlashSaleCampaign) int64 {
 	t.Helper()
-	got, err := e.campaigns.GetByID(context.Background(), c.ID)
+	got, err := e.campaigns.GetByID(t.Context(), c.ID)
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
@@ -131,18 +131,17 @@ func (e holdEnv) sold(t *testing.T, c repository.FlashSaleCampaign) int64 {
 
 func (e holdEnv) hasHold(t *testing.T, id string) bool {
 	t.Helper()
-	_, err := e.holds.Get(context.Background(), id)
+	_, err := e.holds.Get(t.Context(), id)
 	if err == nil {
 		return true
 	}
-	if errors.Is(err, repository.ErrFlashHoldNotFound) {
+	if errors.Is(err, store.ErrFlashHoldNotFound) {
 		return false
 	}
 	t.Fatalf("holds.Get: %v", err)
 	return false
 }
 
-// Scenario: Reserve holds the units of an active campaign.
 func TestReserveFlashSaleStockHoldsUnits(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -155,7 +154,6 @@ func TestReserveFlashSaleStockHoldsUnits(t *testing.T) {
 	}
 }
 
-// Scenario: Reserve is idempotent on the reservation id.
 func TestReserveFlashSaleStockIdempotent(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -164,21 +162,20 @@ func TestReserveFlashSaleStockIdempotent(t *testing.T) {
 	if got := e.remaining(t, c); got != 3 {
 		t.Fatalf("remaining = %d, want 3 (dropped once)", got)
 	}
-	if h, err := e.holds.Get(context.Background(), "r1"); err != nil || h.Quantity != 2 {
+	if h, err := e.holds.Get(t.Context(), "r1"); err != nil || h.Quantity != 2 {
 		t.Fatalf("hold = %+v err=%v, want one hold of 2", h, err)
 	}
 }
 
-// Scenario: Reserve replay with different fields returns the stored outcome.
 func TestReserveFlashSaleStockReplayIgnoresChangedFields(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
 	e.mustReserve(t, "r1", c, 2)
-	ok, reason, err := e.svc.ReserveFlashSaleStock(context.Background(), "r1", c.ID, c.ListingID, c.VariantID, 4, c.SalePrice-777)
+	ok, reason, err := e.svc.ReserveFlashSaleStock(t.Context(), "r1", c.ID, c.ListingID, c.VariantID, 4, c.SalePrice-777)
 	if err != nil || !ok || reason != "" {
 		t.Fatalf("replay: ok=%v reason=%q err=%v, want stored outcome reserved=true", ok, reason, err)
 	}
-	if h, _ := e.holds.Get(context.Background(), "r1"); h.Quantity != 2 {
+	if h, _ := e.holds.Get(t.Context(), "r1"); h.Quantity != 2 {
 		t.Fatalf("hold quantity = %d, want 2", h.Quantity)
 	}
 	if got := e.remaining(t, c); got != 3 {
@@ -186,14 +183,13 @@ func TestReserveFlashSaleStockReplayIgnoresChangedFields(t *testing.T) {
 	}
 }
 
-// Scenarios: Reserve refuses an ended campaign / a campaign that has not started.
 func TestReserveFlashSaleStockRefusesInactiveWindow(t *testing.T) {
 	e := newHoldEnv(t, true)
-	ended := e.campaignWith(t, repository.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 5,
+	ended := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 5,
 		StartsAt: svcT0.Add(-2 * time.Hour), EndsAt: svcT0.Add(-time.Hour)})
-	future := e.campaignWith(t, repository.FlashSaleCampaign{ListingID: "l2", SalePrice: 100, StockCap: 5,
+	future := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l2", SalePrice: 100, StockCap: 5,
 		StartsAt: svcT0.Add(time.Hour), EndsAt: svcT0.Add(2 * time.Hour)})
-	for name, c := range map[string]repository.FlashSaleCampaign{"ended": ended, "not started": future} {
+	for name, c := range map[string]store.FlashSaleCampaign{"ended": ended, "not started": future} {
 		id := "r-" + name
 		ok, reason := e.reserve(t, id, c, 1)
 		if ok || reason != "not_active" {
@@ -205,7 +201,6 @@ func TestReserveFlashSaleStockRefusesInactiveWindow(t *testing.T) {
 	}
 }
 
-// Scenario: Reserve refuses while the kill-switch is OFF.
 func TestReserveFlashSaleStockRefusesWhenKillSwitchOff(t *testing.T) {
 	e := newHoldEnv(t, false)
 	c := e.campaign(t, 5, 0)
@@ -218,11 +213,10 @@ func TestReserveFlashSaleStockRefusesWhenKillSwitchOff(t *testing.T) {
 	}
 }
 
-// Scenario: Reserve refuses a price that differs from the campaign.
 func TestReserveFlashSaleStockRefusesPriceMismatch(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
-	ok, reason, err := e.svc.ReserveFlashSaleStock(context.Background(), "r1", c.ID, c.ListingID, c.VariantID, 1, c.SalePrice-1)
+	ok, reason, err := e.svc.ReserveFlashSaleStock(t.Context(), "r1", c.ID, c.ListingID, c.VariantID, 1, c.SalePrice-1)
 	if err != nil || ok || reason != "price_changed" {
 		t.Fatalf("ok=%v reason=%q err=%v, want false/price_changed", ok, reason, err)
 	}
@@ -231,7 +225,6 @@ func TestReserveFlashSaleStockRefusesPriceMismatch(t *testing.T) {
 	}
 }
 
-// Scenario: Reserve refuses more units than remain.
 func TestReserveFlashSaleStockRefusesInsufficientStock(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -240,12 +233,11 @@ func TestReserveFlashSaleStockRefusesInsufficientStock(t *testing.T) {
 	if ok || reason != "insufficient_stock" {
 		t.Fatalf("reserved=%v reason=%q, want false/insufficient_stock", ok, reason)
 	}
-	if held, _ := e.holds.ActiveHeld(context.Background(), c.ID, svcT0); held != 4 {
+	if held, _ := e.holds.ActiveHeld(t.Context(), c.ID, svcT0); held != 4 {
 		t.Fatalf("held total = %d, want 4", held)
 	}
 }
 
-// Scenario: Reserve accepts exactly the remaining units.
 func TestReserveFlashSaleStockBoundaryExactRemaining(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 2)
@@ -258,31 +250,29 @@ func TestReserveFlashSaleStockBoundaryExactRemaining(t *testing.T) {
 	}
 }
 
-// Scenario: The first failing check decides the reason.
 func TestReserveFlashSaleStockReasonOrder(t *testing.T) {
 	e := newHoldEnv(t, true)
-	ended := e.campaignWith(t, repository.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 1,
+	ended := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 1,
 		StartsAt: svcT0.Add(-2 * time.Hour), EndsAt: svcT0.Add(-time.Hour)})
-	_, reason, err := e.svc.ReserveFlashSaleStock(context.Background(), "r1", ended.ID, "l1", "", 9, 55)
+	_, reason, err := e.svc.ReserveFlashSaleStock(t.Context(), "r1", ended.ID, "l1", "", 9, 55)
 	if err != nil || reason != "not_active" {
 		t.Fatalf("ended campaign: reason=%q err=%v, want not_active", reason, err)
 	}
-	active := e.campaignWith(t, repository.FlashSaleCampaign{ListingID: "l2", SalePrice: 100, StockCap: 1,
+	active := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l2", SalePrice: 100, StockCap: 1,
 		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(time.Hour)})
-	_, reason, err = e.svc.ReserveFlashSaleStock(context.Background(), "r2", active.ID, "l2", "", 9, 55)
+	_, reason, err = e.svc.ReserveFlashSaleStock(t.Context(), "r2", active.ID, "l2", "", 9, 55)
 	if err != nil || reason != "price_changed" {
 		t.Fatalf("active campaign: reason=%q err=%v, want price_changed", reason, err)
 	}
 }
 
-// Scenarios: Reserve covers a variant campaign only for that variant; refuses a listing that is not the campaign's.
 func TestReserveFlashSaleStockVariantScope(t *testing.T) {
 	e := newHoldEnv(t, true)
-	vc := e.campaignWith(t, repository.FlashSaleCampaign{ListingID: "l1", VariantID: "v1", SalePrice: 100, StockCap: 5,
+	vc := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l1", VariantID: "v1", SalePrice: 100, StockCap: 5,
 		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(time.Hour)})
-	any := e.campaignWith(t, repository.FlashSaleCampaign{ListingID: "l2", SalePrice: 100, StockCap: 5,
+	any := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l2", SalePrice: 100, StockCap: 5,
 		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(time.Hour)})
-	ctx := context.Background()
+	ctx := t.Context()
 	reserve := func(id, campaign, listing, variant string) (bool, string) {
 		ok, reason, err := e.svc.ReserveFlashSaleStock(ctx, id, campaign, listing, variant, 1, 100)
 		if err != nil {
@@ -304,10 +294,9 @@ func TestReserveFlashSaleStockVariantScope(t *testing.T) {
 	}
 }
 
-// Scenario: Reserve refuses an unknown campaign.
 func TestReserveFlashSaleStockUnknownCampaign(t *testing.T) {
 	e := newHoldEnv(t, true)
-	ok, reason, err := e.svc.ReserveFlashSaleStock(context.Background(), "r1", "no-such-campaign", "l1", "", 1, 100)
+	ok, reason, err := e.svc.ReserveFlashSaleStock(t.Context(), "r1", "no-such-campaign", "l1", "", 1, 100)
 	if err != nil || ok || reason != "not_active" {
 		t.Fatalf("ok=%v reason=%q err=%v, want false/not_active/nil", ok, reason, err)
 	}
@@ -316,7 +305,6 @@ func TestReserveFlashSaleStockUnknownCampaign(t *testing.T) {
 	}
 }
 
-// Scenario: Reserve replay after release is not active.
 func TestReserveFlashSaleStockReplayAfterRelease(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -332,7 +320,6 @@ func TestReserveFlashSaleStockReplayAfterRelease(t *testing.T) {
 	}
 }
 
-// Scenario: Reserve replay after expiry is not active.
 func TestReserveFlashSaleStockReplayAfterExpiry(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -346,7 +333,6 @@ func TestReserveFlashSaleStockReplayAfterExpiry(t *testing.T) {
 	}
 }
 
-// Scenario: A hold expires 15 minutes after reserve.
 func TestFlashHoldExpiresAfterFifteenMinutes(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -364,7 +350,6 @@ func TestFlashHoldExpiresAfterFifteenMinutes(t *testing.T) {
 	}
 }
 
-// Scenario: Concurrent reserves are capped.
 func TestReserveFlashSaleStockConcurrentCap(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -375,7 +360,7 @@ func TestReserveFlashSaleStockConcurrentCap(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			ok, reason, err := e.svc.ReserveFlashSaleStock(context.Background(), fmt.Sprintf("r%d", i), c.ID, c.ListingID, "", 1, c.SalePrice)
+			ok, reason, err := e.svc.ReserveFlashSaleStock(t.Context(), fmt.Sprintf("r%d", i), c.ID, c.ListingID, "", 1, c.SalePrice)
 			mu.Lock()
 			defer mu.Unlock()
 			switch {
@@ -399,7 +384,6 @@ func TestReserveFlashSaleStockConcurrentCap(t *testing.T) {
 	}
 }
 
-// Scenario: Concurrent reserves of one reservation id hold once.
 func TestReserveFlashSaleStockConcurrentSameReservation(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -410,7 +394,7 @@ func TestReserveFlashSaleStockConcurrentSameReservation(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ok, _, err := e.svc.ReserveFlashSaleStock(context.Background(), "same", c.ID, c.ListingID, "", 2, c.SalePrice)
+			ok, _, err := e.svc.ReserveFlashSaleStock(t.Context(), "same", c.ID, c.ListingID, "", 2, c.SalePrice)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
@@ -424,7 +408,7 @@ func TestReserveFlashSaleStockConcurrentSameReservation(t *testing.T) {
 	if reserved != 10 {
 		t.Fatalf("reserved=%d, want all 10", reserved)
 	}
-	if h, err := e.holds.Get(context.Background(), "same"); err != nil || h.Quantity != 2 {
+	if h, err := e.holds.Get(t.Context(), "same"); err != nil || h.Quantity != 2 {
 		t.Fatalf("hold = %+v err=%v, want one hold of 2", h, err)
 	}
 	if got := e.remaining(t, c); got != 3 {
@@ -432,7 +416,6 @@ func TestReserveFlashSaleStockConcurrentSameReservation(t *testing.T) {
 	}
 }
 
-// Scenario: Concurrent commits and reserves keep the invariant.
 func TestFlashHoldConcurrentCommitAndReserve(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -446,7 +429,7 @@ func TestFlashHoldConcurrentCommitAndReserve(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if ok, err := e.svc.CommitFlashSaleStock(context.Background(), fmt.Sprintf("h%d", i)); err != nil || !ok {
+			if ok, err := e.svc.CommitFlashSaleStock(t.Context(), fmt.Sprintf("h%d", i)); err != nil || !ok {
 				t.Errorf("commit h%d: ok=%v err=%v", i, ok, err)
 			}
 		}(i)
@@ -455,7 +438,7 @@ func TestFlashHoldConcurrentCommitAndReserve(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			ok, _, err := e.svc.ReserveFlashSaleStock(context.Background(), fmt.Sprintf("n%d", i), c.ID, c.ListingID, "", 1, c.SalePrice)
+			ok, _, err := e.svc.ReserveFlashSaleStock(t.Context(), fmt.Sprintf("n%d", i), c.ID, c.ListingID, "", 1, c.SalePrice)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
@@ -477,7 +460,6 @@ func TestFlashHoldConcurrentCommitAndReserve(t *testing.T) {
 	}
 }
 
-// Scenario: Commit adds the quantity to stock_sold.
 func TestCommitFlashSaleStockAddsToSold(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -493,7 +475,6 @@ func TestCommitFlashSaleStockAddsToSold(t *testing.T) {
 	}
 }
 
-// Scenario: Commit is idempotent.
 func TestCommitFlashSaleStockIdempotent(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -506,7 +487,6 @@ func TestCommitFlashSaleStockIdempotent(t *testing.T) {
 	}
 }
 
-// Scenario: Commit of an unknown reservation does nothing.
 func TestCommitFlashSaleStockUnknown(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -518,7 +498,6 @@ func TestCommitFlashSaleStockUnknown(t *testing.T) {
 	}
 }
 
-// Scenario: Commit of a released hold is refused.
 func TestCommitFlashSaleStockAfterRelease(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -532,7 +511,6 @@ func TestCommitFlashSaleStockAfterRelease(t *testing.T) {
 	}
 }
 
-// Scenario: Commit of an expired hold is refused.
 func TestCommitFlashSaleStockAfterExpiry(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -546,10 +524,9 @@ func TestCommitFlashSaleStockAfterExpiry(t *testing.T) {
 	}
 }
 
-// Scenario: Commit still works after the sale window ended.
 func TestCommitFlashSaleStockAfterWindowEnded(t *testing.T) {
 	e := newHoldEnv(t, true)
-	c := e.campaignWith(t, repository.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 5,
+	c := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 5,
 		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(10 * time.Minute)})
 	e.mustReserve(t, "r1", c, 2)
 	e.clk.advance(12 * time.Minute) // window over, hold 12 minutes old
@@ -561,7 +538,6 @@ func TestCommitFlashSaleStockAfterWindowEnded(t *testing.T) {
 	}
 }
 
-// Scenario: Release returns the units of an active hold.
 func TestReleaseFlashSaleStockReturnsUnits(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -574,7 +550,6 @@ func TestReleaseFlashSaleStockReturnsUnits(t *testing.T) {
 	}
 }
 
-// Scenario: Release returns the units of a committed hold.
 func TestReleaseFlashSaleStockAfterCommit(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -591,7 +566,6 @@ func TestReleaseFlashSaleStockAfterCommit(t *testing.T) {
 	}
 }
 
-// Scenario: Release is idempotent.
 func TestReleaseFlashSaleStockIdempotent(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -607,12 +581,11 @@ func TestReleaseFlashSaleStockIdempotent(t *testing.T) {
 	}
 }
 
-// Scenario: Release of an unknown reservation is a no-op.
 func TestReleaseFlashSaleStockUnknownNoOp(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
 	e.mustReserve(t, "r1", c, 2)
-	released, err := e.svc.ReleaseFlashSaleStock(context.Background(), "ghost")
+	released, err := e.svc.ReleaseFlashSaleStock(t.Context(), "ghost")
 	if err != nil || released {
 		t.Fatalf("released=%v err=%v, want false,nil", released, err)
 	}
@@ -621,7 +594,6 @@ func TestReleaseFlashSaleStockUnknownNoOp(t *testing.T) {
 	}
 }
 
-// Scenario: Release of an expired hold changes no counter.
 func TestReleaseFlashSaleStockExpiredNoCounterChange(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
@@ -638,15 +610,14 @@ func TestReleaseFlashSaleStockExpiredNoCounterChange(t *testing.T) {
 	}
 }
 
-// Scenario: A committed hold older than 30 days is not purged (service view).
 func TestReleaseOldCommittedHoldAfterPurge(t *testing.T) {
 	e := newHoldEnv(t, true)
-	c := e.campaignWith(t, repository.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 5,
+	c := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 5,
 		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(24 * time.Hour * 365)})
 	e.mustReserve(t, "r1", c, 2)
 	e.commit(t, "r1")
 	e.clk.advance(90 * 24 * time.Hour)
-	if _, err := e.holds.PurgeReleasedAndExpiredHolds(context.Background(), e.clk.now().Add(-30*24*time.Hour)); err != nil {
+	if _, err := e.holds.PurgeReleasedAndExpiredHolds(t.Context(), e.clk.now().Add(-30*24*time.Hour)); err != nil {
 		t.Fatalf("purge: %v", err)
 	}
 	if !e.hasHold(t, "r1") {
@@ -660,7 +631,6 @@ func TestReleaseOldCommittedHoldAfterPurge(t *testing.T) {
 	}
 }
 
-// Scenario: Remaining reflects holds and sold units.
 func TestGetFlashSaleStockCountsHolds(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 10, 3)
@@ -669,7 +639,7 @@ func TestGetFlashSaleStockCountsHolds(t *testing.T) {
 	e.release(t, "released")
 	e.clk.advance(15 * time.Minute) // "expired" is now 15 minutes old
 	e.mustReserve(t, "active", c, 2)
-	remaining, stockCap, err := e.svc.GetFlashSaleStock(context.Background(), c.ID)
+	remaining, stockCap, err := e.svc.GetFlashSaleStock(t.Context(), c.ID)
 	if err != nil {
 		t.Fatalf("GetFlashSaleStock: %v", err)
 	}
@@ -678,25 +648,57 @@ func TestGetFlashSaleStockCountsHolds(t *testing.T) {
 	}
 }
 
-// fixedHeld reports a fixed active-hold total, so the oversold case can be
-// built without going through the cap check.
 type fixedHeld struct {
-	*repository.InMemoryFlashHoldRepository
+	*storefake.InMemoryFlashHoldRepository
 	n int64
 }
 
 func (f fixedHeld) ActiveHeld(context.Context, string, time.Time) (int64, error) { return f.n, nil }
 
-// Scenario: Remaining is floored at zero (with a reserved hold on an oversold campaign).
 func TestGetFlashSaleStockRemainingFlooredWithHold(t *testing.T) {
-	e := newHoldEnv(t, true)
-	e.svc.WithHolds(fixedHeld{InMemoryFlashHoldRepository: e.holds, n: 2})
+	e := newHoldEnvWith(t, flagProvider(true), func(h *storefake.InMemoryFlashHoldRepository) store.FlashHoldRepository {
+		return fixedHeld{InMemoryFlashHoldRepository: h, n: 2}
+	})
 	c := e.campaign(t, 10, 25)
-	remaining, stockCap, err := e.svc.GetFlashSaleStock(context.Background(), c.ID)
+	remaining, stockCap, err := e.svc.GetFlashSaleStock(t.Context(), c.ID)
 	if err != nil {
 		t.Fatalf("GetFlashSaleStock: %v", err)
 	}
 	if remaining != 0 || stockCap != 10 {
 		t.Fatalf("remaining=%d cap=%d, want 0/10", remaining, stockCap)
+	}
+}
+
+func TestKillSwitchOffViaProvider(t *testing.T) {
+	e := newHoldEnvWith(t, flagProvider(false), nil)
+	c := e.campaign(t, 5, 0)
+	ok, reason := e.reserve(t, "r1", c, 1)
+	if ok || reason != "not_active" {
+		t.Fatalf("reserved=%v reason=%q, want false/not_active", ok, reason)
+	}
+	if e.hasHold(t, "r1") {
+		t.Fatal("a hold was created")
+	}
+	if got := e.remaining(t, c); got != 5 {
+		t.Fatalf("remaining = %d, want 5", got)
+	}
+}
+
+func TestKillSwitchOnViaProviderReserves(t *testing.T) {
+	e := newHoldEnvWith(t, flagProvider(true), nil)
+	c := e.campaign(t, 5, 0)
+	if ok, reason := e.reserve(t, "r1", c, 1); !ok || reason != "" {
+		t.Fatalf("reserved=%v reason=%q, want true", ok, reason)
+	}
+}
+
+func TestFlagErrorFailsOpenReserves(t *testing.T) {
+	e := newHoldEnvWith(t, erroringProvider{}, nil)
+	c := e.campaign(t, 5, 0)
+	if ok, reason := e.reserve(t, "r1", c, 1); !ok || reason != "" {
+		t.Fatalf("reserved=%v reason=%q, want true (a flag provider error keeps the default on)", ok, reason)
+	}
+	if !e.hasHold(t, "r1") {
+		t.Fatal("no hold was created")
 	}
 }

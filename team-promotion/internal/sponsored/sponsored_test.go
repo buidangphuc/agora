@@ -1,26 +1,24 @@
-package service
+package sponsored
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
-	"github.com/buidangphuc/team-promotion/internal/repository"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/team-promotion/internal/listing"
+	"github.com/buidangphuc/team-promotion/internal/store"
+	"github.com/buidangphuc/team-promotion/internal/store/storefake"
 )
 
-func newSponsoredSvc() (*SponsoredService, *repository.InMemoryAdCampaignRepository) {
-	repo := repository.NewInMemoryAdCampaignRepository()
-	return NewSponsoredService(repo, nil, nil).WithAudit(permissiveAudit{}), repo
+func newSponsoredSvc() (*Service, *storefake.InMemoryAdCampaignRepository) {
+	repo := storefake.NewInMemoryAdCampaignRepository()
+	return New(repo, nil, auditx.NewGate(&recordingAuditWriter{}, nil), nil), repo
 }
 
-// TestCreateAdCampaignHappyPath covers the mock create: a seller's campaign is
-// persisted active with its budget/bid, and the seller id is preserved.
 func TestCreateAdCampaignHappyPath(t *testing.T) {
 	svc, _ := newSponsoredSvc()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	c, err := svc.CreateAdCampaign(ctx, CreateAdCampaignParams{
 		SellerID:  "seller-1",
@@ -41,18 +39,15 @@ func TestCreateAdCampaignHappyPath(t *testing.T) {
 	if c.Budget != 1000000 || c.Bid != 5000 {
 		t.Fatalf("budget/bid not preserved: %+v", c)
 	}
-	if c.Status != repository.AdCampaignStatusActive {
-		t.Fatalf("status = %d, want active(%d)", c.Status, repository.AdCampaignStatusActive)
+	if c.Status != store.AdCampaignStatusActive {
+		t.Fatalf("status = %d, want active(%d)", c.Status, store.AdCampaignStatusActive)
 	}
 }
 
-// TestListSponsoredSlotsBidOrdered verifies active campaigns' listing ids are
-// returned best-bid first.
 func TestListSponsoredSlotsBidOrdered(t *testing.T) {
 	svc, _ := newSponsoredSvc()
-	ctx := context.Background()
+	ctx := t.Context()
 
-	// Insert out of bid order; expect the response sorted by bid descending.
 	mk := func(seller, listing string, bid int64) {
 		if _, err := svc.CreateAdCampaign(ctx, CreateAdCampaignParams{
 			SellerID: seller, ListingID: listing, Budget: 10 * bid, Bid: bid, IsAdmin: true,
@@ -79,11 +74,9 @@ func TestListSponsoredSlotsBidOrdered(t *testing.T) {
 	}
 }
 
-// TestListSponsoredSlotsEmpty covers the anonymous/empty path: no active campaigns
-// yields an empty (non-nil-panicking) slot list, and an empty context is accepted.
 func TestListSponsoredSlotsEmpty(t *testing.T) {
 	svc, _ := newSponsoredSvc()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	slots, err := svc.ListSponsoredSlots(ctx, "")
 	if err != nil {
@@ -94,11 +87,9 @@ func TestListSponsoredSlotsEmpty(t *testing.T) {
 	}
 }
 
-// TestCreateAdCampaignValidation covers the invalid-input edges: a missing seller,
-// missing listing, or negative budget/bid are rejected and nothing is persisted.
 func TestCreateAdCampaignValidation(t *testing.T) {
 	svc, repo := newSponsoredSvc()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	cases := []struct {
 		name string
@@ -110,12 +101,11 @@ func TestCreateAdCampaignValidation(t *testing.T) {
 		{"negative bid", CreateAdCampaignParams{SellerID: "s1", ListingID: "l1", Bid: -1}},
 	}
 	for _, tc := range cases {
-		if _, err := svc.CreateAdCampaign(ctx, tc.p); err != ErrInvalidAdCampaign {
+		if _, err := svc.CreateAdCampaign(ctx, tc.p); !errors.Is(err, ErrInvalidAdCampaign) {
 			t.Fatalf("%s: err = %v, want ErrInvalidAdCampaign", tc.name, err)
 		}
 	}
 
-	// No active campaign should have been created by any rejected call.
 	slots, err := svc.ListSponsoredSlots(ctx, "")
 	if err != nil {
 		t.Fatalf("ListSponsoredSlots: %v", err)
@@ -128,10 +118,8 @@ func TestCreateAdCampaignValidation(t *testing.T) {
 	}
 }
 
-// TestCreateAdCampaignCaps: amounts at the ceiling are accepted, above it are
-// ErrInvalidAdCampaign and nothing is stored; configured ceilings override defaults.
 func TestCreateAdCampaignCaps(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	svc, repo := newSponsoredSvc()
 
 	if _, err := svc.CreateAdCampaign(ctx, CreateAdCampaignParams{
@@ -144,7 +132,7 @@ func TestCreateAdCampaignCaps(t *testing.T) {
 		"budget above cap": {SellerID: "s1", ListingID: "l3", Budget: DefaultMaxAdBudget + 1, IsAdmin: true},
 		"huge bid":         {SellerID: "s1", ListingID: "l4", Bid: 1 << 62, IsAdmin: true},
 	} {
-		if _, err := svc.CreateAdCampaign(ctx, p); err != ErrInvalidAdCampaign {
+		if _, err := svc.CreateAdCampaign(ctx, p); !errors.Is(err, ErrInvalidAdCampaign) {
 			t.Fatalf("%s: err = %v, want ErrInvalidAdCampaign", name, err)
 		}
 	}
@@ -153,66 +141,80 @@ func TestCreateAdCampaignCaps(t *testing.T) {
 	}
 
 	svc.WithLimits(10, 20)
-	if _, err := svc.CreateAdCampaign(ctx, CreateAdCampaignParams{SellerID: "s1", ListingID: "l5", Bid: 11, IsAdmin: true}); err != ErrInvalidAdCampaign {
+	if _, err := svc.CreateAdCampaign(ctx, CreateAdCampaignParams{SellerID: "s1", ListingID: "l5", Bid: 11, IsAdmin: true}); !errors.Is(err, ErrInvalidAdCampaign) {
 		t.Fatalf("custom bid cap: %v", err)
 	}
 	svc.WithLimits(0, 0) // non-positive keeps the configured value, never unbounded
-	if _, err := svc.CreateAdCampaign(ctx, CreateAdCampaignParams{SellerID: "s1", ListingID: "l5", Bid: 11, IsAdmin: true}); err != ErrInvalidAdCampaign {
+	if _, err := svc.CreateAdCampaign(ctx, CreateAdCampaignParams{SellerID: "s1", ListingID: "l5", Bid: 11, IsAdmin: true}); !errors.Is(err, ErrInvalidAdCampaign) {
 		t.Fatalf("zero limits must not unbound: %v", err)
 	}
 }
 
-// TestCreateAdCampaignRequiresOwnership: non-admins must own the listing; with no
-// listing client wired the check fails closed and nothing is stored.
 func TestCreateAdCampaignRequiresOwnership(t *testing.T) {
-	ctx := context.Background()
-	repo := repository.NewInMemoryAdCampaignRepository()
-	svc := NewSponsoredService(repo, nil, nil)
-	_, err := svc.CreateAdCampaign(ctx, CreateAdCampaignParams{SellerID: "s1", ListingID: "l1", Bid: 1})
-	if status.Code(err) != codes.Unavailable {
-		t.Fatalf("no client: err = %v, want Unavailable", err)
+	owners := map[string]string{"mine": "s1", "theirs": "s2"}
+	cases := []struct {
+		name     string
+		listings *fakeListings
+		listing  string
+		want     error
+	}{
+		{"own listing ok", &fakeListings{owners: owners}, "mine", nil},
+		{"foreign listing denied", &fakeListings{owners: owners}, "theirs", listing.ErrNotOwner},
+		{"listing not found", &fakeListings{owners: owners}, "ghost", listing.ErrNotFound},
+		{"lookup failed", &fakeListings{err: errors.New("dial tcp: refused")}, "mine", listing.ErrLookupFailed},
 	}
-	if active, _ := repo.ListActive(ctx, 10); len(active) != 0 {
-		t.Fatalf("stored %d campaigns despite failed ownership check", len(active))
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := storefake.NewInMemoryAdCampaignRepository()
+			svc := New(repo, tc.listings, auditx.NewGate(&recordingAuditWriter{}, nil), nil)
+			_, err := svc.CreateAdCampaign(t.Context(), CreateAdCampaignParams{SellerID: "s1", ListingID: tc.listing, Bid: 1})
+			stored, _ := repo.ListActive(t.Context(), 10)
+			if tc.want == nil {
+				if err != nil || len(stored) != 1 {
+					t.Fatalf("err = %v, stored = %d, want nil and 1", err, len(stored))
+				}
+				return
+			}
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("err = %v, want %v", err, tc.want)
+			}
+			if len(stored) != 0 {
+				t.Fatalf("stored %d campaigns despite failed ownership check", len(stored))
+			}
+		})
 	}
 }
 
-// ---- promotion-admin-audit -------------------------------------------------
-
 type orderedAdRepo struct {
-	repository.AdCampaignRepository
+	store.AdCampaignRepository
 	log *callLog
 }
 
-func (r orderedAdRepo) Create(ctx context.Context, c repository.AdCampaign) (repository.AdCampaign, error) {
+func (r orderedAdRepo) Create(ctx context.Context, c store.AdCampaign) (store.AdCampaign, error) {
 	r.log.add("insert")
 	return r.AdCampaignRepository.Create(ctx, c)
 }
 
-func newAuditedAdSvc(t *testing.T, w AuditWriter, listings *fakeListings, log *callLog) (*SponsoredService, *repository.InMemoryAdCampaignRepository) {
+func newAuditedAdSvc(t *testing.T, w auditx.Writer, listings *fakeListings, log *callLog) (*Service, *storefake.InMemoryAdCampaignRepository) {
 	t.Helper()
-	mem := repository.NewInMemoryAdCampaignRepository()
-	var lg upstreamListings
+	mem := storefake.NewInMemoryAdCampaignRepository()
+	var lg listing.Getter
 	if listings != nil {
 		lg = listings
 	}
-	svc := NewSponsoredService(orderedAdRepo{mem, log}, lg, nil).WithLimits(1000, 5000)
-	if w != nil {
-		svc.WithAudit(w)
-	}
+	svc := New(orderedAdRepo{mem, log}, lg, auditx.NewGate(w, nil), nil).WithLimits(1000, 5000)
 	return svc, mem
 }
 
-func adminAd(listing string, budget, bid int64) CreateAdCampaignParams {
-	return CreateAdCampaignParams{SellerID: "admin-1", ListingID: listing, Budget: budget, Bid: bid, IsAdmin: true}
+func adminAd(listingID string, budget, bid int64) CreateAdCampaignParams {
+	return CreateAdCampaignParams{SellerID: "admin-1", ListingID: listingID, Budget: budget, Bid: bid, IsAdmin: true}
 }
 
-// Scenario: Promotion audit precedes the ad campaign insert and carries the final id.
 func TestCreateAdCampaignAuditBeforeInsertSameID(t *testing.T) {
 	log := &callLog{}
 	w := &recordingAuditWriter{log: log}
 	svc, mem := newAuditedAdSvc(t, w, nil, log)
-	c, err := svc.CreateAdCampaign(context.Background(), adminAd("list-1", 5000, 100))
+	c, err := svc.CreateAdCampaign(t.Context(), adminAd("list-1", 5000, 100))
 	if err != nil {
 		t.Fatalf("CreateAdCampaign: %v", err)
 	}
@@ -234,18 +236,16 @@ func TestCreateAdCampaignAuditBeforeInsertSameID(t *testing.T) {
 	if len(m) != 3 || m["seller_id"] != c.SellerID || m["seller_id"] != "admin-1" || m["listing_id"] != "list-1" || m["budget"] != "5000" {
 		t.Errorf("metadata = %v, want seller_id(=stored), listing_id, budget=5000", m)
 	}
-	if stored, err := mem.GetByID(context.Background(), ev.TargetID); err != nil || stored.ListingID != "list-1" {
+	if stored, err := mem.GetByID(t.Context(), ev.TargetID); err != nil || stored.ListingID != "list-1" {
 		t.Errorf("stored campaign under audited id: %+v, %v", stored, err)
 	}
 }
 
-// Scenario: Promotion audit precedes the ad campaign insert and carries the final
-// id (admin path needs no team-domain lookup).
 func TestCreateAdCampaignAdminNoOwnerLookup(t *testing.T) {
 	lg := &fakeListings{err: errors.New("team-domain down")}
 	w := &recordingAuditWriter{}
 	svc, _ := newAuditedAdSvc(t, w, lg, &callLog{})
-	if _, err := svc.CreateAdCampaign(context.Background(), adminAd("list-1", 10, 1)); err != nil {
+	if _, err := svc.CreateAdCampaign(t.Context(), adminAd("list-1", 10, 1)); err != nil {
 		t.Fatalf("CreateAdCampaign: %v", err)
 	}
 	if lg.calls != 0 || len(w.got()) != 1 {
@@ -253,79 +253,58 @@ func TestCreateAdCampaignAdminNoOwnerLookup(t *testing.T) {
 	}
 }
 
-// Scenario: Promotion audit failure leaves no ad campaign.
 func TestCreateAdCampaignAuditFailureFailsClosed(t *testing.T) {
-	cases := map[string]AuditWriter{"nil writer": nil}
 	for name, cause := range auditFailures {
-		cases[name] = &recordingAuditWriter{err: cause}
-	}
-	for name, w := range cases {
 		t.Run(name, func(t *testing.T) {
 			log := &callLog{}
-			if rw, ok := w.(*recordingAuditWriter); ok {
-				rw.log = log
-			}
+			w := &recordingAuditWriter{err: cause, log: log}
 			svc, mem := newAuditedAdSvc(t, w, nil, log)
-			_, err := svc.CreateAdCampaign(context.Background(), adminAd("list-1", 10, 1))
-			if status.Code(err) != codes.Unavailable {
-				t.Fatalf("code = %v, want Unavailable (err=%v)", status.Code(err), err)
-			}
+			_, err := svc.CreateAdCampaign(t.Context(), adminAd("list-1", 10, 1))
+			assertAuditUnavailable(t, err)
 			for _, c := range log.get() {
 				if c == "insert" {
 					t.Fatal("campaign inserted despite audit failure")
 				}
 			}
-			if active, _ := mem.ListActive(context.Background(), 10); len(active) != 0 {
+			if active, _ := mem.ListActive(t.Context(), 10); len(active) != 0 {
 				t.Fatalf("repo holds %d campaigns, want 0", len(active))
 			}
 		})
 	}
 }
 
-// Scenario: Budget boundary is validated before the audit.
 func TestCreateAdCampaignBudgetBoundaryAudit(t *testing.T) {
 	w := &recordingAuditWriter{}
 	svc, mem := newAuditedAdSvc(t, w, nil, &callLog{})
-	if _, err := svc.CreateAdCampaign(context.Background(), adminAd("l-max", 5000, 10)); err != nil {
+	if _, err := svc.CreateAdCampaign(t.Context(), adminAd("l-max", 5000, 10)); err != nil {
 		t.Fatalf("budget at max: %v", err)
 	}
 	if n := len(w.got()); n != 1 {
 		t.Fatalf("at max: audit events = %d, want 1", n)
 	}
-	if _, err := svc.CreateAdCampaign(context.Background(), adminAd("l-over", 5001, 10)); !errors.Is(err, ErrInvalidAdCampaign) {
+	if _, err := svc.CreateAdCampaign(t.Context(), adminAd("l-over", 5001, 10)); !errors.Is(err, ErrInvalidAdCampaign) {
 		t.Fatalf("budget over max: err = %v, want ErrInvalidAdCampaign", err)
 	}
 	if n := len(w.got()); n != 1 {
 		t.Fatalf("over max must not be audited: events = %d, want still 1", n)
 	}
-	if active, _ := mem.ListActive(context.Background(), 10); len(active) != 1 {
+	if active, _ := mem.ListActive(t.Context(), 10); len(active) != 1 {
 		t.Fatalf("repo holds %d campaigns, want 1", len(active))
-	}
-	// Invalid input with a nil writer is still InvalidArgument-class, not Unavailable.
-	nilSvc, _ := newAuditedAdSvc(t, nil, nil, &callLog{})
-	if _, err := nilSvc.CreateAdCampaign(context.Background(), adminAd("l-over", 5001, 10)); !errors.Is(err, ErrInvalidAdCampaign) {
-		t.Fatalf("nil audit + invalid budget: err = %v, want ErrInvalidAdCampaign", err)
 	}
 }
 
-// Scenario: Seller creates an ad campaign on their own listing (never audited,
-// independent of audit availability).
 func TestCreateAdCampaignSellerNotAudited(t *testing.T) {
 	owners := map[string]string{"mine": "seller-1"}
 	p := CreateAdCampaignParams{SellerID: "seller-1", ListingID: "mine", Budget: 100, Bid: 10}
 	for name, w := range map[string]*recordingAuditWriter{"writer wired": {}, "writer failing": {err: errors.New("down")}} {
 		t.Run(name, func(t *testing.T) {
 			svc, _ := newAuditedAdSvc(t, w, &fakeListings{owners: owners}, &callLog{})
-			if _, err := svc.CreateAdCampaign(context.Background(), p); err != nil {
+			if _, err := svc.CreateAdCampaign(t.Context(), p); err != nil {
 				t.Fatalf("seller ad campaign: %v", err)
 			}
 			if n := len(w.got()); n != 0 {
 				t.Fatalf("seller path wrote %d audit events, want 0", n)
 			}
 		})
-	}
-	svc, _ := newAuditedAdSvc(t, nil, &fakeListings{owners: owners}, &callLog{})
-	if _, err := svc.CreateAdCampaign(context.Background(), p); err != nil {
-		t.Fatalf("seller ad campaign with nil audit: %v", err)
 	}
 }

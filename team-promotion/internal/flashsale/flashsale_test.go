@@ -1,4 +1,4 @@
-package service
+package flashsale
 
 import (
 	"context"
@@ -11,30 +11,27 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 	listingv1 "github.com/buidangphuc/team-promotion/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-promotion/internal/producer"
-	"github.com/buidangphuc/team-promotion/internal/repository"
-	"github.com/buidangphuc/team-promotion/internal/upstream"
+	"github.com/buidangphuc/team-promotion/internal/listing"
+	"github.com/buidangphuc/team-promotion/internal/store"
+	"github.com/buidangphuc/team-promotion/internal/store/storefake"
 )
 
-// stubFlags is a fixed-answer feature-flag evaluator for tests.
-type stubFlags struct{ enabled bool }
-
-func (s stubFlags) BooleanEnabled(_ context.Context, _ string, _ bool) bool { return s.enabled }
-
-func newFlashSvc(t *testing.T, flagEnabled bool) (*FlashSaleService, *capturePublisher) {
+func newFlashSvc(t *testing.T, flagEnabled bool) (*Service, *eventLog) {
 	t.Helper()
-	repo := repository.NewInMemoryFlashSaleRepository()
-	svc := NewFlashSaleService(repo, nil, stubFlags{enabled: flagEnabled}, nil, nil)
-	svc.WithAudit(permissiveAudit{}) // existing tests create admin campaigns
-	pub := &capturePublisher{}
-	svc.emitter = producer.NewEmitter(pub, nil)
-	return svc, pub
+	repo := storefake.NewInMemoryFlashSaleRepository()
+	events := &eventLog{}
+	svc := New(repo, nil, newFlags(t, flagProvider(flagEnabled)), nil, auditx.NewGate(&recordingAuditWriter{}, nil), events.build, nil)
+	return svc, events
 }
 
 func TestCreateCampaignEmitsEvent(t *testing.T) {
-	svc, pub := newFlashSvc(t, true)
-	c, err := svc.CreateCampaign(context.Background(), CreateCampaignParams{
+	svc, events := newFlashSvc(t, true)
+	ctx := reqctx.WithRequestID(t.Context(), "req-7")
+	c, err := svc.CreateCampaign(ctx, CreateCampaignParams{
 		ListingID: "list-1",
 		SalePrice: 90000,
 		StockCap:  100,
@@ -48,16 +45,40 @@ func TestCreateCampaignEmitsEvent(t *testing.T) {
 	if c.ID == "" {
 		t.Fatal("expected generated campaign id")
 	}
-	if pub.count() != 1 {
-		t.Fatalf("expected 1 promotion.events record, got %d", pub.count())
+	if events.count() != 1 {
+		t.Fatalf("expected 1 outbox row built, got %d", events.count())
+	}
+	if got := events.campaigns[0]; got.ID != c.ID || got.ListingID != "list-1" {
+		t.Fatalf("builder received %+v, want the stored campaign %+v", got, c)
+	}
+	if got := events.rows[0]; got.AggregateID != c.ID || got.AggregateType != "flash_sale" {
+		t.Fatalf("row = %+v, want aggregate flash_sale/%s", got, c.ID)
+	}
+	if events.reqIDs[0] != "req-7" {
+		t.Fatalf("builder context request id = %q, want req-7", events.reqIDs[0])
+	}
+}
+
+func TestCreateCampaignEventBuilderErrorStoresNothing(t *testing.T) {
+	svc, events := newFlashSvc(t, true)
+	events.err = errors.New("marshal failed")
+	_, err := svc.CreateCampaign(t.Context(), CreateCampaignParams{
+		ListingID: "list-1", SalePrice: 1, StockCap: 1, IsAdmin: true,
+		StartsAt: time.Now().Add(-time.Hour), EndsAt: time.Now().Add(time.Hour),
+	})
+	if err == nil {
+		t.Fatal("want the builder error, got nil")
+	}
+	if items, _ := svc.campaigns.ListActive(t.Context(), time.Now(), 10, 0); len(items) != 0 {
+		t.Fatalf("repo holds %d campaigns, want 0", len(items))
 	}
 }
 
 func TestGetFlashSaleStockRemaining(t *testing.T) {
 	svc, _ := newFlashSvc(t, true)
-	ctx := context.Background()
-	repo := svc.campaigns.(*repository.InMemoryFlashSaleRepository)
-	c, _ := repo.Create(ctx, repository.FlashSaleCampaign{ListingID: "l", StockCap: 100, StockSold: 30})
+	ctx := t.Context()
+	repo := svc.campaigns.(*storefake.InMemoryFlashSaleRepository)
+	c, _ := repo.Create(ctx, store.FlashSaleCampaign{ListingID: "l", StockCap: 100, StockSold: 30}, noEvent)
 
 	remaining, stockCap, err := svc.GetFlashSaleStock(ctx, c.ID)
 	if err != nil {
@@ -67,8 +88,7 @@ func TestGetFlashSaleStockRemaining(t *testing.T) {
 		t.Fatalf("remaining=%d cap=%d, want 70/100", remaining, stockCap)
 	}
 
-	// Oversold never goes negative.
-	c2, _ := repo.Create(ctx, repository.FlashSaleCampaign{ListingID: "l2", StockCap: 10, StockSold: 25})
+	c2, _ := repo.Create(ctx, store.FlashSaleCampaign{ListingID: "l2", StockCap: 10, StockSold: 25}, noEvent)
 	remaining, _, err = svc.GetFlashSaleStock(ctx, c2.ID)
 	if err != nil {
 		t.Fatalf("GetFlashSaleStock oversold: %v", err)
@@ -80,16 +100,14 @@ func TestGetFlashSaleStockRemaining(t *testing.T) {
 
 func TestGetActiveFlashSaleWindow(t *testing.T) {
 	svc, _ := newFlashSvc(t, true)
-	ctx := context.Background()
+	ctx := t.Context()
 	now := time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
 	svc.nowFn = func() time.Time { return now }
 
-	// Active campaign (window brackets now).
 	active, _ := svc.CreateCampaign(ctx, CreateCampaignParams{
 		ListingID: "live", SalePrice: 1, StockCap: 5, IsAdmin: true,
 		StartsAt: now.Add(-time.Hour), EndsAt: now.Add(time.Hour),
 	})
-	// Expired campaign for a different listing.
 	_, _ = svc.CreateCampaign(ctx, CreateCampaignParams{
 		ListingID: "dead", SalePrice: 1, StockCap: 5, IsAdmin: true,
 		StartsAt: now.Add(-2 * time.Hour), EndsAt: now.Add(-time.Hour),
@@ -114,7 +132,7 @@ func TestGetActiveFlashSaleWindow(t *testing.T) {
 
 func TestFlashSaleKillSwitchSuppresses(t *testing.T) {
 	svc, _ := newFlashSvc(t, false) // flag OFF
-	ctx := context.Background()
+	ctx := t.Context()
 	now := time.Now()
 	svc.nowFn = func() time.Time { return now }
 	_, _ = svc.CreateCampaign(ctx, CreateCampaignParams{
@@ -131,7 +149,6 @@ func TestFlashSaleKillSwitchSuppresses(t *testing.T) {
 	}
 }
 
-// fakeListings is an in-memory team-domain listing client: id -> seller id.
 type fakeListings struct {
 	owners map[string]string
 	err    error
@@ -154,79 +171,72 @@ func TestCreateCampaignOwnership(t *testing.T) {
 	owners := map[string]string{"mine": "seller-1", "theirs": "seller-2"}
 	cases := []struct {
 		name     string
-		listings *fakeListings // nil interface when unset
-		unset    bool
+		listings *fakeListings
 		params   CreateCampaignParams
-		want     codes.Code
+		want     error
 	}{
-		{"own listing ok", &fakeListings{owners: owners}, false, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, codes.OK},
-		{"foreign listing denied", &fakeListings{owners: owners}, false, CreateCampaignParams{ListingID: "theirs", CallerID: "seller-1"}, codes.PermissionDenied},
-		{"listing not found", &fakeListings{owners: owners}, false, CreateCampaignParams{ListingID: "ghost", CallerID: "seller-1"}, codes.InvalidArgument},
-		{"upstream error", &fakeListings{err: status.Error(codes.Internal, "boom")}, false, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, codes.Unavailable},
-		{"upstream down", &fakeListings{err: errors.New("dial tcp: refused")}, false, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, codes.Unavailable},
-		{"admin skips lookup", &fakeListings{owners: owners}, false, CreateCampaignParams{ListingID: "theirs", CallerID: "admin-1", IsAdmin: true}, codes.OK},
-		{"unset fails closed for seller", nil, true, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, codes.Unavailable},
-		{"unset still allows admin", nil, true, CreateCampaignParams{ListingID: "mine", CallerID: "admin-1", IsAdmin: true}, codes.OK},
+		{"own listing ok", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, nil},
+		{"foreign listing denied", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "theirs", CallerID: "seller-1"}, listing.ErrNotOwner},
+		{"listing not found", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "ghost", CallerID: "seller-1"}, listing.ErrNotFound},
+		{"upstream error", &fakeListings{err: status.Error(codes.Internal, "boom")}, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, listing.ErrLookupFailed},
+		{"upstream down", &fakeListings{err: errors.New("dial tcp: refused")}, CreateCampaignParams{ListingID: "mine", CallerID: "seller-1"}, listing.ErrLookupFailed},
+		{"admin skips lookup", &fakeListings{owners: owners}, CreateCampaignParams{ListingID: "theirs", CallerID: "admin-1", IsAdmin: true}, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			svc, _ := newFlashSvc(t, true)
-			if !tc.unset {
-				svc.listings = tc.listings
+			svc, _, _ := newAuditedFlashSvc(t, &recordingAuditWriter{}, tc.listings, &callLog{})
+			p := tc.params
+			p.SalePrice, p.StockCap = 1, 1
+			p.StartsAt, p.EndsAt = time.Now().Add(-time.Hour), time.Now().Add(time.Hour)
+			_, err := svc.CreateCampaign(t.Context(), p)
+			if tc.want == nil && err != nil {
+				t.Fatalf("err = %v, want nil", err)
 			}
-			_, err := svc.CreateCampaign(context.Background(), tc.params)
-			if got := status.Code(err); got != tc.want {
-				t.Fatalf("code = %v, want %v (err=%v)", got, tc.want, err)
+			if tc.want != nil && !errors.Is(err, tc.want) {
+				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
-			if tc.params.IsAdmin && tc.listings != nil && tc.listings.calls != 0 {
+			if tc.params.IsAdmin && tc.listings.calls != 0 {
 				t.Fatalf("admin must not trigger an ownership lookup")
 			}
 		})
 	}
 }
 
-// ---- promotion-admin-audit -------------------------------------------------
-
 type orderedFlashRepo struct {
-	repository.FlashSaleRepository
+	store.FlashSaleRepository
 	log *callLog
 }
 
-func (r orderedFlashRepo) Create(ctx context.Context, c repository.FlashSaleCampaign) (repository.FlashSaleCampaign, error) {
+func (r orderedFlashRepo) Create(ctx context.Context, c store.FlashSaleCampaign, event func(store.FlashSaleCampaign) (outbox.Row, error)) (store.FlashSaleCampaign, error) {
 	r.log.add("insert")
-	return r.FlashSaleRepository.Create(ctx, c)
+	return r.FlashSaleRepository.Create(ctx, c, event)
 }
 
-func newAuditedFlashSvc(t *testing.T, w AuditWriter, listings *fakeListings, log *callLog) (*FlashSaleService, *repository.InMemoryFlashSaleRepository, *capturePublisher) {
+func newAuditedFlashSvc(t *testing.T, w auditx.Writer, listings *fakeListings, log *callLog) (*Service, *storefake.InMemoryFlashSaleRepository, *eventLog) {
 	t.Helper()
-	mem := repository.NewInMemoryFlashSaleRepository()
-	var lg upstreamListings
+	mem := storefake.NewInMemoryFlashSaleRepository()
+	var lg listing.Getter
 	if listings != nil {
 		lg = listings
 	}
-	svc := NewFlashSaleService(orderedFlashRepo{mem, log}, nil, stubFlags{enabled: true}, lg, nil)
-	if w != nil {
-		svc.WithAudit(w)
-	}
-	pub := &capturePublisher{}
-	svc.emitter = producer.NewEmitter(pub, nil)
-	return svc, mem, pub
+	events := &eventLog{}
+	svc := New(orderedFlashRepo{mem, log}, nil, newFlags(t, flagProvider(true)), lg, auditx.NewGate(w, nil), events.build, nil)
+	return svc, mem, events
 }
 
-func adminCampaign(listing string) CreateCampaignParams {
+func adminCampaign(listingID string) CreateCampaignParams {
 	return CreateCampaignParams{
-		ListingID: listing, SalePrice: 90000, StockCap: 10,
+		ListingID: listingID, SalePrice: 90000, StockCap: 10,
 		StartsAt: time.Now().Add(-time.Hour), EndsAt: time.Now().Add(time.Hour),
 		CallerID: "admin-1", IsAdmin: true,
 	}
 }
 
-// Scenario: Promotion audit precedes the campaign insert and carries the final id.
 func TestCreateCampaignAuditBeforeInsertSameID(t *testing.T) {
 	log := &callLog{}
 	w := &recordingAuditWriter{log: log}
 	svc, mem, _ := newAuditedFlashSvc(t, w, nil, log)
-	c, err := svc.CreateCampaign(context.Background(), adminCampaign("list-1"))
+	c, err := svc.CreateCampaign(t.Context(), adminCampaign("list-1"))
 	if err != nil {
 		t.Fatalf("CreateCampaign: %v", err)
 	}
@@ -247,26 +257,24 @@ func TestCreateCampaignAuditBeforeInsertSameID(t *testing.T) {
 	if len(ev.Metadata) != 1 || ev.Metadata["listing_id"] != "list-1" {
 		t.Errorf("metadata = %v, want listing_id only", ev.Metadata)
 	}
-	stored, err := mem.GetByID(context.Background(), ev.TargetID)
+	stored, err := mem.GetByID(t.Context(), ev.TargetID)
 	if err != nil || stored.ListingID != "list-1" {
 		t.Errorf("stored campaign under audited id: %+v, %v", stored, err)
 	}
 }
 
-// Scenario: Admin flash sale makes no owner lookup.
 func TestCreateCampaignAdminNoOwnerLookup(t *testing.T) {
 	for name, lg := range map[string]*fakeListings{
-		"nil client":     nil,
 		"erroring":       {err: errors.New("team-domain down")},
 		"not-owner data": {owners: map[string]string{"list-1": "someone-else"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			w := &recordingAuditWriter{}
 			svc, _, _ := newAuditedFlashSvc(t, w, lg, &callLog{})
-			if _, err := svc.CreateCampaign(context.Background(), adminCampaign("list-1")); err != nil {
+			if _, err := svc.CreateCampaign(t.Context(), adminCampaign("list-1")); err != nil {
 				t.Fatalf("CreateCampaign: %v", err)
 			}
-			if lg != nil && lg.calls != 0 {
+			if lg.calls != 0 {
 				t.Fatalf("admin path called the listing client %d times", lg.calls)
 			}
 			if n := len(w.got()); n != 1 {
@@ -276,40 +284,29 @@ func TestCreateCampaignAdminNoOwnerLookup(t *testing.T) {
 	}
 }
 
-// Scenario: Promotion audit failure emits nothing for a flash sale.
 func TestCreateCampaignAuditFailureFailsClosed(t *testing.T) {
-	cases := map[string]AuditWriter{"nil writer": nil}
 	for name, cause := range auditFailures {
-		cases[name] = &recordingAuditWriter{err: cause}
-	}
-	for name, w := range cases {
 		t.Run(name, func(t *testing.T) {
 			log := &callLog{}
-			if rw, ok := w.(*recordingAuditWriter); ok {
-				rw.log = log
-			}
-			svc, mem, pub := newAuditedFlashSvc(t, w, nil, log)
-			_, err := svc.CreateCampaign(context.Background(), adminCampaign("list-1"))
-			if status.Code(err) != codes.Unavailable {
-				t.Fatalf("code = %v, want Unavailable (err=%v)", status.Code(err), err)
-			}
+			w := &recordingAuditWriter{err: cause, log: log}
+			svc, mem, events := newAuditedFlashSvc(t, w, nil, log)
+			_, err := svc.CreateCampaign(t.Context(), adminCampaign("list-1"))
+			assertAuditUnavailable(t, err)
 			for _, c := range log.get() {
 				if c == "insert" {
 					t.Fatal("campaign inserted despite audit failure")
 				}
 			}
-			if items, _ := mem.ListActive(context.Background(), time.Now(), 10, 0); len(items) != 0 {
+			if items, _ := mem.ListActive(t.Context(), time.Now(), 10, 0); len(items) != 0 {
 				t.Fatalf("repo holds %d campaigns, want 0", len(items))
 			}
-			if pub.count() != 0 {
-				t.Fatalf("FlashSaleChanged emitted %d times, want 0", pub.count())
+			if events.count() != 0 {
+				t.Fatalf("FlashSaleChanged built %d times, want 0", events.count())
 			}
 		})
 	}
 }
 
-// Scenario: Seller creates a flash sale on their own listing (never audited, never
-// dependent on audit availability).
 func TestCreateCampaignSellerNotAudited(t *testing.T) {
 	owners := map[string]string{"mine": "seller-1"}
 	for name, w := range map[string]*recordingAuditWriter{"writer wired": {}, "writer failing": {err: errors.New("down")}} {
@@ -317,7 +314,7 @@ func TestCreateCampaignSellerNotAudited(t *testing.T) {
 			svc, _, _ := newAuditedFlashSvc(t, w, &fakeListings{owners: owners}, &callLog{})
 			p := adminCampaign("mine")
 			p.CallerID, p.IsAdmin = "seller-1", false
-			if _, err := svc.CreateCampaign(context.Background(), p); err != nil {
+			if _, err := svc.CreateCampaign(t.Context(), p); err != nil {
 				t.Fatalf("seller campaign: %v", err)
 			}
 			if n := len(w.got()); n != 0 {
@@ -325,19 +322,12 @@ func TestCreateCampaignSellerNotAudited(t *testing.T) {
 			}
 		})
 	}
-	svc, _, _ := newAuditedFlashSvc(t, nil, &fakeListings{owners: owners}, &callLog{})
-	p := adminCampaign("mine")
-	p.CallerID, p.IsAdmin = "seller-1", false
-	if _, err := svc.CreateCampaign(context.Background(), p); err != nil {
-		t.Fatalf("seller campaign with nil audit: %v", err)
-	}
 }
 
-// Scenario: Invalid campaign writes no event (service half).
 func TestCreateCampaignInvalidNotAudited(t *testing.T) {
 	w := &recordingAuditWriter{}
 	svc, _, _ := newAuditedFlashSvc(t, w, nil, &callLog{})
-	if _, err := svc.CreateCampaign(context.Background(), adminCampaign("  ")); !errors.Is(err, ErrInvalidCampaign) {
+	if _, err := svc.CreateCampaign(t.Context(), adminCampaign("  ")); !errors.Is(err, ErrInvalidCampaign) {
 		t.Fatalf("err = %v, want ErrInvalidCampaign", err)
 	}
 	if n := len(w.got()); n != 0 {
@@ -345,19 +335,38 @@ func TestCreateCampaignInvalidNotAudited(t *testing.T) {
 	}
 }
 
-// Scenario: Promotion audit precedes the campaign insert and carries the final id
-// (the generated id is a fresh 32-char hex string per call).
 func TestNewCampaignIDIsUnique32Hex(t *testing.T) {
-	a, b := newCampaignID(), newCampaignID()
-	if len(a) != 32 || len(b) != 32 || a == b {
-		t.Fatalf("newCampaignID() = %q, %q; want two distinct 32-char ids", a, b)
+	svc, _, _ := newAuditedFlashSvc(t, &recordingAuditWriter{}, nil, &callLog{})
+	a, err := svc.CreateCampaign(t.Context(), adminCampaign("list-a"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, r := range a + b {
+	b, err := svc.CreateCampaign(t.Context(), adminCampaign("list-b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a.ID) != 32 || len(b.ID) != 32 || a.ID == b.ID {
+		t.Fatalf("ids = %q, %q; want two distinct 32-char ids", a.ID, b.ID)
+	}
+	for _, r := range a.ID + b.ID {
 		if !strings.ContainsRune("0123456789abcdef", r) {
 			t.Fatalf("non-hex char %q in id", r)
 		}
 	}
 }
 
-// upstreamListings mirrors upstream.ListingGetter for the nil-interface dance.
-type upstreamListings = upstream.ListingGetter
+func TestFlagErrorFailsOpen(t *testing.T) {
+	ev := newFlags(t, erroringProvider{})
+	if !ev.BooleanEnabled(t.Context(), FlagFlashSaleEnabled, true) {
+		t.Fatal("a provider error must return the default true")
+	}
+	if ev.BooleanEnabled(t.Context(), FlagFlashSaleEnabled, false) {
+		t.Fatal("a provider error must return the caller default false")
+	}
+}
+
+func TestFlagNameIsFlashSaleEnabled(t *testing.T) {
+	if FlagFlashSaleEnabled != "flash-sale-enabled" {
+		t.Fatalf("FlagFlashSaleEnabled = %q, want flash-sale-enabled", FlagFlashSaleEnabled)
+	}
+}
