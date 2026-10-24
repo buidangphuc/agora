@@ -10,7 +10,7 @@ Implement OpenSpec change `promotion-go-sdk-v1` test-first per its tasks.md: mig
 - team-promotion/**
 - openspec/changes/promotion-go-sdk-v1/**
 - team-promotion/internal/listing/owner.go (widened at build: task 1.6)
-platform-e2e/unit/test_promotion_features_manifest.py # widened at build: task 2.1
+- platform-e2e/unit/test_promotion_features_manifest.py (widened at build: task 2.1)
 
 ## Verify
 - cd team-promotion && make proto && make check && go build ./... && GO_SDK_REQUIRE_DOCKER=1 go test -race ./... -count=1
