@@ -115,9 +115,9 @@ func newVoucherSvc(t *testing.T) (*Service, *storefake.InMemoryVoucherRepository
 	return svc, vrepo, events
 }
 
-func mustCreatePercentVoucher(t *testing.T, svc *Service, p CreateVoucherParams) store.Voucher {
+func mustCreatePercentVoucher(ctx context.Context, t *testing.T, svc *Service, p CreateVoucherParams) store.Voucher {
 	t.Helper()
-	v, err := svc.CreateVoucher(t.Context(), p)
+	v, err := svc.CreateVoucher(ctx, p)
 	if err != nil {
 		t.Fatalf("CreateVoucher: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestCreateVoucherEventBuilderErrorStoresNothing(t *testing.T) {
 func TestValidateAndReserveIdempotent(t *testing.T) {
 	svc, _, _ := newVoucherSvc(t)
 	ctx := t.Context()
-	mustCreatePercentVoucher(t, svc, CreateVoucherParams{
+	mustCreatePercentVoucher(t.Context(), t, svc, CreateVoucherParams{
 		Code:          "PCT20",
 		DiscountType:  discountTypePercent,
 		DiscountValue: 20,
@@ -242,11 +242,12 @@ func TestValidateAndReserveRejections(t *testing.T) {
 		},
 	}
 
+	base := t.Context()
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc, _, _ := newVoucherSvc(t)
 			svc.nowFn = func() time.Time { return now }
-			mustCreatePercentVoucher(t, svc, tc.voucher)
+			mustCreatePercentVoucher(base, t, svc, tc.voucher)
 
 			code := tc.voucher.Code
 			if tc.name == "unknown code" {
@@ -270,7 +271,7 @@ func TestValidateAndReserveRejections(t *testing.T) {
 func TestQuotaExhaustedRejected(t *testing.T) {
 	svc, _, _ := newVoucherSvc(t)
 	ctx := t.Context()
-	mustCreatePercentVoucher(t, svc, CreateVoucherParams{
+	mustCreatePercentVoucher(t.Context(), t, svc, CreateVoucherParams{
 		Code:          "ONE",
 		DiscountType:  discountTypeFixed,
 		DiscountValue: 1000,
@@ -301,7 +302,7 @@ func TestQuotaExhaustedRejected(t *testing.T) {
 func TestCommitIdempotentAndRelease(t *testing.T) {
 	svc, _, _ := newVoucherSvc(t)
 	ctx := t.Context()
-	mustCreatePercentVoucher(t, svc, CreateVoucherParams{Code: "C", DiscountType: discountTypeFixed, DiscountValue: 100, Quota: 10})
+	mustCreatePercentVoucher(t.Context(), t, svc, CreateVoucherParams{Code: "C", DiscountType: discountTypeFixed, DiscountValue: 100, Quota: 10})
 
 	if _, err := svc.ValidateAndReserve(ctx, "r", "C", "b", 5000, ""); err != nil {
 		t.Fatalf("reserve: %v", err)
@@ -328,7 +329,7 @@ func TestCommitIdempotentAndRelease(t *testing.T) {
 func TestReleaseFreesHold(t *testing.T) {
 	svc, _, _ := newVoucherSvc(t)
 	ctx := t.Context()
-	mustCreatePercentVoucher(t, svc, CreateVoucherParams{Code: "R", DiscountType: discountTypeFixed, DiscountValue: 100, Quota: 10})
+	mustCreatePercentVoucher(t.Context(), t, svc, CreateVoucherParams{Code: "R", DiscountType: discountTypeFixed, DiscountValue: 100, Quota: 10})
 	if _, err := svc.ValidateAndReserve(ctx, "r", "R", "b", 5000, ""); err != nil {
 		t.Fatalf("reserve: %v", err)
 	}
@@ -638,7 +639,7 @@ func scopeShopVoucher(t *testing.T, svc *Service, code, seller string, mod func(
 	if mod != nil {
 		mod(&p)
 	}
-	return mustCreatePercentVoucher(t, svc, p)
+	return mustCreatePercentVoucher(t.Context(), t, svc, p)
 }
 
 func scopePlatformVoucher(t *testing.T, svc *Service, code string, mod func(*CreateVoucherParams)) store.Voucher {
@@ -647,7 +648,7 @@ func scopePlatformVoucher(t *testing.T, svc *Service, code string, mod func(*Cre
 	if mod != nil {
 		mod(&p)
 	}
-	return mustCreatePercentVoucher(t, svc, p)
+	return mustCreatePercentVoucher(t.Context(), t, svc, p)
 }
 
 func assertScope(t *testing.T, got ReserveResult, scope int32, seller string) {

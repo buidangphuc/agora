@@ -185,10 +185,14 @@ func TestReserveFlashSaleStockReplayIgnoresChangedFields(t *testing.T) {
 
 func TestReserveFlashSaleStockRefusesInactiveWindow(t *testing.T) {
 	e := newHoldEnv(t, true)
-	ended := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 5,
-		StartsAt: svcT0.Add(-2 * time.Hour), EndsAt: svcT0.Add(-time.Hour)})
-	future := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l2", SalePrice: 100, StockCap: 5,
-		StartsAt: svcT0.Add(time.Hour), EndsAt: svcT0.Add(2 * time.Hour)})
+	ended := e.campaignWith(t, store.FlashSaleCampaign{
+		ListingID: "l1", SalePrice: 100, StockCap: 5,
+		StartsAt: svcT0.Add(-2 * time.Hour), EndsAt: svcT0.Add(-time.Hour),
+	})
+	future := e.campaignWith(t, store.FlashSaleCampaign{
+		ListingID: "l2", SalePrice: 100, StockCap: 5,
+		StartsAt: svcT0.Add(time.Hour), EndsAt: svcT0.Add(2 * time.Hour),
+	})
 	for name, c := range map[string]store.FlashSaleCampaign{"ended": ended, "not started": future} {
 		id := "r-" + name
 		ok, reason := e.reserve(t, id, c, 1)
@@ -252,14 +256,18 @@ func TestReserveFlashSaleStockBoundaryExactRemaining(t *testing.T) {
 
 func TestReserveFlashSaleStockReasonOrder(t *testing.T) {
 	e := newHoldEnv(t, true)
-	ended := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 1,
-		StartsAt: svcT0.Add(-2 * time.Hour), EndsAt: svcT0.Add(-time.Hour)})
+	ended := e.campaignWith(t, store.FlashSaleCampaign{
+		ListingID: "l1", SalePrice: 100, StockCap: 1,
+		StartsAt: svcT0.Add(-2 * time.Hour), EndsAt: svcT0.Add(-time.Hour),
+	})
 	_, reason, err := e.svc.ReserveFlashSaleStock(t.Context(), "r1", ended.ID, "l1", "", 9, 55)
 	if err != nil || reason != "not_active" {
 		t.Fatalf("ended campaign: reason=%q err=%v, want not_active", reason, err)
 	}
-	active := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l2", SalePrice: 100, StockCap: 1,
-		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(time.Hour)})
+	active := e.campaignWith(t, store.FlashSaleCampaign{
+		ListingID: "l2", SalePrice: 100, StockCap: 1,
+		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(time.Hour),
+	})
 	_, reason, err = e.svc.ReserveFlashSaleStock(t.Context(), "r2", active.ID, "l2", "", 9, 55)
 	if err != nil || reason != "price_changed" {
 		t.Fatalf("active campaign: reason=%q err=%v, want price_changed", reason, err)
@@ -268,10 +276,14 @@ func TestReserveFlashSaleStockReasonOrder(t *testing.T) {
 
 func TestReserveFlashSaleStockVariantScope(t *testing.T) {
 	e := newHoldEnv(t, true)
-	vc := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l1", VariantID: "v1", SalePrice: 100, StockCap: 5,
-		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(time.Hour)})
-	any := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l2", SalePrice: 100, StockCap: 5,
-		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(time.Hour)})
+	vc := e.campaignWith(t, store.FlashSaleCampaign{
+		ListingID: "l1", VariantID: "v1", SalePrice: 100, StockCap: 5,
+		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(time.Hour),
+	})
+	anyVariant := e.campaignWith(t, store.FlashSaleCampaign{
+		ListingID: "l2", SalePrice: 100, StockCap: 5,
+		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(time.Hour),
+	})
 	ctx := t.Context()
 	reserve := func(id, campaign, listing, variant string) (bool, string) {
 		ok, reason, err := e.svc.ReserveFlashSaleStock(ctx, id, campaign, listing, variant, 1, 100)
@@ -286,7 +298,7 @@ func TestReserveFlashSaleStockVariantScope(t *testing.T) {
 	if ok, reason := reserve("b", vc.ID, "l1", "v1"); !ok || reason != "" {
 		t.Errorf("same variant: ok=%v reason=%q, want true", ok, reason)
 	}
-	if ok, reason := reserve("c", any.ID, "l2", "v2"); !ok || reason != "" {
+	if ok, reason := reserve("c", anyVariant.ID, "l2", "v2"); !ok || reason != "" {
 		t.Errorf("campaign without variant: ok=%v reason=%q, want true", ok, reason)
 	}
 	if ok, reason := reserve("d", vc.ID, "other-listing", "v1"); ok || reason != "not_active" {
@@ -479,7 +491,9 @@ func TestCommitFlashSaleStockIdempotent(t *testing.T) {
 	e := newHoldEnv(t, true)
 	c := e.campaign(t, 5, 0)
 	e.mustReserve(t, "r1", c, 2)
-	if !e.commit(t, "r1") || !e.commit(t, "r1") {
+	first := e.commit(t, "r1")
+	second := e.commit(t, "r1")
+	if !first || !second {
 		t.Fatal("both commits must report committed=true")
 	}
 	if got := e.sold(t, c); got != 2 {
@@ -526,8 +540,10 @@ func TestCommitFlashSaleStockAfterExpiry(t *testing.T) {
 
 func TestCommitFlashSaleStockAfterWindowEnded(t *testing.T) {
 	e := newHoldEnv(t, true)
-	c := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 5,
-		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(10 * time.Minute)})
+	c := e.campaignWith(t, store.FlashSaleCampaign{
+		ListingID: "l1", SalePrice: 100, StockCap: 5,
+		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(10 * time.Minute),
+	})
 	e.mustReserve(t, "r1", c, 2)
 	e.clk.advance(12 * time.Minute) // window over, hold 12 minutes old
 	if !e.commit(t, "r1") {
@@ -612,8 +628,10 @@ func TestReleaseFlashSaleStockExpiredNoCounterChange(t *testing.T) {
 
 func TestReleaseOldCommittedHoldAfterPurge(t *testing.T) {
 	e := newHoldEnv(t, true)
-	c := e.campaignWith(t, store.FlashSaleCampaign{ListingID: "l1", SalePrice: 100, StockCap: 5,
-		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(24 * time.Hour * 365)})
+	c := e.campaignWith(t, store.FlashSaleCampaign{
+		ListingID: "l1", SalePrice: 100, StockCap: 5,
+		StartsAt: svcT0.Add(-time.Hour), EndsAt: svcT0.Add(24 * time.Hour * 365),
+	})
 	e.mustReserve(t, "r1", c, 2)
 	e.commit(t, "r1")
 	e.clk.advance(90 * 24 * time.Hour)

@@ -96,7 +96,7 @@ func TestSubscribeUnknownPlanRejected(t *testing.T) {
 	if _, err := svc.Subscribe(ctx, "seller-1", "plan_bogus"); !errors.Is(err, store.ErrPlanNotFound) {
 		t.Fatalf("Subscribe(unknown) err = %v, want store.ErrPlanNotFound", err)
 	}
-	if _, err := svc.Subscribe(ctx, "", "plan_pro"); err != ErrInvalidSubscription {
+	if _, err := svc.Subscribe(ctx, "", "plan_pro"); !errors.Is(err, ErrInvalidSubscription) {
 		t.Fatalf("Subscribe(empty seller) err = %v, want ErrInvalidSubscription", err)
 	}
 
