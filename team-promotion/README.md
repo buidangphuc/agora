@@ -11,8 +11,8 @@ arithmetic and quota bookkeeping only. It never moves money (AGENTS.md section 7
 
 Protos live in `proto/` (vendored from `platform-core/proto`, package `platform.promotion.v1`).
 Callers pass identity as gRPC metadata `x-principal-id`, `x-principal-type` (`user`, `service`,
-`anonymous`) and `x-principal-scopes` (comma-separated). `internal/interceptor/auth.go` only parses
-these into a principal; each handler enforces its own rule. `RequirePrincipal` rejects a missing,
+`anonymous`) and `x-principal-scopes` (comma-separated). The SDK auth interceptor (chained by `grpcx.NewServer`) only parses
+these into a principal; each RPC handler in `internal/rpc` enforces its own rule. `RequirePrincipal` rejects a missing,
 `anonymous` or ANONYMOUS-type principal. `RequireAdmin` needs scope `admin`; `RequireSeller` needs
 `listing.write` or `admin`.
 
@@ -31,7 +31,7 @@ these into a principal; each handler enforces its own rule. `RequirePrincipal` r
 | `SponsoredService/CreateAdCampaign` | Requires `listing.write`; non-admins must own the listing (same team-domain check as `CreateCampaign`, fails closed). `bid`/`budget` above `MAX_AD_BID`/`MAX_AD_BUDGET` are `InvalidArgument`. Seller id is the caller's id. |
 | `SponsoredService/ListSponsoredSlots` | None (active campaigns, best bid first). |
 
-Also served: `grpc.health.v1.Health` and gRPC reflection (`GRPC_REFLECTION_ENABLED`, default on).
+Also served: `grpc.health.v1.Health` (services `liveness` and `postgres`) and gRPC reflection (`GRPC_REFLECTION_ENABLED`, default false, only allowed when `ENV` is `local` or `test`).
 
 **Consumes:** team-domain `ListingService/GetListing` (vendored `platform/listing/v1`), called with the
 caller's forwarded principal, to verify listing ownership in `CreateCampaign` (`UPSTREAM_DOMAIN_ADDR`).
@@ -48,6 +48,24 @@ quota (`used < quota`) and, for shop vouchers, that the voucher `seller_id` equa
 
 `ValidateAndReserveResponse.scope` and `seller_id` echo the voucher's scope and owning seller on the valid, rejected and idempotent-replay paths. `scope` is `VOUCHER_SCOPE_SHOP` with `seller_id` set for shop vouchers, and the stored scope (`VOUCHER_SCOPE_PLATFORM`, or unspecified if it was created without one) with an empty `seller_id` for platform vouchers. Both are empty (unspecified scope, empty `seller_id`) when the code matches no voucher, or when a replayed `reservation_id` has no stored voucher.
 
+## Layout
+
+ADR-0016 layout under `internal/`:
+
+| Package | Role |
+|---|---|
+| `internal/app` | wiring: `grpcx.NewServer`, `rpc.Register`, outbox relay, `migrate up` |
+| `internal/config` | settings (SDK `config.Load`) |
+| `internal/store` | Postgres stores and embedded migrations |
+| `internal/events` | event envelopes written to the outbox |
+| `internal/upstream` | team-audit and team-domain clients |
+| `internal/listing` | listing ownership check |
+| `internal/voucher` | voucher rules and discount arithmetic |
+| `internal/flashsale` | flash-sale campaigns and stock holds |
+| `internal/subscription` | plans and entitlements |
+| `internal/sponsored` | sponsored ad campaigns |
+| `internal/rpc` | gRPC handlers and authorization |
+
 ## Events
 
 Producer only; nothing is consumed.
@@ -58,9 +76,8 @@ Producer only; nothing is consumed.
 | `promotion.events` | `platform.promotion.v1.FlashSaleChanged` | campaign id | `CreateCampaign` succeeds |
 
 Value is a proto-marshalled `platform.events.v1.EventEnvelope` (event id, type, principal,
-`traceparent`, `request_id`, payload). Emission is best-effort: failures are logged and never fail
-the RPC. With `KAFKA_ENABLED=false` (the code default) or an unreachable broker at boot, no events
-are published. See ADR-0002.
+`traceparent`, `request_id`, payload). Events are written to the `outbox` table in the same transaction as the change and relayed to Kafka
+by the SDK outbox relay, so a Kafka outage delays publication but never fails the RPC. See ADR-0002.
 
 ## Data
 
@@ -73,43 +90,44 @@ Own database `promotion_db` (user `promotion_svc`). Migrations in `migrations/` 
 | `0002_subscriptions` | `subscription_plans` (seeded `plan_free`, `plan_pro`, `plan_premium`), `seller_subscriptions` (unique `seller_id`) |
 | `0003_sponsored` | `ad_campaigns` (index on `(status, bid DESC)`) |
 | `0004_flash_sale_holds` | Flash-sale stock holds (`reserve`, `commit`, `release`; see Flash stock holds) |
+| `0005_outbox` | `outbox` (transactional event outbox) |
 
-Applied by the `team-promotion-migrate` one-shot container in the root compose (the app waits for
-it), or by `make migrate` (golang-migrate via docker; `DATABASE_URL` from `.env` or the Makefile
-default). The service itself does not run migrations.
+Migrations are embedded in `internal/store/migrations` and applied by `server migrate up` (the
+`team-promotion-migrate` one-shot container in the root compose runs it; it needs only `ENV` and
+`DATABASE_URL`). `0005_outbox` adds the `outbox` table used by the relay. The server itself does not
+run migrations.
 
 ## Configuration
 
-Read in `internal/config/config.go` from the environment (struct tags are the source of truth).
-`make check-env` runs `TestDeclaredEnvKeysNoDrift`, which fails if `.env.example` drifts from the
-declared keys. The Makefile auto-loads `.env` if present.
+Read in `internal/config/config.go` through the SDK `config.Load` (struct tags are the source of truth).
+Startup fails when a required key is missing or invalid.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | `prod`/`production` sets `IsProd` |
-| `LOG_LEVEL` | `info` | only `debug` changes behaviour; anything else is info |
+| `ENV` | none | required |
+| `LOG_LEVEL` | `info` | |
 | `LOG_JSON` | `true` | JSON vs text slog |
 | `GRPC_HOST` | `0.0.0.0` | |
-| `GRPC_PORT` | `50061` | |
-| `GRPC_REFLECTION_ENABLED` | `true` | |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | graceful stop deadline |
-| `DATABASE_ENABLED` | `true` | `false` selects in-memory repositories |
-| `DATABASE_URL` | `""` | required when `DATABASE_ENABLED=true` (startup fails otherwise) |
+| `GRPC_PORT` | none | required (the image sets `50061`) |
+| `GRPC_REFLECTION_ENABLED` | `false` | refused unless `ENV` is `local` or `test` |
+| `SHUTDOWN_GRACE` | `10s` | graceful stop deadline |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | delay before stopping after readiness fails |
+| `DATABASE_URL` | none | required |
 | `DB_MAX_CONNS` | `10` | pgx pool size |
 | `OTEL_ENABLED` | `false` | |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `""` | `.env.example` uses `localhost:4317` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `""` | |
 | `OTEL_SERVICE_NAME` | `team-promotion` | |
-| `FEATURE_FLAGS_ENABLED` | `true` | `false` skips Flipt; flags return the caller default |
 | `FLIPT_ADDR` | `localhost:9000` | Flipt gRPC endpoint |
-| `FEATURE_FLAGS_EVAL_TIMEOUT_MS` | `500` | |
-| `KAFKA_ENABLED` | `false` | |
-| `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
+| `FEATURE_FLAGS_EVAL_TIMEOUT` | `500ms` | |
+| `KAFKA_BROKERS` | `localhost:9092` | comma-separated; required in staging and prod |
 | `PROMOTION_EVENTS_TOPIC` | `promotion.events` | |
-| `UPSTREAM_AUDIT_ADDR` | `""` | team-audit gRPC address (`team-audit-svc:50066` in compose). Platform/unspecified-scope `CreateVoucher` (`voucher.admin_create`), admin `CreateCampaign` and admin `CreateAdCampaign` write an audit event (as `service-team-promotion`, `audit.write`) before inserting; unset or audit failure is `Unavailable` and nothing is created. Seller paths are not audited |
-| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Timeout for upstream calls (team-domain lookup, team-audit write) |
+| `OUTBOX_POLL_INTERVAL` | SDK default | outbox relay poll interval |
+| `OUTBOX_BATCH_SIZE` | SDK default | rows per relay batch |
+| `OUTBOX_CLAIM_LOCK` | SDK default | relay row claim lock duration |
+| `UPSTREAM_AUDIT_ADDR` | none | required. team-audit gRPC address (`team-audit-svc:50066` in compose). Platform/unspecified-scope `CreateVoucher` (`voucher.admin_create`), admin `CreateCampaign` and admin `CreateAdCampaign` write an audit event (as `service-team-promotion`, `audit.write`) before inserting; an audit failure is `Unavailable` and nothing is created. Seller paths are not audited |
 | `MAX_AD_BID` | `1000000` | Upper bound on a sponsored ad bid; larger is `InvalidArgument` |
 | `MAX_AD_BUDGET` | `1000000000` | Upper bound on an ad campaign budget; larger is `InvalidArgument` |
-| `UPSTREAM_DOMAIN_ADDR` | `""` | team-domain gRPC address (`team-domain-svc:50051` in compose). Unset: non-admin `CreateCampaign` fails closed; `.env.example` uses `localhost:50051` |
+| `UPSTREAM_DOMAIN_ADDR` | none | required. team-domain gRPC address (`team-domain-svc:50051` in compose) |
 
 The only flag is `flash-sale-enabled` (fail-open, default true). Switched off, it makes
 `GetActiveFlashSale` and `ListActiveCampaigns` return nothing.
@@ -124,20 +142,18 @@ docker compose -f docker-compose.services.yaml up --build team-promotion
 ```
 
 This runs `team-promotion-migrate` first, then the server on `:50061` with `DATABASE_URL` pointing
-at the shared `postgres:5432` and Kafka and Flipt enabled. There is no `--profile jobs` component.
+at the shared `postgres:5432`. There is no `--profile jobs` component.
 
 Standalone (from `team-promotion/`):
 
 ```bash
 cp .env.example .env     # DATABASE_URL points at localhost:5438
 make proto               # generated/ is gitignored; needs buf
-make migrate             # needs a reachable Postgres
+go run ./cmd/server migrate up   # needs a reachable Postgres
 make run                 # go run ./cmd/server
 ```
 
-With `DATABASE_ENABLED=false` the server boots on in-memory repositories (data lost on restart).
-
-Smoke test (grpcurl; reflection is on by default):
+Smoke test (grpcurl; set `GRPC_REFLECTION_ENABLED=true` locally):
 
 ```bash
 grpcurl -plaintext -d '{"code":"SUMMER2026"}' localhost:50061 platform.promotion.v1.VoucherService/GetVoucher
@@ -152,13 +168,11 @@ grpcurl -plaintext localhost:50061 grpc.health.v1.Health/Check
 | Command | What it does |
 |---|---|
 | `make proto` | `buf generate` into `generated/` |
-| `make check` | merge gate: `check-env`, `gofmt -l .` (fails on unformatted files), `go vet ./...`, `go test ./...` |
-| `make check-env` | `.env.example` drift test |
+| `make check` | merge gate: `gofmt`, `go vet ./...`, golangci-lint with the SDK config, race tests with `GO_SDK_REQUIRE_DOCKER=1` |
 | `make test` | `go test ./...` |
 
-Postgres repository tests (`internal/repository/postgres_test.go`) skip unless
-`PROMOTION_TEST_DATABASE_URL` or `DATABASE_URL` is set. This repo has no `.github/workflows`;
-`make check` is the gate to run before merging.
+Database tests run against Docker Postgres and never skip; a skip is a gate failure. This repo has no
+`.github/workflows`; `make check` is the gate to run before merging.
 
 ## Spec and verification
 
@@ -174,10 +188,7 @@ Postgres repository tests (`internal/repository/postgres_test.go`) skip unless
   `make proto` has run. The Dockerfile does not run `buf`, so image builds need `generated/` present.
 - `proto/` is vendored from `platform-core`. Never edit it here; change `platform-core/proto` and
   re-vendor.
-- In-memory fallback: `DATABASE_ENABLED=false` swaps in in-memory repositories; a missing Kafka or
-  Flipt at boot only logs a warning and degrades (no events, flags fail open).
-- The Dockerfile sets `GRPC_PORT=50060` and `EXPOSE 50060`, while the code default and compose use
-  `50061`. Compose overrides it, so a bare `docker run` listens on 50060.
+- `GRPC_PORT` has no code default; the Dockerfile sets `GRPC_PORT=50061`.
 
 ## Flash stock holds
 

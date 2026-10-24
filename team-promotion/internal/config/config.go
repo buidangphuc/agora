@@ -2,196 +2,86 @@ package config
 
 import (
 	"errors"
-	"fmt"
-	"os"
-	"reflect"
-	"strconv"
 	"strings"
+
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 )
 
-type Settings struct {
-	Runtime       Runtime
-	Server        Server
-	Database      Database
-	Observability Observability
-	FeatureFlags  FeatureFlags
-	Kafka         Kafka
-	Upstream      Upstream
-	Ads           Ads
-}
-
-type Runtime struct {
-	Env      string `env:"ENV" default:"local"`
-	LogLevel string `env:"LOG_LEVEL" default:"info"`
-	LogJSON  bool   `env:"LOG_JSON" default:"true"`
-}
-
-type Server struct {
-	Host              string  `env:"GRPC_HOST" default:"0.0.0.0"`
-	Port              int     `env:"GRPC_PORT" default:"50061"`
-	ReflectionEnabled bool    `env:"GRPC_REFLECTION_ENABLED" default:"true"`
-	ShutdownGrace     float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
-}
-
-type Database struct {
-	Enabled  bool   `env:"DATABASE_ENABLED" default:"true"`
-	URL      string `env:"DATABASE_URL" default:""`
-	MaxConns int32  `env:"DB_MAX_CONNS" default:"10"`
-}
-
-type Observability struct {
-	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
-	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
-	ServiceName  string `env:"OTEL_SERVICE_NAME" default:"team-promotion"`
-}
-
-// FeatureFlags configures the OpenFeature + Flipt provider used to evaluate
-// flags. FliptAddr is the Flipt gRPC endpoint; evaluation is in-process against a
-// streamed in-memory snapshot.
-type FeatureFlags struct {
-	Enabled       bool   `env:"FEATURE_FLAGS_ENABLED" default:"true"`
-	FliptAddr     string `env:"FLIPT_ADDR" default:"localhost:9000"`
-	EvalTimeoutMS int    `env:"FEATURE_FLAGS_EVAL_TIMEOUT_MS" default:"500"`
-}
-
-// Kafka configures the producer for promotion.events (ADR-0002). State-change
-// events (voucher/campaign create/update) are emitted here, wrapped in an
-// EventEnvelope. Enabled gates the whole producer; when off the service still
-// serves gRPC, it just does not publish.
-type Kafka struct {
-	Enabled     bool   `env:"KAFKA_ENABLED" default:"false"`
-	Brokers     string `env:"KAFKA_BROKERS" default:"localhost:9092"`
-	EventsTopic string `env:"PROMOTION_EVENTS_TOPIC" default:"promotion.events"`
-}
-
-// Upstream locates team-domain, used to verify listing ownership when a seller
-// creates a flash-sale campaign. Empty = ownership cannot be verified, so
-// non-admin CreateCampaign fails closed (Unavailable).
 type Upstream struct {
-	DomainAddr string `env:"UPSTREAM_DOMAIN_ADDR" default:""`
-	// AuditAddr is team-audit's gRPC address; unset fails platform/admin promotion
-	// creation closed. Calls reuse CallTimeoutSeconds.
-	AuditAddr string `env:"UPSTREAM_AUDIT_ADDR" default:""`
-	// CallTimeoutSeconds bounds one team-domain lookup, so a dead upstream yields
-	// UNAVAILABLE instead of consuming the whole request budget (a gateway 504).
-	CallTimeoutSeconds float64 `env:"UPSTREAM_CALL_TIMEOUT_SECONDS" default:"2"`
+	DomainAddr string `env:"UPSTREAM_DOMAIN_ADDR"`
 }
 
-// Ads bounds what a seller may put on a sponsored campaign (minor units). Both
-// must be > 0.
+func (u Upstream) Validate() error {
+	if strings.TrimSpace(u.DomainAddr) == "" {
+		return errors.New("UPSTREAM_DOMAIN_ADDR is required")
+	}
+	return nil
+}
+
 type Ads struct {
 	MaxBid    int64 `env:"MAX_AD_BID" default:"1000000"`
 	MaxBudget int64 `env:"MAX_AD_BUDGET" default:"1000000000"`
 }
 
-func LoadSettings() (*Settings, error) {
-	s := &Settings{}
-	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
-		return nil, err
+func (a Ads) Validate() error {
+	var errs []error
+	if a.MaxBid <= 0 {
+		errs = append(errs, errors.New("MAX_AD_BID must be > 0"))
 	}
-	if err := s.Validate(); err != nil {
-		return nil, err
+	if a.MaxBudget <= 0 {
+		errs = append(errs, errors.New("MAX_AD_BUDGET must be > 0"))
 	}
-	return s, nil
+	return errors.Join(errs...)
 }
 
-func (s *Settings) Validate() error {
-	if s.Database.Enabled && strings.TrimSpace(s.Database.URL) == "" {
-		return errors.New("DATABASE_URL is required when DATABASE_ENABLED=true")
-	}
-	if s.Server.Port <= 0 || s.Server.Port > 65535 {
-		return fmt.Errorf("GRPC_PORT out of range: %d", s.Server.Port)
-	}
-	if s.Ads.MaxBid <= 0 {
-		return fmt.Errorf("MAX_AD_BID must be > 0: %d", s.Ads.MaxBid)
-	}
-	if s.Ads.MaxBudget <= 0 {
-		return fmt.Errorf("MAX_AD_BUDGET must be > 0: %d", s.Ads.MaxBudget)
-	}
-	if s.Upstream.CallTimeoutSeconds <= 0 {
-		return fmt.Errorf("UPSTREAM_CALL_TIMEOUT_SECONDS must be > 0: %v", s.Upstream.CallTimeoutSeconds)
+type Events struct {
+	Topic string `env:"PROMOTION_EVENTS_TOPIC" default:"promotion.events"`
+}
+
+func (e Events) Validate() error {
+	if strings.TrimSpace(e.Topic) == "" {
+		return errors.New("PROMOTION_EVENTS_TOPIC is required")
 	}
 	return nil
 }
 
-func (s *Settings) IsProd() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
-	return e == "prod" || e == "production"
+type Settings struct {
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres sdkconfig.Postgres
+	OTel     sdkconfig.OTel
+	Kafka    sdkconfig.Kafka
+	Outbox   sdkconfig.Outbox
+	Flags    sdkconfig.Flags
+	Audit    sdkconfig.Audit
+	Upstream Upstream
+	Ads      Ads
+	Events   Events
 }
 
-// BrokerList splits the comma-separated KAFKA_BROKERS into a clean slice.
-func (s *Settings) BrokerList() []string {
-	parts := strings.Split(s.Kafka.Brokers, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
+func (s Settings) Validate() error {
+	var errs []error
+	if strings.TrimSpace(s.Postgres.URL) == "" {
+		errs = append(errs, errors.New("DATABASE_URL is required"))
 	}
-	return out
+	if strings.TrimSpace(s.Audit.Addr) == "" {
+		errs = append(errs, errors.New("UPSTREAM_AUDIT_ADDR is required"))
+	}
+	return errors.Join(errs...)
 }
 
-func DeclaredEnvKeys() []string {
-	var keys []string
-	t := reflect.TypeOf(Settings{})
-	for i := 0; i < t.NumField(); i++ {
-		gt := t.Field(i).Type
-		for j := 0; j < gt.NumField(); j++ {
-			if k := gt.Field(j).Tag.Get("env"); k != "" {
-				keys = append(keys, k)
-			}
-		}
-	}
-	return keys
+func Load() (Settings, error) { return sdkconfig.Load[Settings]() }
+
+type MigrateSettings struct {
+	sdkconfig.Runtime
+	Postgres sdkconfig.Postgres
 }
 
-func bindGroups(v reflect.Value) error {
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		group := v.Field(i)
-		gt := group.Type()
-		for j := 0; j < gt.NumField(); j++ {
-			f := gt.Field(j)
-			key := f.Tag.Get("env")
-			if key == "" {
-				continue
-			}
-			raw := f.Tag.Get("default")
-			if val, ok := os.LookupEnv(key); ok {
-				raw = val
-			}
-			if err := setField(group.Field(j), raw); err != nil {
-				return fmt.Errorf("config %s: %w", key, err)
-			}
-		}
+func (s MigrateSettings) Validate() error {
+	if strings.TrimSpace(s.Postgres.URL) == "" {
+		return errors.New("DATABASE_URL is required")
 	}
-	return nil
+	return s.Runtime.Validate()
 }
 
-func setField(fv reflect.Value, raw string) error {
-	switch fv.Kind() {
-	case reflect.String:
-		fv.SetString(raw)
-	case reflect.Bool:
-		b, err := strconv.ParseBool(strings.TrimSpace(raw))
-		if err != nil {
-			return err
-		}
-		fv.SetBool(b)
-	case reflect.Int, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-		if err != nil {
-			return err
-		}
-		fv.SetInt(n)
-	case reflect.Float32, reflect.Float64:
-		x, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-		if err != nil {
-			return err
-		}
-		fv.SetFloat(x)
-	default:
-		return fmt.Errorf("unsupported config field kind %s", fv.Kind())
-	}
-	return nil
-}
+func LoadMigrate() (MigrateSettings, error) { return sdkconfig.Load[MigrateSettings]() }

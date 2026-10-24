@@ -2,6 +2,7 @@ package upstream
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"sync"
 	"testing"
@@ -12,10 +13,13 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+
 	auditv1 "github.com/buidangphuc/team-promotion/generated/platform/audit/v1"
 )
 
-// recordingAudit captures what team-audit would receive.
 type recordingAudit struct {
 	auditv1.UnimplementedAuditServiceServer
 	mu    sync.Mutex
@@ -54,43 +58,44 @@ func startAudit(t *testing.T, svc *recordingAudit) string {
 	return lis.Addr().String()
 }
 
-// Scenario: Empty address yields no client.
-func TestNewAuditClientEmptyAddrNil(t *testing.T) {
-	c, err := NewAuditClient("", time.Second)
-	if err != nil || c != nil {
-		t.Fatalf("NewAuditClient(\"\") = %v, %v; want nil, nil", c, err)
+func dialWriter(t *testing.T, addr string) auditx.Writer {
+	t.Helper()
+	conn, err := auditx.Dial(config.Audit{Addr: addr}, "service-team-promotion", "audit.write")
+	if err != nil || conn == nil {
+		t.Fatalf("auditx.Dial: %v, %v", conn, err)
 	}
-	if err := c.Close(); err != nil {
-		t.Fatalf("Close on nil client: %v", err)
+	t.Cleanup(func() { _ = conn.Close() })
+	return NewAuditWriter(conn)
+}
+
+func voucherEvent() auditx.Event {
+	return auditx.Event{
+		ActorID: "adm-1", Action: "voucher.platform_create", TargetType: "voucher", TargetID: "PLAT10",
+		Metadata: map[string]string{"discount_type": "DISCOUNT_TYPE_PERCENT", "value": "10"},
 	}
 }
 
-// Scenario: Promotion audit is called as the service principal.
-func TestAuditClientUsesServicePrincipal(t *testing.T) {
-	rec := &recordingAudit{}
-	c, err := NewAuditClient(startAudit(t, rec), time.Second)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
-	}
-	defer func() { _ = c.Close() }()
+func adminCtx(base context.Context) context.Context {
+	return auth.WithPrincipal(base, auth.Principal{ID: "adm-1", Type: auth.TypeUser, Scopes: []string{"admin"}})
+}
 
-	// The admin's own principal rides on the context as outgoing metadata and
-	// must be replaced, never forwarded.
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-		"x-principal-id", "adm-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
-	err = c.WriteEvent(ctx, AuditEvent{
-		ActorID: "adm-1", Action: "voucher.platform_create", TargetType: "voucher", TargetID: "PLAT10",
-		Metadata: map[string]string{"discount_type": "DISCOUNT_TYPE_PERCENT", "value": "10"},
-	})
-	if err != nil {
-		t.Fatalf("WriteEvent: %v", err)
+// Scenario: Audit is written as the service principal
+func TestAuditClientUsesServicePrincipal(t *testing.T) {
+	base := t.Context()
+	rec := &recordingAudit{}
+	w := dialWriter(t, startAudit(t, rec))
+	ev := voucherEvent()
+	if err := w.WriteAuditEvent(adminCtx(base), ev); err != nil {
+		t.Fatalf("WriteAuditEvent: %v", err)
 	}
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
 	if len(rec.reqs) != 1 {
 		t.Fatalf("want exactly 1 WriteAuditEvent call, got %d", len(rec.reqs))
 	}
 	req := rec.reqs[0]
-	if req.GetActorId() != "adm-1" || req.GetAction() != "voucher.platform_create" ||
-		req.GetTargetType() != "voucher" || req.GetTargetId() != "PLAT10" {
+	if req.GetActorId() != ev.ActorID || req.GetAction() != ev.Action ||
+		req.GetTargetType() != ev.TargetType || req.GetTargetId() != ev.TargetID {
 		t.Errorf("unexpected event: %+v", req)
 	}
 	if m := req.GetMetadata(); len(m) != 2 || m["discount_type"] != "DISCOUNT_TYPE_PERCENT" || m["value"] != "10" {
@@ -106,37 +111,48 @@ func TestAuditClientUsesServicePrincipal(t *testing.T) {
 			t.Errorf("%s = %v, want [%s]", k, vals, v)
 		}
 	}
+	for k, vals := range md {
+		for _, v := range vals {
+			if len(k) >= 11 && k[:11] == "x-principal" && (v == "adm-1" || v == "admin" || v == "user") {
+				t.Errorf("admin principal leaked in %s=%v", k, vals)
+			}
+		}
+	}
 }
 
-// Scenario: Promotion audit timeout blocks the voucher (client half: a hung
-// team-audit returns an error within the bound, never hangs).
+// Scenario: A slow audit write is bounded
 func TestAuditClientTimeoutBounded(t *testing.T) {
-	rec := &recordingAudit{block: true}
-	c, err := NewAuditClient(startAudit(t, rec), 200*time.Millisecond)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
-	}
-	defer func() { _ = c.Close() }()
+	base := t.Context()
+	w := dialWriter(t, startAudit(t, &recordingAudit{block: true}))
+	gate := auditx.NewGate(w, slog.New(slog.DiscardHandler))
+	applied := false
 	start := time.Now()
-	err = c.WriteEvent(context.Background(), AuditEvent{ActorID: "a", Action: "x", TargetType: "t", TargetID: "1"})
-	if err == nil {
-		t.Fatal("a timed-out audit write must return an error")
+	err := gate.Do(adminCtx(base), voucherEvent(), func(context.Context) error { applied = true; return nil })
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("code = %v (%v), want Unavailable", status.Code(err), err)
+	}
+	if status.Convert(err).Message() != "audit trail unavailable" {
+		t.Errorf("message = %q", status.Convert(err).Message())
+	}
+	if applied {
+		t.Fatal("action must not run when the audit write times out")
 	}
 	if el := time.Since(start); el > 2500*time.Millisecond {
-		t.Fatalf("call took %v, want bounded well under 2.5s", el)
+		t.Fatalf("audit call took %v, want within 2.5s", el)
 	}
 }
 
-// Scenario: Promotion audit timeout blocks the voucher (an upstream error is
-// returned, not swallowed).
+// Scenario: A slow audit write is bounded (an upstream error is returned, single attempt)
 func TestAuditClientUpstreamErrorIsReturned(t *testing.T) {
+	base := t.Context()
 	rec := &recordingAudit{err: status.Error(codes.Internal, "audit db down")}
-	c, err := NewAuditClient(startAudit(t, rec), time.Second)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
-	}
-	defer func() { _ = c.Close() }()
-	if err := c.WriteEvent(context.Background(), AuditEvent{ActorID: "a", Action: "x", TargetType: "t", TargetID: "1"}); err == nil {
+	w := dialWriter(t, startAudit(t, rec))
+	if err := w.WriteAuditEvent(base, voucherEvent()); err == nil {
 		t.Fatal("an audit failure must be returned, not swallowed")
+	}
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if len(rec.reqs) != 1 {
+		t.Fatalf("single attempt expected, got %d calls", len(rec.reqs))
 	}
 }

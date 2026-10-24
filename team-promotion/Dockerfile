@@ -3,20 +3,22 @@
 FROM golang:1.26 AS build
 WORKDIR /src
 
-COPY go.mod go.sum* ./
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
+ARG BIN=server
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
+RUN go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/${BIN}
 
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=build /out/server /server
 
-ENV GRPC_PORT=50060
-EXPOSE 50060
+ARG GRPC_PORT=50061
+ENV GRPC_PORT=${GRPC_PORT}
+EXPOSE ${GRPC_PORT}
 
 USER nonroot:nonroot
 ENTRYPOINT ["/server"]
