@@ -35,7 +35,7 @@ const (
 
 var versionPrefix = regexp.MustCompile(`^(\d{4})_`)
 
-func upTo(t *testing.T, max int) fs.FS {
+func upTo(t *testing.T, maxVersion int) fs.FS {
 	t.Helper()
 	entries, err := os.ReadDir(".")
 	if err != nil {
@@ -48,7 +48,7 @@ func upTo(t *testing.T, max int) fs.FS {
 			continue
 		}
 		v, _ := strconv.Atoi(m[1])
-		if v > max {
+		if v > maxVersion {
 			continue
 		}
 		b, err := os.ReadFile(e.Name())
@@ -236,12 +236,18 @@ func assertEnvelope(t *testing.T, got []byte, want *eventsv1.EventEnvelope) {
 
 func threeUnpublished(t *testing.T) []legacy {
 	return []legacy{
-		{seq: 5, eventID: uuidFor(5), typ: "platform.engagement.v1.FavoriteAdded", key: "L1", payload: fact(t, "a"),
-			principalID: "u-1", principalType: "PRINCIPAL_TYPE_USER", requestID: "r-5", occurredAt: at(5)},
-		{seq: 6, eventID: uuidFor(6), typ: "platform.engagement.v1.SellerFollowed", key: "s-1", payload: fact(t, "b"),
-			principalID: "u-2", principalType: "PRINCIPAL_TYPE_USER", requestID: "", occurredAt: at(6)},
-		{seq: 7, eventID: uuidFor(7), typ: "platform.engagement.v1.DisputeResolved", key: "d-1", payload: fact(t, "c"),
-			principalID: "", principalType: "", requestID: "r-7", occurredAt: at(7)},
+		{
+			seq: 5, eventID: uuidFor(5), typ: "platform.engagement.v1.FavoriteAdded", key: "L1", payload: fact(t, "a"),
+			principalID: "u-1", principalType: "PRINCIPAL_TYPE_USER", requestID: "r-5", occurredAt: at(5),
+		},
+		{
+			seq: 6, eventID: uuidFor(6), typ: "platform.engagement.v1.SellerFollowed", key: "s-1", payload: fact(t, "b"),
+			principalID: "u-2", principalType: "PRINCIPAL_TYPE_USER", requestID: "", occurredAt: at(6),
+		},
+		{
+			seq: 7, eventID: uuidFor(7), typ: "platform.engagement.v1.DisputeResolved", key: "d-1", payload: fact(t, "c"),
+			principalID: "", principalType: "", requestID: "r-7", occurredAt: at(7),
+		},
 	}
 }
 
@@ -249,10 +255,14 @@ func TestMigration0014CopiesUnpublishedFacts(t *testing.T) {
 	e := setup(t)
 	un := threeUnpublished(t)
 	published := []legacy{
-		{seq: 3, eventID: uuidFor(3), typ: "platform.engagement.v1.FavoriteRemoved", key: "L0", payload: fact(t, "p3"),
-			principalID: "u-9", principalType: "PRINCIPAL_TYPE_USER", requestID: "r-3", occurredAt: at(3), published: true},
-		{seq: 4, eventID: uuidFor(4), typ: "platform.engagement.v1.ReviewCreated", key: "L0", payload: fact(t, "p4"),
-			principalID: "u-9", principalType: "PRINCIPAL_TYPE_USER", requestID: "r-4", occurredAt: at(4), published: true},
+		{
+			seq: 3, eventID: uuidFor(3), typ: "platform.engagement.v1.FavoriteRemoved", key: "L0", payload: fact(t, "p3"),
+			principalID: "u-9", principalType: "PRINCIPAL_TYPE_USER", requestID: "r-3", occurredAt: at(3), published: true,
+		},
+		{
+			seq: 4, eventID: uuidFor(4), typ: "platform.engagement.v1.ReviewCreated", key: "L0", payload: fact(t, "p4"),
+			principalID: "u-9", principalType: "PRINCIPAL_TYPE_USER", requestID: "r-4", occurredAt: at(4), published: true,
+		},
 	}
 	e.seed(t, published[0], un[2], published[1], un[0], un[1])
 	e.apply0014(t)
@@ -293,14 +303,22 @@ func TestMigration0014CopiesUnpublishedFacts(t *testing.T) {
 func TestMigration0014MapsAggregatesAndPrincipalTypes(t *testing.T) {
 	e := setup(t)
 	rows := []legacy{
-		{seq: 1, eventID: uuidFor(1), typ: "platform.engagement.v1.SellerUnfollowed", key: "s-2", payload: fact(t, "1"),
-			principalID: "u-1", principalType: "PRINCIPAL_TYPE_USER", occurredAt: at(1)},
-		{seq: 2, eventID: uuidFor(2), typ: "platform.engagement.v1.ReviewHidden", key: "L2", payload: fact(t, "2"),
-			principalID: "svc-mod", principalType: "PRINCIPAL_TYPE_SERVICE", occurredAt: at(2)},
-		{seq: 3, eventID: uuidFor(3), typ: "platform.engagement.v1.ReviewCreated", key: "L3", payload: fact(t, "3"),
-			principalID: "anon-1", principalType: "PRINCIPAL_TYPE_ANONYMOUS", occurredAt: at(3)},
-		{seq: 4, eventID: uuidFor(4), typ: "platform.engagement.v1.FavoriteRemoved", key: "L4", payload: fact(t, "4"),
-			principalID: "u-4", principalType: "PRINCIPAL_TYPE_USER", occurredAt: at(4)},
+		{
+			seq: 1, eventID: uuidFor(1), typ: "platform.engagement.v1.SellerUnfollowed", key: "s-2", payload: fact(t, "1"),
+			principalID: "u-1", principalType: "PRINCIPAL_TYPE_USER", occurredAt: at(1),
+		},
+		{
+			seq: 2, eventID: uuidFor(2), typ: "platform.engagement.v1.ReviewHidden", key: "L2", payload: fact(t, "2"),
+			principalID: "svc-mod", principalType: "PRINCIPAL_TYPE_SERVICE", occurredAt: at(2),
+		},
+		{
+			seq: 3, eventID: uuidFor(3), typ: "platform.engagement.v1.ReviewCreated", key: "L3", payload: fact(t, "3"),
+			principalID: "anon-1", principalType: "PRINCIPAL_TYPE_ANONYMOUS", occurredAt: at(3),
+		},
+		{
+			seq: 4, eventID: uuidFor(4), typ: "platform.engagement.v1.FavoriteRemoved", key: "L4", payload: fact(t, "4"),
+			principalID: "u-4", principalType: "PRINCIPAL_TYPE_USER", occurredAt: at(4),
+		},
 	}
 	e.seed(t, rows...)
 	e.apply0014(t)

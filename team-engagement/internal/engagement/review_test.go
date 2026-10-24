@@ -48,9 +48,9 @@ func (f *fakeVerifier) VerifyPurchase(_ context.Context, buyerID, listingID, ord
 	return ok, seller, nil
 }
 
-func total(t *testing.T, repo store.ReviewRepository, listing string) int64 {
+func total(ctx context.Context, t *testing.T, repo store.ReviewRepository, listing string) int64 {
 	t.Helper()
-	_, n, err := repo.ListReviews(context.Background(), listing, 0, 0, 100)
+	_, n, err := repo.ListReviews(ctx, listing, 0, 0, 100)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestCreateReviewEmptyOrderIDRejected(t *testing.T) {
 	if !errors.Is(err, engagement.ErrEmptyOrderID) {
 		t.Fatalf("want ErrEmptyOrderID, got %v", err)
 	}
-	if verifier.calls != 0 || total(t, repo, "listing-1") != 0 {
+	if verifier.calls != 0 || total(t.Context(), t, repo, "listing-1") != 0 {
 		t.Fatalf("empty order must not call verifier or store (calls=%d)", verifier.calls)
 	}
 }
@@ -100,7 +100,7 @@ func TestCreateReviewIneligibleOrderFailedPrecondition(t *testing.T) {
 	if !errors.Is(err, engagement.ErrOrderNotEligible) {
 		t.Fatalf("want ErrOrderNotEligible, got %v", err)
 	}
-	if total(t, repo, "listing-1") != 0 {
+	if total(t.Context(), t, repo, "listing-1") != 0 {
 		t.Fatal("ineligible review stored")
 	}
 }
@@ -117,7 +117,7 @@ func TestCreateReviewVerifierErrorUnavailable(t *testing.T) {
 	if errors.Is(err, engagement.ErrOrderNotEligible) {
 		t.Fatal("outage must not read as ineligible")
 	}
-	if total(t, repo, "listing-1") != 0 {
+	if total(t.Context(), t, repo, "listing-1") != 0 {
 		t.Fatal("review stored despite verifier error")
 	}
 
@@ -152,7 +152,7 @@ func TestCreateReviewRatingBounds(t *testing.T) {
 			t.Fatalf("rating %d: want ErrInvalidRating, got %v", bad, err)
 		}
 	}
-	if total(t, repo, "listing-1") != 0 {
+	if total(ctx, t, repo, "listing-1") != 0 {
 		t.Fatal("invalid rating stored a row")
 	}
 	if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", "order-1", 1, "", nil); err != nil {
@@ -186,7 +186,7 @@ func TestCreateReviewDuplicateOrderListingRefused(t *testing.T) {
 	if !errors.Is(err, store.ErrDuplicateReview) {
 		t.Fatalf("want ErrDuplicateReview, got %v", err)
 	}
-	if total(t, repo, "listing-1") != 1 {
+	if total(ctx, t, repo, "listing-1") != 1 {
 		t.Fatal("duplicate stored a second row")
 	}
 }
@@ -213,7 +213,7 @@ func TestCreateReviewRefusedWritesNoOutbox(t *testing.T) {
 			if _, err := svc.CreateReview(ctx, "listing-1", "buyer-1", "B", c.order, c.rating, "", nil); !errors.Is(err, c.want) {
 				t.Fatalf("want %v, got %v", c.want, err)
 			}
-			if total(t, repo, "listing-1") != 0 {
+			if total(ctx, t, repo, "listing-1") != 0 {
 				t.Fatal("refused review was stored")
 			}
 		})
@@ -266,11 +266,11 @@ type hideFixture struct {
 	review store.Review
 }
 
-func newHideFixture(t *testing.T) *hideFixture {
+func newHideFixture(ctx context.Context, t *testing.T) *hideFixture {
 	t.Helper()
 	log := &callLog{}
 	mem := storetest.NewFakeReviewRepository()
-	rev, err := mem.CreateReview(context.Background(), store.Review{
+	rev, err := mem.CreateReview(ctx, store.Review{
 		ListingID: "L-1", UserID: "buyer-1", OrderID: "order-1", Rating: 1,
 		VerifiedPurchase: true, SellerID: "seller-1",
 	})
@@ -282,9 +282,9 @@ func newHideFixture(t *testing.T) *hideFixture {
 	return &hideFixture{svc: engagement.NewReviewService(repo, &fakeVerifier{}, auditx.NewGate(audit, nil), nil), repo: repo, audit: audit, log: log, review: rev}
 }
 
-func (f *hideFixture) hiddenAt(t *testing.T) *time.Time {
+func (f *hideFixture) hiddenAt(ctx context.Context, t *testing.T) *time.Time {
 	t.Helper()
-	got, err := f.repo.GetReview(context.Background(), f.review.ID)
+	got, err := f.repo.GetReview(ctx, f.review.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func (f *hideFixture) hiddenAt(t *testing.T) *time.Time {
 }
 
 func TestHideReviewAuditBeforeHide(t *testing.T) {
-	f := newHideFixture(t)
+	f := newHideFixture(t.Context(), t)
 	if err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam link"); err != nil {
 		t.Fatalf("HideReview: %v", err)
 	}
@@ -310,14 +310,14 @@ func TestHideReviewAuditBeforeHide(t *testing.T) {
 }
 
 func TestHideReviewAuditFailureFailsClosed(t *testing.T) {
-	f := newHideFixture(t)
+	f := newHideFixture(t.Context(), t)
 	f.audit.err = errors.New("audit down")
 	err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam")
 	requireAuditUnavailable(t, err)
-	if f.hiddenAt(t) != nil {
+	if f.hiddenAt(t.Context(), t) != nil {
 		t.Fatal("review hidden although audit failed")
 	}
-	if n := total(t, f.repo, "L-1"); n != 1 {
+	if n := total(t.Context(), t, f.repo, "L-1"); n != 1 {
 		t.Fatalf("review no longer listed: total=%d", n)
 	}
 	for _, c := range f.log.calls {
@@ -328,7 +328,7 @@ func TestHideReviewAuditFailureFailsClosed(t *testing.T) {
 }
 
 func TestHideReviewUpdateFailureInternalThenRetry(t *testing.T) {
-	f := newHideFixture(t)
+	f := newHideFixture(t.Context(), t)
 	boom := errors.New("db down")
 	f.repo.hideErr = boom
 	err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam")
@@ -343,7 +343,7 @@ func TestHideReviewUpdateFailureInternalThenRetry(t *testing.T) {
 			t.Fatalf("update failure must not be classified as %v", s)
 		}
 	}
-	if f.hiddenAt(t) != nil {
+	if f.hiddenAt(t.Context(), t) != nil {
 		t.Fatal("review hidden although update failed")
 	}
 
@@ -351,7 +351,7 @@ func TestHideReviewUpdateFailureInternalThenRetry(t *testing.T) {
 	if err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam"); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
-	if f.hiddenAt(t) == nil {
+	if f.hiddenAt(t.Context(), t) == nil {
 		t.Fatal("retry did not hide the review")
 	}
 	if len(f.audit.events) != 2 {
@@ -360,7 +360,7 @@ func TestHideReviewUpdateFailureInternalThenRetry(t *testing.T) {
 }
 
 func TestHideReviewIdempotentNoSecondAudit(t *testing.T) {
-	f := newHideFixture(t)
+	f := newHideFixture(t.Context(), t)
 	if err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "first"); err != nil {
 		t.Fatal(err)
 	}
@@ -377,7 +377,7 @@ func TestHideReviewIdempotentNoSecondAudit(t *testing.T) {
 }
 
 func TestHideReviewReasonTrimmedBeforeStoring(t *testing.T) {
-	f := newHideFixture(t)
+	f := newHideFixture(t.Context(), t)
 	if err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "  spam \n"); err != nil {
 		t.Fatal(err)
 	}
@@ -403,12 +403,12 @@ func TestHideReviewReasonValidation(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f := newHideFixture(t)
+			f := newHideFixture(t.Context(), t)
 			err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, c.reason)
 			if !errors.Is(err, c.want) || (c.want == nil && err != nil) {
 				t.Fatalf("want %v, got %v", c.want, err)
 			}
-			if c.want != nil && (len(f.audit.events) != 0 || f.hiddenAt(t) != nil) {
+			if c.want != nil && (len(f.audit.events) != 0 || f.hiddenAt(t.Context(), t) != nil) {
 				t.Fatal("rejected reason must not audit or hide")
 			}
 		})
@@ -416,7 +416,7 @@ func TestHideReviewReasonValidation(t *testing.T) {
 }
 
 func TestHideReviewUnknownAndEmptyID(t *testing.T) {
-	f := newHideFixture(t)
+	f := newHideFixture(t.Context(), t)
 	if err := f.svc.HideReview(context.Background(), "adm-1", "nope", "spam"); !errors.Is(err, store.ErrReviewNotFound) {
 		t.Fatalf("want ErrReviewNotFound, got %v", err)
 	}

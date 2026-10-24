@@ -690,7 +690,8 @@ func TestListDisputesAdminFiltersAndOrders(t *testing.T) {
 		t.Fatalf("disputes = %v", ds)
 	}
 	page, err := f.h.ListDisputes(adminCtx(), &engagementv1.ListDisputesRequest{
-		Status: engagementv1.DisputeStatus_DISPUTE_STATUS_OPEN, Page: &commonv1.PageRequest{PageSize: 2}})
+		Status: engagementv1.DisputeStatus_DISPUTE_STATUS_OPEN, Page: &commonv1.PageRequest{PageSize: 2},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -36,18 +36,18 @@ func uniqueViolation() error {
 	return &pgconn.PgError{Code: "23505", ConstraintName: "favorites_pkey", TableName: "favorites", Message: "duplicate key value violates unique constraint \"favorites_pkey\""}
 }
 
-func addFavoriteWith(t *testing.T, err error) (error, string) {
+func addFavoriteWith(t *testing.T, err error) (string, error) {
 	t.Helper()
 	logs := &bytes.Buffer{}
 	logger := slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	h := newHandler(t, deps{repo: &errRepo{FakeRepository: storetest.NewFakeRepository(), err: err}, logger: logger})
 	_, callErr := h.AddFavorite(userCtx("u-1"), &engagementv1.AddFavoriteRequest{ListingId: "l-1"})
-	return callErr, logs.String()
+	return logs.String(), callErr
 }
 
 // Scenario: Engagement SDK: Unique violation is AlreadyExists
 func TestErrorTableUniqueViolationAlreadyExists(t *testing.T) {
-	err, _ := addFavoriteWith(t, uniqueViolation())
+	_, err := addFavoriteWith(t, uniqueViolation())
 	st := status.Convert(err)
 	if st.Code() != codes.AlreadyExists || st.Message() != "already exists" {
 		t.Fatalf("got %v %q, want AlreadyExists \"already exists\"", st.Code(), st.Message())
@@ -70,7 +70,7 @@ func TestErrorTableContextErrors(t *testing.T) {
 		"wrapped canceled":  {fmt.Errorf("store: %w", context.Canceled), codes.Canceled},
 	} {
 		t.Run(name, func(t *testing.T) {
-			err, _ := addFavoriteWith(t, c.err)
+			_, err := addFavoriteWith(t, c.err)
 			if got := status.Code(err); got != c.want {
 				t.Fatalf("code = %v, want %v (%v)", got, c.want, err)
 			}
@@ -80,7 +80,7 @@ func TestErrorTableContextErrors(t *testing.T) {
 
 // Scenario: Engagement SDK: Unmapped error is a fixed Internal
 func TestErrorTableHidesInternalDetail(t *testing.T) {
-	err, logs := addFavoriteWith(t, errors.New("connection refused to 10.0.0.7:5432"))
+	logs, err := addFavoriteWith(t, errors.New("connection refused to 10.0.0.7:5432"))
 	st := status.Convert(err)
 	if st.Code() != codes.Internal || st.Message() != "internal error" {
 		t.Fatalf("got %v %q, want Internal \"internal error\"", st.Code(), st.Message())
@@ -162,7 +162,7 @@ func TestErrorTableKeepsDomainCodes(t *testing.T) {
 				err = fmt.Errorf("layer-xyz: %w", row.err)
 			}
 			t.Run(name, func(t *testing.T) {
-				got, _ := addFavoriteWith(t, err)
+				_, got := addFavoriteWith(t, err)
 				st := status.Convert(got)
 				if st.Code() != row.code || st.Message() != row.msg {
 					t.Fatalf("got %v %q, want %v %q", st.Code(), st.Message(), row.code, row.msg)
@@ -380,10 +380,10 @@ func TestAnswerQuestionNotFoundKeepsMessage(t *testing.T) {
 
 // Scenario: Engagement SDK: A stranger cannot open or read a dispute
 func TestDisputePartiesOnly(t *testing.T) {
-	f, id := newFixture(t)
+	f, id := newFixture(t.Context(), t)
 	stranger := userCtx("stranger-1")
 
-	_, err := createDispute(f, stranger, "order-1", "seller-1")
+	_, err := createDispute(stranger, f, "order-1", "seller-1")
 	if st := status.Convert(err); st.Code() != codes.NotFound || st.Message() != "order not found" {
 		t.Fatalf("CreateDispute: got %v %q", st.Code(), st.Message())
 	}

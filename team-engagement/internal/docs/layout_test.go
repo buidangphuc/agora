@@ -60,7 +60,7 @@ func scanFallbacks(t *testing.T, root string) []string {
 				}
 			}
 			for _, tok := range strings.FieldsFunc(src, func(r rune) bool {
-				return !(r == '_' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9')
+				return r != '_' && (r < 'A' || r > 'Z') && (r < '0' || r > '9')
 			}) {
 				if strings.HasSuffix(tok, "_ENABLED") && !enableAllowed[tok] && tok != "DATABASE_ENABLED" && tok != "KAFKA_ENABLED" {
 					bad = append(bad, rel+": "+tok)

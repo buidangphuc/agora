@@ -2,7 +2,6 @@ package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"testing"
 
@@ -36,7 +35,7 @@ func (noReturns) GetReturn(context.Context, string) (string, orderv1.ReturnStatu
 
 func permissiveGate() *auditx.Gate { return auditx.NewGate(&auditSpy{}, discardLogger()) }
 
-func discardLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func discardLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func newHandler(t testing.TB, d deps) *rpc.Handler {
 	t.Helper()
@@ -75,5 +74,9 @@ func newHandler(t testing.TB, d deps) *rpc.Handler {
 }
 
 func principalCtx(id string, typ auth.PrincipalType, scopes ...string) context.Context {
-	return auth.WithPrincipal(context.Background(), auth.Principal{ID: id, Type: typ, Scopes: scopes})
+	return principalCtxFrom(context.Background(), id, typ, scopes...)
+}
+
+func principalCtxFrom(parent context.Context, id string, typ auth.PrincipalType, scopes ...string) context.Context {
+	return auth.WithPrincipal(parent, auth.Principal{ID: id, Type: typ, Scopes: scopes})
 }

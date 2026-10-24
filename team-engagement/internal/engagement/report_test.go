@@ -295,8 +295,10 @@ func TestCreateReportAfterCloseCreatesNew(t *testing.T) {
 	e := newRptEnv()
 	ctx := context.Background()
 	old := time.Now().Add(-time.Hour)
-	e.mem.SeedReport(store.Report{ID: "rp-old", TargetID: rptListingA, ReporterID: "u1",
-		Status: store.ReportStatusDismissed, ResolvedAt: &old, ResolvedBy: "adm-1", ResolutionNote: "no"})
+	e.mem.SeedReport(store.Report{
+		ID: "rp-old", TargetID: rptListingA, ReporterID: "u1",
+		Status: store.ReportStatusDismissed, ResolvedAt: &old, ResolvedBy: "adm-1", ResolutionNote: "no",
+	})
 	got, err := e.svc.CreateReport(ctx, "u1", rptListingA, "scam", "")
 	if err != nil {
 		t.Fatal(err)
@@ -314,8 +316,10 @@ func TestCreateReportAfterSweep(t *testing.T) {
 	e := newRptEnv()
 	ctx := context.Background()
 	old := time.Now().Add(-3 * 365 * 24 * time.Hour)
-	e.mem.SeedReport(store.Report{ID: "rp-old", TargetID: rptListingA, ReporterID: "u1", Note: "x",
-		Status: store.ReportStatusActioned, ResolvedAt: &old, ResolvedBy: "adm-1", ResolutionNote: "ok"})
+	e.mem.SeedReport(store.Report{
+		ID: "rp-old", TargetID: rptListingA, ReporterID: "u1", Note: "x",
+		Status: store.ReportStatusActioned, ResolvedAt: &old, ResolvedBy: "adm-1", ResolutionNote: "ok",
+	})
 	if n, err := e.mem.SweepClosedBefore(ctx, time.Now().Add(-2*365*24*time.Hour), 10); err != nil || n != 1 {
 		t.Fatalf("sweep = %d, %v; want 1, nil", n, err)
 	}

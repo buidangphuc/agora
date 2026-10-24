@@ -2,6 +2,7 @@ package engagement_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/buidangphuc/team-engagement/internal/engagement"
@@ -15,17 +16,17 @@ func TestQAService(t *testing.T) {
 
 	t.Run("AskQuestion Validations", func(t *testing.T) {
 		_, err := svc.AskQuestion(ctx, "", "user-1", "Hỏi câu gì đó")
-		if err != engagement.ErrEmptyListing {
+		if !errors.Is(err, engagement.ErrEmptyListing) {
 			t.Fatalf("expected ErrEmptyListing, got %v", err)
 		}
 
 		_, err = svc.AskQuestion(ctx, "listing-1", "", "Hỏi câu gì đó")
-		if err != engagement.ErrEmptyUserID {
+		if !errors.Is(err, engagement.ErrEmptyUserID) {
 			t.Fatalf("expected ErrEmptyUserID, got %v", err)
 		}
 
 		_, err = svc.AskQuestion(ctx, "listing-1", "user-1", "   ")
-		if err != engagement.ErrEmptyQuestionText {
+		if !errors.Is(err, engagement.ErrEmptyQuestionText) {
 			t.Fatalf("expected ErrEmptyQuestionText, got %v", err)
 		}
 	})
@@ -41,17 +42,17 @@ func TestQAService(t *testing.T) {
 
 		// Answer validations
 		_, err = svc.AnswerQuestion(ctx, "", "seller-1", "Bảo hành 1 năm", true)
-		if err != engagement.ErrEmptyQuestionID {
+		if !errors.Is(err, engagement.ErrEmptyQuestionID) {
 			t.Fatalf("expected ErrEmptyQuestionID, got %v", err)
 		}
 
 		_, err = svc.AnswerQuestion(ctx, q.ID, "", "Bảo hành 1 năm", true)
-		if err != engagement.ErrEmptyUserID {
+		if !errors.Is(err, engagement.ErrEmptyUserID) {
 			t.Fatalf("expected ErrEmptyUserID, got %v", err)
 		}
 
 		_, err = svc.AnswerQuestion(ctx, q.ID, "seller-1", "", true)
-		if err != engagement.ErrEmptyAnswerText {
+		if !errors.Is(err, engagement.ErrEmptyAnswerText) {
 			t.Fatalf("expected ErrEmptyAnswerText, got %v", err)
 		}
 
@@ -82,7 +83,7 @@ func TestQAService(t *testing.T) {
 
 	t.Run("ListQuestions Validations", func(t *testing.T) {
 		_, _, err := svc.ListQuestionsByListing(ctx, "", 1, 10)
-		if err != engagement.ErrEmptyListing {
+		if !errors.Is(err, engagement.ErrEmptyListing) {
 			t.Fatalf("expected ErrEmptyListing, got %v", err)
 		}
 	})

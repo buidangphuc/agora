@@ -43,7 +43,7 @@ func TestGateWritesAuditBeforeStateChange(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("hide review", func(t *testing.T) {
-		f := newHideFixture(t)
+		f := newHideFixture(ctx, t)
 		if err := f.svc.HideReview(ctx, "adm-1", f.review.ID, "spam link"); err != nil {
 			t.Fatal(err)
 		}
@@ -61,7 +61,7 @@ func TestGateWritesAuditBeforeStateChange(t *testing.T) {
 
 	t.Run("resolve dispute", func(t *testing.T) {
 		f := newDisputeFixture()
-		id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
+		id := f.seed(ctx, t, store.DisputeStatusInvestigating, "r-1")
 		if _, err := f.svc.ResolveDispute(ctx, "adm-1", id, store.DisputeStatusResolved, buyerFavour, "refund"); err != nil {
 			t.Fatal(err)
 		}
@@ -94,11 +94,11 @@ func TestGateWritesAuditBeforeStateChange(t *testing.T) {
 
 // Scenario: Engagement SDK: Audit failure blocks hiding a review
 func TestHideReviewAuditFailureFailsClosedOnGate(t *testing.T) {
-	f := newHideFixture(t)
+	f := newHideFixture(t.Context(), t)
 	f.audit.err = errors.New("team-audit down")
 	err := f.svc.HideReview(context.Background(), "adm-1", f.review.ID, "spam")
 	requireAuditUnavailable(t, err)
-	if f.hiddenAt(t) != nil {
+	if f.hiddenAt(t.Context(), t) != nil {
 		t.Fatal("hidden_at set although the audit write failed")
 	}
 	for _, c := range f.log.calls {
@@ -111,7 +111,7 @@ func TestHideReviewAuditFailureFailsClosedOnGate(t *testing.T) {
 // Scenario: Engagement SDK: Audit failure blocks resolving a dispute
 func TestResolveDisputeAuditFailureFailsClosedOnGate(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
+	id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "r-1")
 	f.audit.err = errors.New("team-audit down")
 	_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, buyerFavour, "x")
 	requireAuditUnavailable(t, err)
@@ -145,7 +145,7 @@ func TestGateActionErrorIsReturnedAndRetryWritesNewEvent(t *testing.T) {
 	boom := errors.New("db down")
 
 	t.Run("hide review", func(t *testing.T) {
-		f := newHideFixture(t)
+		f := newHideFixture(ctx, t)
 		f.repo.hideErr = boom
 		err := f.svc.HideReview(ctx, "adm-1", f.review.ID, "spam")
 		if !errors.Is(err, boom) || status.Code(err) == codes.Unavailable {
@@ -155,7 +155,7 @@ func TestGateActionErrorIsReturnedAndRetryWritesNewEvent(t *testing.T) {
 		if err := f.svc.HideReview(ctx, "adm-1", f.review.ID, "spam"); err != nil {
 			t.Fatalf("retry: %v", err)
 		}
-		if f.hiddenAt(t) == nil {
+		if f.hiddenAt(ctx, t) == nil {
 			t.Fatal("retry did not hide the review")
 		}
 		if len(f.audit.raw) != 2 {
@@ -165,7 +165,7 @@ func TestGateActionErrorIsReturnedAndRetryWritesNewEvent(t *testing.T) {
 
 	t.Run("resolve dispute", func(t *testing.T) {
 		f := newDisputeFixture()
-		id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
+		id := f.seed(ctx, t, store.DisputeStatusInvestigating, "r-1")
 		f.repo.resolveErr = boom
 		_, err := f.svc.ResolveDispute(ctx, "adm-1", id, store.DisputeStatusResolved, buyerFavour, "x")
 		if !errors.Is(err, boom) || status.Code(err) == codes.Unavailable {
@@ -212,7 +212,7 @@ func TestResolveDisputeAuditTimeoutUnavailable(t *testing.T) {
 	repo := &disputeSpyRepo{FakeDisputeRepository: storetest.NewFakeDisputeRepository(), log: log}
 	w := &blockingWriter{}
 	svc := engagement.NewDisputeService(repo, auditx.NewGate(w, nil), nil)
-	d, err := repo.FakeDisputeRepository.CreateDispute(context.Background(), store.Dispute{
+	d, err := repo.CreateDispute(context.Background(), store.Dispute{
 		OrderID: "o-1", ClaimantID: "buyer-1", DefendantID: "seller-1", Reason: "r",
 		Status: store.DisputeStatusInvestigating, ReturnID: "r-1",
 	})
@@ -228,7 +228,7 @@ func TestResolveDisputeAuditTimeoutUnavailable(t *testing.T) {
 	if w.calls != 1 {
 		t.Fatalf("writer calls = %d, want 1", w.calls)
 	}
-	got, _ := repo.FakeDisputeRepository.GetDispute(context.Background(), d.ID)
+	got, _ := repo.GetDispute(context.Background(), d.ID)
 	if got.Status != store.DisputeStatusInvestigating || len(log.calls) != 0 {
 		t.Fatalf("state changed despite timeout: %+v calls=%v", got, log.calls)
 	}
@@ -237,7 +237,7 @@ func TestResolveDisputeAuditTimeoutUnavailable(t *testing.T) {
 // Scenario: Engagement SDK: Audit failure blocks hiding a review (validation happens before the gate)
 func TestGateNotReachedWhenValidationFails(t *testing.T) {
 	ctx := context.Background()
-	f := newHideFixture(t)
+	f := newHideFixture(ctx, t)
 	if err := f.svc.HideReview(ctx, "adm-1", f.review.ID, "   "); !errors.Is(err, engagement.ErrEmptyReason) {
 		t.Fatalf("hide with blank reason: %v", err)
 	}

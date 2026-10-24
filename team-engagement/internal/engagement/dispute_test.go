@@ -26,31 +26,31 @@ func TestDisputeService(t *testing.T) {
 	t.Run("CreateDispute Validations", func(t *testing.T) {
 		// Empty order ID
 		_, err := svc.CreateDispute(ctx, "", "buyer-1", "seller-1", "", "Hỏng hàng", nil)
-		if err != engagement.ErrEmptyOrderID {
+		if !errors.Is(err, engagement.ErrEmptyOrderID) {
 			t.Fatalf("expected ErrEmptyOrderID, got %v", err)
 		}
 
 		// Empty claimant ID
 		_, err = svc.CreateDispute(ctx, "order-1", "", "seller-1", "", "Hỏng hàng", nil)
-		if err != engagement.ErrEmptyClaimantID {
+		if !errors.Is(err, engagement.ErrEmptyClaimantID) {
 			t.Fatalf("expected ErrEmptyClaimantID, got %v", err)
 		}
 
 		// Empty defendant ID
 		_, err = svc.CreateDispute(ctx, "order-1", "buyer-1", "", "", "Hỏng hàng", nil)
-		if err != engagement.ErrEmptyDefendantID {
+		if !errors.Is(err, engagement.ErrEmptyDefendantID) {
 			t.Fatalf("expected ErrEmptyDefendantID, got %v", err)
 		}
 
 		// Claimant and Defendant same
 		_, err = svc.CreateDispute(ctx, "order-1", "user-1", "user-1", "", "Hỏng hàng", nil)
-		if err != engagement.ErrSameClaimantAndDef {
+		if !errors.Is(err, engagement.ErrSameClaimantAndDef) {
 			t.Fatalf("expected ErrSameClaimantAndDef, got %v", err)
 		}
 
 		// Empty reason
 		_, err = svc.CreateDispute(ctx, "order-1", "buyer-1", "seller-1", "", "   ", nil)
-		if err != engagement.ErrEmptyReason {
+		if !errors.Is(err, engagement.ErrEmptyReason) {
 			t.Fatalf("expected ErrEmptyReason, got %v", err)
 		}
 	})
@@ -69,7 +69,7 @@ func TestDisputeService(t *testing.T) {
 
 		// Get dispute validation
 		_, err = svc.GetDispute(ctx, "")
-		if err != engagement.ErrEmptyDisputeID {
+		if !errors.Is(err, engagement.ErrEmptyDisputeID) {
 			t.Fatalf("expected ErrEmptyDisputeID, got %v", err)
 		}
 
@@ -84,12 +84,12 @@ func TestDisputeService(t *testing.T) {
 
 		// Resolve dispute validation
 		_, err = svc.ResolveDispute(ctx, "adm-1", "", store.DisputeStatusResolved, 0, "Xong")
-		if err != engagement.ErrEmptyDisputeID {
+		if !errors.Is(err, engagement.ErrEmptyDisputeID) {
 			t.Fatalf("expected ErrEmptyDisputeID, got %v", err)
 		}
 
 		_, err = svc.ResolveDispute(ctx, "adm-1", disp.ID, store.DisputeStatus("INVALID_STATUS"), 0, "Xong")
-		if err != engagement.ErrInvalidDisputeStatus {
+		if !errors.Is(err, engagement.ErrInvalidDisputeStatus) {
 			t.Fatalf("expected ErrInvalidDisputeStatus, got %v", err)
 		}
 
@@ -183,9 +183,9 @@ func newDisputeFixture() *disputeFixture {
 	return &disputeFixture{svc: engagement.NewDisputeService(repo, auditx.NewGate(audit, nil), nil), repo: repo, audit: audit, log: log}
 }
 
-func (f *disputeFixture) seed(t *testing.T, status store.DisputeStatus, returnID string) string {
+func (f *disputeFixture) seed(ctx context.Context, t *testing.T, status store.DisputeStatus, returnID string) string {
 	t.Helper()
-	d, err := f.repo.FakeDisputeRepository.CreateDispute(context.Background(), store.Dispute{
+	d, err := f.repo.CreateDispute(ctx, store.Dispute{
 		OrderID: "o-1", ClaimantID: "buyer-1", DefendantID: "seller-1", Reason: "r",
 		Status: status, ReturnID: returnID,
 	})
@@ -195,9 +195,9 @@ func (f *disputeFixture) seed(t *testing.T, status store.DisputeStatus, returnID
 	return d.ID
 }
 
-func (f *disputeFixture) get(t *testing.T, id string) store.Dispute {
+func (f *disputeFixture) get(ctx context.Context, t *testing.T, id string) store.Dispute {
 	t.Helper()
-	d, err := f.repo.FakeDisputeRepository.GetDispute(context.Background(), id)
+	d, err := f.repo.GetDispute(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func (f *disputeFixture) get(t *testing.T, id string) store.Dispute {
 
 func (f *disputeFixture) assertUntouched(t *testing.T, id string, status store.DisputeStatus) {
 	t.Helper()
-	got := f.get(t, id)
+	got := f.get(t.Context(), t, id)
 	if got.Status != status || got.Resolution != "" || got.Ruling != engagementv1.DisputeRuling_DISPUTE_RULING_UNSPECIFIED {
 		t.Fatalf("dispute must be unchanged: %+v", got)
 	}
@@ -223,7 +223,7 @@ const (
 // Scenario: Dispute escalation: Open dispute moves to investigating
 func TestResolveDisputeOpenToInvestigating(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusOpen, "r-1")
+	id := f.seed(t.Context(), t, store.DisputeStatusOpen, "r-1")
 	got, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusInvestigating, 0, "looking into it")
 	if err != nil {
 		t.Fatalf("ResolveDispute: %v", err)
@@ -231,7 +231,7 @@ func TestResolveDisputeOpenToInvestigating(t *testing.T) {
 	if got.Status != store.DisputeStatusInvestigating || got.Resolution != "looking into it" {
 		t.Fatalf("got %+v", got)
 	}
-	if st := f.get(t, id); st.Status != store.DisputeStatusInvestigating || st.Resolution != "looking into it" {
+	if st := f.get(t.Context(), t, id); st.Status != store.DisputeStatusInvestigating || st.Resolution != "looking into it" {
 		t.Fatalf("persisted %+v", st)
 	}
 	if len(f.repo.facts) != 0 {
@@ -242,7 +242,7 @@ func TestResolveDisputeOpenToInvestigating(t *testing.T) {
 // Scenario: Dispute escalation: Investigating note can be updated
 func TestResolveDisputeInvestigatingNoteUpdate(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
+	id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "r-1")
 	got, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusInvestigating, 0, "  new note ")
 	if err != nil {
 		t.Fatalf("ResolveDispute: %v", err)
@@ -250,7 +250,7 @@ func TestResolveDisputeInvestigatingNoteUpdate(t *testing.T) {
 	if got.Status != store.DisputeStatusInvestigating || got.Resolution != "new note" {
 		t.Fatalf("got %+v", got)
 	}
-	if st := f.get(t, id); st.Status != store.DisputeStatusInvestigating || st.Resolution != "new note" {
+	if st := f.get(t.Context(), t, id); st.Status != store.DisputeStatusInvestigating || st.Resolution != "new note" {
 		t.Fatalf("persisted %+v", st)
 	}
 }
@@ -258,7 +258,7 @@ func TestResolveDisputeInvestigatingNoteUpdate(t *testing.T) {
 // Scenario: Dispute escalation: Dispute without a return resolves without a ruling
 func TestResolveDisputeWithoutReturnNoRulingNeeded(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusInvestigating, "")
+	id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "")
 	got, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, 0, "settled")
 	if err != nil {
 		t.Fatalf("ResolveDispute: %v", err)
@@ -274,7 +274,7 @@ func TestResolveDisputeWithoutReturnNoRulingNeeded(t *testing.T) {
 // Scenario: Dispute escalation: Audit is written before the update
 func TestResolveDisputeAuditBeforeUpdateAndEvent(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
+	id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "r-1")
 	if _, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, buyerFavour, " refund buyer "); err != nil {
 		t.Fatalf("ResolveDispute: %v", err)
 	}
@@ -314,7 +314,7 @@ func TestResolveDisputeAuditBeforeUpdateAndEvent(t *testing.T) {
 // Scenario: Dispute escalation: Seller-favour ruling is announced
 func TestResolveDisputeSellerFavourFact(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
+	id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "r-1")
 	got, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, sellerFavour, "no fault")
 	if err != nil || got.Ruling != sellerFavour {
 		t.Fatalf("got %+v, %v", got, err)
@@ -330,7 +330,7 @@ func TestResolveDisputeSellerFavourFact(t *testing.T) {
 // Scenario: Dispute escalation: Rejected dispute carries no ruling
 func TestResolveDisputeRejectedFactNoRuling(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
+	id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "r-1")
 	if _, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusRejected, 0, "no merit"); err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +346,7 @@ func TestResolveDisputeRejectedFactNoRuling(t *testing.T) {
 // Scenario: Dispute escalation: Open dispute can be rejected as spam
 func TestResolveDisputeOpenToRejectedService(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusOpen, "r-1")
+	id := f.seed(t.Context(), t, store.DisputeStatusOpen, "r-1")
 	got, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusRejected, 0, "spam")
 	if err != nil || got.Status != store.DisputeStatusRejected {
 		t.Fatalf("got %+v, %v", got, err)
@@ -370,7 +370,7 @@ func TestResolveDisputeAuditDownNoEvent(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newDisputeFixture()
-			id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
+			id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "r-1")
 			svc := mk(f)
 			_, err := svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, buyerFavour, "x")
 			requireAuditUnavailable(t, err)
@@ -387,13 +387,13 @@ func TestResolveDisputeAuditDownNoEvent(t *testing.T) {
 // Scenario: Dispute escalation: A failed update leaves no event
 func TestResolveDisputeUpdateFailureNoFactThenRetry(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
+	id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "r-1")
 	f.repo.resolveErr = errors.New("db down")
 	_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, buyerFavour, "x")
 	if err == nil || status.Code(err) == codes.Unavailable || errors.Is(err, engagement.ErrInvalidTransition) {
 		t.Fatalf("want a plain internal error, got %v", err)
 	}
-	if len(f.repo.facts) != 0 || f.get(t, id).Status != store.DisputeStatusInvestigating {
+	if len(f.repo.facts) != 0 || f.get(t.Context(), t, id).Status != store.DisputeStatusInvestigating {
 		t.Fatalf("failed update must leave dispute and facts untouched")
 	}
 	f.repo.resolveErr = nil
@@ -410,7 +410,7 @@ func TestResolveDisputeUpdateFailureNoFactThenRetry(t *testing.T) {
 func TestResolveDisputeOpenToResolvedRefusedService(t *testing.T) {
 	for _, ruling := range []engagementv1.DisputeRuling{0, buyerFavour} {
 		f := newDisputeFixture()
-		id := f.seed(t, store.DisputeStatusOpen, "r-1")
+		id := f.seed(t.Context(), t, store.DisputeStatusOpen, "r-1")
 		_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, ruling, "x")
 		if !errors.Is(err, engagement.ErrInvalidTransition) {
 			t.Fatalf("ruling %v: want ErrInvalidTransition, got %v", ruling, err)
@@ -424,7 +424,7 @@ func TestResolveDisputeClosedStaysClosedService(t *testing.T) {
 	for _, closed := range []store.DisputeStatus{store.DisputeStatusResolved, store.DisputeStatusRejected} {
 		for _, to := range []store.DisputeStatus{store.DisputeStatusInvestigating, store.DisputeStatusResolved, store.DisputeStatusRejected} {
 			f := newDisputeFixture()
-			id := f.seed(t, closed, "")
+			id := f.seed(t.Context(), t, closed, "")
 			_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, to, 0, "x")
 			if !errors.Is(err, engagement.ErrInvalidTransition) && !errors.Is(err, engagement.ErrDisputeClosed) {
 				t.Fatalf("%s->%s: want invalid transition, got %v", closed, to, err)
@@ -437,7 +437,7 @@ func TestResolveDisputeClosedStaysClosedService(t *testing.T) {
 // Scenario: Dispute escalation: Return-linked resolution needs a ruling
 func TestResolveReturnLinkedWithoutRulingService(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusInvestigating, "r-1")
+	id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "r-1")
 	_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusResolved, 0, "x")
 	if !errors.Is(err, engagement.ErrRulingRequired) {
 		t.Fatalf("want ErrRulingRequired, got %v", err)
@@ -455,7 +455,7 @@ func TestResolveRulingWithNonResolvedStatusService(t *testing.T) {
 	}
 	for _, c := range cases {
 		f := newDisputeFixture()
-		id := f.seed(t, c.from, "r-1")
+		id := f.seed(t.Context(), t, c.from, "r-1")
 		_, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, c.to, buyerFavour, "x")
 		if !errors.Is(err, engagement.ErrRulingNotAllowed) {
 			t.Fatalf("%s->%s: want ErrRulingNotAllowed, got %v", c.from, c.to, err)
@@ -467,7 +467,7 @@ func TestResolveRulingWithNonResolvedStatusService(t *testing.T) {
 // Scenario: Dispute escalation: Open dispute moves to investigating (unknown id and invalid inputs)
 func TestResolveDisputeInputValidationService(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusInvestigating, "")
+	id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "")
 	if _, err := f.svc.ResolveDispute(context.Background(), "adm-1", "", store.DisputeStatusResolved, 0, "x"); !errors.Is(err, engagement.ErrEmptyDisputeID) {
 		t.Fatalf("empty id: %v", err)
 	}
@@ -483,7 +483,7 @@ func TestResolveDisputeInputValidationService(t *testing.T) {
 // Scenario: Dispute escalation: Resolution note is trimmed and empty note audited as empty
 func TestResolveDisputeNoteTrimmedAndEmptyAuditedService(t *testing.T) {
 	f := newDisputeFixture()
-	id := f.seed(t, store.DisputeStatusInvestigating, "")
+	id := f.seed(t.Context(), t, store.DisputeStatusInvestigating, "")
 	if _, err := f.svc.ResolveDispute(context.Background(), "adm-1", id, store.DisputeStatusInvestigating, 0, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -505,7 +505,7 @@ func TestCreateDisputeCarriesReturnID(t *testing.T) {
 	if d.ReturnID != "r-9" || d.Status != store.DisputeStatusOpen {
 		t.Fatalf("got %+v", d)
 	}
-	if st := f.get(t, d.ID); st.ReturnID != "r-9" {
+	if st := f.get(t.Context(), t, d.ID); st.ReturnID != "r-9" {
 		t.Fatalf("persisted %+v", st)
 	}
 }

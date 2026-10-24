@@ -109,7 +109,7 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 // seed stores a review directly in the repository.
 func (f *reviewFixture) seed(t *testing.T, listing, seller string, rating int32, verified bool) store.Review {
 	t.Helper()
-	rev, err := f.repo.FakeReviewRepository.CreateReview(context.Background(), store.Review{
+	rev, err := f.repo.CreateReview(t.Context(), store.Review{
 		ListingID: listing, SellerID: seller, UserID: "u-seed",
 		OrderID: fmt.Sprintf("o-%s-%d-%v-%d", listing, rating, verified, f.count(listing)), Rating: rating,
 		VerifiedPurchase: verified,
@@ -121,11 +121,11 @@ func (f *reviewFixture) seed(t *testing.T, listing, seller string, rating int32,
 }
 
 func (f *reviewFixture) count(listing string) int64 {
-	_, n, _ := f.repo.FakeReviewRepository.ListReviews(context.Background(), listing, 0, 0, 1000)
+	_, n, _ := f.repo.ListReviews(context.Background(), listing, 0, 0, 1000)
 	return n
 }
 
-func (f *reviewFixture) listIDs(t *testing.T, ctx context.Context, listing string) []string {
+func (f *reviewFixture) listIDs(ctx context.Context, t *testing.T, listing string) []string {
 	t.Helper()
 	res, err := f.h.ListReviews(ctx, &engagementv1.ListReviewsRequest{ListingId: listing, Page: &commonv1.PageRequest{PageSize: 100}})
 	if err != nil {
@@ -142,9 +142,9 @@ func (f *reviewFixture) hide(ctx context.Context, id, reason string) (*engagemen
 	return f.h.HideReview(ctx, &engagementv1.HideReviewRequest{ReviewId: id, Reason: reason})
 }
 
-func (f *reviewFixture) stillVisible(t *testing.T, id string) {
+func (f *reviewFixture) stillVisible(ctx context.Context, t *testing.T, id string) {
 	t.Helper()
-	got, err := f.repo.GetReview(context.Background(), id)
+	got, err := f.repo.GetReview(ctx, id)
 	if err != nil || got.HiddenAt != nil {
 		t.Fatalf("review must stay visible: %+v %v", got, err)
 	}
@@ -165,7 +165,7 @@ func TestHideReviewHidesFromList(t *testing.T) {
 		t.Fatalf("HideReview: %v", err)
 	}
 	for name, ctx := range map[string]context.Context{"anonymous": anonCtx(), "buyer": userCtx("buyer-1"), "no principal": context.Background()} {
-		ids := f.listIDs(t, ctx, "L-1")
+		ids := f.listIDs(ctx, t, "L-1")
 		if len(ids) != 1 || ids[0] != keep.ID {
 			t.Fatalf("%s sees %v, want only %s", name, ids, keep.ID)
 		}
@@ -178,7 +178,7 @@ func TestHideReviewInvisibleToAdminList(t *testing.T) {
 	if _, err := f.hide(adminCtx(), r.ID, "spam"); err != nil {
 		t.Fatal(err)
 	}
-	if ids := f.listIDs(t, adminCtx(), "L-1"); len(ids) != 0 {
+	if ids := f.listIDs(adminCtx(), t, "L-1"); len(ids) != 0 {
 		t.Fatalf("admin still sees hidden review: %v", ids)
 	}
 }
@@ -239,7 +239,7 @@ func TestHideReviewEmptyReasonInvalidArgument(t *testing.T) {
 	if len(f.audit.events) != 0 {
 		t.Fatal("audit event written for invalid reason")
 	}
-	f.stillVisible(t, r.ID)
+	f.stillVisible(t.Context(), t, r.ID)
 }
 
 func TestHideReviewReasonLengthBoundary(t *testing.T) {
@@ -266,8 +266,8 @@ func TestHideReviewReasonLengthBoundary(t *testing.T) {
 			t.Fatalf("case %d: want %v, got %v", i, c.want, err)
 		}
 	}
-	f.stillVisible(t, tooLong.ID)
-	f.stillVisible(t, multiLong.ID)
+	f.stillVisible(t.Context(), t, tooLong.ID)
+	f.stillVisible(t.Context(), t, multiLong.ID)
 }
 
 func TestHideReviewReasonTrimmed(t *testing.T) {
@@ -308,7 +308,7 @@ func TestHideReviewNonAdminPermissionDenied(t *testing.T) {
 			if len(f.audit.events) != 0 {
 				t.Fatal("audit event written for a non-admin")
 			}
-			f.stillVisible(t, r.ID)
+			f.stillVisible(ctx, t, r.ID)
 		})
 	}
 }
@@ -335,7 +335,7 @@ func TestHideReviewAnonymousUnauthenticated(t *testing.T) {
 			if len(f.audit.events) != 0 {
 				t.Fatal("audit event written")
 			}
-			f.stillVisible(t, r.ID)
+			f.stillVisible(ctx, t, r.ID)
 		})
 	}
 }
@@ -362,7 +362,7 @@ func TestHideReviewUpstreamAndStorageErrorCodes(t *testing.T) {
 		if _, err := f.hide(adminCtx(), r.ID, "spam"); status.Code(err) != codes.Unavailable {
 			t.Fatalf("want Unavailable, got %v", err)
 		}
-		f.stillVisible(t, r.ID)
+		f.stillVisible(t.Context(), t, r.ID)
 	})
 	t.Run("hide update failure is Internal then retry succeeds", func(t *testing.T) {
 		f := newReviewFixture(t)

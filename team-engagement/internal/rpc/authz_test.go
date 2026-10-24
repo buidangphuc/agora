@@ -77,7 +77,7 @@ func (f *orderFake) GetOrderParties(ctx context.Context, id string) (string, str
 // newFixture builds a handler over in-memory repos and seeds an OPEN dispute
 // (buyer-1 vs seller-1) directly in the repo, so the read/resolve guards are
 // exercised independently of CreateDispute's order verification.
-func newFixture(t *testing.T) (*fixture, string) {
+func newFixture(ctx context.Context, t *testing.T) (*fixture, string) {
 	t.Helper()
 	disputes := &countingDisputes{FakeDisputeRepository: storetest.NewFakeDisputeRepository()}
 	orders := &orderFake{orders: fakeOrders{"order-1": {buyer: "buyer-1", seller: "seller-1"}}}
@@ -85,7 +85,7 @@ func newFixture(t *testing.T) (*fixture, string) {
 		disputes: engagement.NewDisputeService(disputes, permissiveGate(), nil),
 		orders:   orders,
 	})
-	d, err := disputes.FakeDisputeRepository.CreateDispute(context.Background(), store.Dispute{
+	d, err := disputes.FakeDisputeRepository.CreateDispute(ctx, store.Dispute{
 		OrderID: "order-1", ClaimantID: "buyer-1", DefendantID: "seller-1", Reason: "r", Status: store.DisputeStatusOpen,
 	})
 	if err != nil {
@@ -94,7 +94,7 @@ func newFixture(t *testing.T) (*fixture, string) {
 	return &fixture{h: h, disputes: disputes, orders: orders}, d.ID
 }
 
-func createDispute(f *fixture, ctx context.Context, orderID, defendant string) (*engagementv1.CreateDisputeResponse, error) {
+func createDispute(ctx context.Context, f *fixture, orderID, defendant string) (*engagementv1.CreateDisputeResponse, error) {
 	return f.h.CreateDispute(ctx, &engagementv1.CreateDisputeRequest{OrderId: orderID, DefendantId: defendant, Reason: "broken"})
 }
 
@@ -119,10 +119,10 @@ func TestCreateDisputeVerifiesTheOrder(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f, _ := newFixture(t)
+			f, _ := newFixture(t.Context(), t)
 			f.orders.err = c.orderErr
 			before := f.disputes.creates
-			res, err := createDispute(f, c.ctx, c.orderID, c.defendant)
+			res, err := createDispute(c.ctx, f, c.orderID, c.defendant)
 			if got := status.Code(err); got != c.want {
 				t.Fatalf("want %v, got %v (%v)", c.want, got, err)
 			}
@@ -157,7 +157,7 @@ func TestGetDisputeOnlyForPartiesAndAdmin(t *testing.T) {
 		{"no principal", context.Background(), codes.Unauthenticated},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			f, id := newFixture(t)
+			f, id := newFixture(t.Context(), t)
 			res, err := f.h.GetDispute(c.ctx, &engagementv1.GetDisputeRequest{DisputeId: id})
 			if got := status.Code(err); got != c.want {
 				t.Fatalf("want %v, got %v (%v)", c.want, got, err)
@@ -174,7 +174,7 @@ func TestGetDisputeOnlyForPartiesAndAdmin(t *testing.T) {
 
 // A stranger cannot tell a real dispute id from a missing one.
 func TestGetDisputeStrangerIndistinguishableFromMissing(t *testing.T) {
-	f, id := newFixture(t)
+	f, id := newFixture(t.Context(), t)
 	_, errReal := f.h.GetDispute(userCtx("buyer-2"), &engagementv1.GetDisputeRequest{DisputeId: id})
 	_, errMissing := f.h.GetDispute(userCtx("buyer-2"), &engagementv1.GetDisputeRequest{DisputeId: "nope"})
 	if status.Code(errReal) != codes.NotFound || errReal.Error() != errMissing.Error() {
@@ -254,7 +254,7 @@ func TestIsShopReplyFailsClosedForUnknownListing(t *testing.T) {
 	}
 }
 
-func resolve(f *fixture, ctx context.Context, id string) error {
+func resolve(ctx context.Context, f *fixture, id string) error {
 	_, err := f.h.ResolveDispute(ctx, &engagementv1.ResolveDisputeRequest{
 		DisputeId: id, Status: engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED, Resolution: "refund",
 	})
@@ -275,8 +275,8 @@ func TestResolveDisputeIsAdminOnly(t *testing.T) {
 		{"anonymous holding admin scope", principalCtx("anonymous", auth.TypeAnonymous, "admin"), codes.Unauthenticated},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			f, id := newFixture(t)
-			if got := status.Code(resolve(f, c.ctx, id)); got != c.want {
+			f, id := newFixture(t.Context(), t)
+			if got := status.Code(resolve(c.ctx, f, id)); got != c.want {
 				t.Fatalf("want %v, got %v", c.want, got)
 			}
 			d, err := f.disputes.GetDispute(context.Background(), id)
@@ -288,16 +288,16 @@ func TestResolveDisputeIsAdminOnly(t *testing.T) {
 }
 
 func TestAdminResolvesOnceThenFailedPrecondition(t *testing.T) {
-	f, id := newFixture(t)
+	f, id := newFixture(t.Context(), t)
 	if _, err := f.h.ResolveDispute(adminCtx(), &engagementv1.ResolveDisputeRequest{
 		DisputeId: id, Status: engagementv1.DisputeStatus_DISPUTE_STATUS_INVESTIGATING,
 	}); err != nil {
 		t.Fatalf("admin investigate: %v", err)
 	}
-	if err := resolve(f, adminCtx(), id); err != nil {
+	if err := resolve(adminCtx(), f, id); err != nil {
 		t.Fatalf("admin resolve: %v", err)
 	}
-	if got := status.Code(resolve(f, adminCtx(), id)); got != codes.FailedPrecondition {
+	if got := status.Code(resolve(adminCtx(), f, id)); got != codes.FailedPrecondition {
 		t.Fatalf("second resolve: want FAILED_PRECONDITION, got %v", got)
 	}
 }
@@ -312,6 +312,7 @@ var errLeaky = errors.New(`pq: password authentication failed for user "engageme
 func (brokenDisputes) CreateDispute(context.Context, store.Dispute) (store.Dispute, error) {
 	return store.Dispute{}, errLeaky
 }
+
 func (brokenDisputes) GetDispute(context.Context, string) (store.Dispute, error) {
 	return store.Dispute{}, errLeaky
 }
@@ -342,7 +343,7 @@ func TestInternalErrorsAreGeneric(t *testing.T) {
 			return err
 		},
 		"CreateDispute": func() error {
-			_, err := createDispute(&fixture{h: h}, userCtx("buyer-1"), "order-1", "seller-1")
+			_, err := createDispute(userCtx("buyer-1"), &fixture{h: h}, "order-1", "seller-1")
 			return err
 		},
 		"GetDispute": func() error {
@@ -351,7 +352,8 @@ func TestInternalErrorsAreGeneric(t *testing.T) {
 		},
 		"ResolveDispute": func() error {
 			_, err := h.ResolveDispute(adminCtx(), &engagementv1.ResolveDisputeRequest{
-				DisputeId: "d", Status: engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED})
+				DisputeId: "d", Status: engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED,
+			})
 			return err
 		},
 	}
@@ -376,7 +378,7 @@ func TestResolveDisputeWithRulingIsAdminOnly(t *testing.T) {
 		"anonymous":        anonCtx(),
 	} {
 		t.Run(name, func(t *testing.T) {
-			f, id := newFixture(t)
+			f, id := newFixture(ctx, t)
 			_, err := f.h.ResolveDispute(ctx, &engagementv1.ResolveDisputeRequest{
 				DisputeId: id, Status: engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED,
 				Ruling: engagementv1.DisputeRuling_DISPUTE_RULING_BUYER_FAVOUR,
@@ -388,7 +390,7 @@ func TestResolveDisputeWithRulingIsAdminOnly(t *testing.T) {
 			if got := status.Code(err); got != want {
 				t.Fatalf("want %v, got %v", want, err)
 			}
-			d, gerr := f.disputes.GetDispute(context.Background(), id)
+			d, gerr := f.disputes.GetDispute(ctx, id)
 			if gerr != nil || d.Status != store.DisputeStatusOpen || d.Ruling != engagementv1.DisputeRuling_DISPUTE_RULING_UNSPECIFIED {
 				t.Fatalf("dispute must be unchanged: %+v %v", d, gerr)
 			}

@@ -25,11 +25,15 @@ func (verifyOrders) GetOrder(_ context.Context, r *orderv1.GetOrderRequest) (*or
 	item := []*orderv1.OrderItem{{ListingId: "listing-1"}}
 	switch r.GetId() {
 	case "order-done":
-		return &orderv1.GetOrderResponse{Order: &orderv1.Order{Id: "order-done", BuyerId: "buyer-1", SellerId: "seller-1",
-			Status: orderv1.OrderStatus_ORDER_STATUS_COMPLETED, Items: item}}, nil
+		return &orderv1.GetOrderResponse{Order: &orderv1.Order{
+			Id: "order-done", BuyerId: "buyer-1", SellerId: "seller-1",
+			Status: orderv1.OrderStatus_ORDER_STATUS_COMPLETED, Items: item,
+		}}, nil
 	case "order-pending":
-		return &orderv1.GetOrderResponse{Order: &orderv1.Order{Id: "order-pending", BuyerId: "buyer-1", SellerId: "seller-1",
-			Status: orderv1.OrderStatus_ORDER_STATUS_PENDING, Items: item}}, nil
+		return &orderv1.GetOrderResponse{Order: &orderv1.Order{
+			Id: "order-pending", BuyerId: "buyer-1", SellerId: "seller-1",
+			Status: orderv1.OrderStatus_ORDER_STATUS_PENDING, Items: item,
+		}}, nil
 	case "order-boom":
 		return nil, status.Error(codes.Internal, "boom")
 	case "order-down":
@@ -121,11 +125,15 @@ func (r *returnOrders) GetReturnRequest(ctx context.Context, req *orderv1.GetRet
 	r.mu.Unlock()
 	switch req.GetId() {
 	case "ret-rejected":
-		return &orderv1.GetReturnRequestResponse{ReturnRequest: &orderv1.OrderReturn{Id: "ret-rejected", OrderId: "order-1",
-			Status: orderv1.ReturnStatus_RETURN_STATUS_REJECTED, CanEscalate: true}}, nil
+		return &orderv1.GetReturnRequestResponse{ReturnRequest: &orderv1.OrderReturn{
+			Id: "ret-rejected", OrderId: "order-1",
+			Status: orderv1.ReturnStatus_RETURN_STATUS_REJECTED, CanEscalate: true,
+		}}, nil
 	case "ret-open":
-		return &orderv1.GetReturnRequestResponse{ReturnRequest: &orderv1.OrderReturn{Id: "ret-open", OrderId: "order-2",
-			Status: orderv1.ReturnStatus_RETURN_STATUS_PENDING, CanEscalate: false}}, nil
+		return &orderv1.GetReturnRequestResponse{ReturnRequest: &orderv1.OrderReturn{
+			Id: "ret-open", OrderId: "order-2",
+			Status: orderv1.ReturnStatus_RETURN_STATUS_PENDING, CanEscalate: false,
+		}}, nil
 	case "ret-boom":
 		return nil, status.Error(codes.Internal, "db password leaked")
 	case "ret-down":

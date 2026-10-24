@@ -236,8 +236,10 @@ func TestListReportsOldestFirstStatusAndPaging(t *testing.T) {
 		f.seed(t, store.Report{ID: "r-2a", TargetID: "A", ReporterID: "u2a", CreatedAt: base.Add(time.Minute)})
 		f.seed(t, store.Report{ID: "r-1", TargetID: "A", ReporterID: "u1", CreatedAt: base})
 		closedAt := base.Add(time.Hour)
-		f.seed(t, store.Report{ID: "r-c", TargetID: "A", ReporterID: "u9", Status: store.ReportStatusDismissed,
-			CreatedAt: base.Add(-time.Minute), ResolvedAt: &closedAt, ResolvedBy: "adm", ResolutionNote: "x"})
+		f.seed(t, store.Report{
+			ID: "r-c", TargetID: "A", ReporterID: "u9", Status: store.ReportStatusDismissed,
+			CreatedAt: base.Add(-time.Minute), ResolvedAt: &closedAt, ResolvedBy: "adm", ResolutionNote: "x",
+		})
 
 		got, total, err := f.repo.ListReports(ctx, store.ReportStatusOpen, "", 0, 50)
 		if err != nil || total != 4 {
@@ -385,9 +387,11 @@ func sweepClock() (now, cutoff time.Time) {
 }
 
 func closedReport(id string, resolvedAt time.Time) store.Report {
-	return store.Report{ID: id, TargetID: "L1", ReasonCode: "SPAM", Note: "my phone 0900", ReporterID: "u-" + id,
+	return store.Report{
+		ID: id, TargetID: "L1", ReasonCode: "SPAM", Note: "my phone 0900", ReporterID: "u-" + id,
 		Status: store.ReportStatusActioned, CreatedAt: resolvedAt.Add(-time.Hour), ResolvedAt: &resolvedAt,
-		ResolvedBy: "adm-1", ResolutionNote: "removed"}
+		ResolvedBy: "adm-1", ResolutionNote: "removed",
+	}
 }
 
 // Scenario: Listing reports: Old closed report is pseudonymised
@@ -444,8 +448,10 @@ func TestSweepSkipsOpenReports(t *testing.T) {
 	forEachReportRepo(t, func(t *testing.T, f reportFixture) {
 		ctx := context.Background()
 		now, cutoff := sweepClock()
-		f.seed(t, store.Report{ID: "open-old", TargetID: "L1", ReporterID: "u-open", Note: "keep me",
-			Status: store.ReportStatusOpen, CreatedAt: now.Add(-800 * 24 * time.Hour)})
+		f.seed(t, store.Report{
+			ID: "open-old", TargetID: "L1", ReporterID: "u-open", Note: "keep me",
+			Status: store.ReportStatusOpen, CreatedAt: now.Add(-800 * 24 * time.Hour),
+		})
 		n, err := f.repo.SweepClosedBefore(ctx, cutoff, 500)
 		if err != nil || n != 0 {
 			t.Fatalf("sweep n=%d err=%v, want 0", n, err)

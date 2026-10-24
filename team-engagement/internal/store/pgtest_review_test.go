@@ -312,9 +312,8 @@ type fixtureReview struct {
 
 // seedMixed loads verified, unverified and hidden reviews across two listings
 // of seller S1, plus one review of another seller.
-func seedMixed(t *testing.T, repo reviewRepo) {
+func seedMixed(ctx context.Context, t *testing.T, repo reviewRepo) {
 	t.Helper()
-	ctx := callerCtx()
 	for _, f := range []fixtureReview{
 		{"v5", "L1", "O1", 5, true, false},
 		{"v3", "L1", "O2", 3, true, false},
@@ -324,8 +323,10 @@ func seedMixed(t *testing.T, repo reviewRepo) {
 		{"h1", "L2", "O5", 1, true, true},
 		{"u2", "L2", "", 2, false, false},
 	} {
-		if _, err := repo.CreateReview(ctx, store.Review{ID: f.id, ListingID: f.listing, UserID: "b-" + f.id, OrderID: f.order,
-			Rating: f.rating, VerifiedPurchase: f.verified, SellerID: "S1"}); err != nil {
+		if _, err := repo.CreateReview(ctx, store.Review{
+			ID: f.id, ListingID: f.listing, UserID: "b-" + f.id, OrderID: f.order,
+			Rating: f.rating, VerifiedPurchase: f.verified, SellerID: "S1",
+		}); err != nil {
 			t.Fatalf("create %s: %v", f.id, err)
 		}
 		if f.hidden {
@@ -391,7 +392,7 @@ func TestPGShopSummaryVerifiedNonHidden(t *testing.T) {
 	ctx := callerCtx()
 	for name, repo := range newReviewRepos(t) {
 		t.Run(name, func(t *testing.T) {
-			seedMixed(t, repo)
+			seedMixed(ctx, t, repo)
 			// S1: verified non-hidden are v5, v3, v4 -> 3 reviews, avg 4.0.
 			s, err := repo.GetShopRatingSummary(ctx, "S1")
 			if err != nil {
@@ -461,7 +462,7 @@ func TestReviewRepoParity(t *testing.T) {
 	ctx := callerCtx()
 	repos := newReviewRepos(t)
 	for _, repo := range repos {
-		seedMixed(t, repo)
+		seedMixed(ctx, t, repo)
 	}
 	pg, mem := repos["postgres"], repos["memory"]
 	for _, listing := range []string{"L1", "L2", "L9"} {

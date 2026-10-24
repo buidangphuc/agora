@@ -57,8 +57,10 @@ func TestMigrationReportsUp(t *testing.T) {
 	pool := testPool(t)
 	ctx := context.Background()
 
-	for _, col := range []string{"id", "target_type", "target_id", "reason_code", "note", "reporter_id",
-		"status", "created_at", "resolved_at", "resolved_by", "resolution_note"} {
+	for _, col := range []string{
+		"id", "target_type", "target_id", "reason_code", "note", "reporter_id",
+		"status", "created_at", "resolved_at", "resolved_by", "resolution_note",
+	} {
 		var n int
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.columns
 			WHERE table_name='reports' AND column_name=$1`, col).Scan(&n); err != nil || n != 1 {

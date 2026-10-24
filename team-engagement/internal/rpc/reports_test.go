@@ -54,14 +54,17 @@ func (r *reportRepoSpy) CreateReport(ctx context.Context, in store.Report) (stor
 	}
 	return r.FakeReportRepository.CreateReport(ctx, in)
 }
+
 func (r *reportRepoSpy) GetReport(ctx context.Context, id string) (store.Report, error) {
 	r.ops++
 	return r.FakeReportRepository.GetReport(ctx, id)
 }
+
 func (r *reportRepoSpy) ListReports(ctx context.Context, s store.ReportStatus, t string, o, l int) ([]store.Report, int64, error) {
 	r.ops++
 	return r.FakeReportRepository.ListReports(ctx, s, t, o, l)
 }
+
 func (r *reportRepoSpy) CloseReport(ctx context.Context, id, adm string, s store.ReportStatus, n string) (bool, error) {
 	r.ops++
 	if r.closeErr != nil {

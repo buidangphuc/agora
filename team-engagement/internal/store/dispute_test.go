@@ -46,7 +46,7 @@ func TestInMemoryDisputeRepository(t *testing.T) {
 
 	// Get nonexistent dispute
 	_, err = repo.GetDispute(ctx, "nonexistent-id")
-	if err != store.ErrDisputeNotFound {
+	if !errors.Is(err, store.ErrDisputeNotFound) {
 		t.Fatalf("expected ErrDisputeNotFound, got %v", err)
 	}
 
@@ -66,7 +66,7 @@ func TestInMemoryDisputeRepository(t *testing.T) {
 
 	// Update nonexistent dispute
 	_, err = repo.UpdateDispute(ctx, store.Dispute{ID: "nonexistent-id"})
-	if err != store.ErrDisputeNotFound {
+	if !errors.Is(err, store.ErrDisputeNotFound) {
 		t.Fatalf("expected ErrDisputeNotFound, got %v", err)
 	}
 }

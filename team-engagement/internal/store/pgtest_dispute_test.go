@@ -21,8 +21,10 @@ import (
 const disputeResolvedType = "platform.engagement.v1.DisputeResolved"
 
 func disputeRow(id, order, returnID string, st store.DisputeStatus, at time.Time) store.Dispute {
-	return store.Dispute{ID: id, OrderID: order, ClaimantID: "buyer-1", DefendantID: "seller-1",
-		Reason: "not as described", ReturnID: returnID, Status: st, CreatedAt: at, UpdatedAt: at}
+	return store.Dispute{
+		ID: id, OrderID: order, ClaimantID: "buyer-1", DefendantID: "seller-1",
+		Reason: "not as described", ReturnID: returnID, Status: st, CreatedAt: at, UpdatedAt: at,
+	}
 }
 
 func resolvedFact(d store.Dispute) *engagementv1.DisputeResolved {
@@ -417,8 +419,11 @@ func TestListDisputesByStatusOldestFirst(t *testing.T) {
 		st store.DisputeStatus
 		at int
 	}{
-		{"d-c", store.DisputeStatusOpen, 30}, {"d-x", store.DisputeStatusResolved, 10}, {"d-a", store.DisputeStatusOpen, 10},
-		{"d-y", store.DisputeStatusResolved, 20}, {"d-b", store.DisputeStatusOpen, 20},
+		{"d-c", store.DisputeStatusOpen, 30},
+		{"d-x", store.DisputeStatusResolved, 10},
+		{"d-a", store.DisputeStatusOpen, 10},
+		{"d-y", store.DisputeStatusResolved, 20},
+		{"d-b", store.DisputeStatusOpen, 20},
 	}
 	for _, r := range rows {
 		if _, err := repo.CreateDispute(ctx, disputeRow(r.id, "o-"+r.id, "", r.st, listBase.Add(time.Duration(r.at)*time.Minute))); err != nil {

@@ -110,7 +110,7 @@ func TestEngagementHandler(t *testing.T) {
 		}
 
 		// Anonymous callers are denied (auth-scoped write).
-		anonCtx := context.Background()
+		anonCtx := principalCtxFrom(ctx, "anonymous", auth.TypeAnonymous)
 		_, err = h.FollowSeller(anonCtx, &engagementv1.FollowSellerRequest{SellerId: "shop_9"})
 		if status.Code(err) != codes.Unauthenticated {
 			t.Fatalf("expected Unauthenticated for anonymous follow, got %v", err)
@@ -212,7 +212,7 @@ func TestEngagementHandler(t *testing.T) {
 			t.Fatalf("index seller listing: %v", err)
 		}
 		// Answer question
-		sellerCtx := principalCtx("seller_1", auth.TypeUser, "engagement:write", "listing.write")
+		sellerCtx := principalCtxFrom(ctx, "seller_1", auth.TypeUser, "engagement:write", "listing.write")
 		ansRes, err := h.AnswerQuestion(sellerCtx, &engagementv1.AnswerQuestionRequest{
 			QuestionId:  qID,
 			AnswerText:  "Bảo hành chính hãng 12 tháng bạn nhé.",
@@ -252,7 +252,7 @@ func TestEngagementHandler(t *testing.T) {
 		}
 
 		// Anonymous cannot answer
-		if _, err = h.AnswerQuestion(context.Background(), &engagementv1.AnswerQuestionRequest{
+		if _, err = h.AnswerQuestion(principalCtxFrom(ctx, "anonymous", auth.TypeAnonymous), &engagementv1.AnswerQuestionRequest{
 			QuestionId: qID,
 			AnswerText: "x",
 		}); status.Code(err) != codes.Unauthenticated {
@@ -269,7 +269,7 @@ func TestEngagementHandler(t *testing.T) {
 		}
 
 		// List questions
-		listRes, err := h.ListQuestionsByListing(context.Background(), &engagementv1.ListQuestionsByListingRequest{
+		listRes, err := h.ListQuestionsByListing(principalCtxFrom(ctx, "anonymous", auth.TypeAnonymous, "listing.read"), &engagementv1.ListQuestionsByListingRequest{
 			ListingId: "listing-qa-1",
 		})
 		if err != nil {
@@ -329,7 +329,7 @@ func TestEngagementHandler(t *testing.T) {
 		}
 
 		// Resolve dispute
-		adminCtx := principalCtx("admin_1", auth.TypeUser, "engagement:write", "admin")
+		adminCtx := principalCtxFrom(ctx, "admin_1", auth.TypeUser, "engagement:write", "admin")
 
 		// Non-admin (buyer with engagement:write only) and anonymous cannot resolve
 		if _, err = h.ResolveDispute(ctx, &engagementv1.ResolveDisputeRequest{
@@ -338,7 +338,7 @@ func TestEngagementHandler(t *testing.T) {
 		}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("expected PermissionDenied for non-admin, got %v", err)
 		}
-		if _, err = h.ResolveDispute(context.Background(), &engagementv1.ResolveDisputeRequest{
+		if _, err = h.ResolveDispute(principalCtxFrom(ctx, "anonymous", auth.TypeAnonymous), &engagementv1.ResolveDisputeRequest{
 			DisputeId: dispID,
 			Status:    engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED,
 		}); status.Code(err) != codes.Unauthenticated {
@@ -393,7 +393,7 @@ func TestCreateReviewVerifiedStored(t *testing.T) {
 	if !res.GetReview().GetVerifiedPurchase() || res.GetReview().GetOrderId() != "order-1" {
 		t.Fatalf("unexpected review %v", res.GetReview())
 	}
-	if ids := f.listIDs(t, context.Background(), "L-1"); len(ids) != 1 {
+	if ids := f.listIDs(context.Background(), t, "L-1"); len(ids) != 1 {
 		t.Fatalf("review not listed: %v", ids)
 	}
 }

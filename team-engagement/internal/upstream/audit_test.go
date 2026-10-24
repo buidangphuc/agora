@@ -68,18 +68,24 @@ func dialWriter(t *testing.T, addr string) auditx.Writer {
 }
 
 func hideEvent() auditx.Event {
-	return auditx.Event{ActorID: "adm-1", Action: "review.hide", TargetType: "review", TargetID: "r-1",
-		Metadata: map[string]string{"reason": "spam link", "listing_id": "L-1"}}
+	return auditx.Event{
+		ActorID: "adm-1", Action: "review.hide", TargetType: "review", TargetID: "r-1",
+		Metadata: map[string]string{"reason": "spam link", "listing_id": "L-1"},
+	}
 }
 
 func disputeEvent() auditx.Event {
-	return auditx.Event{ActorID: "adm-1", Action: "dispute.resolve", TargetType: "dispute", TargetID: "d-1",
-		Metadata: map[string]string{"resolution": "refund buyer", "order_id": "o-1", "status": "resolved"}}
+	return auditx.Event{
+		ActorID: "adm-1", Action: "dispute.resolve", TargetType: "dispute", TargetID: "d-1",
+		Metadata: map[string]string{"resolution": "refund buyer", "order_id": "o-1", "status": "resolved"},
+	}
 }
 
 func reportEvent() auditx.Event {
-	return auditx.Event{ActorID: "adm-1", Action: "report.resolve", TargetType: "report", TargetID: "rp-1",
-		Metadata: map[string]string{"status": "ACTIONED", "listing_id": "L-1", "resolution_note": "đã gỡ tin"}}
+	return auditx.Event{
+		ActorID: "adm-1", Action: "report.resolve", TargetType: "report", TargetID: "rp-1",
+		Metadata: map[string]string{"status": "ACTIONED", "listing_id": "L-1", "resolution_note": "đã gỡ tin"},
+	}
 }
 
 func adminCtx() context.Context {

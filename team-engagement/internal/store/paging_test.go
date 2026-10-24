@@ -181,8 +181,10 @@ func TestDisputeCursorFormatUnchanged(t *testing.T) {
 	for name, repo := range repos {
 		t.Run(name, func(t *testing.T) {
 			for _, r := range rows {
-				d := store.Dispute{ID: r.id, OrderID: "o-" + r.id, ClaimantID: "buyer-1", DefendantID: "seller-1",
-					Reason: "x", Status: store.DisputeStatusOpen, CreatedAt: r.at, UpdatedAt: r.at}
+				d := store.Dispute{
+					ID: r.id, OrderID: "o-" + r.id, ClaimantID: "buyer-1", DefendantID: "seller-1",
+					Reason: "x", Status: store.DisputeStatusOpen, CreatedAt: r.at, UpdatedAt: r.at,
+				}
 				if _, err := repo.CreateDispute(context.Background(), d); err != nil {
 					t.Fatal(err)
 				}
