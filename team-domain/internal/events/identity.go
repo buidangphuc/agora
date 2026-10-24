@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
 	identityv1 "github.com/buidangphuc/team-domain/generated/platform/identity/v1"
@@ -40,25 +42,26 @@ func NewIdentityConsumer(store SellerStore, logger *slog.Logger) *IdentityConsum
 	return &IdentityConsumer{store: store, logger: logger}
 }
 
-// Handle is a Handler. Malformed events return an error wrapping
-// ErrPermanent; store failures are returned as-is so they are retried.
-func (c *IdentityConsumer) Handle(ctx context.Context, _, value []byte) error {
+// Handle is a consume.Handler. Malformed events return an error wrapped by
+// consume.Permanent; store failures are returned as-is so they are retried.
+func (c *IdentityConsumer) Handle(ctx context.Context, rec consume.Record) error {
+	value := rec.Value
 	var env eventsv1.EventEnvelope
 	if err := proto.Unmarshal(value, &env); err != nil {
-		return fmt.Errorf("%w: unmarshal envelope: %v", ErrPermanent, err)
+		return consume.Permanent(fmt.Errorf("unmarshal envelope: %v", err))
 	}
 	if env.GetType() != userStatusChangedType {
 		return nil
 	}
 	var ev identityv1.UserStatusChanged
 	if err := proto.Unmarshal(env.GetPayload(), &ev); err != nil {
-		return fmt.Errorf("%w: unmarshal UserStatusChanged: %v", ErrPermanent, err)
+		return consume.Permanent(fmt.Errorf("unmarshal UserStatusChanged: %v", err))
 	}
 	if ev.GetUserId() == "" {
-		return fmt.Errorf("%w: empty user_id", ErrPermanent)
+		return consume.Permanent(errors.New("empty user_id"))
 	}
 	if ev.GetChangedAt() == nil {
-		return fmt.Errorf("%w: missing changed_at", ErrPermanent)
+		return consume.Permanent(errors.New("missing changed_at"))
 	}
 	changedAt := ev.GetChangedAt().AsTime()
 	enqueue := enqueueChanged()
@@ -71,7 +74,7 @@ func (c *IdentityConsumer) Handle(ctx context.Context, _, value []byte) error {
 		_, err := c.store.RestoreSellerListings(ctx, ev.GetUserId(), env.GetEventId(), changedAt, enqueue)
 		return err
 	default:
-		return fmt.Errorf("%w: unsupported status %d", ErrPermanent, ev.GetStatus())
+		return consume.Permanent(fmt.Errorf("unsupported status %d", ev.GetStatus()))
 	}
 }
 
