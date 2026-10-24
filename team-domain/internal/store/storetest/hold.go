@@ -18,6 +18,7 @@ func (w *InMemoryTxWriter) HoldSellerListings(ctx context.Context, userID, _ str
 		return l, true
 	})
 }
+
 func (w *InMemoryTxWriter) RestoreSellerListings(ctx context.Context, userID, _ string, _ time.Time, enqueue store.EnqueueFn) (int, error) {
 	return w.moveSeller(ctx, userID, enqueue, func(l store.Listing) (store.Listing, bool) {
 		prior, ok := w.heldPrior[l.ID]

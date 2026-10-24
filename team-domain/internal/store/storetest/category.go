@@ -2,9 +2,10 @@ package storetest
 
 import (
 	"context"
-	"github.com/buidangphuc/team-domain/internal/store"
 	"sort"
 	"sync"
+
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 type InMemoryCategoryRepository struct {

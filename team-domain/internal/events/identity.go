@@ -48,14 +48,14 @@ func (c *IdentityConsumer) Handle(ctx context.Context, rec consume.Record) error
 	value := rec.Value
 	var env eventsv1.EventEnvelope
 	if err := proto.Unmarshal(value, &env); err != nil {
-		return consume.Permanent(fmt.Errorf("unmarshal envelope: %v", err))
+		return consume.Permanent(fmt.Errorf("unmarshal envelope: %w", err))
 	}
 	if env.GetType() != userStatusChangedType {
 		return nil
 	}
 	var ev identityv1.UserStatusChanged
 	if err := proto.Unmarshal(env.GetPayload(), &ev); err != nil {
-		return consume.Permanent(fmt.Errorf("unmarshal UserStatusChanged: %v", err))
+		return consume.Permanent(fmt.Errorf("unmarshal UserStatusChanged: %w", err))
 	}
 	if ev.GetUserId() == "" {
 		return consume.Permanent(errors.New("empty user_id"))

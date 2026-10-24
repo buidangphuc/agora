@@ -238,7 +238,7 @@ func (h *ListingHandler) DeleteListing(
 }
 
 // GetImageUploadUrl returns a presigned S3 PUT URL for uploading a product image.
-func (h *ListingHandler) GetImageUploadUrl(
+func (h *ListingHandler) GetImageUploadUrl( //nolint:revive
 	ctx context.Context,
 	req *listingv1.GetImageUploadUrlRequest,
 ) (*listingv1.GetImageUploadUrlResponse, error) {

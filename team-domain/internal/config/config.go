@@ -93,11 +93,11 @@ func (s Settings) ResolveFor(sdkconfig.Runtime) error { return s.Postgres.Valida
 
 func (s Settings) Validate() error {
 	var errs []error
-	if s.GRPC.ShutdownGrace < 0 {
-		errs = append(errs, fmt.Errorf("SHUTDOWN_GRACE must be >= 0: %v", s.GRPC.ShutdownGrace))
+	if s.ShutdownGrace < 0 {
+		errs = append(errs, fmt.Errorf("SHUTDOWN_GRACE must be >= 0: %v", s.ShutdownGrace))
 	}
-	if s.GRPC.DrainDelay < 0 {
-		errs = append(errs, fmt.Errorf("SHUTDOWN_DRAIN_DELAY must be >= 0: %v", s.GRPC.DrainDelay))
+	if s.DrainDelay < 0 {
+		errs = append(errs, fmt.Errorf("SHUTDOWN_DRAIN_DELAY must be >= 0: %v", s.DrainDelay))
 	}
 	if f := strings.TrimSpace(s.Screen.TermsFile); f != "" {
 		if _, err := os.Stat(f); err != nil {
@@ -124,6 +124,6 @@ func positiveDuration(logger *slog.Logger, key, raw string, def time.Duration) t
 		logger = slog.Default()
 	}
 	logger.Warn("invalid "+key+"; using the default",
-		slog.String("key", key), slog.String("value", raw), slog.String("default", def.String()))
+		"key", key, "value", raw, "default", def.String())
 	return def
 }

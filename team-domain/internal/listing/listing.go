@@ -265,9 +265,9 @@ func (s *ListingService) ReleaseStock(ctx context.Context, reservationID string)
 	}
 	switch outcome {
 	case store.ReleaseUnknown:
-		slog.WarnContext(ctx, "release of unknown reservation_id treated as no-op", slog.String("reservation_id", reservationID))
+		slog.WarnContext(ctx, "release of unknown reservation_id treated as no-op", "reservation_id", reservationID)
 	case store.ReleaseNoOp:
-		slog.WarnContext(ctx, "release of already released reservation treated as no-op", slog.String("reservation_id", reservationID))
+		slog.WarnContext(ctx, "release of already released reservation treated as no-op", "reservation_id", reservationID)
 	}
 	return nil
 }
