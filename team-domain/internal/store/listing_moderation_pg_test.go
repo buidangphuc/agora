@@ -1,7 +1,6 @@
-package repository_test
+package store_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -13,16 +12,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
-func modWriter(pool *pgxpool.Pool) *repository.PgTxWriter {
-	return repository.NewPgTxWriter(pool, repository.NewOutboxStore(pool))
+func modWriter(t *testing.T, pool *pgxpool.Pool) *store.PgTxWriter {
+	t.Helper()
+	return store.NewPgTxWriter(pool, newOutboxStore(t, pool))
 }
 
-func modEv(id string) repository.EnqueueFn {
-	return func(l repository.Listing) (repository.OutboxRow, error) {
-		return repository.OutboxRow{
+func modEv(id string) store.EnqueueFn {
+	return func(l store.Listing) (store.OutboxRow, error) {
+		return store.OutboxRow{
 			EventID: uuid.NewString(), AggregateType: "Listing", AggregateID: id,
 			EventType: "platform.listing.v1.ListingChanged", Payload: []byte{0x01},
 		}, nil
@@ -32,7 +32,7 @@ func modEv(id string) repository.EnqueueFn {
 func outboxCount(t *testing.T, pool *pgxpool.Pool, id string) int {
 	t.Helper()
 	var n int
-	if err := pool.QueryRow(context.Background(),
+	if err := pool.QueryRow(t.Context(),
 		`SELECT count(*) FROM outbox_events WHERE aggregate_id = $1`, id).Scan(&n); err != nil {
 		t.Fatalf("count outbox: %v", err)
 	}
@@ -40,7 +40,7 @@ func outboxCount(t *testing.T, pool *pgxpool.Pool, id string) int {
 }
 
 // seedStatus creates a listing and forces its status/submitted_at/flags via SQL.
-func seedStatus(t *testing.T, repo *repository.PostgresListingRepository, pool *pgxpool.Pool,
+func seedStatus(t *testing.T, repo *store.PostgresListingRepository, pool *pgxpool.Pool,
 	id, status string, submitted time.Time, flags []string) {
 	t.Helper()
 	seedPGListing(t, repo, id, 1)
@@ -51,18 +51,18 @@ func seedStatus(t *testing.T, repo *repository.PostgresListingRepository, pool *
 	if !submitted.IsZero() {
 		sub = submitted
 	}
-	if _, err := pool.Exec(context.Background(),
+	if _, err := pool.Exec(t.Context(),
 		`UPDATE listings SET status = $2, submitted_at = $3, screen_flags = $4 WHERE id = $1`,
 		id, status, sub, flags); err != nil {
 		t.Fatalf("force status %s: %v", id, err)
 	}
 }
 
-func drain(t *testing.T, repo *repository.PostgresListingRepository, size int32) (pages [][]string) {
+func drain(t *testing.T, repo *store.PostgresListingRepository, size int32) (pages [][]string) {
 	t.Helper()
 	cursor := ""
 	for i := 0; i < 20; i++ {
-		p, err := repo.ListModerationQueue(context.Background(), cursor, size)
+		p, err := repo.ListModerationQueue(t.Context(), cursor, size)
 		if err != nil {
 			t.Fatalf("ListModerationQueue: %v", err)
 		}
@@ -83,8 +83,8 @@ func drain(t *testing.T, repo *repository.PostgresListingRepository, size int32)
 // Scenario: Status ownership: Seller write racing a moderation decision is refused
 func TestUpdateTxConditionalOnLoadedStatus(t *testing.T) {
 	repo, pool := newPGRepo(t)
-	ctx := context.Background()
-	w := modWriter(pool)
+	ctx := t.Context()
+	w := modWriter(t, pool)
 	seedStatus(t, repo, pool, "L1", "pending_review", time.Now().UTC(), nil)
 
 	loaded, err := repo.Get(ctx, "L1")
@@ -96,7 +96,7 @@ func TestUpdateTxConditionalOnLoadedStatus(t *testing.T) {
 	}
 
 	// Admin BAN commits between the seller's read and the seller's transaction.
-	if _, err := w.ModerateTx(ctx, "L1", "pending_review", loaded.UpdatedAt, repository.ModerationUpdate{
+	if _, err := w.ModerateTx(ctx, "L1", "pending_review", loaded.UpdatedAt, store.ModerationUpdate{
 		ToStatus: "banned", ReasonCode: "PROHIBITED", Note: "n", DecidedAt: time.Now().UTC(),
 	}, modEv("L1")); err != nil {
 		t.Fatalf("ModerateTx ban: %v", err)
@@ -109,7 +109,7 @@ func TestUpdateTxConditionalOnLoadedStatus(t *testing.T) {
 	stale.LoadedStatus = loaded.Status
 	stale.LoadedUpdatedAt = loaded.UpdatedAt
 	_, err = w.UpdateTx(ctx, stale, modEv("L1"))
-	if !errors.Is(err, repository.ErrStatusChanged) {
+	if !errors.Is(err, store.ErrStatusChanged) {
 		t.Fatalf("stale seller UpdateTx err = %v, want ErrStatusChanged", err)
 	}
 	got, _ := repo.Get(ctx, "L1")
@@ -125,8 +125,8 @@ func TestUpdateTxConditionalOnLoadedStatus(t *testing.T) {
 // (control: an unraced conditional seller write still succeeds and writes one row)
 func TestUpdateTxConditionalOnLoadedStatusFreshSucceeds(t *testing.T) {
 	repo, pool := newPGRepo(t)
-	ctx := context.Background()
-	w := modWriter(pool)
+	ctx := t.Context()
+	w := modWriter(t, pool)
 	seedStatus(t, repo, pool, "L2", "draft", time.Time{}, nil)
 	loaded, err := repo.Get(ctx, "L2")
 	if err != nil {
@@ -145,7 +145,7 @@ func TestUpdateTxConditionalOnLoadedStatusFreshSucceeds(t *testing.T) {
 	// Reusing the now-stale updated_at is refused: one change applies once.
 	again := loaded
 	again.Title = "second"
-	if _, err := w.UpdateTx(ctx, again, modEv("L2")); !errors.Is(err, repository.ErrStatusChanged) {
+	if _, err := w.UpdateTx(ctx, again, modEv("L2")); !errors.Is(err, store.ErrStatusChanged) {
 		t.Fatalf("stale reuse err = %v, want ErrStatusChanged", err)
 	}
 }
@@ -153,15 +153,15 @@ func TestUpdateTxConditionalOnLoadedStatusFreshSucceeds(t *testing.T) {
 // Scenario: Moderation: Concurrent decision applies once
 func TestModerateTxConditionalOnLoadedStatus(t *testing.T) {
 	repo, pool := newPGRepo(t)
-	ctx := context.Background()
-	w := modWriter(pool)
+	ctx := t.Context()
+	w := modWriter(t, pool)
 	seedStatus(t, repo, pool, "L3", "pending_review", time.Now().UTC(), []string{"kw"})
 	loaded, err := repo.Get(ctx, "L3")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decisions := []repository.ModerationUpdate{
+	decisions := []store.ModerationUpdate{
 		{ToStatus: "published", ReasonCode: "OK", DecidedAt: time.Now().UTC()},
 		{ToStatus: "rejected", ReasonCode: "NO", Note: "x", DecidedAt: time.Now().UTC()},
 	}
@@ -184,7 +184,7 @@ func TestModerateTxConditionalOnLoadedStatus(t *testing.T) {
 				t.Fatal("both decisions succeeded")
 			}
 			winner = i
-		case !errors.Is(e, repository.ErrStatusChanged):
+		case !errors.Is(e, store.ErrStatusChanged):
 			t.Fatalf("loser err = %v, want ErrStatusChanged", e)
 		}
 	}
@@ -206,13 +206,13 @@ func TestModerateTxConditionalOnLoadedStatus(t *testing.T) {
 // Scenario: Moderation: Concurrent decision applies once (wrong from-status is refused too)
 func TestModerateTxRefusesWrongFromStatus(t *testing.T) {
 	repo, pool := newPGRepo(t)
-	ctx := context.Background()
-	w := modWriter(pool)
+	ctx := t.Context()
+	w := modWriter(t, pool)
 	seedStatus(t, repo, pool, "L4", "published", time.Time{}, nil)
 	loaded, _ := repo.Get(ctx, "L4")
 	_, err := w.ModerateTx(ctx, "L4", "pending_review", loaded.UpdatedAt,
-		repository.ModerationUpdate{ToStatus: "banned", ReasonCode: "X", DecidedAt: time.Now().UTC()}, modEv("L4"))
-	if !errors.Is(err, repository.ErrStatusChanged) {
+		store.ModerationUpdate{ToStatus: "banned", ReasonCode: "X", DecidedAt: time.Now().UTC()}, modEv("L4"))
+	if !errors.Is(err, store.ErrStatusChanged) {
 		t.Fatalf("err = %v, want ErrStatusChanged", err)
 	}
 	if got, _ := repo.Get(ctx, "L4"); got.Status != "published" || outboxCount(t, pool, "L4") != 0 {
@@ -229,7 +229,7 @@ func TestListModerationQueueOrderedBySubmission(t *testing.T) {
 	seedStatus(t, repo, pool, "q-t1", "pending_review", base.Add(1*time.Minute), []string{"f1", "f1b"})
 	seedStatus(t, repo, pool, "q-t2", "pending_review", base.Add(2*time.Minute), []string{"f2"})
 
-	p, err := repo.ListModerationQueue(context.Background(), "", 50)
+	p, err := repo.ListModerationQueue(t.Context(), "", 50)
 	if err != nil {
 		t.Fatalf("ListModerationQueue: %v", err)
 	}
@@ -274,7 +274,7 @@ func TestListModerationQueueOnlyPending(t *testing.T) {
 	for _, st := range []string{"draft", "published", "rejected", "banned", "held", "pending_review"} {
 		seedStatus(t, repo, pool, "s-"+st, st, now, nil)
 	}
-	p, err := repo.ListModerationQueue(context.Background(), "", 50)
+	p, err := repo.ListModerationQueue(t.Context(), "", 50)
 	if err != nil {
 		t.Fatalf("ListModerationQueue: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestListModerationQueueOnlyPending(t *testing.T) {
 // Scenario: Queue: Empty queue (repository level: empty page, empty cursor)
 func TestListModerationQueueEmptyStore(t *testing.T) {
 	repo, _ := newPGRepo(t)
-	p, err := repo.ListModerationQueue(context.Background(), "", 50)
+	p, err := repo.ListModerationQueue(t.Context(), "", 50)
 	if err != nil {
 		t.Fatalf("ListModerationQueue: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestListModerationQueueKeysetPages(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		seedStatus(t, repo, pool, fmt.Sprintf("p-%d", i), "pending_review", base.Add(time.Duration(i)*time.Minute), nil)
 	}
-	first, err := repo.ListModerationQueue(context.Background(), "", 2)
+	first, err := repo.ListModerationQueue(t.Context(), "", 2)
 	if err != nil {
 		t.Fatalf("ListModerationQueue: %v", err)
 	}
@@ -322,7 +322,7 @@ func TestListModerationQueueKeysetPages(t *testing.T) {
 	if strings.Join(seen, ",") != "p-1,p-2,p-3,p-4,p-5" {
 		t.Fatalf("seen = %v, want p-1..p-5 each once in order", seen)
 	}
-	last, _ := repo.ListModerationQueue(context.Background(), "", 5)
+	last, _ := repo.ListModerationQueue(t.Context(), "", 5)
 	if last.NextCursor != "" || len(last.Items) != 5 {
 		t.Fatalf("exact-fit page: %d items cursor %q, want 5 and empty cursor", len(last.Items), last.NextCursor)
 	}
@@ -331,7 +331,7 @@ func TestListModerationQueueKeysetPages(t *testing.T) {
 // Scenario: Queue: Page latency at 10k pending
 func TestListModerationQueueIndexAndLatency(t *testing.T) {
 	repo, pool := newPGRepo(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO listings (id, title, price, currency, status, stock)
 		SELECT 'bulk-' || lpad(g::text, 6, '0'), 't', 0, 'VND', 'pending_review', 1 FROM generate_series(1, 10000) g`); err != nil {

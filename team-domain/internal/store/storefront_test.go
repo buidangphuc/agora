@@ -1,9 +1,6 @@
-package repository
+package store
 
-import (
-	"context"
-	"testing"
-)
+import "testing"
 
 type fakeRow struct{ cfg []byte }
 
@@ -34,21 +31,5 @@ func TestStorefrontConfigRoundTripsDisplayName(t *testing.T) {
 	}
 	if legacy.DisplayName != "" {
 		t.Errorf("legacy row should have empty name, got %q", legacy.DisplayName)
-	}
-}
-
-func TestInMemoryStorefrontRoundTripAndBatch(t *testing.T) {
-	r := NewInMemoryStorefrontRepository()
-	ctx := context.Background()
-	if _, err := r.Upsert(ctx, Storefront{SellerID: "a", Slug: "a", DisplayName: "Alpha"}); err != nil {
-		t.Fatal(err)
-	}
-	got, _ := r.GetBySeller(ctx, "a")
-	if got.DisplayName != "Alpha" {
-		t.Errorf("name lost: %+v", got)
-	}
-	many, _ := r.GetBySellers(ctx, []string{"a", "zzz"})
-	if len(many) != 1 || many[0].DisplayName != "Alpha" {
-		t.Errorf("batch mismatch: %+v", many)
 	}
 }

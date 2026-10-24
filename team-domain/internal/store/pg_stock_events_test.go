@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -8,18 +8,18 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-domain/internal/handler"
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 // pendingStockEvents decodes every pending ListingStockChanged outbox row, in
 // creation order.
 func pendingStockEvents(t *testing.T, pool *pgxpool.Pool) []*listingv1.ListingStockChanged {
 	t.Helper()
-	rows, err := pool.Query(context.Background(), `SELECT aggregate_id, payload FROM outbox_events
+	rows, err := pool.Query(t.Context(), `SELECT aggregate_id, payload FROM outbox_events
 		WHERE status = 'pending' AND event_type = 'platform.listing.v1.ListingStockChanged'
 		ORDER BY created_at, event_id`)
 	if err != nil {
@@ -52,10 +52,34 @@ func pendingStockEvents(t *testing.T, pool *pgxpool.Pool) []*listingv1.ListingSt
 	return out
 }
 
-func stockEventRepo(t *testing.T) (*repository.PostgresListingRepository, *pgxpool.Pool) {
+func stockBuilder(_ context.Context, snap store.StockSnapshot) (store.OutboxRow, error) {
+	variants := make([]*listingv1.Variant, 0, len(snap.Variants))
+	for _, v := range snap.Variants {
+		variants = append(variants, &listingv1.Variant{Id: v.ID, ListingId: v.ListingID, Stock: v.Stock})
+	}
+	inner, err := proto.Marshal(&listingv1.ListingStockChanged{ListingId: snap.ListingID, Stock: snap.Stock, Variants: variants})
+	if err != nil {
+		return store.OutboxRow{}, err
+	}
+	eventID := newID()
+	payload, err := proto.Marshal(&eventsv1.EventEnvelope{
+		EventId: eventID, Type: stockType, OccurredAt: timestamppb.Now(), Payload: inner,
+	})
+	if err != nil {
+		return store.OutboxRow{}, err
+	}
+	return store.OutboxRow{
+		EventID: eventID, AggregateType: "Listing", AggregateID: snap.ListingID,
+		EventType: stockType, Payload: payload,
+	}, nil
+}
+
+const stockType = "platform.listing.v1.ListingStockChanged"
+
+func stockEventRepo(t *testing.T) (*store.PostgresListingRepository, *pgxpool.Pool) {
 	t.Helper()
 	repo, pool := newPGRepo(t)
-	repo.WithStockEvents(repository.NewOutboxStore(pool), handler.NewStockEventBuilder())
+	repo.WithStockEvents(newOutboxStore(t, pool), stockBuilder)
 	return repo, pool
 }
 
@@ -63,7 +87,7 @@ func stockEventRepo(t *testing.T) (*repository.PostgresListingRepository, *pgxpo
 // idempotent repeat reserve, a repeated or unknown release, or a commit.
 func TestPG_StockEvents_RealChangesOnly(t *testing.T) {
 	repo, pool := stockEventRepo(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	seedPGListing(t, repo, "L1", 10)
 	seedPGListing(t, repo, "L2", 5)
 
@@ -97,7 +121,7 @@ func TestPG_StockEvents_RealChangesOnly(t *testing.T) {
 	_, _ = repo.ReleaseReservation(ctx, "r1")    // repeat: no-op
 	_, _ = repo.ReleaseReservation(ctx, "never") // unknown: no-op
 	wantStocks("no-op releases", 8, 10)
-	if err := repo.ReserveStockIdempotent(ctx, "big", "L1", "", 99, farFuture); !errors.Is(err, repository.ErrOutOfStock) {
+	if err := repo.ReserveStockIdempotent(ctx, "big", "L1", "", 99, farFuture); !errors.Is(err, store.ErrOutOfStock) {
 		t.Fatalf("oversized reserve: %v", err)
 	}
 	wantStocks("refused reserve", 8, 10)
@@ -136,10 +160,10 @@ func TestPG_StockEvents_RealChangesOnly(t *testing.T) {
 // with its stock after the change.
 func TestPG_StockEvents_Variant(t *testing.T) {
 	repo, pool := stockEventRepo(t)
-	ctx := context.Background()
-	if _, err := repo.Create(ctx, repository.Listing{
+	ctx := t.Context()
+	if _, err := repo.Create(ctx, store.Listing{
 		ID: "L1", Title: "L1", Currency: "VND", Status: "published", Stock: 3,
-		Variants: []repository.Variant{{ID: "V1", Name: "red", SKU: "r", Stock: 6}, {ID: "V2", Name: "blue", SKU: "b", Stock: 4}},
+		Variants: []store.Variant{{ID: "V1", Name: "red", SKU: "r", Stock: 6}, {ID: "V2", Name: "blue", SKU: "b", Stock: 4}},
 	}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -165,11 +189,11 @@ func TestPG_StockEvents_Variant(t *testing.T) {
 // reservation row, no event — for reserve, release and sweep.
 func TestPG_StockEvents_RollbackLeavesNothing(t *testing.T) {
 	repo, pool := newPGRepo(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	seedPGListing(t, repo, "L1", 10)
 	boom := errors.New("outbox down")
-	failing := func(context.Context, repository.StockSnapshot) (repository.OutboxRow, error) {
-		return repository.OutboxRow{}, boom
+	failing := func(context.Context, store.StockSnapshot) (store.OutboxRow, error) {
+		return store.OutboxRow{}, boom
 	}
 	countRows := func(q string) int {
 		var n int
@@ -179,7 +203,7 @@ func TestPG_StockEvents_RollbackLeavesNothing(t *testing.T) {
 		return n
 	}
 
-	repo.WithStockEvents(repository.NewOutboxStore(pool), failing)
+	repo.WithStockEvents(newOutboxStore(t, pool), failing)
 	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 2, farFuture); !errors.Is(err, boom) {
 		t.Fatalf("reserve: want builder error, got %v", err)
 	}
@@ -198,7 +222,7 @@ func TestPG_StockEvents_RollbackLeavesNothing(t *testing.T) {
 	if err := repo.ReserveStockIdempotent(ctx, "r3", "L1", "", 3, time.Now().Add(-time.Minute)); err != nil {
 		t.Fatalf("reserve r3: %v", err)
 	}
-	repo.WithStockEvents(repository.NewOutboxStore(pool), failing)
+	repo.WithStockEvents(newOutboxStore(t, pool), failing)
 	if _, err := repo.ReleaseReservation(ctx, "r2"); !errors.Is(err, boom) {
 		t.Fatalf("release: want builder error, got %v", err)
 	}

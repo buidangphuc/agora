@@ -1,21 +1,20 @@
-package repository_test
+package store_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 var farFuture = time.Now().Add(time.Hour)
 
 func TestPG_CommitReservation_Outcomes(t *testing.T) {
 	repo, _ := newPGRepo(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	seedPGListing(t, repo, "L1", 10)
 
 	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 2, farFuture); err != nil {
@@ -27,7 +26,7 @@ func TestPG_CommitReservation_Outcomes(t *testing.T) {
 	if err := repo.CommitReservation(ctx, "r1"); err != nil {
 		t.Fatalf("idempotent commit: %v", err)
 	}
-	if err := repo.CommitReservation(ctx, "nope"); !errors.Is(err, repository.ErrReservationNotFound) {
+	if err := repo.CommitReservation(ctx, "nope"); !errors.Is(err, store.ErrReservationNotFound) {
 		t.Fatalf("unknown: want ErrReservationNotFound, got %v", err)
 	}
 
@@ -38,7 +37,7 @@ func TestPG_CommitReservation_Outcomes(t *testing.T) {
 	if n, err := repo.SweepExpiredReservations(ctx, time.Now()); err != nil || n != 1 {
 		t.Fatalf("sweep n=%d err=%v, want 1/nil", n, err)
 	}
-	if err := repo.CommitReservation(ctx, "r2"); !errors.Is(err, repository.ErrReservationReleased) {
+	if err := repo.CommitReservation(ctx, "r2"); !errors.Is(err, store.ErrReservationReleased) {
 		t.Fatalf("released: want ErrReservationReleased, got %v", err)
 	}
 	if got := pgStock(t, repo, "L1"); got != 8 {
@@ -50,7 +49,7 @@ func TestPG_CommitReservation_Outcomes(t *testing.T) {
 // its expires_at (a placed order keeps its stock).
 func TestPG_CommittedReservationSurvivesSweep(t *testing.T) {
 	repo, _ := newPGRepo(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	seedPGListing(t, repo, "L1", 10)
 
 	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 2, time.Now().Add(-time.Minute)); err != nil {
@@ -71,7 +70,7 @@ func TestPG_CommittedReservationSurvivesSweep(t *testing.T) {
 // the stock matches the winner.
 func TestPG_CommitVersusSweepConcurrent(t *testing.T) {
 	repo, _ := newPGRepo(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	seedPGListing(t, repo, "L1", 1000)
 
 	for i := 0; i < 30; i++ {
@@ -93,7 +92,7 @@ func TestPG_CommitVersusSweepConcurrent(t *testing.T) {
 			if got != before-4 {
 				t.Fatalf("iter %d: commit won, stock=%d want %d", i, got, before-4)
 			}
-		case errors.Is(commitErr, repository.ErrReservationReleased):
+		case errors.Is(commitErr, store.ErrReservationReleased):
 			if got != before {
 				t.Fatalf("iter %d: sweep won, stock=%d want %d", i, got, before)
 			}
@@ -104,7 +103,7 @@ func TestPG_CommitVersusSweepConcurrent(t *testing.T) {
 }
 
 func TestPG_ReleaseReservation(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("double release restores once", func(t *testing.T) {
 		repo, _ := newPGRepo(t)
@@ -112,10 +111,10 @@ func TestPG_ReleaseReservation(t *testing.T) {
 		if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 3, farFuture); err != nil {
 			t.Fatalf("reserve: %v", err)
 		}
-		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != repository.ReleaseApplied {
+		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != store.ReleaseApplied {
 			t.Fatalf("first release: out=%v err=%v", out, err)
 		}
-		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != repository.ReleaseNoOp {
+		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != store.ReleaseNoOp {
 			t.Fatalf("second release: out=%v err=%v, want NoOp", out, err)
 		}
 		if got := pgStock(t, repo, "L1"); got != 10 {
@@ -132,7 +131,7 @@ func TestPG_ReleaseReservation(t *testing.T) {
 		if n, err := repo.SweepExpiredReservations(ctx, time.Now()); err != nil || n != 1 {
 			t.Fatalf("sweep n=%d err=%v", n, err)
 		}
-		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != repository.ReleaseNoOp {
+		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != store.ReleaseNoOp {
 			t.Fatalf("release: out=%v err=%v, want NoOp", out, err)
 		}
 		if got := pgStock(t, repo, "L1"); got != 10 {
@@ -143,7 +142,7 @@ func TestPG_ReleaseReservation(t *testing.T) {
 	t.Run("unknown id is a no-op", func(t *testing.T) {
 		repo, _ := newPGRepo(t)
 		seedPGListing(t, repo, "L1", 10)
-		if out, err := repo.ReleaseReservation(ctx, "never"); err != nil || out != repository.ReleaseUnknown {
+		if out, err := repo.ReleaseReservation(ctx, "never"); err != nil || out != store.ReleaseUnknown {
 			t.Fatalf("release: out=%v err=%v, want Unknown", out, err)
 		}
 		if got := pgStock(t, repo, "L1"); got != 10 {
@@ -153,9 +152,9 @@ func TestPG_ReleaseReservation(t *testing.T) {
 
 	t.Run("stored quantity is restored, variant too", func(t *testing.T) {
 		repo, pool := newPGRepo(t)
-		if _, err := repo.Create(ctx, repository.Listing{
+		if _, err := repo.Create(ctx, store.Listing{
 			ID: "L1", Title: "L1", Currency: "VND", Status: "published", Stock: 0,
-			Variants: []repository.Variant{{ID: "V1", Name: "red", SKU: "r", Stock: 6}},
+			Variants: []store.Variant{{ID: "V1", Name: "red", SKU: "r", Stock: 6}},
 		}); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
@@ -180,13 +179,13 @@ func TestPG_ReleaseReservation(t *testing.T) {
 		if err := repo.CommitReservation(ctx, "r1"); err != nil {
 			t.Fatalf("commit: %v", err)
 		}
-		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != repository.ReleaseApplied {
+		if out, err := repo.ReleaseReservation(ctx, "r1"); err != nil || out != store.ReleaseApplied {
 			t.Fatalf("release: out=%v err=%v", out, err)
 		}
 		if got := pgStock(t, repo, "L1"); got != 10 {
 			t.Fatalf("stock = %d, want 10", got)
 		}
-		if err := repo.CommitReservation(ctx, "r1"); !errors.Is(err, repository.ErrReservationReleased) {
+		if err := repo.CommitReservation(ctx, "r1"); !errors.Is(err, store.ErrReservationReleased) {
 			t.Fatalf("commit after release: %v, want ErrReservationReleased", err)
 		}
 	})
@@ -214,11 +213,11 @@ func TestPG_ReleaseReservation(t *testing.T) {
 }
 
 func TestPG_ReserveStockIdempotent_Lifecycle(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo, _ := newPGRepo(t)
 	seedPGListing(t, repo, "L1", 10)
 
-	if err := repo.ReserveStockIdempotent(ctx, "", "L1", "", 3, farFuture); !errors.Is(err, repository.ErrReservationIDRequired) {
+	if err := repo.ReserveStockIdempotent(ctx, "", "L1", "", 3, farFuture); !errors.Is(err, store.ErrReservationIDRequired) {
 		t.Fatalf("empty id: %v, want ErrReservationIDRequired", err)
 	}
 	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 3, farFuture); err != nil {
@@ -233,7 +232,7 @@ func TestPG_ReserveStockIdempotent_Lifecycle(t *testing.T) {
 	if _, err := repo.ReleaseReservation(ctx, "r1"); err != nil {
 		t.Fatalf("release: %v", err)
 	}
-	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 3, farFuture); !errors.Is(err, repository.ErrReservationReleased) {
+	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 3, farFuture); !errors.Is(err, store.ErrReservationReleased) {
 		t.Fatalf("re-reserve released id: %v, want ErrReservationReleased", err)
 	}
 	if got := pgStock(t, repo, "L1"); got != 10 {
@@ -241,7 +240,7 @@ func TestPG_ReserveStockIdempotent_Lifecycle(t *testing.T) {
 	}
 
 	// Out of stock rolls the reservation row back: the id stays usable.
-	if err := repo.ReserveStockIdempotent(ctx, "r2", "L1", "", 11, farFuture); !errors.Is(err, repository.ErrOutOfStock) {
+	if err := repo.ReserveStockIdempotent(ctx, "r2", "L1", "", 11, farFuture); !errors.Is(err, store.ErrOutOfStock) {
 		t.Fatalf("oversized reserve: %v, want ErrOutOfStock", err)
 	}
 	if err := repo.ReserveStockIdempotent(ctx, "r2", "L1", "", 1, farFuture); err != nil {
@@ -254,7 +253,7 @@ func TestPG_ReserveStockIdempotent_Lifecycle(t *testing.T) {
 
 // Concurrent reserves of one id decrement once.
 func TestPG_ReserveStockIdempotent_ConcurrentSameID(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo, _ := newPGRepo(t)
 	seedPGListing(t, repo, "L1", 100)
 	var wg sync.WaitGroup
@@ -280,7 +279,7 @@ func TestPG_ReserveStockIdempotent_ConcurrentSameID(t *testing.T) {
 // A retry must be identical: reusing an id for another listing or quantity is
 // refused and changes no stock.
 func TestPG_ReserveStockIdempotent_MismatchedRetryIsRefused(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	repo, _ := newPGRepo(t)
 	seedPGListing(t, repo, "L1", 10)
 	seedPGListing(t, repo, "L2", 10)
@@ -291,7 +290,7 @@ func TestPG_ReserveStockIdempotent_MismatchedRetryIsRefused(t *testing.T) {
 		listing string
 		qty     int32
 	}{{"L1", 4}, {"L2", 3}} {
-		if err := repo.ReserveStockIdempotent(ctx, "r1", c.listing, "", c.qty, farFuture); !errors.Is(err, repository.ErrReservationMismatch) {
+		if err := repo.ReserveStockIdempotent(ctx, "r1", c.listing, "", c.qty, farFuture); !errors.Is(err, store.ErrReservationMismatch) {
 			t.Fatalf("retry %s x%d: %v, want ErrReservationMismatch", c.listing, c.qty, err)
 		}
 	}
@@ -303,12 +302,12 @@ func TestPG_ReserveStockIdempotent_MismatchedRetryIsRefused(t *testing.T) {
 // Scenario: Seller hold: Stock cannot be reserved on a held listing (Postgres)
 func TestPG_ReserveStockIdempotent_HeldListingRefused(t *testing.T) {
 	repo, pool := newPGRepo(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	seedPGListing(t, repo, "L1", 5)
 	if _, err := pool.Exec(ctx, `UPDATE listings SET status = 'held' WHERE id = 'L1'`); err != nil {
 		t.Fatalf("hold: %v", err)
 	}
-	if err := repo.ReserveStockIdempotent(ctx, "r-new", "L1", "", 2, farFuture); !errors.Is(err, repository.ErrListingNotReservable) {
+	if err := repo.ReserveStockIdempotent(ctx, "r-new", "L1", "", 2, farFuture); !errors.Is(err, store.ErrListingNotReservable) {
 		t.Fatalf("err = %v, want ErrListingNotReservable", err)
 	}
 	if got := pgStock(t, repo, "L1"); got != 5 {
@@ -326,7 +325,7 @@ func TestPG_ReserveStockIdempotent_HeldListingRefused(t *testing.T) {
 // Scenario: Seller hold: Reservation retry on a held listing stays a no-op (Postgres)
 func TestPG_ReserveStockIdempotent_HeldListingExistingIDNoop(t *testing.T) {
 	repo, pool := newPGRepo(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	seedPGListing(t, repo, "L1", 5)
 	if err := repo.ReserveStockIdempotent(ctx, "R", "L1", "", 2, farFuture); err != nil {
 		t.Fatalf("reserve: %v", err)
