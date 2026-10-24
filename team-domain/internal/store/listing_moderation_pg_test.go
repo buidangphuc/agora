@@ -21,7 +21,7 @@ func modWriter(t *testing.T, pool *pgxpool.Pool) *store.PgTxWriter {
 }
 
 func modEv(id string) store.EnqueueFn {
-	return func(l store.Listing) (store.OutboxRow, error) {
+	return func(store.Listing) (store.OutboxRow, error) {
 		return store.OutboxRow{
 			EventID: uuid.NewString(), AggregateType: "Listing", AggregateID: id,
 			EventType: "platform.listing.v1.ListingChanged", Payload: []byte{0x01},
@@ -41,9 +41,10 @@ func outboxCount(t *testing.T, pool *pgxpool.Pool, id string) int {
 
 // seedStatus creates a listing and forces its status/submitted_at/flags via SQL.
 func seedStatus(t *testing.T, repo *store.PostgresListingRepository, pool *pgxpool.Pool,
-	id, status string, submitted time.Time, flags []string) {
+	id, status string, submitted time.Time, flags []string,
+) {
 	t.Helper()
-	seedPGListing(t, repo, id, 1)
+	seedPGListing(t.Context(), t, repo, id, 1)
 	if flags == nil {
 		flags = []string{}
 	}
@@ -82,7 +83,7 @@ func drain(t *testing.T, repo *store.PostgresListingRepository, size int32) (pag
 
 // Scenario: Status ownership: Seller write racing a moderation decision is refused
 func TestUpdateTxConditionalOnLoadedStatus(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	ctx := t.Context()
 	w := modWriter(t, pool)
 	seedStatus(t, repo, pool, "L1", "pending_review", time.Now().UTC(), nil)
@@ -124,7 +125,7 @@ func TestUpdateTxConditionalOnLoadedStatus(t *testing.T) {
 // Scenario: Status ownership: Seller write racing a moderation decision is refused
 // (control: an unraced conditional seller write still succeeds and writes one row)
 func TestUpdateTxConditionalOnLoadedStatusFreshSucceeds(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	ctx := t.Context()
 	w := modWriter(t, pool)
 	seedStatus(t, repo, pool, "L2", "draft", time.Time{}, nil)
@@ -152,7 +153,7 @@ func TestUpdateTxConditionalOnLoadedStatusFreshSucceeds(t *testing.T) {
 
 // Scenario: Moderation: Concurrent decision applies once
 func TestModerateTxConditionalOnLoadedStatus(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	ctx := t.Context()
 	w := modWriter(t, pool)
 	seedStatus(t, repo, pool, "L3", "pending_review", time.Now().UTC(), []string{"kw"})
@@ -205,7 +206,7 @@ func TestModerateTxConditionalOnLoadedStatus(t *testing.T) {
 
 // Scenario: Moderation: Concurrent decision applies once (wrong from-status is refused too)
 func TestModerateTxRefusesWrongFromStatus(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	ctx := t.Context()
 	w := modWriter(t, pool)
 	seedStatus(t, repo, pool, "L4", "published", time.Time{}, nil)
@@ -222,7 +223,7 @@ func TestModerateTxRefusesWrongFromStatus(t *testing.T) {
 
 // Scenario: Queue: Oldest submission first
 func TestListModerationQueueOrderedBySubmission(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	base := time.Now().UTC().Truncate(time.Second)
 	// Inserted out of order; flags must round-trip.
 	seedStatus(t, repo, pool, "q-t3", "pending_review", base.Add(3*time.Minute), []string{"f3"})
@@ -252,7 +253,7 @@ func TestListModerationQueueOrderedBySubmission(t *testing.T) {
 
 // Scenario: Queue: Oldest submission first (id tie-break on equal submitted_at)
 func TestListModerationQueueTieBreaksOnID(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	ts := time.Now().UTC().Truncate(time.Second)
 	for _, id := range []string{"tie-c", "tie-a", "tie-b"} {
 		seedStatus(t, repo, pool, id, "pending_review", ts, nil)
@@ -269,7 +270,7 @@ func TestListModerationQueueTieBreaksOnID(t *testing.T) {
 
 // Scenario: Queue: Only pending listings appear
 func TestListModerationQueueOnlyPending(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	now := time.Now().UTC()
 	for _, st := range []string{"draft", "published", "rejected", "banned", "held", "pending_review"} {
 		seedStatus(t, repo, pool, "s-"+st, st, now, nil)
@@ -285,7 +286,7 @@ func TestListModerationQueueOnlyPending(t *testing.T) {
 
 // Scenario: Queue: Empty queue (repository level: empty page, empty cursor)
 func TestListModerationQueueEmptyStore(t *testing.T) {
-	repo, _ := newPGRepo(t)
+	repo, _ := newPGRepo(t.Context(), t)
 	p, err := repo.ListModerationQueue(t.Context(), "", 50)
 	if err != nil {
 		t.Fatalf("ListModerationQueue: %v", err)
@@ -297,7 +298,7 @@ func TestListModerationQueueEmptyStore(t *testing.T) {
 
 // Scenario: Queue: Pagination boundary
 func TestListModerationQueueKeysetPages(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	base := time.Now().UTC().Truncate(time.Second)
 	for i := 1; i <= 5; i++ {
 		seedStatus(t, repo, pool, fmt.Sprintf("p-%d", i), "pending_review", base.Add(time.Duration(i)*time.Minute), nil)
@@ -330,7 +331,7 @@ func TestListModerationQueueKeysetPages(t *testing.T) {
 
 // Scenario: Queue: Page latency at 10k pending
 func TestListModerationQueueIndexAndLatency(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	ctx := t.Context()
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO listings (id, title, price, currency, status, stock)

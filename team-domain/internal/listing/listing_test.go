@@ -66,7 +66,7 @@ func TestListingService(t *testing.T) {
 
 		// Update as non-owner without admin fails
 		_, err = svc.Update(ctx, got, "another_seller", false)
-		if err != listing.ErrForbidden {
+		if !errors.Is(err, listing.ErrForbidden) {
 			t.Errorf("expected ErrForbidden when non-owner updates, got %v", err)
 		}
 
@@ -82,7 +82,7 @@ func TestListingService(t *testing.T) {
 
 		// Delete non-owner fails
 		_, err = svc.Delete(ctx, created.ID, "another_seller", false)
-		if err != listing.ErrForbidden {
+		if !errors.Is(err, listing.ErrForbidden) {
 			t.Errorf("expected ErrForbidden when non-owner deletes")
 		}
 
@@ -131,7 +131,7 @@ func TestListingService(t *testing.T) {
 			t.Fatal("expected error when the write fails")
 		}
 		// Neither the listing nor an outbox row may survive a rolled-back write.
-		if _, err := repo.Get(ctx, "rollback-1"); err != store.ErrNotFound {
+		if _, err := repo.Get(ctx, "rollback-1"); !errors.Is(err, store.ErrNotFound) {
 			t.Fatalf("listing must not be persisted on rollback, got %v", err)
 		}
 		if got := len(txw.Rows()); got != 0 {
@@ -475,7 +475,7 @@ func TestUpdateWithEventNonOwnerForbidden(t *testing.T) {
 	_, err := svc.UpdateWithEvent(context.Background(),
 		store.Listing{ID: "L-1", Title: "x", Currency: "VND", Stock: 1, Status: "published"},
 		"seller-b", false, noEvent)
-	if err != listing.ErrForbidden {
+	if !errors.Is(err, listing.ErrForbidden) {
 		t.Fatalf("err = %v, want ErrForbidden", err)
 	}
 	got, _ := repo.Get(context.Background(), "L-1")

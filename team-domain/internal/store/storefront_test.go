@@ -5,9 +5,9 @@ import "testing"
 type fakeRow struct{ cfg []byte }
 
 func (f fakeRow) Scan(dest ...any) error {
-	*(dest[0].(*string)) = "seller_a"
-	*(dest[1].(*string)) = "shop-a"
-	*(dest[2].(*[]byte)) = f.cfg
+	*dest[0].(*string) = "seller_a"
+	*dest[1].(*string) = "shop-a"
+	*dest[2].(*[]byte) = f.cfg
 	return nil
 }
 

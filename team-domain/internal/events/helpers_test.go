@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"strings"
 	"sync"
@@ -30,7 +29,7 @@ func wantFP(secret string, key []byte) string {
 	return hex.EncodeToString(m.Sum(nil))[:12]
 }
 
-func discardLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func discardLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 type syncBuf struct {
 	mu  sync.Mutex

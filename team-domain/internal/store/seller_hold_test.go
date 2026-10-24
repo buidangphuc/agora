@@ -108,7 +108,7 @@ func expectState(t *testing.T, pool *pgxpool.Pool, id string, want holdRow) {
 
 // Scenario: Seller hold: Suspension holds published and pending listings
 func TestHoldSellerListingsHoldsPublishedAndPending(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedOwned(t, repo, pool, "P1", "S1", "published")
 	seedOwned(t, repo, pool, "P2", "S1", "published")
@@ -154,7 +154,7 @@ func TestHoldSellerListingsHoldsPublishedAndPending(t *testing.T) {
 
 // Scenario: Seller hold: Suspension holds published and pending listings (R2: batches of 500, no cap)
 func TestHoldSellerListingsBeyondOneBatch(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedOwned(t, repo, pool, "seed", "SB", "draft")
 	if _, err := pool.Exec(t.Context(),
@@ -176,7 +176,7 @@ func TestHoldSellerListingsBeyondOneBatch(t *testing.T) {
 
 // Scenario: Seller hold: Suspension to ban keeps the original prior status
 func TestHoldSellerListingsKeepsOriginalPriorStatus(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedOwned(t, repo, pool, "P1", "S1", "published")
 	var seen []store.Listing
@@ -193,7 +193,7 @@ func TestHoldSellerListingsKeepsOriginalPriorStatus(t *testing.T) {
 
 // Scenario: Seller hold: Admin-banned listing is not touched
 func TestHoldSellerListingsSkipsBannedListing(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedOwned(t, repo, pool, "BN", "S1", "banned")
 	var seen []store.Listing
@@ -209,7 +209,7 @@ func TestHoldSellerListingsSkipsBannedListing(t *testing.T) {
 
 // Scenario: Seller hold: Other sellers' listings are not touched
 func TestHoldSellerListingsOnlyTargetsUser(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedOwned(t, repo, pool, "A1", "SA", "published")
 	seedOwned(t, repo, pool, "B1", "SB", "published")
@@ -226,7 +226,7 @@ func TestHoldSellerListingsOnlyTargetsUser(t *testing.T) {
 
 // Scenario: Seller hold: Reinstatement restores prior statuses
 func TestRestoreSellerListingsReturnsPriorStatus(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedHeld(t, repo, pool, "H1", "S1", "published")
 	seedHeld(t, repo, pool, "H2", "S1", "pending_review")
@@ -249,7 +249,7 @@ func TestRestoreSellerListingsReturnsPriorStatus(t *testing.T) {
 
 // Scenario: Seller hold: Admin-banned listing is not resurrected
 func TestRestoreSellerListingsLeavesBannedListing(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedHeld(t, repo, pool, "H1", "S1", "published")
 	seedOwned(t, repo, pool, "BN", "S1", "banned")
@@ -264,7 +264,7 @@ func TestRestoreSellerListingsLeavesBannedListing(t *testing.T) {
 
 // Scenario: Seller hold: Restore with nothing held is a no-op
 func TestRestoreSellerListingsNothingHeldNoop(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedOwned(t, repo, pool, "P1", "S1", "published")
 	var seen []store.Listing
@@ -282,7 +282,7 @@ func TestRestoreSellerListingsNothingHeldNoop(t *testing.T) {
 
 // Scenario: Seller hold: Restore does not touch other sellers' listings
 func TestRestoreSellerListingsOnlyTargetsUser(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedHeld(t, repo, pool, "A1", "SA", "published")
 	seedHeld(t, repo, pool, "B1", "SB", "published")
@@ -297,7 +297,7 @@ func TestRestoreSellerListingsOnlyTargetsUser(t *testing.T) {
 
 // Scenario: Seller hold: Re-driven older suspension does not re-hold a reinstated seller
 func TestSellerStatusStaleEventSkipped(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedOwned(t, repo, pool, "P1", "S1", "published")
 	t1, t2 := holdT0, holdT0.Add(time.Hour)
@@ -318,7 +318,7 @@ func TestSellerStatusStaleEventSkipped(t *testing.T) {
 
 // Scenario: Seller hold: Event with the same changed_at is stale
 func TestSellerStatusEqualChangedAtSkipped(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedOwned(t, repo, pool, "P1", "S1", "published")
 	var seen []store.Listing
@@ -335,7 +335,7 @@ func TestSellerStatusEqualChangedAtSkipped(t *testing.T) {
 
 // Scenario: Seller hold: Redelivered event changes nothing twice (repository half: same event id)
 func TestHoldSellerListingsSameEventIDIsIdempotent(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	w := modWriter(t, pool)
 	seedOwned(t, repo, pool, "P1", "S1", "published")
 	var seen []store.Listing

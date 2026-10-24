@@ -36,7 +36,7 @@ func TestConfiguredReservationTTLDrivesExpiry(t *testing.T) {
 	if n, _ := short.SweepExpiredReservations(ctx, time.Now().Add(3*time.Minute)); n != 1 {
 		t.Errorf("sweep at +3m released %d, want 1 (TTL 2m)", n)
 	}
-	if got := stockOf(t, repoS, "L1"); got != 10 {
+	if got := stockOf(t.Context(), t, repoS, "L1"); got != 10 {
 		t.Errorf("stock = %d, want 10", got)
 	}
 
@@ -103,7 +103,7 @@ func TestSweeperRunLogsEffectiveValuesAndTicks(t *testing.T) {
 	go listing.NewReservationSweeper(svc, 10*time.Millisecond, logger).Run(ctx)
 
 	deadline := time.Now().Add(2 * time.Second)
-	for stockOf(t, repo, "L1") != 10 {
+	for stockOf(t.Context(), t, repo, "L1") != 10 {
 		if time.Now().After(deadline) {
 			t.Fatal("sweeper with a 10ms interval never restored the expired reservation")
 		}

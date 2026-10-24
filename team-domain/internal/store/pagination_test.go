@@ -10,7 +10,7 @@ import (
 )
 
 func TestPageSizeClamp(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	ctx := t.Context()
 	for i := 0; i < 150; i++ {
 		id := fmt.Sprintf("L-%04d", i)
@@ -78,11 +78,11 @@ func equalStrings(a, b []string) bool {
 }
 
 func TestExistingCursorFormatsAccepted(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	ctx := t.Context()
 
 	for i := 1; i <= 5; i++ {
-		seedPGListing(t, repo, fmt.Sprintf("L-%04d", i), 1)
+		seedPGListing(t.Context(), t, repo, fmt.Sprintf("L-%04d", i), 1)
 	}
 	page, err := repo.List(ctx, "L-0002", 2, "published")
 	if err != nil {

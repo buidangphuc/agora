@@ -69,7 +69,7 @@ func migratedURL(t *testing.T) string {
 	return url
 }
 
-func migratedUpTo(t *testing.T, max int) string {
+func migratedUpTo(t *testing.T, maxVersion int) string {
 	t.Helper()
 	url := freshURL(t)
 	m := fstest.MapFS{}
@@ -79,7 +79,7 @@ func migratedUpTo(t *testing.T, max int) string {
 	}
 	for _, e := range entries {
 		n, err := strconv.Atoi(strings.SplitN(e.Name(), "_", 2)[0])
-		if err != nil || n > max || !strings.HasSuffix(e.Name(), ".sql") {
+		if err != nil || n > maxVersion || !strings.HasSuffix(e.Name(), ".sql") {
 			continue
 		}
 		b, err := fs.ReadFile(migrations.FS, e.Name())
@@ -89,7 +89,7 @@ func migratedUpTo(t *testing.T, max int) string {
 		m[e.Name()] = &fstest.MapFile{Data: b}
 	}
 	if err := migrate.Up(t.Context(), url, m); err != nil {
-		t.Fatalf("migrate to %d: %v", max, err)
+		t.Fatalf("migrate to %d: %v", maxVersion, err)
 	}
 	return url
 }

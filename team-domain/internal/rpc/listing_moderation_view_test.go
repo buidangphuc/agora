@@ -41,7 +41,7 @@ func newModFixture(seed ...store.Listing) *modFixture {
 	}
 }
 
-func (f *modFixture) get(t *testing.T, ctx context.Context, id string) *listingv1.Listing {
+func (f *modFixture) get(ctx context.Context, t *testing.T, id string) *listingv1.Listing {
 	t.Helper()
 	res, err := f.h.GetListing(ctx, &listingv1.GetListingRequest{Id: id})
 	if err != nil {
@@ -53,7 +53,7 @@ func (f *modFixture) get(t *testing.T, ctx context.Context, id string) *listingv
 // Scenario: Status ownership: Owner sees status and reason but not flags.
 func TestGetListingOwnerSeesReasonNotFlags(t *testing.T) {
 	f := newModFixture(modListing("L-rej", "rejected"))
-	l := f.get(t, typedCtx("seller-a", "user", "listing.read", "listing.write"), "L-rej")
+	l := f.get(typedCtx("seller-a", "user", "listing.read", "listing.write"), t, "L-rej")
 	if l.Status != listingv1.ListingStatus_LISTING_STATUS_REJECTED {
 		t.Errorf("status = %v, want REJECTED", l.Status)
 	}
@@ -80,7 +80,7 @@ func TestGetListingOwnerSeesServerOnlyStatuses(t *testing.T) {
 	for st, enum := range want {
 		t.Run(st, func(t *testing.T) {
 			f := newModFixture(modListing("L-x", st))
-			l := f.get(t, typedCtx("seller-a", "user", "listing.read", "listing.write"), "L-x")
+			l := f.get(typedCtx("seller-a", "user", "listing.read", "listing.write"), t, "L-x")
 			if l.Status != enum {
 				t.Errorf("status = %v, want %v", l.Status, enum)
 			}
@@ -95,7 +95,7 @@ func TestGetListingAdminSeesFlags(t *testing.T) {
 		"admin":   typedCtx("admin-1", "user", "listing.read", "admin"),
 		"service": typedCtx("service-team-promotion", "service", "listing.read"),
 	} {
-		l := f.get(t, ctx, "L-pend")
+		l := f.get(ctx, t, "L-pend")
 		if got := l.GetModeration().GetScreenFlags(); !reflect.DeepEqual(got, []string{"keyword:replica"}) {
 			t.Errorf("%s screen_flags = %v, want [keyword:replica]", name, got)
 		}
@@ -112,7 +112,7 @@ func TestGetListingStripsModerationForStranger(t *testing.T) {
 		"anonymous": typedCtx("anonymous", "anonymous", "listing.read"),
 		"stranger":  typedCtx("seller-b", "user", "listing.read", "listing.write"),
 	} {
-		m := f.get(t, ctx, "L-pub").GetModeration()
+		m := f.get(ctx, t, "L-pub").GetModeration()
 		if len(m.GetScreenFlags()) != 0 || m.GetNote() != "" {
 			t.Errorf("%s: flags/note must be empty, got %v", name, m)
 		}

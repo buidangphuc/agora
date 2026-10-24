@@ -78,7 +78,7 @@ const stockType = "platform.listing.v1.ListingStockChanged"
 
 func stockEventRepo(t *testing.T) (*store.PostgresListingRepository, *pgxpool.Pool) {
 	t.Helper()
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	repo.WithStockEvents(newOutboxStore(t, pool), stockBuilder)
 	return repo, pool
 }
@@ -88,8 +88,8 @@ func stockEventRepo(t *testing.T) (*store.PostgresListingRepository, *pgxpool.Po
 func TestPG_StockEvents_RealChangesOnly(t *testing.T) {
 	repo, pool := stockEventRepo(t)
 	ctx := t.Context()
-	seedPGListing(t, repo, "L1", 10)
-	seedPGListing(t, repo, "L2", 5)
+	seedPGListing(t.Context(), t, repo, "L1", 10)
+	seedPGListing(t.Context(), t, repo, "L2", 5)
 
 	wantStocks := func(step string, want ...int32) {
 		t.Helper()
@@ -188,9 +188,9 @@ func TestPG_StockEvents_Variant(t *testing.T) {
 // A failing outbox write rolls the stock change back: stock unchanged, no
 // reservation row, no event — for reserve, release and sweep.
 func TestPG_StockEvents_RollbackLeavesNothing(t *testing.T) {
-	repo, pool := newPGRepo(t)
+	repo, pool := newPGRepo(t.Context(), t)
 	ctx := t.Context()
-	seedPGListing(t, repo, "L1", 10)
+	seedPGListing(t.Context(), t, repo, "L1", 10)
 	boom := errors.New("outbox down")
 	failing := func(context.Context, store.StockSnapshot) (store.OutboxRow, error) {
 		return store.OutboxRow{}, boom
@@ -207,7 +207,7 @@ func TestPG_StockEvents_RollbackLeavesNothing(t *testing.T) {
 	if err := repo.ReserveStockIdempotent(ctx, "r1", "L1", "", 2, farFuture); !errors.Is(err, boom) {
 		t.Fatalf("reserve: want builder error, got %v", err)
 	}
-	if got := pgStock(t, repo, "L1"); got != 10 {
+	if got := pgStock(t.Context(), t, repo, "L1"); got != 10 {
 		t.Fatalf("stock = %d, want 10", got)
 	}
 	if n := countRows(`SELECT count(*) FROM reservations`); n != 0 {
@@ -229,7 +229,7 @@ func TestPG_StockEvents_RollbackLeavesNothing(t *testing.T) {
 	if _, err := repo.SweepExpiredReservations(ctx, time.Now()); !errors.Is(err, boom) {
 		t.Fatalf("sweep: want builder error, got %v", err)
 	}
-	if got := pgStock(t, repo, "L1"); got != 5 {
+	if got := pgStock(t.Context(), t, repo, "L1"); got != 5 {
 		t.Fatalf("stock = %d, want 5 (both holds kept)", got)
 	}
 	if n := countRows(`SELECT count(*) FROM reservations WHERE status = 'active'`); n != 2 {

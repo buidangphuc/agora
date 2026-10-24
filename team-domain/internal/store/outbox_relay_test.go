@@ -98,7 +98,7 @@ type relayEnv struct {
 
 func newRelayEnv(t *testing.T) *relayEnv {
 	t.Helper()
-	pool := newPool(t)
+	pool := newPool(t.Context(), t)
 	ostore := newOutboxStore(t, pool)
 	pub := &scriptedPublisher{permanent: map[string]bool{}}
 	rl, err := outbox.NewRelayer(ostore, pub, outbox.RelayerOptions{

@@ -31,13 +31,13 @@ type handlerAudit struct {
 	err   error
 }
 
-func (a *handlerAudit) snap(id string) (string, bool) {
-	l, err := a.repo.Get(context.Background(), id)
+func (a *handlerAudit) snap(ctx context.Context, id string) (string, bool) {
+	l, err := a.repo.Get(ctx, id)
 	return l.Title, err == nil
 }
 
-func (a *handlerAudit) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
-	title, ok := a.snap(ev.TargetID)
+func (a *handlerAudit) WriteAuditEvent(ctx context.Context, ev auditx.Event) error {
+	title, ok := a.snap(ctx, ev.TargetID)
 	switch ev.Action {
 	case "listing.admin_update":
 		a.calls = append(a.calls, handlerAuditCall{"update", ev.ActorID, ev.TargetID, ev.Metadata["seller_id"], ev.Metadata["status"], title, ok})
@@ -76,9 +76,9 @@ func adminCtx() context.Context { return typedCtx("admin-1", "user", "listing.wr
 func ownerCtx() context.Context { return typedCtx("seller-a", "user", "listing.write") }
 func otherCtx() context.Context { return typedCtx("seller-b", "user", "listing.write") }
 
-func assertUnchanged(t *testing.T, f *auditHandlerFixture) {
+func assertUnchanged(ctx context.Context, t *testing.T, f *auditHandlerFixture) {
 	t.Helper()
-	l, err := f.repo.Get(context.Background(), "L-1")
+	l, err := f.repo.Get(ctx, "L-1")
 	if err != nil || l.Title != "orig" || l.Status != "published" {
 		t.Fatalf("listing must be unchanged, got %+v, %v", l, err)
 	}
@@ -93,7 +93,7 @@ func TestUpdateListingAdminWritesAuditBeforeChange(t *testing.T) {
 	if _, err := f.h.UpdateListing(adminCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_REJECTED)); err != nil {
 		t.Fatalf("UpdateListing: %v", err)
 	}
-	l, _ := f.repo.Get(context.Background(), "L-1")
+	l, _ := f.repo.Get(t.Context(), "L-1")
 	if l.Status != "published" {
 		t.Fatalf("stored status = %q, want published (admin cannot set status)", l.Status)
 	}
@@ -136,7 +136,7 @@ func TestUpdateListingAdminAuditDownUnavailableNoChange(t *testing.T) {
 			if got := status.Convert(err).Message(); got != auditx.Message {
 				t.Errorf("message = %q, want %q", got, auditx.Message)
 			}
-			assertUnchanged(t, f)
+			assertUnchanged(t.Context(), t, f)
 		})
 	}
 }
@@ -163,7 +163,7 @@ func TestUpdateListingNonOwnerNonAdminDeniedNoAudit(t *testing.T) {
 	if len(f.audit.calls) != 0 {
 		t.Fatalf("audit calls = %+v, want none", f.audit.calls)
 	}
-	assertUnchanged(t, f)
+	assertUnchanged(t.Context(), t, f)
 }
 
 // Scenario: Listing audit: Caller without listing.write is denied before audit.
@@ -184,7 +184,7 @@ func TestDeleteListingAdminWritesAuditBeforeChange(t *testing.T) {
 	if _, err := f.h.DeleteListing(adminCtx(), &listingv1.DeleteListingRequest{Id: "L-1"}); err != nil {
 		t.Fatalf("DeleteListing: %v", err)
 	}
-	if _, err := f.repo.Get(context.Background(), "L-1"); !errors.Is(err, store.ErrNotFound) {
+	if _, err := f.repo.Get(t.Context(), "L-1"); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("listing must be deleted, got %v", err)
 	}
 	if len(f.audit.calls) != 1 {
@@ -215,7 +215,7 @@ func TestAdminDeleteAuditDownUnavailableNoChange(t *testing.T) {
 			if got := status.Convert(err).Message(); got != auditx.Message {
 				t.Errorf("message = %q, want %q", got, auditx.Message)
 			}
-			assertUnchanged(t, f)
+			assertUnchanged(t.Context(), t, f)
 		})
 	}
 }
@@ -242,7 +242,7 @@ func TestDeleteListingNonOwnerNonAdminDeniedNoAudit(t *testing.T) {
 	if len(f.audit.calls) != 0 {
 		t.Fatalf("audit calls = %+v, want none", f.audit.calls)
 	}
-	assertUnchanged(t, f)
+	assertUnchanged(t.Context(), t, f)
 }
 
 // Scenario: Listing audit: Owner update writes no audit event.
@@ -296,7 +296,7 @@ func TestAuditFailureHidesCause(t *testing.T) {
 			if strings.Contains(err.Error(), "10.0.0.7") || strings.Contains(err.Error(), "refused") {
 				t.Errorf("error text leaks the cause: %q", err.Error())
 			}
-			assertUnchanged(t, f)
+			assertUnchanged(t.Context(), t, f)
 		})
 	}
 }
@@ -312,5 +312,5 @@ func TestNonOwnerNonAdminDeniedNotUnavailable(t *testing.T) {
 	if len(f.audit.calls) != 0 {
 		t.Fatalf("audit calls = %+v, want none", f.audit.calls)
 	}
-	assertUnchanged(t, f)
+	assertUnchanged(t.Context(), t, f)
 }

@@ -37,7 +37,7 @@ func migrationVersion(name string) int {
 	return n
 }
 
-func filesUpTo(t *testing.T, max int) fs.FS {
+func filesUpTo(t *testing.T, maxVersion int) fs.FS {
 	t.Helper()
 	entries, err := os.ReadDir(".")
 	if err != nil {
@@ -45,7 +45,7 @@ func filesUpTo(t *testing.T, max int) fs.FS {
 	}
 	m := fstest.MapFS{}
 	for _, e := range entries {
-		if !strings.HasSuffix(e.Name(), ".sql") || migrationVersion(e.Name()) > max {
+		if !strings.HasSuffix(e.Name(), ".sql") || migrationVersion(e.Name()) > maxVersion {
 			continue
 		}
 		b, err := os.ReadFile(e.Name())

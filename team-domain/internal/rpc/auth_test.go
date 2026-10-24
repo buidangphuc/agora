@@ -154,7 +154,7 @@ func TestSellerCannotModerateOrReadQueue(t *testing.T) {
 			if len(f.audit.calls) != 0 {
 				t.Fatalf("audit calls = %d, want 0", len(f.audit.calls))
 			}
-			f.assertUnchanged(t, "L-1", "pending_review")
+			f.assertUnchanged(ctx, t, "L-1", "pending_review")
 		})
 	}
 }

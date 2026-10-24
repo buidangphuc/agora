@@ -107,7 +107,7 @@ func (m *mhTx) ModerateTx(ctx context.Context, id, fromStatus string, loadedUpda
 	cur.ModerationNote = d.Note
 	cur.ModerationDecidedAt = d.DecidedAt
 	cur.UpdatedAt = cur.UpdatedAt.Add(time.Second)
-	return m.InMemoryTxWriter.UpdateTx(ctx, cur, ev)
+	return m.UpdateTx(ctx, cur, ev)
 }
 
 type mhFixture struct {
@@ -141,9 +141,9 @@ func modReq(id string, d listingv1.ModerationDecision, reason, note string) *lis
 	return &listingv1.ModerateListingRequest{ListingId: id, Decision: d, ReasonCode: reason, Note: note}
 }
 
-func (f *mhFixture) assertUnchanged(t *testing.T, id, status string) {
+func (f *mhFixture) assertUnchanged(ctx context.Context, t *testing.T, id, status string) {
 	t.Helper()
-	l, err := f.repo.Get(context.Background(), id)
+	l, err := f.repo.Get(ctx, id)
 	if err != nil || l.Status != status {
 		t.Fatalf("listing %s = %+v, %v; want status %q", id, l, err, status)
 	}
@@ -249,7 +249,7 @@ func TestModerateListingAuditDownUnavailableNoChange(t *testing.T) {
 			if strings.Contains(status.Convert(err).Message(), "secret upstream detail") {
 				t.Errorf("message leaks detail: %q", status.Convert(err).Message())
 			}
-			f.assertUnchanged(t, "L-1", "pending_review")
+			f.assertUnchanged(t.Context(), t, "L-1", "pending_review")
 		})
 	}
 }
@@ -263,7 +263,7 @@ func TestModerateListingRefusedTransitionFailedPrecondition(t *testing.T) {
 			if status.Code(err) != codes.FailedPrecondition {
 				t.Fatalf("code = %v, want FailedPrecondition (%v)", status.Code(err), err)
 			}
-			f.assertUnchanged(t, "L-1", st)
+			f.assertUnchanged(t.Context(), t, "L-1", st)
 			if len(f.audit.calls) != 0 {
 				t.Fatalf("audit calls = %d, want 0", len(f.audit.calls))
 			}
@@ -284,7 +284,7 @@ func TestModerateListingStaleLoadFailedPrecondition(t *testing.T) {
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("code = %v, want FailedPrecondition (%v)", status.Code(err), err)
 	}
-	f.assertUnchanged(t, "L-1", "pending_review")
+	f.assertUnchanged(t.Context(), t, "L-1", "pending_review")
 }
 
 // Scenario: Moderation: Unknown listing writes no audit event (handler NotFound).
@@ -322,7 +322,7 @@ func TestModerateListingRejectNeedsReason(t *testing.T) {
 		if len(f.audit.calls) != 0 {
 			t.Fatalf("%v: audit calls = %d, want 0", d, len(f.audit.calls))
 		}
-		f.assertUnchanged(t, "L-1", "pending_review")
+		f.assertUnchanged(t.Context(), t, "L-1", "pending_review")
 	}
 }
 
@@ -402,7 +402,7 @@ func TestModerateListingNonAdminDenied(t *testing.T) {
 			if len(f.audit.calls) != 0 {
 				t.Fatalf("audit calls = %d, want 0", len(f.audit.calls))
 			}
-			f.assertUnchanged(t, "L-1", "pending_review")
+			f.assertUnchanged(ctx, t, "L-1", "pending_review")
 		})
 	}
 }
@@ -476,7 +476,8 @@ func TestListModerationQueuePaginationPassthrough(t *testing.T) {
 		t.Fatalf("page 1 = %+v, %v; want 2 items and a cursor", p1, err)
 	}
 	p2, err := f.h.ListModerationQueue(adminCtx(), &listingv1.ListModerationQueueRequest{
-		Page: &commonv1.PageRequest{PageSize: 2, Cursor: p1.GetPage().GetNextCursor()}})
+		Page: &commonv1.PageRequest{PageSize: 2, Cursor: p1.GetPage().GetNextCursor()},
+	})
 	if err != nil || len(p2.GetItems()) != 1 || p2.GetItems()[0].GetListing().GetId() != "L-3" || p2.GetPage().GetNextCursor() != "" {
 		t.Fatalf("page 2 = %+v, %v; want L-3 and empty cursor", p2, err)
 	}

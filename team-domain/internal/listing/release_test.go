@@ -31,7 +31,7 @@ func TestReleaseStock_ByReservationID(t *testing.T) {
 				t.Fatalf("release #%d: %v", i+1, err)
 			}
 		}
-		if got := stockOf(t, repo, "L1"); got != 10 {
+		if got := stockOf(ctx, t, repo, "L1"); got != 10 {
 			t.Fatalf("stock = %d, want 10", got)
 		}
 	})
@@ -47,7 +47,7 @@ func TestReleaseStock_ByReservationID(t *testing.T) {
 		if err := svc.ReleaseStock(ctx, "r1"); err != nil {
 			t.Fatalf("release: %v", err)
 		}
-		if got := stockOf(t, repo, "L1"); got != 10 {
+		if got := stockOf(ctx, t, repo, "L1"); got != 10 {
 			t.Fatalf("stock = %d, want 10 (restored once)", got)
 		}
 	})
@@ -57,7 +57,7 @@ func TestReleaseStock_ByReservationID(t *testing.T) {
 		if err := svc.ReleaseStock(ctx, "never-reserved"); err != nil {
 			t.Fatalf("release: %v", err)
 		}
-		if got := stockOf(t, repo, "L1"); got != 10 {
+		if got := stockOf(ctx, t, repo, "L1"); got != 10 {
 			t.Fatalf("stock = %d, want 10", got)
 		}
 	})
@@ -73,7 +73,7 @@ func TestReleaseStock_ByReservationID(t *testing.T) {
 		if err := svc.ReleaseStock(ctx, "r1"); err != nil {
 			t.Fatalf("release: %v", err)
 		}
-		if got := stockOf(t, repo, "L1"); got != 10 {
+		if got := stockOf(ctx, t, repo, "L1"); got != 10 {
 			t.Fatalf("stock = %d, want 10", got)
 		}
 	})
@@ -93,7 +93,7 @@ func TestReleaseStock_ByReservationID(t *testing.T) {
 			}()
 		}
 		wg.Wait()
-		if got := stockOf(t, repo, "L1"); got != 10 {
+		if got := stockOf(ctx, t, repo, "L1"); got != 10 {
 			t.Fatalf("stock = %d, want 10", got)
 		}
 	})

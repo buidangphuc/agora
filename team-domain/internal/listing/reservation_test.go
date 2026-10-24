@@ -12,9 +12,9 @@ import (
 )
 
 // stockOf is a small helper: the current base stock of listing id.
-func stockOf(t *testing.T, repo *storetest.InMemoryListingRepository, id string) int32 {
+func stockOf(ctx context.Context, t *testing.T, repo *storetest.InMemoryListingRepository, id string) int32 {
 	t.Helper()
-	l, err := repo.Get(context.Background(), id)
+	l, err := repo.Get(ctx, id)
 	if err != nil {
 		t.Fatalf("get %s: %v", id, err)
 	}
@@ -33,7 +33,7 @@ func TestReserveStockIdempotent(t *testing.T) {
 		if err := svc.ReserveStockIdempotent(ctx, "res-1", "L1", "", 3); err != nil {
 			t.Fatalf("first reserve: %v", err)
 		}
-		if got := stockOf(t, repo, "L1"); got != 7 {
+		if got := stockOf(ctx, t, repo, "L1"); got != 7 {
 			t.Fatalf("after first reserve stock = %d, want 7", got)
 		}
 
@@ -41,7 +41,7 @@ func TestReserveStockIdempotent(t *testing.T) {
 		if err := svc.ReserveStockIdempotent(ctx, "res-1", "L1", "", 3); err != nil {
 			t.Fatalf("retry reserve: %v", err)
 		}
-		if got := stockOf(t, repo, "L1"); got != 7 {
+		if got := stockOf(ctx, t, repo, "L1"); got != 7 {
 			t.Errorf("after retry stock = %d, want 7 (must decrement once)", got)
 		}
 
@@ -49,7 +49,7 @@ func TestReserveStockIdempotent(t *testing.T) {
 		if err := svc.ReserveStockIdempotent(ctx, "res-2", "L1", "", 2); err != nil {
 			t.Fatalf("second distinct reserve: %v", err)
 		}
-		if got := stockOf(t, repo, "L1"); got != 5 {
+		if got := stockOf(ctx, t, repo, "L1"); got != 5 {
 			t.Errorf("after distinct reserve stock = %d, want 5", got)
 		}
 	})
@@ -61,7 +61,7 @@ func TestReserveStockIdempotent(t *testing.T) {
 		if err := svc.ReserveStockIdempotent(ctx, "res-x", "L2", "", 5); !errors.Is(err, store.ErrOutOfStock) {
 			t.Fatalf("want ErrOutOfStock, got %v", err)
 		}
-		if got := stockOf(t, repo, "L2"); got != 1 {
+		if got := stockOf(ctx, t, repo, "L2"); got != 1 {
 			t.Errorf("stock must be untouched on failure, got %d want 1", got)
 		}
 		// Because no reservation was recorded, a later reserve of the SAME id with a
@@ -69,7 +69,7 @@ func TestReserveStockIdempotent(t *testing.T) {
 		if err := svc.ReserveStockIdempotent(ctx, "res-x", "L2", "", 1); err != nil {
 			t.Fatalf("reserve after prior failure: %v", err)
 		}
-		if got := stockOf(t, repo, "L2"); got != 0 {
+		if got := stockOf(ctx, t, repo, "L2"); got != 0 {
 			t.Errorf("stock = %d, want 0", got)
 		}
 	})
@@ -88,7 +88,7 @@ func TestSweepExpiredReservations(t *testing.T) {
 	if err := svc.ReserveStockIdempotent(ctx, "res-1", "L1", "", 4); err != nil {
 		t.Fatalf("reserve: %v", err)
 	}
-	if got := stockOf(t, repo, "L1"); got != 6 {
+	if got := stockOf(ctx, t, repo, "L1"); got != 6 {
 		t.Fatalf("after reserve stock = %d, want 6", got)
 	}
 
@@ -96,7 +96,7 @@ func TestSweepExpiredReservations(t *testing.T) {
 	if released, err := sweeper.SweepOnce(ctx, time.Now()); err != nil || released != 0 {
 		t.Fatalf("premature sweep released=%d err=%v, want 0/nil", released, err)
 	}
-	if got := stockOf(t, repo, "L1"); got != 6 {
+	if got := stockOf(ctx, t, repo, "L1"); got != 6 {
 		t.Errorf("stock changed by premature sweep: %d", got)
 	}
 
@@ -109,7 +109,7 @@ func TestSweepExpiredReservations(t *testing.T) {
 	if released != 1 {
 		t.Errorf("released = %d, want 1", released)
 	}
-	if got := stockOf(t, repo, "L1"); got != 10 {
+	if got := stockOf(ctx, t, repo, "L1"); got != 10 {
 		t.Errorf("stock after sweep = %d, want 10 (restored)", got)
 	}
 
@@ -121,7 +121,7 @@ func TestSweepExpiredReservations(t *testing.T) {
 	if released != 0 {
 		t.Errorf("second sweep released = %d, want 0", released)
 	}
-	if got := stockOf(t, repo, "L1"); got != 10 {
+	if got := stockOf(ctx, t, repo, "L1"); got != 10 {
 		t.Errorf("stock after second sweep = %d, want 10", got)
 	}
 }
@@ -142,7 +142,7 @@ func TestReserveStockIdempotent_ReleasedIDFails(t *testing.T) {
 	if err := svc.ReserveStockIdempotent(ctx, "r1", "L1", "", 3); err != nil {
 		t.Fatalf("re-reserve committed id: %v, want nil", err)
 	}
-	if got := stockOf(t, repo, "L1"); got != 7 {
+	if got := stockOf(ctx, t, repo, "L1"); got != 7 {
 		t.Fatalf("stock = %d, want 7", got)
 	}
 	if err := svc.ReleaseStock(ctx, "r1"); err != nil {
@@ -151,7 +151,7 @@ func TestReserveStockIdempotent_ReleasedIDFails(t *testing.T) {
 	if err := svc.ReserveStockIdempotent(ctx, "r1", "L1", "", 3); !errors.Is(err, store.ErrReservationReleased) {
 		t.Fatalf("re-reserve released id: %v, want ErrReservationReleased", err)
 	}
-	if got := stockOf(t, repo, "L1"); got != 10 {
+	if got := stockOf(ctx, t, repo, "L1"); got != 10 {
 		t.Fatalf("stock = %d, want 10", got)
 	}
 }
@@ -162,7 +162,7 @@ func TestReserveStockIdempotent_EmptyIDRequired(t *testing.T) {
 	if err := svc.ReserveStockIdempotent(context.Background(), "", "L1", "", 3); !errors.Is(err, store.ErrReservationIDRequired) {
 		t.Fatalf("got %v, want ErrReservationIDRequired", err)
 	}
-	if got := stockOf(t, repo, "L1"); got != 10 {
+	if got := stockOf(t.Context(), t, repo, "L1"); got != 10 {
 		t.Fatalf("stock = %d, want 10", got)
 	}
 }
@@ -187,7 +187,7 @@ func TestSweepOnlyRestoresActiveReservations(t *testing.T) {
 	if err := svc.ReleaseStock(ctx, "released"); err != nil {
 		t.Fatalf("release: %v", err)
 	}
-	if got := stockOf(t, repo, "L1"); got != 7 {
+	if got := stockOf(ctx, t, repo, "L1"); got != 7 {
 		t.Fatalf("before sweep stock = %d, want 7", got)
 	}
 
@@ -198,7 +198,7 @@ func TestSweepOnlyRestoresActiveReservations(t *testing.T) {
 	if released != 1 {
 		t.Errorf("released = %d, want 1 (only the active reservation)", released)
 	}
-	if got := stockOf(t, repo, "L1"); got != 8 {
+	if got := stockOf(ctx, t, repo, "L1"); got != 8 {
 		t.Errorf("after sweep stock = %d, want 8 (committed 2 still held)", got)
 	}
 	// The swept id is now released: reserving under it fails, committing it fails.

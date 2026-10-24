@@ -2,7 +2,6 @@ package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net"
 	"testing"
@@ -70,7 +69,7 @@ func startServer(t *testing.T, repo store.ListingRepository) listingv1.ListingSe
 // enqueued rows. txw must wrap the same repo passed here.
 func startServerOutbox(t *testing.T, repo store.ListingRepository, txw *storetest.InMemoryTxWriter) listingv1.ListingServiceClient {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	objs := objects.NewS3Storage(testStorage())
 	catRepo := storetest.NewInMemoryCategoryRepository()
 	var svc *listing.ListingService

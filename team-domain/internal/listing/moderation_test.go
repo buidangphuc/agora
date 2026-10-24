@@ -39,11 +39,11 @@ type modAudit struct {
 	err   error
 }
 
-func (a *modAudit) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
+func (a *modAudit) WriteAuditEvent(ctx context.Context, ev auditx.Event) error {
 	if ev.Action != "listing.moderate" {
 		return a.err
 	}
-	cur, _ := a.repo.Get(context.Background(), ev.TargetID)
+	cur, _ := a.repo.Get(ctx, ev.TargetID)
 	m := ev.Metadata
 	a.calls = append(a.calls, modCall{ev.ActorID, ev.TargetID, m["seller_id"], m["decision"], m["reason_code"], m["note"], m["from_status"], m["to_status"], cur.Status})
 	*a.log = append(*a.log, "audit")
@@ -76,7 +76,7 @@ func (m *modTx) ModerateTx(ctx context.Context, id, fromStatus string, loadedUpd
 	cur.ModerationNote = d.Note
 	cur.ModerationDecidedAt = d.DecidedAt
 	cur.UpdatedAt = cur.UpdatedAt.Add(time.Second)
-	return m.InMemoryTxWriter.UpdateTx(ctx, cur, ev)
+	return m.UpdateTx(ctx, cur, ev)
 }
 
 type modFixture struct {
@@ -202,8 +202,10 @@ func TestModerateAuditPrecedesChange(t *testing.T) {
 	if !reflect.DeepEqual(*f.log, []string{"audit", "change"}) {
 		t.Fatalf("order = %v, want [audit change]", *f.log)
 	}
-	want := modCall{actor: "admin-1", listing: "L-1", seller: "seller-a", decision: "reject", reason: "counterfeit",
-		note: "Fake logo", from: "pending_review", to: "rejected", storedStatus: "pending_review"}
+	want := modCall{
+		actor: "admin-1", listing: "L-1", seller: "seller-a", decision: "reject", reason: "counterfeit",
+		note: "Fake logo", from: "pending_review", to: "rejected", storedStatus: "pending_review",
+	}
 	if len(f.audit.calls) != 1 || f.audit.calls[0] != want {
 		t.Fatalf("audit calls = %+v, want [%+v]", f.audit.calls, want)
 	}

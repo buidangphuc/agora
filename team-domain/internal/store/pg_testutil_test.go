@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,10 +15,10 @@ import (
 	"github.com/buidangphuc/team-domain/internal/store"
 )
 
-func newPool(t *testing.T) *pgxpool.Pool {
+func newPool(ctx context.Context, t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	dsn := testkit.Schema(t, testkit.SharedPostgres(t))
-	pool, err := pgxpool.New(t.Context(), dsn)
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatalf("connect pool: %v", err)
 	}
@@ -33,7 +34,7 @@ func newPool(t *testing.T) *pgxpool.Pool {
 		if err != nil {
 			t.Fatalf("read %s: %v", f, err)
 		}
-		if _, err := pool.Exec(t.Context(), string(sqlText)); err != nil {
+		if _, err := pool.Exec(ctx, string(sqlText)); err != nil {
 			t.Fatalf("apply %s: %v", filepath.Base(f), err)
 		}
 	}
@@ -49,24 +50,24 @@ func newOutboxStore(t *testing.T, pool *pgxpool.Pool) *outbox.Store {
 	return s
 }
 
-func newPGRepo(t *testing.T) (*store.PostgresListingRepository, *pgxpool.Pool) {
+func newPGRepo(ctx context.Context, t *testing.T) (*store.PostgresListingRepository, *pgxpool.Pool) {
 	t.Helper()
-	pool := newPool(t)
+	pool := newPool(ctx, t)
 	return store.NewPostgresListingRepository(pool), pool
 }
 
-func seedPGListing(t *testing.T, repo *store.PostgresListingRepository, id string, stock int32) {
+func seedPGListing(ctx context.Context, t *testing.T, repo *store.PostgresListingRepository, id string, stock int32) {
 	t.Helper()
-	if _, err := repo.Create(t.Context(), store.Listing{
+	if _, err := repo.Create(ctx, store.Listing{
 		ID: id, Title: id, Currency: "VND", Status: "published", Stock: stock,
 	}); err != nil {
 		t.Fatalf("seed listing %s: %v", id, err)
 	}
 }
 
-func pgStock(t *testing.T, repo *store.PostgresListingRepository, id string) int32 {
+func pgStock(ctx context.Context, t *testing.T, repo *store.PostgresListingRepository, id string) int32 {
 	t.Helper()
-	l, err := repo.Get(t.Context(), id)
+	l, err := repo.Get(ctx, id)
 	if err != nil {
 		t.Fatalf("get %s: %v", id, err)
 	}
