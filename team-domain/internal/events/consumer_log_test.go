@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
@@ -112,9 +113,20 @@ func TestIdentityConsumerDLQFailureLogsFingerprint(t *testing.T) {
 	dlq := newFakeDLQ(errors.New("dlq down for user-123"))
 	produce(t, brokers, "identity.events.dlqfail", []byte("user-123"), suspendedValue(t))
 	r := startConsumer(t, brokers, "identity.events.dlqfail", h, dlq, logger)
-	r.waitDLQ(dlq)
+	var runErr error
+	select {
+	case runErr = <-r.done:
+		r.done <- runErr
+	case <-time.After(30 * time.Second):
+		t.Fatal("Run did not exit with the dead-letter failure")
+	case <-t.Context().Done():
+		t.Fatal("test ended before Run exited")
+	}
 	if err := r.stop(); err == nil {
 		t.Fatal("Run returned nil, want the dead-letter failure")
+	}
+	if len(dlq.records()) == 0 {
+		t.Fatal("dead-letter publish was never attempted")
 	}
 
 	if strings.Contains(buf.String(), "user-123") {
