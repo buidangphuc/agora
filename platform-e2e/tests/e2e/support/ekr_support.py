@@ -9,6 +9,7 @@ poll, never a sleep.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import subprocess
@@ -18,8 +19,8 @@ from typing import Any
 
 from tests.e2e.flows import srm_events_flow as ev
 
-PARKED_MSG = "event parked to dlq after max attempts"
-FAILED_MSG = "event handler failed"
+PARKED_MSG = "consume: record dead-lettered"
+FAILED_MSG = "consume: handler failed"
 PARK_S = 240.0  # 5 attempts with backoff, then the DLQ produce
 
 
@@ -27,8 +28,12 @@ def container() -> str:
     return os.getenv("PLP_TEAM_ENGAGEMENT_CONTAINER", "team-engagement-svc")
 
 
-def fp(key: bytes) -> str:
-    return hashlib.sha256(key).hexdigest()[:12]
+def _secret() -> bytes:
+    return os.getenv("LOG_KEY_FP_SECRET", "local-e2e-log-key-fp-secret").encode()
+
+
+def fp(key: bytes | None) -> str:
+    return hmac.new(_secret(), key or b"", hashlib.sha256).hexdigest()[:12]
 
 
 def new_user_key(prefix: str = "seller") -> str:

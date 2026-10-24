@@ -145,6 +145,12 @@ def call_refused(dde: OicWorld, code: str) -> None:
     assert code_of(resp) == code, f"expected {code}, got {resp.status_code}: {resp.text[:400]}"
 
 
+@then(parsers.parse('the dispute call message is "{message}"'))
+def call_message(dde: OicWorld, message: str) -> None:
+    resp = dde.responses["call"]
+    assert resp.json().get("message") == message, resp.text[:400]
+
+
 @then("the refused response holds no dispute")
 def refused_holds_none(dde: OicWorld) -> None:
     resp = dde.responses["call"]

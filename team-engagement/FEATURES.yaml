@@ -485,7 +485,7 @@ features:
       - "Completed order is reviewed"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewVerifiedStoresVerified`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReviewVerifiedStoresVerified`"
 
   - id: engagement-review-integrity.empty-order-id-is-rejected
     title: "Empty order id is rejected"
@@ -497,7 +497,7 @@ features:
       - "Empty order id is rejected"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReviewEmptyOrderInvalidArgument`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReviewEmptyOrderInvalidArgument`"
 
   - id: engagement-review-integrity.ineligible-order-returns-one-message
     title: "Ineligible order returns one message"
@@ -509,7 +509,7 @@ features:
       - "Ineligible order returns one message"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReviewIneligibleOrderSingleMessage`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReviewIneligibleOrderSingleMessage`"
 
   - id: engagement-review-integrity.anonymous-caller-cannot-review
     title: "Anonymous caller cannot review"
@@ -521,7 +521,7 @@ features:
       - "Anonymous caller cannot review"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReviewAnonymousUnauthenticated`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReviewAnonymousUnauthenticated`"
 
   - id: engagement-review-integrity.rating-boundary-values
     title: "Rating boundary values"
@@ -533,7 +533,7 @@ features:
       - "Rating boundary values"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewRatingBounds`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReviewRatingBounds`"
 
   - id: engagement-review-integrity.verifier-returns-an-error
     title: "Verifier returns an error"
@@ -545,7 +545,7 @@ features:
       - "Verifier returns an error"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewVerifierErrorUnavailable`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReviewVerifierErrorUnavailable`"
 
   - id: engagement-review-integrity.verifier-times-out
     title: "Verifier times out"
@@ -557,7 +557,7 @@ features:
       - "Verifier times out"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestVerifyPurchaseTimeoutIsError`, `internal/service` `TestCreateReviewVerifierErrorUnavailable`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestVerifyPurchaseTimeoutIsError`, `internal/engagement` `TestCreateReviewVerifierErrorUnavailable`"
 
   - id: engagement-review-integrity.no-order-upstream-configured
     title: "No order upstream configured"
@@ -569,7 +569,7 @@ features:
       - "No order upstream configured"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewNilVerifierUnavailable`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReviewVerifierDownUnavailable`"
 
   - id: engagement-review-integrity.upstream-not-found-is-not-an-outage
     title: "Upstream not-found is not an outage"
@@ -593,7 +593,7 @@ features:
       - "Duplicate review is refused"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestPGCreateReviewDuplicateOrderListing`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestPGCreateReviewDuplicateOrderListing`"
 
   - id: engagement-review-integrity.concurrent-duplicates-yield-one-row
     title: "Concurrent duplicates yield one row"
@@ -605,7 +605,7 @@ features:
       - "Concurrent duplicates yield one row"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestPGCreateReviewConcurrentDuplicates`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestPGCreateReviewConcurrentDuplicates`"
 
   - id: engagement-review-integrity.same-order-different-listing-is-allowed
     title: "Same order, different listing is allowed"
@@ -617,7 +617,7 @@ features:
       - "Same order, different listing is allowed"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewSameOrderTwoListings`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReviewSameOrderTwoListings`"
 
   - id: engagement-review-integrity.migration-demotes-later-duplicates
     title: "Migration demotes later duplicates"
@@ -629,7 +629,7 @@ features:
       - "Migration demotes later duplicates"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestMigration0011DemotesDuplicateVerified`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestMigration0011DemotesDuplicateVerified`"
 
   - id: engagement-review-integrity.migration-leaves-unverified-rows-alone
     title: "Migration leaves unverified rows alone"
@@ -641,7 +641,7 @@ features:
       - "Migration leaves unverified rows alone"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestMigration0011IgnoresUnverified`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestMigration0011IgnoresUnverified`"
 
   - id: engagement-review-integrity.down-migration-removes-the-new-schema
     title: "Down migration removes the new schema"
@@ -653,7 +653,7 @@ features:
       - "Down migration removes the new schema"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestMigration0011Down`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestMigration0011Down`"
 
   - id: engagement-review-integrity.listing-summary-ignores-unverified-reviews
     title: "Listing summary ignores unverified reviews"
@@ -665,7 +665,7 @@ features:
       - "Listing summary ignores unverified reviews"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestPGRatingSummaryVerifiedOnly`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestPGRatingSummaryVerifiedOnly`"
 
   - id: engagement-review-integrity.shop-summary-applies-the-same-rule
     title: "Shop summary applies the same rule"
@@ -677,7 +677,7 @@ features:
       - "Shop summary applies the same rule"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestPGShopSummaryVerifiedNonHidden`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestPGShopSummaryVerifiedNonHidden`"
 
   - id: engagement-review-integrity.listing-with-no-verified-reviews
     title: "Listing with no verified reviews"
@@ -689,7 +689,7 @@ features:
       - "Listing with no verified reviews"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestRatingSummaryNoVerifiedIsZero`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestRatingSummaryNoVerifiedIsZero`"
 
   - id: engagement-review-integrity.listreviews-shows-legacy-reviews
     title: "ListReviews shows legacy reviews"
@@ -701,7 +701,7 @@ features:
       - "ListReviews shows legacy reviews"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReviewsIncludesUnverifiedExcludesHidden`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestListReviewsIncludesUnverifiedExcludesHidden`"
 
   - id: engagement-review-integrity.hidden-review-is-excluded-from-the-list-and-the-total
     title: "Hidden review is excluded from the list and the total"
@@ -713,7 +713,7 @@ features:
       - "Hidden review is excluded from the list and the total"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestPGListReviewsExcludesHidden`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestPGListReviewsExcludesHidden`"
 
   - id: engagement-review-integrity.in-memory-repository-matches-postgres
     title: "In-memory repository matches Postgres"
@@ -725,7 +725,7 @@ features:
       - "In-memory repository matches Postgres"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestReviewRepoParity`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestReviewRepoParity`"
 
   - id: engagement-review-integrity.stored-review-emits-one-event
     title: "Stored review emits one event"
@@ -737,7 +737,7 @@ features:
       - "Stored review emits one event"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestOutboxReviewCreated`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestOutboxReviewCreated`"
 
   - id: engagement-review-integrity.refused-review-emits-nothing
     title: "Refused review emits nothing"
@@ -749,7 +749,7 @@ features:
       - "Refused review emits nothing"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReviewRefusedWritesNoOutbox`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReviewRefusedWritesNoOutbox`"
 
   - id: engagement-review-integrity.review-from-a-completed-order-end-to-end
     title: "Review from a completed order, end to end"
@@ -863,7 +863,7 @@ features:
       - "Admin hides a review"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewHidesFromList`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewHidesFromList`"
 
   - id: engagement-review-integrity.hide-removes-the-review-from-both-summaries
     title: "Hide removes the review from both summaries"
@@ -875,7 +875,7 @@ features:
       - "Hide removes the review from both summaries"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewUpdatesSummaries`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewUpdatesSummaries`"
 
   - id: engagement-review-integrity.audit-event-carries-the-required-fields
     title: "Audit event carries the required fields"
@@ -887,7 +887,7 @@ features:
       - "Audit event carries the required fields"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewAuditEventFields`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewAuditEventFields`"
 
   - id: engagement-review-integrity.audit-is-called-as-the-service-principal
     title: "Audit is called as the service principal"
@@ -911,7 +911,7 @@ features:
       - "Audit is written before the hide"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestHideReviewAuditBeforeHide`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestHideReviewAuditBeforeHide`"
 
   - id: engagement-review-integrity.audit-failure-leaves-the-review-visible
     title: "Audit failure leaves the review visible"
@@ -923,7 +923,7 @@ features:
       - "Audit failure leaves the review visible"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestHideReviewAuditFailureFailsClosed`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestHideReviewAuditFailureFailsClosed`"
 
   - id: engagement-review-integrity.no-audit-upstream-configured
     title: "No audit upstream configured"
@@ -935,7 +935,7 @@ features:
       - "No audit upstream configured"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestHideReviewNilAuditClientUnavailable`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestHideReviewAuditFailureFailsClosedOnGate`"
 
   - id: engagement-review-integrity.hide-failure-after-audit-is-internal-and-retryable
     title: "Hide failure after audit is Internal and retryable"
@@ -947,7 +947,7 @@ features:
       - "Hide failure after audit is Internal and retryable"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestHideReviewUpdateFailureInternalThenRetry`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestHideReviewUpdateFailureInternalThenRetry`"
 
   - id: engagement-review-integrity.hiding-an-already-hidden-review-is-idempotent
     title: "Hiding an already hidden review is idempotent"
@@ -959,7 +959,7 @@ features:
       - "Hiding an already hidden review is idempotent"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestHideReviewIdempotentNoSecondAudit`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestHideReviewIdempotentNoSecondAudit`"
 
   - id: engagement-review-integrity.unknown-review
     title: "Unknown review"
@@ -971,7 +971,7 @@ features:
       - "Unknown review"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewNotFound`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewNotFound`"
 
   - id: engagement-review-integrity.empty-or-whitespace-reason-is-rejected
     title: "Empty or whitespace reason is rejected"
@@ -983,7 +983,7 @@ features:
       - "Empty or whitespace reason is rejected"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewEmptyReasonInvalidArgument`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewEmptyReasonInvalidArgument`"
 
   - id: engagement-review-integrity.reason-length-boundary
     title: "Reason length boundary"
@@ -995,7 +995,7 @@ features:
       - "Reason length boundary"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewReasonLengthBoundary`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewReasonLengthBoundary`"
 
   - id: engagement-review-integrity.reason-is-trimmed-before-storing
     title: "Reason is trimmed before storing"
@@ -1007,7 +1007,7 @@ features:
       - "Reason is trimmed before storing"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewReasonTrimmed`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewReasonTrimmed`"
 
   - id: engagement-review-integrity.empty-review-id-is-rejected
     title: "Empty review id is rejected"
@@ -1019,7 +1019,7 @@ features:
       - "Empty review id is rejected"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewEmptyIDInvalidArgument`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewEmptyIDInvalidArgument`"
 
   - id: engagement-review-integrity.non-admin-is-denied-at-the-service
     title: "Non-admin is denied at the service"
@@ -1031,7 +1031,7 @@ features:
       - "Non-admin is denied at the service"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewNonAdminPermissionDenied`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewNonAdminPermissionDenied`"
 
   - id: engagement-review-integrity.authorization-is-checked-before-validation
     title: "Authorization is checked before validation"
@@ -1043,7 +1043,7 @@ features:
       - "Authorization is checked before validation"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewNonAdminInvalidReasonPermissionDenied`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewNonAdminInvalidReasonPermissionDenied`"
 
   - id: engagement-review-integrity.anonymous-caller-is-unauthenticated-at-the-service
     title: "Anonymous caller is unauthenticated at the service"
@@ -1055,7 +1055,7 @@ features:
       - "Anonymous caller is unauthenticated at the service"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewAnonymousUnauthenticated`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewAnonymousUnauthenticated`"
 
   - id: engagement-review-integrity.hidden-review-is-invisible-to-the-admin-too
     title: "Hidden review is invisible to the admin too"
@@ -1067,7 +1067,7 @@ features:
       - "Hidden review is invisible to the admin too"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestHideReviewInvisibleToAdminList`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewInvisibleToAdminList`"
 
   - id: engagement-review-integrity.other-review-rpcs-treat-a-hidden-review-as-missing
     title: "Other review RPCs treat a hidden review as missing"
@@ -1079,7 +1079,7 @@ features:
       - "Other review RPCs treat a hidden review as missing"
     tags: [review-integrity, unit]
     status: not-testable
-    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestMarkHelpfulHiddenReviewNotFound`"
+    notes: "engagement-review-integrity: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestMarkHelpfulHiddenReviewNotFound`"
 
   - id: engagement-review-integrity.hide-a-review-end-to-end
     title: "Hide a review end to end"
@@ -1244,7 +1244,7 @@ features:
       - "Dispute audit: Admin resolves a dispute and one event is written"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeWritesAuditEvent`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeWritesAuditEvent`"
 
   - id: engagement-dispute-audit.dispute-audit-investigating-dispute-can-be-updated-again-with-one-event-each
     title: "Dispute audit: Investigating dispute can be updated again with one event each"
@@ -1256,7 +1256,7 @@ features:
       - "Dispute audit: Investigating dispute can be updated again with one event each"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeInvestigatingRepeatAudited`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeInvestigatingRepeatAudited`"
 
   - id: engagement-dispute-audit.dispute-audit-any-permitted-target-status-is-audited
     title: "Dispute audit: Any permitted target status is audited"
@@ -1268,7 +1268,7 @@ features:
       - "Dispute audit: Any permitted target status is audited"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeAuditsEveryStatus`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeAuditsEveryStatus`"
 
   - id: engagement-dispute-audit.dispute-audit-audit-is-written-before-the-update
     title: "Dispute audit: Audit is written before the update"
@@ -1280,7 +1280,7 @@ features:
       - "Dispute audit: Audit is written before the update"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveDisputeAuditBeforeUpdate`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestResolveDisputeAuditBeforeUpdateAndEvent`"
 
   - id: engagement-dispute-audit.dispute-audit-written-as-the-service-principal
     title: "Dispute audit: written as the service principal"
@@ -1304,7 +1304,7 @@ features:
       - "Dispute audit: Hide-review audit behaviour is unchanged"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestWriteHideEventStillBuildsReviewHideEvent`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestHideReviewAuditEventFields`"
 
   - id: engagement-dispute-audit.dispute-audit-resolution-note-is-trimmed-in-the-event
     title: "Dispute audit: Resolution note is trimmed in the event"
@@ -1316,7 +1316,7 @@ features:
       - "Dispute audit: Resolution note is trimmed in the event"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeAuditResolutionTrimmed`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeAuditResolutionTrimmed`"
 
   - id: engagement-dispute-audit.dispute-audit-empty-resolution-is-audited-as-empty
     title: "Dispute audit: Empty resolution is audited as empty"
@@ -1328,7 +1328,7 @@ features:
       - "Dispute audit: Empty resolution is audited as empty"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeEmptyResolutionAudited`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeEmptyResolutionAudited`"
 
   - id: engagement-dispute-audit.dispute-audit-audit-error-leaves-the-dispute-open
     title: "Dispute audit: Audit error leaves the dispute open"
@@ -1340,7 +1340,7 @@ features:
       - "Dispute audit: Audit error leaves the dispute open"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveDisputeAuditFailureFailsClosed`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestResolveDisputeAuditFailureFailsClosedOnGate`"
 
   - id: engagement-dispute-audit.dispute-audit-timeout-is-unavailable
     title: "Dispute audit: timeout is Unavailable"
@@ -1352,7 +1352,7 @@ features:
       - "Dispute audit: timeout is Unavailable"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestAuditClientWriteEventTimeout`; team-engagement `internal/service` `TestResolveDisputeAuditTimeoutUnavailable`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/upstream` `TestAuditClientWriteEventTimeout`; team-engagement `internal/engagement` `TestResolveDisputeAuditTimeoutUnavailable`"
 
   - id: engagement-dispute-audit.dispute-audit-no-audit-upstream-configured
     title: "Dispute audit: No audit upstream configured"
@@ -1364,7 +1364,7 @@ features:
       - "Dispute audit: No audit upstream configured"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveDisputeNilAuditUnavailable`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeAuditDownIsUnavailable`"
 
   - id: engagement-dispute-audit.dispute-audit-update-failure-after-audit-is-internal-and-retryable
     title: "Dispute audit: Update failure after audit is Internal and retryable"
@@ -1376,7 +1376,7 @@ features:
       - "Dispute audit: Update failure after audit is Internal and retryable"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveDisputeUpdateFailureInternalThenRetry`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestResolveDisputeUpdateFailureNoFactThenRetry`"
 
   - id: engagement-dispute-audit.dispute-audit-other-dispute-rpcs-ignore-team-audit-availability
     title: "Dispute audit: Other dispute RPCs ignore team-audit availability"
@@ -1388,7 +1388,7 @@ features:
       - "Dispute audit: Other dispute RPCs ignore team-audit availability"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestDisputeReadWriteIndependentOfAudit`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestDisputeReadWriteIndependentOfAudit`"
 
   - id: engagement-dispute-audit.dispute-audit-anonymous-caller-is-unauthenticated
     title: "Dispute audit: Anonymous caller is unauthenticated"
@@ -1400,7 +1400,7 @@ features:
       - "Dispute audit: Anonymous caller is unauthenticated"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeAnonymousNoAudit`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeAnonymousNoAudit`"
 
   - id: engagement-dispute-audit.dispute-audit-non-admin-is-denied
     title: "Dispute audit: Non-admin is denied"
@@ -1412,7 +1412,7 @@ features:
       - "Dispute audit: Non-admin is denied"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeNonAdminDeniedNoAudit`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeNonAdminDeniedNoAudit`"
 
   - id: engagement-dispute-audit.dispute-audit-authorization-precedes-validation
     title: "Dispute audit: Authorization precedes validation"
@@ -1424,7 +1424,7 @@ features:
       - "Dispute audit: Authorization precedes validation"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeAuthBeforeValidationAndAudit`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeAuthBeforeValidationAndAudit`"
 
   - id: engagement-dispute-audit.dispute-audit-empty-dispute-id-is-rejected
     title: "Dispute audit: Empty dispute id is rejected"
@@ -1436,7 +1436,7 @@ features:
       - "Dispute audit: Empty dispute id is rejected"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeEmptyIDNoAudit`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeEmptyIDNoAudit`"
 
   - id: engagement-dispute-audit.dispute-audit-invalid-status-is-rejected
     title: "Dispute audit: Invalid status is rejected"
@@ -1448,7 +1448,7 @@ features:
       - "Dispute audit: Invalid status is rejected"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeInvalidStatusNoAudit`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeInvalidStatusNoAudit`"
 
   - id: engagement-dispute-audit.dispute-audit-unknown-dispute
     title: "Dispute audit: Unknown dispute"
@@ -1460,7 +1460,7 @@ features:
       - "Dispute audit: Unknown dispute"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeNotFoundNoAudit`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeNotFoundNoAudit`"
 
   - id: engagement-dispute-audit.dispute-audit-already-closed-dispute-is-not-re-audited
     title: "Dispute audit: Already closed dispute is not re-audited"
@@ -1472,7 +1472,7 @@ features:
       - "Dispute audit: Already closed dispute is not re-audited"
     tags: [dispute-audit, unit]
     status: not-testable
-    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveDisputeClosedNoAudit`"
+    notes: "engagement-dispute-audit: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveDisputeClosedNoAudit`"
 
   - id: engagement-listing-reports.listing-reports-buyer-reports-a-listing
     title: "Listing reports: Buyer reports a listing"
@@ -1484,7 +1484,7 @@ features:
       - "Listing reports: Buyer reports a listing"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportStoresOpenReport`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReportStoresOpenReport`"
 
   - id: engagement-listing-reports.listing-reports-second-open-report-by-the-same-user-returns-the-existing-one
     title: "Listing reports: Second open report by the same user returns the existing one"
@@ -1496,7 +1496,7 @@ features:
       - "Listing reports: Second open report by the same user returns the existing one"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportIdempotentWhileOpen`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReportIdempotentWhileOpen`"
 
   - id: engagement-listing-reports.listing-reports-concurrent-duplicate-reports-yield-one-row
     title: "Listing reports: Concurrent duplicate reports yield one row"
@@ -1508,7 +1508,7 @@ features:
       - "Listing reports: Concurrent duplicate reports yield one row"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestCreateReportConcurrentDuplicatesOneRow`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestCreateReportConcurrentDuplicatesOneRow`"
 
   - id: engagement-listing-reports.listing-reports-a-closed-report-does-not-block-a-new-one
     title: "Listing reports: A closed report does not block a new one"
@@ -1520,7 +1520,7 @@ features:
       - "Listing reports: A closed report does not block a new one"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportAfterCloseCreatesNew`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReportAfterCloseCreatesNew`"
 
   - id: engagement-listing-reports.listing-reports-different-users-report-the-same-listing
     title: "Listing reports: Different users report the same listing"
@@ -1532,7 +1532,7 @@ features:
       - "Listing reports: Different users report the same listing"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportTwoReportersTwoRows`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReportTwoReportersTwoRows`"
 
   - id: engagement-listing-reports.listing-reports-anonymous-caller-is-unauthenticated
     title: "Listing reports: Anonymous caller is unauthenticated"
@@ -1544,7 +1544,7 @@ features:
       - "Listing reports: Anonymous caller is unauthenticated"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportAnonymousUnauthenticated`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReportAnonymousUnauthenticated`"
 
   - id: engagement-listing-reports.listing-reports-caller-without-the-write-scope-is-denied
     title: "Listing reports: Caller without the write scope is denied"
@@ -1556,7 +1556,7 @@ features:
       - "Listing reports: Caller without the write scope is denied"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportMissingWriteScopeDenied`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReportMissingWriteScopeDenied`"
 
   - id: engagement-listing-reports.listing-reports-seller-cannot-report-their-own-listing
     title: "Listing reports: Seller cannot report their own listing"
@@ -1568,7 +1568,7 @@ features:
       - "Listing reports: Seller cannot report their own listing"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportOwnListingRefused`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReportOwnListingRefused`"
 
   - id: engagement-listing-reports.listing-reports-unknown-reason-code-is-rejected
     title: "Listing reports: Unknown reason code is rejected"
@@ -1580,7 +1580,7 @@ features:
       - "Listing reports: Unknown reason code is rejected"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportUnknownReasonInvalidArgument`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReportUnknownReasonInvalidArgument`"
 
   - id: engagement-listing-reports.listing-reports-target-type-and-target-id-are-validated
     title: "Listing reports: Target type and target id are validated"
@@ -1592,7 +1592,7 @@ features:
       - "Listing reports: Target type and target id are validated"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportTargetValidation`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReportTargetValidation`"
 
   - id: engagement-listing-reports.listing-reports-note-length-boundary
     title: "Listing reports: Note length boundary"
@@ -1604,7 +1604,7 @@ features:
       - "Listing reports: Note length boundary"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportNoteLengthBoundary`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReportNoteLengthBoundary`"
 
   - id: engagement-listing-reports.listing-reports-note-is-optional-and-trimmed
     title: "Listing reports: Note is optional and trimmed"
@@ -1616,7 +1616,7 @@ features:
       - "Listing reports: Note is optional and trimmed"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportNoteOptionalAndTrimmed`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReportNoteOptionalAndTrimmed`"
 
   - id: engagement-listing-reports.listing-reports-open-report-cap-per-reporter
     title: "Listing reports: Open report cap per reporter"
@@ -1628,7 +1628,7 @@ features:
       - "Listing reports: Open report cap per reporter"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportOpenCapPerReporter`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReportOpenCapPerReporter`"
 
   - id: engagement-listing-reports.listing-reports-report-of-an-unknown-listing-is-accepted
     title: "Listing reports: Report of an unknown listing is accepted"
@@ -1640,7 +1640,7 @@ features:
       - "Listing reports: Report of an unknown listing is accepted"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportUnknownListingAccepted`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReportUnknownListingAccepted`"
 
   - id: engagement-listing-reports.listing-reports-report-note-is-never-logged
     title: "Listing reports: Report note is never logged"
@@ -1652,7 +1652,7 @@ features:
       - "Listing reports: Report note is never logged"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestCreateReportNoteNotLogged`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestCreateReportNoteNotLogged`"
 
   - id: engagement-listing-reports.listing-reports-report-created-end-to-end
     title: "Listing reports: Report created end to end"
@@ -1703,7 +1703,7 @@ features:
       - "Listing reports: Seller cannot list reports"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsSellerDenied`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestListReportsSellerDenied`"
 
   - id: engagement-listing-reports.listing-reports-seller-cannot-read-reports-end-to-end
     title: "Listing reports: Seller cannot read reports end to end"
@@ -1728,7 +1728,7 @@ features:
       - "Listing reports: Admin lists open reports oldest first"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsOldestFirst`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestListReportsOldestFirst`"
 
   - id: engagement-listing-reports.listing-reports-filter-by-target-id
     title: "Listing reports: Filter by target id"
@@ -1740,7 +1740,7 @@ features:
       - "Listing reports: Filter by target id"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestListReportsFilterByTarget`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestListReportsFilterByTarget`"
 
   - id: engagement-listing-reports.listing-reports-page-size-boundary
     title: "Listing reports: Page size boundary"
@@ -1752,7 +1752,7 @@ features:
       - "Listing reports: Page size boundary"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsPageSizeBoundary`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestListReportsPageSizeBoundary`"
 
   - id: engagement-listing-reports.listing-reports-empty-result
     title: "Listing reports: Empty result"
@@ -1764,7 +1764,7 @@ features:
       - "Listing reports: Empty result"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsEmpty`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestListReportsEmpty`"
 
   - id: engagement-listing-reports.listing-reports-non-admin-and-anonymous-callers-are-refused
     title: "Listing reports: Non-admin and anonymous callers are refused"
@@ -1776,7 +1776,7 @@ features:
       - "Listing reports: Non-admin and anonymous callers are refused"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsAuthzMatrix`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestListReportsAuthzMatrix`"
 
   - id: engagement-listing-reports.listing-reports-listing-is-not-audited
     title: "Listing reports: Listing is not audited"
@@ -1788,7 +1788,7 @@ features:
       - "Listing reports: Listing is not audited"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestListReportsWritesNoAudit`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestListReportsWritesNoAudit`"
 
   - id: engagement-listing-reports.listing-reports-admin-closes-a-report-as-actioned
     title: "Listing reports: Admin closes a report as actioned"
@@ -1800,7 +1800,7 @@ features:
       - "Listing reports: Admin closes a report as actioned"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportActioned`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveReportActioned`"
 
   - id: engagement-listing-reports.listing-reports-admin-dismisses-a-report
     title: "Listing reports: Admin dismisses a report"
@@ -1812,7 +1812,7 @@ features:
       - "Listing reports: Admin dismisses a report"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportDismissed`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveReportDismissed`"
 
   - id: engagement-listing-reports.listing-reports-audit-event-carries-the-required-fields
     title: "Listing reports: Audit event carries the required fields"
@@ -1824,7 +1824,7 @@ features:
       - "Listing reports: Audit event carries the required fields"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportAuditEventFields`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveReportAuditEventFields`"
 
   - id: engagement-listing-reports.listing-reports-audit-is-called-as-the-service-principal
     title: "Listing reports: Audit is called as the service principal"
@@ -1848,7 +1848,7 @@ features:
       - "Listing reports: Audit is written before the close"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportAuditBeforeClose`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestResolveReportAuditBeforeClose`"
 
   - id: engagement-listing-reports.listing-reports-audit-failure-leaves-the-report-open
     title: "Listing reports: Audit failure leaves the report open"
@@ -1860,7 +1860,7 @@ features:
       - "Listing reports: Audit failure leaves the report open"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportAuditFailureFailsClosed`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestResolveReportAuditFailureFailsClosed`"
 
   - id: engagement-listing-reports.listing-reports-no-audit-upstream-configured
     title: "Listing reports: No audit upstream configured"
@@ -1872,7 +1872,7 @@ features:
       - "Listing reports: No audit upstream configured"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportNilAuditClientUnavailable`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestResolveReportAuditFailureFailsClosedOnGate`"
 
   - id: engagement-listing-reports.listing-reports-close-failure-after-audit-is-internal-and-retryable
     title: "Listing reports: Close failure after audit is Internal and retryable"
@@ -1884,7 +1884,7 @@ features:
       - "Listing reports: Close failure after audit is Internal and retryable"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportCloseFailureInternalThenRetry`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestResolveReportCloseFailureInternalThenRetry`"
 
   - id: engagement-listing-reports.listing-reports-closing-again-with-the-same-status-is-refused
     title: "Listing reports: Closing again with the same status is refused"
@@ -1896,7 +1896,7 @@ features:
       - "Listing reports: Closing again with the same status is refused"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportSameStatusReCloseRefused`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestResolveReportSameStatusReCloseRefused`"
 
   - id: engagement-listing-reports.listing-reports-closing-with-a-different-status-is-refused
     title: "Listing reports: Closing with a different status is refused"
@@ -1908,7 +1908,7 @@ features:
       - "Listing reports: Closing with a different status is refused"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportConflictingStatusRefused`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestResolveReportConflictingStatusRefused`"
 
   - id: engagement-listing-reports.listing-reports-two-admins-close-the-same-report-at-once
     title: "Listing reports: Two admins close the same report at once"
@@ -1920,7 +1920,7 @@ features:
       - "Listing reports: Two admins close the same report at once"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestCloseReportCompareAndSetOneWinner`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestCloseReportCompareAndSetOneWinner`"
 
   - id: engagement-listing-reports.listing-reports-invalid-final-status-is-rejected
     title: "Listing reports: Invalid final status is rejected"
@@ -1932,7 +1932,7 @@ features:
       - "Listing reports: Invalid final status is rejected"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportInvalidStatus`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveReportInvalidStatus`"
 
   - id: engagement-listing-reports.listing-reports-empty-or-whitespace-note-is-rejected
     title: "Listing reports: Empty or whitespace note is rejected"
@@ -1944,7 +1944,7 @@ features:
       - "Listing reports: Empty or whitespace note is rejected"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportEmptyNoteInvalidArgument`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveReportEmptyNoteInvalidArgument`"
 
   - id: engagement-listing-reports.listing-reports-resolution-note-length-boundary
     title: "Listing reports: Resolution note length boundary"
@@ -1956,7 +1956,7 @@ features:
       - "Listing reports: Resolution note length boundary"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportNoteLengthBoundary`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveReportNoteLengthBoundary`"
 
   - id: engagement-listing-reports.listing-reports-unknown-report
     title: "Listing reports: Unknown report"
@@ -1968,7 +1968,7 @@ features:
       - "Listing reports: Unknown report"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportNotFoundAndEmptyID`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveReportNotFoundAndEmptyID`"
 
   - id: engagement-listing-reports.listing-reports-non-admin-and-anonymous-callers-cannot-close
     title: "Listing reports: Non-admin and anonymous callers cannot close"
@@ -1980,7 +1980,7 @@ features:
       - "Listing reports: Non-admin and anonymous callers cannot close"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/handler` `TestResolveReportAuthzMatrix`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/rpc` `TestResolveReportAuthzMatrix`"
 
   - id: engagement-listing-reports.listing-reports-closing-a-report-leaves-the-listing-alone
     title: "Listing reports: Closing a report leaves the listing alone"
@@ -1992,7 +1992,7 @@ features:
       - "Listing reports: Closing a report leaves the listing alone"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestResolveReportTouchesOnlyAudit`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestResolveReportTouchesOnlyAudit`"
 
   - id: engagement-listing-reports.listing-reports-admin-works-a-report-end-to-end
     title: "Listing reports: Admin works a report end to end"
@@ -2043,7 +2043,7 @@ features:
       - "Listing reports: Old closed report is pseudonymised"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestSweepPseudonymisesOldClosedReports`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestSweepPseudonymisesOldClosedReports`"
 
   - id: engagement-listing-reports.listing-reports-retention-boundary
     title: "Listing reports: Retention boundary"
@@ -2055,7 +2055,7 @@ features:
       - "Listing reports: Retention boundary"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestSweepRetentionBoundary`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestSweepRetentionBoundary`"
 
   - id: engagement-listing-reports.listing-reports-open-reports-are-never-swept
     title: "Listing reports: Open reports are never swept"
@@ -2067,7 +2067,7 @@ features:
       - "Listing reports: Open reports are never swept"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestSweepSkipsOpenReports`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestSweepSkipsOpenReports`"
 
   - id: engagement-listing-reports.listing-reports-sweep-is-idempotent-and-batched
     title: "Listing reports: Sweep is idempotent and batched"
@@ -2079,7 +2079,7 @@ features:
       - "Listing reports: Sweep is idempotent and batched"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestSweepIdempotentAndBatched`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestSweepIdempotentAndBatched`"
 
   - id: engagement-listing-reports.listing-reports-pseudonymised-reporter-can-report-again
     title: "Listing reports: Pseudonymised reporter can report again"
@@ -2091,7 +2091,7 @@ features:
       - "Listing reports: Pseudonymised reporter can report again"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/service` `TestCreateReportAfterSweep`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/engagement` `TestCreateReportAfterSweep`"
 
   - id: engagement-listing-reports.listing-reports-retention-config-is-validated
     title: "Listing reports: Retention config is validated"
@@ -2115,7 +2115,7 @@ features:
       - "Listing reports: Migration creates the schema"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestMigrationReportsUp`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestMigrationReportsUp`"
 
   - id: engagement-listing-reports.listing-reports-down-migration-removes-the-schema
     title: "Listing reports: Down migration removes the schema"
@@ -2127,7 +2127,7 @@ features:
       - "Listing reports: Down migration removes the schema"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestMigrationReportsDown`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestMigrationReportsDown`"
 
   - id: engagement-listing-reports.listing-reports-in-memory-repository-matches-postgres
     title: "Listing reports: In-memory repository matches Postgres"
@@ -2139,7 +2139,7 @@ features:
       - "Listing reports: In-memory repository matches Postgres"
     tags: [listing-reports, unit]
     status: not-testable
-    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/repository` `TestReportRepositoryParity`"
+    notes: "engagement-listing-reports: unit-verified, not producible end to end (service/edge internals). Verified by: team-engagement `internal/store` `TestReportRepositoryParity`"
 
   - id: engagement-consumer-key-redaction.handler-failure-logs-fingerprint
     title: "Engagement key redaction: handler failure logs fingerprint"
@@ -2204,7 +2204,7 @@ features:
       - "Engagement key redaction: DLQ produce failure logs fingerprint"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-engagement `internal/consumer` `TestDLQProduceFailureLogsFingerprintOffsetHeld`. Not producible end to end (needs a broker fault / handler-internal view of the key); unit level."
+    notes: "VERIFIED BY team-engagement `internal/events` `TestDLQProduceFailureLogsFingerprintOffsetHeld`. Not producible end to end (needs a broker fault / handler-internal view of the key); unit level."
 
   - id: engagement-consumer-key-redaction.successful-records-and-key-unchanged
     title: "Engagement key redaction: successful records and key unchanged"
@@ -2217,7 +2217,7 @@ features:
       - "Engagement key redaction: successful records and key unchanged"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-engagement `internal/consumer` `TestSuccessPassesRawKeyToHandler`. Not producible end to end (needs a broker fault / handler-internal view of the key); unit level."
+    notes: "VERIFIED BY team-engagement `internal/events` `TestSuccessPassesRawKeyToHandler`. Not producible end to end (needs a broker fault / handler-internal view of the key); unit level."
 
   # ---- engagement-review-hidden-event (e2e-author; automated, green against the local stack)
   - id: engagement-review-hidden-event.effective-hide-enqueues-one-fact
@@ -2230,7 +2230,7 @@ features:
       - "Review hidden event: effective hide enqueues one fact"
     tags: [review-hidden-event, unit]
     status: not-testable
-    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestHideReviewEnqueuesReviewHidden`"
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/store` `TestHideReviewEnqueuesReviewHidden`"
 
   - id: engagement-review-hidden-event.payload-carries-no-moderator-data
     title: "Review hidden event: payload carries no moderator data"
@@ -2242,7 +2242,7 @@ features:
       - "Review hidden event: payload carries no moderator data"
     tags: [review-hidden-event, unit]
     status: not-testable
-    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestReviewHiddenFactOmitsAdminAndReason`"
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/store` `TestReviewHiddenFactOmitsAdminAndReason`"
 
   - id: engagement-review-hidden-event.fact-and-hide-are-atomic
     title: "Review hidden event: fact and hide are atomic"
@@ -2254,7 +2254,7 @@ features:
       - "Review hidden event: fact and hide are atomic"
     tags: [review-hidden-event, unit]
     status: not-testable
-    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestHideReviewRollsBackWhenEnqueueFails`"
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/store` `TestHideReviewRollsBackWhenEnqueueFails`"
 
   - id: engagement-review-hidden-event.re-hide-emits-nothing-new
     title: "Review hidden event: re-hide emits nothing new"
@@ -2266,7 +2266,7 @@ features:
       - "Review hidden event: re-hide emits nothing new"
     tags: [review-hidden-event, unit]
     status: not-testable
-    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestHideReviewTwiceEnqueuesOnce`"
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/store` `TestHideReviewTwiceEnqueuesOnce`"
 
   - id: engagement-review-hidden-event.concurrent-hides-emit-once
     title: "Review hidden event: concurrent hides emit once"
@@ -2278,7 +2278,7 @@ features:
       - "Review hidden event: concurrent hides emit once"
     tags: [review-hidden-event, unit]
     status: not-testable
-    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestHideReviewConcurrentEnqueuesOnce`"
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/store` `TestHideReviewConcurrentEnqueuesOnce`"
 
   - id: engagement-review-hidden-event.unknown-review-emits-nothing
     title: "Review hidden event: unknown review emits nothing"
@@ -2290,7 +2290,7 @@ features:
       - "Review hidden event: unknown review emits nothing"
     tags: [review-hidden-event, unit]
     status: not-testable
-    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/repository` `TestHideReviewUnknownEnqueuesNothing`"
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/store` `TestHideReviewUnknownEnqueuesNothing`"
 
   - id: engagement-review-hidden-event.audit-failure-emits-nothing
     title: "Review hidden event: audit failure emits nothing"
@@ -2302,7 +2302,7 @@ features:
       - "Review hidden event: audit failure emits nothing"
     tags: [review-hidden-event, unit]
     status: not-testable
-    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/service` `TestHideReviewAuditFailureNoFact`"
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/engagement` `TestHideReviewAuditFailureNoFact`"
 
   - id: engagement-review-hidden-event.non-admin-cannot-trigger-a-fact
     title: "Review hidden event: non-admin cannot trigger a fact"
@@ -2314,7 +2314,7 @@ features:
       - "Review hidden event: non-admin cannot trigger a fact"
     tags: [review-hidden-event, unit]
     status: not-testable
-    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/handler` `TestHideReviewNonAdminNoFact`"
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/rpc` `TestHideReviewNonAdminNoFact`"
 
   - id: engagement-review-hidden-event.existing-hide-behaviour-is-preserved
     title: "Review hidden event: existing hide behaviour is preserved"
@@ -2326,7 +2326,7 @@ features:
       - "Review hidden event: existing hide behaviour is preserved"
     tags: [review-hidden-event, unit]
     status: not-testable
-    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/handler` `TestHideReviewHidesFromList` and `TestHideReviewUpdatesSummaries`"
+    notes: "engagement-review-hidden-event: unit-verified, not producible end to end (outbox/service internals). Verified by: team-engagement `internal/rpc` `TestHideReviewHidesFromList` and `TestHideReviewUpdatesSummaries`"
 
   - id: engagement-review-hidden-event.admin-hide-appears-on-engagement-events
     title: "Review hidden event: admin hide appears on engagement.events"
@@ -2600,7 +2600,7 @@ features:
       - "Dispute escalation: Buyer escalates a rejected return (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeEscalatesRejectedReturn`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestCreateDisputeEscalatesRejectedReturn`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-buyer-escalates-a-return-the-seller-never-answered
     title: "Dispute escalation: Buyer escalates a return the seller never answered"
@@ -2630,7 +2630,7 @@ features:
       - "Dispute escalation: Concurrent creates leave one dispute (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestCreateDisputeUniqueOpenPerReturnConcurrent`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/store` `TestCreateDisputeUniqueOpenPerReturnConcurrent`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-a-closed-dispute-lets-the-return-be-escalated-again
     title: "Dispute escalation: A closed dispute lets the return be escalated again"
@@ -2645,7 +2645,7 @@ features:
       - "Dispute escalation: A closed dispute lets the return be escalated again (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestCreateDisputeAfterClosedDisputeOnReturn`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/store` `TestCreateDisputeAfterClosedDisputeOnReturn`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-unknown-return-or-return-of-another-order
     title: "Dispute escalation: Unknown return or return of another order"
@@ -2660,7 +2660,7 @@ features:
       - "Dispute escalation: Unknown return or return of another order (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeReturnNotFoundOrWrongOrder`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestCreateDisputeReturnNotFoundOrWrongOrder`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-not-the-buyer-of-the-order
     title: "Dispute escalation: Not the buyer of the order"
@@ -2675,7 +2675,7 @@ features:
       - "Dispute escalation: Not the buyer of the order (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeReturnForeignOrderNoReturnRead`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestCreateDisputeReturnForeignOrderNoReturnRead`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-escalation-naming-another-defendant-is-invalid
     title: "Dispute escalation: Escalation naming another defendant is invalid"
@@ -2690,7 +2690,7 @@ features:
       - "Dispute escalation: Escalation naming another defendant is invalid (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeReturnWrongDefendantInvalid`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestCreateDisputeReturnWrongDefendantInvalid`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-team-order-unavailable-fails-closed
     title: "Dispute escalation: Team-order unavailable fails closed"
@@ -2705,7 +2705,7 @@ features:
       - "Dispute escalation: Team-order unavailable fails closed (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeReturnUpstreamUnavailable`; team-engagement `internal/upstream` `TestGetReturnTimeout`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestCreateDisputeReturnUpstreamUnavailable`; team-engagement `internal/upstream` `TestGetReturn_DisputeEscalation_UpstreamFailureFailsClosed`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-dispute-without-return-id-is-unchanged
     title: "Dispute escalation: Dispute without return_id is unchanged"
@@ -2720,7 +2720,7 @@ features:
       - "Dispute escalation: Dispute without return_id is unchanged (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeWithoutReturnUnchanged`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestCreateDisputeWithoutReturnUnchanged`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-anonymous-caller-cannot-create-a-dispute
     title: "Dispute escalation: Anonymous caller cannot create a dispute"
@@ -2735,7 +2735,7 @@ features:
       - "Dispute escalation: Anonymous caller cannot create a dispute (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestCreateDisputeReturnAnonymousDenied`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestCreateDisputeReturnAnonymousDenied`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-existing-disputes-survive-the-migration
     title: "Dispute escalation: Existing disputes survive the migration"
@@ -2750,7 +2750,7 @@ features:
       - "Dispute escalation: Existing disputes survive the migration (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestDisputeMigrationKeepsExistingRows`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/store` `TestDisputeMigrationKeepsExistingRows`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-getdispute-shows-the-link-and-the-ruling
     title: "Dispute escalation: GetDispute shows the link and the ruling"
@@ -2765,7 +2765,7 @@ features:
       - "Dispute escalation: GetDispute shows the link and the ruling (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestGetDisputeCarriesReturnAndRuling`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestGetDisputeCarriesReturnAndRuling`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-open-dispute-moves-to-investigating
     title: "Dispute escalation: Open dispute moves to investigating"
@@ -2780,7 +2780,7 @@ features:
       - "Dispute escalation: Open dispute moves to investigating (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/service` `TestResolveDisputeOpenToInvestigating`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/engagement` `TestResolveDisputeOpenToInvestigating`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-investigating-note-can-be-updated
     title: "Dispute escalation: Investigating note can be updated"
@@ -2795,7 +2795,7 @@ features:
       - "Dispute escalation: Investigating note can be updated (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/service` `TestResolveDisputeInvestigatingNoteUpdate`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/engagement` `TestResolveDisputeInvestigatingNoteUpdate`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-open-dispute-can-be-rejected-as-spam
     title: "Dispute escalation: Open dispute can be rejected as spam"
@@ -2810,7 +2810,7 @@ features:
       - "Dispute escalation: Open dispute can be rejected as spam (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeOpenToRejectedAllowed`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestResolveDisputeOpenToRejectedAllowed`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-closed-dispute-stays-closed
     title: "Dispute escalation: Closed dispute stays closed"
@@ -2825,7 +2825,7 @@ features:
       - "Dispute escalation: Closed dispute stays closed (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeClosedRefused`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestResolveDisputeClosedRefused`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-return-linked-resolution-needs-a-ruling
     title: "Dispute escalation: Return-linked resolution needs a ruling"
@@ -2840,7 +2840,7 @@ features:
       - "Dispute escalation: Return-linked resolution needs a ruling (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveReturnLinkedWithoutRulingInvalid`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestResolveReturnLinkedWithoutRulingInvalid`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-ruling-on-a-non-resolving-status-is-invalid
     title: "Dispute escalation: Ruling on a non-resolving status is invalid"
@@ -2855,7 +2855,7 @@ features:
       - "Dispute escalation: Ruling on a non-resolving status is invalid (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveRulingWithNonResolvedStatusInvalid`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestResolveRulingWithNonResolvedStatusInvalid`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-dispute-without-a-return-resolves-without-a-ruling
     title: "Dispute escalation: Dispute without a return resolves without a ruling"
@@ -2870,7 +2870,7 @@ features:
       - "Dispute escalation: Dispute without a return resolves without a ruling (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/service` `TestResolveDisputeWithoutReturnNoRulingNeeded`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/engagement` `TestResolveDisputeWithoutReturnNoRulingNeeded`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-concurrent-resolutions-apply-once
     title: "Dispute escalation: Concurrent resolutions apply once"
@@ -2885,7 +2885,7 @@ features:
       - "Dispute escalation: Concurrent resolutions apply once (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestResolveDisputeCompareAndSetOnce`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/store` `TestResolveDisputeCompareAndSetOnce`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-non-admin-cannot-rule
     title: "Dispute escalation: Non-admin cannot rule"
@@ -2900,7 +2900,7 @@ features:
       - "Dispute escalation: Non-admin cannot rule (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeRulingNonAdminDenied`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestResolveDisputeRulingNonAdminDenied`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-buyer-favour-ruling-writes-the-audit-event-and-one-fact
     title: "Dispute escalation: Buyer-favour ruling writes the audit event and one fact"
@@ -2915,7 +2915,7 @@ features:
       - "Dispute escalation: Buyer-favour ruling writes the audit event and one fact (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeBuyerFavourAuditAndEvent`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestResolveDisputeBuyerFavourAuditAndEvent`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-rejected-dispute-carries-no-ruling
     title: "Dispute escalation: Rejected dispute carries no ruling"
@@ -2930,7 +2930,7 @@ features:
       - "Dispute escalation: Rejected dispute carries no ruling (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeRejectedEventNoRuling`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestResolveDisputeRejectedEventNoRuling`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-seller-favour-ruling-is-announced
     title: "Dispute escalation: Seller-favour ruling is announced"
@@ -2945,7 +2945,7 @@ features:
       - "Dispute escalation: Seller-favour ruling is announced (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeSellerFavourEvent`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestResolveDisputeSellerFavourEvent`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-audit-is-written-before-the-update
     title: "Dispute escalation: Audit is written before the update"
@@ -2960,7 +2960,7 @@ features:
       - "Dispute escalation: Audit is written before the update (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/service` `TestResolveDisputeAuditBeforeUpdateAndEvent`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/engagement` `TestResolveDisputeAuditBeforeUpdateAndEvent`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-a-failed-update-leaves-no-event
     title: "Dispute escalation: A failed update leaves no event"
@@ -2975,7 +2975,7 @@ features:
       - "Dispute escalation: A failed update leaves no event (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestResolveDisputeUpdateFailureWritesNoFact`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/store` `TestResolveDisputeUpdateFailureWritesNoFact`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-a-refused-ruling-writes-no-audit-event-and-no-fact
     title: "Dispute escalation: A refused ruling writes no audit event and no fact"
@@ -2990,7 +2990,7 @@ features:
       - "Dispute escalation: A refused ruling writes no audit event and no fact (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestResolveDisputeDeniedWritesNoAuditNoFact`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestResolveDisputeDeniedWritesNoAuditNoFact`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-admin-lists-any-order-s-disputes
     title: "Dispute escalation: Admin lists any order's disputes"
@@ -3005,7 +3005,7 @@ features:
       - "Dispute escalation: Admin lists any order's disputes (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesAdminNoUpstream`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestListOrderDisputesAdminNoUpstream`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-unknown-order-gives-the-same-answer-as-a-foreign-order
     title: "Dispute escalation: Unknown order gives the same answer as a foreign order"
@@ -3020,7 +3020,7 @@ features:
       - "Dispute escalation: Unknown order gives the same answer as a foreign order (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesUnknownOrderDenied`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestListOrderDisputesUnknownOrderDenied`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-order-without-disputes-lists-empty
     title: "Dispute escalation: Order without disputes lists empty"
@@ -3035,7 +3035,7 @@ features:
       - "Dispute escalation: Order without disputes lists empty (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesEmpty`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestListOrderDisputesEmpty`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-list-needs-an-order-id-and-a-login
     title: "Dispute escalation: List needs an order id and a login"
@@ -3050,7 +3050,7 @@ features:
       - "Dispute escalation: List needs an order id and a login (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesValidationAndAnonymous`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestListOrderDisputesValidationAndAnonymous`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-list-without-engagement-read-scope-is-denied
     title: "Dispute escalation: List without engagement read scope is denied"
@@ -3065,7 +3065,7 @@ features:
       - "Dispute escalation: List without engagement read scope is denied (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesMissingScopeDenied`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestListOrderDisputesMissingScopeDenied`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-team-order-down-blocks-a-non-admin-list
     title: "Dispute escalation: Team-order down blocks a non-admin list"
@@ -3080,7 +3080,7 @@ features:
       - "Dispute escalation: Team-order down blocks a non-admin list (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListOrderDisputesUpstreamUnavailable`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestListOrderDisputesUpstreamUnavailable`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-pagination-boundary
     title: "Dispute escalation: Pagination boundary"
@@ -3095,7 +3095,7 @@ features:
       - "Dispute escalation: Pagination boundary (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/repository` `TestListDisputesPagination`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/store` `TestListDisputesPagination`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-listing-writes-no-audit-event
     title: "Dispute escalation: Listing writes no audit event"
@@ -3110,7 +3110,7 @@ features:
       - "Dispute escalation: Listing writes no audit event (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListDisputesNotAudited`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestListDisputesNotAudited`. Not producible end to end."
 
   - id: engagement.dispute-escalation.unit-non-admin-and-anonymous-are-refused
     title: "Dispute escalation: Non-admin and anonymous are refused"
@@ -3125,7 +3125,7 @@ features:
       - "Dispute escalation: Non-admin and anonymous are refused (unit-verified)"
     tags: [engagement, unit]
     status: not-testable
-    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/handler` `TestListDisputesNonAdminDenied`. Not producible end to end."
+    notes: "engagement-dispute-escalation: unit-verified: team-engagement `internal/rpc` `TestListDisputesNonAdminDenied`. Not producible end to end."
 
   - id: engagement.return-read.unit-rr-service-principal-with-order-read-reads-a-return
     title: "Return read: Service principal with order.read reads a return"
@@ -4782,7 +4782,7 @@ features:
       - SDK error table
     tags: [engagement, go-sdk, unit]
     status: not-testable
-    notes: "VERIFIED BY team-engagement internal/handler error mapping tests. Not producible end to end."
+    notes: "VERIFIED BY team-engagement `internal/rpc` `TestErrorTableUniqueViolationAlreadyExists`, `TestErrorTableContextErrors`, `TestErrorTableHidesInternalDetail`, `TestErrorTableKeepsDomainCodes`, `TestInternalErrorsAreGeneric`. Not producible end to end."
 
   - id: engagement.sdk-migration-0014
     title: SDK migration 0014 copy
@@ -4795,7 +4795,7 @@ features:
       - SDK migration 0014 copy
     tags: [engagement, go-sdk, unit]
     status: not-testable
-    notes: "VERIFIED BY team-engagement internal/repository migration tests. Database level."
+    notes: "VERIFIED BY team-engagement `migrations` `TestMigration0014CopiesUnpublishedFacts`, `TestMigration0014MapsAggregatesAndPrincipalTypes`, `TestMigration0014RequeuesParkedRows`, `TestMigration0014CopyIsIdempotent`, `TestMigration0014DownKeepsLegacyOutbox`. Database level."
 
   - id: engagement.sdk-audit-gate
     title: SDK audit gate message

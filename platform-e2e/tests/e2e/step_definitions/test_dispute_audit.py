@@ -98,6 +98,12 @@ def call_refused(world: World, code: str) -> None:
     assert resp.json().get("code") == code, f"expected {code}, got {resp.status_code}: {resp.text}"
 
 
+@then(parsers.parse('the dispute audit call message is "{message}"'))
+def call_message(world: World, message: str) -> None:
+    resp: httpx.Response = world.state.extra["resp"]
+    assert resp.json().get("message") == message, resp.text
+
+
 @then(
     parsers.parse(
         "exactly one dispute.resolve audit event exists for the dispute with the admin as actor "
