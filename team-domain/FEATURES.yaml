@@ -2107,18 +2107,6 @@ features:
     status: not-testable
     notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedDBFailureRetriesThenDLQ`. Not producible end to end through the gateway (unit level)."
 
-  - id: listing.seller-hold-consumer-disabled-does-nothing
-    title: "Seller hold: Consumer disabled does nothing"
-    persona: admin
-    priority: P2
-    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
-    entry_route: /
-    services: [team-domain]
-    acceptance:
-      - "Seller hold: Consumer disabled does nothing"
-    tags: [admin, enforcement, unit]
-    status: not-testable
-    notes: "VERIFIED BY team-domain `internal/bootstrap` `TestIdentityConsumerAddonDisabled`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-non-owner-cannot-read-a-held-listing
     title: "Seller hold: Non-owner cannot read a held listing"
@@ -2219,89 +2207,856 @@ features:
     title: "Domain key redaction: Handler failure logs the fingerprint"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Handler failure logs the fingerprint"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordLogsKeyFingerprint`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestIdentityConsumerLogsKeyFingerprint`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-raw-key-never-appears-in-any-log-line
     title: "Domain key redaction: Raw key never appears in any log line"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Raw key never appears in any log line"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordParkLogsNoRawKey`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestIdentityConsumerParkLogsNoRawKey`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-dlq-produce-failure-logs-the-fingerprint
     title: "Domain key redaction: DLQ produce failure logs the fingerprint"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: DLQ produce failure logs the fingerprint"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordDLQFailureLogsFingerprint`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestIdentityConsumerDLQFailureLogsFingerprint`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-empty-key-is-still-fingerprinted
     title: "Domain key redaction: Empty key is still fingerprinted"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Empty key is still fingerprinted"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestKeyFingerprintEmptyKey`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestEmptyKeyIsFingerprinted`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-fingerprint-is-stable-and-fixed-length
     title: "Domain key redaction: Fingerprint is stable and fixed length"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Fingerprint is stable and fixed length"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestKeyFingerprintStableAndTwelveHex`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestKeyFingerprintStableTwelveHex`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-kafka-key-and-retry-behaviour-are-unchanged
     title: "Domain key redaction: Kafka key and retry behaviour are unchanged"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Kafka key and retry behaviour are unchanged"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordDLQKeepsOriginalKey`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestParkedRecordKeepsOriginalKey`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-successful-records-log-no-key
     title: "Domain key redaction: Successful records log no key"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Successful records log no key"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordSuccessLogsNothing`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestSuccessfulRecordLogsNoKey`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
+
+  - id: consumer.key-redaction-the-fingerprint-depends-on-the-secret
+    title: "Domain key redaction: The fingerprint depends on the secret"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain key redaction: The fingerprint depends on the secret"
+    tags: [privacy, audit, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/events` `TestKeyFingerprintDependsOnSecret`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.go-mod-pins-the-tag-without-replace
+    title: "Domain SDK: go.mod pins the tag without replace"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: go.mod pins the tag without replace"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestGoModRequiresTaggedSDK`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.makefile-references-the-shared-files
+    title: "Domain SDK: Makefile references the shared files"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Makefile references the shared files"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestMakefileUsesSharedBuildFiles`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.superseded-packages-are-gone
+    title: "Domain SDK: Superseded packages are gone"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Superseded packages are gone"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestLegacyPackagesRemoved`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-missing-env-is-refused
+    title: "Domain SDK: A missing ENV is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A missing ENV is refused"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestLoadRequiresEnv`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-missing-grpc-port-is-refused
+    title: "Domain SDK: A missing GRPC_PORT is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A missing GRPC_PORT is refused"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestLoadRequiresGRPCPort`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.the-telemetry-service-name-is-team-domain
+    title: "Domain SDK: The telemetry service name is team-domain"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: The telemetry service name is team-domain"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestOtelServiceNameDefaultsToTeamDomain`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-missing-database-url-is-refused-in-every-environment
+    title: "Domain SDK: A missing database URL is refused in every environment"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A missing database URL is refused in every environment"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestLoadRequiresDatabaseURL`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-missing-screening-terms-file-is-refused
+    title: "Domain SDK: A missing screening terms file is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A missing screening terms file is refused"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestScreenTermsFileMissingFails`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.port-and-shutdown-durations-are-range-checked
+    title: "Domain SDK: Port and shutdown durations are range checked"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Port and shutdown durations are range checked"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestLoadRejectsBadPortAndNegativeDurations`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.removed-variables-are-not-declared
+    title: "Domain SDK: Removed variables are not declared"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Removed variables are not declared"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestNoRemovedEnvKeysDeclared`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-strict-env-refuses-each-unsafe-value
+    title: "Domain SDK: A strict ENV refuses each unsafe value"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A strict ENV refuses each unsafe value"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestStrictEnvRefusesUnsafeSettings`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-local-env-accepts-reflection-and-fills-defaults
+    title: "Domain SDK: A local ENV accepts reflection and fills defaults"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A local ENV accepts reflection and fills defaults"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestLocalEnvAcceptsDefaultsAndReflection`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.an-unset-upstream-address-is-refused-in-every-environment
+    title: "Domain SDK: An unset upstream address is refused in every environment"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: An unset upstream address is refused in every environment"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestUpstreamAddressesRequiredInEveryEnv`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.env-example-matches-the-declared-variables
+    title: "Domain SDK: .env.example matches the declared variables"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: .env.example matches the declared variables"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestEnvExampleInSync`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.an-unreachable-database-stops-boot
+    title: "Domain SDK: An unreachable database stops boot"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: An unreachable database stops boot"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunFailsOnUnreachableDatabase`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.the-sweeper-releases-expired-reservations-without-any-switch
+    title: "Domain SDK: The sweeper releases expired reservations without any switch"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: The sweeper releases expired reservations without any switch"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunSweepsExpiredReservations`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.non-test-code-has-no-runtime-fallback
+    title: "Domain SDK: Non-test code has no runtime fallback"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Non-test code has no runtime fallback"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestNoRuntimeFallbacksInSource`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.in-memory-fakes-are-imported-by-tests-only
+    title: "Domain SDK: In-memory fakes are imported by tests only"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: In-memory fakes are imported by tests only"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestFakesImportedOnlyFromTests`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-database-outage-fails-readiness-and-keeps-liveness
+    title: "Domain SDK: A database outage fails readiness and keeps liveness"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A database outage fails readiness and keeps liveness"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestReadinessFailsLivenessHoldsWhenPostgresDown`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-kafka-outage-does-not-fail-readiness
+    title: "Domain SDK: A Kafka outage does not fail readiness"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A Kafka outage does not fail readiness"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestReadinessIgnoresKafkaOutage`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.shutdown-drains-health-before-the-server-stops
+    title: "Domain SDK: Shutdown drains health before the server stops"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Shutdown drains health before the server stops"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestShutdownDrainsHealthBeforeServerStops`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.an-in-flight-write-is-relayed-during-shutdown
+    title: "Domain SDK: An in-flight write is relayed during shutdown"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: An in-flight write is relayed during shutdown"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestShutdownRelaysInFlightWrite`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-failing-component-stops-the-process-with-its-error
+    title: "Domain SDK: A failing component stops the process with its error"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A failing component stops the process with its error"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestConsumerFailureStopsRun`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-hanging-call-cannot-outlive-the-grace-period
+    title: "Domain SDK: A hanging call cannot outlive the grace period"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A hanging call cannot outlive the grace period"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestShutdownGraceBoundsHangingCall`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-call-without-a-principal-is-unauthenticated
+    title: "Domain SDK: A call without a principal is Unauthenticated"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A call without a principal is Unauthenticated"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestRPCsWithoutPrincipalAreUnauthenticated`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-user-principal-cannot-call-a-reservation-rpc
+    title: "Domain SDK: A user principal cannot call a reservation RPC"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A user principal cannot call a reservation RPC"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUserPrincipalCannotCallReservationRPCs`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-seller-cannot-moderate
+    title: "Domain SDK: A seller cannot moderate"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A seller cannot moderate"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestSellerCannotModerateOrReadQueue`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-unique-violation-is-alreadyexists
+    title: "Domain SDK: A unique violation is AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A unique violation is AlreadyExists"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUniqueViolationMapsAlreadyExists`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-duplicate-storefront-slug-is-still-alreadyexists
+    title: "Domain SDK: A duplicate storefront slug is still AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A duplicate storefront slug is still AlreadyExists"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUpsertStorefrontSlugTakenAlreadyExists`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.cancelled-and-expired-calls-keep-their-codes
+    title: "Domain SDK: Cancelled and expired calls keep their codes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Cancelled and expired calls keep their codes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestContextErrorsKeepTheirCodes`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.an-unknown-error-hides-driver-text
+    title: "Domain SDK: An unknown error hides driver text"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: An unknown error hides driver text"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestInternalErrorHidesDriverText`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.domain-sentinels-keep-their-codes
+    title: "Domain SDK: Domain sentinels keep their codes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Domain sentinels keep their codes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestDomainSentinelsKeepCodes`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.reflection-is-off-by-default
+    title: "Domain SDK: Reflection is off by default"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Reflection is off by default"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestReflectionOffByDefault`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.page-size-defaults-and-caps
+    title: "Domain SDK: Page size defaults and caps"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Page size defaults and caps"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestPageSizeClamp`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-cursor-issued-before-the-migration-is-still-accepted
+    title: "Domain SDK: A cursor issued before the migration is still accepted"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A cursor issued before the migration is still accepted"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestExistingCursorFormatsAccepted`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-malformed-queue-cursor-is-rejected
+    title: "Domain SDK: A malformed queue cursor is rejected"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A malformed queue cursor is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestListModerationQueueInvalidCursor`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.migrations-build-the-v1-outbox-on-an-empty-database
+    title: "Domain SDK: Migrations build the v1 outbox on an empty database"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Migrations build the v1 outbox on an empty database"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `migrations` `TestMigrateUpBuildsV1Outbox`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.existing-rows-are-numbered-by-creation-order
+    title: "Domain SDK: Existing rows are numbered by creation order"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Existing rows are numbered by creation order"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `migrations` `TestOutboxUpgradeNumbersRowsByCreatedAt`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.upgraded-pending-rows-are-relayed
+    title: "Domain SDK: Upgraded pending rows are relayed"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Upgraded pending rows are relayed"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestUpgradedPendingRowsArePublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.upgraded-failed-rows-are-requeued-and-published
+    title: "Domain SDK: Upgraded failed rows are requeued and published"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Upgraded failed rows are requeued and published"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestUpgradedFailedRowsAreRequeuedAndPublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.boot-does-not-migrate
+    title: "Domain SDK: Boot does not migrate"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Boot does not migrate"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunDoesNotMigrate`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.the-migrate-subcommand-applies-the-schema
+    title: "Domain SDK: The migrate subcommand applies the schema"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: The migrate subcommand applies the schema"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestMigrateUpSubcommandAppliesSchema`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-second-migrate-up-changes-nothing
+    title: "Domain SDK: A second migrate up changes nothing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A second migrate up changes nothing"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `migrations` `TestMigrateUpIsIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.migrate-without-a-database-fails
+    title: "Domain SDK: Migrate without a database fails"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Migrate without a database fails"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestMigrateFailsWithoutDatabase`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.screening-calls-present-the-service-principal
+    title: "Domain SDK: Screening calls present the service principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Screening calls present the service principal"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/screen` `TestScreenListingUsesServicePrincipal`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-hung-team-ai-is-cut-off-at-the-bound
+    title: "Domain SDK: A hung team-ai is cut off at the bound"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A hung team-ai is cut off at the bound"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/screen` `TestScreenListingTimeoutBounded`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.an-admin-delete-is-refused-when-audit-is-down
+    title: "Domain SDK: An admin delete is refused when audit is down"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: An admin delete is refused when audit is down"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestAdminDeleteAuditDownUnavailableNoChange`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.the-audit-failure-message-hides-the-cause
+    title: "Domain SDK: The audit failure message hides the cause"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: The audit failure message hides the cause"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestAuditFailureHidesCause`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-non-admin-owner-write-does-not-touch-audit
+    title: "Domain SDK: A non-admin owner write does not touch audit"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A non-admin owner write does not touch audit"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestOwnerUpdateIndependentOfAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-request-id-reaches-the-audit-call-and-the-produced-record
+    title: "Listing audit: A request id reaches the audit call and the produced record"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: A request id reaches the audit call and the produced record"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRequestIDAndTraceparentContinuity`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.transient-kafka-failure-keeps-the-row-and-retries-it
+    title: "Transient Kafka failure keeps the row and retries it"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Transient Kafka failure keeps the row and retries it"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestRelayerRetriesTransientFailureWithoutLimit`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-poison-row-is-parked-without-blocking-other-listings
+    title: "A poison row is parked without blocking other listings"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "A poison row is parked without blocking other listings"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestPoisonRowParkedOthersPublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-parked-row-holds-back-only-its-own-listing
+    title: "A parked row holds back only its own listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "A parked row holds back only its own listing"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestParkedRowHoldsBackSameListingOnly`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.pending-rows-are-delivered-with-the-same-wire-bytes
+    title: "Pending rows are delivered with the same wire bytes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Pending rows are delivered with the same wire bytes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestRelayedRecordKeepsEnvelopeBytes`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.relayer-runs-without-any-enable-variable
+    title: "Relayer runs without any enable variable"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Relayer runs without any enable variable"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunRelaysOutbox`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.published-rows-older-than-7-days-are-deleted
+    title: "Outbox purge: Published rows older than 7 days are deleted"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Outbox purge: Published rows older than 7 days are deleted"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestPurgeDeletesOnlyOldPublishedRows`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.the-service-runs-the-purge-on-its-schedule
+    title: "Outbox purge: The service runs the purge on its schedule"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Outbox purge: The service runs the purge on its schedule"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunPurgesPublishedOutboxRows`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.consumer-is-always-running
+    title: "Seller hold: Consumer is always running"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Consumer is always running"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunConsumesIdentityEvents`. Not producible end to end through the gateway (unit level)."
