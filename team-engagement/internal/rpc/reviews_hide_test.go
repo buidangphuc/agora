@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc/codes"
@@ -20,6 +19,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 	commonv1 "github.com/buidangphuc/team-engagement/generated/platform/common/v1"
 	engagementv1 "github.com/buidangphuc/team-engagement/generated/platform/engagement/v1"
 	"github.com/buidangphuc/team-engagement/internal/engagement"
@@ -422,38 +422,15 @@ func TestMarkHelpfulHiddenReviewNotFound(t *testing.T) {
 }
 
 // pgSchemaPool returns a pool on a private, freshly migrated schema of the
-// throwaway TEST_DATABASE_URL database (skipped when unset). A private schema
-// keeps parallel package test binaries from dropping each other's tables.
+// shared testkit Postgres container.
 func pgSchemaPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	url := os.Getenv("TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("TEST_DATABASE_URL not set")
-	}
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, url)
+	pool, err := pgxpool.New(ctx, testkit.Schema(t, testkit.SharedPostgres(t)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	schema := fmt.Sprintf("hide_%s_%d", "hdl", time.Now().UnixNano())
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema); err != nil {
-		admin.Close()
-		t.Fatal(err)
-	}
-	cfg, err := pgxpool.ParseConfig(url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.ConnConfig.RuntimeParams["search_path"] = schema
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		pool.Close()
-		_, _ = admin.Exec(ctx, "DROP SCHEMA "+schema+" CASCADE")
-		admin.Close()
-	})
+	t.Cleanup(pool.Close)
 	files, _ := filepath.Glob("../../migrations/*.up.sql")
 	sort.Strings(files)
 	for _, f := range files {

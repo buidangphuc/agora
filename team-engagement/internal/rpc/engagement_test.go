@@ -22,7 +22,8 @@ func TestEngagementHandler(t *testing.T) {
 	orders := fakeOrders{"order-1": {buyer: "buyer_test", seller: "seller-1"}}
 	h := newHandler(t, deps{repo: repo, qa: qaSvc, orders: orders})
 
-	ctx := principalCtx("buyer_test", auth.TypeUser, "engagement:read", "engagement:write")
+	base := t.Context()
+	ctx := principalCtxFrom(base, "buyer_test", auth.TypeUser, "engagement:read", "engagement:write")
 
 	t.Run("Add and Check Favorite", func(t *testing.T) {
 		_, err := h.AddFavorite(ctx, &engagementv1.AddFavoriteRequest{
@@ -110,7 +111,7 @@ func TestEngagementHandler(t *testing.T) {
 		}
 
 		// Anonymous callers are denied (auth-scoped write).
-		anonCtx := principalCtxFrom(ctx, "anonymous", auth.TypeAnonymous)
+		anonCtx := base
 		_, err = h.FollowSeller(anonCtx, &engagementv1.FollowSellerRequest{SellerId: "shop_9"})
 		if status.Code(err) != codes.Unauthenticated {
 			t.Fatalf("expected Unauthenticated for anonymous follow, got %v", err)
@@ -252,7 +253,7 @@ func TestEngagementHandler(t *testing.T) {
 		}
 
 		// Anonymous cannot answer
-		if _, err = h.AnswerQuestion(principalCtxFrom(ctx, "anonymous", auth.TypeAnonymous), &engagementv1.AnswerQuestionRequest{
+		if _, err = h.AnswerQuestion(base, &engagementv1.AnswerQuestionRequest{
 			QuestionId: qID,
 			AnswerText: "x",
 		}); status.Code(err) != codes.Unauthenticated {
@@ -269,7 +270,7 @@ func TestEngagementHandler(t *testing.T) {
 		}
 
 		// List questions
-		listRes, err := h.ListQuestionsByListing(principalCtxFrom(ctx, "anonymous", auth.TypeAnonymous, "listing.read"), &engagementv1.ListQuestionsByListingRequest{
+		listRes, err := h.ListQuestionsByListing(base, &engagementv1.ListQuestionsByListingRequest{
 			ListingId: "listing-qa-1",
 		})
 		if err != nil {
@@ -338,7 +339,7 @@ func TestEngagementHandler(t *testing.T) {
 		}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("expected PermissionDenied for non-admin, got %v", err)
 		}
-		if _, err = h.ResolveDispute(principalCtxFrom(ctx, "anonymous", auth.TypeAnonymous), &engagementv1.ResolveDisputeRequest{
+		if _, err = h.ResolveDispute(base, &engagementv1.ResolveDisputeRequest{
 			DisputeId: dispID,
 			Status:    engagementv1.DisputeStatus_DISPUTE_STATUS_RESOLVED,
 		}); status.Code(err) != codes.Unauthenticated {
