@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	aiv1 "github.com/buidangphuc/team-domain/generated/platform/ai/v1"
 	"github.com/buidangphuc/team-domain/internal/screen"
 	"github.com/buidangphuc/team-domain/internal/store"
@@ -26,9 +27,9 @@ type KeywordMatcher interface {
 	Match(text string) []string
 }
 
-// Screener is the AI screen (*upstream.AIClient satisfies it).
+// Screener is the AI screen (*screen.AIClient satisfies it).
 type Screener interface {
-	ScreenListing(ctx context.Context, in upstream.ScreenInput) (*aiv1.ScreenListingResponse, error)
+	ScreenListing(ctx context.Context, in screen.ScreenInput) (*aiv1.ScreenListingResponse, error)
 }
 
 // ErrForbidden is returned when a caller tries to modify a listing they do not
@@ -44,21 +45,8 @@ const DefaultReservationTTL = 15 * time.Minute
 // non-positive) interval is configured.
 const DefaultSweepInterval = time.Minute
 
-// ErrAuditUnavailable is returned when an admin write could not be audited
-// (no audit writer wired, or the writer failed). The change is not applied; the
-// handler maps it to codes.Unavailable.
-var ErrAuditUnavailable = errors.New("audit unavailable")
-
-// AuditWriter records admin listing mutations in team-audit.
-type AuditWriter interface {
-	WriteListingAdminUpdate(ctx context.Context, actorID, listingID, sellerID, status string) error
-	WriteListingAdminDelete(ctx context.Context, actorID, listingID, sellerID string) error
-	WriteListingModerate(ctx context.Context, actorID, listingID, sellerID, decision, reasonCode, note, fromStatus, toStatus string) error
-}
-
 type ListingService struct {
-	// audit, when set, receives every admin update/delete before it is applied.
-	audit AuditWriter
+	audit *auditx.Gate
 	repo  store.ListingRepository
 	// tx is the transactional writer used by the *WithEvent paths: it persists
 	// the listing write and its outbox event in one transaction. When nil (e.g.
@@ -91,8 +79,8 @@ func (s *ListingService) WithReservationTTL(ttl time.Duration) *ListingService {
 	return s
 }
 
-// WithAudit attaches the audit writer used for admin updates and deletes.
-func (s *ListingService) WithAudit(a AuditWriter) *ListingService {
+// WithAudit attaches the audit gate used for admin updates, deletes and moderation.
+func (s *ListingService) WithAudit(a *auditx.Gate) *ListingService {
 	s.audit = a
 	return s
 }
@@ -106,13 +94,13 @@ func (s *ListingService) ReservationTTL() time.Duration {
 }
 
 func NewListingService(repo store.ListingRepository) *ListingService {
-	return &ListingService{repo: repo}
+	return &ListingService{repo: repo, audit: auditx.NewGate(nil, nil)}
 }
 
 // NewListingServiceWithOutbox wires the transactional writer so every write also
 // records its domain event in the same DB transaction (the outbox).
 func NewListingServiceWithOutbox(repo store.ListingRepository, tx store.TxWriter) *ListingService {
-	return &ListingService{repo: repo, tx: tx}
+	return &ListingService{repo: repo, tx: tx, audit: auditx.NewGate(nil, nil)}
 }
 
 // Get returns a single listing by id.
@@ -203,18 +191,26 @@ func (s *ListingService) UpdateWithEvent(ctx context.Context, l store.Listing, o
 			return store.Listing{}, err
 		}
 	}
-	if isAdmin {
-		// Admin cannot set status here: the stored status is kept and audited.
-		l.Status = existing.Status
-		if s.audit == nil {
-			return store.Listing{}, ErrAuditUnavailable
-		}
-		if err := s.audit.WriteListingAdminUpdate(ctx, ownerID, existing.ID, existing.SellerID, strings.ToLower(l.Status)); err != nil {
-			slog.WarnContext(ctx, "admin listing update audit failed", slog.String("listing_id", existing.ID), slog.Any("err", err))
-			return store.Listing{}, ErrAuditUnavailable
-		}
-	}
 	l.SellerID = existing.SellerID // owner is immutable
+	if !isAdmin {
+		return s.writeUpdate(ctx, l, enqueue)
+	}
+	// Admin cannot set status here: the stored status is kept and audited.
+	l.Status = existing.Status
+	var updated store.Listing
+	ev := auditx.Event{
+		ActorID: ownerID, Action: "listing.admin_update", TargetType: "listing", TargetID: existing.ID,
+		Metadata: map[string]string{"seller_id": existing.SellerID, "status": strings.ToLower(l.Status)},
+	}
+	err = s.audit.Do(ctx, ev, func(ctx context.Context) error {
+		var werr error
+		updated, werr = s.writeUpdate(ctx, l, enqueue)
+		return werr
+	})
+	return updated, err
+}
+
+func (s *ListingService) writeUpdate(ctx context.Context, l store.Listing, enqueue store.EnqueueFn) (store.Listing, error) {
 	if s.tx == nil {
 		return s.repo.Update(ctx, l)
 	}
@@ -234,15 +230,23 @@ func (s *ListingService) DeleteWithEvent(ctx context.Context, id, ownerID string
 	if !isAdmin && isLockedStatus(existing.Status) {
 		return store.Listing{}, ErrStatusLocked
 	}
-	if isAdmin {
-		if s.audit == nil {
-			return store.Listing{}, ErrAuditUnavailable
-		}
-		if err := s.audit.WriteListingAdminDelete(ctx, ownerID, existing.ID, existing.SellerID); err != nil {
-			slog.WarnContext(ctx, "admin listing delete audit failed", slog.String("listing_id", existing.ID), slog.Any("err", err))
-			return store.Listing{}, ErrAuditUnavailable
-		}
+	if !isAdmin {
+		return s.writeDelete(ctx, id, enqueue)
 	}
+	var deleted store.Listing
+	ev := auditx.Event{
+		ActorID: ownerID, Action: "listing.admin_delete", TargetType: "listing", TargetID: existing.ID,
+		Metadata: map[string]string{"seller_id": existing.SellerID},
+	}
+	err = s.audit.Do(ctx, ev, func(ctx context.Context) error {
+		var werr error
+		deleted, werr = s.writeDelete(ctx, id, enqueue)
+		return werr
+	})
+	return deleted, err
+}
+
+func (s *ListingService) writeDelete(ctx context.Context, id string, enqueue store.EnqueueFn) (store.Listing, error) {
 	if s.tx == nil {
 		return s.repo.Delete(ctx, id)
 	}
@@ -376,7 +380,7 @@ func (s *ListingService) screen(ctx context.Context, l store.Listing) (string, [
 	if s.ai == nil {
 		return "pending_review", nil
 	}
-	res, err := s.ai.ScreenListing(ctx, upstream.ScreenInput{ListingID: l.ID, Title: l.Title, Description: l.Description, CategoryID: l.CategoryID})
+	res, err := s.ai.ScreenListing(ctx, screen.ScreenInput{ListingID: l.ID, Title: l.Title, Description: l.Description, CategoryID: l.CategoryID})
 	if err != nil {
 		slog.WarnContext(ctx, "listing screen failed, routing to review", slog.String("listing_id", l.ID), slog.Any("err", err))
 		return "pending_review", nil

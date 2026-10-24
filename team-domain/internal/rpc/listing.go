@@ -13,12 +13,13 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 
 	"github.com/buidangphuc/team-domain/internal/events"
-	"github.com/buidangphuc/team-domain/internal/interceptor"
 	"github.com/buidangphuc/team-domain/internal/listing"
 	"github.com/buidangphuc/team-domain/internal/objects"
 	"github.com/buidangphuc/team-domain/internal/store"
@@ -81,7 +82,7 @@ func (h *ListingHandler) GetListing(
 	req *listingv1.GetListingRequest,
 ) (*listingv1.GetListingResponse, error) {
 	// Coarse RBAC via the Principal the auth interceptor placed on the context.
-	if err := interceptor.RequireScopes(ctx, "listing.read"); err != nil {
+	if _, err := auth.RequireScopesAllowAnonymous(ctx, "listing.read"); err != nil {
 		return nil, err
 	}
 	if req.GetId() == "" {
@@ -90,10 +91,7 @@ func (h *ListingHandler) GetListing(
 
 	l, err := h.svc.Get(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "not_found")
-		}
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, fail(ctx, err)
 	}
 
 	// Non-published (draft, rejected) listings are visible only to the owner,
@@ -111,7 +109,7 @@ func (h *ListingHandler) ListListings(
 	ctx context.Context,
 	req *listingv1.ListListingsRequest,
 ) (*listingv1.ListListingsResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "listing.read"); err != nil {
+	if _, err := auth.RequireScopesAllowAnonymous(ctx, "listing.read"); err != nil {
 		return nil, err
 	}
 
@@ -138,7 +136,7 @@ func (h *ListingHandler) ListListings(
 
 	page, err := h.svc.List(ctx, cursor, pageSize, st)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, fail(ctx, err)
 	}
 	return &listingv1.ListListingsResponse{
 		Listings: toWireList(page.Items),
@@ -151,7 +149,7 @@ func (h *ListingHandler) ListMyListings(
 	ctx context.Context,
 	req *listingv1.ListMyListingsRequest,
 ) (*listingv1.ListMyListingsResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "listing.write"); err != nil {
+	if _, err := auth.RequireScopes(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
 	ownerID, _ := principalOwner(ctx)
@@ -165,7 +163,7 @@ func (h *ListingHandler) ListMyListings(
 
 	page, err := h.svc.ListMine(ctx, ownerID, cursor, pageSize)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, fail(ctx, err)
 	}
 	mine := make([]*listingv1.Listing, 0, len(page.Items))
 	for _, l := range page.Items {
@@ -183,7 +181,7 @@ func (h *ListingHandler) CreateListing(
 	ctx context.Context,
 	req *listingv1.CreateListingRequest,
 ) (*listingv1.CreateListingResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "listing.write"); err != nil {
+	if _, err := auth.RequireScopes(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
 	if req.GetListing() == nil {
@@ -193,7 +191,7 @@ func (h *ListingHandler) CreateListing(
 	created, err := h.svc.CreateWithEvent(ctx, fromWire(req.GetListing()), ownerID,
 		h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_CREATED))
 	if err != nil {
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, fail(ctx, err)
 	}
 	return &listingv1.CreateListingResponse{Listing: toWire(created)}, nil
 }
@@ -203,7 +201,7 @@ func (h *ListingHandler) UpdateListing(
 	ctx context.Context,
 	req *listingv1.UpdateListingRequest,
 ) (*listingv1.UpdateListingResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "listing.write"); err != nil {
+	if _, err := auth.RequireScopes(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
 	if req.GetListing() == nil || req.GetListing().GetId() == "" {
@@ -214,18 +212,7 @@ func (h *ListingHandler) UpdateListing(
 	updated, err := h.svc.UpdateWithEvent(ctx, l, ownerID, isAdmin,
 		h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_UPDATED))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			return nil, status.Error(codes.NotFound, "not_found")
-		case errors.Is(err, listing.ErrForbidden):
-			return nil, status.Error(codes.PermissionDenied, "not the listing owner")
-		case errors.Is(err, listing.ErrAuditUnavailable):
-			return nil, status.Error(codes.Unavailable, "audit unavailable")
-		case errors.Is(err, listing.ErrStatusLocked), errors.Is(err, store.ErrStatusChanged):
-			return nil, status.Error(codes.FailedPrecondition, "listing status does not allow this change")
-		default:
-			return nil, status.Error(codes.Internal, "internal error")
-		}
+		return nil, fail(ctx, err)
 	}
 	return &listingv1.UpdateListingResponse{Listing: toWire(updated)}, nil
 }
@@ -235,7 +222,7 @@ func (h *ListingHandler) DeleteListing(
 	ctx context.Context,
 	req *listingv1.DeleteListingRequest,
 ) (*listingv1.DeleteListingResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "listing.write"); err != nil {
+	if _, err := auth.RequireScopes(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
 	if req.GetId() == "" {
@@ -245,18 +232,7 @@ func (h *ListingHandler) DeleteListing(
 	_, err := h.svc.DeleteWithEvent(ctx, req.GetId(), ownerID, isAdmin,
 		h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_DELETED))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			return nil, status.Error(codes.NotFound, "not_found")
-		case errors.Is(err, listing.ErrForbidden):
-			return nil, status.Error(codes.PermissionDenied, "not the listing owner")
-		case errors.Is(err, listing.ErrAuditUnavailable):
-			return nil, status.Error(codes.Unavailable, "audit unavailable")
-		case errors.Is(err, listing.ErrStatusLocked), errors.Is(err, store.ErrStatusChanged):
-			return nil, status.Error(codes.FailedPrecondition, "listing status does not allow this change")
-		default:
-			return nil, status.Error(codes.Internal, "internal error")
-		}
+		return nil, fail(ctx, err)
 	}
 	return &listingv1.DeleteListingResponse{}, nil
 }
@@ -266,19 +242,19 @@ func (h *ListingHandler) GetImageUploadUrl(
 	ctx context.Context,
 	req *listingv1.GetImageUploadUrlRequest,
 ) (*listingv1.GetImageUploadUrlResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "listing.write"); err != nil {
+	if _, err := auth.RequireScopes(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
 	if h.storage == nil {
 		return nil, status.Error(codes.Unavailable, "storage service unavailable")
 	}
-	uploadURL, imageKey, publicURL, err := h.objects.GetPresignedUploadURL(
+	uploadURL, imageKey, publicURL, err := h.storage.GetPresignedUploadURL(
 		ctx,
 		req.GetContentType(),
 		req.GetFilename(),
 	)
 	if err != nil {
-		return nil, internalErr("generate upload url", err)
+		return nil, fail(ctx, err)
 	}
 	return &listingv1.GetImageUploadUrlResponse{
 		UploadUrl: uploadURL,
@@ -292,7 +268,7 @@ func (h *ListingHandler) ListCategories(
 	ctx context.Context,
 	req *listingv1.ListCategoriesRequest,
 ) (*listingv1.ListCategoriesResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "listing.read"); err != nil {
+	if _, err := auth.RequireScopesAllowAnonymous(ctx, "listing.read"); err != nil {
 		return nil, err
 	}
 	if h.categories == nil {
@@ -300,7 +276,7 @@ func (h *ListingHandler) ListCategories(
 	}
 	items, err := h.categories.List(ctx, req.GetParentId())
 	if err != nil {
-		return nil, internalErr("list categories", err)
+		return nil, fail(ctx, err)
 	}
 	wire := make([]*listingv1.Category, 0, len(items))
 	for _, c := range items {
@@ -321,7 +297,7 @@ func (h *ListingHandler) GetCategory(
 	ctx context.Context,
 	req *listingv1.GetCategoryRequest,
 ) (*listingv1.GetCategoryResponse, error) {
-	if err := interceptor.RequireScopes(ctx, "listing.read"); err != nil {
+	if _, err := auth.RequireScopesAllowAnonymous(ctx, "listing.read"); err != nil {
 		return nil, err
 	}
 	if req.GetId() == "" {
@@ -332,10 +308,7 @@ func (h *ListingHandler) GetCategory(
 	}
 	c, err := h.categories.Get(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, store.ErrCategoryNotFound) {
-			return nil, status.Error(codes.NotFound, "category not found")
-		}
-		return nil, internalErr("get category", err)
+		return nil, fail(ctx, err)
 	}
 	return &listingv1.GetCategoryResponse{
 		Category: &listingv1.Category{
@@ -356,7 +329,7 @@ func (h *ListingHandler) ReserveStock(
 ) (*listingv1.ReserveStockResponse, error) {
 	// Internal inventory mutation: only the order service (service principal with
 	// listing.write) may call it; end users are denied even if forwarded.
-	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
+	if _, err := auth.RequireService(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
 	if req.GetReservationId() == "" {
@@ -373,29 +346,16 @@ func (h *ListingHandler) ReserveStock(
 	// decremented exactly once. There is no reserve without an id, so every
 	// decrement leaves a reservation that can be committed, released and swept.
 	if err := h.svc.ReserveStockIdempotent(ctx, req.GetReservationId(), req.GetListingId(), req.GetVariantId(), req.GetQuantity()); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "listing not found")
-		}
-		if errors.Is(err, store.ErrVariantNotFound) {
-			return nil, status.Error(codes.NotFound, "variant not found")
-		}
-		if errors.Is(err, store.ErrReservationReleased) {
-			// The id belongs to a released reservation: reserve under a new id.
-			return nil, status.Error(codes.FailedPrecondition, "reservation already released; reserve with a new reservation_id")
-		}
-		if errors.Is(err, store.ErrListingNotReservable) {
-			return nil, status.Error(codes.FailedPrecondition, "listing is not reservable")
-		}
-		if errors.Is(err, store.ErrReservationMismatch) {
-			return nil, status.Error(codes.FailedPrecondition, "reservation_id already used for a different listing, variant or quantity")
-		}
 		if errors.Is(err, store.ErrOutOfStock) {
 			return &listingv1.ReserveStockResponse{
 				Success: false,
 				Message: "insufficient stock",
 			}, nil
 		}
-		return nil, internalErr("reserve stock", err)
+		if errors.Is(err, store.ErrReservationReleased) {
+			return nil, status.Error(codes.FailedPrecondition, "reservation already released; reserve with a new reservation_id")
+		}
+		return nil, fail(ctx, err)
 	}
 	return &listingv1.ReserveStockResponse{Success: true}, nil
 }
@@ -410,14 +370,14 @@ func (h *ListingHandler) ReleaseStock(
 ) (*listingv1.ReleaseStockResponse, error) {
 	// Internal inventory mutation: only the order service (service principal with
 	// listing.write) may call it; end users are denied even if forwarded.
-	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
+	if _, err := auth.RequireService(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
 	if req.GetReservationId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
 	}
 	if err := h.svc.ReleaseStock(ctx, req.GetReservationId()); err != nil {
-		return nil, internalErr("release stock", err)
+		return nil, fail(ctx, err)
 	}
 	return &listingv1.ReleaseStockResponse{Success: true}, nil
 }
@@ -432,21 +392,14 @@ func (h *ListingHandler) CommitReservation(
 	req *listingv1.CommitReservationRequest,
 ) (*listingv1.CommitReservationResponse, error) {
 	// Internal inventory mutation: same authority as ReserveStock/ReleaseStock.
-	if err := interceptor.RequireServiceScope(ctx, "listing.write"); err != nil {
+	if _, err := auth.RequireService(ctx, "listing.write"); err != nil {
 		return nil, err
 	}
 	if req.GetReservationId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "reservation_id is required")
 	}
 	if err := h.svc.CommitReservation(ctx, req.GetReservationId()); err != nil {
-		switch {
-		case errors.Is(err, store.ErrReservationNotFound):
-			return nil, status.Error(codes.NotFound, "reservation not found")
-		case errors.Is(err, store.ErrReservationReleased):
-			return nil, status.Error(codes.FailedPrecondition, "reservation already released")
-		default:
-			return nil, internalErr("commit reservation", err)
-		}
+		return nil, fail(ctx, err)
 	}
 	return &listingv1.CommitReservationResponse{}, nil
 }
@@ -459,11 +412,8 @@ func (h *ListingHandler) CommitReservation(
 // happens here: the row is written in the same tx as the listing, and the
 // relayer publishes it later.
 func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listingv1.ChangeType) store.EnqueueFn {
-	var principal *commonv1.Principal
-	if p, ok := interceptor.PrincipalFromContext(ctx); ok {
-		principal = p
-	}
-	requestID, _ := interceptor.RequestIDFromContext(ctx)
+	principal := principalProto(ctx)
+	requestID := reqctx.RequestID(ctx)
 	return func(written store.Listing) (store.OutboxRow, error) {
 		wire := toWire(written)
 		wire.Moderation = moderationWire(written, false, false)
@@ -490,11 +440,8 @@ func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listi
 // request context when present (the TTL sweep has neither).
 func NewStockEventBuilder() store.StockEventBuilder {
 	return func(ctx context.Context, snap store.StockSnapshot) (store.OutboxRow, error) {
-		var principal *commonv1.Principal
-		if p, ok := interceptor.PrincipalFromContext(ctx); ok {
-			principal = p
-		}
-		requestID, _ := interceptor.RequestIDFromContext(ctx)
+		principal := principalProto(ctx)
+		requestID := reqctx.RequestID(ctx)
 		change := &listingv1.ListingStockChanged{
 			ListingId: snap.ListingID,
 			Stock:     snap.Stock,
@@ -518,20 +465,29 @@ func NewStockEventBuilder() store.StockEventBuilder {
 
 const statusPublished = "published"
 
+func principalProto(ctx context.Context) *commonv1.Principal {
+	p, ok := auth.FromContext(ctx)
+	if !ok {
+		return nil
+	}
+	t := commonv1.PrincipalType_PRINCIPAL_TYPE_UNSPECIFIED
+	switch p.Type {
+	case auth.TypeUser:
+		t = commonv1.PrincipalType_PRINCIPAL_TYPE_USER
+	case auth.TypeService:
+		t = commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
+	case auth.TypeAnonymous:
+		t = commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS
+	}
+	return &commonv1.Principal{Id: p.ID, Type: t, Scopes: p.Scopes}
+}
+
 // isService reports whether the caller is an internal service principal
 // (type SERVICE) holding listing.read. The type check matters: a user principal
 // carrying the same scopes gets no extra access.
 func isService(ctx context.Context) bool {
-	p, ok := interceptor.PrincipalFromContext(ctx)
-	if !ok || p.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE {
-		return false
-	}
-	for _, s := range p.GetScopes() {
-		if s == "listing.read" {
-			return true
-		}
-	}
-	return false
+	p, ok := auth.FromContext(ctx)
+	return ok && p.Type == auth.TypeService && p.HasScope("listing.read")
 }
 
 // canSeeNonPublished is the read rule for draft/rejected listings.
@@ -545,16 +501,11 @@ func canSeeNonPublished(ctx context.Context, sellerID string) bool {
 
 // principalOwner extracts the owner id + admin flag from the context Principal.
 func principalOwner(ctx context.Context) (id string, isAdmin bool) {
-	p, ok := interceptor.PrincipalFromContext(ctx)
+	p, ok := auth.FromContext(ctx)
 	if !ok {
 		return "", false
 	}
-	for _, s := range p.GetScopes() {
-		if s == "admin" {
-			isAdmin = true
-		}
-	}
-	return p.GetId(), isAdmin
+	return p.ID, p.HasScope("admin")
 }
 
 // fromWire maps a generated protobuf Listing to the domain value.

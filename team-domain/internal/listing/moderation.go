@@ -3,9 +3,9 @@ package listing
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"time"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/team-domain/internal/store"
 )
 
@@ -80,19 +80,25 @@ func (s *ListingService) ModerateListing(ctx context.Context, in ModerateInput, 
 	if !ok {
 		return store.Listing{}, errors.New("moderation writer not configured")
 	}
-	if s.audit == nil {
-		return store.Listing{}, ErrAuditUnavailable
+	ev := auditx.Event{
+		ActorID: actorID, Action: "listing.moderate", TargetType: "listing", TargetID: existing.ID,
+		Metadata: map[string]string{
+			"seller_id": existing.SellerID, "decision": string(in.Decision), "reason_code": in.ReasonCode, "note": in.Note,
+			"from_status": existing.Status, "to_status": to,
+		},
 	}
-	if err := s.audit.WriteListingModerate(ctx, actorID, existing.ID, existing.SellerID, string(in.Decision), in.ReasonCode, in.Note, existing.Status, to); err != nil {
-		slog.WarnContext(ctx, "listing moderation audit failed", slog.String("listing_id", existing.ID), slog.Any("err", err))
-		return store.Listing{}, ErrAuditUnavailable
-	}
-	return mtx.ModerateTx(ctx, existing.ID, existing.Status, existing.UpdatedAt, store.ModerationUpdate{
-		ToStatus:   to,
-		ReasonCode: in.ReasonCode,
-		Note:       in.Note,
-		DecidedAt:  time.Now(),
-	}, enqueue)
+	var moderated store.Listing
+	err = s.audit.Do(ctx, ev, func(ctx context.Context) error {
+		var werr error
+		moderated, werr = mtx.ModerateTx(ctx, existing.ID, existing.Status, existing.UpdatedAt, store.ModerationUpdate{
+			ToStatus:   to,
+			ReasonCode: in.ReasonCode,
+			Note:       in.Note,
+			DecidedAt:  time.Now(),
+		}, enqueue)
+		return werr
+	})
+	return moderated, err
 }
 
 // ListModerationQueue returns pending_review listings, oldest submission first.
