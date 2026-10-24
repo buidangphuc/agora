@@ -24,6 +24,8 @@ Implement OpenSpec change `engagement-go-sdk-v1` test-first per its tasks.md: mi
 - team-engagement/internal/rpc/reviews_hide_test.go (widened at build: task 10)
 - team-engagement/internal/store/pgtest_review_test.go (widened at build: task 10)
 - team-engagement/migrations/migration_test.go (widened at build: task 10)
+- team-engagement/go.mod (widened at build: task 2)
+- team-engagement/go.sum (widened at build: task 2)
 
 ## Verify
 - cd team-engagement && make proto && make check && go build ./... && GO_SDK_REQUIRE_DOCKER=1 go test -race ./... -count=1
