@@ -2,6 +2,7 @@ package upstream
 
 import (
 	"context"
+	"errors"
 	"net"
 	"sync"
 	"testing"
@@ -142,7 +143,7 @@ func TestListingLookupTimeoutIsUnavailable(t *testing.T) {
 	c := newListingClient(t, startListings(t, &recordingListings{block: true}))
 	start := time.Now()
 	err := listing.Owner(sellerCtx(base, "listing.write"), c, discardLogger(), "mine", "seller-1")
-	if err != listing.ErrLookupFailed {
+	if !errors.Is(err, listing.ErrLookupFailed) {
 		t.Fatalf("err = %v, want listing.ErrLookupFailed", err)
 	}
 	if el := time.Since(start); el > 2500*time.Millisecond {
@@ -158,10 +159,10 @@ func TestListingLookupOwnerOutcomes(t *testing.T) {
 	if err := listing.Owner(ctx, c, discardLogger(), "mine", "seller-1"); err != nil {
 		t.Fatalf("own listing: %v", err)
 	}
-	if err := listing.Owner(ctx, c, discardLogger(), "mine", "seller-2"); err != listing.ErrNotOwner {
+	if err := listing.Owner(ctx, c, discardLogger(), "mine", "seller-2"); !errors.Is(err, listing.ErrNotOwner) {
 		t.Fatalf("foreign listing: err = %v, want ErrNotOwner", err)
 	}
-	if err := listing.Owner(ctx, c, discardLogger(), "ghost", "seller-1"); err != listing.ErrNotFound {
+	if err := listing.Owner(ctx, c, discardLogger(), "ghost", "seller-1"); !errors.Is(err, listing.ErrNotFound) {
 		t.Fatalf("missing listing: err = %v, want ErrNotFound", err)
 	}
 }

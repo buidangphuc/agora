@@ -101,7 +101,7 @@ func TestInMemoryVoucherRepository(t *testing.T) {
 	if _, err := repo.GetByID(ctx, v.ID); err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
-	if _, err := repo.GetByCode(ctx, "NOPE"); err != store.ErrVoucherNotFound {
+	if _, err := repo.GetByCode(ctx, "NOPE"); !errors.Is(err, store.ErrVoucherNotFound) {
 		t.Fatalf("expected ErrVoucherNotFound, got %v", err)
 	}
 
@@ -158,7 +158,7 @@ func TestInMemoryReservationIdempotency(t *testing.T) {
 	if got.Status != store.ReservationCommitted {
 		t.Fatalf("status=%q, want committed", got.Status)
 	}
-	if _, err := repo.GetByReservationID(ctx, "missing"); err != store.ErrReservationNotFound {
+	if _, err := repo.GetByReservationID(ctx, "missing"); !errors.Is(err, store.ErrReservationNotFound) {
 		t.Fatalf("expected ErrReservationNotFound, got %v", err)
 	}
 }
@@ -213,7 +213,7 @@ func TestInMemoryAdCampaignRepository(t *testing.T) {
 	if got, err := repo.GetByID(ctx, a.ID); err != nil || got.ID != a.ID {
 		t.Fatalf("GetByID: got=%+v err=%v", got, err)
 	}
-	if _, err := repo.GetByID(ctx, "nope"); err != store.ErrAdCampaignNotFound {
+	if _, err := repo.GetByID(ctx, "nope"); !errors.Is(err, store.ErrAdCampaignNotFound) {
 		t.Fatalf("expected ErrAdCampaignNotFound, got %v", err)
 	}
 }
@@ -242,7 +242,7 @@ func TestInMemoryFlashSaleRepository(t *testing.T) {
 		t.Fatalf("GetActiveByListing = %+v err=%v (want %s)", got, err, live.ID)
 	}
 
-	if _, err := repo.GetActiveByListing(ctx, "l1", now.Add(48*time.Hour)); err != store.ErrCampaignNotFound {
+	if _, err := repo.GetActiveByListing(ctx, "l1", now.Add(48*time.Hour)); !errors.Is(err, store.ErrCampaignNotFound) {
 		t.Fatalf("expected no active campaign in the far future, got %v", err)
 	}
 
