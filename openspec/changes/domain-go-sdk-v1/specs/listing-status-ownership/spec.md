@@ -7,12 +7,12 @@
 #### Scenario: Auto-screen: Clean listing publishes
 - **WHEN** a seller calls CreateListing with `status=PUBLISHED` and text that has no keyword hit while the screen returns `ALLOW`
 - **THEN** the stored status is `published` and one `ListingChanged(CREATED)` outbox row carries status `published`
-- **VERIFIED BY**: team-domain `internal/service` `TestCreateWithEventCleanPublishes`
+- **VERIFIED BY**: team-domain `internal/listing` `TestCreateWithEventCleanPublishes`
 
 #### Scenario: Auto-screen: Keyword hit goes to review without calling the AI
 - **WHEN** a seller calls CreateListing with `status=PUBLISHED` and a title containing a term from the prohibited list
 - **THEN** the stored status is `pending_review`, `moderation.screen_flags` is `["keyword:<term>"]` and the AI client receives 0 calls
-- **VERIFIED BY**: team-domain `internal/service` `TestCreateWithEventKeywordHitPendingReview`
+- **VERIFIED BY**: team-domain `internal/listing` `TestCreateWithEventKeywordHitPendingReview`
 
 #### Scenario: Auto-screen: Keyword match ignores case and diacritics
 - **WHEN** a seller publishes a listing whose title contains the term `thuốc lá` written as `THUOC LA`
@@ -22,17 +22,17 @@
 #### Scenario: Auto-screen: AI REVIEW verdict goes to review
 - **WHEN** a seller publishes a listing with no keyword hit and the screen returns `REVIEW` with label `weapon`
 - **THEN** the stored status is `pending_review` and `moderation.screen_flags` is `["ai:weapon"]`
-- **VERIFIED BY**: team-domain `internal/service` `TestCreateWithEventAIReviewPendingReview`
+- **VERIFIED BY**: team-domain `internal/listing` `TestCreateWithEventAIReviewPendingReview`
 
 #### Scenario: Auto-screen: AI error fails safe
 - **WHEN** a seller publishes a listing and the screen call returns an error
 - **THEN** the write succeeds with stored status `pending_review` and the listing is not visible to an anonymous GetListing
-- **VERIFIED BY**: team-domain `internal/service` `TestCreateWithEventScreenErrorPendingReview`
+- **VERIFIED BY**: team-domain `internal/listing` `TestCreateWithEventScreenErrorPendingReview`
 
 #### Scenario: Auto-screen: AI timeout fails safe within the bound
 - **WHEN** a seller publishes a listing and team-ai does not answer within `UPSTREAM_AI_TIMEOUT_SECONDS` (2 s)
 - **THEN** the write returns within 2.5 s with stored status `pending_review`
-- **VERIFIED BY**: team-domain `internal/upstream` `TestScreenListingTimeoutBounded` and team-domain `internal/service` `TestCreateWithEventScreenTimeoutPendingReview`
+- **VERIFIED BY**: team-domain `internal/screen` `TestScreenListingTimeoutBounded` and team-domain `internal/listing` `TestCreateWithEventScreenTimeoutPendingReview`
 
 #### Scenario: Auto-screen: Unconfigured team-ai fails safe
 - **WHEN** settings load with `ENV=local` and `UPSTREAM_AI_ADDR` unset (everything else valid)
@@ -42,32 +42,32 @@
 #### Scenario: Auto-screen: Draft save is not screened
 - **WHEN** a seller calls CreateListing with `status=DRAFT` and a title containing a prohibited term
 - **THEN** the stored status is `draft` and the screen client receives 0 calls
-- **VERIFIED BY**: team-domain `internal/service` `TestCreateWithEventDraftNotScreened`
+- **VERIFIED BY**: team-domain `internal/listing` `TestCreateWithEventDraftNotScreened`
 
 #### Scenario: Auto-screen: Price and stock edits do not re-screen
 - **WHEN** a seller calls UpdateListing changing only price, stock and variants of their `published` listing
 - **THEN** the screen client receives 0 calls and the stored status stays `published`
-- **VERIFIED BY**: team-domain `internal/service` `TestUpdateWithEventNonContentEditNoScreen`
+- **VERIFIED BY**: team-domain `internal/listing` `TestUpdateWithEventNonContentEditNoScreen`
 
 #### Scenario: Auto-screen: Title edit of a published listing is re-screened
 - **WHEN** a seller calls UpdateListing with `status` unset, changing the title of their `published` listing to one containing a prohibited term
 - **THEN** the stored status is `pending_review` and one `ListingChanged(UPDATED)` outbox row carries status `pending_review`
-- **VERIFIED BY**: team-domain `internal/service` `TestUpdateWithEventContentEditRescreens`
+- **VERIFIED BY**: team-domain `internal/listing` `TestUpdateWithEventContentEditRescreens`
 
 #### Scenario: Auto-screen: Content edit sending a server-only status is re-screened
 - **WHEN** a seller calls UpdateListing with `status=BANNED`, changing the description of their `published` listing to one containing a prohibited term
 - **THEN** the screen runs once and the stored status is `pending_review` (not `published`, not `banned`)
-- **VERIFIED BY**: team-domain `internal/service` `TestUpdateWithEventServerOnlyStatusContentEditRescreens`
+- **VERIFIED BY**: team-domain `internal/listing` `TestUpdateWithEventServerOnlyStatusContentEditRescreens`
 
 #### Scenario: Auto-screen: Draft published later is screened at that moment
 - **WHEN** a seller calls UpdateListing with `status=PUBLISHED` on their `draft` listing whose text matches a prohibited term
 - **THEN** the stored status is `pending_review`
-- **VERIFIED BY**: team-domain `internal/service` `TestUpdateWithEventDraftToPublishScreens`
+- **VERIFIED BY**: team-domain `internal/listing` `TestUpdateWithEventDraftToPublishScreens`
 
 #### Scenario: Auto-screen: Screen call uses the service principal
 - **WHEN** team-domain calls `ScreenListing` for a seller's publish request
 - **THEN** the outgoing metadata holds `x-principal-id` `service-team-domain`, `x-principal-type` `service` and `x-principal-scopes` `ai.classify`, and the seller's principal is not forwarded
-- **VERIFIED BY**: team-domain `internal/upstream` `TestScreenListingUsesServicePrincipal`
+- **VERIFIED BY**: team-domain `internal/screen` `TestScreenListingUsesServicePrincipal`
 
 #### Scenario: Auto-screen: Keyword list loads from the config file
 - **WHEN** the service starts with `SCREEN_TERMS_FILE` pointing to a file of 3 terms, one blank line and one `#` comment line
