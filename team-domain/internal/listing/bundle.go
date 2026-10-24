@@ -1,4 +1,4 @@
-package service
+package listing
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 // ErrTitleRequired is returned when a bundle create omits the title. The handler
@@ -17,10 +17,10 @@ var ErrTitleRequired = errors.New("title is required")
 // storage. It mirrors ListingService/StorefrontService: depend on a repository
 // port, return domain values, let the handler adapt to protobuf.
 type BundleService struct {
-	repo repository.BundleRepository
+	repo store.BundleRepository
 }
 
-func NewBundleService(repo repository.BundleRepository) *BundleService {
+func NewBundleService(repo store.BundleRepository) *BundleService {
 	return &BundleService{repo: repo}
 }
 
@@ -28,12 +28,12 @@ func NewBundleService(repo repository.BundleRepository) *BundleService {
 // stored seller_id is always the authenticated ownerID, so a seller can never
 // create a bundle attributed to another seller regardless of request contents.
 // The id is server-assigned. An anonymous caller (empty ownerID) is rejected.
-func (s *BundleService) Create(ctx context.Context, b repository.Bundle, ownerID string) (repository.Bundle, error) {
+func (s *BundleService) Create(ctx context.Context, b store.Bundle, ownerID string) (store.Bundle, error) {
 	if ownerID == "" {
-		return repository.Bundle{}, ErrForbidden
+		return store.Bundle{}, ErrForbidden
 	}
 	if b.Title == "" {
-		return repository.Bundle{}, ErrTitleRequired
+		return store.Bundle{}, ErrTitleRequired
 	}
 	b.SellerID = ownerID // owner is server-forced, never client-supplied
 	if b.ID == "" {
@@ -46,11 +46,11 @@ func (s *BundleService) Create(ctx context.Context, b repository.Bundle, ownerID
 }
 
 // Get resolves a bundle by id, or ErrBundleNotFound.
-func (s *BundleService) Get(ctx context.Context, id string) (repository.Bundle, error) {
+func (s *BundleService) Get(ctx context.Context, id string) (store.Bundle, error) {
 	return s.repo.Get(ctx, id)
 }
 
 // ListBySeller returns a keyset page of the seller's bundles.
-func (s *BundleService) ListBySeller(ctx context.Context, sellerID, cursor string, pageSize int32) (repository.BundlePage, error) {
+func (s *BundleService) ListBySeller(ctx context.Context, sellerID, cursor string, pageSize int32) (store.BundlePage, error) {
 	return s.repo.ListBySeller(ctx, sellerID, cursor, pageSize)
 }

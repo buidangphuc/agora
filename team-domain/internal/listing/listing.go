@@ -1,7 +1,7 @@
-// Package service holds business logic, independent of gRPC and of storage. It
+// Package listing holds business logic, independent of gRPC and of storage. It
 // depends on the repository port and returns domain values; the handler
 // (internal/handler) adapts these to the generated protobuf types.
-package service
+package listing
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 
 	aiv1 "github.com/buidangphuc/team-domain/generated/platform/ai/v1"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/upstream"
+	"github.com/buidangphuc/team-domain/internal/screen"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 // ErrStatusLocked: the listing is BANNED or HELD; seller writes and deletes are
@@ -59,12 +59,12 @@ type AuditWriter interface {
 type ListingService struct {
 	// audit, when set, receives every admin update/delete before it is applied.
 	audit AuditWriter
-	repo  repository.ListingRepository
+	repo  store.ListingRepository
 	// tx is the transactional writer used by the *WithEvent paths: it persists
 	// the listing write and its outbox event in one transaction. When nil (e.g.
 	// unit tests with only an in-memory repo), the *WithEvent methods fall back
 	// to a plain repo write with no event — matching the prior no-emit behaviour.
-	tx repository.TxWriter
+	tx store.TxWriter
 	// reservationTTL is the hold time stamped on new reservations; zero means
 	// DefaultReservationTTL. Set via WithReservationTTL (RESERVATION_TTL).
 	reservationTTL time.Duration
@@ -105,34 +105,34 @@ func (s *ListingService) ReservationTTL() time.Duration {
 	return DefaultReservationTTL
 }
 
-func NewListingService(repo repository.ListingRepository) *ListingService {
+func NewListingService(repo store.ListingRepository) *ListingService {
 	return &ListingService{repo: repo}
 }
 
 // NewListingServiceWithOutbox wires the transactional writer so every write also
 // records its domain event in the same DB transaction (the outbox).
-func NewListingServiceWithOutbox(repo repository.ListingRepository, tx repository.TxWriter) *ListingService {
+func NewListingServiceWithOutbox(repo store.ListingRepository, tx store.TxWriter) *ListingService {
 	return &ListingService{repo: repo, tx: tx}
 }
 
 // Get returns a single listing by id.
-func (s *ListingService) Get(ctx context.Context, id string) (repository.Listing, error) {
+func (s *ListingService) Get(ctx context.Context, id string) (store.Listing, error) {
 	return s.repo.Get(ctx, id)
 }
 
 // List returns a keyset page of listings, optionally filtered by status.
-func (s *ListingService) List(ctx context.Context, cursor string, pageSize int32, status string) (repository.Page, error) {
+func (s *ListingService) List(ctx context.Context, cursor string, pageSize int32, status string) (store.Page, error) {
 	return s.repo.List(ctx, cursor, pageSize, status)
 }
 
 // ListMine returns a page of the owner's own listings (the seller center).
-func (s *ListingService) ListMine(ctx context.Context, ownerID, cursor string, pageSize int32) (repository.Page, error) {
+func (s *ListingService) ListMine(ctx context.Context, ownerID, cursor string, pageSize int32) (store.Page, error) {
 	return s.repo.ListByOwner(ctx, ownerID, cursor, pageSize)
 }
 
 // Create stores a new listing owned by ownerID, assigning a server-side id when
 // the caller left it empty. The handler emits ChangeType_CREATED on success.
-func (s *ListingService) Create(ctx context.Context, l repository.Listing, ownerID string) (repository.Listing, error) {
+func (s *ListingService) Create(ctx context.Context, l store.Listing, ownerID string) (store.Listing, error) {
 	if l.ID == "" {
 		l.ID = uuid.NewString()
 	}
@@ -143,13 +143,13 @@ func (s *ListingService) Create(ctx context.Context, l repository.Listing, owner
 
 // Update replaces an existing listing. Only the owner (or an admin) may update
 // it; the stored owner is preserved. The handler emits ChangeType_UPDATED.
-func (s *ListingService) Update(ctx context.Context, l repository.Listing, ownerID string, isAdmin bool) (repository.Listing, error) {
+func (s *ListingService) Update(ctx context.Context, l store.Listing, ownerID string, isAdmin bool) (store.Listing, error) {
 	existing, err := s.repo.Get(ctx, l.ID)
 	if err != nil {
-		return repository.Listing{}, err
+		return store.Listing{}, err
 	}
 	if existing.SellerID != ownerID && !isAdmin {
-		return repository.Listing{}, ErrForbidden
+		return store.Listing{}, ErrForbidden
 	}
 	l.SellerID = existing.SellerID // owner is immutable
 	return s.repo.Update(ctx, l)
@@ -157,13 +157,13 @@ func (s *ListingService) Update(ctx context.Context, l repository.Listing, owner
 
 // Delete removes a listing the caller owns (or any, for admin). The handler
 // emits ChangeType_DELETED with the removed listing.
-func (s *ListingService) Delete(ctx context.Context, id, ownerID string, isAdmin bool) (repository.Listing, error) {
+func (s *ListingService) Delete(ctx context.Context, id, ownerID string, isAdmin bool) (store.Listing, error) {
 	existing, err := s.repo.Get(ctx, id)
 	if err != nil {
-		return repository.Listing{}, err
+		return store.Listing{}, err
 	}
 	if existing.SellerID != ownerID && !isAdmin {
-		return repository.Listing{}, ErrForbidden
+		return store.Listing{}, ErrForbidden
 	}
 	return s.repo.Delete(ctx, id)
 }
@@ -173,7 +173,7 @@ func (s *ListingService) Delete(ctx context.Context, id, ownerID string, isAdmin
 // sets the owner, then hands the persisted listing to enqueue (which builds the
 // EventEnvelope) inside the write tx. When no transactional writer is wired it
 // falls back to a plain create with no event.
-func (s *ListingService) CreateWithEvent(ctx context.Context, l repository.Listing, ownerID string, enqueue repository.EnqueueFn) (repository.Listing, error) {
+func (s *ListingService) CreateWithEvent(ctx context.Context, l store.Listing, ownerID string, enqueue store.EnqueueFn) (store.Listing, error) {
 	if l.ID == "" {
 		l.ID = uuid.NewString()
 	}
@@ -190,28 +190,28 @@ func (s *ListingService) CreateWithEvent(ctx context.Context, l repository.Listi
 
 // UpdateWithEvent replaces an existing listing (owner or admin only) and records
 // its domain event in the same transaction. The stored owner is preserved.
-func (s *ListingService) UpdateWithEvent(ctx context.Context, l repository.Listing, ownerID string, isAdmin bool, enqueue repository.EnqueueFn) (repository.Listing, error) {
+func (s *ListingService) UpdateWithEvent(ctx context.Context, l store.Listing, ownerID string, isAdmin bool, enqueue store.EnqueueFn) (store.Listing, error) {
 	existing, err := s.repo.Get(ctx, l.ID)
 	if err != nil {
-		return repository.Listing{}, err
+		return store.Listing{}, err
 	}
 	if existing.SellerID != ownerID && !isAdmin {
-		return repository.Listing{}, ErrForbidden
+		return store.Listing{}, ErrForbidden
 	}
 	if !isAdmin {
 		if err := s.resolveSellerUpdate(ctx, existing, &l); err != nil {
-			return repository.Listing{}, err
+			return store.Listing{}, err
 		}
 	}
 	if isAdmin {
 		// Admin cannot set status here: the stored status is kept and audited.
 		l.Status = existing.Status
 		if s.audit == nil {
-			return repository.Listing{}, ErrAuditUnavailable
+			return store.Listing{}, ErrAuditUnavailable
 		}
 		if err := s.audit.WriteListingAdminUpdate(ctx, ownerID, existing.ID, existing.SellerID, strings.ToLower(l.Status)); err != nil {
 			slog.WarnContext(ctx, "admin listing update audit failed", slog.String("listing_id", existing.ID), slog.Any("err", err))
-			return repository.Listing{}, ErrAuditUnavailable
+			return store.Listing{}, ErrAuditUnavailable
 		}
 	}
 	l.SellerID = existing.SellerID // owner is immutable
@@ -223,24 +223,24 @@ func (s *ListingService) UpdateWithEvent(ctx context.Context, l repository.Listi
 
 // DeleteWithEvent removes a listing the caller owns (or any, for admin) and
 // records its domain event in the same transaction.
-func (s *ListingService) DeleteWithEvent(ctx context.Context, id, ownerID string, isAdmin bool, enqueue repository.EnqueueFn) (repository.Listing, error) {
+func (s *ListingService) DeleteWithEvent(ctx context.Context, id, ownerID string, isAdmin bool, enqueue store.EnqueueFn) (store.Listing, error) {
 	existing, err := s.repo.Get(ctx, id)
 	if err != nil {
-		return repository.Listing{}, err
+		return store.Listing{}, err
 	}
 	if existing.SellerID != ownerID && !isAdmin {
-		return repository.Listing{}, ErrForbidden
+		return store.Listing{}, ErrForbidden
 	}
 	if !isAdmin && isLockedStatus(existing.Status) {
-		return repository.Listing{}, ErrStatusLocked
+		return store.Listing{}, ErrStatusLocked
 	}
 	if isAdmin {
 		if s.audit == nil {
-			return repository.Listing{}, ErrAuditUnavailable
+			return store.Listing{}, ErrAuditUnavailable
 		}
 		if err := s.audit.WriteListingAdminDelete(ctx, ownerID, existing.ID, existing.SellerID); err != nil {
 			slog.WarnContext(ctx, "admin listing delete audit failed", slog.String("listing_id", existing.ID), slog.Any("err", err))
-			return repository.Listing{}, ErrAuditUnavailable
+			return store.Listing{}, ErrAuditUnavailable
 		}
 	}
 	if s.tx == nil {
@@ -260,9 +260,9 @@ func (s *ListingService) ReleaseStock(ctx context.Context, reservationID string)
 		return err
 	}
 	switch outcome {
-	case repository.ReleaseUnknown:
+	case store.ReleaseUnknown:
 		slog.WarnContext(ctx, "release of unknown reservation_id treated as no-op", slog.String("reservation_id", reservationID))
-	case repository.ReleaseNoOp:
+	case store.ReleaseNoOp:
 		slog.WarnContext(ctx, "release of already released reservation treated as no-op", slog.String("reservation_id", reservationID))
 	}
 	return nil
@@ -272,8 +272,8 @@ func (s *ListingService) ReleaseStock(ctx context.Context, reservationID string)
 // retried checkout decrements exactly once. The reservation is held for the
 // configured reservation TTL, after which SweepExpiredReservations restores it
 // unless it was committed. Re-reserving the id of a released reservation fails
-// with repository.ErrReservationReleased. reservationID is required
-// (repository.ErrReservationIDRequired): there is no ledger-less decrement.
+// with store.ErrReservationReleased. reservationID is required
+// (store.ErrReservationIDRequired): there is no ledger-less decrement.
 func (s *ListingService) ReserveStockIdempotent(ctx context.Context, reservationID, listingID, variantID string, quantity int32) error {
 	return s.repo.ReserveStockIdempotent(ctx, reservationID, listingID, variantID, quantity, time.Now().Add(s.ReservationTTL()))
 }
@@ -313,7 +313,7 @@ func isLockedStatus(st string) bool {
 // a draft publish or content edit of a published listing is screened. It also
 // carries the stored moderation fields over and pins the loaded version so a
 // racing moderation decision is detected.
-func (s *ListingService) resolveSellerUpdate(ctx context.Context, existing repository.Listing, l *repository.Listing) error {
+func (s *ListingService) resolveSellerUpdate(ctx context.Context, existing store.Listing, l *store.Listing) error {
 	stored := strings.ToLower(existing.Status)
 	if isLockedStatus(stored) {
 		return ErrStatusLocked
@@ -354,7 +354,7 @@ func (s *ListingService) resolveSellerUpdate(ctx context.Context, existing repos
 // applyScreen screens l and sets Status (published or pending_review),
 // ScreenFlags and SubmittedAt. A keyword hit skips the AI; a missing screener,
 // an AI error or any non-ALLOW verdict goes to pending_review.
-func (s *ListingService) applyScreen(ctx context.Context, l *repository.Listing) {
+func (s *ListingService) applyScreen(ctx context.Context, l *store.Listing) {
 	status, flags := s.screen(ctx, *l)
 	l.Status = status
 	l.ScreenFlags = flags
@@ -363,7 +363,7 @@ func (s *ListingService) applyScreen(ctx context.Context, l *repository.Listing)
 	}
 }
 
-func (s *ListingService) screen(ctx context.Context, l repository.Listing) (string, []string) {
+func (s *ListingService) screen(ctx context.Context, l store.Listing) (string, []string) {
 	if s.kw != nil {
 		if hits := s.kw.Match(l.Title + "\n" + l.Description); len(hits) > 0 {
 			flags := make([]string, 0, len(hits))

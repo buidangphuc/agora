@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc/health"
 
 	"github.com/buidangphuc/team-domain/internal/events"
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 // Resources is the central bag of opened handles, mirroring team-ai's
@@ -22,7 +22,7 @@ type Resources struct {
 	Publisher events.ListingPublisher
 	// Outbox is the transactional-outbox store over the pool (nil if DB disabled).
 	// main.go wires it into the service so writes record their event atomically.
-	Outbox *repository.OutboxStore
+	Outbox *store.OutboxStore
 
 	// addons holds the addons that actually opened, for reverse-order teardown.
 	addons []Addon

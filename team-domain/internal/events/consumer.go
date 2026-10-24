@@ -1,5 +1,5 @@
-// Package consumer runs the Kafka consumers of team-domain (identity user-status events).
-package consumer
+// Package events runs the Kafka consumers of team-domain (identity user-status events).
+package events
 
 import (
 	"context"

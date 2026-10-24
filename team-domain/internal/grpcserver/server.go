@@ -14,15 +14,15 @@ import (
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 
 	"github.com/buidangphuc/team-domain/internal/config"
-	"github.com/buidangphuc/team-domain/internal/handler"
 	"github.com/buidangphuc/team-domain/internal/interceptor"
+	"github.com/buidangphuc/team-domain/internal/rpc"
 )
 
 // Build constructs a ready-but-unstarted gRPC server wired with the platform
 // stack: the OTel stats handler, chained tracing -> auth interceptors, the
 // ListingService handler, the health service, and optional reflection. If
 // healthSrv is nil a always-SERVING one is created (convenient for tests).
-func Build(s *config.Settings, h *handler.ListingHandler, healthSrv *health.Server, logger *slog.Logger) *grpc.Server {
+func Build(s *config.Settings, h *rpc.ListingHandler, healthSrv *health.Server, logger *slog.Logger) *grpc.Server {
 	srv := grpc.NewServer(
 		// otelgrpc stats handler owns spans + W3C traceparent propagation.
 		grpc.StatsHandler(interceptor.OTelStatsHandler()),

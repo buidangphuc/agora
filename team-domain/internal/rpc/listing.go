@@ -1,8 +1,8 @@
-// Package handler is the gRPC transport adapter: it implements the generated
+// Package rpc is the gRPC transport adapter: it implements the generated
 // service server interface and maps between wire (protobuf) and domain types.
 //
 // This file depends on generated code and only compiles AFTER `make proto`.
-package handler
+package rpc
 
 import (
 	"context"
@@ -19,9 +19,9 @@ import (
 
 	"github.com/buidangphuc/team-domain/internal/events"
 	"github.com/buidangphuc/team-domain/internal/interceptor"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
-	"github.com/buidangphuc/team-domain/internal/storage"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/objects"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 // ListingHandler implements listingv1.ListingServiceServer.
@@ -30,21 +30,21 @@ type ListingHandler struct {
 	// are added to the proto before they're implemented here.
 	listingv1.UnimplementedListingServiceServer
 
-	svc        *service.ListingService
-	categories repository.CategoryRepository
-	storage    storage.StorageClient
+	svc        *listing.ListingService
+	categories store.CategoryRepository
+	storage    objects.StorageClient
 	// storefronts backs the Seller Storefront RPCs (F5). Optional: nil until
 	// wired via WithStorefront, in which case those RPCs report Unavailable.
-	storefronts *service.StorefrontService
+	storefronts *listing.StorefrontService
 	// bundles backs the Listing Bundle RPCs (F5). Optional: nil until wired via
 	// WithBundles, in which case those RPCs report Unavailable.
-	bundles *service.BundleService
+	bundles *listing.BundleService
 }
 
 // WithBundles attaches the bundle service (F5) and returns the handler for
 // chaining. Kept separate from NewListingHandler so the existing listing
 // construction path (and its callers/tests) stay untouched.
-func (h *ListingHandler) WithBundles(b *service.BundleService) *ListingHandler {
+func (h *ListingHandler) WithBundles(b *listing.BundleService) *ListingHandler {
 	h.bundles = b
 	return h
 }
@@ -52,7 +52,7 @@ func (h *ListingHandler) WithBundles(b *service.BundleService) *ListingHandler {
 // WithStorefront attaches the storefront service (F5) and returns the handler
 // for chaining. Kept separate from NewListingHandler so the existing listing
 // construction path (and its callers/tests) stay untouched.
-func (h *ListingHandler) WithStorefront(sf *service.StorefrontService) *ListingHandler {
+func (h *ListingHandler) WithStorefront(sf *listing.StorefrontService) *ListingHandler {
 	h.storefronts = sf
 	return h
 }
@@ -64,9 +64,9 @@ func (h *ListingHandler) WithStorefront(sf *service.StorefrontService) *ListingH
 // listing write (the transactional outbox, ADR-0002). A background relayer
 // publishes those rows — see internal/events/relayer.go.
 func NewListingHandler(
-	svc *service.ListingService,
-	categories repository.CategoryRepository,
-	store storage.StorageClient,
+	svc *listing.ListingService,
+	categories store.CategoryRepository,
+	store objects.StorageClient,
 ) *ListingHandler {
 	return &ListingHandler{
 		svc:        svc,
@@ -90,7 +90,7 @@ func (h *ListingHandler) GetListing(
 
 	l, err := h.svc.Get(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, store.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "not_found")
 		}
 		return nil, status.Error(codes.Internal, "internal error")
@@ -215,13 +215,13 @@ func (h *ListingHandler) UpdateListing(
 		h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_UPDATED))
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrNotFound):
+		case errors.Is(err, store.ErrNotFound):
 			return nil, status.Error(codes.NotFound, "not_found")
-		case errors.Is(err, service.ErrForbidden):
+		case errors.Is(err, listing.ErrForbidden):
 			return nil, status.Error(codes.PermissionDenied, "not the listing owner")
-		case errors.Is(err, service.ErrAuditUnavailable):
+		case errors.Is(err, listing.ErrAuditUnavailable):
 			return nil, status.Error(codes.Unavailable, "audit unavailable")
-		case errors.Is(err, service.ErrStatusLocked), errors.Is(err, repository.ErrStatusChanged):
+		case errors.Is(err, listing.ErrStatusLocked), errors.Is(err, store.ErrStatusChanged):
 			return nil, status.Error(codes.FailedPrecondition, "listing status does not allow this change")
 		default:
 			return nil, status.Error(codes.Internal, "internal error")
@@ -246,13 +246,13 @@ func (h *ListingHandler) DeleteListing(
 		h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_DELETED))
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrNotFound):
+		case errors.Is(err, store.ErrNotFound):
 			return nil, status.Error(codes.NotFound, "not_found")
-		case errors.Is(err, service.ErrForbidden):
+		case errors.Is(err, listing.ErrForbidden):
 			return nil, status.Error(codes.PermissionDenied, "not the listing owner")
-		case errors.Is(err, service.ErrAuditUnavailable):
+		case errors.Is(err, listing.ErrAuditUnavailable):
 			return nil, status.Error(codes.Unavailable, "audit unavailable")
-		case errors.Is(err, service.ErrStatusLocked), errors.Is(err, repository.ErrStatusChanged):
+		case errors.Is(err, listing.ErrStatusLocked), errors.Is(err, store.ErrStatusChanged):
 			return nil, status.Error(codes.FailedPrecondition, "listing status does not allow this change")
 		default:
 			return nil, status.Error(codes.Internal, "internal error")
@@ -272,7 +272,7 @@ func (h *ListingHandler) GetImageUploadUrl(
 	if h.storage == nil {
 		return nil, status.Error(codes.Unavailable, "storage service unavailable")
 	}
-	uploadURL, imageKey, publicURL, err := h.storage.GetPresignedUploadURL(
+	uploadURL, imageKey, publicURL, err := h.objects.GetPresignedUploadURL(
 		ctx,
 		req.GetContentType(),
 		req.GetFilename(),
@@ -332,7 +332,7 @@ func (h *ListingHandler) GetCategory(
 	}
 	c, err := h.categories.Get(ctx, req.GetId())
 	if err != nil {
-		if errors.Is(err, repository.ErrCategoryNotFound) {
+		if errors.Is(err, store.ErrCategoryNotFound) {
 			return nil, status.Error(codes.NotFound, "category not found")
 		}
 		return nil, internalErr("get category", err)
@@ -373,23 +373,23 @@ func (h *ListingHandler) ReserveStock(
 	// decremented exactly once. There is no reserve without an id, so every
 	// decrement leaves a reservation that can be committed, released and swept.
 	if err := h.svc.ReserveStockIdempotent(ctx, req.GetReservationId(), req.GetListingId(), req.GetVariantId(), req.GetQuantity()); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, store.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "listing not found")
 		}
-		if errors.Is(err, repository.ErrVariantNotFound) {
+		if errors.Is(err, store.ErrVariantNotFound) {
 			return nil, status.Error(codes.NotFound, "variant not found")
 		}
-		if errors.Is(err, repository.ErrReservationReleased) {
+		if errors.Is(err, store.ErrReservationReleased) {
 			// The id belongs to a released reservation: reserve under a new id.
 			return nil, status.Error(codes.FailedPrecondition, "reservation already released; reserve with a new reservation_id")
 		}
-		if errors.Is(err, repository.ErrListingNotReservable) {
+		if errors.Is(err, store.ErrListingNotReservable) {
 			return nil, status.Error(codes.FailedPrecondition, "listing is not reservable")
 		}
-		if errors.Is(err, repository.ErrReservationMismatch) {
+		if errors.Is(err, store.ErrReservationMismatch) {
 			return nil, status.Error(codes.FailedPrecondition, "reservation_id already used for a different listing, variant or quantity")
 		}
-		if errors.Is(err, repository.ErrOutOfStock) {
+		if errors.Is(err, store.ErrOutOfStock) {
 			return &listingv1.ReserveStockResponse{
 				Success: false,
 				Message: "insufficient stock",
@@ -440,9 +440,9 @@ func (h *ListingHandler) CommitReservation(
 	}
 	if err := h.svc.CommitReservation(ctx, req.GetReservationId()); err != nil {
 		switch {
-		case errors.Is(err, repository.ErrReservationNotFound):
+		case errors.Is(err, store.ErrReservationNotFound):
 			return nil, status.Error(codes.NotFound, "reservation not found")
-		case errors.Is(err, repository.ErrReservationReleased):
+		case errors.Is(err, store.ErrReservationReleased):
 			return nil, status.Error(codes.FailedPrecondition, "reservation already released")
 		default:
 			return nil, internalErr("commit reservation", err)
@@ -458,21 +458,21 @@ func (h *ListingHandler) CommitReservation(
 // row's primary key (a stable dedupe id under at-least-once). No Kafka produce
 // happens here: the row is written in the same tx as the listing, and the
 // relayer publishes it later.
-func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listingv1.ChangeType) repository.EnqueueFn {
+func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listingv1.ChangeType) store.EnqueueFn {
 	var principal *commonv1.Principal
 	if p, ok := interceptor.PrincipalFromContext(ctx); ok {
 		principal = p
 	}
 	requestID, _ := interceptor.RequestIDFromContext(ctx)
-	return func(written repository.Listing) (repository.OutboxRow, error) {
+	return func(written store.Listing) (store.OutboxRow, error) {
 		wire := toWire(written)
 		wire.Moderation = moderationWire(written, false, false)
 		eventID := uuid.NewString()
 		payload, err := events.BuildListingChangedEnvelope(eventID, wire, change, principal, requestID)
 		if err != nil {
-			return repository.OutboxRow{}, err
+			return store.OutboxRow{}, err
 		}
-		return repository.OutboxRow{
+		return store.OutboxRow{
 			EventID:       eventID,
 			AggregateType: "Listing",
 			AggregateID:   written.ID,
@@ -483,13 +483,13 @@ func (h *ListingHandler) enqueueListingChanged(ctx context.Context, change listi
 	}
 }
 
-// NewStockEventBuilder returns the repository.StockEventBuilder that turns a
+// NewStockEventBuilder returns the store.StockEventBuilder that turns a
 // stock snapshot into a ListingStockChanged outbox row. The repository calls it
 // INSIDE the reserve / release / sweep transaction, so the row commits (or rolls
 // back) with the stock change. The principal and request id come from the
 // request context when present (the TTL sweep has neither).
-func NewStockEventBuilder() repository.StockEventBuilder {
-	return func(ctx context.Context, snap repository.StockSnapshot) (repository.OutboxRow, error) {
+func NewStockEventBuilder() store.StockEventBuilder {
+	return func(ctx context.Context, snap store.StockSnapshot) (store.OutboxRow, error) {
 		var principal *commonv1.Principal
 		if p, ok := interceptor.PrincipalFromContext(ctx); ok {
 			principal = p
@@ -498,14 +498,14 @@ func NewStockEventBuilder() repository.StockEventBuilder {
 		change := &listingv1.ListingStockChanged{
 			ListingId: snap.ListingID,
 			Stock:     snap.Stock,
-			Variants:  toWire(repository.Listing{Variants: snap.Variants}).GetVariants(),
+			Variants:  toWire(store.Listing{Variants: snap.Variants}).GetVariants(),
 		}
 		eventID := uuid.NewString()
 		payload, err := events.BuildListingStockChangedEnvelope(eventID, change, principal, requestID)
 		if err != nil {
-			return repository.OutboxRow{}, err
+			return store.OutboxRow{}, err
 		}
-		return repository.OutboxRow{
+		return store.OutboxRow{
 			EventID:       eventID,
 			AggregateType: "Listing",
 			AggregateID:   snap.ListingID,
@@ -558,10 +558,10 @@ func principalOwner(ctx context.Context) (id string, isAdmin bool) {
 }
 
 // fromWire maps a generated protobuf Listing to the domain value.
-func fromWire(l *listingv1.Listing) repository.Listing {
-	variants := make([]repository.Variant, 0, len(l.GetVariants()))
+func fromWire(l *listingv1.Listing) store.Listing {
+	variants := make([]store.Variant, 0, len(l.GetVariants()))
 	for _, v := range l.GetVariants() {
-		variants = append(variants, repository.Variant{
+		variants = append(variants, store.Variant{
 			ID:        v.GetId(),
 			ListingID: l.GetId(),
 			Name:      v.GetName(),
@@ -571,7 +571,7 @@ func fromWire(l *listingv1.Listing) repository.Listing {
 			ImageURL:  v.GetImageUrl(),
 		})
 	}
-	return repository.Listing{
+	return store.Listing{
 		ID:          l.GetId(),
 		Title:       l.GetTitle(),
 		Description: l.GetDescription(),
@@ -607,7 +607,7 @@ func domainStatus(s listingv1.ListingStatus) string {
 }
 
 // toWire maps a domain Listing to the generated protobuf message.
-func toWire(l repository.Listing) *listingv1.Listing {
+func toWire(l store.Listing) *listingv1.Listing {
 	variants := make([]*listingv1.Variant, 0, len(l.Variants))
 	for _, v := range l.Variants {
 		variants = append(variants, &listingv1.Variant{
@@ -636,7 +636,7 @@ func toWire(l repository.Listing) *listingv1.Listing {
 }
 
 // toWireList maps a slice of domain listings to wire messages.
-func toWireList(items []repository.Listing) []*listingv1.Listing {
+func toWireList(items []store.Listing) []*listingv1.Listing {
 	wire := make([]*listingv1.Listing, 0, len(items))
 	for _, l := range items {
 		wire = append(wire, toWire(l))
@@ -666,7 +666,7 @@ func wireStatus(s string) listingv1.ListingStatus {
 // toWireFor maps a listing for a specific reader: the owner sees reason, note
 // and decision time; admin and internal services also see screen flags;
 // everyone else gets no moderation info.
-func toWireFor(ctx context.Context, l repository.Listing) *listingv1.Listing {
+func toWireFor(ctx context.Context, l store.Listing) *listingv1.Listing {
 	w := toWire(l)
 	id, admin := principalOwner(ctx)
 	staff := admin || isService(ctx)
@@ -679,7 +679,7 @@ func toWireFor(ctx context.Context, l repository.Listing) *listingv1.Listing {
 
 // moderationWire builds ModerationInfo; note and flags only when asked. It
 // returns nil when the listing has no moderation data.
-func moderationWire(l repository.Listing, withNote, withFlags bool) *listingv1.ModerationInfo {
+func moderationWire(l store.Listing, withNote, withFlags bool) *listingv1.ModerationInfo {
 	if l.ModerationReasonCode == "" && l.ModerationNote == "" && len(l.ScreenFlags) == 0 && l.ModerationDecidedAt.IsZero() {
 		return nil
 	}

@@ -1,7 +1,7 @@
 // This file implements the Seller Storefront RPCs (F5) on ListingHandler,
 // mirroring the listing CRUD flow: transport-only, delegating to
-// service.StorefrontService and mapping between wire (protobuf) and domain.
-package handler
+// listing.StorefrontService and mapping between wire (protobuf) and domain.
+package rpc
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 
 	"github.com/buidangphuc/team-domain/internal/interceptor"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 // UpsertStorefront creates or replaces the calling seller's storefront. It is
@@ -38,13 +38,13 @@ func (h *ListingHandler) UpsertStorefront(
 	saved, err := h.storefronts.Upsert(ctx, storefrontFromWire(req.GetStorefront()), ownerID)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrSlugRequired):
+		case errors.Is(err, listing.ErrSlugRequired):
 			return nil, status.Error(codes.InvalidArgument, "slug is required")
-		case errors.Is(err, service.ErrDisplayNameInvalid):
+		case errors.Is(err, listing.ErrDisplayNameInvalid):
 			return nil, status.Error(codes.InvalidArgument, "invalid display_name")
-		case errors.Is(err, service.ErrForbidden):
+		case errors.Is(err, listing.ErrForbidden):
 			return nil, status.Error(codes.PermissionDenied, "no authenticated seller")
-		case errors.Is(err, repository.ErrSlugTaken):
+		case errors.Is(err, store.ErrSlugTaken):
 			return nil, status.Error(codes.AlreadyExists, "slug already taken")
 		default:
 			return nil, status.Error(codes.Internal, "internal error")
@@ -71,7 +71,7 @@ func (h *ListingHandler) GetStorefront(
 
 	sf, err := h.storefronts.Get(ctx, req.GetSellerId(), req.GetSlug())
 	if err != nil {
-		if errors.Is(err, repository.ErrStorefrontNotFound) {
+		if errors.Is(err, store.ErrStorefrontNotFound) {
 			return nil, status.Error(codes.NotFound, "not_found")
 		}
 		return nil, status.Error(codes.Internal, "internal error")
@@ -94,7 +94,7 @@ func (h *ListingHandler) BatchGetStorefronts(
 	}
 	found, err := h.storefronts.GetMany(ctx, req.GetSellerIds())
 	if err != nil {
-		if errors.Is(err, service.ErrTooManySellerIDs) {
+		if errors.Is(err, listing.ErrTooManySellerIDs) {
 			return nil, status.Error(codes.InvalidArgument, "too many seller_ids (max 100)")
 		}
 		return nil, status.Error(codes.Internal, "internal error")
@@ -113,8 +113,8 @@ func (h *ListingHandler) BatchGetStorefronts(
 // storefrontFromWire maps the generated protobuf Storefront to the domain value.
 // seller_id is intentionally carried through but the service overwrites it with
 // the authenticated owner, so a spoofed body cannot target another seller.
-func storefrontFromWire(s *listingv1.Storefront) repository.Storefront {
-	return repository.Storefront{
+func storefrontFromWire(s *listingv1.Storefront) store.Storefront {
+	return store.Storefront{
 		SellerID:           s.GetSellerId(),
 		Slug:               s.GetSlug(),
 		BannerURL:          s.GetBannerUrl(),
@@ -126,7 +126,7 @@ func storefrontFromWire(s *listingv1.Storefront) repository.Storefront {
 }
 
 // storefrontToWire maps a domain Storefront to the generated protobuf message.
-func storefrontToWire(s repository.Storefront) *listingv1.Storefront {
+func storefrontToWire(s store.Storefront) *listingv1.Storefront {
 	return &listingv1.Storefront{
 		SellerId:           s.SellerID,
 		Slug:               s.Slug,

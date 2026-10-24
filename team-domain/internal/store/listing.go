@@ -1,7 +1,7 @@
-// Package repository is the persistence boundary. It exposes domain types and a
+// Package store is the persistence boundary. It exposes domain types and a
 // port; the concrete store is swappable (Postgres in production, an in-memory
 // fake for tests). Nothing above this package imports a DB driver directly.
-package repository
+package store
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package handler
+package rpc
 
 import (
 	"context"
@@ -11,8 +11,8 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 const maxModerationNoteChars = 500
@@ -33,14 +33,14 @@ func requireAdmin(ctx context.Context) error {
 	return nil
 }
 
-func decisionFromWire(d listingv1.ModerationDecision) (service.ModerationDecision, bool) {
+func decisionFromWire(d listingv1.ModerationDecision) (listing.ModerationDecision, bool) {
 	switch d {
 	case listingv1.ModerationDecision_MODERATION_DECISION_APPROVE:
-		return service.DecisionApprove, true
+		return listing.DecisionApprove, true
 	case listingv1.ModerationDecision_MODERATION_DECISION_REJECT:
-		return service.DecisionReject, true
+		return listing.DecisionReject, true
 	case listingv1.ModerationDecision_MODERATION_DECISION_BAN:
-		return service.DecisionBan, true
+		return listing.DecisionBan, true
 	}
 	return "", false
 }
@@ -56,7 +56,7 @@ func (h *ListingHandler) ModerateListing(ctx context.Context, req *listingv1.Mod
 		return nil, status.Error(codes.InvalidArgument, "listing_id is required")
 	case !ok:
 		return nil, status.Error(codes.InvalidArgument, "decision is required")
-	case dec != service.DecisionApprove && req.GetReasonCode() == "":
+	case dec != listing.DecisionApprove && req.GetReasonCode() == "":
 		return nil, status.Error(codes.InvalidArgument, "reason_code is required")
 	case req.GetReasonCode() != "" && !moderationReasonCodes[req.GetReasonCode()]:
 		return nil, status.Error(codes.InvalidArgument, "unknown reason_code")
@@ -64,16 +64,16 @@ func (h *ListingHandler) ModerateListing(ctx context.Context, req *listingv1.Mod
 		return nil, status.Error(codes.InvalidArgument, "note exceeds 500 characters")
 	}
 	actor, _ := principalOwner(ctx)
-	l, err := h.svc.ModerateListing(ctx, service.ModerateInput{
+	l, err := h.svc.ModerateListing(ctx, listing.ModerateInput{
 		ListingID: req.GetListingId(), Decision: dec, ReasonCode: req.GetReasonCode(), Note: req.GetNote(),
 	}, actor, h.enqueueListingChanged(ctx, listingv1.ChangeType_CHANGE_TYPE_UPDATED))
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrNotFound):
+		case errors.Is(err, store.ErrNotFound):
 			return nil, status.Error(codes.NotFound, "not_found")
-		case errors.Is(err, service.ErrAuditUnavailable):
+		case errors.Is(err, listing.ErrAuditUnavailable):
 			return nil, status.Error(codes.Unavailable, "audit unavailable")
-		case errors.Is(err, service.ErrTransitionNotAllowed), errors.Is(err, repository.ErrStatusChanged):
+		case errors.Is(err, listing.ErrTransitionNotAllowed), errors.Is(err, store.ErrStatusChanged):
 			return nil, status.Error(codes.FailedPrecondition, "listing status does not allow this decision")
 		default:
 			return nil, internalErr("ModerateListing", err)
@@ -94,7 +94,7 @@ func (h *ListingHandler) ListModerationQueue(ctx context.Context, req *listingv1
 	}
 	page, err := h.svc.ListModerationQueue(ctx, cursor, size)
 	if err != nil {
-		if errors.Is(err, repository.ErrInvalidCursor) {
+		if errors.Is(err, store.ErrInvalidCursor) {
 			return nil, status.Error(codes.InvalidArgument, "invalid cursor")
 		}
 		return nil, internalErr("ListModerationQueue", err)

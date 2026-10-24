@@ -1,5 +1,4 @@
-// Package upstream holds outbound gRPC clients to sibling services.
-package upstream
+package audit
 
 import (
 	"context"

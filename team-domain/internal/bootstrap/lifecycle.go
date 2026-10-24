@@ -13,8 +13,8 @@ import (
 
 	"github.com/buidangphuc/team-domain/internal/config"
 	"github.com/buidangphuc/team-domain/internal/events"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 // OpenResources validates requirements up front, opens core infra (Postgres),
@@ -34,7 +34,7 @@ func OpenResources(ctx context.Context, s *config.Settings, logger *slog.Logger)
 		res.Pool = pool
 		// The transactional outbox store lives over the same pool; the service
 		// enqueues into it in the same tx as each listing write.
-		res.Outbox = repository.NewOutboxStore(pool)
+		res.Outbox = store.NewOutboxStore(pool)
 	}
 
 	// Event publisher (ADR-0002): real Kafka when enabled, else a no-op. It is now
@@ -180,12 +180,12 @@ func (res *Resources) startRelayer(s *config.Settings, producer events.RawProduc
 // Postgres is present (reservations live in the DB). A non-positive interval uses
 // the sweeper's own default. Cancelled by CloseResources, which waits on
 // sweeperDone.
-func (res *Resources) StartReservationSweeper(svc *service.ListingService, interval time.Duration, logger *slog.Logger) {
+func (res *Resources) StartReservationSweeper(svc *listing.ListingService, interval time.Duration, logger *slog.Logger) {
 	ctx, cancel := context.WithCancel(context.Background())
 	res.stopSweeper = cancel
 	res.sweeperDone = make(chan struct{})
 
-	sweeper := service.NewReservationSweeper(svc, interval, logger)
+	sweeper := listing.NewReservationSweeper(svc, interval, logger)
 	go func() {
 		defer close(res.sweeperDone)
 		sweeper.Run(ctx)

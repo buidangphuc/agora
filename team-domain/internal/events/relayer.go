@@ -5,14 +5,14 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 // OutboxClaimer is the slice of the outbox store the relayer needs: claim a
 // batch of pending rows, then mark each published or failed. Satisfied by
-// *repository.OutboxStore (Postgres) and by in-memory fakes in tests.
+// *store.OutboxStore (Postgres) and by in-memory fakes in tests.
 type OutboxClaimer interface {
-	ClaimPending(ctx context.Context, batch, lockSeconds int) ([]repository.PendingEvent, error)
+	ClaimPending(ctx context.Context, batch, lockSeconds int) ([]store.PendingEvent, error)
 	MarkPublished(ctx context.Context, eventID string, publishedAt time.Time) error
 	MarkFailed(ctx context.Context, eventID, reason string, availableAt *time.Time) error
 }
@@ -129,7 +129,7 @@ func (r *Relayer) RelayOnce(ctx context.Context, now time.Time) (Report, error) 
 
 // handleFailure schedules a retry with exponential backoff, or parks the row in
 // 'failed' once it exceeds MaxAttempts — without blocking the rest of the batch.
-func (r *Relayer) handleFailure(ctx context.Context, ev repository.PendingEvent, now time.Time, produceErr error, rep *Report) {
+func (r *Relayer) handleFailure(ctx context.Context, ev store.PendingEvent, now time.Time, produceErr error, rep *Report) {
 	attempt := ev.Attempts + 1
 	if attempt >= r.cfg.MaxAttempts {
 		if err := r.store.MarkFailed(ctx, ev.EventID, produceErr.Error(), nil); err != nil {

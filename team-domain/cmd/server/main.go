@@ -22,16 +22,16 @@ import (
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/buidangphuc/team-domain/internal/audit"
 	"github.com/buidangphuc/team-domain/internal/bootstrap"
 	"github.com/buidangphuc/team-domain/internal/config"
 	"github.com/buidangphuc/team-domain/internal/grpcserver"
-	"github.com/buidangphuc/team-domain/internal/handler"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/objects"
 	"github.com/buidangphuc/team-domain/internal/observability"
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/rpc"
 	"github.com/buidangphuc/team-domain/internal/screen"
-	"github.com/buidangphuc/team-domain/internal/service"
-	"github.com/buidangphuc/team-domain/internal/storage"
-	"github.com/buidangphuc/team-domain/internal/upstream"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 func main() {
@@ -78,27 +78,27 @@ func run() error {
 	}()
 
 	// ── Wire the service and build the server ───────────────────────────
-	repo := repository.NewPostgresListingRepository(res.Pool)
-	catRepo := repository.NewPostgresCategoryRepository(res.Pool)
-	store := storage.NewS3Storage(settings.Storage)
+	repo := store.NewPostgresListingRepository(res.Pool)
+	catRepo := store.NewPostgresCategoryRepository(res.Pool)
+	store := objects.NewS3Storage(settings.Storage)
 
 	// The service writes each listing and its domain event in one transaction
 	// via the outbox (ADR-0002); the relayer publishes those rows. When the
 	// outbox store is absent (DB disabled), fall back to a plain, event-less
 	// service.
-	var svc *service.ListingService
+	var svc *listing.ListingService
 	if res.Outbox != nil {
 		// Reserve / release / sweep announce ListingStockChanged on the same
 		// outbox, inside their own stock-change transaction.
-		repo.WithStockEvents(res.Outbox, handler.NewStockEventBuilder())
-		txw := repository.NewPgTxWriter(res.Pool, res.Outbox)
-		svc = service.NewListingServiceWithOutbox(repo, txw)
+		repo.WithStockEvents(res.Outbox, rpc.NewStockEventBuilder())
+		txw := store.NewPgTxWriter(res.Pool, res.Outbox)
+		svc = listing.NewListingServiceWithOutbox(repo, txw)
 	} else {
-		svc = service.NewListingService(repo)
+		svc = listing.NewListingService(repo)
 	}
 	// Admin listing writes are audited in team-audit (fail closed); without an
 	// address no writer is attached and admin update/delete return Unavailable.
-	auditClient, err := upstream.NewAuditClient(settings.Upstream.AuditAddr, time.Duration(settings.Upstream.CallTimeoutSeconds*float64(time.Second)))
+	auditClient, err := audit.NewAuditClient(settings.Upstream.AuditAddr, time.Duration(settings.Upstream.CallTimeoutSeconds*float64(time.Second)))
 	if err != nil {
 		return fmt.Errorf("dial team-audit: %w", err)
 	}
@@ -115,7 +115,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("load screen terms: %w", err)
 	}
-	aiClient, err := upstream.NewAIClient(settings.Upstream.AIAddr, time.Duration(settings.Upstream.AITimeoutSeconds*float64(time.Second)))
+	aiClient, err := screen.NewAIClient(settings.Upstream.AIAddr, time.Duration(settings.Upstream.AITimeoutSeconds*float64(time.Second)))
 	if err != nil {
 		return fmt.Errorf("dial team-ai: %w", err)
 	}
@@ -131,11 +131,11 @@ func run() error {
 	// once here so an invalid value is warned about (and defaulted) at boot.
 	svc.WithReservationTTL(settings.ReservationTTL(logger))
 	sweepInterval := settings.ReservationSweepInterval(logger)
-	sfRepo := repository.NewPostgresStorefrontRepository(res.Pool)
-	sfSvc := service.NewStorefrontService(sfRepo)
-	bundleRepo := repository.NewPostgresBundleRepository(res.Pool)
-	bundleSvc := service.NewBundleService(bundleRepo)
-	h := handler.NewListingHandler(svc, catRepo, store).
+	sfRepo := store.NewPostgresStorefrontRepository(res.Pool)
+	sfSvc := listing.NewStorefrontService(sfRepo)
+	bundleRepo := store.NewPostgresBundleRepository(res.Pool)
+	bundleSvc := listing.NewBundleService(bundleRepo)
+	h := rpc.NewListingHandler(svc, catRepo, store).
 		WithStorefront(sfSvc).
 		WithBundles(bundleSvc)
 

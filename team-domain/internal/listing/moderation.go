@@ -1,4 +1,4 @@
-package service
+package listing
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 // ModerationDecision is an admin decision on a listing.
@@ -32,12 +32,12 @@ var ErrTransitionNotAllowed = errors.New("moderation transition not allowed")
 
 // moderationTx is the conditional decision write (PgTxWriter provides it).
 type moderationTx interface {
-	ModerateTx(ctx context.Context, id, fromStatus string, loadedUpdatedAt time.Time, d repository.ModerationUpdate, ev repository.EnqueueFn) (repository.Listing, error)
+	ModerateTx(ctx context.Context, id, fromStatus string, loadedUpdatedAt time.Time, d store.ModerationUpdate, ev store.EnqueueFn) (store.Listing, error)
 }
 
 // moderationQueue is the pending_review read (PostgresListingRepository provides it).
 type moderationQueue interface {
-	ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (repository.Page, error)
+	ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (store.Page, error)
 }
 
 // moderationTarget returns the status a decision leads to from the stored
@@ -67,27 +67,27 @@ func moderationTarget(from string, d ModerationDecision) (string, bool) {
 // ModerateListing applies an admin decision: load, check the transition, write
 // the audit event, then apply the decision conditionally on the loaded version
 // (so a racing seller edit is refused) together with its outbox event.
-func (s *ListingService) ModerateListing(ctx context.Context, in ModerateInput, actorID string, enqueue repository.EnqueueFn) (repository.Listing, error) {
+func (s *ListingService) ModerateListing(ctx context.Context, in ModerateInput, actorID string, enqueue store.EnqueueFn) (store.Listing, error) {
 	existing, err := s.repo.Get(ctx, in.ListingID)
 	if err != nil {
-		return repository.Listing{}, err
+		return store.Listing{}, err
 	}
 	to, ok := moderationTarget(existing.Status, in.Decision)
 	if !ok {
-		return repository.Listing{}, ErrTransitionNotAllowed
+		return store.Listing{}, ErrTransitionNotAllowed
 	}
 	mtx, ok := s.tx.(moderationTx)
 	if !ok {
-		return repository.Listing{}, errors.New("moderation writer not configured")
+		return store.Listing{}, errors.New("moderation writer not configured")
 	}
 	if s.audit == nil {
-		return repository.Listing{}, ErrAuditUnavailable
+		return store.Listing{}, ErrAuditUnavailable
 	}
 	if err := s.audit.WriteListingModerate(ctx, actorID, existing.ID, existing.SellerID, string(in.Decision), in.ReasonCode, in.Note, existing.Status, to); err != nil {
 		slog.WarnContext(ctx, "listing moderation audit failed", slog.String("listing_id", existing.ID), slog.Any("err", err))
-		return repository.Listing{}, ErrAuditUnavailable
+		return store.Listing{}, ErrAuditUnavailable
 	}
-	return mtx.ModerateTx(ctx, existing.ID, existing.Status, existing.UpdatedAt, repository.ModerationUpdate{
+	return mtx.ModerateTx(ctx, existing.ID, existing.Status, existing.UpdatedAt, store.ModerationUpdate{
 		ToStatus:   to,
 		ReasonCode: in.ReasonCode,
 		Note:       in.Note,
@@ -96,10 +96,10 @@ func (s *ListingService) ModerateListing(ctx context.Context, in ModerateInput, 
 }
 
 // ListModerationQueue returns pending_review listings, oldest submission first.
-func (s *ListingService) ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (repository.Page, error) {
+func (s *ListingService) ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (store.Page, error) {
 	q, ok := s.repo.(moderationQueue)
 	if !ok {
-		return repository.Page{}, errors.New("moderation queue not supported by repository")
+		return store.Page{}, errors.New("moderation queue not supported by repository")
 	}
 	return q.ListModerationQueue(ctx, cursor, pageSize)
 }
