@@ -28,7 +28,7 @@ func Owner(ctx context.Context, listings Getter, logger *slog.Logger, listingID,
 		if status.Convert(err).Proto().GetCode() == int32(code.Code_NOT_FOUND) {
 			return ErrNotFound
 		}
-		logger.Warn("listing ownership lookup failed", slog.String("listing_id", listingID), slog.Any("err", err))
+		logger.WarnContext(ctx, "listing ownership lookup failed", "listing_id", listingID, "err", err)
 		return ErrLookupFailed
 	}
 	owner := resp.GetListing().GetSellerId()
