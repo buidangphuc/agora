@@ -1695,3 +1695,835 @@ features:
     status: planned
     covered_by: ""
     notes: "Change promotion-go-sdk-v1. Scenario to be added by the e2e author."
+
+  - id: promotion.admin-audit-an-empty-audit-address-is-refused-in-every-env
+    title: "An empty audit address is refused in every ENV"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An empty audit address is refused in every ENV"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestLoadRequiresDatabaseURLAndUpstreamAddrs`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-a-failing-audit-writer-refuses-the-audited-action-with-one-message
+    title: "A failing audit writer refuses the audited action with one message"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A failing audit writer refuses the audited action with one message"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestCreateVoucherAuditDownUnavailable`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-a-seller-is-denied-a-platform-voucher-while-audit-is-down
+    title: "A seller is denied a platform voucher while audit is down"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A seller is denied a platform voucher while audit is down"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSellerCannotCreatePlatformVoucher`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-seller-paths-unaffected-with-audit-down
+    title: "Seller paths unaffected with audit down"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller paths unaffected with audit down"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSellerPathsIgnoreAuditAvailability`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-missing-env-is-refused
+    title: "Missing ENV is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Missing ENV is refused"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestLoadRequiresEnv`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-missing-database-url-or-upstream-address-is-refused
+    title: "Missing database URL or upstream address is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Missing database URL or upstream address is refused"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestLoadRequiresDatabaseURLAndUpstreamAddrs`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-retired-enable-flags-are-not-read
+    title: "Retired enable flags are not read"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Retired enable flags are not read"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestNoDependencyEnableFlags`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-reflection-is-off-by-default-and-refused-outside-local
+    title: "Reflection is off by default and refused outside local"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reflection is off by default and refused outside local"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestReflectionDefaultOffAndRefusedInStrictEnv`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-strict-env-requires-brokers
+    title: "Strict ENV requires brokers"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Strict ENV requires brokers"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestStrictEnvRequiresKafkaBrokers`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-ad-limits-must-be-positive
+    title: "Ad limits must be positive"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Ad limits must be positive"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestAdCapsDefaultsAndValidation`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-the-retired-call-timeout-key-is-not-read
+    title: "The retired call timeout key is not read"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The retired call timeout key is not read"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestRetiredCallTimeoutKeyNotRead`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-migrate-settings-need-only-env-and-the-database-url
+    title: "Migrate settings need only ENV and the database URL"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Migrate settings need only ENV and the database URL"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestLoadMigrateNeedsOnlyEnvAndDatabaseURL`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-unreachable-database-fails-boot
+    title: "Unreachable database fails boot"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Unreachable database fails boot"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestRunFailsOnUnreachableDatabase`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-boot-does-not-migrate
+    title: "Boot does not migrate"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Boot does not migrate"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestRunDoesNotMigrate`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-migrate-up-applies-migrations-to-an-empty-database
+    title: "migrate up applies migrations to an empty database"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "migrate up applies migrations to an empty database"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestMigrateUpMigratesEmptyDatabase`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-migrate-up-continues-from-version-4
+    title: "migrate up continues from version 4"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "migrate up continues from version 4"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestMigrateFromVersion4AppliesOutboxOnly`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-migrate-up-twice-is-a-no-op
+    title: "migrate up twice is a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "migrate up twice is a no-op"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestMigrateUpTwiceIsNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-an-unknown-subcommand-is-refused
+    title: "An unknown subcommand is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An unknown subcommand is refused"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestExecuteRejectsUnknownSubcommand`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-the-outbox-migration-equals-the-sdk-schema
+    title: "The outbox migration equals the SDK schema"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The outbox migration equals the SDK schema"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestOutboxMigrationMatchesSDKSchema`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-production-code-has-no-in-memory-backend
+    title: "Production code has no in-memory backend"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Production code has no in-memory backend"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestFakesNotImportedByProductionCode`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-ready-and-live-after-boot
+    title: "Ready and live after boot"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Ready and live after boot"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestHealthServingAfterBoot`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-failing-database-check-flips-readiness-only
+    title: "A failing database check flips readiness only"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A failing database check flips readiness only"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestReadinessFlipsLivenessStays`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-shutdown-drains-health-before-the-stop
+    title: "Shutdown drains health before the stop"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Shutdown drains health before the stop"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestShutdownDrainsHealthFirst`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-kafka-outage-keeps-readiness-serving
+    title: "A Kafka outage keeps readiness SERVING"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A Kafka outage keeps readiness SERVING"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestKafkaOutageKeepsReadiness`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-creating-a-voucher-stores-one-outbox-row
+    title: "Creating a voucher stores one outbox row"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Creating a voucher stores one outbox row"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestCreateVoucherEnqueuesOutboxRow`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-creating-a-campaign-stores-one-outbox-row
+    title: "Creating a campaign stores one outbox row"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Creating a campaign stores one outbox row"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestCreateCampaignEnqueuesFlashSaleChanged`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-the-envelope-carries-identity-and-ids
+    title: "The envelope carries identity and ids"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The envelope carries identity and ids"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/events` `TestEnvelopeCarriesPrincipalAndRequestID`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-an-envelope-without-a-principal-omits-it
+    title: "An envelope without a principal omits it"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An envelope without a principal omits it"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/events` `TestEnvelopeWithoutPrincipalOmitsIt`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-call-without-a-request-id-still-gets-one
+    title: "A call without a request id still gets one"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A call without a request id still gets one"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCallWithoutRequestIDGetsOneInEnvelope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-failed-insert-leaves-no-outbox-row
+    title: "A failed insert leaves no outbox row"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A failed insert leaves no outbox row"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestVoucherInsertFailureLeavesNoOutboxRow`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-kafka-outage-does-not-fail-the-write
+    title: "A Kafka outage does not fail the write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A Kafka outage does not fail the write"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestKafkaOutageKeepsWriteAndRelaysLater`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-the-relayed-record-is-keyed-by-the-entity-id
+    title: "The relayed record is keyed by the entity id"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The relayed record is keyed by the entity id"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/events` `TestRelayedRecordKeyAndHeaders`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-refused-caller-writes-no-outbox-row
+    title: "A refused caller writes no outbox row"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A refused caller writes no outbox row"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestRefusedCallerWritesNoOutboxRow`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-redemption-rpcs-write-no-event
+    title: "Redemption RPCs write no event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Redemption RPCs write no event"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestRedemptionWritesNoOutboxRow`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-old-published-rows-are-purged
+    title: "Old published rows are purged"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Old published rows are purged"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestOutboxPurgeKeepsRecentAndUnpublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-unreachable-flipt-still-boots-and-fails-open
+    title: "Unreachable Flipt still boots and fails open"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Unreachable Flipt still boots and fails open"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestUnreachableFliptBootsAndFailsOpen`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-provider-error-returns-the-default
+    title: "A provider error returns the default"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A provider error returns the default"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestFlagErrorFailsOpen`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-the-kill-switch-off-refuses-a-reserve
+    title: "The kill-switch off refuses a reserve"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The kill-switch off refuses a reserve"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestKillSwitchOffViaProvider`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-an-unexpected-error-is-a-generic-internal-error
+    title: "An unexpected error is a generic internal error"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An unexpected error is a generic internal error"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestInternalErrorIsGeneric`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-duplicate-voucher-code-is-alreadyexists
+    title: "A duplicate voucher code is AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A duplicate voucher code is AlreadyExists"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestDuplicateVoucherCodeIsAlreadyExists`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-cancellation-and-deadline-keep-their-codes
+    title: "Cancellation and deadline keep their codes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancellation and deadline keep their codes"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCanceledAndDeadlineMapToCodes`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-unknown-voucher-is-notfound-without-echoing-the-code
+    title: "Unknown voucher is NotFound without echoing the code"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Unknown voucher is NotFound without echoing the code"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestGetVoucherNotFoundDoesNotEchoCode`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-domain-packages-do-not-import-grpc-codes
+    title: "Domain packages do not import grpc codes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Domain packages do not import grpc codes"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestDomainPackagesDoNotImportGRPCCodes`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-anonymous-caller-is-unauthenticated
+    title: "Anonymous caller is unauthenticated"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Anonymous caller is unauthenticated"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestAnonymousIsUnauthenticated`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-user-holding-the-service-scope-is-denied
+    title: "A user holding the service scope is denied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A user holding the service scope is denied"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestUserWithServiceScopeIsDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-seller-cannot-create-a-platform-voucher
+    title: "A seller cannot create a platform voucher"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A seller cannot create a platform voucher"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSellerCannotCreatePlatformVoucher`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-public-reads-need-no-principal
+    title: "Public reads need no principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Public reads need no principal"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestPublicReadsNeedNoPrincipal`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-user-reserving-inside-its-own-preview-namespace-is-served
+    title: "A user reserving inside its own preview namespace is served"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A user reserving inside its own preview namespace is served"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReservePreviewEchoesScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-user-reserving-outside-its-preview-namespace-is-permissiondenied
+    title: "A user reserving outside its preview namespace is PermissionDenied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A user reserving outside its preview namespace is PermissionDenied"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReservePreviewNamespaceDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-service-principal-is-not-bound-to-the-preview-namespace
+    title: "A service principal is not bound to the preview namespace"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A service principal is not bound to the preview namespace"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReserveHandlerEchoesScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-service-principal-without-the-reserve-scope-is-denied
+    title: "A service principal without the reserve scope is denied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A service principal without the reserve scope is denied"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReserveServiceWithoutScopeDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-subscribe-needs-exactly-listing-write
+    title: "Subscribe needs exactly listing.write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Subscribe needs exactly listing.write"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSubscribeAdminWithoutListingWriteDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-createadcampaign-needs-exactly-listing-write
+    title: "CreateAdCampaign needs exactly listing.write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "CreateAdCampaign needs exactly listing.write"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateAdCampaignAdminWithoutListingWriteDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-entitlements-of-another-seller-need-a-service-principal
+    title: "Entitlements of another seller need a service principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Entitlements of another seller need a service principal"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSubscribeAndEntitlementsAuthz`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-listing-lookup-runs-as-the-caller-with-listing-read
+    title: "Listing lookup runs as the caller with listing.read"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Listing lookup runs as the caller with listing.read"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestListingLookupForwardsCallerWithListingRead`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-slow-listing-lookup-is-unavailable
+    title: "A slow listing lookup is unavailable"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A slow listing lookup is unavailable"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestListingLookupTimeoutIsUnavailable`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-audit-is-written-as-the-service-principal
+    title: "Audit is written as the service principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Audit is written as the service principal"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestAuditClientUsesServicePrincipal`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-slow-audit-write-is-bounded
+    title: "A slow audit write is bounded"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A slow audit write is bounded"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestAuditClientTimeoutBounded`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-page-cursor-is-the-plain-offset
+    title: "Page cursor is the plain offset"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Page cursor is the plain offset"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestListVouchersCursorIsPlainOffset`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-oversized-page-size-falls-back-to-the-default
+    title: "Oversized page size falls back to the default"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Oversized page size falls back to the default"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestListVouchersOversizedPageUsesDefault`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-malformed-cursor-reads-the-first-page
+    title: "A malformed cursor reads the first page"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A malformed cursor reads the first page"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestListVouchersMalformedCursorIsOffsetZero`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-every-cited-test-name-exists
+    title: "Every cited test name exists"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Every cited test name exists"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/docs` `TestSpecCitedTestsExist`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-removed-packages-are-gone
+    title: "Removed packages are gone"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Removed packages are gone"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/docs` `TestRemovedPackagesAreGone`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.flash-hold-a-missing-database-fails-the-database-tests-under-make-check
+    title: "A missing database fails the database tests under make check"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A missing database fails the database tests under make check"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestDatabaseTestsFailWithoutDockerWhenRequired`. Not producible end to end through the gateway (unit level)."
