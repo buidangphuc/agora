@@ -1,11 +1,11 @@
-package repository_test
+package store_test
 
 // Tests for the flash-sale hold repository contract (openspec change
 // promotion-flash-stock-hold). The same contract runs against the in-memory
 // backend and, when a database is configured, against Postgres.
 //
 // Interface assumed by these tests (the implementer creates it in
-// internal/repository/flashsale_hold.go):
+// internal/store/flashsale_hold.go):
 //
 //	const FlashHoldTTL = 15 * time.Minute
 //	const FlashHoldReserved, FlashHoldCommitted, FlashHoldReleased = "reserved", "committed", "released"
@@ -29,104 +29,87 @@ package repository_test
 // Time is always passed in, so no test depends on the wall clock.
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/buidangphuc/team-promotion/internal/repository"
+	"github.com/buidangphuc/team-promotion/internal/store"
+	"github.com/buidangphuc/team-promotion/internal/store/storefake"
 )
 
 var holdT0 = time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
 
 type flashHoldEnv struct {
-	campaigns repository.FlashSaleRepository
-	holds     repository.FlashHoldRepository
+	campaigns store.FlashSaleRepository
+	holds     store.FlashHoldRepository
 }
 
 // forEachHoldBackend runs fn against the in-memory backend and Postgres
-// (the latter skips without a database).
+// (the latter fails without a database).
 func forEachHoldBackend(t *testing.T, fn func(t *testing.T, env flashHoldEnv)) {
 	t.Helper()
 	t.Run("inmemory", func(t *testing.T) {
-		c := repository.NewInMemoryFlashSaleRepository()
-		fn(t, flashHoldEnv{campaigns: c, holds: repository.NewInMemoryFlashHoldRepository(c)})
+		c := storefake.NewInMemoryFlashSaleRepository()
+		fn(t, flashHoldEnv{campaigns: c, holds: storefake.NewInMemoryFlashHoldRepository(c)})
 	})
 	t.Run("postgres", func(t *testing.T) {
-		pool := newHoldTestPool(t)
+		pool := newTestPool(t)
 		fn(t, flashHoldEnv{
-			campaigns: repository.NewPostgresFlashSaleRepository(pool),
-			holds:     repository.NewPostgresFlashHoldRepository(pool),
+			campaigns: store.NewPostgresFlashSaleRepository(pool, newOutbox(t, pool)),
+			holds:     store.NewPostgresFlashHoldRepository(pool),
 		})
 	})
 }
 
-// newHoldTestPool is newTestPool plus migration 0004.
-func newHoldTestPool(t *testing.T) *pgxpool.Pool {
+func (e flashHoldEnv) campaign(t *testing.T, stockCap, stockSold int64) store.FlashSaleCampaign {
 	t.Helper()
-	pool := newTestPool(t)
-	up, err := os.ReadFile("../../migrations/0004_flash_sale_holds.up.sql")
-	if err != nil {
-		t.Fatalf("read 0004 up: %v", err)
-	}
-	if _, err := pool.Exec(context.Background(), string(up)); err != nil {
-		t.Fatalf("apply 0004 up: %v", err)
-	}
-	return pool
-}
-
-func (e flashHoldEnv) campaign(t *testing.T, stockCap, stockSold int64) repository.FlashSaleCampaign {
-	t.Helper()
-	c, err := e.campaigns.Create(context.Background(), repository.FlashSaleCampaign{
+	c, err := e.campaigns.Create(t.Context(), store.FlashSaleCampaign{
 		ListingID: "l1", SalePrice: 90000, StockCap: stockCap, StockSold: stockSold,
 		StartsAt: holdT0.Add(-24 * time.Hour), EndsAt: holdT0.Add(24 * time.Hour * 365),
-	})
+	}, campaignEvent)
 	if err != nil {
 		t.Fatalf("create campaign: %v", err)
 	}
 	return c
 }
 
-func (e flashHoldEnv) reserve(t *testing.T, c repository.FlashSaleCampaign, id string, qty int64, now time.Time) error {
+func (e flashHoldEnv) reserve(t *testing.T, c store.FlashSaleCampaign, id string, qty int64, now time.Time) error {
 	t.Helper()
-	_, _, err := e.holds.Reserve(context.Background(), repository.FlashHold{
+	_, _, err := e.holds.Reserve(t.Context(), store.FlashHold{
 		ReservationID: c.ID + ":" + id, CampaignID: c.ID, ListingID: c.ListingID, Quantity: qty,
 	}, now)
 	return err
 }
 
-func (e flashHoldEnv) rid(c repository.FlashSaleCampaign, id string) string { return c.ID + ":" + id }
+func (e flashHoldEnv) rid(c store.FlashSaleCampaign, id string) string { return c.ID + ":" + id }
 
-func (e flashHoldEnv) held(t *testing.T, c repository.FlashSaleCampaign, now time.Time) int64 {
+func (e flashHoldEnv) held(t *testing.T, c store.FlashSaleCampaign, now time.Time) int64 {
 	t.Helper()
-	n, err := e.holds.ActiveHeld(context.Background(), c.ID, now)
+	n, err := e.holds.ActiveHeld(t.Context(), c.ID, now)
 	if err != nil {
 		t.Fatalf("ActiveHeld: %v", err)
 	}
 	return n
 }
 
-func (e flashHoldEnv) sold(t *testing.T, c repository.FlashSaleCampaign) int64 {
+func (e flashHoldEnv) sold(t *testing.T, c store.FlashSaleCampaign) int64 {
 	t.Helper()
-	got, err := e.campaigns.GetByID(context.Background(), c.ID)
+	got, err := e.campaigns.GetByID(t.Context(), c.ID)
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
 	return got.StockSold
 }
 
-func (e flashHoldEnv) exists(t *testing.T, c repository.FlashSaleCampaign, id string) bool {
+func (e flashHoldEnv) exists(t *testing.T, c store.FlashSaleCampaign, id string) bool {
 	t.Helper()
-	_, err := e.holds.Get(context.Background(), e.rid(c, id))
+	_, err := e.holds.Get(t.Context(), e.rid(c, id))
 	if err == nil {
 		return true
 	}
-	if errors.Is(err, repository.ErrFlashHoldNotFound) {
+	if errors.Is(err, store.ErrFlashHoldNotFound) {
 		return false
 	}
 	t.Fatalf("Get: %v", err)
@@ -136,9 +119,9 @@ func (e flashHoldEnv) exists(t *testing.T, c repository.FlashSaleCampaign, id st
 // Scenario: A hold expires 15 minutes after reserve.
 func TestFlashHoldRepoExpiresAfterFifteenMinutes(t *testing.T) {
 	forEachHoldBackend(t, func(t *testing.T, e flashHoldEnv) {
-		ctx := context.Background()
+		ctx := t.Context()
 		c := e.campaign(t, 5, 0)
-		stored, created, err := e.holds.Reserve(ctx, repository.FlashHold{
+		stored, created, err := e.holds.Reserve(ctx, store.FlashHold{
 			ReservationID: e.rid(c, "r1"), CampaignID: c.ID, ListingID: "l1", Quantity: 2,
 		}, holdT0)
 		if err != nil || !created {
@@ -166,7 +149,7 @@ func TestFlashHoldRepoCapBoundary(t *testing.T) {
 		if err := e.reserve(t, c, "a", 1, holdT0); err != nil {
 			t.Fatalf("reserve 1: %v", err)
 		}
-		if err := e.reserve(t, c, "b", 3, holdT0); !errors.Is(err, repository.ErrFlashStockInsufficient) {
+		if err := e.reserve(t, c, "b", 3, holdT0); !errors.Is(err, store.ErrFlashStockInsufficient) {
 			t.Fatalf("reserve 3 of 2 remaining: err=%v, want ErrFlashStockInsufficient", err)
 		}
 		if e.exists(t, c, "b") {
@@ -184,10 +167,10 @@ func TestFlashHoldRepoCapBoundary(t *testing.T) {
 // Scenario: Reserve refuses an unknown campaign.
 func TestFlashHoldRepoUnknownCampaign(t *testing.T) {
 	forEachHoldBackend(t, func(t *testing.T, e flashHoldEnv) {
-		_, created, err := e.holds.Reserve(context.Background(), repository.FlashHold{
+		_, created, err := e.holds.Reserve(t.Context(), store.FlashHold{
 			ReservationID: "orphan-" + fmt.Sprint(time.Now().UnixNano()), CampaignID: "nope", ListingID: "l1", Quantity: 1,
 		}, holdT0)
-		if !errors.Is(err, repository.ErrCampaignNotFound) || created {
+		if !errors.Is(err, store.ErrCampaignNotFound) || created {
 			t.Fatalf("created=%v err=%v, want ErrCampaignNotFound", created, err)
 		}
 	})
@@ -196,9 +179,9 @@ func TestFlashHoldRepoUnknownCampaign(t *testing.T) {
 // Scenario: Reserve is idempotent on the reservation id / replay with different fields.
 func TestFlashHoldRepoReserveIdempotent(t *testing.T) {
 	forEachHoldBackend(t, func(t *testing.T, e flashHoldEnv) {
-		ctx := context.Background()
+		ctx := t.Context()
 		c := e.campaign(t, 5, 0)
-		h := repository.FlashHold{ReservationID: e.rid(c, "r1"), CampaignID: c.ID, ListingID: "l1", Quantity: 2}
+		h := store.FlashHold{ReservationID: e.rid(c, "r1"), CampaignID: c.ID, ListingID: "l1", Quantity: 2}
 		if _, created, err := e.holds.Reserve(ctx, h, holdT0); err != nil || !created {
 			t.Fatalf("first: created=%v err=%v", created, err)
 		}
@@ -207,7 +190,7 @@ func TestFlashHoldRepoReserveIdempotent(t *testing.T) {
 		if err != nil || created {
 			t.Fatalf("replay: created=%v err=%v, want stored hold, created=false", created, err)
 		}
-		if stored.Quantity != 2 || stored.Status != repository.FlashHoldReserved {
+		if stored.Quantity != 2 || stored.Status != store.FlashHoldReserved {
 			t.Fatalf("replay stored = %+v, want quantity 2 status reserved", stored)
 		}
 		if got := e.held(t, c, holdT0.Add(time.Minute)); got != 2 {
@@ -219,7 +202,7 @@ func TestFlashHoldRepoReserveIdempotent(t *testing.T) {
 // Scenario: Concurrent reserves of one reservation id hold once.
 func TestFlashHoldRepoConcurrentSameReservation(t *testing.T) {
 	forEachHoldBackend(t, func(t *testing.T, e flashHoldEnv) {
-		ctx := context.Background()
+		ctx := t.Context()
 		c := e.campaign(t, 5, 0)
 		var wg sync.WaitGroup
 		var mu sync.Mutex
@@ -228,7 +211,7 @@ func TestFlashHoldRepoConcurrentSameReservation(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, cr, err := e.holds.Reserve(ctx, repository.FlashHold{
+				_, cr, err := e.holds.Reserve(ctx, store.FlashHold{
 					ReservationID: e.rid(c, "same"), CampaignID: c.ID, ListingID: "l1", Quantity: 2,
 				}, holdT0)
 				mu.Lock()
@@ -257,10 +240,10 @@ func TestFlashHoldRepoConcurrentCap(t *testing.T) {
 
 // Scenario: Concurrent reserves are capped (Postgres, FOR UPDATE on the campaign row).
 func TestPostgresFlashHoldConcurrentCap(t *testing.T) {
-	pool := newHoldTestPool(t)
+	pool := newTestPool(t)
 	runConcurrentCap(t, flashHoldEnv{
-		campaigns: repository.NewPostgresFlashSaleRepository(pool),
-		holds:     repository.NewPostgresFlashHoldRepository(pool),
+		campaigns: store.NewPostgresFlashSaleRepository(pool, newOutbox(t, pool)),
+		holds:     store.NewPostgresFlashHoldRepository(pool),
 	})
 }
 
@@ -280,7 +263,7 @@ func runConcurrentCap(t *testing.T, e flashHoldEnv) {
 			switch {
 			case err == nil:
 				ok++
-			case errors.Is(err, repository.ErrFlashStockInsufficient):
+			case errors.Is(err, store.ErrFlashStockInsufficient):
 				insufficient++
 			default:
 				other++
@@ -299,7 +282,7 @@ func runConcurrentCap(t *testing.T, e flashHoldEnv) {
 // Scenario: Commit adds the quantity to stock_sold / is idempotent / refused cases.
 func TestFlashHoldRepoCommit(t *testing.T) {
 	forEachHoldBackend(t, func(t *testing.T, e flashHoldEnv) {
-		ctx := context.Background()
+		ctx := t.Context()
 		c := e.campaign(t, 5, 0)
 		if err := e.reserve(t, c, "r1", 2, holdT0); err != nil {
 			t.Fatal(err)
@@ -345,7 +328,7 @@ func TestFlashHoldRepoCommit(t *testing.T) {
 // Scenario: Release returns the units of an active/committed hold; idempotent; unknown; expired.
 func TestFlashHoldRepoRelease(t *testing.T) {
 	forEachHoldBackend(t, func(t *testing.T, e flashHoldEnv) {
-		ctx := context.Background()
+		ctx := t.Context()
 		c := e.campaign(t, 5, 0)
 
 		// Active hold.
@@ -358,7 +341,7 @@ func TestFlashHoldRepoRelease(t *testing.T) {
 		if got := e.held(t, c, holdT0); got != 0 {
 			t.Fatalf("held after release = %d, want 0", got)
 		}
-		if h, err := e.holds.Get(ctx, e.rid(c, "active")); err != nil || h.Status != repository.FlashHoldReleased {
+		if h, err := e.holds.Get(ctx, e.rid(c, "active")); err != nil || h.Status != store.FlashHoldReleased {
 			t.Fatalf("status after release = %+v err=%v, want released", h, err)
 		}
 
@@ -399,7 +382,7 @@ func TestFlashHoldRepoRelease(t *testing.T) {
 // Scenario: Released and expired holds are purged after 30 days.
 func TestPurgeReleasedAndExpiredHolds(t *testing.T) {
 	forEachHoldBackend(t, func(t *testing.T, e flashHoldEnv) {
-		ctx := context.Background()
+		ctx := t.Context()
 		c := e.campaign(t, 100, 0)
 		day := 24 * time.Hour
 		now := holdT0
@@ -433,7 +416,7 @@ func TestPurgeReleasedAndExpiredHolds(t *testing.T) {
 // Scenario: A committed hold older than 30 days is not purged.
 func TestPurgeKeepsCommittedHolds(t *testing.T) {
 	forEachHoldBackend(t, func(t *testing.T, e flashHoldEnv) {
-		ctx := context.Background()
+		ctx := t.Context()
 		c := e.campaign(t, 5, 0)
 		day := 24 * time.Hour
 		old := holdT0.Add(-90 * day)
@@ -466,16 +449,10 @@ func must(t *testing.T, err error) {
 
 // Scenario: Migration applies and rolls back.
 func TestPostgresFlashHoldMigrationRoundTrip(t *testing.T) {
-	pool := newTestPool(t) // migration 0001 only; the 0004 steps below are explicit
-	ctx := context.Background()
-	up, err := os.ReadFile("../../migrations/0004_flash_sale_holds.up.sql")
-	if err != nil {
-		t.Fatalf("read 0004 up: %v", err)
-	}
-	down, err := os.ReadFile("../../migrations/0004_flash_sale_holds.down.sql")
-	if err != nil {
-		t.Fatalf("read 0004 down: %v", err)
-	}
+	pool := newPoolUpTo(t, 3)
+	ctx := t.Context()
+	up := migrationSQL(t, "0004_flash_sale_holds.up.sql")
+	down := migrationSQL(t, "0004_flash_sale_holds.down.sql")
 	exists := func() bool {
 		var ok bool
 		if err := pool.QueryRow(ctx, `SELECT to_regclass('flash_sale_holds') IS NOT NULL`).Scan(&ok); err != nil {
@@ -483,9 +460,9 @@ func TestPostgresFlashHoldMigrationRoundTrip(t *testing.T) {
 		}
 		return ok
 	}
-	apply := func(name string, sql []byte, wantTable bool) {
+	apply := func(name, sql string, wantTable bool) {
 		t.Helper()
-		if _, err := pool.Exec(ctx, string(sql)); err != nil {
+		if _, err := pool.Exec(ctx, sql); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		if got := exists(); got != wantTable {
@@ -493,11 +470,8 @@ func TestPostgresFlashHoldMigrationRoundTrip(t *testing.T) {
 		}
 	}
 
-	// A pre-existing campaign row must survive the whole cycle untouched.
-	camp, err := repository.NewPostgresFlashSaleRepository(pool).Create(ctx, repository.FlashSaleCampaign{
-		ListingID: "l-migration", SalePrice: 1, StockCap: 7, StockSold: 3,
-	})
-	if err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO flash_sale_campaigns (id, listing_id, variant_id, sale_price, stock_cap, stock_sold, starts_at, ends_at)
+		VALUES ('c-migration', 'l-migration', '', 1, 7, 3, now(), now() + interval '1 day')`); err != nil {
 		t.Fatalf("seed campaign: %v", err)
 	}
 
@@ -509,12 +483,12 @@ func TestPostgresFlashHoldMigrationRoundTrip(t *testing.T) {
 	for _, col := range []string{"reservation_id", "campaign_id", "listing_id", "variant_id", "quantity", "status", "expires_at"} {
 		var n int
 		if err := pool.QueryRow(ctx,
-			`SELECT count(*) FROM information_schema.columns WHERE table_name='flash_sale_holds' AND column_name=$1`, col).Scan(&n); err != nil || n != 1 {
+			`SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name='flash_sale_holds' AND column_name=$1`, col).Scan(&n); err != nil || n != 1 {
 			t.Errorf("column %s: count=%d err=%v, want 1", col, n, err)
 		}
 	}
-	got, err := repository.NewPostgresFlashSaleRepository(pool).GetByID(ctx, camp.ID)
-	if err != nil || got.StockSold != 3 || got.StockCap != 7 {
-		t.Fatalf("campaign after migration cycle = %+v err=%v, want untouched", got, err)
+	var sold, capacity int64
+	if err := pool.QueryRow(ctx, `SELECT stock_sold, stock_cap FROM flash_sale_campaigns WHERE id = 'c-migration'`).Scan(&sold, &capacity); err != nil || sold != 3 || capacity != 7 {
+		t.Fatalf("campaign after migration cycle = sold %d cap %d err=%v, want untouched", sold, capacity, err)
 	}
 }
