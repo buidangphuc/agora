@@ -72,11 +72,11 @@ func (s *ReservationSweeper) Run(ctx context.Context) {
 		case now := <-ticker.C:
 			released, err := s.SweepOnce(ctx, now)
 			if err != nil {
-				s.logger.WarnContext(ctx, "reservation sweep failed", slog.Any("err", err))
+				s.logger.WarnContext(ctx, "reservation sweep failed", "err", err)
 				continue
 			}
 			if released > 0 {
-				s.logger.InfoContext(ctx, "released expired reservations", slog.Int("released", released))
+				s.logger.InfoContext(ctx, "released expired reservations", "released", released)
 			}
 		}
 	}

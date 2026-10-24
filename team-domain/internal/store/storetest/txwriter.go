@@ -3,9 +3,10 @@ package storetest
 import (
 	"context"
 	"errors"
-	"github.com/buidangphuc/team-domain/internal/store"
 	"sync"
 	"time"
+
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 type PendingEvent struct {
@@ -61,6 +62,7 @@ func (w *InMemoryTxWriter) DeleteTx(ctx context.Context, id string, ev store.Enq
 	}
 	return w.enqueue(out, ev)
 }
+
 func (w *InMemoryTxWriter) enqueue(out store.Listing, ev store.EnqueueFn) (store.Listing, error) {
 	row, err := ev(out)
 	if err != nil {
@@ -71,6 +73,7 @@ func (w *InMemoryTxWriter) enqueue(out store.Listing, ev store.EnqueueFn) (store
 	w.mu.Unlock()
 	return out, nil
 }
+
 func (w *InMemoryTxWriter) Rows() []store.OutboxRow {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -97,6 +100,7 @@ func NewInMemoryOutbox(seed ...PendingEvent) *InMemoryOutbox {
 		Attempts:  map[string]int{},
 	}
 }
+
 func (o *InMemoryOutbox) ClaimPending(_ context.Context, batch, _ int) ([]PendingEvent, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -127,6 +131,4 @@ func (o *InMemoryOutbox) MarkFailed(_ context.Context, eventID, reason string, a
 	return nil
 }
 
-var (
-	_ store.TxWriter = (*InMemoryTxWriter)(nil)
-)
+var _ store.TxWriter = (*InMemoryTxWriter)(nil)

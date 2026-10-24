@@ -2,9 +2,10 @@ package storetest
 
 import (
 	"context"
-	"github.com/buidangphuc/team-domain/internal/store"
 	"sync"
 	"time"
+
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 type InMemoryStorefrontRepository struct {
@@ -19,6 +20,7 @@ func NewInMemoryStorefrontRepository(seed ...store.Storefront) *InMemoryStorefro
 	}
 	return &InMemoryStorefrontRepository{bySeller: bySeller}
 }
+
 func (r *InMemoryStorefrontRepository) Upsert(_ context.Context, s store.Storefront) (store.Storefront, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -31,6 +33,7 @@ func (r *InMemoryStorefrontRepository) Upsert(_ context.Context, s store.Storefr
 	r.bySeller[s.SellerID] = s
 	return s, nil
 }
+
 func (r *InMemoryStorefrontRepository) GetBySeller(_ context.Context, sellerID string) (store.Storefront, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -40,6 +43,7 @@ func (r *InMemoryStorefrontRepository) GetBySeller(_ context.Context, sellerID s
 	}
 	return s, nil
 }
+
 func (r *InMemoryStorefrontRepository) GetBySlug(_ context.Context, slug string) (store.Storefront, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -50,6 +54,7 @@ func (r *InMemoryStorefrontRepository) GetBySlug(_ context.Context, slug string)
 	}
 	return store.Storefront{}, store.ErrStorefrontNotFound
 }
+
 func (r *InMemoryStorefrontRepository) GetBySellers(_ context.Context, sellerIDs []string) ([]store.Storefront, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

@@ -2,11 +2,12 @@ package storetest
 
 import (
 	"context"
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/pagination"
-	"github.com/buidangphuc/team-domain/internal/store"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/pagination"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
 
 type InMemoryListingRepository struct {
@@ -42,6 +43,7 @@ func NewInMemoryListingRepository(seed ...store.Listing) *InMemoryListingReposit
 	}
 	return &InMemoryListingRepository{byID: byID, reservations: map[string]memReservation{}}
 }
+
 func (r *InMemoryListingRepository) Get(_ context.Context, id string) (store.Listing, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -51,16 +53,19 @@ func (r *InMemoryListingRepository) Get(_ context.Context, id string) (store.Lis
 	}
 	return l, nil
 }
+
 func (r *InMemoryListingRepository) List(_ context.Context, cursor string, pageSize int32, status string) (store.Page, error) {
 	return r.page(cursor, pageSize, func(l store.Listing) bool {
 		return status == "" || l.Status == status
 	}), nil
 }
+
 func (r *InMemoryListingRepository) ListByOwner(_ context.Context, ownerID, cursor string, pageSize int32) (store.Page, error) {
 	return r.page(cursor, pageSize, func(l store.Listing) bool {
 		return l.SellerID == ownerID
 	}), nil
 }
+
 func (r *InMemoryListingRepository) page(cursor string, pageSize int32, keep func(store.Listing) bool) store.Page {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -90,12 +95,14 @@ func (r *InMemoryListingRepository) page(cursor string, pageSize int32, keep fun
 	}
 	return store.Page{Items: items, NextCursor: next, Total: total}
 }
+
 func (r *InMemoryListingRepository) Create(_ context.Context, l store.Listing) (store.Listing, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.byID[l.ID] = l
 	return l, nil
 }
+
 func (r *InMemoryListingRepository) Update(_ context.Context, l store.Listing) (store.Listing, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -105,6 +112,7 @@ func (r *InMemoryListingRepository) Update(_ context.Context, l store.Listing) (
 	r.byID[l.ID] = l
 	return l, nil
 }
+
 func (r *InMemoryListingRepository) Delete(_ context.Context, id string) (store.Listing, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -115,6 +123,7 @@ func (r *InMemoryListingRepository) Delete(_ context.Context, id string) (store.
 	delete(r.byID, id)
 	return l, nil
 }
+
 func (r *InMemoryListingRepository) reserveLocked(listingID, variantID string, quantity int32) error {
 	l, ok := r.byID[listingID]
 	if !ok {
@@ -140,6 +149,7 @@ func (r *InMemoryListingRepository) reserveLocked(listingID, variantID string, q
 	}
 	return store.ErrVariantNotFound
 }
+
 func (r *InMemoryListingRepository) releaseLocked(listingID, variantID string, quantity int32) error {
 	l, ok := r.byID[listingID]
 	if !ok {
@@ -159,6 +169,7 @@ func (r *InMemoryListingRepository) releaseLocked(listingID, variantID string, q
 	}
 	return store.ErrVariantNotFound
 }
+
 func (r *InMemoryListingRepository) ReserveStockIdempotent(ctx context.Context, reservationID, listingID, variantID string, quantity int32, expiresAt time.Time) error {
 	if reservationID == "" {
 		return store.ErrReservationIDRequired
@@ -192,6 +203,7 @@ func (r *InMemoryListingRepository) ReserveStockIdempotent(ctx context.Context, 
 		return nil
 	})
 }
+
 func (r *InMemoryListingRepository) SweepExpiredReservations(ctx context.Context, now time.Time) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -215,6 +227,7 @@ func (r *InMemoryListingRepository) SweepExpiredReservations(ctx context.Context
 	}
 	return released, nil
 }
+
 func (r *InMemoryListingRepository) ReleaseReservation(ctx context.Context, reservationID string) (store.ReleaseOutcome, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -238,6 +251,7 @@ func (r *InMemoryListingRepository) ReleaseReservation(ctx context.Context, rese
 	}
 	return store.ReleaseApplied, nil
 }
+
 func (r *InMemoryListingRepository) CommitReservation(_ context.Context, reservationID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -265,11 +279,13 @@ func (r *InMemoryListingRepository) WithStockEvents(b store.StockEventBuilder) *
 	r.stockEvent = b
 	return r
 }
+
 func (r *InMemoryListingRepository) StockEventRows() []store.OutboxRow {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return append([]store.OutboxRow(nil), r.stockRows...)
 }
+
 func (r *InMemoryListingRepository) txLocked(ctx context.Context, mutate func(changes stockChanges) error) error {
 	savedListings := make(map[string]store.Listing, len(r.byID))
 	for id, l := range r.byID {

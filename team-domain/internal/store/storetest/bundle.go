@@ -22,6 +22,7 @@ func NewInMemoryBundleRepository(seed ...store.Bundle) *InMemoryBundleRepository
 	}
 	return &InMemoryBundleRepository{byID: byID}
 }
+
 func (r *InMemoryBundleRepository) Create(_ context.Context, b store.Bundle) (store.Bundle, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -31,6 +32,7 @@ func (r *InMemoryBundleRepository) Create(_ context.Context, b store.Bundle) (st
 	r.byID[b.ID] = b
 	return b, nil
 }
+
 func (r *InMemoryBundleRepository) Get(_ context.Context, id string) (store.Bundle, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -40,6 +42,7 @@ func (r *InMemoryBundleRepository) Get(_ context.Context, id string) (store.Bund
 	}
 	return b, nil
 }
+
 func (r *InMemoryBundleRepository) ListBySeller(_ context.Context, sellerID, cursor string, pageSize int32) (store.BundlePage, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
