@@ -1,129 +1,410 @@
-package config
+package config_test
 
 import (
 	"bytes"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+
+	"github.com/buidangphuc/team-domain/internal/config"
 )
 
-// TestEnvExampleInSync is the env-drift gate (`make check-env`): the repo-root
-// .env.example must document exactly the env keys Settings declares.
+var managedKeys = []string{
+	"ENV", "LOG_LEVEL", "LOG_JSON", "GRPC_HOST", "GRPC_PORT", "SHUTDOWN_GRACE", "SHUTDOWN_DRAIN_DELAY",
+	"GRPC_REFLECTION_ENABLED", "DATABASE_URL", "DB_MAX_CONNS", "KAFKA_BROKERS", "LOG_KEY_FP_SECRET",
+	"OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OUTBOX_POLL_INTERVAL",
+	"OUTBOX_BATCH_SIZE", "OUTBOX_CLAIM_LOCK", "UPSTREAM_AUDIT_ADDR", "UPSTREAM_AI_ADDR",
+	"UPSTREAM_AI_TIMEOUT_SECONDS", "KAFKA_LISTING_TOPIC", "KAFKA_IDENTITY_TOPIC", "KAFKA_IDENTITY_GROUP",
+	"STORAGE_ENDPOINT", "STORAGE_BUCKET", "STORAGE_ACCESS_KEY", "STORAGE_SECRET_KEY", "STORAGE_REGION",
+	"STORAGE_USE_SSL", "STORAGE_PUBLIC_BASE_URL", "RESERVATION_TTL", "RESERVATION_SWEEP_INTERVAL",
+	"SCREEN_TERMS_FILE", "DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "IDENTITY_CONSUMER_ENABLED",
+	"OUTBOX_MAX_ATTEMPTS", "OUTBOX_CLAIM_LOCK_SECONDS", "SHUTDOWN_GRACE_SECONDS", "UPSTREAM_CALL_TIMEOUT_SECONDS",
+}
+
+func cleanEnv(t *testing.T) {
+	t.Helper()
+	for _, k := range managedKeys {
+		t.Setenv(k, "")
+		if err := os.Unsetenv(k); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func localEnv(t *testing.T) {
+	t.Helper()
+	cleanEnv(t)
+	t.Setenv("ENV", "local")
+	t.Setenv("GRPC_PORT", "50051")
+	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	t.Setenv("UPSTREAM_AUDIT_ADDR", "team-audit-svc:50066")
+	t.Setenv("UPSTREAM_AI_ADDR", "team-ai:50051")
+}
+
+func strictEnv(t *testing.T, env string) {
+	t.Helper()
+	localEnv(t)
+	t.Setenv("ENV", env)
+	t.Setenv("KAFKA_BROKERS", "kafka:9092")
+	t.Setenv("LOG_KEY_FP_SECRET", "s3cret")
+	t.Setenv("STORAGE_ACCESS_KEY", "ak")
+	t.Setenv("STORAGE_SECRET_KEY", "sk")
+}
+
+func unset(t *testing.T, keys ...string) {
+	t.Helper()
+	for _, k := range keys {
+		if err := os.Unsetenv(k); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func mustContain(t *testing.T, err error, names ...string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("expected an error naming %v, got nil", names)
+	}
+	for _, n := range names {
+		if !strings.Contains(err.Error(), n) {
+			t.Errorf("error %q must name %s", err, n)
+		}
+	}
+}
+
+func valueByEnv(t *testing.T, s any, key string) any {
+	t.Helper()
+	var find func(reflect.Value) (any, bool)
+	find = func(v reflect.Value) (any, bool) {
+		for i := 0; i < v.NumField(); i++ {
+			f := v.Type().Field(i)
+			if !f.IsExported() {
+				continue
+			}
+			if tag, ok := f.Tag.Lookup("env"); ok {
+				if k, _, _ := strings.Cut(tag, ","); k == key {
+					return v.Field(i).Interface(), true
+				}
+				continue
+			}
+			if v.Field(i).Kind() == reflect.Struct {
+				if got, ok := find(v.Field(i)); ok {
+					return got, true
+				}
+			}
+		}
+		return nil, false
+	}
+	got, ok := find(reflect.ValueOf(s))
+	if !ok {
+		t.Fatalf("no Settings field bound to %s", key)
+	}
+	return got
+}
+
+func TestLoadRequiresEnv(t *testing.T) {
+	localEnv(t)
+	unset(t, "ENV")
+	_, err := config.Load()
+	mustContain(t, err, "ENV")
+}
+
+func TestLoadRequiresGRPCPort(t *testing.T) {
+	localEnv(t)
+	unset(t, "GRPC_PORT")
+	_, err := config.Load()
+	mustContain(t, err, "GRPC_PORT")
+}
+
+func TestLoadRequiresDatabaseURL(t *testing.T) {
+	localEnv(t)
+	unset(t, "DATABASE_URL")
+	_, err := config.Load()
+	mustContain(t, err, "DATABASE_URL")
+	t.Setenv("DATABASE_URL", "")
+	_, err = config.Load()
+	mustContain(t, err, "DATABASE_URL")
+}
+
+func TestLoadDefaultsFilledLocally(t *testing.T) {
+	localEnv(t)
+	s, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := valueByEnv(t, s, "GRPC_PORT"); got != 50051 {
+		t.Errorf("GRPC_PORT = %v, want 50051", got)
+	}
+	if got := valueByEnv(t, s, "KAFKA_LISTING_TOPIC"); got != "listing.events" {
+		t.Errorf("KAFKA_LISTING_TOPIC = %v", got)
+	}
+	if got := valueByEnv(t, s, "KAFKA_IDENTITY_TOPIC"); got != "identity.events" {
+		t.Errorf("KAFKA_IDENTITY_TOPIC = %v", got)
+	}
+	if got := valueByEnv(t, s, "KAFKA_IDENTITY_GROUP"); got != "team-domain-identity" {
+		t.Errorf("KAFKA_IDENTITY_GROUP = %v", got)
+	}
+	if got := valueByEnv(t, s, "UPSTREAM_AI_TIMEOUT_SECONDS"); got != float64(2) {
+		t.Errorf("UPSTREAM_AI_TIMEOUT_SECONDS = %v, want 2", got)
+	}
+}
+
+func TestLocalEnvAcceptsDefaultsAndReflection(t *testing.T) {
+	for _, env := range []string{"local", "test"} {
+		localEnv(t)
+		t.Setenv("ENV", env)
+		s, err := config.Load()
+		if err != nil {
+			t.Fatalf("ENV=%s Load: %v", env, err)
+		}
+		if got := valueByEnv(t, s, "KAFKA_BROKERS"); got != "localhost:9092" {
+			t.Errorf("ENV=%s KAFKA_BROKERS = %v, want localhost:9092", env, got)
+		}
+		if got := valueByEnv(t, s, "GRPC_REFLECTION_ENABLED"); got != false {
+			t.Errorf("ENV=%s reflection default = %v, want false", env, got)
+		}
+		if got := valueByEnv(t, s, "LOG_KEY_FP_SECRET"); got == "" {
+			t.Errorf("ENV=%s LOG_KEY_FP_SECRET must be filled with the local default", env)
+		}
+		t.Setenv("GRPC_REFLECTION_ENABLED", "true")
+		s, err = config.Load()
+		if err != nil {
+			t.Fatalf("ENV=%s Load with reflection: %v", env, err)
+		}
+		if got := valueByEnv(t, s, "GRPC_REFLECTION_ENABLED"); got != true {
+			t.Errorf("ENV=%s reflection = %v, want true", env, got)
+		}
+	}
+}
+
+func TestStrictEnvRefusesUnsafeSettings(t *testing.T) {
+	envs := []string{"staging", "stage", "prod", "production", " Production "}
+	cases := []struct {
+		name   string
+		mutate func(*testing.T)
+		want   string
+	}{
+		{"reflection", func(t *testing.T) { t.Setenv("GRPC_REFLECTION_ENABLED", "true") }, "GRPC_REFLECTION_ENABLED"},
+		{"kafka brokers empty", func(t *testing.T) { t.Setenv("KAFKA_BROKERS", "") }, "KAFKA_BROKERS"},
+		{"log key secret empty", func(t *testing.T) { t.Setenv("LOG_KEY_FP_SECRET", "") }, "LOG_KEY_FP_SECRET"},
+		{"audit addr empty", func(t *testing.T) { t.Setenv("UPSTREAM_AUDIT_ADDR", "") }, "UPSTREAM_AUDIT_ADDR"},
+		{"ai addr empty", func(t *testing.T) { t.Setenv("UPSTREAM_AI_ADDR", "") }, "UPSTREAM_AI_ADDR"},
+		{"storage access key default", func(t *testing.T) { t.Setenv("STORAGE_ACCESS_KEY", "minioadmin") }, "STORAGE_ACCESS_KEY"},
+		{"storage secret key default", func(t *testing.T) { t.Setenv("STORAGE_SECRET_KEY", "minioadmin") }, "STORAGE_SECRET_KEY"},
+		{"database url empty", func(t *testing.T) { t.Setenv("DATABASE_URL", "") }, "DATABASE_URL"},
+	}
+	for _, env := range envs {
+		strictEnv(t, env)
+		if _, err := config.Load(); err != nil {
+			t.Fatalf("ENV=%q safe config must load: %v", env, err)
+		}
+		for _, c := range cases {
+			strictEnv(t, env)
+			c.mutate(t)
+			_, err := config.Load()
+			if err == nil {
+				t.Errorf("ENV=%q %s: must be refused", env, c.name)
+				continue
+			}
+			if !strings.Contains(err.Error(), c.want) {
+				t.Errorf("ENV=%q %s: error %q must name %s", env, c.name, err, c.want)
+			}
+		}
+	}
+}
+
+func TestStrictEnvReportsSDKRefusalsWithoutDatabaseURL(t *testing.T) {
+	strictEnv(t, "production")
+	unset(t, "DATABASE_URL", "KAFKA_BROKERS", "LOG_KEY_FP_SECRET")
+	t.Setenv("GRPC_REFLECTION_ENABLED", "true")
+	_, err := config.Load()
+	mustContain(t, err, "DATABASE_URL", "KAFKA_BROKERS", "LOG_KEY_FP_SECRET", "GRPC_REFLECTION_ENABLED")
+}
+
+func TestUpstreamAddressesRequiredInEveryEnv(t *testing.T) {
+	for _, env := range []string{"local", "test"} {
+		for _, key := range []string{"UPSTREAM_AI_ADDR", "UPSTREAM_AUDIT_ADDR"} {
+			localEnv(t)
+			t.Setenv("ENV", env)
+			unset(t, key)
+			_, err := config.Load()
+			mustContain(t, err, key)
+
+			t.Setenv(key, "")
+			_, err = config.Load()
+			mustContain(t, err, key)
+		}
+	}
+}
+
+func TestUpstreamAuditConfig(t *testing.T) {
+	localEnv(t)
+	s, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := valueByEnv(t, s, "UPSTREAM_AUDIT_ADDR"); got != "team-audit-svc:50066" {
+		t.Errorf("UPSTREAM_AUDIT_ADDR = %v, want team-audit-svc:50066", got)
+	}
+	unset(t, "UPSTREAM_AUDIT_ADDR")
+	_, err = config.Load()
+	mustContain(t, err, "UPSTREAM_AUDIT_ADDR")
+
+	keys := sdkconfig.DeclaredEnvKeys(config.Settings{})
+	if !contains(keys, "UPSTREAM_AUDIT_ADDR") {
+		t.Error("Settings does not declare UPSTREAM_AUDIT_ADDR")
+	}
+	if contains(keys, "UPSTREAM_CALL_TIMEOUT_SECONDS") {
+		t.Error("Settings must not declare UPSTREAM_CALL_TIMEOUT_SECONDS")
+	}
+	if err := sdkconfig.CheckEnvExample(filepath.Join("..", "..", ".env.example"), config.Settings{}); err != nil {
+		t.Errorf("env drift gate: %v", err)
+	}
+}
+
+func contains(keys []string, k string) bool {
+	for _, x := range keys {
+		if x == k {
+			return true
+		}
+	}
+	return false
+}
+
+func TestNoRemovedEnvKeysDeclared(t *testing.T) {
+	keys := sdkconfig.DeclaredEnvKeys(config.Settings{})
+	removed := []string{
+		"DATABASE_ENABLED", "KAFKA_ENABLED", "OUTBOX_ENABLED", "IDENTITY_CONSUMER_ENABLED",
+		"OUTBOX_MAX_ATTEMPTS", "OUTBOX_CLAIM_LOCK_SECONDS", "SHUTDOWN_GRACE_SECONDS", "UPSTREAM_CALL_TIMEOUT_SECONDS",
+	}
+	for _, k := range removed {
+		if contains(keys, k) {
+			t.Errorf("%s must not be declared", k)
+		}
+	}
+	var enabled []string
+	for _, k := range keys {
+		if strings.HasSuffix(k, "_ENABLED") {
+			enabled = append(enabled, k)
+		}
+	}
+	want := []string{"GRPC_REFLECTION_ENABLED", "OTEL_ENABLED"}
+	if len(enabled) != len(want) || !contains(enabled, want[0]) || !contains(enabled, want[1]) {
+		t.Errorf("declared _ENABLED names = %v, want exactly %v", enabled, want)
+	}
+	for _, k := range []string{"SHUTDOWN_GRACE", "SHUTDOWN_DRAIN_DELAY", "OUTBOX_CLAIM_LOCK", "LOG_KEY_FP_SECRET", "UPSTREAM_AI_ADDR", "UPSTREAM_AUDIT_ADDR"} {
+		if !contains(keys, k) {
+			t.Errorf("%s must be declared", k)
+		}
+	}
+}
+
 func TestEnvExampleInSync(t *testing.T) {
-	// Test runs with working dir = this package; .env.example is at the repo root.
 	const path = "../../.env.example"
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf(".env.example not found at %s: %v", path, err)
 	}
-	if err := CheckEnvExample(path); err != nil {
+	if !contains(sdkconfig.DeclaredEnvKeys(config.Settings{}), "LOG_KEY_FP_SECRET") {
+		t.Fatal("Settings must declare the SDK groups (LOG_KEY_FP_SECRET missing)")
+	}
+	if err := sdkconfig.CheckEnvExample(path, config.Settings{}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestLoadDefaults(t *testing.T) {
-	// DATABASE_URL is required because DATABASE_ENABLED defaults to true; set it
-	// so Validate passes, then assert the other struct defaults apply.
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
-	s, err := LoadSettings()
+func TestEnvExampleDocumentsValues(t *testing.T) {
+	raw, err := os.ReadFile("../../.env.example")
 	if err != nil {
-		t.Fatalf("LoadSettings with defaults: %v", err)
+		t.Fatal(err)
 	}
-	if s.Server.Port != 50051 {
-		t.Errorf("default GRPC_PORT = %d, want 50051", s.Server.Port)
-	}
-	if !s.Database.Enabled {
-		t.Error("default DATABASE_ENABLED should be true")
-	}
-	if got := s.KafkaBrokers(); len(got) != 1 || got[0] != "localhost:9092" {
-		t.Errorf("default KafkaBrokers = %v, want [localhost:9092]", got)
-	}
-}
-
-func TestValidateDatabaseURLRequired(t *testing.T) {
-	s := &Settings{}
-	s.Server.Port = 50051
-	s.Database.Enabled = true
-	s.Database.URL = ""
-	if err := s.Validate(); err == nil {
-		t.Fatal("expected error: DATABASE_ENABLED=true requires DATABASE_URL")
-	}
-}
-
-func strictSettings(env string) *Settings {
-	s := &Settings{}
-	s.Runtime.Env = env
-	s.Server.Port = 50051
-	s.Database.Enabled = true
-	s.Database.URL = "postgresql://x/y"
-	s.Events.KafkaEnabled = true
-	s.Outbox.Enabled = true
-	s.Storage.AccessKey = "ak"
-	s.Storage.SecretKey = "sk"
-	return s
-}
-
-func TestRequireSafeStrictConfig(t *testing.T) {
-	strict := []string{"staging", "stage", "prod", "production", "PROD", "  Production ", "Stage"}
-	for _, env := range strict {
-		if err := strictSettings(env).Validate(); err != nil {
-			t.Errorf("ENV=%q safe config must pass: %v", env, err)
-		}
-		cases := map[string]func(*Settings){
-			"KAFKA_ENABLED":      func(s *Settings) { s.Events.KafkaEnabled = false },
-			"OUTBOX_ENABLED":     func(s *Settings) { s.Outbox.Enabled = false },
-			"STORAGE_ACCESS_KEY": func(s *Settings) { s.Storage.AccessKey = "minioadmin" },
-			"STORAGE_SECRET_KEY": func(s *Settings) { s.Storage.SecretKey = "minioadmin" },
-		}
-		for want, mutate := range cases {
-			s := strictSettings(env)
-			mutate(s)
-			err := s.Validate()
-			if err == nil {
-				t.Errorf("ENV=%q %s: must be refused", env, want)
-				continue
-			}
-			for _, w := range []string{"ENV", want} {
-				if !strings.Contains(err.Error(), w) {
-					t.Errorf("ENV=%q: error %q must name %s", env, err, w)
-				}
+	lines := strings.Split(string(raw), "\n")
+	has := func(line string) bool {
+		for _, l := range lines {
+			if strings.TrimSpace(l) == line {
+				return true
 			}
 		}
+		return false
 	}
-	for _, env := range []string{"local", "test", "", "dev", "development"} {
-		s := strictSettings(env)
-		s.Events.KafkaEnabled = false
-		s.Outbox.Enabled = false
-		s.Storage.AccessKey, s.Storage.SecretKey = "minioadmin", "minioadmin"
-		if err := s.Validate(); err != nil {
-			t.Errorf("ENV=%q must be unaffected: %v", env, err)
+	for _, line := range []string{"GRPC_PORT=50051", "GRPC_REFLECTION_ENABLED=false"} {
+		if !has(line) {
+			t.Errorf(".env.example must list %s", line)
+		}
+	}
+	for _, l := range lines {
+		if strings.HasPrefix(strings.TrimSpace(l), "ENV=") && strings.Contains(l, "default") {
+			t.Errorf("ENV line must not claim a default: %q", l)
 		}
 	}
 }
 
-func TestRequireSafeStrictConfig_FromEnvironment(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
-	t.Setenv("ENV", "production")
-	if _, err := LoadSettings(); err == nil {
-		t.Fatal("production with default Kafka/storage settings must be refused by LoadSettings")
+func TestScreenTermsFileMissingFails(t *testing.T) {
+	localEnv(t)
+	missing := t.TempDir() + "/does-not-exist.txt"
+	t.Setenv("SCREEN_TERMS_FILE", missing)
+	_, err := config.Load()
+	mustContain(t, err, "SCREEN_TERMS_FILE")
+
+	p := t.TempDir() + "/terms.txt"
+	if err := os.WriteFile(p, []byte("a\nb\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	t.Setenv("ENV", "local")
-	if _, err := LoadSettings(); err != nil {
-		t.Fatalf("local defaults must load: %v", err)
+	t.Setenv("SCREEN_TERMS_FILE", p)
+	s, err := config.Load()
+	if err != nil {
+		t.Fatalf("existing terms file: %v", err)
+	}
+	if got := valueByEnv(t, s, "SCREEN_TERMS_FILE"); got != p {
+		t.Errorf("SCREEN_TERMS_FILE = %v, want %v", got, p)
+	}
+	unset(t, "SCREEN_TERMS_FILE")
+	if _, err := config.Load(); err != nil {
+		t.Fatalf("unset terms file: %v", err)
 	}
 }
 
-func reservationSettings(t *testing.T, env map[string]string) *Settings {
+func TestLoadRejectsBadPortAndNegativeDurations(t *testing.T) {
+	cases := []struct{ key, val string }{
+		{"GRPC_PORT", "0"},
+		{"GRPC_PORT", "-1"},
+		{"SHUTDOWN_GRACE", "-1s"},
+		{"SHUTDOWN_DRAIN_DELAY", "-1s"},
+	}
+	for _, c := range cases {
+		localEnv(t)
+		t.Setenv(c.key, c.val)
+		_, err := config.Load()
+		if err == nil {
+			t.Errorf("%s=%s must be refused", c.key, c.val)
+			continue
+		}
+		if !strings.Contains(err.Error(), c.key) {
+			t.Errorf("%s=%s: error %q must name the variable", c.key, c.val, err)
+		}
+	}
+	localEnv(t)
+	t.Setenv("SHUTDOWN_GRACE", "0s")
+	t.Setenv("SHUTDOWN_DRAIN_DELAY", "0s")
+	if _, err := config.Load(); err != nil {
+		t.Errorf("zero durations must load: %v", err)
+	}
+}
+
+func reservationSettings(t *testing.T, env map[string]string) config.Settings {
 	t.Helper()
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	localEnv(t)
 	for k, v := range env {
 		t.Setenv(k, v)
 	}
-	s, err := LoadSettings()
+	s, err := config.Load()
 	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
+		t.Fatalf("Load: %v", err)
 	}
 	return s
 }
@@ -161,8 +442,6 @@ func TestReservationOverride(t *testing.T) {
 	}
 }
 
-// An invalid value never fails LoadSettings: it falls back to the default and
-// logs a warning naming the variable.
 func TestReservationInvalidFallsBackWithWarning(t *testing.T) {
 	for _, bad := range []string{"banana", "0", "0s", "-5m", ""} {
 		s := reservationSettings(t, map[string]string{"RESERVATION_TTL": bad, "RESERVATION_SWEEP_INTERVAL": bad})
@@ -182,195 +461,18 @@ func TestReservationInvalidFallsBackWithWarning(t *testing.T) {
 	}
 }
 
-// Scenario: Listing audit: Config exposes the audit address.
-func TestUpstreamAuditConfig(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
-	s, err := LoadSettings()
-	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
-	}
-	if s.Upstream.AuditAddr != "" {
-		t.Errorf("default UPSTREAM_AUDIT_ADDR = %q, want empty", s.Upstream.AuditAddr)
-	}
-	if s.Upstream.CallTimeoutSeconds != 2 {
-		t.Errorf("default UPSTREAM_CALL_TIMEOUT_SECONDS = %v, want 2", s.Upstream.CallTimeoutSeconds)
-	}
-	t.Setenv("UPSTREAM_AUDIT_ADDR", "team-audit-svc:50066")
-	s, err = LoadSettings()
-	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
-	}
-	if s.Upstream.AuditAddr != "team-audit-svc:50066" {
-		t.Errorf("UPSTREAM_AUDIT_ADDR = %q, want team-audit-svc:50066", s.Upstream.AuditAddr)
-	}
-	// The env drift gate must pass with both new keys documented.
-	if err := CheckEnvExample("../../.env.example"); err != nil {
-		t.Errorf("env drift gate: %v", err)
-	}
-	keys := strings.Join(DeclaredEnvKeys(), ",")
-	for _, k := range []string{"UPSTREAM_AUDIT_ADDR", "UPSTREAM_CALL_TIMEOUT_SECONDS"} {
-		if !strings.Contains(keys, k) {
-			t.Errorf("Settings does not declare %s", k)
-		}
-	}
-}
-
-// Scenario: Auto-screen: Missing terms file stops start-up.
-func TestScreenTermsFileMissingFails(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
-	missing := t.TempDir() + "/does-not-exist.txt"
-	t.Setenv("SCREEN_TERMS_FILE", missing)
-	_, err := LoadSettings()
-	if err == nil {
-		t.Fatal("expected start-up error for a missing SCREEN_TERMS_FILE")
-	}
-	if !strings.Contains(err.Error(), missing) {
-		t.Errorf("error %q must name the file %q", err, missing)
-	}
-}
-
-// Scenario: Auto-screen: Embedded term list is the default (unset = no file needed).
-func TestScreenTermsFileDefaultEmpty(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
-	s, err := LoadSettings()
-	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
-	}
-	if s.Screen.TermsFile != "" {
-		t.Errorf("default SCREEN_TERMS_FILE = %q, want empty", s.Screen.TermsFile)
-	}
-}
-
-// Scenario: Auto-screen: Keyword list loads from the config file (existing file passes).
-func TestScreenTermsFileExistingLoads(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
-	p := t.TempDir() + "/terms.txt"
-	if err := os.WriteFile(p, []byte("a\nb\nc\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("SCREEN_TERMS_FILE", p)
-	s, err := LoadSettings()
-	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
-	}
-	if s.Screen.TermsFile != p {
-		t.Errorf("TermsFile = %q, want %q", s.Screen.TermsFile, p)
-	}
-}
-
-// settingByEnv returns the loaded value of the Settings field bound to env key.
-func settingByEnv(t *testing.T, s *Settings, key string) any {
-	t.Helper()
-	v := reflect.ValueOf(s).Elem()
-	for i := 0; i < v.NumField(); i++ {
-		g := v.Field(i)
-		for j := 0; j < g.NumField(); j++ {
-			if g.Type().Field(j).Tag.Get("env") == key {
-				return g.Field(j).Interface()
-			}
-		}
-	}
-	t.Fatalf("no Settings field bound to %s", key)
-	return nil
-}
-
-// Scenario: Auto-screen: Unconfigured team-ai fails safe (UPSTREAM_AI_ADDR defaults to unset).
-func TestAIUpstreamDefaults(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
-	s, err := LoadSettings()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := settingByEnv(t, s, "UPSTREAM_AI_ADDR"); got != "" {
-		t.Errorf("UPSTREAM_AI_ADDR default = %v, want empty", got)
-	}
-	if got := settingByEnv(t, s, "UPSTREAM_AI_TIMEOUT_SECONDS"); got != float64(2) {
-		t.Errorf("UPSTREAM_AI_TIMEOUT_SECONDS default = %v, want 2", got)
-	}
-}
-
-// Scenario: Auto-screen: AI timeout fails safe within the bound (timeout is configurable).
 func TestAIUpstreamFromEnv(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
+	localEnv(t)
 	t.Setenv("UPSTREAM_AI_ADDR", "team-ai:50051")
 	t.Setenv("UPSTREAM_AI_TIMEOUT_SECONDS", "1.5")
-	s, err := LoadSettings()
+	s, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := settingByEnv(t, s, "UPSTREAM_AI_ADDR"); got != "team-ai:50051" {
+	if got := valueByEnv(t, s, "UPSTREAM_AI_ADDR"); got != "team-ai:50051" {
 		t.Errorf("UPSTREAM_AI_ADDR = %v", got)
 	}
-	if got := settingByEnv(t, s, "UPSTREAM_AI_TIMEOUT_SECONDS"); got != 1.5 {
+	if got := valueByEnv(t, s, "UPSTREAM_AI_TIMEOUT_SECONDS"); got != 1.5 {
 		t.Errorf("UPSTREAM_AI_TIMEOUT_SECONDS = %v, want 1.5", got)
-	}
-}
-
-// Scenario: Auto-screen: Unconfigured team-ai fails safe (keys are documented in .env.example).
-func TestEnvExampleDocumentsAIUpstream(t *testing.T) {
-	raw, err := os.ReadFile("../../.env.example")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, k := range []string{"UPSTREAM_AI_ADDR", "UPSTREAM_AI_TIMEOUT_SECONDS"} {
-		if !strings.Contains(string(raw), k) {
-			t.Errorf(".env.example does not document %s", k)
-		}
-	}
-}
-
-// Seller hold: Consumer disabled does nothing -- the identity consumer is opt-in.
-func TestIdentityConsumerDefaults_SellerHoldConsumerDisabledDoesNothing(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
-	s, err := LoadSettings()
-	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
-	}
-	if s.Events.IdentityConsumerEnabled {
-		t.Error("default IDENTITY_CONSUMER_ENABLED should be false")
-	}
-	if s.Events.IdentityTopic != "identity.events" {
-		t.Errorf("default KAFKA_IDENTITY_TOPIC = %q, want identity.events", s.Events.IdentityTopic)
-	}
-	if s.Events.IdentityGroup != "team-domain-identity" {
-		t.Errorf("default KAFKA_IDENTITY_GROUP = %q, want team-domain-identity", s.Events.IdentityGroup)
-	}
-}
-
-// Seller hold: Consumer disabled does nothing -- env overrides are honoured.
-func TestIdentityConsumerEnvOverrides_SellerHoldConsumerDisabledDoesNothing(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgresql://x/y")
-	t.Setenv("IDENTITY_CONSUMER_ENABLED", "true")
-	t.Setenv("KAFKA_IDENTITY_TOPIC", "custom.identity")
-	t.Setenv("KAFKA_IDENTITY_GROUP", "custom-group")
-	s, err := LoadSettings()
-	if err != nil {
-		t.Fatalf("LoadSettings: %v", err)
-	}
-	if !s.Events.IdentityConsumerEnabled || s.Events.IdentityTopic != "custom.identity" || s.Events.IdentityGroup != "custom-group" {
-		t.Errorf("overrides not applied: %+v", s.Events)
-	}
-}
-
-// Seller hold: Consumer disabled does nothing -- keys are declared (and so must be
-// documented in .env.example by TestEnvExampleInSync).
-func TestIdentityConsumerKeysDeclared_SellerHoldConsumerDisabledDoesNothing(t *testing.T) {
-	declared := map[string]bool{}
-	for _, k := range DeclaredEnvKeys() {
-		declared[k] = true
-	}
-	for _, k := range []string{"IDENTITY_CONSUMER_ENABLED", "KAFKA_IDENTITY_TOPIC", "KAFKA_IDENTITY_GROUP"} {
-		if !declared[k] {
-			t.Errorf("%s not declared", k)
-		}
-	}
-	b, err := os.ReadFile("../../.env.example")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, k := range []string{"IDENTITY_CONSUMER_ENABLED=", "KAFKA_IDENTITY_TOPIC=", "KAFKA_IDENTITY_GROUP="} {
-		if !strings.Contains(string(b), "\n"+k) && !strings.HasPrefix(string(b), k) {
-			t.Errorf(".env.example missing %s", k)
-		}
 	}
 }

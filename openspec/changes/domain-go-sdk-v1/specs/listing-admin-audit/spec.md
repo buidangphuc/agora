@@ -7,27 +7,27 @@
 #### Scenario: Listing audit: Admin update writes one audit event
 - **WHEN** an admin calls UpdateListing on an existing listing and changes its status to `rejected`
 - **THEN** the RPC succeeds, the listing has status `rejected`, and team-audit holds exactly 1 event with the admin's user id as `actor_id`, `action` `listing.admin_update`, `target_type` `listing`, the listing id as `target_id`, and metadata `seller_id` = the owner id and `status` = `rejected`
-- **VERIFIED BY**: team-domain `internal/handler` `TestUpdateListingAdminWritesAuditBeforeChange`
+- **VERIFIED BY**: team-domain `internal/rpc` `TestUpdateListingAdminWritesAuditBeforeChange`
 
 #### Scenario: Listing audit: Update without a status records the stored status
 - **WHEN** an admin calls UpdateListing with `listing.status` unspecified on a listing whose stored status is `published`
 - **THEN** the audit event metadata `status` is `published`
-- **VERIFIED BY**: team-domain `internal/handler` `TestUpdateListingAdminAuditStatusFallsBackToStored`
+- **VERIFIED BY**: team-domain `internal/rpc` `TestUpdateListingAdminAuditStatusFallsBackToStored`
 
 #### Scenario: Listing audit: Audit is written before the change
 - **WHEN** an admin calls UpdateListing and the audit write is recorded by a fake writer
 - **THEN** the fake receives the audit call before the repository update is invoked and the event carries the stored owner id, not a request-supplied one
-- **VERIFIED BY**: team-domain `internal/service` `TestUpdateWithEventAuditPrecedesUpdate`
+- **VERIFIED BY**: team-domain `internal/listing` `TestUpdateWithEventAuditPrecedesUpdate`
 
 #### Scenario: Listing audit: Audit down refuses the admin update
 - **WHEN** team-audit returns an error, and in a second case a deadline-exceeded, while an admin calls UpdateListing
 - **THEN** each case returns `Unavailable`, the listing row is unchanged, and no `ListingChanged` outbox row is written
-- **VERIFIED BY**: team-domain `internal/handler` `TestUpdateListingAdminAuditDownUnavailableNoChange`
+- **VERIFIED BY**: team-domain `internal/rpc` `TestUpdateListingAdminAuditDownUnavailableNoChange`
 
 #### Scenario: Listing audit: Update failure after audit keeps the audit row
 - **WHEN** the audit write succeeds and the repository update then fails with an internal error
 - **THEN** the RPC returns `Internal` and the audit event already written is not retracted
-- **VERIFIED BY**: team-domain `internal/service` `TestUpdateWithEventRepoFailureAfterAudit`
+- **VERIFIED BY**: team-domain `internal/listing` `TestUpdateWithEventRepoFailureAfterAudit`
 
 #### Scenario: Listing audit: No audit upstream configured
 - **WHEN** settings load with `ENV=local` and `UPSTREAM_AUDIT_ADDR` unset (everything else valid)
@@ -37,22 +37,22 @@
 #### Scenario: Listing audit: Unknown listing writes no audit event
 - **WHEN** an admin calls UpdateListing with an id that does not exist
 - **THEN** the RPC returns `NotFound` and the fake audit writer receives 0 calls
-- **VERIFIED BY**: team-domain `internal/service` `TestUpdateWithEventNotFoundNoAudit`
+- **VERIFIED BY**: team-domain `internal/listing` `TestUpdateWithEventNotFoundNoAudit`
 
 #### Scenario: Listing audit: Empty listing id writes no audit event
 - **WHEN** an admin calls UpdateListing with an empty `listing.id`
 - **THEN** the RPC returns `InvalidArgument` and the fake audit writer receives 0 calls
-- **VERIFIED BY**: team-domain `internal/handler` `TestUpdateListingEmptyIDNoAudit`
+- **VERIFIED BY**: team-domain `internal/rpc` `TestUpdateListingEmptyIDNoAudit`
 
 #### Scenario: Listing audit: Seller without admin scope cannot update another seller's listing
 - **WHEN** a seller who does not own the listing and lacks the `admin` scope calls UpdateListing
 - **THEN** the RPC returns `PermissionDenied`, the listing is unchanged, and the fake audit writer receives 0 calls
-- **VERIFIED BY**: team-domain `internal/handler` `TestUpdateListingNonOwnerNonAdminDeniedNoAudit`
+- **VERIFIED BY**: team-domain `internal/rpc` `TestUpdateListingNonOwnerNonAdminDeniedNoAudit`
 
 #### Scenario: Listing audit: Caller without listing.write is denied before audit
 - **WHEN** a caller lacking the `listing.write` scope calls UpdateListing
 - **THEN** the RPC returns `PermissionDenied` and the fake audit writer receives 0 calls
-- **VERIFIED BY**: team-domain `internal/handler` `TestUpdateListingMissingScopeNoAudit`
+- **VERIFIED BY**: team-domain `internal/rpc` `TestUpdateListingMissingScopeNoAudit`
 
 ### Requirement: team-domain presents a service principal to team-audit
 
@@ -95,24 +95,24 @@ An update or delete by the caller whose id equals the listing's stored `seller_i
 #### Scenario: Listing audit: Owner update writes no audit event
 - **WHEN** a seller without the `admin` scope updates their own listing while team-audit is reachable
 - **THEN** the RPC succeeds and the fake audit writer receives 0 calls
-- **VERIFIED BY**: team-domain `internal/handler` `TestUpdateListingOwnerNoAudit`
+- **VERIFIED BY**: team-domain `internal/rpc` `TestUpdateListingOwnerNoAudit`
 
 #### Scenario: Listing audit: Owner update succeeds while audit is down
 - **WHEN** a seller without the `admin` scope updates or deletes their own listing and team-audit is stopped
 - **THEN** each RPC succeeds and the fake audit writer receives 0 calls
-- **VERIFIED BY**: team-domain `internal/rpc` `TestOwnerUpdateDeleteIndependentOfAudit`
+- **VERIFIED BY**: team-domain `internal/rpc` `TestOwnerUpdateIndependentOfAudit`
 
 #### Scenario: Listing audit: Admin who owns the listing is audited
 - **WHEN** a caller with the `admin` scope updates a listing whose stored `seller_id` equals the caller's id
 - **THEN** the fake audit writer receives exactly 1 `listing.admin_update` call with `seller_id` equal to the caller's id
-- **VERIFIED BY**: team-domain `internal/service` `TestUpdateWithEventAdminOwnerIsAudited`
+- **VERIFIED BY**: team-domain `internal/listing` `TestUpdateWithEventAdminOwnerIsAudited`
 
 #### Scenario: Listing audit: Admin who owns the listing is refused while audit is down
 - **WHEN** a caller with the `admin` scope deletes their own listing while the audit writer returns an error
 - **THEN** the RPC returns `Unavailable` and the listing still exists
-- **VERIFIED BY**: team-domain `internal/service` `TestDeleteWithEventAdminOwnerAuditDownUnavailable`
+- **VERIFIED BY**: team-domain `internal/listing` `TestDeleteWithEventAdminOwnerAuditDownUnavailable`
 
 #### Scenario: Listing audit: Non-owner without admin is refused and unaudited while audit is down
 - **WHEN** a seller who does not own the listing and lacks the `admin` scope calls UpdateListing while team-audit is down
 - **THEN** the RPC returns `PermissionDenied` (not `Unavailable`) and the listing is unchanged
-- **VERIFIED BY**: team-domain `internal/handler` `TestNonOwnerNonAdminDeniedNotUnavailable`
+- **VERIFIED BY**: team-domain `internal/rpc` `TestNonOwnerNonAdminDeniedNotUnavailable`

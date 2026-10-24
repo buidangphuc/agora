@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -26,7 +27,7 @@ type Screener struct {
 func New(path string) (*Screener, error) {
 	content := embeddedTerms
 	if path != "" {
-		b, err := os.ReadFile(path)
+		b, err := os.ReadFile(filepath.Clean(path))
 		if err != nil {
 			return nil, fmt.Errorf("screen terms file %s: %w", path, err)
 		}

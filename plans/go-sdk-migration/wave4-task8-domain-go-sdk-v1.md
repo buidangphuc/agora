@@ -9,6 +9,8 @@ Implement OpenSpec change `domain-go-sdk-v1` test-first per its tasks.md: migrat
 ## Write-set (EXCLUSIVE)
 - team-domain/**
 - openspec/changes/domain-go-sdk-v1/**
+- team-domain/internal/events/publisher.go (widened at build: task 1.6)
+- team-domain/internal/events/publisher_test.go (widened at build: task 1.6)
 
 ## Verify
 - cd team-domain && make proto && make check && go build ./... && GO_SDK_REQUIRE_DOCKER=1 go test -race ./... -count=1

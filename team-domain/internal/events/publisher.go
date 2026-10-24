@@ -3,10 +3,8 @@
 package events
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -58,8 +56,8 @@ func BuildListingStockChangedEnvelope(
 	return value, nil
 }
 
-// BuildListingChangedEnvelope marshals the exact EventEnvelope the KafkaPublisher
-// produced inline before the outbox — same fields, same inner ListingChanged —
+// BuildListingChangedEnvelope marshals the exact EventEnvelope the inline publisher
+// produced before the outbox — same fields, same inner ListingChanged —
 // but with a caller-supplied eventID (the outbox row id) rather than a fresh
 // UUID, so a re-delivered row carries a STABLE event_id every time. That
 // stability is what lets idempotent consumers dedupe under at-least-once. The
@@ -90,59 +88,3 @@ func BuildListingChangedEnvelope(
 	}
 	return value, nil
 }
-
-// ListingPublisher is the lifecycle handle for the event producer. Domain events
-// are no longer published inline on the request path: every write records its
-// event in the transactional outbox, and the relayer (internal/events/relayer.go)
-// drains those rows to Kafka via the RawProducer.ProduceRaw path. This interface
-// therefore only exposes Close, so bootstrap can hold either a real KafkaPublisher
-// or a NoopPublisher and tear it down uniformly.
-type ListingPublisher interface {
-	Close()
-}
-
-// NoopPublisher is used when KAFKA_ENABLED=false: writes still succeed and their
-// outbox rows are recorded, but nothing is ever produced.
-type NoopPublisher struct{}
-
-func (NoopPublisher) Close() {}
-
-// KafkaPublisher publishes to a Kafka/Redpanda topic via franz-go.
-type KafkaPublisher struct {
-	client *kgo.Client
-	topic  string
-}
-
-// NewKafkaPublisher dials the brokers and returns a publisher for topic.
-func NewKafkaPublisher(brokers []string, topic string) (*KafkaPublisher, error) {
-	client, err := kgo.NewClient(
-		kgo.SeedBrokers(brokers...),
-		kgo.ProducerLinger(0),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("kafka client: %w", err)
-	}
-	return &KafkaPublisher{client: client, topic: topic}, nil
-}
-
-// ProduceRaw produces already-marshalled EventEnvelope bytes to the configured
-// topic, keyed for per-entity ordering. It is the relayer's produce path: the
-// outbox stored the whole envelope at enqueue time, so the relayer stays
-// agnostic of event-type specifics and the wire bytes are byte-identical to the
-// old inline produce.
-func (p *KafkaPublisher) ProduceRaw(ctx context.Context, key string, payload []byte) error {
-	rec := &kgo.Record{Topic: p.topic, Key: []byte(key), Value: payload}
-	if err := p.client.ProduceSync(ctx, rec).FirstErr(); err != nil {
-		return fmt.Errorf("produce to %s: %w", p.topic, err)
-	}
-	return nil
-}
-
-// Close flushes and shuts down the client.
-func (p *KafkaPublisher) Close() { p.client.Close() }
-
-// compile-time assertions.
-var (
-	_ ListingPublisher = (*KafkaPublisher)(nil)
-	_ ListingPublisher = NoopPublisher{}
-)

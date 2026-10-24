@@ -1,0 +1,83 @@
+package listing
+
+import (
+	"context"
+	"log/slog"
+	"time"
+)
+
+// ReservationSweeper periodically releases stock held by reservations past their
+// TTL (AD3 domain side). It mirrors the outbox relayer's start/stop shape: Run
+// polls until ctx is cancelled and is meant to run in its own goroutine, while
+// SweepOnce is exported so tests (and a manual trigger) can drive a single
+// deterministic pass. The sweep itself is idempotent, so an occasional missed or
+// doubled tick is harmless.
+type ReservationSweeper struct {
+	svc      *ListingService
+	interval time.Duration
+	logger   *slog.Logger
+}
+
+// NewReservationSweeper builds a sweeper over the service. A non-positive
+// interval defaults to one minute; a nil logger uses slog.Default().
+func NewReservationSweeper(svc *ListingService, interval time.Duration, logger *slog.Logger) *ReservationSweeper {
+	if interval <= 0 {
+		interval = DefaultSweepInterval
+	}
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &ReservationSweeper{svc: svc, interval: interval, logger: logger}
+}
+
+// Interval returns the effective polling interval.
+func (s *ReservationSweeper) Interval() time.Duration { return s.interval }
+
+// ProcessedEventsRetention is how long processed_events dedupe rows are kept.
+const ProcessedEventsRetention = 14 * 24 * time.Hour
+
+// processedEventsPurger is the optional repository capability the sweeper uses
+// to delete old dedupe rows.
+type processedEventsPurger interface {
+	PurgeProcessedEvents(ctx context.Context, before time.Time) (int, error)
+}
+
+// SweepOnce runs a single sweep as of now, returning the number of reservations
+// released. It also purges processed_events older than the retention window
+// when the repository supports it; a purge failure is logged, not returned.
+func (s *ReservationSweeper) SweepOnce(ctx context.Context, now time.Time) (int, error) {
+	released, err := s.svc.SweepExpiredReservations(ctx, now)
+	if p, ok := s.svc.repo.(processedEventsPurger); ok {
+		if _, perr := p.PurgeProcessedEvents(ctx, now.Add(-ProcessedEventsRetention)); perr != nil {
+			s.logger.WarnContext(ctx, "processed_events purge failed", "err", perr)
+		}
+	}
+	return released, err
+}
+
+// Run sweeps on the configured interval until ctx is cancelled. A sweep error is
+// transient (e.g. a DB blip) — it is logged and retried on the next tick.
+func (s *ReservationSweeper) Run(ctx context.Context) {
+	// The effective values are logged as strings ("15m0s") so operators and the
+	// e2e config scenarios can read them in either log format.
+	s.logger.InfoContext(ctx, "reservation sweeper started",
+		"reservation_ttl", s.svc.ReservationTTL().String(),
+		"sweep_interval", s.interval.String())
+	ticker := time.NewTicker(s.interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			released, err := s.SweepOnce(ctx, now)
+			if err != nil {
+				s.logger.WarnContext(ctx, "reservation sweep failed", "err", err)
+				continue
+			}
+			if released > 0 {
+				s.logger.InfoContext(ctx, "released expired reservations", "released", released)
+			}
+		}
+	}
+}
