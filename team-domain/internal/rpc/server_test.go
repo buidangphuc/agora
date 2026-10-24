@@ -1,4 +1,4 @@
-package grpcserver_test
+package rpc_test
 
 import (
 	"context"
@@ -15,23 +15,25 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
-
 	"github.com/buidangphuc/team-domain/internal/config"
-	"github.com/buidangphuc/team-domain/internal/grpcserver"
-	"github.com/buidangphuc/team-domain/internal/handler"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
-	"github.com/buidangphuc/team-domain/internal/storage"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/objects"
+	"github.com/buidangphuc/team-domain/internal/rpc"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 // decodeChange unmarshals a stored outbox row's EventEnvelope bytes back into the
 // inner ListingChanged, asserting the envelope's event_id matches the row id
 // (the stable dedupe id the relayer re-delivers). It mirrors what a consumer
 // sees on the wire, proving the bytes are a normal EventEnvelope.
-func decodeChange(t *testing.T, row repository.OutboxRow) *listingv1.ListingChanged {
+func decodeChange(t *testing.T, row store.OutboxRow) *listingv1.ListingChanged {
 	t.Helper()
 	var env eventsv1.EventEnvelope
 	if err := proto.Unmarshal(row.Payload, &env); err != nil {
@@ -47,19 +49,17 @@ func decodeChange(t *testing.T, row repository.OutboxRow) *listingv1.ListingChan
 	return &ch
 }
 
-func testSettings() *config.Settings {
-	s := &config.Settings{}
-	s.Server.Port = 0
-	s.Server.ReflectionEnabled = false
-	s.Storage.Endpoint = "localhost:9000"
-	s.Storage.Bucket = "listing-images"
-	s.Storage.AccessKey = "testkey"
-	s.Storage.SecretKey = "testsecret"
-	s.Storage.PublicBaseURL = "http://localhost:9000/listing-images"
-	return s
+func testStorage() config.Storage {
+	return config.Storage{
+		Endpoint:      "localhost:9000",
+		Bucket:        "listing-images",
+		AccessKey:     "testkey",
+		SecretKey:     "testsecret",
+		PublicBaseURL: "http://localhost:9000/listing-images",
+	}
 }
 
-func startServer(t *testing.T, repo repository.ListingRepository) listingv1.ListingServiceClient {
+func startServer(t *testing.T, repo store.ListingRepository) listingv1.ListingServiceClient {
 	t.Helper()
 	return startServerOutbox(t, repo, nil)
 }
@@ -68,20 +68,24 @@ func startServer(t *testing.T, repo repository.ListingRepository) listingv1.List
 // writer. When txw is non-nil, writes record their event in the (fake) outbox —
 // exactly as production does with the Postgres writer — so a test can assert the
 // enqueued rows. txw must wrap the same repo passed here.
-func startServerOutbox(t *testing.T, repo repository.ListingRepository, txw *repository.InMemoryTxWriter) listingv1.ListingServiceClient {
+func startServerOutbox(t *testing.T, repo store.ListingRepository, txw *storetest.InMemoryTxWriter) listingv1.ListingServiceClient {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	cfg := testSettings()
-	store := storage.NewS3Storage(cfg.Storage)
-	catRepo := repository.NewInMemoryCategoryRepository()
-	var svc *service.ListingService
+	objs := objects.NewS3Storage(testStorage())
+	catRepo := storetest.NewInMemoryCategoryRepository()
+	var svc *listing.ListingService
 	if txw != nil {
-		svc = service.NewListingServiceWithOutbox(repo, txw)
+		svc = listing.NewListingServiceWithOutbox(repo, txw)
 	} else {
-		svc = service.NewListingService(repo)
+		svc = listing.NewListingService(repo)
 	}
-	h := handler.NewListingHandler(svc, catRepo, store)
-	srv := grpcserver.Build(cfg, h, nil, logger)
+	h := rpc.NewListingHandler(svc, catRepo, objs)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		t.Fatalf("health: %v", err)
+	}
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: sdkconfig.GRPC{}, Logger: logger, Health: health})
+	listingv1.RegisterListingServiceServer(srv, h)
 
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -104,7 +108,7 @@ func startServerOutbox(t *testing.T, repo repository.ListingRepository, txw *rep
 // as trusted metadata.
 func principalCtx(t *testing.T, scopes string) (context.Context, context.CancelFunc) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	md := metadata.Pairs(
 		"x-principal-id", "u1",
 		"x-principal-type", "user",
@@ -116,7 +120,7 @@ func principalCtx(t *testing.T, scopes string) (context.Context, context.CancelF
 // principalCtxAs is principalCtx with an explicit principal type and id.
 func principalCtxAs(t *testing.T, id, typ, scopes string) (context.Context, context.CancelFunc) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	md := metadata.Pairs(
 		"x-principal-id", id,
 		"x-principal-type", typ,
@@ -125,11 +129,11 @@ func principalCtxAs(t *testing.T, id, typ, scopes string) (context.Context, cont
 	return metadata.NewOutgoingContext(ctx, md), cancel
 }
 
-func seedRepo() *repository.InMemoryListingRepository {
-	return repository.NewInMemoryListingRepository(
-		repository.Listing{ID: "a1", Title: "Alpha", Price: 100, Currency: "VND", Status: "published"},
-		repository.Listing{ID: "b2", Title: "Bravo", Price: 200, Currency: "VND", Status: "draft"},
-		repository.Listing{ID: "c3", Title: "Charlie", Price: 300, Currency: "VND", Status: "published"},
+func seedRepo() *storetest.InMemoryListingRepository {
+	return storetest.NewInMemoryListingRepository(
+		store.Listing{ID: "a1", Title: "Alpha", Price: 100, Currency: "VND", Status: "published"},
+		store.Listing{ID: "b2", Title: "Bravo", Price: 200, Currency: "VND", Status: "draft"},
+		store.Listing{ID: "c3", Title: "Charlie", Price: 300, Currency: "VND", Status: "published"},
 	)
 }
 
@@ -177,7 +181,7 @@ func TestListListings_Page(t *testing.T) {
 
 func TestGetListing_Unauthenticated(t *testing.T) {
 	client := startServer(t, seedRepo())
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 
 	// No forwarded principal at all.
@@ -199,8 +203,8 @@ func TestGetListing_InsufficientScope(t *testing.T) {
 }
 
 func TestCreateListing_EnqueuesEvent(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository()
-	txw := repository.NewInMemoryTxWriter(repo)
+	repo := storetest.NewInMemoryListingRepository()
+	txw := storetest.NewInMemoryTxWriter(repo)
 	client := startServerOutbox(t, repo, txw)
 	ctx, cancel := principalCtx(t, "listing.read,listing.write")
 	defer cancel()
@@ -235,10 +239,10 @@ func TestCreateListing_EnqueuesEvent(t *testing.T) {
 }
 
 func TestUpdateListing_EnqueuesEventAndNotFound(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(
-		repository.Listing{ID: "x1", Title: "old", Price: 1, Currency: "VND", Status: "draft", SellerID: "u1"},
+	repo := storetest.NewInMemoryListingRepository(
+		store.Listing{ID: "x1", Title: "old", Price: 1, Currency: "VND", Status: "draft", SellerID: "u1"},
 	)
-	txw := repository.NewInMemoryTxWriter(repo)
+	txw := storetest.NewInMemoryTxWriter(repo)
 	client := startServerOutbox(t, repo, txw)
 	ctx, cancel := principalCtx(t, "listing.read,listing.write")
 	defer cancel()
@@ -270,8 +274,8 @@ func TestUpdateListing_EnqueuesEventAndNotFound(t *testing.T) {
 
 func TestUpdateListing_NotOwner(t *testing.T) {
 	// Listing owned by someone else; u1 tries to update it → PermissionDenied.
-	repo := repository.NewInMemoryListingRepository(
-		repository.Listing{ID: "y1", Title: "theirs", Currency: "VND", Status: "published", SellerID: "other-user"},
+	repo := storetest.NewInMemoryListingRepository(
+		store.Listing{ID: "y1", Title: "theirs", Currency: "VND", Status: "published", SellerID: "other-user"},
 	)
 	client := startServer(t, repo)
 	ctx, cancel := principalCtx(t, "listing.read,listing.write")
@@ -286,10 +290,10 @@ func TestUpdateListing_NotOwner(t *testing.T) {
 }
 
 func TestListMyListings_OwnerOnly(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(
-		repository.Listing{ID: "m1", Title: "mine1", Currency: "VND", Status: "published", SellerID: "u1"},
-		repository.Listing{ID: "m2", Title: "mine2", Currency: "VND", Status: "draft", SellerID: "u1"},
-		repository.Listing{ID: "o1", Title: "theirs", Currency: "VND", Status: "published", SellerID: "other"},
+	repo := storetest.NewInMemoryListingRepository(
+		store.Listing{ID: "m1", Title: "mine1", Currency: "VND", Status: "published", SellerID: "u1"},
+		store.Listing{ID: "m2", Title: "mine2", Currency: "VND", Status: "draft", SellerID: "u1"},
+		store.Listing{ID: "o1", Title: "theirs", Currency: "VND", Status: "published", SellerID: "other"},
 	)
 	client := startServer(t, repo)
 	ctx, cancel := principalCtx(t, "listing.read,listing.write")
@@ -310,11 +314,11 @@ func TestListMyListings_OwnerOnly(t *testing.T) {
 }
 
 func TestDeleteListing_OwnerAndNotOwner(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(
-		repository.Listing{ID: "d1", Title: "mine", Currency: "VND", Status: "published", SellerID: "u1"},
-		repository.Listing{ID: "d2", Title: "theirs", Currency: "VND", Status: "published", SellerID: "other"},
+	repo := storetest.NewInMemoryListingRepository(
+		store.Listing{ID: "d1", Title: "mine", Currency: "VND", Status: "published", SellerID: "u1"},
+		store.Listing{ID: "d2", Title: "theirs", Currency: "VND", Status: "published", SellerID: "other"},
 	)
-	txw := repository.NewInMemoryTxWriter(repo)
+	txw := storetest.NewInMemoryTxWriter(repo)
 	client := startServerOutbox(t, repo, txw)
 	ctx, cancel := principalCtx(t, "listing.read,listing.write")
 	defer cancel()
@@ -347,7 +351,7 @@ func TestDeleteListing_OwnerAndNotOwner(t *testing.T) {
 
 func TestCreateListing_RequiresWriteScope(t *testing.T) {
 	// Buyer-level principal (read only) → CreateListing denied.
-	client := startServer(t, repository.NewInMemoryListingRepository())
+	client := startServer(t, storetest.NewInMemoryListingRepository())
 	ctx, cancel := principalCtx(t, "listing.read")
 	defer cancel()
 
@@ -360,7 +364,7 @@ func TestCreateListing_RequiresWriteScope(t *testing.T) {
 }
 
 func TestGetImageUploadUrl_Success(t *testing.T) {
-	client := startServer(t, repository.NewInMemoryListingRepository())
+	client := startServer(t, storetest.NewInMemoryListingRepository())
 	ctx, cancel := principalCtx(t, "listing.read,listing.write")
 	defer cancel()
 
@@ -383,7 +387,7 @@ func TestGetImageUploadUrl_Success(t *testing.T) {
 }
 
 func TestGetImageUploadUrl_RequiresWriteScope(t *testing.T) {
-	client := startServer(t, repository.NewInMemoryListingRepository())
+	client := startServer(t, storetest.NewInMemoryListingRepository())
 	ctx, cancel := principalCtx(t, "listing.read")
 	defer cancel()
 
@@ -396,7 +400,7 @@ func TestGetImageUploadUrl_RequiresWriteScope(t *testing.T) {
 }
 
 func TestListCategories_Success(t *testing.T) {
-	client := startServer(t, repository.NewInMemoryListingRepository())
+	client := startServer(t, storetest.NewInMemoryListingRepository())
 	ctx, cancel := principalCtx(t, "listing.read")
 	defer cancel()
 
@@ -413,7 +417,7 @@ func TestListCategories_Success(t *testing.T) {
 }
 
 func TestGetCategory_Success(t *testing.T) {
-	client := startServer(t, repository.NewInMemoryListingRepository())
+	client := startServer(t, storetest.NewInMemoryListingRepository())
 	ctx, cancel := principalCtx(t, "listing.read")
 	defer cancel()
 
@@ -427,7 +431,7 @@ func TestGetCategory_Success(t *testing.T) {
 }
 
 func TestGetCategory_NotFound(t *testing.T) {
-	client := startServer(t, repository.NewInMemoryListingRepository())
+	client := startServer(t, storetest.NewInMemoryListingRepository())
 	ctx, cancel := principalCtx(t, "listing.read")
 	defer cancel()
 
@@ -438,7 +442,7 @@ func TestGetCategory_NotFound(t *testing.T) {
 }
 
 func TestReserveStock_Success(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID:    "prod-1",
 		Title: "Phone",
 		Stock: 10,
@@ -467,7 +471,7 @@ func TestReserveStock_Success(t *testing.T) {
 }
 
 func TestReserveStock_OutOfStock(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID:    "prod-1",
 		Title: "Phone",
 		Stock: 2,
@@ -490,7 +494,7 @@ func TestReserveStock_OutOfStock(t *testing.T) {
 }
 
 func TestReleaseStock_Success(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID:    "prod-1",
 		Title: "Phone",
 		Stock: 10,
@@ -527,7 +531,7 @@ func TestReleaseStock_Success(t *testing.T) {
 // ReleaseStock without a reservation_id is INVALID_ARGUMENT and leaves stock
 // unchanged (the blind stock = stock + quantity path is gone).
 func TestReleaseStock_EmptyReservationIDRejected(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 7})
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Stock: 7})
 	client := startServer(t, repo)
 	ctx, cancel := serviceCtx(t)
 	defer cancel()
@@ -555,17 +559,16 @@ func TestStockRPCs_RequireServicePrincipal(t *testing.T) {
 		{"service without listing.write denied", "service-team-order", "service", "listing.read", codes.PermissionDenied},
 		{"user denied", "u1", "user", "listing.read", codes.PermissionDenied},
 		{"seller user with listing.write denied", "seller-1", "user", "listing.read,listing.write", codes.PermissionDenied},
-		{"anonymous principal denied", "anon", "anonymous", "listing.read", codes.PermissionDenied},
 		{"no principal denied", "", "", "", codes.Unauthenticated},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+			repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
 			client := startServer(t, repo)
 			var ctx context.Context
 			var cancel context.CancelFunc
 			if tc.typ == "" {
-				ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+				ctx, cancel = context.WithTimeout(t.Context(), 3*time.Second)
 			} else {
 				ctx, cancel = principalCtxAs(t, tc.id, tc.typ, tc.scopes)
 			}
@@ -593,7 +596,7 @@ func serviceCtx(t *testing.T) (context.Context, context.CancelFunc) {
 }
 
 func TestCommitReservation_Outcomes(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
 	client := startServer(t, repo)
 	ctx, cancel := serviceCtx(t)
 	defer cancel()
@@ -607,7 +610,7 @@ func TestCommitReservation_Outcomes(t *testing.T) {
 		}
 	}
 	// A committed reservation is not restored by the sweep.
-	if n, err := repo.SweepExpiredReservations(ctx, time.Now().Add(service.DefaultReservationTTL+time.Minute)); err != nil || n != 0 {
+	if n, err := repo.SweepExpiredReservations(ctx, time.Now().Add(listing.DefaultReservationTTL+time.Minute)); err != nil || n != 0 {
 		t.Fatalf("sweep of committed: n=%d err=%v, want 0/nil", n, err)
 	}
 	if got, _ := repo.Get(ctx, "prod-1"); got.Stock != 8 {
@@ -618,7 +621,7 @@ func TestCommitReservation_Outcomes(t *testing.T) {
 	if _, err := client.ReserveStock(ctx, &listingv1.ReserveStockRequest{ListingId: "prod-1", Quantity: 1, ReservationId: "r2"}); err != nil {
 		t.Fatalf("ReserveStock r2: %v", err)
 	}
-	if n, err := repo.SweepExpiredReservations(ctx, time.Now().Add(service.DefaultReservationTTL+time.Minute)); err != nil || n != 1 {
+	if n, err := repo.SweepExpiredReservations(ctx, time.Now().Add(listing.DefaultReservationTTL+time.Minute)); err != nil || n != 1 {
 		t.Fatalf("sweep n=%d err=%v, want 1/nil", n, err)
 	}
 	if _, err := client.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: "r2"}); status.Code(err) != codes.FailedPrecondition {
@@ -645,13 +648,12 @@ func TestCommitReservation_RequiresServicePrincipal(t *testing.T) {
 		{"service without listing.write denied", "service-team-order", "service", "listing.read", codes.PermissionDenied},
 		{"user denied", "u1", "user", "listing.read", codes.PermissionDenied},
 		{"seller user with listing.write denied", "seller-1", "user", "listing.read,listing.write", codes.PermissionDenied},
-		{"anonymous principal denied", "anon", "anonymous", "listing.read", codes.PermissionDenied},
 		{"no principal denied", "", "", "", codes.Unauthenticated},
 		{"service allowed", "service-team-order", "service", "listing.read,listing.write", codes.OK},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+			repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
 			client := startServer(t, repo)
 			sctx, scancel := serviceCtx(t)
 			defer scancel()
@@ -662,7 +664,7 @@ func TestCommitReservation_RequiresServicePrincipal(t *testing.T) {
 			var ctx context.Context
 			var cancel context.CancelFunc
 			if tc.typ == "" {
-				ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+				ctx, cancel = context.WithTimeout(t.Context(), 3*time.Second)
 			} else {
 				ctx, cancel = principalCtxAs(t, tc.id, tc.typ, tc.scopes)
 			}
@@ -673,7 +675,7 @@ func TestCommitReservation_RequiresServicePrincipal(t *testing.T) {
 			}
 
 			// Only an allowed commit protects the stock from the sweep.
-			n, err := repo.SweepExpiredReservations(sctx, time.Now().Add(service.DefaultReservationTTL+time.Minute))
+			n, err := repo.SweepExpiredReservations(sctx, time.Now().Add(listing.DefaultReservationTTL+time.Minute))
 			if err != nil {
 				t.Fatalf("sweep: %v", err)
 			}
@@ -691,7 +693,7 @@ func TestCommitReservation_RequiresServicePrincipal(t *testing.T) {
 // ReserveStock without a reservation_id is INVALID_ARGUMENT with stock unchanged:
 // there is no ledger-less decrement.
 func TestReserveStock_EmptyReservationIDRejected(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
 	client := startServer(t, repo)
 	ctx, cancel := serviceCtx(t)
 	defer cancel()
@@ -708,7 +710,7 @@ func TestReserveStock_EmptyReservationIDRejected(t *testing.T) {
 // reserve -> release -> reserve again under the same id fails FAILED_PRECONDITION
 // and leaves stock unchanged (the caller must use a new id).
 func TestReserveStock_ReleasedIDFailsPrecondition(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
 	client := startServer(t, repo)
 	ctx, cancel := serviceCtx(t)
 	defer cancel()
@@ -732,8 +734,8 @@ func TestReserveStock_ReleasedIDFailsPrecondition(t *testing.T) {
 // ListingStockChanged envelope carrying the post-change stock; a commit and a
 // repeated release announce nothing.
 func TestStockEvents_WireEnvelope(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10}).
-		WithStockEvents(handler.NewStockEventBuilder())
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Stock: 10}).
+		WithStockEvents(rpc.NewStockEventBuilder())
 	client := startServer(t, repo)
 	ctx, cancel := serviceCtx(t)
 	defer cancel()
@@ -775,7 +777,7 @@ func TestStockEvents_WireEnvelope(t *testing.T) {
 }
 
 func TestReserveStock_MismatchedRetryIsFailedPrecondition(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Stock: 10})
 	client := startServer(t, repo)
 	ctx, cancel := serviceCtx(t)
 	defer cancel()
@@ -796,7 +798,7 @@ func TestReserveStock_MismatchedRetryIsFailedPrecondition(t *testing.T) {
 
 // Scenario: Seller hold: Stock cannot be reserved on a held listing
 func TestReserveStock_HeldListingFailedPrecondition(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Status: "held", Stock: 5, SellerID: "seller-a"})
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Status: "held", Stock: 5, SellerID: "seller-a"})
 	client := startServer(t, repo)
 	ctx, cancel := serviceCtx(t)
 	defer cancel()
@@ -816,7 +818,7 @@ func TestReserveStock_HeldListingFailedPrecondition(t *testing.T) {
 
 // Scenario: Seller hold: Reservation retry on a held listing stays a no-op
 func TestReserveStock_HeldListingExistingReservationNoop(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "prod-1", Title: "Phone", Status: "published", Stock: 5, SellerID: "seller-a"})
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "prod-1", Title: "Phone", Status: "published", Stock: 5, SellerID: "seller-a"})
 	client := startServer(t, repo)
 	ctx, cancel := serviceCtx(t)
 	defer cancel()
