@@ -228,7 +228,7 @@ func assertPortFree(t *testing.T, port int) {
 
 func setDatabaseAvailable(t *testing.T, url string, available bool) {
 	t.Helper()
-	base := t.Context()
+	base := context.WithoutCancel(t.Context())
 	admin, err := pgx.Connect(base, strings.Replace(url, "/test?", "/postgres?", 1))
 	if err != nil {
 		t.Fatalf("admin connect: %v", err)
