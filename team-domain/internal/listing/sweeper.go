@@ -49,7 +49,7 @@ func (s *ReservationSweeper) SweepOnce(ctx context.Context, now time.Time) (int,
 	released, err := s.svc.SweepExpiredReservations(ctx, now)
 	if p, ok := s.svc.repo.(processedEventsPurger); ok {
 		if _, perr := p.PurgeProcessedEvents(ctx, now.Add(-ProcessedEventsRetention)); perr != nil {
-			s.logger.WarnContext(ctx, "processed_events purge failed", slog.Any("err", perr))
+			s.logger.WarnContext(ctx, "processed_events purge failed", "err", perr)
 		}
 	}
 	return released, err
@@ -61,8 +61,8 @@ func (s *ReservationSweeper) Run(ctx context.Context) {
 	// The effective values are logged as strings ("15m0s") so operators and the
 	// e2e config scenarios can read them in either log format.
 	s.logger.InfoContext(ctx, "reservation sweeper started",
-		slog.String("reservation_ttl", s.svc.ReservationTTL().String()),
-		slog.String("sweep_interval", s.interval.String()))
+		"reservation_ttl", s.svc.ReservationTTL().String(),
+		"sweep_interval", s.interval.String())
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 	for {

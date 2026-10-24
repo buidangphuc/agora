@@ -382,7 +382,7 @@ func (s *ListingService) screen(ctx context.Context, l store.Listing) (string, [
 	}
 	res, err := s.ai.ScreenListing(ctx, screen.ScreenInput{ListingID: l.ID, Title: l.Title, Description: l.Description, CategoryID: l.CategoryID})
 	if err != nil {
-		slog.WarnContext(ctx, "listing screen failed, routing to review", slog.String("listing_id", l.ID), slog.Any("err", err))
+		slog.WarnContext(ctx, "listing screen failed, routing to review", "listing_id", l.ID, "err", err)
 		return "pending_review", nil
 	}
 	if res.GetVerdict() == aiv1.ScreenVerdict_SCREEN_VERDICT_ALLOW {
