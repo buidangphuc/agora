@@ -1,4 +1,4 @@
-package service
+package voucher
 
 import (
 	"context"
@@ -8,12 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	promotionv1 "github.com/buidangphuc/team-promotion/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-promotion/internal/bootstrap"
-	"github.com/buidangphuc/team-promotion/internal/featureflags"
-	"github.com/buidangphuc/team-promotion/internal/producer"
-	"github.com/buidangphuc/team-promotion/internal/repository"
-	"github.com/buidangphuc/team-promotion/internal/upstream"
+	"github.com/buidangphuc/team-promotion/internal/store"
 )
 
 // Discount type / scope enum values (mirror platform.promotion.v1 without importing
@@ -27,41 +25,30 @@ const (
 
 const defaultPageSize = 50
 
-// VoucherService holds the voucher CRUD + redemption business logic.
-type VoucherService struct {
-	vouchers     repository.VoucherRepository
-	reservations repository.ReservationRepository
-	emitter      *producer.Emitter
-	flags        featureflags.Evaluator
+type Service struct {
+	vouchers     store.VoucherRepository
+	reservations store.ReservationRepository
+	audit        *auditx.Gate
+	event        func(context.Context, store.Voucher) (outbox.Row, error)
 	logger       *slog.Logger
 	nowFn        func() time.Time
-	audit        AuditWriter // nil = platform voucher creation fails closed
 }
 
-// NewVoucherService wires the voucher + reservation repositories, the
-// promotion.events producer (may be nil when Kafka is disabled) and the feature
-// flag evaluator.
-func NewVoucherService(
-	vouchers repository.VoucherRepository,
-	reservations repository.ReservationRepository,
-	prod *bootstrap.EventProducer,
-	flags featureflags.Evaluator,
+func New(
+	vouchers store.VoucherRepository,
+	reservations store.ReservationRepository,
+	audit *auditx.Gate,
+	event func(context.Context, store.Voucher) (outbox.Row, error),
 	logger *slog.Logger,
-) *VoucherService {
+) *Service {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	// Convert the concrete producer to the Publisher seam, mapping a nil *producer
-	// to a nil interface so the emitter no-ops cleanly when Kafka is disabled.
-	var pub producer.Publisher
-	if prod != nil {
-		pub = prod
-	}
-	return &VoucherService{
+	return &Service{
 		vouchers:     vouchers,
 		reservations: reservations,
-		emitter:      producer.NewEmitter(pub, logger),
-		flags:        flags,
+		audit:        audit,
+		event:        event,
 		logger:       logger,
 		nowFn:        time.Now,
 	}
@@ -89,21 +76,14 @@ type CreateVoucherParams struct {
 	AuditAdmin bool
 }
 
-// WithAudit sets the audit writer used for platform voucher creation.
-func (s *VoucherService) WithAudit(w AuditWriter) *VoucherService {
-	s.audit = w
-	return s
-}
-
 // ErrInvalidVoucher is returned for malformed CreateVoucher input.
 var ErrInvalidVoucher = errors.New("invalid voucher")
 
-// CreateVoucher persists a voucher and emits VoucherChanged on promotion.events.
-func (s *VoucherService) CreateVoucher(ctx context.Context, p CreateVoucherParams) (repository.Voucher, error) {
+func (s *Service) CreateVoucher(ctx context.Context, p CreateVoucherParams) (store.Voucher, error) {
 	if strings.TrimSpace(p.Code) == "" {
-		return repository.Voucher{}, ErrInvalidVoucher
+		return store.Voucher{}, ErrInvalidVoucher
 	}
-	v := repository.Voucher{
+	v := store.Voucher{
 		Code:          strings.TrimSpace(p.Code),
 		Scope:         p.Scope,
 		SellerID:      p.SellerID,
@@ -115,44 +95,48 @@ func (s *VoucherService) CreateVoucher(ctx context.Context, p CreateVoucherParam
 		StartsAt:      p.StartsAt,
 		EndsAt:        p.EndsAt,
 	}
-	if p.Scope != voucherScopeShop || p.AuditAdmin {
-		ev := upstream.AuditEvent{
-			ActorID:    p.AuditActorID,
-			Action:     "voucher.platform_create",
-			TargetType: "voucher",
-			TargetID:   v.Code,
-			Metadata: map[string]string{
-				"discount_type": promotionv1.DiscountType(p.DiscountType).String(),
-				"value":         strconv.FormatInt(p.DiscountValue, 10),
-			},
-		}
-		if p.Scope == voucherScopeShop {
-			ev.Action = "voucher.admin_create"
-			ev.Metadata["seller_id"] = p.SellerID
-		}
-		if err := writeAudit(ctx, s.audit, ev); err != nil {
-			return repository.Voucher{}, err
-		}
+	var created store.Voucher
+	insert := func(ctx context.Context) error {
+		var err error
+		created, err = s.vouchers.Create(ctx, v, func(c store.Voucher) (outbox.Row, error) {
+			return s.event(ctx, c)
+		})
+		return err
 	}
-	created, err := s.vouchers.Create(ctx, v)
-	if err != nil {
-		return repository.Voucher{}, err
+	if p.Scope == voucherScopeShop && !p.AuditAdmin {
+		if err := insert(ctx); err != nil {
+			return store.Voucher{}, err
+		}
+		return created, nil
 	}
-	if err := s.emitter.EmitVoucherChanged(ctx, VoucherToProto(created)); err != nil {
-		// Emission is best-effort: a Kafka blip must not fail the write. Log and move on.
-		s.logger.Warn("emit VoucherChanged failed", slog.String("voucher_id", created.ID), slog.Any("err", err))
+	ev := auditx.Event{
+		ActorID:    p.AuditActorID,
+		Action:     "voucher.platform_create",
+		TargetType: "voucher",
+		TargetID:   v.Code,
+		Metadata: map[string]string{
+			"discount_type": promotionv1.DiscountType(p.DiscountType).String(),
+			"value":         strconv.FormatInt(p.DiscountValue, 10),
+		},
+	}
+	if p.Scope == voucherScopeShop {
+		ev.Action = "voucher.admin_create"
+		ev.Metadata["seller_id"] = p.SellerID
+	}
+	if err := s.audit.Do(ctx, ev, insert); err != nil {
+		return store.Voucher{}, err
 	}
 	return created, nil
 }
 
 // GetVoucher looks a voucher up by code.
-func (s *VoucherService) GetVoucher(ctx context.Context, code string) (repository.Voucher, error) {
+func (s *Service) GetVoucher(ctx context.Context, code string) (store.Voucher, error) {
 	return s.vouchers.GetByCode(ctx, code)
 }
 
 // ListVouchers returns a page of vouchers for a seller (empty = platform-scoped).
 // The cursor is a stringified offset; nextCursor is empty when the page is last.
-func (s *VoucherService) ListVouchers(ctx context.Context, sellerID, cursor string, pageSize int32) ([]repository.Voucher, string, error) {
+func (s *Service) ListVouchers(ctx context.Context, sellerID, cursor string, pageSize int32) ([]store.Voucher, string, error) {
 	limit := int(pageSize)
 	if limit <= 0 || limit > 200 {
 		limit = defaultPageSize
@@ -191,7 +175,7 @@ type ReserveResult struct {
 // original discount without decrementing quota or creating a second hold
 // (ADR-0008). A rejection returns Valid=false with a human-readable reason and
 // never creates a hold.
-func (s *VoucherService) ValidateAndReserve(ctx context.Context, reservationID, code, buyerID string, cartSubtotal int64, sellerID string) (ReserveResult, error) {
+func (s *Service) ValidateAndReserve(ctx context.Context, reservationID, code, buyerID string, cartSubtotal int64, sellerID string) (ReserveResult, error) {
 	if strings.TrimSpace(reservationID) == "" {
 		return ReserveResult{Valid: false, Reason: "reservation_id is required"}, nil
 	}
@@ -206,15 +190,15 @@ func (s *VoucherService) ValidateAndReserve(ctx context.Context, reservationID, 
 		switch {
 		case gerr == nil:
 			scope, owner = stored.Scope, stored.SellerID
-		case !errors.Is(gerr, repository.ErrVoucherNotFound):
+		case !errors.Is(gerr, store.ErrVoucherNotFound):
 			return ReserveResult{}, gerr
 		}
-		if existing.Status == repository.ReservationReleased {
+		if existing.Status == store.ReservationReleased {
 			return ReserveResult{Valid: false, Reason: "reservation already released", Scope: scope, SellerID: owner}, nil
 		}
 		return ReserveResult{Valid: true, DiscountAmount: existing.DiscountAmount, VoucherID: existing.VoucherID, Scope: scope, SellerID: owner}, nil
 	}
-	if !errors.Is(err, repository.ErrReservationNotFound) {
+	if !errors.Is(err, store.ErrReservationNotFound) {
 		return ReserveResult{}, err
 	}
 
@@ -224,7 +208,7 @@ func (s *VoucherService) ValidateAndReserve(ctx context.Context, reservationID, 
 
 	voucher, err := s.vouchers.GetByCode(ctx, code)
 	if err != nil {
-		if errors.Is(err, repository.ErrVoucherNotFound) {
+		if errors.Is(err, store.ErrVoucherNotFound) {
 			return ReserveResult{Valid: false, Reason: "voucher code not found"}, nil
 		}
 		return ReserveResult{}, err
@@ -238,12 +222,12 @@ func (s *VoucherService) ValidateAndReserve(ctx context.Context, reservationID, 
 
 	// Place the hold. Create is idempotent on reservation_id, so a race that
 	// inserts concurrently still yields a single hold with a single discount.
-	stored, _, err := s.reservations.Create(ctx, repository.Reservation{
+	stored, _, err := s.reservations.Create(ctx, store.Reservation{
 		ReservationID:  reservationID,
 		VoucherID:      voucher.ID,
 		BuyerID:        buyerID,
 		DiscountAmount: discount,
-		Status:         repository.ReservationReserved,
+		Status:         store.ReservationReserved,
 	})
 	if err != nil {
 		return ReserveResult{}, err
@@ -252,7 +236,7 @@ func (s *VoucherService) ValidateAndReserve(ctx context.Context, reservationID, 
 }
 
 // validate applies the rejection rules; returns (reason, false) on the first miss.
-func (s *VoucherService) validate(v repository.Voucher, subtotal int64, sellerID string) (string, bool) {
+func (s *Service) validate(v store.Voucher, subtotal int64, sellerID string) (string, bool) {
 	now := s.nowFn()
 	if !v.StartsAt.IsZero() && now.Before(v.StartsAt) {
 		return "voucher not yet active", false
@@ -276,7 +260,7 @@ func (s *VoucherService) validate(v repository.Voucher, subtotal int64, sellerID
 //
 //	PERCENT → min(subtotal*value/100, max_discount>0 ? max_discount : ∞)
 //	FIXED   → min(value, subtotal)
-func computeDiscount(v repository.Voucher, subtotal int64) int64 {
+func computeDiscount(v store.Voucher, subtotal int64) int64 {
 	var d int64
 	switch v.DiscountType {
 	case discountTypePercent:
@@ -302,21 +286,21 @@ func computeDiscount(v repository.Voucher, subtotal int64) int64 {
 // exactly once. Idempotent — a second commit of an already-committed hold is a
 // no-op that still reports committed=true. Returns false if the hold was released
 // or never existed.
-func (s *VoucherService) CommitReservation(ctx context.Context, reservationID string) (bool, error) {
+func (s *Service) CommitReservation(ctx context.Context, reservationID string) (bool, error) {
 	res, err := s.reservations.GetByReservationID(ctx, reservationID)
 	if err != nil {
-		if errors.Is(err, repository.ErrReservationNotFound) {
+		if errors.Is(err, store.ErrReservationNotFound) {
 			return false, nil
 		}
 		return false, err
 	}
 	switch res.Status {
-	case repository.ReservationCommitted:
+	case store.ReservationCommitted:
 		return true, nil // idempotent: already finalized
-	case repository.ReservationReleased:
+	case store.ReservationReleased:
 		return false, nil // cannot commit a freed hold
 	}
-	if err := s.reservations.UpdateStatus(ctx, reservationID, repository.ReservationCommitted); err != nil {
+	if err := s.reservations.UpdateStatus(ctx, reservationID, store.ReservationCommitted); err != nil {
 		return false, err
 	}
 	if err := s.vouchers.IncrementUsed(ctx, res.VoucherID, 1); err != nil {
@@ -327,21 +311,21 @@ func (s *VoucherService) CommitReservation(ctx context.Context, reservationID st
 
 // ReleaseReservation frees a hold. Idempotent — releasing an already-released hold
 // still reports released=true. A committed hold cannot be released (returns false).
-func (s *VoucherService) ReleaseReservation(ctx context.Context, reservationID string) (bool, error) {
+func (s *Service) ReleaseReservation(ctx context.Context, reservationID string) (bool, error) {
 	res, err := s.reservations.GetByReservationID(ctx, reservationID)
 	if err != nil {
-		if errors.Is(err, repository.ErrReservationNotFound) {
+		if errors.Is(err, store.ErrReservationNotFound) {
 			return false, nil
 		}
 		return false, err
 	}
 	switch res.Status {
-	case repository.ReservationReleased:
+	case store.ReservationReleased:
 		return true, nil // idempotent
-	case repository.ReservationCommitted:
+	case store.ReservationCommitted:
 		return false, nil // finalized holds are never released
 	}
-	if err := s.reservations.UpdateStatus(ctx, reservationID, repository.ReservationReleased); err != nil {
+	if err := s.reservations.UpdateStatus(ctx, reservationID, store.ReservationReleased); err != nil {
 		return false, err
 	}
 	return true, nil

@@ -1,4 +1,4 @@
-package service
+package flashsale
 
 import (
 	"context"
@@ -8,63 +8,50 @@ import (
 	"strings"
 	"time"
 
-	"github.com/buidangphuc/team-promotion/internal/bootstrap"
-	"github.com/buidangphuc/team-promotion/internal/featureflags"
-	"github.com/buidangphuc/team-promotion/internal/producer"
-	"github.com/buidangphuc/team-promotion/internal/repository"
-	"github.com/buidangphuc/team-promotion/internal/upstream"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/flags"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/team-promotion/internal/listing"
+	"github.com/buidangphuc/team-promotion/internal/store"
 )
 
-// FlashSaleService holds the flash-sale campaign business logic.
-type FlashSaleService struct {
-	campaigns repository.FlashSaleRepository
-	emitter   *producer.Emitter
-	flags     featureflags.Evaluator
-	listings  upstream.ListingGetter // nil when UPSTREAM_DOMAIN_ADDR is unset
+const FlagFlashSaleEnabled = "flash-sale-enabled"
+
+const defaultPageSize = 50
+
+type Service struct {
+	campaigns store.FlashSaleRepository
+	holds     store.FlashHoldRepository
+	flags     flags.Evaluator
+	listings  listing.Getter
+	audit     *auditx.Gate
+	event     func(context.Context, store.FlashSaleCampaign) (outbox.Row, error)
 	logger    *slog.Logger
 	nowFn     func() time.Time
-	audit     AuditWriter // nil = admin campaign creation fails closed
-	holds     repository.FlashHoldRepository
 }
 
-// NewFlashSaleService wires the campaign repository, the promotion.events producer
-// (may be nil when Kafka is disabled), the feature flag evaluator and the team-domain
-// listing client used to verify campaign ownership (nil = fail closed for sellers).
-func NewFlashSaleService(
-	campaigns repository.FlashSaleRepository,
-	prod *bootstrap.EventProducer,
-	flags featureflags.Evaluator,
-	listings upstream.ListingGetter,
+func New(
+	campaigns store.FlashSaleRepository,
+	holds store.FlashHoldRepository,
+	flags flags.Evaluator,
+	listings listing.Getter,
+	audit *auditx.Gate,
+	event func(context.Context, store.FlashSaleCampaign) (outbox.Row, error),
 	logger *slog.Logger,
-) *FlashSaleService {
+) *Service {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	var pub producer.Publisher
-	if prod != nil {
-		pub = prod
-	}
-	return &FlashSaleService{
+	return &Service{
 		campaigns: campaigns,
-		emitter:   producer.NewEmitter(pub, logger),
+		holds:     holds,
 		flags:     flags,
 		listings:  listings,
+		audit:     audit,
+		event:     event,
 		logger:    logger,
 		nowFn:     time.Now,
 	}
-}
-
-// WithAudit sets the audit writer used for admin campaign creation.
-func (s *FlashSaleService) WithAudit(w AuditWriter) *FlashSaleService {
-	s.audit = w
-	return s
-}
-
-// WithHolds sets the flash-stock hold repository used by the reserve/commit/release
-// RPCs and by GetFlashSaleStock.
-func (s *FlashSaleService) WithHolds(h repository.FlashHoldRepository) *FlashSaleService {
-	s.holds = h
-	return s
 }
 
 // ErrInvalidCampaign is returned for malformed CreateCampaign input.
@@ -84,72 +71,70 @@ type CreateCampaignParams struct {
 	IsAdmin  bool
 }
 
-// CreateCampaign persists a campaign and emits FlashSaleChanged on promotion.events.
-// Non-admin callers must own the listing (checked against team-domain). Errors from
-// the ownership check are gRPC status errors (InvalidArgument, PermissionDenied,
-// Unavailable).
-func (s *FlashSaleService) CreateCampaign(ctx context.Context, p CreateCampaignParams) (repository.FlashSaleCampaign, error) {
-	if strings.TrimSpace(p.ListingID) == "" {
-		return repository.FlashSaleCampaign{}, ErrInvalidCampaign
+func (s *Service) CreateCampaign(ctx context.Context, p CreateCampaignParams) (store.FlashSaleCampaign, error) {
+	listingID := strings.TrimSpace(p.ListingID)
+	if listingID == "" {
+		return store.FlashSaleCampaign{}, ErrInvalidCampaign
 	}
-	var id string
-	if p.IsAdmin {
-		id = newCampaignID()
-		if err := writeAudit(ctx, s.audit, upstream.AuditEvent{
-			ActorID:    p.CallerID,
-			Action:     "flash_sale.admin_create",
-			TargetType: "flash_sale",
-			TargetID:   id,
-			Metadata:   map[string]string{"listing_id": strings.TrimSpace(p.ListingID)},
-		}); err != nil {
-			return repository.FlashSaleCampaign{}, err
-		}
-	} else if err := s.requireListingOwner(ctx, strings.TrimSpace(p.ListingID), p.CallerID); err != nil {
-		return repository.FlashSaleCampaign{}, err
-	}
-	c := repository.FlashSaleCampaign{
-		ID:        id,
-		ListingID: strings.TrimSpace(p.ListingID),
+	c := store.FlashSaleCampaign{
+		ListingID: listingID,
 		VariantID: p.VariantID,
 		SalePrice: p.SalePrice,
 		StockCap:  p.StockCap,
 		StartsAt:  p.StartsAt,
 		EndsAt:    p.EndsAt,
 	}
-	created, err := s.campaigns.Create(ctx, c)
-	if err != nil {
-		return repository.FlashSaleCampaign{}, err
+	var created store.FlashSaleCampaign
+	insert := func(ctx context.Context) error {
+		var err error
+		created, err = s.campaigns.Create(ctx, c, func(cc store.FlashSaleCampaign) (outbox.Row, error) {
+			return s.event(ctx, cc)
+		})
+		return err
 	}
-	if err := s.emitter.EmitFlashSaleChanged(ctx, CampaignToProto(created)); err != nil {
-		s.logger.Warn("emit FlashSaleChanged failed", slog.String("campaign_id", created.ID), slog.Any("err", err))
+	if !p.IsAdmin {
+		if err := listing.Owner(ctx, s.listings, s.logger, listingID, p.CallerID); err != nil {
+			return store.FlashSaleCampaign{}, err
+		}
+		if err := insert(ctx); err != nil {
+			return store.FlashSaleCampaign{}, err
+		}
+		return created, nil
+	}
+	c.ID = store.NewID()
+	ev := auditx.Event{
+		ActorID:    p.CallerID,
+		Action:     "flash_sale.admin_create",
+		TargetType: "flash_sale",
+		TargetID:   c.ID,
+		Metadata:   map[string]string{"listing_id": listingID},
+	}
+	if err := s.audit.Do(ctx, ev, insert); err != nil {
+		return store.FlashSaleCampaign{}, err
 	}
 	return created, nil
-}
-
-func (s *FlashSaleService) requireListingOwner(ctx context.Context, listingID, callerID string) error {
-	return requireListingOwner(ctx, s.listings, s.logger, listingID, callerID)
 }
 
 // GetActiveFlashSale returns the active campaign for a listing, honoring the sale
 // window. The flash-sale kill-switch (FlagFlashSaleEnabled, fail-open) suppresses
 // the sale when a human turns it OFF during an incident.
-func (s *FlashSaleService) GetActiveFlashSale(ctx context.Context, listingID string) (repository.FlashSaleCampaign, bool, error) {
+func (s *Service) GetActiveFlashSale(ctx context.Context, listingID string) (store.FlashSaleCampaign, bool, error) {
 	if !s.flashSaleEnabled(ctx) {
-		return repository.FlashSaleCampaign{}, false, nil
+		return store.FlashSaleCampaign{}, false, nil
 	}
 	c, err := s.campaigns.GetActiveByListing(ctx, listingID, s.nowFn())
 	if err != nil {
-		if errors.Is(err, repository.ErrCampaignNotFound) {
-			return repository.FlashSaleCampaign{}, false, nil
+		if errors.Is(err, store.ErrCampaignNotFound) {
+			return store.FlashSaleCampaign{}, false, nil
 		}
-		return repository.FlashSaleCampaign{}, false, err
+		return store.FlashSaleCampaign{}, false, err
 	}
 	return c, true, nil
 }
 
 // ListActiveCampaigns returns a page of currently-active campaigns. The cursor is
 // a stringified offset; nextCursor is empty on the last page.
-func (s *FlashSaleService) ListActiveCampaigns(ctx context.Context, cursor string, pageSize int32) ([]repository.FlashSaleCampaign, string, error) {
+func (s *Service) ListActiveCampaigns(ctx context.Context, cursor string, pageSize int32) ([]store.FlashSaleCampaign, string, error) {
 	if !s.flashSaleEnabled(ctx) {
 		return nil, "", nil
 	}
@@ -177,7 +162,7 @@ func (s *FlashSaleService) ListActiveCampaigns(ctx context.Context, cursor strin
 
 // GetFlashSaleStock returns remaining = stock_cap - stock_sold - active holds (floored
 // at 0) plus the cap, for the live banner/meter.
-func (s *FlashSaleService) GetFlashSaleStock(ctx context.Context, campaignID string) (remaining, stockCap int64, err error) {
+func (s *Service) GetFlashSaleStock(ctx context.Context, campaignID string) (remaining, stockCap int64, err error) {
 	c, err := s.campaigns.GetByID(ctx, campaignID)
 	if err != nil {
 		return 0, 0, err
@@ -206,11 +191,11 @@ var errHoldsNotConfigured = errors.New("flash sale holds are not configured")
 
 // replayOutcome maps a stored hold to the Reserve outcome: a live or committed hold
 // is reserved, a released or expired one is not active.
-func (s *FlashSaleService) replayOutcome(h repository.FlashHold) (bool, string) {
+func (s *Service) replayOutcome(h store.FlashHold) (bool, string) {
 	switch h.Status {
-	case repository.FlashHoldCommitted:
+	case store.FlashHoldCommitted:
 		return true, ""
-	case repository.FlashHoldReserved:
+	case store.FlashHoldReserved:
 		if s.nowFn().Before(h.ExpiresAt) {
 			return true, ""
 		}
@@ -222,7 +207,7 @@ func (s *FlashSaleService) replayOutcome(h repository.FlashHold) (bool, string) 
 // Idempotent on reservationID: a replay returns the stored outcome whatever the other
 // fields say. The first failing check decides the reason: not_active, price_changed,
 // insufficient_stock.
-func (s *FlashSaleService) ReserveFlashSaleStock(ctx context.Context, reservationID, campaignID, listingID, variantID string, quantity, expectedSalePrice int64) (bool, string, error) {
+func (s *Service) ReserveFlashSaleStock(ctx context.Context, reservationID, campaignID, listingID, variantID string, quantity, expectedSalePrice int64) (bool, string, error) {
 	if s.holds == nil {
 		return false, "", errHoldsNotConfigured
 	}
@@ -231,7 +216,7 @@ func (s *FlashSaleService) ReserveFlashSaleStock(ctx context.Context, reservatio
 		reserved, reason := s.replayOutcome(stored)
 		return reserved, reason, nil
 	}
-	if !errors.Is(err, repository.ErrFlashHoldNotFound) {
+	if !errors.Is(err, store.ErrFlashHoldNotFound) {
 		return false, "", err
 	}
 	if !s.flashSaleEnabled(ctx) {
@@ -239,7 +224,7 @@ func (s *FlashSaleService) ReserveFlashSaleStock(ctx context.Context, reservatio
 	}
 	c, err := s.campaigns.GetByID(ctx, campaignID)
 	if err != nil {
-		if errors.Is(err, repository.ErrCampaignNotFound) {
+		if errors.Is(err, store.ErrCampaignNotFound) {
 			return false, reasonNotActive, nil
 		}
 		return false, "", err
@@ -252,13 +237,13 @@ func (s *FlashSaleService) ReserveFlashSaleStock(ctx context.Context, reservatio
 	if c.SalePrice != expectedSalePrice {
 		return false, reasonPriceChanged, nil
 	}
-	stored, created, err := s.holds.Reserve(ctx, repository.FlashHold{
+	stored, created, err := s.holds.Reserve(ctx, store.FlashHold{
 		ReservationID: reservationID, CampaignID: campaignID, ListingID: listingID, VariantID: variantID, Quantity: quantity,
 	}, now)
 	switch {
-	case errors.Is(err, repository.ErrFlashStockInsufficient):
+	case errors.Is(err, store.ErrFlashStockInsufficient):
 		return false, reasonInsufficientStock, nil
-	case errors.Is(err, repository.ErrCampaignNotFound):
+	case errors.Is(err, store.ErrCampaignNotFound):
 		return false, reasonNotActive, nil
 	case err != nil:
 		return false, "", err
@@ -271,7 +256,7 @@ func (s *FlashSaleService) ReserveFlashSaleStock(ctx context.Context, reservatio
 
 // CommitFlashSaleStock turns a live hold into sold units. Idempotent; false for an
 // unknown, released or expired hold. The sale window is not checked.
-func (s *FlashSaleService) CommitFlashSaleStock(ctx context.Context, reservationID string) (bool, error) {
+func (s *Service) CommitFlashSaleStock(ctx context.Context, reservationID string) (bool, error) {
 	if s.holds == nil {
 		return false, errHoldsNotConfigured
 	}
@@ -280,7 +265,7 @@ func (s *FlashSaleService) CommitFlashSaleStock(ctx context.Context, reservation
 
 // ReleaseFlashSaleStock returns a hold's units (also after commit). Idempotent;
 // false for an unknown reservation.
-func (s *FlashSaleService) ReleaseFlashSaleStock(ctx context.Context, reservationID string) (bool, error) {
+func (s *Service) ReleaseFlashSaleStock(ctx context.Context, reservationID string) (bool, error) {
 	if s.holds == nil {
 		return false, errHoldsNotConfigured
 	}
@@ -289,9 +274,9 @@ func (s *FlashSaleService) ReleaseFlashSaleStock(ctx context.Context, reservatio
 
 // flashSaleEnabled evaluates the kill-switch, failing open (true) on any provider
 // error so a Flipt outage never disables promotions.
-func (s *FlashSaleService) flashSaleEnabled(ctx context.Context) bool {
+func (s *Service) flashSaleEnabled(ctx context.Context) bool {
 	if s.flags == nil {
 		return true
 	}
-	return s.flags.BooleanEnabled(ctx, featureflags.FlagFlashSaleEnabled, true)
+	return s.flags.BooleanEnabled(ctx, FlagFlashSaleEnabled, true)
 }
