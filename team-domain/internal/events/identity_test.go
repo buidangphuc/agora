@@ -1,68 +1,64 @@
-package consumer
+package events_test
 
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
 	identityv1 "github.com/buidangphuc/team-domain/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-domain/internal/events"
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/store"
 )
-
-// Contract the implementation must provide (package consumer):
-//
-//	type SellerStore interface {
-//	    HoldSellerListings(ctx, userID, eventID string, changedAt time.Time, enqueue repository.EnqueueFn) (int, error)
-//	    RestoreSellerListings(ctx, userID, eventID string, changedAt time.Time, enqueue repository.EnqueueFn) (int, error)
-//	}
-//	func NewIdentityConsumer(store SellerStore, logger *slog.Logger) *IdentityConsumer
-//	func (*IdentityConsumer) Handle(ctx, key, value []byte) error   // consumer.Handler
-//	var ErrPermanent error // processRecord parks wrapped ErrPermanent without retrying
 
 var (
 	t1 = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	t2 = t1.Add(time.Hour)
 )
 
-// fakeSellerStore mirrors the contract of repository.PgTxWriter.{Hold,Restore}SellerListings
+// fakeSellerStore mirrors the contract of store.PgTxWriter.{Hold,Restore}SellerListings
 // (dedupe by event id, stale-changed_at skip, status filters, one outbox row per change).
 // It is the true external boundary (the database) for the consumer.
 type fakeSellerStore struct {
 	mu        sync.Mutex
-	listings  map[string]*repository.Listing // id -> listing
-	prior     map[string]string              // id -> held_prior_status
+	listings  map[string]*store.Listing // id -> listing
+	prior     map[string]string         // id -> held_prior_status
 	processed map[string]bool
 	applied   map[string]time.Time
-	outbox    []repository.OutboxRow
+	outbox    []store.OutboxRow
 	calls     int
 	failErr   error
 }
 
 func newFakeStore() *fakeSellerStore {
 	return &fakeSellerStore{
-		listings: map[string]*repository.Listing{}, prior: map[string]string{},
+		listings: map[string]*store.Listing{}, prior: map[string]string{},
 		processed: map[string]bool{}, applied: map[string]time.Time{},
 	}
 }
 
 func (f *fakeSellerStore) seed(id, seller, status string) {
-	f.listings[id] = &repository.Listing{ID: id, SellerID: seller, Status: status}
+	f.listings[id] = &store.Listing{ID: id, SellerID: seller, Status: status}
+}
+
+func (f *fakeSellerStore) callCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls
 }
 
 func (f *fakeSellerStore) status(id string) string { return f.listings[id].Status }
 
-func (f *fakeSellerStore) apply(userID, eventID string, at time.Time, enq repository.EnqueueFn, hold bool) (int, error) {
+func (f *fakeSellerStore) apply(userID, eventID string, at time.Time, enq store.EnqueueFn, hold bool) (int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
@@ -100,11 +96,11 @@ func (f *fakeSellerStore) apply(userID, eventID string, at time.Time, enq reposi
 	return n, nil
 }
 
-func (f *fakeSellerStore) HoldSellerListings(_ context.Context, userID, eventID string, at time.Time, enq repository.EnqueueFn) (int, error) {
+func (f *fakeSellerStore) HoldSellerListings(_ context.Context, userID, eventID string, at time.Time, enq store.EnqueueFn) (int, error) {
 	return f.apply(userID, eventID, at, enq, true)
 }
 
-func (f *fakeSellerStore) RestoreSellerListings(_ context.Context, userID, eventID string, at time.Time, enq repository.EnqueueFn) (int, error) {
+func (f *fakeSellerStore) RestoreSellerListings(_ context.Context, userID, eventID string, at time.Time, enq store.EnqueueFn) (int, error) {
 	return f.apply(userID, eventID, at, enq, false)
 }
 
@@ -124,7 +120,7 @@ func envBytes(t *testing.T, eventID, typ string, payload proto.Message) []byte {
 	return b
 }
 
-const statusChangedType = "platform.identity.v1.UserStatusChanged"
+const statusChangedTypeURL = "platform.identity.v1.UserStatusChanged"
 
 func statusEvent(t *testing.T, eventID, user string, status, prev identityv1.UserStatus, at time.Time) []byte {
 	t.Helper()
@@ -132,14 +128,14 @@ func statusEvent(t *testing.T, eventID, user string, status, prev identityv1.Use
 	if !at.IsZero() {
 		m.ChangedAt = timestamppb.New(at)
 	}
-	return envBytes(t, eventID, statusChangedType, m)
+	return envBytes(t, eventID, statusChangedTypeURL, m)
 }
 
-func newHandler(store SellerStore) *IdentityConsumer {
-	return NewIdentityConsumer(store, discardLogger())
+func newHandler(st events.SellerStore) *events.IdentityConsumer {
+	return events.NewIdentityConsumer(st, discardLogger())
 }
 
-func decodeChanged(t *testing.T, row repository.OutboxRow) (*eventsv1.EventEnvelope, *listingv1.ListingChanged) {
+func decodeChanged(t *testing.T, row store.OutboxRow) (*eventsv1.EventEnvelope, *listingv1.ListingChanged) {
 	t.Helper()
 	var env eventsv1.EventEnvelope
 	if err := proto.Unmarshal(row.Payload, &env); err != nil {
@@ -160,8 +156,7 @@ func TestUserStatusChangedBannedHolds(t *testing.T) {
 	st.seed("other", "u2", "published")
 	h := newHandler(st)
 
-	err := h.Handle(context.Background(), []byte("u1"),
-		statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_BANNED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1))
+	err := h.Handle(t.Context(), consume.Record{Key: []byte("u1"), Value: statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_BANNED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)})
 	if err != nil {
 		t.Fatalf("Handle: %v", err)
 	}
@@ -181,8 +176,7 @@ func TestUserStatusChangedSuspendedHolds(t *testing.T) {
 	st := newFakeStore()
 	st.seed("l1", "u1", "published")
 	st.seed("l2", "u1", "pending_review")
-	if err := newHandler(st).Handle(context.Background(), nil,
-		statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)); err != nil {
+	if err := newHandler(st).Handle(t.Context(), consume.Record{Value: statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)}); err != nil {
 		t.Fatal(err)
 	}
 	if st.status("l1") != "held" || st.status("l2") != "held" || st.prior["l2"] != "pending_review" {
@@ -194,8 +188,7 @@ func TestUserStatusChangedSuspendedHolds(t *testing.T) {
 func TestHoldEventCarriesHeldStatus(t *testing.T) {
 	st := newFakeStore()
 	st.seed("l1", "u1", "published")
-	if err := newHandler(st).Handle(context.Background(), nil,
-		statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)); err != nil {
+	if err := newHandler(st).Handle(t.Context(), consume.Record{Value: statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)}); err != nil {
 		t.Fatal(err)
 	}
 	if len(st.outbox) != 1 {
@@ -231,8 +224,7 @@ func TestHoldEventCarriesHeldStatus(t *testing.T) {
 // Scenario "Seller hold: Seller with no listings is a no-op".
 func TestUserStatusChangedUnknownSellerNoop(t *testing.T) {
 	st := newFakeStore()
-	err := newHandler(st).Handle(context.Background(), nil,
-		statusEvent(t, "e1", "ghost", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1))
+	err := newHandler(st).Handle(t.Context(), consume.Record{Value: statusEvent(t, "e1", "ghost", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)})
 	if err != nil {
 		t.Fatalf("Handle: %v", err)
 	}
@@ -249,12 +241,10 @@ func TestUserStatusChangedRestrictedRestores(t *testing.T) {
 	st := newFakeStore()
 	st.seed("l1", "u1", "published")
 	h := newHandler(st)
-	if err := h.Handle(context.Background(), nil,
-		statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)); err != nil {
+	if err := h.Handle(t.Context(), consume.Record{Value: statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)}); err != nil {
 		t.Fatal(err)
 	}
-	if err := h.Handle(context.Background(), nil,
-		statusEvent(t, "e2", "u1", identityv1.UserStatus_USER_STATUS_RESTRICTED, identityv1.UserStatus_USER_STATUS_SUSPENDED, t2)); err != nil {
+	if err := h.Handle(t.Context(), consume.Record{Value: statusEvent(t, "e2", "u1", identityv1.UserStatus_USER_STATUS_RESTRICTED, identityv1.UserStatus_USER_STATUS_SUSPENDED, t2)}); err != nil {
 		t.Fatal(err)
 	}
 	if st.status("l1") != "published" || st.prior["l1"] != "" {
@@ -273,10 +263,8 @@ func TestUserStatusChangedActiveRestores(t *testing.T) {
 	st.seed("l1", "u1", "published")
 	st.seed("l2", "u1", "pending_review")
 	h := newHandler(st)
-	_ = h.Handle(context.Background(), nil,
-		statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_BANNED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1))
-	if err := h.Handle(context.Background(), nil,
-		statusEvent(t, "e2", "u1", identityv1.UserStatus_USER_STATUS_ACTIVE, identityv1.UserStatus_USER_STATUS_BANNED, t2)); err != nil {
+	_ = h.Handle(t.Context(), consume.Record{Value: statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_BANNED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)})
+	if err := h.Handle(t.Context(), consume.Record{Value: statusEvent(t, "e2", "u1", identityv1.UserStatus_USER_STATUS_ACTIVE, identityv1.UserStatus_USER_STATUS_BANNED, t2)}); err != nil {
 		t.Fatal(err)
 	}
 	if st.status("l1") != "published" || st.status("l2") != "pending_review" {
@@ -289,8 +277,7 @@ func TestUserStatusChangedRestrictedFromActiveHoldsNothing(t *testing.T) {
 	st := newFakeStore()
 	st.seed("l1", "u1", "published")
 	st.seed("l2", "u1", "published")
-	err := newHandler(st).Handle(context.Background(), nil,
-		statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_RESTRICTED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1))
+	err := newHandler(st).Handle(t.Context(), consume.Record{Value: statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_RESTRICTED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,13 +291,11 @@ func TestUserStatusChangedRestrictedFromSuspendedRestores(t *testing.T) {
 	st := newFakeStore()
 	st.seed("l1", "u1", "published")
 	h := newHandler(st)
-	_ = h.Handle(context.Background(), nil,
-		statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1))
+	_ = h.Handle(t.Context(), consume.Record{Value: statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)})
 	if st.status("l1") != "held" {
 		t.Fatalf("precondition: l1 = %q", st.status("l1"))
 	}
-	if err := h.Handle(context.Background(), nil,
-		statusEvent(t, "e2", "u1", identityv1.UserStatus_USER_STATUS_RESTRICTED, identityv1.UserStatus_USER_STATUS_SUSPENDED, t2)); err != nil {
+	if err := h.Handle(t.Context(), consume.Record{Value: statusEvent(t, "e2", "u1", identityv1.UserStatus_USER_STATUS_RESTRICTED, identityv1.UserStatus_USER_STATUS_SUSPENDED, t2)}); err != nil {
 		t.Fatal(err)
 	}
 	if st.status("l1") != "published" {
@@ -325,7 +310,7 @@ func TestUserStatusChangedRedeliveryIsIdempotent(t *testing.T) {
 	h := newHandler(st)
 	ev := statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)
 	for i := 0; i < 2; i++ {
-		if err := h.Handle(context.Background(), nil, ev); err != nil {
+		if err := h.Handle(t.Context(), consume.Record{Value: ev}); err != nil {
 			t.Fatalf("delivery %d: %v", i+1, err)
 		}
 	}
@@ -342,8 +327,7 @@ func TestUserStatusChangedRedeliveryIsIdempotent(t *testing.T) {
 func TestUserStatusChangedPassesEventIDAndChangedAt(t *testing.T) {
 	st := newFakeStore()
 	st.seed("l1", "u1", "published")
-	if err := newHandler(st).Handle(context.Background(), nil,
-		statusEvent(t, "evt-42", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t2)); err != nil {
+	if err := newHandler(st).Handle(t.Context(), consume.Record{Value: statusEvent(t, "evt-42", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t2)}); err != nil {
 		t.Fatal(err)
 	}
 	if !st.processed["evt-42"] {
@@ -359,7 +343,7 @@ func TestIdentityConsumerIgnoresOtherTypes(t *testing.T) {
 	st := newFakeStore()
 	st.seed("l1", "u1", "published")
 	other := envBytes(t, "e9", "platform.identity.v1.SessionRevoked", &identityv1.UserStatusChanged{UserId: "u1"})
-	if err := newHandler(st).Handle(context.Background(), nil, other); err != nil {
+	if err := newHandler(st).Handle(t.Context(), consume.Record{Value: other}); err != nil {
 		t.Fatalf("Handle: %v", err)
 	}
 	if st.calls != 0 || len(st.processed) != 0 || len(st.outbox) != 0 || st.status("l1") != "published" {
@@ -367,41 +351,80 @@ func TestIdentityConsumerIgnoresOtherTypes(t *testing.T) {
 	}
 }
 
+// Scenario "Seller hold: Re-driven older suspension does not re-hold a reinstated seller".
+func TestUserStatusChangedOlderSuspensionDoesNotRehold(t *testing.T) {
+	st := newFakeStore()
+	st.seed("l1", "u1", "published")
+	h := newHandler(st)
+	send := func(id string, status, prev identityv1.UserStatus, at time.Time) {
+		t.Helper()
+		if err := h.Handle(t.Context(), consume.Record{Value: statusEvent(t, id, "u1", status, prev, at)}); err != nil {
+			t.Fatalf("%s: %v", id, err)
+		}
+	}
+	send("e1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)
+	send("e2", identityv1.UserStatus_USER_STATUS_ACTIVE, identityv1.UserStatus_USER_STATUS_SUSPENDED, t2)
+	rows := len(st.outbox)
+	send("e3", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)
+	if st.status("l1") != "published" || len(st.outbox) != rows {
+		t.Errorf("status=%q outbox=%d (was %d), want published and unchanged", st.status("l1"), len(st.outbox), rows)
+	}
+}
+
+// Scenario "Seller hold: Event with the same changed_at is stale".
+func TestUserStatusChangedSameChangedAtIsStale(t *testing.T) {
+	st := newFakeStore()
+	st.seed("l1", "u1", "published")
+	h := newHandler(st)
+	if err := h.Handle(t.Context(), consume.Record{Value: statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t2)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Handle(t.Context(), consume.Record{Value: statusEvent(t, "e2", "u1", identityv1.UserStatus_USER_STATUS_ACTIVE, identityv1.UserStatus_USER_STATUS_SUSPENDED, t2)}); err != nil {
+		t.Fatal(err)
+	}
+	if st.status("l1") != "held" || len(st.outbox) != 1 {
+		t.Errorf("status=%q outbox=%d, want held/1 (same changed_at is stale)", st.status("l1"), len(st.outbox))
+	}
+}
+
 // Scenario "Seller hold: Malformed event is parked, not applied".
 func TestUserStatusChangedMalformedGoesToDLQ(t *testing.T) {
-	garbledPayload, _ := proto.Marshal(&eventsv1.EventEnvelope{EventId: "e1", Type: statusChangedType, Payload: []byte{0xff, 0xff, 0xff}})
+	brokers := redpanda(t)
+	garbledPayload, _ := proto.Marshal(&eventsv1.EventEnvelope{EventId: "e1", Type: statusChangedTypeURL, Payload: []byte{0xff, 0xff, 0xff}})
 	cases := map[string][]byte{
-		"unparsable envelope": []byte{0xff, 0xff, 0xff, 0xff},
+		"unparsable envelope": {0xff, 0xff, 0xff, 0xff},
 		"unparsable payload":  garbledPayload,
 		"empty user_id":       statusEvent(t, "e1", "", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1),
 		"missing changed_at":  statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, time.Time{}),
 		"unspecified status":  statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_UNSPECIFIED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1),
 		"unknown status 9":    statusEvent(t, "e1", "u1", identityv1.UserStatus(9), identityv1.UserStatus_USER_STATUS_ACTIVE, t1),
 	}
+	n := 0
 	for name, value := range cases {
+		n++
+		topic := "identity.events.malformed" + string(rune('a'+n))
 		t.Run(name, func(t *testing.T) {
 			st := newFakeStore()
 			st.seed("l1", "u1", "published")
-			dlq := &fakeDLQ{}
-			c := testConsumer(dlq)
 			h := newHandler(st)
-
-			var attempts int
-			counting := func(ctx context.Context, k, v []byte) error { attempts++; return h.Handle(ctx, k, v) }
-			if err := c.processRecord(context.Background(), []byte("u1"), value, counting, discardLogger()); err != nil {
-				t.Fatalf("processRecord: %v (record must be parked so the offset advances)", err)
+			var attempts atomic.Int32
+			counting := func(ctx context.Context, r consume.Record) error { attempts.Add(1); return h.Handle(ctx, r) }
+			dlq := newFakeDLQ(nil)
+			produce(t, brokers, topic, []byte("u1"), value)
+			r := startConsumer(t, brokers, topic, counting, dlq, discardLogger())
+			r.waitDLQ(dlq)
+			if err := r.stop(); err != nil {
+				t.Fatalf("Run: %v (record must be parked so the offset advances)", err)
 			}
-			if err := h.Handle(context.Background(), nil, value); !errors.Is(err, ErrPermanent) {
-				t.Errorf("Handle err = %v, want wrapping ErrPermanent", err)
+			recs := dlq.records()
+			if attempts.Load() != 1 {
+				t.Errorf("attempts = %d, want 1 (permanent error skips retries)", attempts.Load())
 			}
-			if attempts != 1 {
-				t.Errorf("attempts = %d, want 1 (permanent error skips retries)", attempts)
+			if len(recs) != 1 || string(recs[0].Value) != string(value) {
+				t.Fatalf("dlq records = %d, want the original record parked", len(recs))
 			}
-			if len(dlq.records) != 1 || string(dlq.records[0][1]) != string(value) {
-				t.Errorf("dlq records = %d, want the original record parked", len(dlq.records))
-			}
-			if st.status("l1") != "published" || len(st.outbox) != 0 || st.calls != 0 {
-				t.Errorf("listing touched: status=%q outbox=%d store calls=%d", st.status("l1"), len(st.outbox), st.calls)
+			if st.status("l1") != "published" || len(st.outbox) != 0 || st.callCount() != 0 {
+				t.Errorf("listing touched: status=%q outbox=%d store calls=%d", st.status("l1"), len(st.outbox), st.callCount())
 			}
 		})
 	}
@@ -409,71 +432,27 @@ func TestUserStatusChangedMalformedGoesToDLQ(t *testing.T) {
 
 // Scenario "Seller hold: Database failure retries then parks".
 func TestUserStatusChangedDBFailureRetriesThenDLQ(t *testing.T) {
+	brokers := redpanda(t)
 	st := newFakeStore()
 	st.seed("l1", "u1", "published")
 	st.failErr = errors.New("db down")
-	dlq := &fakeDLQ{}
-	c := &Consumer{dlq: dlq, cfg: RetryConfig{MaxAttempts: 5, BaseBackoff: time.Microsecond, MaxBackoff: time.Millisecond}}
 	h := newHandler(st)
 	value := statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1)
+	dlq := newFakeDLQ(nil)
+	produce(t, brokers, "identity.events.dbfail", []byte("u1"), value)
+	r := startConsumer(t, brokers, "identity.events.dbfail", h.Handle, dlq, discardLogger())
+	r.waitDLQ(dlq)
+	if err := r.stop(); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
 
-	if err := c.processRecord(context.Background(), []byte("u1"), value, h.Handle, discardLogger()); err != nil {
-		t.Fatalf("processRecord: %v", err)
+	if st.callCount() != 5 {
+		t.Errorf("store attempts = %d, want 5", st.callCount())
 	}
-	if st.calls != 5 {
-		t.Errorf("store attempts = %d, want 5", st.calls)
-	}
-	if len(dlq.records) != 1 {
-		t.Fatalf("dlq records = %d, want 1", len(dlq.records))
+	if len(dlq.records()) != 1 {
+		t.Fatalf("dlq records = %d, want 1", len(dlq.records()))
 	}
 	if st.status("l1") != "published" || len(st.processed) != 0 || len(st.outbox) != 0 {
 		t.Errorf("state changed: status=%q processed=%v outbox=%d", st.status("l1"), st.processed, len(st.outbox))
 	}
 }
-
-// Transient errors must NOT be classified permanent (they must be retried).
-func TestUserStatusChangedDBErrorIsNotPermanent(t *testing.T) {
-	st := newFakeStore()
-	st.seed("l1", "u1", "published")
-	st.failErr = errors.New("db down")
-	err := newHandler(st).Handle(context.Background(), nil,
-		statusEvent(t, "e1", "u1", identityv1.UserStatus_USER_STATUS_SUSPENDED, identityv1.UserStatus_USER_STATUS_ACTIVE, t1))
-	if err == nil || errors.Is(err, ErrPermanent) {
-		t.Fatalf("err = %v, want a retryable error", err)
-	}
-}
-
-// Consumer-level support for the permanent-error rule (scenario "Malformed event is
-// parked, not applied"): a permanent error is parked after exactly one attempt.
-func TestProcessRecord_PermanentErrorParksWithoutRetry(t *testing.T) {
-	dlq := &fakeDLQ{}
-	c := testConsumer(dlq)
-	var calls int
-	h := func(context.Context, []byte, []byte) error { calls++; return ErrPermanent }
-	if err := c.processRecord(context.Background(), []byte("k"), []byte("v"), h, discardLogger()); err != nil {
-		t.Fatalf("err = %v", err)
-	}
-	if calls != 1 || len(dlq.records) != 1 {
-		t.Fatalf("calls=%d dlq=%d, want 1/1", calls, len(dlq.records))
-	}
-}
-
-// fakeDLQ records records parked to the dead-letter topic.
-type fakeDLQ struct {
-	mu      sync.Mutex
-	records [][2][]byte
-}
-
-func (f *fakeDLQ) Produce(_ context.Context, key, value []byte) error {
-	f.mu.Lock()
-	f.records = append(f.records, [2][]byte{key, value})
-	f.mu.Unlock()
-	return nil
-}
-func (f *fakeDLQ) Close() {}
-
-func testConsumer(dlq DLQProducer) *Consumer {
-	return &Consumer{dlq: dlq, cfg: RetryConfig{MaxAttempts: 3, BaseBackoff: time.Microsecond, MaxBackoff: time.Millisecond}}
-}
-
-func discardLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
