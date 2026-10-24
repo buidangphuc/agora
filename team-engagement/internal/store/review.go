@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -186,15 +187,15 @@ func aggregateRows(rows pgx.Rows) (float64, int64, RatingBreakdown, error) {
 		sumRatings += int64(rating) * count
 		switch rating {
 		case 1:
-			breakdown.Star1 = int32(count)
+			breakdown.Star1 = clampInt32(count)
 		case 2:
-			breakdown.Star2 = int32(count)
+			breakdown.Star2 = clampInt32(count)
 		case 3:
-			breakdown.Star3 = int32(count)
+			breakdown.Star3 = clampInt32(count)
 		case 4:
-			breakdown.Star4 = int32(count)
+			breakdown.Star4 = clampInt32(count)
 		case 5:
-			breakdown.Star5 = int32(count)
+			breakdown.Star5 = clampInt32(count)
 		}
 	}
 	var avg float64
@@ -304,3 +305,13 @@ func (r *PostgresReviewRepository) HideReview(ctx context.Context, id, adminID, 
 }
 
 var _ ReviewRepository = (*PostgresReviewRepository)(nil)
+
+func clampInt32(n int64) int32 {
+	if n > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if n < 0 {
+		return 0
+	}
+	return int32(n)
+}

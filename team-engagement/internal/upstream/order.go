@@ -91,7 +91,7 @@ func (c *OrderClient) GetOrderParties(ctx context.Context, orderID string) (buye
 			return "", "", ErrOrderNotFound
 		}
 		slog.ErrorContext(ctx, "get order parties: cannot read order from team-order",
-			slog.String("order_id", orderID), slog.String("grpc_code", status.Code(err).String()), slog.Any("err", err))
+			"order_id", orderID, "grpc_code", status.Code(err).String(), "err", err)
 		return "", "", fmt.Errorf("get order %s: %w", orderID, err)
 	}
 	order := resp.GetOrder()
@@ -116,7 +116,7 @@ func (c *OrderClient) GetReturn(ctx context.Context, returnID string) (string, o
 			return "", orderv1.ReturnStatus_RETURN_STATUS_UNSPECIFIED, false, ErrReturnNotFound
 		}
 		slog.ErrorContext(ctx, "get return: cannot read return from team-order",
-			slog.String("return_id", returnID), slog.String("grpc_code", status.Code(err).String()), slog.Any("err", err))
+			"return_id", returnID, "grpc_code", status.Code(err).String(), "err", err)
 		return "", orderv1.ReturnStatus_RETURN_STATUS_UNSPECIFIED, false, fmt.Errorf("get return %s: upstream unavailable (%s)", returnID, status.Code(err))
 	}
 	ret := resp.GetReturnRequest()

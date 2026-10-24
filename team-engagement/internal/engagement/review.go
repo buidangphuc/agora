@@ -66,8 +66,8 @@ func (s *ReviewService) CreateReview(
 	}
 	verified, sellerID, err := s.verifier.VerifyPurchase(ctx, userID, listingID, orderID)
 	if err != nil {
-		s.logger.Warn("verify purchase failed", slog.String("order_id", orderID), slog.Any("err", err))
-		return store.Review{}, fmt.Errorf("%w: %v", ErrOrderUnavailable, err)
+		s.logger.WarnContext(ctx, "verify purchase failed", "order_id", orderID, "err", err)
+		return store.Review{}, fmt.Errorf("%w: %w", ErrOrderUnavailable, err)
 	}
 	if !verified {
 		return store.Review{}, ErrOrderNotEligible
