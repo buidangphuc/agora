@@ -1,4 +1,4 @@
-package service_test
+package listing_test
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 // stockOf is a small helper: the current base stock of listing id.
-func stockOf(t *testing.T, repo *repository.InMemoryListingRepository, id string) int32 {
+func stockOf(t *testing.T, repo *storetest.InMemoryListingRepository, id string) int32 {
 	t.Helper()
 	l, err := repo.Get(context.Background(), id)
 	if err != nil {
@@ -26,8 +27,8 @@ func TestReserveStockIdempotent(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("double reserve with same reservation_id decrements once", func(t *testing.T) {
-		repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
-		svc := service.NewListingService(repo)
+		repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "L1", Currency: "VND", Stock: 10})
+		svc := listing.NewListingService(repo)
 
 		if err := svc.ReserveStockIdempotent(ctx, "res-1", "L1", "", 3); err != nil {
 			t.Fatalf("first reserve: %v", err)
@@ -54,10 +55,10 @@ func TestReserveStockIdempotent(t *testing.T) {
 	})
 
 	t.Run("insufficient stock is refused and records no reservation", func(t *testing.T) {
-		repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L2", Currency: "VND", Stock: 1})
-		svc := service.NewListingService(repo)
+		repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "L2", Currency: "VND", Stock: 1})
+		svc := listing.NewListingService(repo)
 
-		if err := svc.ReserveStockIdempotent(ctx, "res-x", "L2", "", 5); !errors.Is(err, repository.ErrOutOfStock) {
+		if err := svc.ReserveStockIdempotent(ctx, "res-x", "L2", "", 5); !errors.Is(err, store.ErrOutOfStock) {
 			t.Fatalf("want ErrOutOfStock, got %v", err)
 		}
 		if got := stockOf(t, repo, "L2"); got != 1 {
@@ -80,9 +81,9 @@ func TestReserveStockIdempotent(t *testing.T) {
 // TestSweepOnlyRestoresActiveReservations).
 func TestSweepExpiredReservations(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
-	svc := service.NewListingService(repo)
-	sweeper := service.NewReservationSweeper(svc, 0, nil)
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "L1", Currency: "VND", Stock: 10})
+	svc := listing.NewListingService(repo)
+	sweeper := listing.NewReservationSweeper(svc, 0, nil)
 
 	if err := svc.ReserveStockIdempotent(ctx, "res-1", "L1", "", 4); err != nil {
 		t.Fatalf("reserve: %v", err)
@@ -100,7 +101,7 @@ func TestSweepExpiredReservations(t *testing.T) {
 	}
 
 	// Advance past the TTL: the reservation is released and stock restored.
-	future := time.Now().Add(service.DefaultReservationTTL + time.Minute)
+	future := time.Now().Add(listing.DefaultReservationTTL + time.Minute)
 	released, err := sweeper.SweepOnce(ctx, future)
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
@@ -129,8 +130,8 @@ func TestSweepExpiredReservations(t *testing.T) {
 // back) and leaves stock unchanged; active and committed ids stay idempotent.
 func TestReserveStockIdempotent_ReleasedIDFails(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
-	svc := service.NewListingService(repo)
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "L1", Currency: "VND", Stock: 10})
+	svc := listing.NewListingService(repo)
 
 	if err := svc.ReserveStockIdempotent(ctx, "r1", "L1", "", 3); err != nil {
 		t.Fatalf("reserve: %v", err)
@@ -147,7 +148,7 @@ func TestReserveStockIdempotent_ReleasedIDFails(t *testing.T) {
 	if err := svc.ReleaseStock(ctx, "r1"); err != nil {
 		t.Fatalf("release: %v", err)
 	}
-	if err := svc.ReserveStockIdempotent(ctx, "r1", "L1", "", 3); !errors.Is(err, repository.ErrReservationReleased) {
+	if err := svc.ReserveStockIdempotent(ctx, "r1", "L1", "", 3); !errors.Is(err, store.ErrReservationReleased) {
 		t.Fatalf("re-reserve released id: %v, want ErrReservationReleased", err)
 	}
 	if got := stockOf(t, repo, "L1"); got != 10 {
@@ -156,9 +157,9 @@ func TestReserveStockIdempotent_ReleasedIDFails(t *testing.T) {
 }
 
 func TestReserveStockIdempotent_EmptyIDRequired(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
-	svc := service.NewListingService(repo)
-	if err := svc.ReserveStockIdempotent(context.Background(), "", "L1", "", 3); !errors.Is(err, repository.ErrReservationIDRequired) {
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "L1", Currency: "VND", Stock: 10})
+	svc := listing.NewListingService(repo)
+	if err := svc.ReserveStockIdempotent(context.Background(), "", "L1", "", 3); !errors.Is(err, store.ErrReservationIDRequired) {
 		t.Fatalf("got %v, want ErrReservationIDRequired", err)
 	}
 	if got := stockOf(t, repo, "L1"); got != 10 {
@@ -171,9 +172,9 @@ func TestReserveStockIdempotent_EmptyIDRequired(t *testing.T) {
 // a second time.
 func TestSweepOnlyRestoresActiveReservations(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
-	svc := service.NewListingService(repo)
-	sweeper := service.NewReservationSweeper(svc, 0, nil)
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "L1", Currency: "VND", Stock: 10})
+	svc := listing.NewListingService(repo)
+	sweeper := listing.NewReservationSweeper(svc, 0, nil)
 
 	for id, qty := range map[string]int32{"active": 1, "committed": 2, "released": 3} {
 		if err := svc.ReserveStockIdempotent(ctx, id, "L1", "", qty); err != nil {
@@ -190,7 +191,7 @@ func TestSweepOnlyRestoresActiveReservations(t *testing.T) {
 		t.Fatalf("before sweep stock = %d, want 7", got)
 	}
 
-	released, err := sweeper.SweepOnce(ctx, time.Now().Add(service.DefaultReservationTTL+time.Minute))
+	released, err := sweeper.SweepOnce(ctx, time.Now().Add(listing.DefaultReservationTTL+time.Minute))
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
@@ -201,10 +202,10 @@ func TestSweepOnlyRestoresActiveReservations(t *testing.T) {
 		t.Errorf("after sweep stock = %d, want 8 (committed 2 still held)", got)
 	}
 	// The swept id is now released: reserving under it fails, committing it fails.
-	if err := svc.ReserveStockIdempotent(ctx, "active", "L1", "", 1); !errors.Is(err, repository.ErrReservationReleased) {
+	if err := svc.ReserveStockIdempotent(ctx, "active", "L1", "", 1); !errors.Is(err, store.ErrReservationReleased) {
 		t.Errorf("re-reserve swept id: %v, want ErrReservationReleased", err)
 	}
-	if err := svc.CommitReservation(ctx, "active"); !errors.Is(err, repository.ErrReservationReleased) {
+	if err := svc.CommitReservation(ctx, "active"); !errors.Is(err, store.ErrReservationReleased) {
 		t.Errorf("commit swept id: %v, want ErrReservationReleased", err)
 	}
 }

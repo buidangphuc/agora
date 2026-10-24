@@ -1,4 +1,4 @@
-package service_test
+package listing_test
 
 import (
 	"context"
@@ -6,14 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
-func newReleaseSvc(t *testing.T, stock int32) (*service.ListingService, *repository.InMemoryListingRepository) {
+func newReleaseSvc(t *testing.T, stock int32) (*listing.ListingService, *storetest.InMemoryListingRepository) {
 	t.Helper()
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: stock})
-	return service.NewListingService(repo), repo
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "L1", Currency: "VND", Stock: stock})
+	return listing.NewListingService(repo), repo
 }
 
 // Release is keyed by reservation_id and restores the STORED quantity once.
@@ -40,7 +41,7 @@ func TestReleaseStock_ByReservationID(t *testing.T) {
 		if err := svc.ReserveStockIdempotent(ctx, "r1", "L1", "", 3); err != nil {
 			t.Fatalf("reserve: %v", err)
 		}
-		if n, _ := svc.SweepExpiredReservations(ctx, time.Now().Add(service.DefaultReservationTTL+time.Minute)); n != 1 {
+		if n, _ := svc.SweepExpiredReservations(ctx, time.Now().Add(listing.DefaultReservationTTL+time.Minute)); n != 1 {
 			t.Fatalf("sweep released %d, want 1", n)
 		}
 		if err := svc.ReleaseStock(ctx, "r1"); err != nil {
@@ -88,7 +89,7 @@ func TestReleaseStock_ByReservationID(t *testing.T) {
 			go func() { defer wg.Done(); _ = svc.ReleaseStock(ctx, "r1") }()
 			go func() {
 				defer wg.Done()
-				_, _ = svc.SweepExpiredReservations(ctx, time.Now().Add(service.DefaultReservationTTL+time.Minute))
+				_, _ = svc.SweepExpiredReservations(ctx, time.Now().Add(listing.DefaultReservationTTL+time.Minute))
 			}()
 		}
 		wg.Wait()

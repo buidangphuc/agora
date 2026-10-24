@@ -1,12 +1,12 @@
-package service_test
+package listing_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 // purgeRepo is an in-memory repository that also implements the optional
@@ -14,7 +14,7 @@ import (
 //
 //	PurgeProcessedEvents(ctx context.Context, before time.Time) (int, error)
 type purgeRepo struct {
-	*repository.InMemoryListingRepository
+	*storetest.InMemoryListingRepository
 	cutoffs []time.Time
 }
 
@@ -25,18 +25,18 @@ func (p *purgeRepo) PurgeProcessedEvents(_ context.Context, before time.Time) (i
 
 // Seller hold: Consumer disabled does nothing -- retention is 14 days.
 func TestProcessedEventsRetentionIs14Days(t *testing.T) {
-	if service.ProcessedEventsRetention != 14*24*time.Hour {
-		t.Errorf("ProcessedEventsRetention = %v, want 336h", service.ProcessedEventsRetention)
+	if listing.ProcessedEventsRetention != 14*24*time.Hour {
+		t.Errorf("ProcessedEventsRetention = %v, want 336h", listing.ProcessedEventsRetention)
 	}
 }
 
 // Seller hold: Consumer disabled does nothing -- a sweep purges processed_events
 // older than now-14d.
 func TestSweepOncePurgesProcessedEventsOlderThan14Days(t *testing.T) {
-	repo := &purgeRepo{InMemoryListingRepository: repository.NewInMemoryListingRepository()}
-	svc := service.NewListingService(repo)
+	repo := &purgeRepo{InMemoryListingRepository: storetest.NewInMemoryListingRepository()}
+	svc := listing.NewListingService(repo)
 	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
-	if _, err := service.NewReservationSweeper(svc, time.Minute, nil).SweepOnce(context.Background(), now); err != nil {
+	if _, err := listing.NewReservationSweeper(svc, time.Minute, nil).SweepOnce(context.Background(), now); err != nil {
 		t.Fatalf("SweepOnce: %v", err)
 	}
 	if len(repo.cutoffs) != 1 {
@@ -50,8 +50,8 @@ func TestSweepOncePurgesProcessedEventsOlderThan14Days(t *testing.T) {
 // Seller hold: Consumer disabled does nothing -- a repository without the purge
 // capability (in-memory) keeps sweeping reservations unaffected.
 func TestSweepOnceWithoutPurgeCapabilityStillSweeps(t *testing.T) {
-	svc := service.NewListingService(repository.NewInMemoryListingRepository())
-	if _, err := service.NewReservationSweeper(svc, time.Minute, nil).SweepOnce(context.Background(), time.Now()); err != nil {
+	svc := listing.NewListingService(storetest.NewInMemoryListingRepository())
+	if _, err := listing.NewReservationSweeper(svc, time.Minute, nil).SweepOnce(context.Background(), time.Now()); err != nil {
 		t.Errorf("SweepOnce: %v", err)
 	}
 }

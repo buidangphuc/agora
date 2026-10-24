@@ -1,4 +1,4 @@
-package upstream
+package screen_test
 
 import (
 	"context"
@@ -12,8 +12,12 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	aiv1 "github.com/buidangphuc/team-domain/generated/platform/ai/v1"
+	"github.com/buidangphuc/team-domain/internal/screen"
 )
+
+const inboundDeadlineMargin = 500 * time.Millisecond
 
 // fakeAI is the team-ai boundary: it records what it receives.
 type fakeAI struct {
@@ -55,38 +59,23 @@ func startAI(t *testing.T, svc *fakeAI) string {
 	return lis.Addr().String()
 }
 
-// Scenario: Auto-screen: Unconfigured team-ai fails safe.
-func TestNewAIClientEmptyAddrIsNil(t *testing.T) {
-	c, err := NewAIClient("", time.Second)
-	if err != nil || c != nil {
-		t.Fatalf("NewAIClient(\"\") = %v, %v; want nil, nil", c, err)
-	}
-	if err := c.Close(); err != nil {
-		t.Fatalf("Close on nil client: %v", err)
-	}
-	// The nil client must report an error (never a verdict), so the caller fails safe.
-	res, err := c.ScreenListing(context.Background(), ScreenInput{Title: "t"})
-	if err == nil || res != nil {
-		t.Fatalf("nil client ScreenListing = %v, %v; want nil result and an error", res, err)
-	}
-}
-
-// Scenario: Auto-screen: Screen call uses the service principal.
+// Scenario: Domain SDK: Screening calls present the service principal.
 func TestScreenListingUsesServicePrincipal(t *testing.T) {
 	f := &fakeAI{resp: &aiv1.ScreenListingResponse{Verdict: aiv1.ScreenVerdict_SCREEN_VERDICT_ALLOW, Backend: "mock"}}
-	c, err := NewAIClient(startAI(t, f), time.Second)
+	c, err := screen.NewAIClient(startAI(t, f), time.Second)
 	if err != nil || c == nil {
 		t.Fatalf("NewAIClient: %v, %v", c, err)
 	}
-	defer c.Close()
+	t.Cleanup(func() { _ = c.Close() })
 
 	// The inbound request carries the seller's principal; it must not be forwarded.
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
+	ctx := auth.WithPrincipal(t.Context(), auth.Principal{ID: "seller-1", Type: auth.TypeUser, Scopes: []string{"seller"}})
+	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
 		"x-principal-id", "seller-1",
 		"x-principal-type", "user",
 		"x-principal-scopes", "seller",
 	))
-	if _, err := c.ScreenListing(ctx, ScreenInput{ListingID: "L-1", Title: "Ao thun", Description: "d", CategoryID: "c-1"}); err != nil {
+	if _, err := c.ScreenListing(ctx, screen.ScreenInput{ListingID: "L-1", Title: "Ao thun", Description: "d", CategoryID: "c-1"}); err != nil {
 		t.Fatalf("ScreenListing: %v", err)
 	}
 
@@ -118,12 +107,12 @@ func TestScreenListingReturnsVerdictAndLabels(t *testing.T) {
 	f := &fakeAI{resp: &aiv1.ScreenListingResponse{
 		Verdict: aiv1.ScreenVerdict_SCREEN_VERDICT_REVIEW, Labels: []string{"keyword:replica"}, Backend: "mock",
 	}}
-	c, err := NewAIClient(startAI(t, f), time.Second)
+	c, err := screen.NewAIClient(startAI(t, f), time.Second)
 	if err != nil || c == nil {
 		t.Fatalf("NewAIClient: %v, %v", c, err)
 	}
-	defer c.Close()
-	res, err := c.ScreenListing(context.Background(), ScreenInput{Title: "replica bag"})
+	t.Cleanup(func() { _ = c.Close() })
+	res, err := c.ScreenListing(t.Context(), screen.ScreenInput{Title: "replica bag"})
 	if err != nil {
 		t.Fatalf("ScreenListing: %v", err)
 	}
@@ -135,16 +124,16 @@ func TestScreenListingReturnsVerdictAndLabels(t *testing.T) {
 	}
 }
 
-// Scenario: Auto-screen: AI timeout fails safe within the bound.
+// Scenario: Domain SDK: A hung team-ai is cut off at the bound.
 func TestScreenListingTimeoutBounded(t *testing.T) {
 	f := &fakeAI{block: true}
-	c, err := NewAIClient(startAI(t, f), 300*time.Millisecond)
+	c, err := screen.NewAIClient(startAI(t, f), 300*time.Millisecond)
 	if err != nil || c == nil {
 		t.Fatalf("NewAIClient: %v, %v", c, err)
 	}
-	defer c.Close()
+	t.Cleanup(func() { _ = c.Close() })
 	start := time.Now()
-	res, err := c.ScreenListing(context.Background(), ScreenInput{Title: "t"})
+	res, err := c.ScreenListing(t.Context(), screen.ScreenInput{Title: "t"})
 	elapsed := time.Since(start)
 	if err == nil || res != nil {
 		t.Fatalf("hung team-ai: got %v, %v; want nil result and an error", res, err)
@@ -160,15 +149,15 @@ func TestScreenListingTimeoutBounded(t *testing.T) {
 // Scenario: Auto-screen: AI timeout fails safe within the bound (inbound deadline caps the call).
 func TestScreenListingRespectsInboundDeadline(t *testing.T) {
 	f := &fakeAI{block: true}
-	c, err := NewAIClient(startAI(t, f), 30*time.Second)
+	c, err := screen.NewAIClient(startAI(t, f), 30*time.Second)
 	if err != nil || c == nil {
 		t.Fatalf("NewAIClient: %v, %v", c, err)
 	}
-	defer c.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+	t.Cleanup(func() { _ = c.Close() })
+	ctx, cancel := context.WithTimeout(t.Context(), 1200*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	_, err = c.ScreenListing(ctx, ScreenInput{Title: "t"})
+	_, err = c.ScreenListing(ctx, screen.ScreenInput{Title: "t"})
 	if err == nil {
 		t.Fatal("want an error from a hung team-ai")
 	}
@@ -176,7 +165,7 @@ func TestScreenListingRespectsInboundDeadline(t *testing.T) {
 		t.Errorf("error code = %v, want DeadlineExceeded", got)
 	}
 	// boundedCtx leaves a margin of the inbound deadline for the caller's own work.
-	if el := time.Since(start); el > 1200*time.Millisecond-deadlineMargin+400*time.Millisecond {
+	if el := time.Since(start); el > 1200*time.Millisecond-inboundDeadlineMargin+400*time.Millisecond {
 		t.Fatalf("call took %v; must stop before the inbound deadline minus the margin", el)
 	}
 }
@@ -184,12 +173,12 @@ func TestScreenListingRespectsInboundDeadline(t *testing.T) {
 // Scenario: Auto-screen: Unconfigured team-ai fails safe (an upstream error is an error, never ALLOW).
 func TestScreenListingUpstreamErrorIsError(t *testing.T) {
 	f := &fakeAI{err: status.Error(codes.PermissionDenied, "no scope")}
-	c, err := NewAIClient(startAI(t, f), time.Second)
+	c, err := screen.NewAIClient(startAI(t, f), time.Second)
 	if err != nil || c == nil {
 		t.Fatalf("NewAIClient: %v, %v", c, err)
 	}
-	defer c.Close()
-	res, err := c.ScreenListing(context.Background(), ScreenInput{Title: "t"})
+	t.Cleanup(func() { _ = c.Close() })
+	res, err := c.ScreenListing(t.Context(), screen.ScreenInput{Title: "t"})
 	if err == nil || res != nil {
 		t.Fatalf("got %v, %v; want nil result and an error", res, err)
 	}

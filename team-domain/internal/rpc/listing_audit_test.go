@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -9,10 +9,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-domain/internal/handler"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/rpc"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 type handlerAuditCall struct {
@@ -24,7 +26,7 @@ type handlerAuditCall struct {
 }
 
 type handlerAudit struct {
-	repo  *repository.InMemoryListingRepository
+	repo  *storetest.InMemoryListingRepository
 	calls []handlerAuditCall
 	err   error
 }
@@ -34,41 +36,33 @@ func (a *handlerAudit) snap(id string) (string, bool) {
 	return l.Title, err == nil
 }
 
-func (a *handlerAudit) WriteListingAdminUpdate(_ context.Context, actorID, listingID, sellerID, status string) error {
-	title, ok := a.snap(listingID)
-	a.calls = append(a.calls, handlerAuditCall{"update", actorID, listingID, sellerID, status, title, ok})
-	return a.err
-}
-
-func (a *handlerAudit) WriteListingAdminDelete(_ context.Context, actorID, listingID, sellerID string) error {
-	title, ok := a.snap(listingID)
-	a.calls = append(a.calls, handlerAuditCall{"delete", actorID, listingID, sellerID, "", title, ok})
-	return a.err
-}
-
-func (a *handlerAudit) WriteListingModerate(context.Context, string, string, string, string, string, string, string, string) error {
+func (a *handlerAudit) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
+	title, ok := a.snap(ev.TargetID)
+	switch ev.Action {
+	case "listing.admin_update":
+		a.calls = append(a.calls, handlerAuditCall{"update", ev.ActorID, ev.TargetID, ev.Metadata["seller_id"], ev.Metadata["status"], title, ok})
+	case "listing.admin_delete":
+		a.calls = append(a.calls, handlerAuditCall{"delete", ev.ActorID, ev.TargetID, ev.Metadata["seller_id"], "", title, ok})
+	}
 	return a.err
 }
 
 type auditHandlerFixture struct {
-	h     *handler.ListingHandler
-	repo  *repository.InMemoryListingRepository
-	txw   *repository.InMemoryTxWriter
+	h     *rpc.ListingHandler
+	repo  *storetest.InMemoryListingRepository
+	txw   *storetest.InMemoryTxWriter
 	audit *handlerAudit
 }
 
-func newAuditHandlerFixture(t *testing.T, withAudit bool) *auditHandlerFixture {
+func newAuditHandlerFixture(t *testing.T) *auditHandlerFixture {
 	t.Helper()
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID: "L-1", Title: "orig", Currency: "VND", Status: "published", SellerID: "seller-a", Stock: 1,
 	})
-	txw := repository.NewInMemoryTxWriter(repo)
+	txw := storetest.NewInMemoryTxWriter(repo)
 	fa := &handlerAudit{repo: repo}
-	svc := service.NewListingServiceWithOutbox(repo, txw)
-	if withAudit {
-		svc = svc.WithAudit(fa)
-	}
-	return &auditHandlerFixture{h: handler.NewListingHandler(svc, nil, nil), repo: repo, txw: txw, audit: fa}
+	svc := listing.NewListingServiceWithOutbox(repo, txw).WithAudit(auditx.NewGate(fa, nil))
+	return &auditHandlerFixture{h: rpc.NewListingHandler(svc, nil, nil), repo: repo, txw: txw, audit: fa}
 }
 
 func updReq(status listingv1.ListingStatus) *listingv1.UpdateListingRequest {
@@ -95,7 +89,7 @@ func assertUnchanged(t *testing.T, f *auditHandlerFixture) {
 
 // Scenario: Listing audit: Admin update writes one audit event.
 func TestUpdateListingAdminWritesAuditBeforeChange(t *testing.T) {
-	f := newAuditHandlerFixture(t, true)
+	f := newAuditHandlerFixture(t)
 	if _, err := f.h.UpdateListing(adminCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_REJECTED)); err != nil {
 		t.Fatalf("UpdateListing: %v", err)
 	}
@@ -117,7 +111,7 @@ func TestUpdateListingAdminWritesAuditBeforeChange(t *testing.T) {
 
 // Scenario: Listing audit: Update without a status records the stored status.
 func TestUpdateListingAdminAuditStatusFallsBackToStored(t *testing.T) {
-	f := newAuditHandlerFixture(t, true)
+	f := newAuditHandlerFixture(t)
 	if _, err := f.h.UpdateListing(adminCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_UNSPECIFIED)); err != nil {
 		t.Fatalf("UpdateListing: %v", err)
 	}
@@ -133,33 +127,23 @@ func TestUpdateListingAdminAuditDownUnavailableNoChange(t *testing.T) {
 		"deadline": context.DeadlineExceeded,
 	} {
 		t.Run(name, func(t *testing.T) {
-			f := newAuditHandlerFixture(t, true)
+			f := newAuditHandlerFixture(t)
 			f.audit.err = aerr
 			_, err := f.h.UpdateListing(adminCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_REJECTED))
 			if status.Code(err) != codes.Unavailable {
 				t.Fatalf("code = %v, want Unavailable (%v)", status.Code(err), err)
 			}
-			if strings.Contains(status.Convert(err).Message(), "secret upstream detail") {
-				t.Errorf("message leaks detail: %q", status.Convert(err).Message())
+			if got := status.Convert(err).Message(); got != auditx.Message {
+				t.Errorf("message = %q, want %q", got, auditx.Message)
 			}
 			assertUnchanged(t, f)
 		})
 	}
 }
 
-// Scenario: Listing audit: No audit upstream configured (handler half, no writer attached).
-func TestUpdateListingAdminNoAuditWriterUnavailable(t *testing.T) {
-	f := newAuditHandlerFixture(t, false)
-	_, err := f.h.UpdateListing(adminCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_REJECTED))
-	if status.Code(err) != codes.Unavailable {
-		t.Fatalf("code = %v, want Unavailable", status.Code(err))
-	}
-	assertUnchanged(t, f)
-}
-
 // Scenario: Listing audit: Empty listing id writes no audit event.
 func TestUpdateListingEmptyIDNoAudit(t *testing.T) {
-	f := newAuditHandlerFixture(t, true)
+	f := newAuditHandlerFixture(t)
 	_, err := f.h.UpdateListing(adminCtx(), &listingv1.UpdateListingRequest{Listing: &listingv1.Listing{Title: "x"}})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("code = %v, want InvalidArgument", status.Code(err))
@@ -171,7 +155,7 @@ func TestUpdateListingEmptyIDNoAudit(t *testing.T) {
 
 // Scenario: Listing audit: Seller without admin scope cannot update another seller's listing.
 func TestUpdateListingNonOwnerNonAdminDeniedNoAudit(t *testing.T) {
-	f := newAuditHandlerFixture(t, true)
+	f := newAuditHandlerFixture(t)
 	_, err := f.h.UpdateListing(otherCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_REJECTED))
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("code = %v, want PermissionDenied", status.Code(err))
@@ -184,7 +168,7 @@ func TestUpdateListingNonOwnerNonAdminDeniedNoAudit(t *testing.T) {
 
 // Scenario: Listing audit: Caller without listing.write is denied before audit.
 func TestUpdateListingMissingScopeNoAudit(t *testing.T) {
-	f := newAuditHandlerFixture(t, true)
+	f := newAuditHandlerFixture(t)
 	_, err := f.h.UpdateListing(typedCtx("admin-1", "user", "admin"), updReq(listingv1.ListingStatus_LISTING_STATUS_REJECTED))
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("code = %v, want PermissionDenied", status.Code(err))
@@ -196,11 +180,11 @@ func TestUpdateListingMissingScopeNoAudit(t *testing.T) {
 
 // Scenario: Listing audit: Admin delete writes one audit event.
 func TestDeleteListingAdminWritesAuditBeforeChange(t *testing.T) {
-	f := newAuditHandlerFixture(t, true)
+	f := newAuditHandlerFixture(t)
 	if _, err := f.h.DeleteListing(adminCtx(), &listingv1.DeleteListingRequest{Id: "L-1"}); err != nil {
 		t.Fatalf("DeleteListing: %v", err)
 	}
-	if _, err := f.repo.Get(context.Background(), "L-1"); !errors.Is(err, repository.ErrNotFound) {
+	if _, err := f.repo.Get(context.Background(), "L-1"); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("listing must be deleted, got %v", err)
 	}
 	if len(f.audit.calls) != 1 {
@@ -215,21 +199,21 @@ func TestDeleteListingAdminWritesAuditBeforeChange(t *testing.T) {
 	}
 }
 
-// Scenario: Listing audit: Audit down refuses the admin delete.
-func TestDeleteListingAdminAuditDownUnavailableNoChange(t *testing.T) {
+// Scenario: Domain SDK: An admin delete is refused when audit is down.
+func TestAdminDeleteAuditDownUnavailableNoChange(t *testing.T) {
 	for name, aerr := range map[string]error{
 		"error":    errors.New("secret upstream detail"),
 		"deadline": context.DeadlineExceeded,
 	} {
 		t.Run(name, func(t *testing.T) {
-			f := newAuditHandlerFixture(t, true)
+			f := newAuditHandlerFixture(t)
 			f.audit.err = aerr
 			_, err := f.h.DeleteListing(adminCtx(), &listingv1.DeleteListingRequest{Id: "L-1"})
 			if status.Code(err) != codes.Unavailable {
 				t.Fatalf("code = %v, want Unavailable (%v)", status.Code(err), err)
 			}
-			if strings.Contains(status.Convert(err).Message(), "secret upstream detail") {
-				t.Errorf("message leaks detail: %q", status.Convert(err).Message())
+			if got := status.Convert(err).Message(); got != auditx.Message {
+				t.Errorf("message = %q, want %q", got, auditx.Message)
 			}
 			assertUnchanged(t, f)
 		})
@@ -238,7 +222,7 @@ func TestDeleteListingAdminAuditDownUnavailableNoChange(t *testing.T) {
 
 // Scenario: Listing audit: Empty id on delete writes no audit event.
 func TestDeleteListingEmptyIDNoAudit(t *testing.T) {
-	f := newAuditHandlerFixture(t, true)
+	f := newAuditHandlerFixture(t)
 	_, err := f.h.DeleteListing(adminCtx(), &listingv1.DeleteListingRequest{})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("code = %v, want InvalidArgument", status.Code(err))
@@ -250,7 +234,7 @@ func TestDeleteListingEmptyIDNoAudit(t *testing.T) {
 
 // Scenario: Listing audit: Seller without admin scope cannot delete another seller's listing.
 func TestDeleteListingNonOwnerNonAdminDeniedNoAudit(t *testing.T) {
-	f := newAuditHandlerFixture(t, true)
+	f := newAuditHandlerFixture(t)
 	_, err := f.h.DeleteListing(otherCtx(), &listingv1.DeleteListingRequest{Id: "L-1"})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("code = %v, want PermissionDenied", status.Code(err))
@@ -263,7 +247,7 @@ func TestDeleteListingNonOwnerNonAdminDeniedNoAudit(t *testing.T) {
 
 // Scenario: Listing audit: Owner update writes no audit event.
 func TestUpdateListingOwnerNoAudit(t *testing.T) {
-	f := newAuditHandlerFixture(t, true)
+	f := newAuditHandlerFixture(t)
 	if _, err := f.h.UpdateListing(ownerCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_PUBLISHED)); err != nil {
 		t.Fatalf("owner update: %v", err)
 	}
@@ -272,35 +256,54 @@ func TestUpdateListingOwnerNoAudit(t *testing.T) {
 	}
 }
 
-// Scenario: Listing audit: Owner update succeeds while audit is down.
-func TestOwnerUpdateDeleteIndependentOfAudit(t *testing.T) {
-	cases := map[string]func(t *testing.T) *auditHandlerFixture{
-		"audit erroring": func(t *testing.T) *auditHandlerFixture {
-			f := newAuditHandlerFixture(t, true)
-			f.audit.err = errors.New("audit down")
-			return f
-		},
-		"audit upstream unset": func(t *testing.T) *auditHandlerFixture { return newAuditHandlerFixture(t, false) },
+// Scenario: Domain SDK: A non-admin owner write does not touch audit.
+func TestOwnerUpdateIndependentOfAudit(t *testing.T) {
+	f := newAuditHandlerFixture(t)
+	f.audit.err = errors.New("audit down")
+	if _, err := f.h.UpdateListing(ownerCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_PUBLISHED)); err != nil {
+		t.Fatalf("owner update: %v", err)
 	}
-	for name, mk := range cases {
+	if _, err := f.h.DeleteListing(ownerCtx(), &listingv1.DeleteListingRequest{Id: "L-1"}); err != nil {
+		t.Fatalf("owner delete: %v", err)
+	}
+	if len(f.audit.calls) != 0 {
+		t.Fatalf("audit calls = %+v, want none", f.audit.calls)
+	}
+}
+
+// Scenario: Domain SDK: The audit failure message hides the cause.
+func TestAuditFailureHidesCause(t *testing.T) {
+	cause := errors.New("dial tcp 10.0.0.7:50051: connect: connection refused")
+	calls := map[string]func(f *auditHandlerFixture) error{
+		"admin update": func(f *auditHandlerFixture) error {
+			_, err := f.h.UpdateListing(adminCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_REJECTED))
+			return err
+		},
+		"admin delete": func(f *auditHandlerFixture) error {
+			_, err := f.h.DeleteListing(adminCtx(), &listingv1.DeleteListingRequest{Id: "L-1"})
+			return err
+		},
+	}
+	for name, call := range calls {
 		t.Run(name, func(t *testing.T) {
-			f := mk(t)
-			if _, err := f.h.UpdateListing(ownerCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_PUBLISHED)); err != nil {
-				t.Fatalf("owner update: %v", err)
+			f := newAuditHandlerFixture(t)
+			f.audit.err = cause
+			err := call(f)
+			st := status.Convert(err)
+			if st.Code() != codes.Unavailable || st.Message() != "audit trail unavailable" {
+				t.Fatalf("got %v %q, want Unavailable %q", st.Code(), st.Message(), "audit trail unavailable")
 			}
-			if _, err := f.h.DeleteListing(ownerCtx(), &listingv1.DeleteListingRequest{Id: "L-1"}); err != nil {
-				t.Fatalf("owner delete: %v", err)
+			if strings.Contains(err.Error(), "10.0.0.7") || strings.Contains(err.Error(), "refused") {
+				t.Errorf("error text leaks the cause: %q", err.Error())
 			}
-			if len(f.audit.calls) != 0 {
-				t.Fatalf("audit calls = %+v, want none", f.audit.calls)
-			}
+			assertUnchanged(t, f)
 		})
 	}
 }
 
 // Scenario: Listing audit: Non-owner without admin is refused and unaudited while audit is down.
 func TestNonOwnerNonAdminDeniedNotUnavailable(t *testing.T) {
-	f := newAuditHandlerFixture(t, true)
+	f := newAuditHandlerFixture(t)
 	f.audit.err = errors.New("audit down")
 	_, err := f.h.UpdateListing(otherCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_REJECTED))
 	if status.Code(err) != codes.PermissionDenied {

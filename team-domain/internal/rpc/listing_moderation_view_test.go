@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -11,15 +11,16 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-domain/internal/handler"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/rpc"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 var decidedAt = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 
-func modListing(id, st string) repository.Listing {
-	return repository.Listing{
+func modListing(id, st string) store.Listing {
+	return store.Listing{
 		ID: id, Title: "t", Price: 1, Currency: "VND", Status: st, Stock: 1, SellerID: "seller-a",
 		ModerationReasonCode: "counterfeit", ModerationNote: "Fake logo",
 		ScreenFlags: []string{"keyword:replica"}, ModerationDecidedAt: decidedAt, SubmittedAt: decidedAt,
@@ -27,15 +28,15 @@ func modListing(id, st string) repository.Listing {
 }
 
 type modFixture struct {
-	h   *handler.ListingHandler
-	txw *repository.InMemoryTxWriter
+	h   *rpc.ListingHandler
+	txw *storetest.InMemoryTxWriter
 }
 
-func newModFixture(seed ...repository.Listing) *modFixture {
-	repo := repository.NewInMemoryListingRepository(seed...)
-	txw := repository.NewInMemoryTxWriter(repo)
+func newModFixture(seed ...store.Listing) *modFixture {
+	repo := storetest.NewInMemoryListingRepository(seed...)
+	txw := storetest.NewInMemoryTxWriter(repo)
 	return &modFixture{
-		h:   handler.NewListingHandler(service.NewListingServiceWithOutbox(repo, txw), nil, nil),
+		h:   rpc.NewListingHandler(listing.NewListingServiceWithOutbox(repo, txw), nil, nil),
 		txw: txw,
 	}
 }

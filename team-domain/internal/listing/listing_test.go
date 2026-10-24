@@ -1,4 +1,4 @@
-package service_test
+package listing_test
 
 import (
 	"context"
@@ -9,20 +9,24 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	aiv1 "github.com/buidangphuc/team-domain/generated/platform/ai/v1"
-	"github.com/buidangphuc/team-domain/internal/repository"
+	"github.com/buidangphuc/team-domain/internal/listing"
 	"github.com/buidangphuc/team-domain/internal/screen"
-	"github.com/buidangphuc/team-domain/internal/service"
-	"github.com/buidangphuc/team-domain/internal/upstream"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 func TestListingService(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository()
-	svc := service.NewListingService(repo)
+	repo := storetest.NewInMemoryListingRepository()
+	svc := listing.NewListingService(repo)
 	ctx := context.Background()
 
 	t.Run("Create and Get Listing", func(t *testing.T) {
-		l := repository.Listing{
+		l := store.Listing{
 			Title:       "iPhone 15 Pro",
 			Description: "Apple smartphone",
 			Price:       25000000,
@@ -62,7 +66,7 @@ func TestListingService(t *testing.T) {
 
 		// Update as non-owner without admin fails
 		_, err = svc.Update(ctx, got, "another_seller", false)
-		if err != service.ErrForbidden {
+		if err != listing.ErrForbidden {
 			t.Errorf("expected ErrForbidden when non-owner updates, got %v", err)
 		}
 
@@ -78,7 +82,7 @@ func TestListingService(t *testing.T) {
 
 		// Delete non-owner fails
 		_, err = svc.Delete(ctx, created.ID, "another_seller", false)
-		if err != service.ErrForbidden {
+		if err != listing.ErrForbidden {
 			t.Errorf("expected ErrForbidden when non-owner deletes")
 		}
 
@@ -93,13 +97,13 @@ func TestListingService(t *testing.T) {
 	})
 
 	t.Run("CreateWithEvent enqueues one row on success", func(t *testing.T) {
-		repo := repository.NewInMemoryListingRepository()
-		txw := repository.NewInMemoryTxWriter(repo)
-		svc := service.NewListingServiceWithOutbox(repo, txw)
+		repo := storetest.NewInMemoryListingRepository()
+		txw := storetest.NewInMemoryTxWriter(repo)
+		svc := listing.NewListingServiceWithOutbox(repo, txw)
 
-		created, err := svc.CreateWithEvent(ctx, repository.Listing{Title: "Tx OK", Currency: "VND"}, "seller_1",
-			func(l repository.Listing) (repository.OutboxRow, error) {
-				return repository.OutboxRow{EventID: "evt-ok", AggregateID: l.ID, EventType: "test"}, nil
+		created, err := svc.CreateWithEvent(ctx, store.Listing{Title: "Tx OK", Currency: "VND"}, "seller_1",
+			func(l store.Listing) (store.OutboxRow, error) {
+				return store.OutboxRow{EventID: "evt-ok", AggregateID: l.ID, EventType: "test"}, nil
 			})
 		if err != nil {
 			t.Fatalf("CreateWithEvent: %v", err)
@@ -114,20 +118,20 @@ func TestListingService(t *testing.T) {
 	})
 
 	t.Run("CreateWithEvent rolls back both rows on write failure", func(t *testing.T) {
-		repo := repository.NewInMemoryListingRepository()
-		txw := repository.NewInMemoryTxWriter(repo)
+		repo := storetest.NewInMemoryListingRepository()
+		txw := storetest.NewInMemoryTxWriter(repo)
 		txw.FailWrite = true // simulate the business write failing inside the tx
-		svc := service.NewListingServiceWithOutbox(repo, txw)
+		svc := listing.NewListingServiceWithOutbox(repo, txw)
 
-		created, err := svc.CreateWithEvent(ctx, repository.Listing{ID: "rollback-1", Title: "boom", Currency: "VND"}, "seller_1",
-			func(l repository.Listing) (repository.OutboxRow, error) {
-				return repository.OutboxRow{EventID: "evt-x", AggregateID: l.ID}, nil
+		created, err := svc.CreateWithEvent(ctx, store.Listing{ID: "rollback-1", Title: "boom", Currency: "VND"}, "seller_1",
+			func(l store.Listing) (store.OutboxRow, error) {
+				return store.OutboxRow{EventID: "evt-x", AggregateID: l.ID}, nil
 			})
 		if err == nil {
 			t.Fatal("expected error when the write fails")
 		}
 		// Neither the listing nor an outbox row may survive a rolled-back write.
-		if _, err := repo.Get(ctx, "rollback-1"); err != repository.ErrNotFound {
+		if _, err := repo.Get(ctx, "rollback-1"); err != store.ErrNotFound {
 			t.Fatalf("listing must not be persisted on rollback, got %v", err)
 		}
 		if got := len(txw.Rows()); got != 0 {
@@ -137,9 +141,9 @@ func TestListingService(t *testing.T) {
 	})
 
 	t.Run("List and ListMine", func(t *testing.T) {
-		_, _ = svc.Create(ctx, repository.Listing{Title: "Item 1", Price: 100, Status: "published"}, "seller_a")
-		_, _ = svc.Create(ctx, repository.Listing{Title: "Item 2", Price: 200, Status: "published"}, "seller_a")
-		_, _ = svc.Create(ctx, repository.Listing{Title: "Item 3", Price: 300, Status: "published"}, "seller_b")
+		_, _ = svc.Create(ctx, store.Listing{Title: "Item 1", Price: 100, Status: "published"}, "seller_a")
+		_, _ = svc.Create(ctx, store.Listing{Title: "Item 2", Price: 200, Status: "published"}, "seller_a")
+		_, _ = svc.Create(ctx, store.Listing{Title: "Item 3", Price: 300, Status: "published"}, "seller_b")
 
 		page, err := svc.List(ctx, "", 10, "published")
 		if err != nil {
@@ -165,49 +169,58 @@ type auditCall struct {
 	kind, actor, listing, seller, status string
 }
 
-// fakeAudit is the AuditWriter fake: records calls in a shared ordered log.
 type fakeAudit struct {
 	log   *[]string
 	calls []auditCall
 	err   error
 }
 
-func (f *fakeAudit) WriteListingAdminUpdate(_ context.Context, actorID, listingID, sellerID, status string) error {
-	f.calls = append(f.calls, auditCall{"update", actorID, listingID, sellerID, status})
+func (f *fakeAudit) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
+	switch ev.Action {
+	case "listing.admin_update":
+		f.calls = append(f.calls, auditCall{"update", ev.ActorID, ev.TargetID, ev.Metadata["seller_id"], ev.Metadata["status"]})
+	case "listing.admin_delete":
+		f.calls = append(f.calls, auditCall{"delete", ev.ActorID, ev.TargetID, ev.Metadata["seller_id"], ""})
+	default:
+		return f.err
+	}
 	*f.log = append(*f.log, "audit")
 	return f.err
 }
 
-func (f *fakeAudit) WriteListingAdminDelete(_ context.Context, actorID, listingID, sellerID string) error {
-	f.calls = append(f.calls, auditCall{"delete", actorID, listingID, sellerID, ""})
-	*f.log = append(*f.log, "audit")
-	return f.err
+func gateOf(w auditx.Writer) *auditx.Gate { return auditx.NewGate(w, nil) }
+
+func requireAuditUnavailable(t *testing.T, err error) {
+	t.Helper()
+	if status.Code(err) != codes.Unavailable || status.Convert(err).Message() != auditx.Message {
+		t.Fatalf("err = %v, want Unavailable %q", err, auditx.Message)
+	}
 }
 
-func (f *fakeAudit) WriteListingModerate(context.Context, string, string, string, string, string, string, string, string) error {
-	return f.err
+func isAuditUnavailable(err error) bool {
+	return status.Code(err) == codes.Unavailable && status.Convert(err).Message() == auditx.Message
 }
 
 // orderTx wraps the in-memory TxWriter and logs when the change happens.
 type orderTx struct {
-	*repository.InMemoryTxWriter
+	*storetest.InMemoryTxWriter
 	log *[]string
 }
 
-func (o orderTx) UpdateTx(ctx context.Context, l repository.Listing, ev repository.EnqueueFn) (repository.Listing, error) {
+func (o orderTx) UpdateTx(ctx context.Context, l store.Listing, ev store.EnqueueFn) (store.Listing, error) {
 	*o.log = append(*o.log, "change")
 	return o.InMemoryTxWriter.UpdateTx(ctx, l, ev)
 }
 
-func (o orderTx) DeleteTx(ctx context.Context, id string, ev repository.EnqueueFn) (repository.Listing, error) {
+func (o orderTx) DeleteTx(ctx context.Context, id string, ev store.EnqueueFn) (store.Listing, error) {
 	*o.log = append(*o.log, "change")
 	return o.InMemoryTxWriter.DeleteTx(ctx, id, ev)
 }
 
 type auditFixture struct {
-	repo  *repository.InMemoryListingRepository
-	txw   *repository.InMemoryTxWriter
-	svc   *service.ListingService
+	repo  *storetest.InMemoryListingRepository
+	txw   *storetest.InMemoryTxWriter
+	svc   *listing.ListingService
 	audit *fakeAudit
 	log   *[]string
 }
@@ -215,17 +228,17 @@ type auditFixture struct {
 func newAuditFixture(t *testing.T) *auditFixture {
 	t.Helper()
 	log := &[]string{}
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID: "L-1", Title: "orig", Currency: "VND", Status: "published", SellerID: "seller-1", Stock: 1,
 	})
-	txw := repository.NewInMemoryTxWriter(repo)
+	txw := storetest.NewInMemoryTxWriter(repo)
 	fa := &fakeAudit{log: log}
-	svc := service.NewListingServiceWithOutbox(repo, orderTx{txw, log}).WithAudit(fa)
+	svc := listing.NewListingServiceWithOutbox(repo, orderTx{txw, log}).WithAudit(gateOf(fa))
 	return &auditFixture{repo: repo, txw: txw, svc: svc, audit: fa, log: log}
 }
 
-func enq(l repository.Listing) (repository.OutboxRow, error) {
-	return repository.OutboxRow{EventID: "e-" + l.ID, AggregateID: l.ID, EventType: "test"}, nil
+func enq(l store.Listing) (store.OutboxRow, error) {
+	return store.OutboxRow{EventID: "e-" + l.ID, AggregateID: l.ID, EventType: "test"}, nil
 }
 
 // Scenario: Listing audit: Audit is written before the change.
@@ -233,7 +246,7 @@ func TestUpdateWithEventAuditPrecedesUpdate(t *testing.T) {
 	f := newAuditFixture(t)
 	// The request tries to claim another owner; the event must carry the stored one.
 	_, err := f.svc.UpdateWithEvent(context.Background(),
-		repository.Listing{ID: "L-1", Title: "new", Status: "rejected", SellerID: "forged"}, "admin-1", true, enq)
+		store.Listing{ID: "L-1", Title: "new", Status: "rejected", SellerID: "forged"}, "admin-1", true, enq)
 	if err != nil {
 		t.Fatalf("UpdateWithEvent: %v", err)
 	}
@@ -250,7 +263,7 @@ func TestUpdateWithEventAuditPrecedesUpdate(t *testing.T) {
 func TestUpdateWithEventAdminOwnerIsAudited(t *testing.T) {
 	f := newAuditFixture(t)
 	if _, err := f.svc.UpdateWithEvent(context.Background(),
-		repository.Listing{ID: "L-1", Title: "mine", Status: "published"}, "seller-1", true, enq); err != nil {
+		store.Listing{ID: "L-1", Title: "mine", Status: "published"}, "seller-1", true, enq); err != nil {
 		t.Fatalf("UpdateWithEvent: %v", err)
 	}
 	if len(f.audit.calls) != 1 || f.audit.calls[0].kind != "update" || f.audit.calls[0].seller != "seller-1" || f.audit.calls[0].actor != "seller-1" {
@@ -263,9 +276,7 @@ func TestDeleteWithEventAdminOwnerAuditDownUnavailable(t *testing.T) {
 	f := newAuditFixture(t)
 	f.audit.err = errors.New("audit down")
 	_, err := f.svc.DeleteWithEvent(context.Background(), "L-1", "seller-1", true, enq)
-	if !errors.Is(err, service.ErrAuditUnavailable) {
-		t.Fatalf("err = %v, want ErrAuditUnavailable", err)
-	}
+	requireAuditUnavailable(t, err)
 	if _, err := f.repo.Get(context.Background(), "L-1"); err != nil {
 		t.Fatalf("listing must still exist: %v", err)
 	}
@@ -281,10 +292,8 @@ func TestUpdateWithEventAuditErrorLeavesListingUnchanged(t *testing.T) {
 			f := newAuditFixture(t)
 			f.audit.err = aerr
 			_, err := f.svc.UpdateWithEvent(context.Background(),
-				repository.Listing{ID: "L-1", Title: "new", Status: "rejected"}, "admin-1", true, enq)
-			if !errors.Is(err, service.ErrAuditUnavailable) {
-				t.Fatalf("err = %v, want ErrAuditUnavailable", err)
-			}
+				store.Listing{ID: "L-1", Title: "new", Status: "rejected"}, "admin-1", true, enq)
+			requireAuditUnavailable(t, err)
 			got, _ := f.repo.Get(context.Background(), "L-1")
 			if got.Title != "orig" || got.Status != "published" {
 				t.Fatalf("listing changed: %+v", got)
@@ -296,34 +305,11 @@ func TestUpdateWithEventAuditErrorLeavesListingUnchanged(t *testing.T) {
 	}
 }
 
-// Scenario: Listing audit: No audit upstream configured.
-func TestUpdateWithEventAdminNilAuditUnavailable(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L-1", Title: "orig", SellerID: "seller-1", Status: "published"})
-	txw := repository.NewInMemoryTxWriter(repo)
-	svc := service.NewListingServiceWithOutbox(repo, txw) // no WithAudit
-	_, err := svc.UpdateWithEvent(context.Background(), repository.Listing{ID: "L-1", Title: "new"}, "admin-1", true, enq)
-	if !errors.Is(err, service.ErrAuditUnavailable) {
-		t.Fatalf("update err = %v, want ErrAuditUnavailable", err)
-	}
-	_, err = svc.DeleteWithEvent(context.Background(), "L-1", "admin-1", true, enq)
-	if !errors.Is(err, service.ErrAuditUnavailable) {
-		t.Fatalf("delete err = %v, want ErrAuditUnavailable", err)
-	}
-	got, err := repo.Get(context.Background(), "L-1")
-	if err != nil || got.Title != "orig" {
-		t.Fatalf("listing must be unchanged, got %+v, %v", got, err)
-	}
-	// The owner (no admin scope) is unaffected by the missing audit upstream.
-	if _, err := svc.UpdateWithEvent(context.Background(), repository.Listing{ID: "L-1", Title: "own"}, "seller-1", false, enq); err != nil {
-		t.Fatalf("owner update must succeed without audit: %v", err)
-	}
-}
-
 // Scenario: Listing audit: Unknown listing writes no audit event.
 func TestUpdateWithEventNotFoundNoAudit(t *testing.T) {
 	f := newAuditFixture(t)
-	_, err := f.svc.UpdateWithEvent(context.Background(), repository.Listing{ID: "nope"}, "admin-1", true, enq)
-	if !errors.Is(err, repository.ErrNotFound) {
+	_, err := f.svc.UpdateWithEvent(context.Background(), store.Listing{ID: "nope"}, "admin-1", true, enq)
+	if !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
 	if len(f.audit.calls) != 0 {
@@ -335,7 +321,7 @@ func TestUpdateWithEventNotFoundNoAudit(t *testing.T) {
 func TestDeleteWithEventNotFoundNoAudit(t *testing.T) {
 	f := newAuditFixture(t)
 	_, err := f.svc.DeleteWithEvent(context.Background(), "nope", "admin-1", true, enq)
-	if !errors.Is(err, repository.ErrNotFound) {
+	if !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
 	if len(f.audit.calls) != 0 {
@@ -347,9 +333,9 @@ func TestDeleteWithEventNotFoundNoAudit(t *testing.T) {
 func TestUpdateWithEventRepoFailureAfterAudit(t *testing.T) {
 	f := newAuditFixture(t)
 	f.txw.FailWrite = true
-	_, err := f.svc.UpdateWithEvent(context.Background(), repository.Listing{ID: "L-1", Title: "new"}, "admin-1", true, enq)
-	if err == nil || errors.Is(err, service.ErrAuditUnavailable) {
-		t.Fatalf("err = %v, want the repository failure (not ErrAuditUnavailable)", err)
+	_, err := f.svc.UpdateWithEvent(context.Background(), store.Listing{ID: "L-1", Title: "new"}, "admin-1", true, enq)
+	if err == nil || isAuditUnavailable(err) {
+		t.Fatalf("err = %v, want the repository failure (not the audit trail refusal)", err)
 	}
 	if len(f.audit.calls) != 1 {
 		t.Fatalf("audit calls = %d, want 1 (already written, not retracted)", len(f.audit.calls))
@@ -361,8 +347,8 @@ func TestDeleteWithEventRepoFailureAfterAudit(t *testing.T) {
 	f := newAuditFixture(t)
 	f.txw.FailWrite = true
 	_, err := f.svc.DeleteWithEvent(context.Background(), "L-1", "admin-1", true, enq)
-	if err == nil || errors.Is(err, service.ErrAuditUnavailable) {
-		t.Fatalf("err = %v, want the repository failure (not ErrAuditUnavailable)", err)
+	if err == nil || isAuditUnavailable(err) {
+		t.Fatalf("err = %v, want the repository failure (not the audit trail refusal)", err)
 	}
 	if len(f.audit.calls) != 1 || f.audit.calls[0].kind != "delete" || f.audit.calls[0].seller != "seller-1" {
 		t.Fatalf("audit calls = %+v, want 1 delete with seller_id seller-1", f.audit.calls)
@@ -388,13 +374,13 @@ func TestDeleteWithEventAdminAuditPrecedesDelete(t *testing.T) {
 func TestWithEventNonAdminPathsMakeNoAuditCall(t *testing.T) {
 	f := newAuditFixture(t)
 	ctx := context.Background()
-	if _, err := f.svc.UpdateWithEvent(ctx, repository.Listing{ID: "L-1", Title: "own"}, "seller-1", false, enq); err != nil {
+	if _, err := f.svc.UpdateWithEvent(ctx, store.Listing{ID: "L-1", Title: "own"}, "seller-1", false, enq); err != nil {
 		t.Fatalf("owner update: %v", err)
 	}
-	if _, err := f.svc.UpdateWithEvent(ctx, repository.Listing{ID: "L-1", Title: "x"}, "seller-2", false, enq); !errors.Is(err, service.ErrForbidden) {
+	if _, err := f.svc.UpdateWithEvent(ctx, store.Listing{ID: "L-1", Title: "x"}, "seller-2", false, enq); !errors.Is(err, listing.ErrForbidden) {
 		t.Fatalf("non-owner update err = %v, want ErrForbidden", err)
 	}
-	if _, err := f.svc.DeleteWithEvent(ctx, "L-1", "seller-2", false, enq); !errors.Is(err, service.ErrForbidden) {
+	if _, err := f.svc.DeleteWithEvent(ctx, "L-1", "seller-2", false, enq); !errors.Is(err, listing.ErrForbidden) {
 		t.Fatalf("non-owner delete err = %v, want ErrForbidden", err)
 	}
 	if _, err := f.svc.DeleteWithEvent(ctx, "L-1", "seller-1", false, enq); err != nil {
@@ -405,22 +391,22 @@ func TestWithEventNonAdminPathsMakeNoAuditCall(t *testing.T) {
 	}
 }
 
-func ownershipSvc(stored string) (*service.ListingService, *repository.InMemoryListingRepository) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+func ownershipSvc(stored string) (*listing.ListingService, *storetest.InMemoryListingRepository) {
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Status: stored, SellerID: "seller-a", Stock: 1,
 	})
-	return service.NewListingServiceWithOutbox(repo, repository.NewInMemoryTxWriter(repo)), repo
+	return listing.NewListingServiceWithOutbox(repo, storetest.NewInMemoryTxWriter(repo)), repo
 }
 
-func noEvent(l repository.Listing) (repository.OutboxRow, error) {
-	return repository.OutboxRow{EventID: "e-" + l.ID, AggregateID: l.ID, EventType: "test"}, nil
+func noEvent(l store.Listing) (store.OutboxRow, error) {
+	return store.OutboxRow{EventID: "e-" + l.ID, AggregateID: l.ID, EventType: "test"}, nil
 }
 
 // Scenario: Status ownership: Seller cannot un-reject by sending PUBLISHED.
 func TestUpdateWithEventRejectedStaysUnpublished(t *testing.T) {
 	svc, repo := ownershipSvc("rejected")
 	_, _ = svc.UpdateWithEvent(context.Background(),
-		repository.Listing{ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Stock: 1, Status: "published"},
+		store.Listing{ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Stock: 1, Status: "published"},
 		"seller-a", false, noEvent)
 	got, _ := repo.Get(context.Background(), "L-1")
 	if got.Status == "published" {
@@ -434,7 +420,7 @@ func TestUpdateWithEventClientBannedIgnored(t *testing.T) {
 		t.Run(st, func(t *testing.T) {
 			svc, repo := ownershipSvc("published")
 			_, err := svc.UpdateWithEvent(context.Background(),
-				repository.Listing{ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Stock: 1, Status: st},
+				store.Listing{ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Stock: 1, Status: st},
 				"seller-a", false, noEvent)
 			if err != nil {
 				t.Fatalf("UpdateWithEvent: %v", err)
@@ -453,7 +439,7 @@ func TestUpdateWithEventOmittedStatusKeepsStored(t *testing.T) {
 		t.Run(stored, func(t *testing.T) {
 			svc, repo := ownershipSvc(stored)
 			_, err := svc.UpdateWithEvent(context.Background(),
-				repository.Listing{ID: "L-1", Title: "orig", Currency: "VND", Price: 999, Stock: 1, Status: ""},
+				store.Listing{ID: "L-1", Title: "orig", Currency: "VND", Price: 999, Stock: 1, Status: ""},
 				"seller-a", false, noEvent)
 			if err != nil {
 				t.Fatalf("UpdateWithEvent: %v", err)
@@ -472,7 +458,7 @@ func TestCreateWithEventServerOnlyStatusIgnored(t *testing.T) {
 		t.Run("status="+st, func(t *testing.T) {
 			svc, _ := ownershipSvc("draft")
 			got, err := svc.CreateWithEvent(context.Background(),
-				repository.Listing{Title: "n", Currency: "VND", Stock: 1, Status: st}, "seller-a", noEvent)
+				store.Listing{Title: "n", Currency: "VND", Stock: 1, Status: st}, "seller-a", noEvent)
 			if err != nil {
 				t.Fatalf("CreateWithEvent: %v", err)
 			}
@@ -487,9 +473,9 @@ func TestCreateWithEventServerOnlyStatusIgnored(t *testing.T) {
 func TestUpdateWithEventNonOwnerForbidden(t *testing.T) {
 	svc, repo := ownershipSvc("pending_review")
 	_, err := svc.UpdateWithEvent(context.Background(),
-		repository.Listing{ID: "L-1", Title: "x", Currency: "VND", Stock: 1, Status: "published"},
+		store.Listing{ID: "L-1", Title: "x", Currency: "VND", Stock: 1, Status: "published"},
 		"seller-b", false, noEvent)
-	if err != service.ErrForbidden {
+	if err != listing.ErrForbidden {
 		t.Fatalf("err = %v, want ErrForbidden", err)
 	}
 	got, _ := repo.Get(context.Background(), "L-1")
@@ -507,7 +493,7 @@ type fakeAI struct {
 	err     error
 }
 
-func (f *fakeAI) ScreenListing(_ context.Context, _ upstream.ScreenInput) (*aiv1.ScreenListingResponse, error) {
+func (f *fakeAI) ScreenListing(_ context.Context, _ screen.ScreenInput) (*aiv1.ScreenListingResponse, error) {
 	f.calls++
 	if f.err != nil {
 		return nil, f.err
@@ -531,21 +517,21 @@ func termsFile(t *testing.T) *screen.Screener {
 }
 
 type screenFixture struct {
-	svc  *service.ListingService
-	repo *repository.InMemoryListingRepository
-	txw  *repository.InMemoryTxWriter
+	svc  *listing.ListingService
+	repo *storetest.InMemoryListingRepository
+	txw  *storetest.InMemoryTxWriter
 	ai   *fakeAI
 }
 
 func newScreenFixture(t *testing.T, stored string, ai *fakeAI) *screenFixture {
 	t.Helper()
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID: "L-1", Title: "orig", Description: "desc", CategoryID: "c1", Currency: "VND", Price: 100,
 		Status: stored, SellerID: "seller-a", Stock: 1,
 	})
-	txw := repository.NewInMemoryTxWriter(repo)
-	svc := service.NewListingServiceWithOutbox(repo, txw)
-	var ais service.Screener
+	txw := storetest.NewInMemoryTxWriter(repo)
+	svc := listing.NewListingServiceWithOutbox(repo, txw)
+	var ais listing.Screener
 	if ai != nil {
 		ais = ai
 	}
@@ -553,7 +539,7 @@ func newScreenFixture(t *testing.T, stored string, ai *fakeAI) *screenFixture {
 	return &screenFixture{svc: svc, repo: repo, txw: txw, ai: ai}
 }
 
-func (f *screenFixture) stored(t *testing.T) repository.Listing {
+func (f *screenFixture) stored(t *testing.T) store.Listing {
 	t.Helper()
 	got, err := f.repo.Get(context.Background(), "L-1")
 	if err != nil {
@@ -565,13 +551,13 @@ func (f *screenFixture) stored(t *testing.T) repository.Listing {
 // capture records the status the enqueue callback sees (the persisted listing).
 type capture struct{ statuses []string }
 
-func (c *capture) enqueue(l repository.Listing) (repository.OutboxRow, error) {
+func (c *capture) enqueue(l store.Listing) (store.OutboxRow, error) {
 	c.statuses = append(c.statuses, l.Status)
-	return repository.OutboxRow{EventID: "e-" + l.ID, AggregateID: l.ID, EventType: "test"}, nil
+	return store.OutboxRow{EventID: "e-" + l.ID, AggregateID: l.ID, EventType: "test"}, nil
 }
 
-func newListing(title string, status string) repository.Listing {
-	return repository.Listing{Title: title, Description: "desc", CategoryID: "c1", Currency: "VND", Price: 1, Stock: 1, Status: status}
+func newListing(title string, status string) store.Listing {
+	return store.Listing{Title: title, Description: "desc", CategoryID: "c1", Currency: "VND", Price: 1, Stock: 1, Status: status}
 }
 
 // Scenario: Auto-screen: Clean listing publishes.
@@ -674,8 +660,8 @@ func TestCreateWithEventDraftNotScreened(t *testing.T) {
 	}
 }
 
-func fullUpdate(title, desc string, price int64, status string) repository.Listing {
-	return repository.Listing{ID: "L-1", Title: title, Description: desc, CategoryID: "c1", Currency: "VND", Price: price, Stock: 7, Status: status}
+func fullUpdate(title, desc string, price int64, status string) store.Listing {
+	return store.Listing{ID: "L-1", Title: title, Description: desc, CategoryID: "c1", Currency: "VND", Price: price, Stock: 7, Status: status}
 }
 
 // Scenario: Auto-screen: Price and stock edits do not re-screen.
@@ -780,7 +766,7 @@ func TestUpdateWithEventLockedStatusRefused(t *testing.T) {
 		t.Run(st, func(t *testing.T) {
 			f := newScreenFixture(t, st, allowAI())
 			_, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("changed", "desc", 999, "published"), "seller-a", false, noEvent)
-			if !errors.Is(err, service.ErrStatusLocked) {
+			if !errors.Is(err, listing.ErrStatusLocked) {
 				t.Fatalf("err = %v, want ErrStatusLocked", err)
 			}
 			got := f.stored(t)
@@ -797,7 +783,7 @@ func TestDeleteWithEventLockedStatusRefused(t *testing.T) {
 		t.Run(st, func(t *testing.T) {
 			f := newScreenFixture(t, st, allowAI())
 			_, err := f.svc.DeleteWithEvent(context.Background(), "L-1", "seller-a", false, noEvent)
-			if !errors.Is(err, service.ErrStatusLocked) {
+			if !errors.Is(err, listing.ErrStatusLocked) {
 				t.Fatalf("err = %v, want ErrStatusLocked", err)
 			}
 			if got := f.stored(t); got.Status != st || len(f.txw.Rows()) != 0 {
@@ -812,7 +798,7 @@ func TestAdminOwnListingFollowsSellerPath(t *testing.T) {
 	f := newScreenFixture(t, "draft", allowAI())
 	log := &[]string{}
 	fa := &fakeAudit{log: log}
-	f.svc = f.svc.WithAudit(fa)
+	f.svc = f.svc.WithAudit(gateOf(fa))
 	created, err := f.svc.CreateWithEvent(context.Background(), newListing("replica", "published"), "admin-1", noEvent)
 	if err != nil {
 		t.Fatalf("CreateWithEvent: %v", err)
@@ -835,7 +821,7 @@ func TestUpdateWithEventAdminEditNoScreen(t *testing.T) {
 	for _, title := range []string{"better title", "replica title"} {
 		t.Run(title, func(t *testing.T) {
 			f := newScreenFixture(t, "published", allowAI())
-			f.svc = f.svc.WithAudit(&fakeAudit{log: new([]string)})
+			f.svc = f.svc.WithAudit(gateOf(&fakeAudit{log: new([]string)}))
 			if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate(title, "desc", 100, ""), "admin-1", true, noEvent); err != nil {
 				t.Fatalf("UpdateWithEvent: %v", err)
 			}
@@ -853,7 +839,7 @@ func TestUpdateWithEventAdminCannotSetStatus(t *testing.T) {
 		t.Run("sent="+sent, func(t *testing.T) {
 			f := newScreenFixture(t, "rejected", allowAI())
 			fa := &fakeAudit{log: new([]string)}
-			f.svc = f.svc.WithAudit(fa)
+			f.svc = f.svc.WithAudit(gateOf(fa))
 			var c capture
 			if _, err := f.svc.UpdateWithEvent(context.Background(), fullUpdate("orig", "desc", 100, sent), "admin-1", true, c.enqueue); err != nil {
 				t.Fatalf("UpdateWithEvent: %v", err)
@@ -874,10 +860,10 @@ func TestUpdateWithEventAdminCannotSetStatus(t *testing.T) {
 // Scenario: Seller hold: Stock cannot be reserved on a held listing (service/repository contract).
 func TestReserveStockIdempotentHeldListingNotReservable(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Status: "held", Stock: 5, SellerID: "seller-a"})
-	svc := service.NewListingService(repo)
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "L1", Currency: "VND", Status: "held", Stock: 5, SellerID: "seller-a"})
+	svc := listing.NewListingService(repo)
 	err := svc.ReserveStockIdempotent(ctx, "r-new", "L1", "", 2)
-	if !errors.Is(err, repository.ErrListingNotReservable) {
+	if !errors.Is(err, store.ErrListingNotReservable) {
 		t.Fatalf("err = %v, want ErrListingNotReservable", err)
 	}
 	if got, _ := repo.Get(ctx, "L1"); got.Stock != 5 {
@@ -887,27 +873,29 @@ func TestReserveStockIdempotentHeldListingNotReservable(t *testing.T) {
 
 // restorer is the hold/restore capability the in-memory writer must expose (mirrors PgTxWriter).
 type restorer interface {
-	HoldSellerListings(ctx context.Context, userID, eventID string, changedAt time.Time, enqueue repository.EnqueueFn) (int, error)
-	RestoreSellerListings(ctx context.Context, userID, eventID string, changedAt time.Time, enqueue repository.EnqueueFn) (int, error)
+	HoldSellerListings(ctx context.Context, userID, eventID string, changedAt time.Time, enqueue store.EnqueueFn) (int, error)
+	RestoreSellerListings(ctx context.Context, userID, eventID string, changedAt time.Time, enqueue store.EnqueueFn) (int, error)
 }
 
 // queueRepo adds the pending_review queue read the Postgres repository provides.
-type queueRepo struct{ *repository.InMemoryListingRepository }
+type queueRepo struct {
+	*storetest.InMemoryListingRepository
+}
 
-func (r queueRepo) ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (repository.Page, error) {
+func (r queueRepo) ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (store.Page, error) {
 	return r.List(ctx, cursor, pageSize, "pending_review")
 }
 
 // Scenario: Seller hold: Restored pending listing is back in the moderation queue
 func TestRestoreSellerListingsPendingReturnsToQueueWithoutScreen(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID: "L-1", Title: "orig", Description: "desc", CategoryID: "c1", Currency: "VND", Price: 100,
 		Status: "pending_review", SellerID: "seller-a", Stock: 1,
 	})
-	txw := repository.NewInMemoryTxWriter(repo)
+	txw := storetest.NewInMemoryTxWriter(repo)
 	ai := allowAI()
-	svc := service.NewListingServiceWithOutbox(queueRepo{repo}, txw).WithScreener(termsFile(t), ai)
+	svc := listing.NewListingServiceWithOutbox(queueRepo{repo}, txw).WithScreener(termsFile(t), ai)
 
 	rs, ok := any(txw).(restorer)
 	if !ok {

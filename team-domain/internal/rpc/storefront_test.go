@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -11,16 +11,17 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-domain/internal/handler"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/rpc"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 // newStorefrontHandler builds a ListingHandler wired with an in-memory
 // storefront store (listing deps unused by the storefront RPCs).
-func newStorefrontHandler() *handler.ListingHandler {
-	sfSvc := service.NewStorefrontService(repository.NewInMemoryStorefrontRepository())
-	return handler.NewListingHandler(service.NewListingService(repository.NewInMemoryListingRepository()), nil, nil).
+func newStorefrontHandler() *rpc.ListingHandler {
+	sfSvc := listing.NewStorefrontService(storetest.NewInMemoryStorefrontRepository())
+	return rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
 		WithStorefront(sfSvc)
 }
 
@@ -162,7 +163,7 @@ func TestStorefrontEdgeCases(t *testing.T) {
 	})
 }
 
-func upsertName(t *testing.T, h *handler.ListingHandler, seller, slug, name string) error {
+func upsertName(t *testing.T, h *rpc.ListingHandler, seller, slug, name string) error {
 	t.Helper()
 	_, err := h.UpsertStorefront(sellerCtx(seller), &listingv1.UpsertStorefrontRequest{
 		Storefront: &listingv1.Storefront{Slug: slug, DisplayName: name},
@@ -252,19 +253,19 @@ func TestDisplayNameValidation(t *testing.T) {
 
 // countingRepo wraps the in-memory repo to count batch queries.
 type countingRepo struct {
-	*repository.InMemoryStorefrontRepository
+	*storetest.InMemoryStorefrontRepository
 	batchCalls int
 }
 
-func (c *countingRepo) GetBySellers(ctx context.Context, ids []string) ([]repository.Storefront, error) {
+func (c *countingRepo) GetBySellers(ctx context.Context, ids []string) ([]store.Storefront, error) {
 	c.batchCalls++
 	return c.InMemoryStorefrontRepository.GetBySellers(ctx, ids)
 }
 
 func TestBatchGetStorefronts(t *testing.T) {
-	repo := &countingRepo{InMemoryStorefrontRepository: repository.NewInMemoryStorefrontRepository()}
-	h := handler.NewListingHandler(service.NewListingService(repository.NewInMemoryListingRepository()), nil, nil).
-		WithStorefront(service.NewStorefrontService(repo))
+	repo := &countingRepo{InMemoryStorefrontRepository: storetest.NewInMemoryStorefrontRepository()}
+	h := rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
+		WithStorefront(listing.NewStorefrontService(repo))
 	_ = upsertName(t, h, "seller_a", "shop-a", "Shop Alpha")
 	_ = upsertName(t, h, "seller_b", "shop-b", "Shop Beta")
 

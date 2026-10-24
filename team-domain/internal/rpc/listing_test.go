@@ -1,48 +1,32 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-domain/internal/handler"
-	"github.com/buidangphuc/team-domain/internal/interceptor"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/rpc"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
-// contextWithPrincipal injects a resolved Principal the way the gateway does:
-// as x-principal-* metadata run through the service's unary interceptor. The
-// interceptor's context setter is unexported, so tests reach it via this path.
 func contextWithPrincipal(ctx context.Context, p *commonv1.Principal) context.Context {
-	md := metadata.Pairs(
-		"x-principal-id", p.GetId(),
-		"x-principal-type", "user",
-		"x-principal-scopes", strings.Join(p.GetScopes(), ","),
-	)
-	ctx = metadata.NewIncomingContext(ctx, md)
-	var out context.Context
-	_, _ = interceptor.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{},
-		func(c context.Context, _ any) (any, error) {
-			out = c
-			return nil, nil
-		})
-	return out
+	return auth.WithPrincipal(ctx, auth.Principal{ID: p.GetId(), Type: auth.TypeUser, Scopes: p.GetScopes()})
 }
 
 func TestListingHandler(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository()
-	svc := service.NewListingService(repo)
-	h := handler.NewListingHandler(svc, nil, nil)
+	repo := storetest.NewInMemoryListingRepository()
+	svc := listing.NewListingService(repo)
+	h := rpc.NewListingHandler(svc, nil, nil)
 
 	principal := &commonv1.Principal{
 		Id:     "seller_test",
@@ -91,14 +75,14 @@ func TestListingHandler(t *testing.T) {
 	})
 }
 
-func ownershipFixture(t *testing.T, stored string) (*handler.ListingHandler, *repository.InMemoryListingRepository, *repository.InMemoryTxWriter) {
+func ownershipFixture(t *testing.T, stored string) (*rpc.ListingHandler, *storetest.InMemoryListingRepository, *storetest.InMemoryTxWriter) {
 	t.Helper()
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Status: stored, SellerID: "seller-a", Stock: 1,
 	})
-	txw := repository.NewInMemoryTxWriter(repo)
-	svc := service.NewListingServiceWithOutbox(repo, txw)
-	return handler.NewListingHandler(svc, nil, nil), repo, txw
+	txw := storetest.NewInMemoryTxWriter(repo)
+	svc := listing.NewListingServiceWithOutbox(repo, txw)
+	return rpc.NewListingHandler(svc, nil, nil), repo, txw
 }
 
 // Scenario: Status ownership: Status omitted keeps a published listing published.
@@ -244,19 +228,19 @@ func TestDeleteListingBannedOrHeldFailedPrecondition(t *testing.T) {
 
 // statusChangedTx simulates a moderation decision committing between the
 // service's read and its transaction (the repository returns ErrStatusChanged).
-type statusChangedTx struct{ *repository.InMemoryTxWriter }
+type statusChangedTx struct{ *storetest.InMemoryTxWriter }
 
-func (statusChangedTx) UpdateTx(context.Context, repository.Listing, repository.EnqueueFn) (repository.Listing, error) {
-	return repository.Listing{}, repository.ErrStatusChanged
+func (statusChangedTx) UpdateTx(context.Context, store.Listing, store.EnqueueFn) (store.Listing, error) {
+	return store.Listing{}, store.ErrStatusChanged
 }
 
 // Scenario: Status ownership: Seller write racing a moderation decision is refused (handler mapping).
 func TestUpdateListingStatusChangedFailedPrecondition(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Status: "pending_review", SellerID: "seller-a", Stock: 1,
 	})
-	txw := repository.NewInMemoryTxWriter(repo)
-	h := handler.NewListingHandler(service.NewListingServiceWithOutbox(repo, statusChangedTx{txw}), nil, nil)
+	txw := storetest.NewInMemoryTxWriter(repo)
+	h := rpc.NewListingHandler(listing.NewListingServiceWithOutbox(repo, statusChangedTx{txw}), nil, nil)
 	_, err := h.UpdateListing(ownerCtx(), lockedUpdateReq())
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("code = %v, want FailedPrecondition (%v)", status.Code(err), err)
@@ -268,13 +252,13 @@ func TestUpdateListingStatusChangedFailedPrecondition(t *testing.T) {
 
 // Scenario: Status ownership: Admin UpdateListing cannot set status.
 func TestUpdateListingAdminCannotSetStatus(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID: "L-1", Title: "orig", Currency: "VND", Status: "rejected", SellerID: "seller-a", Stock: 1,
 	})
-	txw := repository.NewInMemoryTxWriter(repo)
+	txw := storetest.NewInMemoryTxWriter(repo)
 	fa := &handlerAudit{repo: repo}
-	svc := service.NewListingServiceWithOutbox(repo, txw).WithAudit(fa)
-	h := handler.NewListingHandler(svc, nil, nil)
+	svc := listing.NewListingServiceWithOutbox(repo, txw).WithAudit(auditx.NewGate(fa, nil))
+	h := rpc.NewListingHandler(svc, nil, nil)
 	if _, err := h.UpdateListing(adminCtx(), updReq(listingv1.ListingStatus_LISTING_STATUS_PUBLISHED)); err != nil {
 		t.Fatalf("UpdateListing: %v", err)
 	}
@@ -289,14 +273,14 @@ func TestUpdateListingAdminCannotSetStatus(t *testing.T) {
 
 // ---- domain-seller-enforcement-hold task 4: HELD visibility and write lock ----
 
-func heldHandler(t *testing.T) (*handler.ListingHandler, *repository.InMemoryListingRepository, *repository.InMemoryTxWriter) {
+func heldHandler(t *testing.T) (*rpc.ListingHandler, *storetest.InMemoryListingRepository, *storetest.InMemoryTxWriter) {
 	t.Helper()
-	repo := repository.NewInMemoryListingRepository(repository.Listing{
+	repo := storetest.NewInMemoryListingRepository(store.Listing{
 		ID: "L-1", Title: "orig", Currency: "VND", Price: 100, Status: "held", SellerID: "seller-a", Stock: 1,
 		ModerationReasonCode: "seller_enforcement",
 	})
-	txw := repository.NewInMemoryTxWriter(repo)
-	return handler.NewListingHandler(service.NewListingServiceWithOutbox(repo, txw), nil, nil), repo, txw
+	txw := storetest.NewInMemoryTxWriter(repo)
+	return rpc.NewListingHandler(listing.NewListingServiceWithOutbox(repo, txw), nil, nil), repo, txw
 }
 
 // Scenario: Seller hold: Non-owner cannot read a held listing

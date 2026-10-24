@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -12,17 +12,19 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-domain/generated/platform/events/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-domain/internal/handler"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/rpc"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 // Interface contract (task 8): ListingHandler.ModerateListing / ListModerationQueue
-// over service.ListingService.ModerateListing / ListModerationQueue, and
-// service.AuditWriter.WriteListingModerate(ctx, actorID, listingID, sellerID,
+// over listing.ListingService.ModerateListing / ListModerationQueue, and
+// listing.AuditWriter.WriteListingModerate(ctx, actorID, listingID, sellerID,
 // decision, reasonCode, note, fromStatus, toStatus string) error.
 
 var modT1 = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
@@ -34,25 +36,25 @@ type mhAudit struct {
 	err   error
 }
 
-func (a *mhAudit) WriteListingAdminUpdate(context.Context, string, string, string, string) error {
-	return a.err
-}
-func (a *mhAudit) WriteListingAdminDelete(context.Context, string, string, string) error {
-	return a.err
-}
-func (a *mhAudit) WriteListingModerate(_ context.Context, actor, listing, seller, decision, reason, note, from, to string) error {
-	a.calls = append(a.calls, mhCall{actor, listing, seller, decision, reason, note, from, to})
+func (a *mhAudit) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
+	if ev.Action != "listing.moderate" {
+		return a.err
+	}
+	m := ev.Metadata
+	a.calls = append(a.calls, mhCall{ev.ActorID, ev.TargetID, m["seller_id"], m["decision"], m["reason_code"], m["note"], m["from_status"], m["to_status"]})
 	return a.err
 }
 
 // mhRepo adds the moderation-queue read the Postgres repository provides:
 // pending_review only, ordered by (submitted_at, id), keyset by offset cursor.
-type mhRepo struct{ *repository.InMemoryListingRepository }
+type mhRepo struct {
+	*storetest.InMemoryListingRepository
+}
 
-func (r mhRepo) ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (repository.Page, error) {
+func (r mhRepo) ListModerationQueue(ctx context.Context, cursor string, pageSize int32) (store.Page, error) {
 	all, err := r.List(ctx, "", 1000, "pending_review")
 	if err != nil {
-		return repository.Page{}, err
+		return store.Page{}, err
 	}
 	items := all.Items
 	sort.Slice(items, func(i, j int) bool {
@@ -80,25 +82,25 @@ func (r mhRepo) ListModerationQueue(ctx context.Context, cursor string, pageSize
 	} else {
 		end = len(items)
 	}
-	return repository.Page{Items: items[start:end], NextCursor: next, Total: -1}, nil
+	return store.Page{Items: items[start:end], NextCursor: next, Total: -1}, nil
 }
 
 type mhTx struct {
-	*repository.InMemoryTxWriter
-	repo           *repository.InMemoryListingRepository
+	*storetest.InMemoryTxWriter
+	repo           *storetest.InMemoryListingRepository
 	beforeModerate func()
 }
 
-func (m *mhTx) ModerateTx(ctx context.Context, id, fromStatus string, loadedUpdatedAt time.Time, d repository.ModerationUpdate, ev repository.EnqueueFn) (repository.Listing, error) {
+func (m *mhTx) ModerateTx(ctx context.Context, id, fromStatus string, loadedUpdatedAt time.Time, d store.ModerationUpdate, ev store.EnqueueFn) (store.Listing, error) {
 	if m.beforeModerate != nil {
 		m.beforeModerate()
 	}
 	cur, err := m.repo.Get(ctx, id)
 	if err != nil {
-		return repository.Listing{}, err
+		return store.Listing{}, err
 	}
 	if cur.Status != fromStatus || !cur.UpdatedAt.Equal(loadedUpdatedAt) {
-		return repository.Listing{}, repository.ErrStatusChanged
+		return store.Listing{}, store.ErrStatusChanged
 	}
 	cur.Status = d.ToStatus
 	cur.ModerationReasonCode = d.ReasonCode
@@ -109,33 +111,30 @@ func (m *mhTx) ModerateTx(ctx context.Context, id, fromStatus string, loadedUpda
 }
 
 type mhFixture struct {
-	h     *handler.ListingHandler
-	repo  *repository.InMemoryListingRepository
-	txw   *repository.InMemoryTxWriter
+	h     *rpc.ListingHandler
+	repo  *storetest.InMemoryListingRepository
+	txw   *storetest.InMemoryTxWriter
 	tx    *mhTx
 	audit *mhAudit
 }
 
-func mhListing(id, status string, submitted time.Time) repository.Listing {
-	return repository.Listing{
+func mhListing(id, status string, submitted time.Time) store.Listing {
+	return store.Listing{
 		ID: id, Title: "t-" + id, Currency: "VND", Price: 100, Status: status, SellerID: "seller-a", Stock: 1,
 		UpdatedAt: modT1, SubmittedAt: submitted, ScreenFlags: []string{"keyword:replica"},
 	}
 }
 
-func newMHFixture(withAudit bool, seed ...repository.Listing) *mhFixture {
+func newMHFixture(seed ...store.Listing) *mhFixture {
 	if len(seed) == 0 {
-		seed = []repository.Listing{mhListing("L-1", "pending_review", modT1)}
+		seed = []store.Listing{mhListing("L-1", "pending_review", modT1)}
 	}
-	repo := repository.NewInMemoryListingRepository(seed...)
-	txw := repository.NewInMemoryTxWriter(repo)
+	repo := storetest.NewInMemoryListingRepository(seed...)
+	txw := storetest.NewInMemoryTxWriter(repo)
 	tx := &mhTx{InMemoryTxWriter: txw, repo: repo}
 	fa := &mhAudit{}
-	svc := service.NewListingServiceWithOutbox(mhRepo{repo}, tx)
-	if withAudit {
-		svc = svc.WithAudit(fa)
-	}
-	return &mhFixture{h: handler.NewListingHandler(svc, nil, nil), repo: repo, txw: txw, tx: tx, audit: fa}
+	svc := listing.NewListingServiceWithOutbox(mhRepo{repo}, tx).WithAudit(auditx.NewGate(fa, nil))
+	return &mhFixture{h: rpc.NewListingHandler(svc, nil, nil), repo: repo, txw: txw, tx: tx, audit: fa}
 }
 
 func modReq(id string, d listingv1.ModerationDecision, reason, note string) *listingv1.ModerateListingRequest {
@@ -161,7 +160,7 @@ var (
 
 // Scenario: Moderation: Reject records reason and note for the seller (handler mapping, admin sees all).
 func TestModerateListingRejectResponse(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	resp, err := f.h.ModerateListing(adminCtx(), modReq("L-1", decReject, "counterfeit", "Fake logo"))
 	if err != nil {
 		t.Fatalf("ModerateListing: %v", err)
@@ -179,7 +178,7 @@ func TestModerateListingRejectResponse(t *testing.T) {
 
 // Scenario: Moderation: Approve publishes a pending listing (handler mapping).
 func TestModerateListingApproveResponse(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	resp, err := f.h.ModerateListing(adminCtx(), modReq("L-1", decApprove, "", ""))
 	if err != nil {
 		t.Fatalf("ModerateListing: %v", err)
@@ -191,7 +190,7 @@ func TestModerateListingApproveResponse(t *testing.T) {
 
 // Scenario: Moderation: Reject of a published listing from a report (anonymous GetListing then NotFound).
 func TestModerateListingRejectPublishedHidesFromAnonymous(t *testing.T) {
-	f := newMHFixture(true, mhListing("L-1", "published", modT1))
+	f := newMHFixture(mhListing("L-1", "published", modT1))
 	if _, err := f.h.ModerateListing(adminCtx(), modReq("L-1", decReject, "misleading", "")); err != nil {
 		t.Fatalf("ModerateListing: %v", err)
 	}
@@ -203,7 +202,7 @@ func TestModerateListingRejectPublishedHidesFromAnonymous(t *testing.T) {
 
 // Scenario: Moderation: ListingChanged carries no note or flags.
 func TestModerateListingEventStripsNoteAndFlags(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	if _, err := f.h.ModerateListing(adminCtx(), modReq("L-1", decReject, "counterfeit", "Fake logo")); err != nil {
 		t.Fatalf("ModerateListing: %v", err)
 	}
@@ -241,7 +240,7 @@ func TestModerateListingAuditDownUnavailableNoChange(t *testing.T) {
 		"deadline": context.DeadlineExceeded,
 	} {
 		t.Run(name, func(t *testing.T) {
-			f := newMHFixture(true)
+			f := newMHFixture()
 			f.audit.err = aerr
 			_, err := f.h.ModerateListing(adminCtx(), modReq("L-1", decReject, "other", ""))
 			if status.Code(err) != codes.Unavailable {
@@ -255,21 +254,11 @@ func TestModerateListingAuditDownUnavailableNoChange(t *testing.T) {
 	}
 }
 
-// Scenario: Moderation: No audit upstream configured (handler half).
-func TestModerateListingNoAuditWriterUnavailable(t *testing.T) {
-	f := newMHFixture(false)
-	_, err := f.h.ModerateListing(adminCtx(), modReq("L-1", decApprove, "", ""))
-	if status.Code(err) != codes.Unavailable {
-		t.Fatalf("code = %v, want Unavailable", status.Code(err))
-	}
-	f.assertUnchanged(t, "L-1", "pending_review")
-}
-
 // Scenario: Moderation: Approve of a held listing is refused (handler code mapping, every refused source).
 func TestModerateListingRefusedTransitionFailedPrecondition(t *testing.T) {
 	for _, st := range []string{"held", "rejected", "banned", "draft"} {
 		t.Run(st, func(t *testing.T) {
-			f := newMHFixture(true, mhListing("L-1", st, modT1))
+			f := newMHFixture(mhListing("L-1", st, modT1))
 			_, err := f.h.ModerateListing(adminCtx(), modReq("L-1", decApprove, "", ""))
 			if status.Code(err) != codes.FailedPrecondition {
 				t.Fatalf("code = %v, want FailedPrecondition (%v)", status.Code(err), err)
@@ -284,7 +273,7 @@ func TestModerateListingRefusedTransitionFailedPrecondition(t *testing.T) {
 
 // Scenario: Moderation: Seller edit between check and decision is refused (handler code mapping).
 func TestModerateListingStaleLoadFailedPrecondition(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	f.tx.beforeModerate = func() {
 		cur, _ := f.repo.Get(context.Background(), "L-1")
 		cur.Title = "seller edited"
@@ -300,7 +289,7 @@ func TestModerateListingStaleLoadFailedPrecondition(t *testing.T) {
 
 // Scenario: Moderation: Unknown listing writes no audit event (handler NotFound).
 func TestModerateListingUnknownListingNotFound(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	_, err := f.h.ModerateListing(adminCtx(), modReq("nope", decApprove, "", ""))
 	if status.Code(err) != codes.NotFound {
 		t.Fatalf("code = %v, want NotFound", status.Code(err))
@@ -312,7 +301,7 @@ func TestModerateListingUnknownListingNotFound(t *testing.T) {
 
 // Scenario: Moderation: Invalid request on an unknown listing is invalid.
 func TestModerateListingValidatesBeforeLoad(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	_, err := f.h.ModerateListing(adminCtx(), modReq("nope", decBan, "because", ""))
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("code = %v, want InvalidArgument (validation before load)", status.Code(err))
@@ -325,7 +314,7 @@ func TestModerateListingValidatesBeforeLoad(t *testing.T) {
 // Scenario: Moderation: Reject without a reason code is invalid.
 func TestModerateListingRejectNeedsReason(t *testing.T) {
 	for _, d := range []listingv1.ModerationDecision{decReject, decBan} {
-		f := newMHFixture(true)
+		f := newMHFixture()
 		_, err := f.h.ModerateListing(adminCtx(), modReq("L-1", d, "", "note"))
 		if status.Code(err) != codes.InvalidArgument {
 			t.Fatalf("%v: code = %v, want InvalidArgument", d, status.Code(err))
@@ -339,7 +328,7 @@ func TestModerateListingRejectNeedsReason(t *testing.T) {
 
 // Scenario: Moderation: Unknown reason code is invalid (and every listed code is accepted).
 func TestModerateListingUnknownReasonCode(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	_, err := f.h.ModerateListing(adminCtx(), modReq("L-1", decBan, "because", ""))
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("code = %v, want InvalidArgument", status.Code(err))
@@ -348,7 +337,7 @@ func TestModerateListingUnknownReasonCode(t *testing.T) {
 		t.Fatalf("audit calls = %d, want 0", len(f.audit.calls))
 	}
 	for _, code := range []string{"prohibited_item", "counterfeit", "misleading", "inappropriate", "duplicate", "seller_enforcement", "other"} {
-		g := newMHFixture(true)
+		g := newMHFixture()
 		if _, err := g.h.ModerateListing(adminCtx(), modReq("L-1", decReject, code, "")); err != nil {
 			t.Errorf("reason code %q must be accepted: %v", code, err)
 		}
@@ -360,11 +349,11 @@ func TestModerateListingNoteBoundary500(t *testing.T) {
 	cases := map[string]string{"ascii": "x", "multibyte": "é"}
 	for name, ch := range cases {
 		t.Run(name, func(t *testing.T) {
-			f := newMHFixture(true)
+			f := newMHFixture()
 			if _, err := f.h.ModerateListing(adminCtx(), modReq("L-1", decReject, "other", strings.Repeat(ch, 500))); err != nil {
 				t.Fatalf("500-character note must succeed: %v", err)
 			}
-			g := newMHFixture(true)
+			g := newMHFixture()
 			_, err := g.h.ModerateListing(adminCtx(), modReq("L-1", decReject, "other", strings.Repeat(ch, 501)))
 			if status.Code(err) != codes.InvalidArgument {
 				t.Fatalf("501-character note code = %v, want InvalidArgument", status.Code(err))
@@ -378,7 +367,7 @@ func TestModerateListingNoteBoundary500(t *testing.T) {
 
 // Scenario: Moderation: Unspecified decision is invalid.
 func TestModerateListingUnspecifiedDecision(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	_, err := f.h.ModerateListing(adminCtx(), modReq("L-1", listingv1.ModerationDecision_MODERATION_DECISION_UNSPECIFIED, "other", ""))
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("code = %v, want InvalidArgument", status.Code(err))
@@ -390,7 +379,7 @@ func TestModerateListingUnspecifiedDecision(t *testing.T) {
 
 // Scenario: Moderation: Invalid request on an unknown listing is invalid (empty id).
 func TestModerateListingEmptyIDInvalid(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	_, err := f.h.ModerateListing(adminCtx(), modReq("", decApprove, "", ""))
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("code = %v, want InvalidArgument", status.Code(err))
@@ -405,7 +394,7 @@ func TestModerateListingNonAdminDenied(t *testing.T) {
 		"no scopes":    typedCtx("seller-a", "user"),
 	} {
 		t.Run(name, func(t *testing.T) {
-			f := newMHFixture(true)
+			f := newMHFixture()
 			_, err := f.h.ModerateListing(ctx, modReq("L-1", decApprove, "", ""))
 			if status.Code(err) != codes.PermissionDenied {
 				t.Fatalf("code = %v, want PermissionDenied", status.Code(err))
@@ -420,7 +409,7 @@ func TestModerateListingNonAdminDenied(t *testing.T) {
 
 // Scenario: Moderation: Seller cannot moderate (denied before validation, no scope oracle).
 func TestModerateListingNonAdminDeniedBeforeValidation(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	_, err := f.h.ModerateListing(ownerCtx(), modReq("", listingv1.ModerationDecision_MODERATION_DECISION_UNSPECIFIED, "", ""))
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("code = %v, want PermissionDenied", status.Code(err))
@@ -431,7 +420,7 @@ func TestModerateListingNonAdminDeniedBeforeValidation(t *testing.T) {
 func TestModerateListingAdminOwnListingAudited(t *testing.T) {
 	own := mhListing("L-1", "pending_review", modT1)
 	own.SellerID = "admin-1"
-	f := newMHFixture(true, own)
+	f := newMHFixture(own)
 	if _, err := f.h.ModerateListing(adminCtx(), modReq("L-1", decApprove, "", "")); err != nil {
 		t.Fatalf("ModerateListing: %v", err)
 	}
@@ -442,7 +431,7 @@ func TestModerateListingAdminOwnListingAudited(t *testing.T) {
 
 // Scenario: Queue: Empty queue.
 func TestListModerationQueueEmpty(t *testing.T) {
-	f := newMHFixture(true, mhListing("L-1", "published", modT1))
+	f := newMHFixture(mhListing("L-1", "published", modT1))
 	resp, err := f.h.ListModerationQueue(adminCtx(), &listingv1.ListModerationQueueRequest{})
 	if err != nil {
 		t.Fatalf("ListModerationQueue: %v", err)
@@ -454,7 +443,7 @@ func TestListModerationQueueEmpty(t *testing.T) {
 
 // Scenario: Queue: Oldest submission first (handler item shape: flags and submitted_at).
 func TestListModerationQueueItemsCarryFlagsAndSubmittedAt(t *testing.T) {
-	f := newMHFixture(true,
+	f := newMHFixture(
 		mhListing("L-b", "pending_review", modT1.Add(2*time.Hour)),
 		mhListing("L-a", "pending_review", modT1.Add(time.Hour)),
 		mhListing("L-pub", "published", modT1),
@@ -477,7 +466,7 @@ func TestListModerationQueueItemsCarryFlagsAndSubmittedAt(t *testing.T) {
 
 // Scenario: Queue: Pagination boundary (handler passes page size and cursor through).
 func TestListModerationQueuePaginationPassthrough(t *testing.T) {
-	f := newMHFixture(true,
+	f := newMHFixture(
 		mhListing("L-1", "pending_review", modT1),
 		mhListing("L-2", "pending_review", modT1.Add(time.Minute)),
 		mhListing("L-3", "pending_review", modT1.Add(2*time.Minute)),
@@ -495,7 +484,7 @@ func TestListModerationQueuePaginationPassthrough(t *testing.T) {
 
 // Scenario: Queue: Seller is denied.
 func TestListModerationQueueNonAdminDenied(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	_, err := f.h.ListModerationQueue(ownerCtx(), &listingv1.ListModerationQueueRequest{})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("code = %v, want PermissionDenied", status.Code(err))
@@ -504,7 +493,7 @@ func TestListModerationQueueNonAdminDenied(t *testing.T) {
 
 // Scenario: Queue: Reading the queue writes no audit event.
 func TestListModerationQueueNotAudited(t *testing.T) {
-	f := newMHFixture(true)
+	f := newMHFixture()
 	if _, err := f.h.ListModerationQueue(adminCtx(), &listingv1.ListModerationQueueRequest{}); err != nil {
 		t.Fatalf("ListModerationQueue: %v", err)
 	}

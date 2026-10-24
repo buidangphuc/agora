@@ -1,46 +1,34 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-domain/internal/handler"
-	"github.com/buidangphuc/team-domain/internal/interceptor"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/rpc"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
-// typedCtx injects a principal of an explicit type through the real interceptor.
 func typedCtx(id, typ string, scopes ...string) context.Context {
-	md := metadata.Pairs(
-		"x-principal-id", id,
-		"x-principal-type", typ,
-		"x-principal-scopes", strings.Join(scopes, ","),
-	)
-	ctx := metadata.NewIncomingContext(context.Background(), md)
-	var out context.Context
-	_, _ = interceptor.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{},
-		func(c context.Context, _ any) (any, error) { out = c; return nil, nil })
-	return out
+	return auth.WithPrincipal(context.Background(), auth.Principal{ID: id, Type: auth.PrincipalType(typ), Scopes: scopes})
 }
 
-func visFixture(t *testing.T) (h *handler.ListingHandler, draftID, rejectedID, pubID string) {
+func visFixture(t *testing.T) (h *rpc.ListingHandler, draftID, rejectedID, pubID string) {
 	t.Helper()
 	// Seeded directly: seller-supplied REJECTED is ignored on create (status ownership),
 	// so a rejected row can only come from the server side.
-	mk := func(id, st string) repository.Listing {
-		return repository.Listing{ID: id, Title: "t", Price: 1, Currency: "VND", Status: st, Stock: 1, SellerID: "seller-a"}
+	mk := func(id, st string) store.Listing {
+		return store.Listing{ID: id, Title: "t", Price: 1, Currency: "VND", Status: st, Stock: 1, SellerID: "seller-a"}
 	}
-	repo := repository.NewInMemoryListingRepository(
+	repo := storetest.NewInMemoryListingRepository(
 		mk("vis-draft", "draft"), mk("vis-rejected", "rejected"), mk("vis-pub", "published"))
-	h = handler.NewListingHandler(service.NewListingService(repo), nil, nil)
+	h = rpc.NewListingHandler(listing.NewListingService(repo), nil, nil)
 	draftID, rejectedID, pubID = "vis-draft", "vis-rejected", "vis-pub"
 	return
 }

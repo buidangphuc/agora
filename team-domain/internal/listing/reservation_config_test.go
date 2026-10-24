@@ -1,4 +1,4 @@
-package service_test
+package listing_test
 
 import (
 	"bytes"
@@ -9,20 +9,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/store"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 // The configured TTL decides expires_at: with a 2-minute TTL a sweep at +3m
 // restores the reservation, while with the default 15m the same sweep does not.
 func TestConfiguredReservationTTLDrivesExpiry(t *testing.T) {
 	ctx := context.Background()
-	newRepo := func() *repository.InMemoryListingRepository {
-		return repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
+	newRepo := func() *storetest.InMemoryListingRepository {
+		return storetest.NewInMemoryListingRepository(store.Listing{ID: "L1", Currency: "VND", Stock: 10})
 	}
 
 	repoS := newRepo()
-	short := service.NewListingService(repoS).WithReservationTTL(2 * time.Minute)
+	short := listing.NewListingService(repoS).WithReservationTTL(2 * time.Minute)
 	if short.ReservationTTL() != 2*time.Minute {
 		t.Fatalf("ReservationTTL = %v, want 2m", short.ReservationTTL())
 	}
@@ -39,9 +40,9 @@ func TestConfiguredReservationTTLDrivesExpiry(t *testing.T) {
 		t.Errorf("stock = %d, want 10", got)
 	}
 
-	def := service.NewListingService(newRepo())
-	if def.ReservationTTL() != service.DefaultReservationTTL {
-		t.Errorf("default TTL = %v, want %v", def.ReservationTTL(), service.DefaultReservationTTL)
+	def := listing.NewListingService(newRepo())
+	if def.ReservationTTL() != listing.DefaultReservationTTL {
+		t.Errorf("default TTL = %v, want %v", def.ReservationTTL(), listing.DefaultReservationTTL)
 	}
 	if err := def.ReserveStockIdempotent(ctx, "r1", "L1", "", 4); err != nil {
 		t.Fatalf("reserve: %v", err)
@@ -50,19 +51,19 @@ func TestConfiguredReservationTTLDrivesExpiry(t *testing.T) {
 		t.Errorf("default TTL: sweep at +3m released %d, want 0", n)
 	}
 
-	if got := service.NewListingService(nil).WithReservationTTL(0).ReservationTTL(); got != service.DefaultReservationTTL {
+	if got := listing.NewListingService(nil).WithReservationTTL(0).ReservationTTL(); got != listing.DefaultReservationTTL {
 		t.Errorf("WithReservationTTL(0) -> %v, want default", got)
 	}
 }
 
 func TestSweeperUsesConfiguredInterval(t *testing.T) {
-	svc := service.NewListingService(repository.NewInMemoryListingRepository())
-	if got := service.NewReservationSweeper(svc, 7*time.Second, nil).Interval(); got != 7*time.Second {
+	svc := listing.NewListingService(storetest.NewInMemoryListingRepository())
+	if got := listing.NewReservationSweeper(svc, 7*time.Second, nil).Interval(); got != 7*time.Second {
 		t.Errorf("interval = %v, want 7s", got)
 	}
 	for _, bad := range []time.Duration{0, -time.Second} {
-		if got := service.NewReservationSweeper(svc, bad, nil).Interval(); got != service.DefaultSweepInterval {
-			t.Errorf("interval(%v) = %v, want default %v", bad, got, service.DefaultSweepInterval)
+		if got := listing.NewReservationSweeper(svc, bad, nil).Interval(); got != listing.DefaultSweepInterval {
+			t.Errorf("interval(%v) = %v, want default %v", bad, got, listing.DefaultSweepInterval)
 		}
 	}
 }
@@ -88,8 +89,8 @@ func (b *syncBuffer) String() string {
 // Run logs the effective TTL and interval at start (as Go duration strings, in
 // the JSON format the service runs with) and ticks at the configured interval.
 func TestSweeperRunLogsEffectiveValuesAndTicks(t *testing.T) {
-	repo := repository.NewInMemoryListingRepository(repository.Listing{ID: "L1", Currency: "VND", Stock: 10})
-	svc := service.NewListingService(repo).WithReservationTTL(time.Millisecond)
+	repo := storetest.NewInMemoryListingRepository(store.Listing{ID: "L1", Currency: "VND", Stock: 10})
+	svc := listing.NewListingService(repo).WithReservationTTL(time.Millisecond)
 	if err := svc.ReserveStockIdempotent(context.Background(), "r1", "L1", "", 4); err != nil {
 		t.Fatalf("reserve: %v", err)
 	}
@@ -99,7 +100,7 @@ func TestSweeperRunLogsEffectiveValuesAndTicks(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&logs, nil))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go service.NewReservationSweeper(svc, 10*time.Millisecond, logger).Run(ctx)
+	go listing.NewReservationSweeper(svc, 10*time.Millisecond, logger).Run(ctx)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for stockOf(t, repo, "L1") != 10 {

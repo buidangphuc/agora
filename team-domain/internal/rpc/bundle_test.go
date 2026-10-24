@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -9,16 +9,16 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-domain/generated/platform/common/v1"
 	listingv1 "github.com/buidangphuc/team-domain/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-domain/internal/handler"
-	"github.com/buidangphuc/team-domain/internal/repository"
-	"github.com/buidangphuc/team-domain/internal/service"
+	"github.com/buidangphuc/team-domain/internal/listing"
+	"github.com/buidangphuc/team-domain/internal/rpc"
+	"github.com/buidangphuc/team-domain/internal/store/storetest"
 )
 
 // newBundleHandler builds a ListingHandler wired with an in-memory bundle store
 // (listing deps unused by the bundle RPCs).
-func newBundleHandler() *handler.ListingHandler {
-	bSvc := service.NewBundleService(repository.NewInMemoryBundleRepository())
-	return handler.NewListingHandler(service.NewListingService(repository.NewInMemoryListingRepository()), nil, nil).
+func newBundleHandler() *rpc.ListingHandler {
+	bSvc := listing.NewBundleService(storetest.NewInMemoryBundleRepository())
+	return rpc.NewListingHandler(listing.NewListingService(storetest.NewInMemoryListingRepository()), nil, nil).
 		WithBundles(bSvc)
 }
 
