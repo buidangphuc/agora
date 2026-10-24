@@ -8,7 +8,7 @@ Bounded context: favorites, listing view/favorite stats and recently-viewed hist
 
 ## 1. Contract
 
-Defined in `proto/platform/engagement/v1/engagement.proto` (vendored, see Gotchas). Authorization is `interceptor.RequireScopes` on the principal that the gateway forwards in `x-principal-id` / `x-principal-type` / `x-principal-scopes` metadata (ADR-0003; no token or secret in this service). A call with no principal is `Unauthenticated`; a missing scope is `PermissionDenied`. "Self" means the handler reads the user id from the principal, never from the request.
+Defined in `proto/platform/engagement/v1/engagement.proto` (vendored, see Gotchas). Authorization is checked in `internal/rpc` with the SDK `auth` package on the principal that the gateway forwards in `x-principal-id` / `x-principal-type` / `x-principal-scopes` metadata (ADR-0003; no token or secret in this service). A call with no principal is `Unauthenticated`; a missing scope is `PermissionDenied`. "Self" means the handler reads the user id from the principal, never from the request.
 
 | RPC | Authorization | Notes |
 |---|---|---|
@@ -38,20 +38,22 @@ Defined in `proto/platform/engagement/v1/engagement.proto` (vendored, see Gotcha
 | `CheckIn` | `engagement:write` | Idempotent per calendar day; advances streak, awards coins. |
 | `GetLoyalty` | `engagement:read` | |
 
-Verified purchase (`CreateReview`): only when `UPSTREAM_ORDER_ADDR` is set **and** the request has an `order_id`, the service calls `team-order` `GetOrder` (`internal/upstream/order.go`). `verified_purchase = true` requires the order's `buyer_id` to equal the caller, status `ORDER_STATUS_COMPLETED`, and the order to contain the listing. The order's `seller_id` is stored on the review. If the address is empty, no `order_id` is given, or the upstream call fails, the review is saved unverified (upstream errors are logged as a warning, never returned).
+Verified purchase (`CreateReview`): when the request has an `order_id`, the service calls `team-order` `GetOrder` (`internal/upstream/order.go`; `UPSTREAM_ORDER_ADDR` is required at startup). `verified_purchase = true` requires the order's `buyer_id` to equal the caller, status `ORDER_STATUS_COMPLETED`, and the order to contain the listing. The order's `seller_id` is stored on the review. If no `order_id` is given, or the upstream call fails, the review is saved unverified (upstream errors are logged as a warning, never returned).
 
-Consumes: `team-order` `GetOrder` (gRPC), called as the service principal `service-team-engagement` (type `service`, scope `order.read`; team-order requires a principal). Also calls team-audit (`UPSTREAM_AUDIT_ADDR`) to write audit entries before moderation and dispute resolutions.
+Consumes: `team-order` `GetOrder` (gRPC), called as the service principal `service-team-engagement` (type `service`, scope `order.read`; team-order requires a principal). Also calls team-audit (`UPSTREAM_AUDIT_ADDR`, required) through `internal/upstream/audit.go` to write audit entries before moderation and dispute resolutions.
 
 ## 2. Events
 
-Produces engagement facts (`FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated`, `ReviewHidden`, `DisputeResolved`; no free text) to `engagement.events` through a transactional outbox (migration 0010) and a relayer that publishes in `seq` order, keyed by listing id (seller id for follows), and deletes published rows older than 7 days each cycle; an idempotent no-op writes no fact (an already-hidden `HideReview` writes no `ReviewHidden`). `DisputeResolved` (dispute id, order id, `return_id`, status, `ruling`, resolver id, resolved time) is written in the same transaction as the move to `RESOLVED` or `REJECTED`, keyed by dispute id. Deploy order for `ReviewHidden`: deploy team-analytics before team-engagement, so the consumer understands the fact before it is published. Consumes `listing.events` (`platform.events.v1.EventEnvelope`) when `KAFKA_ENABLED=true`; it is the only writer of `seller_listings` (the follow-feed source).
+Produces engagement facts (`FavoriteAdded`, `FavoriteRemoved`, `SellerFollowed`, `SellerUnfollowed`, `ReviewCreated`, `ReviewHidden`, `DisputeResolved`; no free text) to `engagement.events` through a transactional outbox (migration 0010) and the SDK `outbox` relayer that publishes in `seq` order, keyed by listing id (seller id for follows); an hourly job owned by `internal/app` deletes published rows older than 7 days; an idempotent no-op writes no fact (an already-hidden `HideReview` writes no `ReviewHidden`). `DisputeResolved` (dispute id, order id, `return_id`, status, `ruling`, resolver id, resolved time) is written in the same transaction as the move to `RESOLVED` or `REJECTED`, keyed by dispute id. Deploy order for `ReviewHidden`: deploy team-analytics before team-engagement, so the consumer understands the fact before it is published. Consumes `listing.events` (`platform.events.v1.EventEnvelope`) with the SDK `consume` loop; the consumer and relayer always run (no enable flags, Kafka and Postgres are required); it is the only writer of `seller_listings` (the follow-feed source).
 
 - `ListingChanged` with a `PUBLISHED` listing (created or updated): upsert `(seller_id, listing_id)`. `created_at` is the envelope's `occurred_at` and is kept on redelivery and later updates, so editing a listing does not bump it in the feed. A listing has one owning seller.
 - `ListingChanged` `DELETED`, or any non-published status; and `ListingStatusChanged` to a non-published status: remove the row. `ListingStatusChanged` to `PUBLISHED` is ignored (it carries no seller id; the matching `ListingChanged` upserts).
 - Delivery is at-least-once with idempotent writes. A failing record is retried with backoff (5 attempts), then parked on `<topic>.dlq`; if it cannot be parked the service exits without committing. A malformed record (bad envelope, no listing id, published without seller id) takes the same path.
-- A new consumer group starts from the earliest offset, which backfills the feed. The consumer runs inside the server process (`cmd/server`), not as a separate binary.
+- A new consumer group starts from the earliest offset, which backfills the feed. The consumer runs inside the server process (`cmd/server`), not as a separate binary. Consumer logs carry keys as `key_fp` (HMAC with `LOG_KEY_FP_SECRET`), never raw ids. `internal/events` holds the envelope builder and the listing handler.
 
-## 3. Data
+## 3. Layout and data
+
+Packages (ADR-0016): `cmd/server` (entrypoint, `migrate up`), `internal/app` (wiring, lifecycle, migrate), `internal/config` (settings), `internal/store` (Postgres repositories and outbox), `internal/engagement` (domain rules), `internal/upstream` (team-order and team-audit clients), `internal/rpc` (gRPC handlers), `internal/events` (listing consumer and envelope builder).
 
 Own Postgres `engagement_db`, role `engagement_svc`. Tables by migration (`migrations/NNNN_*.up.sql` / `.down.sql`):
 
@@ -71,38 +73,41 @@ Own Postgres `engagement_db`, role `engagement_svc`. Tables by migration (`migra
 | 0012 | `reports` (listing reports) |
 | 0013 | dispute escalation: `return_id` and `ruling` on `disputes` |
 
-Migrations are applied by golang-migrate, never by the server. Root compose: the `team-engagement-migrate` one-shot runs before `team-engagement`. Standalone: `make migrate` (runs `migrate/migrate` in docker against `DATABASE_URL`, rewriting `localhost` to `host.docker.internal`).
+Migrations are applied by the same binary: `server migrate up` (`internal/app/migrate.go`), never by the serving process. Root compose: the `team-engagement-migrate` one-shot runs it before `team-engagement`. Standalone: `make migrate`.
 
 ## 4. Configuration
 
-Read by `internal/config/config.go`; `.env.example` is the template.
+Loaded by `internal/config/config.go` through the SDK `config` package; `.env.example` is the template. There are no enable flags and no in-memory fallbacks: a missing required value stops startup.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ENV` | `local` | Environment name |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`/`warning`, `error` |
+| `ENV` | required | Environment name |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `LOG_JSON` | `true` | JSON logs (else text) |
 | `GRPC_HOST` | `0.0.0.0` | Bind host |
-| `GRPC_PORT` | `50054` | Bind port (1-65535) |
-| `GRPC_REFLECTION_ENABLED` | `true` | gRPC reflection |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | Graceful stop timeout |
-| `DATABASE_ENABLED` | `true` | Must stay `true`: startup fails otherwise (the server has no in-memory mode) |
-| `DATABASE_URL` | empty | Required when enabled. Standalone `postgresql://engagement_svc:engagement_pass@localhost:5436/engagement_db`; in root compose the host is `postgres:5432` |
+| `GRPC_PORT` | required | Bind port (`50054`) |
+| `GRPC_REFLECTION_ENABLED` | `false` | gRPC reflection |
+| `SHUTDOWN_GRACE` | `10s` | Graceful stop timeout |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Delay between failing readiness and stopping |
+| `DATABASE_URL` | required | Standalone `postgresql://engagement_svc:engagement_pass@localhost:5436/engagement_db`; in root compose the host is `postgres:5432` |
 | `DB_MAX_CONNS` | `10` | pgx pool size |
-| `UPSTREAM_ORDER_ADDR` | empty | `team-order` gRPC address. Empty disables verified-purchase checks. Root compose sets `team-order-svc:50055` |
-| `UPSTREAM_AUDIT_ADDR` | empty | `team-audit` gRPC address; `HideReview`, `ResolveDispute` (`dispute.resolve`) and `ResolveReport` (`report.resolve`) write their audit record there before mutating. Fails closed: when unset or the write fails, they return `Unavailable`. Root compose sets `team-audit-svc:50066` |
-| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Per-call timeout for the team-order and team-audit calls; must be > 0 |
-| `KAFKA_ENABLED` | `false` | Run the `listing.events` consumer that fills the follow feed. Off means the feed stays empty |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated seed brokers (root compose: `redpanda:9092`) |
+| `KAFKA_BROKERS` | required | Comma-separated seed brokers (root compose: `redpanda:9092`) |
+| `LOG_KEY_FP_SECRET` | required | HMAC secret for the `key_fp` log fields |
+| `UPSTREAM_ORDER_ADDR` | required | `team-order` gRPC address (root compose: `team-order-svc:50055`) |
+| `UPSTREAM_AUDIT_ADDR` | required | `team-audit` gRPC address; `HideReview`, `ResolveDispute` (`dispute.resolve`) and `ResolveReport` (`report.resolve`) write their audit record there before mutating and return `Unavailable` when the write fails (root compose: `team-audit-svc:50066`) |
 | `KAFKA_CONSUMER_GROUP` | `team-engagement-feed` | Consumer group |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | Topic; the DLQ is `<topic>.dlq` |
-| `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Topic the outbox relayer publishes facts to (needs `KAFKA_ENABLED=true`) |
-| `ENGAGEMENT_OUTBOX_RELAY_INTERVAL` | `500ms` | Outbox relay poll interval (Go duration) |
+| `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Topic the outbox relayer publishes facts to |
+| `OUTBOX_POLL_INTERVAL` | `1s` | Outbox relay poll interval |
+| `OUTBOX_BATCH_SIZE` | `100` | Outbox relay batch size |
+| `OUTBOX_CLAIM_LOCK` | `60s` | Outbox claim lock duration |
 | `REPORT_RETENTION_DAYS` | `730` | Closed reports older than this many days are pseudonymised (must be > 0) |
-| `REPORT_SWEEP_INTERVAL` | `24h` | How often the retention sweep runs, also once at startup (Go duration, must be > 0) |
+| `REPORT_SWEEP_INTERVAL` | `24h` | How often the retention sweep runs, also once at startup (must be > 0) |
 | `OTEL_ENABLED` | `false` | Tracing |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty (`.env.example` sets `http://localhost:4317`) | OTLP endpoint |
 | `OTEL_SERVICE_NAME` | `team-engagement` | Service name in traces |
+
+Health: `grpc.health.v1.Health` reports `liveness` and a `postgres` check.
 
 Drift gate: `make check-env` (`TestEnvExampleInSync`) fails if `.env.example` and the config struct disagree. Add a variable to both.
 
@@ -126,7 +131,7 @@ make migrate
 make run                                                # go run ./cmd/server
 ```
 
-Optionally run `team-order` and set `UPSTREAM_ORDER_ADDR` to exercise verified purchases.
+`UPSTREAM_ORDER_ADDR` and `UPSTREAM_AUDIT_ADDR` must point at running `team-order` and `team-audit` instances.
 
 ## 6. Build, test, lint
 
@@ -134,7 +139,7 @@ Optionally run `team-order` and set `UPSTREAM_ORDER_ADDR` to exercise verified p
 |---|---|
 | `make proto` | `buf generate` from `proto/` into `generated/` (needs `buf`; `buf.gen.yaml` uses remote plugins, so network access) |
 | `make test` | `go test ./...` (plain `testing`, no testify) |
-| `make check` | Merge gate: `check-env`, `gofmt -l`, `go vet ./...`, `go test ./...` |
+| `make check` | Merge gate (shared `go-service.mk`): format, lint, vet, build and tests, plus the layout and README gates in `internal/docs` |
 | `make check-env` | `.env.example` drift test only |
 | `make migrate`, `make run` | See above |
 
@@ -151,15 +156,13 @@ This repo has no CI workflow of its own; `make check` is the gate. Go 1.26 (`go.
 
 - `generated/` is gitignored. `go build`, `go test` and `go run` fail on a fresh clone until `make proto` has run.
 - `proto/` is a pinned vendored copy of platform-core's contract (ADR-0001). Never edit it here; change it in `platform-core/packages/proto` and re-vendor. Never hand-edit `generated/`.
-- No in-memory fallback in the server binary. In-memory repositories exist only for tests.
+- No in-memory fallback and no enable flags in the server binary; `internal/docs` scans `cmd` and `internal` for them.
 - Public RPCs (`RecordView`, `GetListingStats`, the list/summary reads) accept anonymous callers; `GetRecentlyViewed` returns empty for them.
-- An empty `UPSTREAM_ORDER_ADDR` silently disables purchase verification (`.env.example` ships it empty).
-- The `DATABASE_ENABLED=false` startup error text in `internal/bootstrap/lifecycle.go` says "team-identity" (copy-paste); the behaviour is correct.
 
 ## 9. Known gaps
 
-- **Follow feed depends on the consumer.** It is empty unless `KAFKA_ENABLED=true` and the group has read `listing.events`. Root compose sets these for this service. A stale redelivery of an old `PUBLISHED` event after a `DELETED` can re-add a listing (events for one listing are keyed together, so this needs a replay or rebalance race).
-- **Dispute creation fails closed.** `CreateDispute` verifies the order, its buyer and its seller against `team-order` (fails closed with `UNAVAILABLE` when `UPSTREAM_ORDER_ADDR` is unset or team-order is down).
+- **Follow feed depends on the consumer.** It is empty until the group has read `listing.events`. A stale redelivery of an old `PUBLISHED` event after a `DELETED` can re-add a listing (events for one listing are keyed together, so this needs a replay or rebalance race).
+- **Dispute creation fails closed.** `CreateDispute` verifies the order, its buyer and its seller against `team-order` (fails closed with `UNAVAILABLE` when team-order is down).
 - **Review display name is synthetic.** `CreateReview` sets `user_name` to `"User " + first 6 chars of id` (or a Vietnamese placeholder for short ids).
 - Root `AGENTS.md` describes this service as "Favorites, stats, reviews, Q&A, disputes"; it omits wishlist, follows and loyalty.
 
