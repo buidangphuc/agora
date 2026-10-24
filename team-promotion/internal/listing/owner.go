@@ -5,8 +5,8 @@ import (
 	"errors"
 	"log/slog"
 
+	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	listingv1 "github.com/buidangphuc/team-promotion/generated/platform/listing/v1"
@@ -25,7 +25,7 @@ type Getter interface {
 func Owner(ctx context.Context, listings Getter, logger *slog.Logger, listingID, callerID string) error {
 	resp, err := listings.GetListing(ctx, &listingv1.GetListingRequest{Id: listingID})
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
+		if status.Convert(err).Proto().GetCode() == int32(code.Code_NOT_FOUND) {
 			return ErrNotFound
 		}
 		logger.Warn("listing ownership lookup failed", slog.String("listing_id", listingID), slog.Any("err", err))
