@@ -1,15 +1,16 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
 )
 
 // ErrCampaignNotFound is returned when a flash-sale campaign lookup misses.
@@ -31,8 +32,9 @@ type FlashSaleCampaign struct {
 
 // FlashSaleRepository is the persistence seam for flash-sale campaigns.
 type FlashSaleRepository interface {
-	// Create inserts a campaign; a blank ID is filled with a generated one.
-	Create(ctx context.Context, c FlashSaleCampaign) (FlashSaleCampaign, error)
+	// Create inserts a campaign and its outbox row in one transaction. A blank ID is
+	// filled with a generated one before event is called with the stored campaign.
+	Create(ctx context.Context, c FlashSaleCampaign, event func(FlashSaleCampaign) (outbox.Row, error)) (FlashSaleCampaign, error)
 	// GetByID fetches a campaign by id (ErrCampaignNotFound on miss).
 	GetByID(ctx context.Context, id string) (FlashSaleCampaign, error)
 	// GetActiveByListing returns the campaign for a listing whose [starts_at,
@@ -48,11 +50,12 @@ type FlashSaleRepository interface {
 
 // PostgresFlashSaleRepository persists campaigns in promotion_db.
 type PostgresFlashSaleRepository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	outbox *outbox.Store
 }
 
-func NewPostgresFlashSaleRepository(pool *pgxpool.Pool) *PostgresFlashSaleRepository {
-	return &PostgresFlashSaleRepository{pool: pool}
+func NewPostgresFlashSaleRepository(pool *pgxpool.Pool, ob *outbox.Store) *PostgresFlashSaleRepository {
+	return &PostgresFlashSaleRepository{pool: pool, outbox: ob}
 }
 
 const campaignColumns = `id, listing_id, variant_id, sale_price, stock_cap, stock_sold, starts_at, ends_at`
@@ -73,16 +76,26 @@ func scanCampaign(row pgx.Row, c *FlashSaleCampaign) error {
 	return nil
 }
 
-func (r *PostgresFlashSaleRepository) Create(ctx context.Context, c FlashSaleCampaign) (FlashSaleCampaign, error) {
+func (r *PostgresFlashSaleRepository) Create(ctx context.Context, c FlashSaleCampaign, event func(FlashSaleCampaign) (outbox.Row, error)) (FlashSaleCampaign, error) {
 	if c.ID == "" {
-		c.ID = newID()
+		c.ID = NewID()
 	}
 	const q = `INSERT INTO flash_sale_campaigns (` + campaignColumns + `)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	if _, err := r.pool.Exec(ctx, q,
-		c.ID, c.ListingID, c.VariantID, c.SalePrice, c.StockCap, c.StockSold, nullableTime(c.StartsAt), nullableTime(c.EndsAt),
-	); err != nil {
-		return FlashSaleCampaign{}, fmt.Errorf("insert campaign: %w", err)
+	err := postgres.WithTx(ctx, r.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, q,
+			c.ID, c.ListingID, c.VariantID, c.SalePrice, c.StockCap, c.StockSold, nullableTime(c.StartsAt), nullableTime(c.EndsAt),
+		); err != nil {
+			return fmt.Errorf("insert campaign: %w", err)
+		}
+		row, err := event(c)
+		if err != nil {
+			return err
+		}
+		return r.outbox.EnqueueTx(ctx, tx, row)
+	})
+	if err != nil {
+		return FlashSaleCampaign{}, err
 	}
 	return c, nil
 }
@@ -144,87 +157,3 @@ func (r *PostgresFlashSaleRepository) ListActive(ctx context.Context, now time.T
 func (r *PostgresFlashSaleRepository) Ping(ctx context.Context) error {
 	return r.pool.Ping(ctx)
 }
-
-// ── In-memory implementation ──
-
-// InMemoryFlashSaleRepository is the DB-less backend used when DATABASE_ENABLED
-// is false and in unit tests.
-type InMemoryFlashSaleRepository struct {
-	mu        sync.RWMutex
-	campaigns map[string]FlashSaleCampaign
-}
-
-func NewInMemoryFlashSaleRepository() *InMemoryFlashSaleRepository {
-	return &InMemoryFlashSaleRepository{campaigns: make(map[string]FlashSaleCampaign)}
-}
-
-// active reports whether now falls within the campaign's [starts_at, ends_at)
-// window; a zero bound is treated as open-ended.
-func active(c FlashSaleCampaign, now time.Time) bool {
-	if !c.StartsAt.IsZero() && now.Before(c.StartsAt) {
-		return false
-	}
-	if !c.EndsAt.IsZero() && !now.Before(c.EndsAt) {
-		return false
-	}
-	return true
-}
-
-func (r *InMemoryFlashSaleRepository) Create(_ context.Context, c FlashSaleCampaign) (FlashSaleCampaign, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if c.ID == "" {
-		c.ID = newID()
-	}
-	r.campaigns[c.ID] = c
-	return c, nil
-}
-
-func (r *InMemoryFlashSaleRepository) GetByID(_ context.Context, id string) (FlashSaleCampaign, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	c, ok := r.campaigns[id]
-	if !ok {
-		return FlashSaleCampaign{}, ErrCampaignNotFound
-	}
-	return c, nil
-}
-
-func (r *InMemoryFlashSaleRepository) GetActiveByListing(_ context.Context, listingID string, now time.Time) (FlashSaleCampaign, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var found []FlashSaleCampaign
-	for _, c := range r.campaigns {
-		if c.ListingID == listingID && active(c, now) {
-			found = append(found, c)
-		}
-	}
-	if len(found) == 0 {
-		return FlashSaleCampaign{}, ErrCampaignNotFound
-	}
-	// Prefer the most recently started campaign, mirroring the Postgres ordering.
-	sort.Slice(found, func(i, j int) bool { return found[i].StartsAt.After(found[j].StartsAt) })
-	return found[0], nil
-}
-
-func (r *InMemoryFlashSaleRepository) ListActive(_ context.Context, now time.Time, limit, offset int) ([]FlashSaleCampaign, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var all []FlashSaleCampaign
-	for _, c := range r.campaigns {
-		if active(c, now) {
-			all = append(all, c)
-		}
-	}
-	sort.Slice(all, func(i, j int) bool { return all[i].StartsAt.After(all[j].StartsAt) })
-	if offset >= len(all) {
-		return nil, nil
-	}
-	all = all[offset:]
-	if limit > 0 && limit < len(all) {
-		all = all[:limit]
-	}
-	return all, nil
-}
-
-func (r *InMemoryFlashSaleRepository) Ping(_ context.Context) error { return nil }

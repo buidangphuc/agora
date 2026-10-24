@@ -1,12 +1,10 @@
-package repository
+package store
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -201,7 +199,7 @@ func (r *PostgresSubscriptionRepository) GetPlanByID(ctx context.Context, id str
 
 func (r *PostgresSubscriptionRepository) UpsertSubscription(ctx context.Context, sub SellerSubscription) (SellerSubscription, error) {
 	if sub.ID == "" {
-		sub.ID = newID()
+		sub.ID = NewID()
 	}
 	if sub.Status == "" {
 		sub.Status = SubscriptionStatusActive
@@ -241,85 +239,3 @@ func (r *PostgresSubscriptionRepository) GetActiveSubscriptionBySeller(ctx conte
 func (r *PostgresSubscriptionRepository) Ping(ctx context.Context) error {
 	return r.pool.Ping(ctx)
 }
-
-// ── In-memory implementation ──
-
-// InMemorySubscriptionRepository is the DB-less backend used when
-// DATABASE_ENABLED=false and in unit tests. Plans are seeded from DefaultPlans.
-type InMemorySubscriptionRepository struct {
-	mu    sync.RWMutex
-	plans map[string]Plan               // keyed by id
-	subs  map[string]SellerSubscription // keyed by seller_id (one per seller)
-}
-
-func NewInMemorySubscriptionRepository() *InMemorySubscriptionRepository {
-	plans := make(map[string]Plan)
-	for _, p := range DefaultPlans() {
-		plans[p.ID] = p
-	}
-	return &InMemorySubscriptionRepository{
-		plans: plans,
-		subs:  make(map[string]SellerSubscription),
-	}
-}
-
-func (r *InMemorySubscriptionRepository) ListPlans(_ context.Context) ([]Plan, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	out := make([]Plan, 0, len(r.plans))
-	for _, p := range r.plans {
-		out = append(out, p)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Tier < out[j].Tier })
-	return out, nil
-}
-
-func (r *InMemorySubscriptionRepository) GetPlanByID(_ context.Context, id string) (Plan, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	p, ok := r.plans[id]
-	if !ok {
-		return Plan{}, ErrPlanNotFound
-	}
-	return p, nil
-}
-
-func (r *InMemorySubscriptionRepository) UpsertSubscription(_ context.Context, sub SellerSubscription) (SellerSubscription, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if sub.Status == "" {
-		sub.Status = SubscriptionStatusActive
-	}
-	if existing, ok := r.subs[sub.SellerID]; ok {
-		// Replace plan/status, keep original id + created_at.
-		existing.PlanID = sub.PlanID
-		existing.Status = sub.Status
-		existing.Tier = sub.Tier
-		r.subs[sub.SellerID] = existing
-		return existing, nil
-	}
-	if sub.ID == "" {
-		sub.ID = newID()
-	}
-	if sub.CreatedAt.IsZero() {
-		sub.CreatedAt = time.Now()
-	}
-	r.subs[sub.SellerID] = sub
-	return sub, nil
-}
-
-func (r *InMemorySubscriptionRepository) GetActiveSubscriptionBySeller(_ context.Context, sellerID string) (SellerSubscription, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	sub, ok := r.subs[sellerID]
-	if !ok || sub.Status != SubscriptionStatusActive {
-		return SellerSubscription{}, ErrSubscriptionNotFound
-	}
-	// Denormalize the current plan tier in (mirrors the Postgres join).
-	if p, ok := r.plans[sub.PlanID]; ok {
-		sub.Tier = p.Tier
-	}
-	return sub, nil
-}
-
-func (r *InMemorySubscriptionRepository) Ping(_ context.Context) error { return nil }

@@ -1,11 +1,9 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -73,7 +71,7 @@ func scanAdCampaign(row pgx.Row, c *AdCampaign) error {
 
 func (r *PostgresAdCampaignRepository) Create(ctx context.Context, c AdCampaign) (AdCampaign, error) {
 	if c.ID == "" {
-		c.ID = newID()
+		c.ID = NewID()
 	}
 	if c.Status == 0 {
 		c.Status = AdCampaignStatusActive
@@ -147,97 +145,3 @@ func (r *PostgresAdCampaignRepository) ListActive(ctx context.Context, limit int
 func (r *PostgresAdCampaignRepository) Ping(ctx context.Context) error {
 	return r.pool.Ping(ctx)
 }
-
-// ── In-memory implementation ──
-
-// InMemoryAdCampaignRepository is the DB-less backend used when
-// DATABASE_ENABLED=false and in unit tests.
-type InMemoryAdCampaignRepository struct {
-	mu        sync.RWMutex
-	campaigns map[string]AdCampaign // keyed by id
-}
-
-func NewInMemoryAdCampaignRepository() *InMemoryAdCampaignRepository {
-	return &InMemoryAdCampaignRepository{campaigns: make(map[string]AdCampaign)}
-}
-
-func (r *InMemoryAdCampaignRepository) Create(_ context.Context, c AdCampaign) (AdCampaign, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if c.ID == "" {
-		c.ID = newID()
-	}
-	if c.Status == 0 {
-		c.Status = AdCampaignStatusActive
-	}
-	if c.CreatedAt.IsZero() {
-		c.CreatedAt = time.Now()
-	}
-	r.campaigns[c.ID] = c
-	return c, nil
-}
-
-func (r *InMemoryAdCampaignRepository) GetByID(_ context.Context, id string) (AdCampaign, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	c, ok := r.campaigns[id]
-	if !ok {
-		return AdCampaign{}, ErrAdCampaignNotFound
-	}
-	return c, nil
-}
-
-func (r *InMemoryAdCampaignRepository) ListBySeller(_ context.Context, sellerID string, limit, offset int) ([]AdCampaign, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var all []AdCampaign
-	for _, c := range r.campaigns {
-		if c.SellerID == sellerID {
-			all = append(all, c)
-		}
-	}
-	// Newest first (mirrors the Postgres ORDER BY created_at DESC); ties break on
-	// id for a deterministic order in the DB-less path.
-	sort.Slice(all, func(i, j int) bool {
-		if !all[i].CreatedAt.Equal(all[j].CreatedAt) {
-			return all[i].CreatedAt.After(all[j].CreatedAt)
-		}
-		return all[i].ID < all[j].ID
-	})
-	if offset >= len(all) {
-		return nil, nil
-	}
-	all = all[offset:]
-	if limit > 0 && limit < len(all) {
-		all = all[:limit]
-	}
-	return all, nil
-}
-
-func (r *InMemoryAdCampaignRepository) ListActive(_ context.Context, limit int) ([]AdCampaign, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var all []AdCampaign
-	for _, c := range r.campaigns {
-		if c.Status == AdCampaignStatusActive {
-			all = append(all, c)
-		}
-	}
-	// Best bid first; ties break on newest-first then id for a stable order
-	// (mirrors the Postgres ORDER BY bid DESC, created_at DESC).
-	sort.Slice(all, func(i, j int) bool {
-		if all[i].Bid != all[j].Bid {
-			return all[i].Bid > all[j].Bid
-		}
-		if !all[i].CreatedAt.Equal(all[j].CreatedAt) {
-			return all[i].CreatedAt.After(all[j].CreatedAt)
-		}
-		return all[i].ID < all[j].ID
-	})
-	if limit > 0 && limit < len(all) {
-		all = all[:limit]
-	}
-	return all, nil
-}
-
-func (r *InMemoryAdCampaignRepository) Ping(_ context.Context) error { return nil }

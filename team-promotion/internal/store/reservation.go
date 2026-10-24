@@ -1,10 +1,9 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -66,7 +65,7 @@ func scanReservation(row pgx.Row, r *Reservation) error {
 
 func (r *PostgresReservationRepository) Create(ctx context.Context, res Reservation) (Reservation, bool, error) {
 	if res.ID == "" {
-		res.ID = newID()
+		res.ID = NewID()
 	}
 	if res.Status == "" {
 		res.Status = ReservationReserved
@@ -118,56 +117,3 @@ func (r *PostgresReservationRepository) UpdateStatus(ctx context.Context, reserv
 func (r *PostgresReservationRepository) Ping(ctx context.Context) error {
 	return r.pool.Ping(ctx)
 }
-
-// ── In-memory implementation ──
-
-// InMemoryReservationRepository is the DB-less backend used when DATABASE_ENABLED
-// is false and in unit tests.
-type InMemoryReservationRepository struct {
-	mu           sync.RWMutex
-	reservations map[string]Reservation // keyed by reservation_id
-}
-
-func NewInMemoryReservationRepository() *InMemoryReservationRepository {
-	return &InMemoryReservationRepository{reservations: make(map[string]Reservation)}
-}
-
-func (r *InMemoryReservationRepository) Create(_ context.Context, res Reservation) (Reservation, bool, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if existing, ok := r.reservations[res.ReservationID]; ok {
-		return existing, false, nil
-	}
-	if res.ID == "" {
-		res.ID = newID()
-	}
-	if res.Status == "" {
-		res.Status = ReservationReserved
-	}
-	r.reservations[res.ReservationID] = res
-	return res, true, nil
-}
-
-func (r *InMemoryReservationRepository) GetByReservationID(_ context.Context, reservationID string) (Reservation, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	res, ok := r.reservations[reservationID]
-	if !ok {
-		return Reservation{}, ErrReservationNotFound
-	}
-	return res, nil
-}
-
-func (r *InMemoryReservationRepository) UpdateStatus(_ context.Context, reservationID, status string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	res, ok := r.reservations[reservationID]
-	if !ok {
-		return ErrReservationNotFound
-	}
-	res.Status = status
-	r.reservations[reservationID] = res
-	return nil
-}
-
-func (r *InMemoryReservationRepository) Ping(_ context.Context) error { return nil }
