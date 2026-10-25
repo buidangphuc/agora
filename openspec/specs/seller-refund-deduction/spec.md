@@ -56,8 +56,9 @@ deduction per refund that had a positive applied amount, once the credit is writ
 
 #### Scenario: Refunding a payment whose order was cancelled deducts nothing
 
-- **WHEN** a payment succeeded late for an order that stayed `Cancelled`, and the order's seller refunds it in full
-- **THEN** the refund succeeds and the payment reads `REFUNDED`
+- **WHEN** a buyer's payment for an order was refused because the order was `Cancelled`, and the order's seller refunds
+  it in full
+- **THEN** the refund fails with `failed_precondition` and the payment reads `CANCELLED`
 - **AND** after a sentinel order of the same seller is credited, the seller's ledger has no entry for the cancelled
   order and the balance equals the sentinel's amount
 
