@@ -23,7 +23,7 @@
     "@openfeature/flipt-provider": "^0.1.4",
     "@openfeature/server-sdk": "^1.23.0",
     "@testing-library/dom": "^10.4.2",
-    "next": "^15.5.27",
+    "next": "^15.5.28",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "server-only": "^0.0.1"
