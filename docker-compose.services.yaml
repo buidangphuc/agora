@@ -33,7 +33,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events analytics.events engagement.events engagement.events.analytics.dlq analytics.ga4-relay.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events analytics.events engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -352,6 +352,7 @@ services:
       - PAYMENT_EVENTS_TOPIC=payment.events
       - ORDER_PAYMENT_CONSUMER_GROUP=team-order.payment
       - PAYMENT_EVENTS_DLQ_TOPIC=payment.events.dlq
+      - ENGAGEMENT_EVENTS_DLQ_TOPIC=engagement.events.order.dlq
       # order.events outbox relayer (ADR-0013): publishes OrderPaidEvent (line
       # items) written in the same tx as the PAID transition. Same OUTBOX_* names
       # as team-domain; needs KAFKA_ENABLED=true above.

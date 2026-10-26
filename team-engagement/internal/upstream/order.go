@@ -145,3 +145,34 @@ func (c *OrderClient) GetOrderParties(ctx context.Context, orderID string) (buye
 	}
 	return order.GetBuyerId(), order.GetSellerId(), nil
 }
+
+// ErrReturnNotFound means team-order has no such return request.
+var ErrReturnNotFound = errors.New("return not found")
+
+// GetReturn reads a return request from team-order as the service principal and
+// returns its order id, status and whether it can be escalated. Any failure other
+// than not-found is a generic wrapped error carrying no upstream detail.
+func (c *OrderClient) GetReturn(ctx context.Context, returnID string) (string, orderv1.ReturnStatus, bool, error) {
+	if c == nil || c.svc == nil {
+		return "", orderv1.ReturnStatus_RETURN_STATUS_UNSPECIFIED, false, ErrOrderClientNotConfigured
+	}
+	if returnID == "" {
+		return "", orderv1.ReturnStatus_RETURN_STATUS_UNSPECIFIED, false, ErrReturnNotFound
+	}
+	callCtx, cancel := boundedCtx(ctx, c.timeout)
+	defer cancel()
+	resp, err := c.svc.GetReturnRequest(callCtx, &orderv1.GetReturnRequestRequest{Id: returnID})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return "", orderv1.ReturnStatus_RETURN_STATUS_UNSPECIFIED, false, ErrReturnNotFound
+		}
+		slog.ErrorContext(ctx, "get return: cannot read return from team-order",
+			slog.String("return_id", returnID), slog.String("grpc_code", status.Code(err).String()), slog.Any("err", err))
+		return "", orderv1.ReturnStatus_RETURN_STATUS_UNSPECIFIED, false, fmt.Errorf("get return %s: upstream unavailable (%s)", returnID, status.Code(err))
+	}
+	ret := resp.GetReturnRequest()
+	if ret == nil {
+		return "", orderv1.ReturnStatus_RETURN_STATUS_UNSPECIFIED, false, ErrReturnNotFound
+	}
+	return ret.GetOrderId(), ret.GetStatus(), ret.GetCanEscalate(), nil
+}

@@ -154,6 +154,9 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `ORDER_PAYMENT_CONSUMER_GROUP` | `team-order.payment` | |
 | `PAYMENT_EVENTS_TOPIC` | `payment.events` | |
 | `PAYMENT_EVENTS_DLQ_TOPIC` | `payment.events.dlq` | |
+| `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Dispute-resolution consumer topic |
+| `ORDER_DISPUTE_CONSUMER_GROUP` | `team-order.dispute` | |
+| `ENGAGEMENT_EVENTS_DLQ_TOPIC` | `engagement.events.order.dlq` | |
 | `ORDER_EVENTS_TOPIC` | `order.events` | |
 | `OUTBOX_ENABLED` | `true` | Relayer also needs `KAFKA_ENABLED=true` |
 | `OUTBOX_POLL_INTERVAL` | `1s` | Go duration; invalid or non-positive falls back to 1s |

@@ -76,6 +76,10 @@ type Kafka struct {
 	PaymentTopic  string `env:"PAYMENT_EVENTS_TOPIC" default:"payment.events"`
 	PaymentDLQ    string `env:"PAYMENT_EVENTS_DLQ_TOPIC" default:"payment.events.dlq"`
 	OrderTopic    string `env:"ORDER_EVENTS_TOPIC" default:"order.events"`
+
+	EngagementTopic         string `env:"ENGAGEMENT_EVENTS_TOPIC" default:"engagement.events"`
+	EngagementConsumerGroup string `env:"ORDER_DISPUTE_CONSUMER_GROUP" default:"team-order.dispute"`
+	EngagementDLQ           string `env:"ENGAGEMENT_EVENTS_DLQ_TOPIC" default:"engagement.events.order.dlq"`
 }
 
 // Outbox tunes the transactional-outbox relayer that publishes order.events

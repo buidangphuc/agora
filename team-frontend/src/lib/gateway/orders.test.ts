@@ -366,6 +366,7 @@ describe("orders gateway wrapper", () => {
           reason: "hỏng",
           refundAmount: 200000n,
           status: ReturnStatus.REFUNDED,
+          canEscalate: false,
         },
       ],
     });
@@ -380,7 +381,46 @@ describe("orders gateway wrapper", () => {
         refundAmount: 200000,
         status: ReturnStatus.REFUNDED,
         statusText: "Đã hoàn tiền",
+        canEscalate: false,
       },
     ]);
+  });
+
+  it("Button is shown on an escalable return: canEscalate maps true", async () => {
+    stubOrder({
+      listOrderReturns: vi.fn().mockResolvedValue({
+        returns: [
+          {
+            id: "r2",
+            orderId: "o1",
+            reason: "lỗi",
+            refundAmount: 1000n,
+            status: ReturnStatus.REJECTED,
+            canEscalate: true,
+          },
+        ],
+      }),
+    });
+    const res = await listOrderReturns("o1");
+    expect(res[0]?.canEscalate).toBe(true);
+  });
+
+  it("Button is hidden when the return cannot be escalated: canEscalate maps false", async () => {
+    stubOrder({
+      listOrderReturns: vi.fn().mockResolvedValue({
+        returns: [
+          {
+            id: "r3",
+            orderId: "o1",
+            reason: "lỗi",
+            refundAmount: 1000n,
+            status: ReturnStatus.PENDING,
+            canEscalate: false,
+          },
+        ],
+      }),
+    });
+    const res = await listOrderReturns("o1");
+    expect(res[0]?.canEscalate).toBe(false);
   });
 });
