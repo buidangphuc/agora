@@ -54,7 +54,7 @@ Feature: A buyer escalates a rejected return to a dispute and an admin rules on 
     And team-audit is stopped
     And the admin moves dispute "d1" to "RESOLVED" with ruling "BUYER_FAVOUR"
     Then the dispute call is refused with code "unavailable"
-    And the dispute call message is "audit trail unavailable"
+    And the dispute call message is "service unavailable"
     And dispute "d1" reads status "INVESTIGATING" with ruling "UNSPECIFIED"
     And dispute "d1" has 0 DisputeResolved facts on engagement.events
     When team-audit is started again

@@ -25,6 +25,7 @@ from tests.e2e.support.world import World
 AUDIT = "/platform.audit.v1.AuditService"
 _QUERY = f"{AUDIT}/QueryAuditLog"
 _RECOVERY_S = 60
+RECONNECT_GRACE_S = float(os.environ.get("E2E_AUDIT_RECONNECT_GRACE_S", "15"))
 
 
 class AuditUnavailable(AssertionError):
@@ -207,6 +208,7 @@ def _wait_until_up(world: World) -> None:
     while time.monotonic() < deadline:
         try:
             if query_events(token, page_size=1).status_code == 200:
+                time.sleep(RECONNECT_GRACE_S)
                 return
         except AuditUnavailable:
             pass

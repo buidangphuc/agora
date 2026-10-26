@@ -1,6 +1,6 @@
 """Helpers for engagement-consumer-key-redaction (area ekr).
 
-Black box: a malformed record keyed by a user/seller-style id is produced to `listing.events`
+Black box: a ListingChanged envelope with no listing, keyed by a user/seller-style id, is produced to `listing.events`
 (the topic team-engagement consumes); it is retried and parked on `listing.events.dlq`. The
 observations are the container's JSON log lines and the DLQ record key. Every wait is a bounded
 poll, never a sleep.
@@ -22,6 +22,8 @@ from tests.e2e.flows import srm_events_flow as ev
 PARKED_MSG = "consume: record dead-lettered"
 FAILED_MSG = "consume: handler failed"
 PARK_S = 240.0  # 5 attempts with backoff, then the DLQ produce
+_LISTING_CHANGED = b"platform.listing.v1.ListingChanged"
+POISON_VALUE = b"\x12" + bytes([len(_LISTING_CHANGED)]) + _LISTING_CHANGED
 
 
 def container() -> str:
@@ -41,7 +43,7 @@ def new_user_key(prefix: str = "seller") -> str:
 
 
 def poison(key: bytes | None) -> tuple[int, int]:
-    """Produce an undecodable record with exactly `key` (None = nil key)."""
+    """Produce a ListingChanged envelope without a listing (a retryable handler error) with exactly `key` (None = nil key)."""
     from confluent_kafka import Producer
 
     producer = Producer({"bootstrap.servers": ev.brokers(), "partitioner": "murmur2_random"})
@@ -51,7 +53,7 @@ def poison(key: bytes | None) -> tuple[int, int]:
         done["err"] = err
         done["pos"] = (msg.partition(), msg.offset()) if err is None else None
 
-    producer.produce(ev.TOPIC, key=key, value=b"\xff\x00not-an-envelope\xfe", on_delivery=_cb)
+    producer.produce(ev.TOPIC, key=key, value=POISON_VALUE, on_delivery=_cb)
     producer.flush(30)
     assert done.get("err") is None and done.get("pos"), f"poison publish failed: {done}"
     return done["pos"]
@@ -111,7 +113,7 @@ def wait_parked(
 
 def dlq_keys(since_ms: int, wanted: set[bytes], budget_s: float = 60.0) -> set[bytes]:
     """Keys of records on listing.events.dlq (since `since_ms`) that are in `wanted`."""
-    from confluent_kafka import OFFSET_BEGINNING, Consumer, TopicPartition
+    from confluent_kafka import Consumer, TopicPartition
 
     deadline = time.monotonic() + budget_s
     found: set[bytes] = set()

@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     kafka_order_topic: str = Field(default="order.events")
     # Feature flags (wire-openfeature): Flipt REST/HTTP endpoint used to toggle
     # `checkout-enabled` per scenario (the JS provider uses :8080, not gRPC :9000).
-    flipt_url: str = Field(default="http://localhost:8080")
+    flipt_url: str = Field(default="http://localhost:8083")
 
     # Fault injection (discovery.search-states): compose container_name of team-search,
     # stopped for the "Backend failure" scenario and restarted in teardown.
@@ -93,7 +93,7 @@ def get_settings() -> Settings:
         kafka_brokers=os.getenv("KAFKA_BROKERS", "localhost:9092"),
         kafka_analytics_topic=os.getenv("KAFKA_ANALYTICS_TOPIC", "analytics.events"),
         kafka_order_topic=os.getenv("KAFKA_ORDER_TOPIC", "order.events"),
-        flipt_url=os.getenv("FLIPT_URL", "http://localhost:8080"),
+        flipt_url=os.getenv("FLIPT_URL", "http://localhost:8083"),
         search_container=os.getenv("SEARCH_CONTAINER", "agora-team-search-svc"),
         gateway_container=os.getenv("GATEWAY_CONTAINER", "agora-team-gateway-svc"),
         notification_container=os.getenv("NOTIFICATION_CONTAINER", "agora-team-notification-svc"),

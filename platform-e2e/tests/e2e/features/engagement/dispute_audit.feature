@@ -19,7 +19,7 @@ Feature: Audited dispute resolution
     And team-audit is stopped
     When an admin resolves the dispute with resolution "refund buyer"
     Then the dispute audit call is refused with code "unavailable"
-    And the dispute audit call message is "audit trail unavailable"
+    And the dispute audit call message is "service unavailable"
     And the dispute is still investigating
     And after team-audit is started again no resolved dispute.resolve audit event exists for the dispute
 

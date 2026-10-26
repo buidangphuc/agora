@@ -17,6 +17,7 @@ from src.api.services import GatewayError
 from src.constants import PageName, timeouts
 from src.models import User
 from tests.e2e.flows import login_via_api, set_checkout_flag
+from tests.e2e.support import address_support
 from tests.e2e.support.world import World
 
 
@@ -65,6 +66,8 @@ def flag_restore_on(world: World, flag: str) -> None:
 def buyer_has_cart_item(world: World) -> None:
     buyer = world.state.extra.get("seeded_buyer") or _buyer(world)
     login_via_api(world, buyer)  # sets the buyer token + session cookie
+    if not address_support.list_addresses(world, buyer):
+        address_support.create_address(world, buyer, "Hà Nội")
     listing = world.state.listing
     assert listing and listing.listing_id, "no seeded listing to add to the cart"
     world.service_factory.cart.add_to_cart(listing_id=listing.listing_id, quantity=1)

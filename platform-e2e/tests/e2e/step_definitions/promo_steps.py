@@ -112,7 +112,6 @@ def buyer_applies_voucher(world: World, code: str) -> None:
     checkout: CheckoutPage = world.get_page(PageName.CHECKOUT)  # type: ignore[assignment]
     expect(checkout.stepper).to_be_visible(timeout=timeouts.NAVIGATION)
     checkout.continue_to("payment")
-    checkout.voucher_open_button.click()
     expect(checkout.voucher_input).to_be_visible(timeout=timeouts.DEFAULT)
     world.state.extra["applied_code"] = code
     checkout.voucher_input.fill(code)

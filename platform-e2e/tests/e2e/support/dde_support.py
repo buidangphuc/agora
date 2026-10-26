@@ -144,6 +144,7 @@ def wait_audit_up(w: OicWorld, timeout: float = 60.0) -> None:
     while time.monotonic() < deadline:
         try:
             if aud.query_events(token, page_size=1).status_code == 200:
+                time.sleep(aud.RECONNECT_GRACE_S)
                 return
         except aud.AuditUnavailable:
             pass
