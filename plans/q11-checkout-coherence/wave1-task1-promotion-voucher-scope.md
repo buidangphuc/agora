@@ -1,7 +1,7 @@
 # [W1-T1] promotion-voucher-scope
 
 ## Role
-feature-run worker (change `openspec/changes/promotion-voucher-scope`)
+feature-run worker (change `openspec/changes/archive/2026-10-26-promotion-voucher-scope`)
 
 ## Objective
 Implement OpenSpec change `promotion-voucher-scope` test-first per its tasks.md (scenario ids there); context in plans/q11-checkout-coherence/00-spec.md and the change's design.md Clarifications.
@@ -23,10 +23,10 @@ Implement OpenSpec change `promotion-voucher-scope` test-first per its tasks.md 
 - platform-e2e/tests/e2e/features/promo/voucher_scope.feature
 - platform-e2e/tests/e2e/step_definitions/voucher_scope_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_voucher_scope.py
-- openspec/changes/promotion-voucher-scope/**
+- openspec/changes/archive/2026-10-26-promotion-voucher-scope/**
 
 ## Read-only dependencies
-- openspec/changes/promotion-voucher-scope/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-26-promotion-voucher-scope/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/support/flash_hold_support.py (grpcurl pattern), step_definitions/promo_steps.py (seller/admin seeding), support/voucher_seed.py (ensure_known_voucher for SAVE10)
 - plans/q11-checkout-coherence/00-spec.md, slices.yaml, LOCK.md
 

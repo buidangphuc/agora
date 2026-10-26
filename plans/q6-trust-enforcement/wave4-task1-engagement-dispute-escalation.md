@@ -1,7 +1,7 @@
 # [W4-T1] engagement-dispute-escalation
 
 ## Role
-feature-run worker (change `openspec/changes/engagement-dispute-escalation`)
+feature-run worker (change `openspec/changes/archive/2026-10-26-engagement-dispute-escalation`)
 
 ## Objective
 Implement OpenSpec change `engagement-dispute-escalation` test-first per its tasks.md (scenario ids there); context in plans/q6-trust-enforcement/00-spec.md and the change's design.md Clarifications.
@@ -50,14 +50,14 @@ Implement OpenSpec change `engagement-dispute-escalation` test-first per its tas
 - platform-e2e/tests/e2e/step_definitions/test_dispute_audit.py
 - platform-e2e/tests/e2e/step_definitions/test_disputes.py
 - platform-e2e/tests/e2e/step_definitions/test_dispute_access.py
-- openspec/changes/engagement-dispute-escalation/**
+- openspec/changes/archive/2026-10-26-engagement-dispute-escalation/**
 - team-engagement/internal/grpcserver/server_test.go (# widened at build: task 4)
 - team-engagement/internal/handler/engagement_test.go (# widened at build: task 4)
 - plans/q6-trust-enforcement/wave4-task1-engagement-dispute-escalation.md (# widened at build: task 4; packet widening record)
 - team-gateway/internal/edge/policy_test.go (# widened at build: task 8)
 
 ## Read-only dependencies
-- openspec/changes/engagement-dispute-escalation/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-26-engagement-dispute-escalation/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/support/prm_rma_support.py, audit_support.py (reuse, do not edit)
 - q10-order-lifecycle compose overlay (short seller answer time)
 - plans/q6-trust-enforcement/00-spec.md, slices.yaml, LOCK.md
