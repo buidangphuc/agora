@@ -47,7 +47,7 @@
     "vitest": "^2.1.9"
   },
   "overrides": {
-    "undici": "^6.27.0",
+    "undici": "^6.29.1",
     "postcss": "$postcss"
   }
 }
