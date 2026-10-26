@@ -19,7 +19,7 @@ Served: `platform.listing.v1.ListingService` (`proto/platform/listing/v1/listing
 | `GetStorefront`, `BatchGetStorefronts` | `listing.read` | batch max 100 ids, else `InvalidArgument` |
 | `CreateBundle` | `listing.write` | owner-scoped |
 | `GetBundle`, `ListBundlesBySeller` | `listing.read` | |
-| `ModerateListing`, `ListModerationQueue` | `admin` scope (`PermissionDenied` otherwise). `ModerateListing` writes a `listing.moderate` audit entry first (`Unavailable` with no change if team-audit is down) |
+| `ModerateListing`, `ListModerationQueue` | `admin` scope (`PermissionDenied` with `missing scope` otherwise). `ModerateListing` writes a `listing.moderate` audit entry first (`Unavailable` with no change and the message `audit trail unavailable` if team-audit is down) |
 | `ReserveStock`, `ReleaseStock`, `CommitReservation` | **SERVICE principal** (type `service`) holding `listing.write` | internal RPCs; team-order calls them as `service-team-order`. A user, even a seller with the scope, gets `PermissionDenied` |
 
 Reservation lifecycle (spec `inventory-reservations`, ADR-0008): `active → committed | released`, `committed → released`. Only `active` reservations expire; stock is restored once, when a reservation becomes `released`, by the quantity stored on it.
@@ -38,11 +38,11 @@ Callers (root compose): `team-gateway` (`UPSTREAM_LISTING_ADDR`), `team-order`, 
 |---|---|---|---|
 | Produces | `listing.events` (`KAFKA_LISTING_TOPIC`) | `platform.listing.v1.ListingChanged` (`CHANGE_TYPE_CREATED/UPDATED/DELETED`) in a `platform.events.v1.EventEnvelope` | listing id |
 | Produces | `listing.events` | `platform.listing.v1.ListingStockChanged` in a `platform.events.v1.EventEnvelope` | listing id |
-| Consumes | `identity.events` (`KAFKA_IDENTITY_TOPIC`) | `platform.identity.v1.UserStatusChanged` (only when `IDENTITY_CONSUMER_ENABLED=true`; holds or restores the seller's listings) | user id |
+| Consumes | `identity.events` (`KAFKA_IDENTITY_TOPIC`) | `platform.identity.v1.UserStatusChanged` (holds or restores the seller's listings) | user id |
 
 `ListingChanged` is emitted on Create/Update/Delete and on `ModerateListing`. `ListingStockChanged` is written to the outbox inside every reserve, release and TTL-sweep transaction that changes stock: one per affected listing, with the listing's stock after the change and only the variants that changed. Idempotent no-ops (repeat reserve, repeated or unknown release, commit) emit nothing. `ListingBaseInfoChanged`, `ListingPricingChanged` and `ListingStatusChanged` exist in the proto but are reserved.
 
-Outbox: the listing write and its outbox row commit in one DB transaction. The relayer (`internal/events/relayer.go`) claims pending rows with `FOR UPDATE SKIP LOCKED`, produces the stored envelope, and marks rows `published`. Delivery is at-least-once; consumers dedupe on `EventEnvelope.event_id` (the outbox row id). Failures retry with exponential backoff (1s doubling, capped at 5m); after `OUTBOX_MAX_ATTEMPTS` the row is parked as `failed`. The relayer only runs when `OUTBOX_ENABLED` and `KAFKA_ENABLED` are both true; with Kafka off, rows stay `pending`.
+Outbox: the listing write and its outbox row commit in one DB transaction. The relayer (`internal/events/relayer.go`) claims pending rows with `FOR UPDATE SKIP LOCKED`, produces the stored envelope, and marks rows `published`. Delivery is at-least-once; consumers dedupe on `EventEnvelope.event_id` (the outbox row id). Failures retry with exponential backoff (1s doubling, capped at 5m); after `OUTBOX_MAX_ATTEMPTS` the row is parked as `failed`. The relayer always runs.
 
 ## Data
 
@@ -63,7 +63,7 @@ Postgres `listing_db` (role `listing_svc`). Migrations in `migrations/` (golang-
 | 0012 `seller_enforcement_hold` | `listings.held_prior_status`; `processed_events` (dedupe of `UserStatusChanged`); `seller_status_applied` (stale-event guard) |
 | 0010 `reservation_lifecycle_constraints` | `NOT VALID` checks: `reservations.status IN ('active','committed','released')`, `listings.stock >= 0`, `listing_variants.stock >= 0`. Validate later with `psql "$DATABASE_URL" -f scripts/validate_0010_constraints.sql` (refuses unless every violation count is 0) |
 
-Applied by `make migrate` locally, or by the one-shot `team-domain-migrate` container in the root compose (the service waits for it to complete). A reservation sweeper (`internal/service/sweeper.go`, tick `RESERVATION_SWEEP_INTERVAL`, TTL `RESERVATION_TTL`; defaults 1m / 15m) runs inside this service when Postgres is enabled and restores stock for expired `active` reservations only (committed ones are never swept).
+Applied by `make migrate` (`go run ./cmd/server migrate up`) locally, or by the one-shot `team-domain-migrate` container in the root compose (the service waits for it to complete). A reservation sweeper (`internal/service/sweeper.go`, tick `RESERVATION_SWEEP_INTERVAL`, TTL `RESERVATION_TTL`; defaults 1m / 15m) runs inside this service and restores stock for expired `active` reservations only (committed ones are never swept).
 
 ## Configuration
 
@@ -78,8 +78,7 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `GRPC_PORT` | `50051` |
 | `GRPC_REFLECTION_ENABLED` | `true` |
 | `SHUTDOWN_GRACE_SECONDS` | `10` |
-| `DATABASE_ENABLED` | `true` |
-| `DATABASE_URL` | empty; required when `DATABASE_ENABLED=true` |
+| `DATABASE_URL` | required |
 | `DB_MAX_CONNS` | `10` |
 | `STORAGE_ENDPOINT` | `localhost:9000` |
 | `STORAGE_BUCKET` | `listing-images` |
@@ -87,13 +86,10 @@ Read in `internal/config/config.go` (struct tags are the source of truth). `make
 | `STORAGE_REGION` | `us-east-1` |
 | `STORAGE_USE_SSL` | `false` |
 | `STORAGE_PUBLIC_BASE_URL` | `http://localhost:9000/listing-images` |
-| `KAFKA_ENABLED` | `false` (no-op producer) |
 | `KAFKA_BROKERS` | `localhost:9092`, comma-separated |
 | `KAFKA_LISTING_TOPIC` | `listing.events` |
-| `IDENTITY_CONSUMER_ENABLED` | `false`; when true, consumes identity `UserStatusChanged` and holds/restores the seller's listings |
 | `KAFKA_IDENTITY_TOPIC` | `identity.events` |
 | `KAFKA_IDENTITY_GROUP` | `team-domain-identity` |
-| `OUTBOX_ENABLED` | `true` |
 | `OUTBOX_POLL_INTERVAL` | `1s` (Go duration) |
 | `OUTBOX_BATCH_SIZE` | `100` |
 | `OUTBOX_CLAIM_LOCK_SECONDS` | `60` |
@@ -121,27 +117,27 @@ Full stack (from the repo root; `docker-compose.yaml` includes `platform-core/in
 docker compose up -d --build team-domain
 ```
 
-This builds the image, runs `team-domain-migrate`, and starts `team-domain-svc` with `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`. The Dockerfile needs `./generated` to exist, so run `make proto` first. There is no `--profile jobs` component.
+This builds the image, runs `team-domain-migrate`, and starts `team-domain-svc` with `KAFKA_BROKERS=redpanda:9092`. The Dockerfile needs `./generated` to exist, so run `make proto` first. The image entrypoint is `/app`. There is no `--profile jobs` component.
 
 Standalone:
 
 ```
 cp .env.example .env
 make dev        # Postgres on localhost:5433 via docker-compose.local.yaml
-make migrate    # golang-migrate in docker, against DATABASE_URL
-make run        # go run ./cmd/server (Kafka off unless you set KAFKA_ENABLED=true)
+make migrate    # go run ./cmd/server migrate up, against DATABASE_URL
+make run        # go run ./cmd/server (set KAFKA_BROKERS to a reachable broker)
 ```
 
-If you enable Kafka standalone, point `KAFKA_BROKERS` at a reachable broker (platform-core's Redpanda exposes host port 19092). `make stop` tears down the local Postgres.
+Standalone, point `KAFKA_BROKERS` at a reachable broker (platform-core's Redpanda exposes host port 19092). `make stop` tears down the local Postgres.
 
 ## Build, test and lint
 
 | Command | What it does |
 |---|---|
 | `make proto` | `buf generate` into `generated/` (needs `buf`; AGENTS.md says to run it in Docker) |
-| `make test` | `go test ./...` |
+| `make test` | `go test -race ./...` |
 | `make check-env` | `.env.example` drift gate |
-| `make check` | merge gate: `check-env`, `gofmt -l`, `go vet ./...`, `golangci-lint run` (skipped if not installed), `go test ./...` |
+| `make check` | merge gate: `go vet`, `make lint` (shared go-sdk `.golangci.yml`), `make test`, `check-env` |
 
 `make check` is the declared gate; run it before a PR. The repo has no `.github` workflows.
 
@@ -155,7 +151,7 @@ If you enable Kafka standalone, point `KAFKA_BROKERS` at a reachable broker (pla
 
 - `generated/` is gitignored and produced by `make proto`; never hand-edit or commit it. Build and tests fail until it exists.
 - `proto/` is a vendored, pinned copy of platform-core's proto module (ADR-0001). Never edit it here; re-vendor at a new tag (see `proto/README.md`).
-- With `DATABASE_ENABLED=false` there is no outbox and no sweeper (event-less service). With `KAFKA_ENABLED=false` writes succeed but events are never relayed.
+- Postgres and Kafka are required; the service does not start without them.
 - `ListingChanged` carries the full listing; `ListingStockChanged` is the only other event emitted.
 
 ## Known gaps

@@ -29,8 +29,7 @@ anonymous principal or an empty id gives `Unauthenticated`; a non-user (service)
 | `GetNotificationPrefs` | Stored prefs, or defaults when the user has none (`service.DefaultPrefs`). |
 | `UpdateNotificationPrefs` | Upserts `type_enabled` (keyed by `NotificationType` enum name) and `digest_freq`. |
 
-The alert and prefs RPCs return `Unimplemented` when no database pool was created (see Known gaps).
-The gRPC server also registers reflection and the standard health service.
+The gRPC server registers the standard health service; reflection only when `GRPC_REFLECTION_ENABLED` is set in a local ENV.
 
 **Consumes (outbound gRPC)**, only for chat sender names (`internal/upstream/names.go`). It calls as a
 service principal `service-team-notification` with scopes `listing.read,identity.read`:
@@ -67,8 +66,7 @@ with no stored setting counts as enabled). Listing alerts do not check prefs.
 Idempotency: a ledger keyed by (`consumer`, `event_id`) in `processed_events`, recorded after the effect
 succeeds. Consumer names: `team-notification.listing`, `team-notification.chat`, `team-notification.order`.
 
-The consumers start only when `KAFKA_ENABLED=true` and a database pool exists. Brokers and the enable flag are
-shared by all three; topic, DLQ and group are per consumer.
+The consumers always start with the service. Brokers are shared by all three; topic, DLQ and group are per consumer.
 
 ## Data
 
@@ -85,34 +83,35 @@ Database `notification_db` on the shared Postgres (user `notification_svc`). Mig
 | 005 | `listing_low_stock_state` | Per listing: `seller_id`, `title`, and `low` (whether stock is currently at or below the threshold). |
 
 Consumer state is durable, so a restart neither re-notifies a redelivered event nor loses the price and stock
-baseline. In-memory variants (`InMemoryDeduper`, `InMemoryPriceStateStore`, `InMemoryStockStateStore`) are the
-code defaults and are used in unit tests only; `cmd/server/main.go` always wires the Postgres ones.
+baseline. The service always wires the Postgres stores.
 
 ## Configuration
 
-Read from the environment. Only the variables below are read by code.
+Read from the environment through `internal/config` (go-sdk groups plus the notification group). `.env.example`
+is checked against `Settings` by a test.
 
-| Variable | Default | Read in |
+| Variable | Default | Notes |
 |---|---|---|
-| `GRPC_PORT` | `50058` | `internal/config` |
-| `DATABASE_URL` | `postgres://notification_svc:notification_pass@localhost:5440/notification_db?sslmode=disable` | `internal/config` |
-| `UPSTREAM_DOMAIN_ADDR` | `localhost:50051` | `internal/config` |
-| `UPSTREAM_IDENTITY_ADDR` | `localhost:50053` | `internal/config` |
-| `KAFKA_ENABLED` | `false` | `internal/bootstrap/kafka.go` |
-| `KAFKA_BROKERS` | `localhost:9092` (comma-separated) | `internal/bootstrap/kafka.go` |
-| `LISTING_EVENTS_TOPIC` / `LISTING_EVENTS_DLQ_TOPIC` | `listing.events` / `listing.events.dlq` | same |
-| `NOTIFICATION_LISTING_CONSUMER_GROUP` | `team-notification.listing` | same |
-| `CHAT_EVENTS_TOPIC` / `CHAT_EVENTS_DLQ_TOPIC` | `chat.events` / `chat.events.dlq` | same |
-| `NOTIFICATION_CHAT_CONSUMER_GROUP` | `team-notification.chat` | same |
-| `ORDER_EVENTS_TOPIC` / `ORDER_EVENTS_DLQ_TOPIC` | `order.events` / `order.events.dlq` | same |
-| `NOTIFICATION_ORDER_CONSUMER_GROUP` | `team-notification.order` | same |
-| `LOW_STOCK_THRESHOLD` | `5` | `internal/config` |
-
-`.env.example` also lists `ENV`, `LOG_LEVEL`, `LOG_JSON`, `GRPC_HOST`, `GRPC_REFLECTION_ENABLED`,
-`SHUTDOWN_GRACE_SECONDS`, `DATABASE_ENABLED`, `DB_MAX_CONNS`, `OTEL_*`. The code does not read any of these
-(logging is always JSON via `log/slog`; the gRPC listener binds all interfaces; reflection is always on).
-`config.go` also reads `KAFKA_BROKER` into a field nothing uses. There is no `.env.example` drift gate in this
-repository.
+| `ENV` | none | Required: `local`, `test`, `staging` or `prod`. |
+| `LOG_LEVEL` / `LOG_JSON` | `info` / `true` | |
+| `GRPC_HOST` / `GRPC_PORT` | `0.0.0.0` / none | `GRPC_PORT` is required (`.env.example`: `50058`). |
+| `SHUTDOWN_GRACE` | `10s` | Go duration. |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Go duration. |
+| `GRPC_REFLECTION_ENABLED` | `false` | Refused unless `ENV` is `local` or `test`. |
+| `DATABASE_URL` | none | Required in every ENV. |
+| `DB_MAX_CONNS` | `10` | |
+| `KAFKA_BROKERS` | `localhost:9092` in a local ENV | Required in staging and prod (comma-separated). |
+| `LOG_KEY_FP_SECRET` | local default in a local ENV | Required in staging and prod. |
+| `OTEL_ENABLED` / `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_SERVICE_NAME` | `false` / none / none | |
+| `UPSTREAM_DOMAIN_ADDR` | none | Required in every ENV. |
+| `UPSTREAM_IDENTITY_ADDR` | none | Required in every ENV. |
+| `LISTING_EVENTS_TOPIC` / `LISTING_EVENTS_DLQ_TOPIC` | `listing.events` / `listing.events.dlq` | |
+| `NOTIFICATION_LISTING_CONSUMER_GROUP` | `team-notification.listing` | |
+| `CHAT_EVENTS_TOPIC` / `CHAT_EVENTS_DLQ_TOPIC` | `chat.events` / `chat.events.dlq` | |
+| `NOTIFICATION_CHAT_CONSUMER_GROUP` | `team-notification.chat` | |
+| `ORDER_EVENTS_TOPIC` / `ORDER_EVENTS_DLQ_TOPIC` | `order.events` / `order.events.dlq` | |
+| `NOTIFICATION_ORDER_CONSUMER_GROUP` | `team-notification.order` | |
+| `LOW_STOCK_THRESHOLD` | `5` | Integer in [0, 2147483647]; anything else fails load. |
 
 ## Run locally
 
@@ -122,7 +121,7 @@ Root compose (shared Postgres, Redpanda, migrate job, service), from the repo ro
 docker compose up -d --build team-notification   # pulls in postgres, redpanda-init and team-notification-migrate
 ```
 
-The service container sets `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`, the topic, group and DLQ
+The service container sets `KAFKA_BROKERS=redpanda:9092`, the topic, group and DLQ
 names, and `UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051` / `UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053`. It
 publishes no host port; the gateway reaches it at `team-notification-svc:50058`. There is no `--profile jobs`
 component.
@@ -135,7 +134,7 @@ export DATABASE_URL=postgres://notification_svc:notification_pass@localhost:<hos
 go run ./cmd/server
 ```
 
-Set `KAFKA_ENABLED=true` and `KAFKA_BROKERS=<host:port>` to run the consumers (the root compose Redpanda
+Set `KAFKA_BROKERS=<host:port>` for the consumers (the root compose Redpanda
 exposes `19092` on the host per `AGENTS.md`).
 
 ## Build, test and lint
@@ -167,7 +166,6 @@ to exist in the build context.
 - `generated/` is gitignored (root `.gitignore`). Run `buf generate` (uses `buf.gen.yaml`, input `proto/`, remote
   plugins from buf.build, so it needs network access) before building or testing.
 - `proto/` is vendored from `platform-core` (ADR-0001). Never edit it here; change the contract in platform-core.
-- The consumers do not run without `KAFKA_ENABLED=true` and a database pool.
 - The chat consumer ignores the event's `sender_name` and looks the name up itself.
 
 ## Known gaps
@@ -179,12 +177,6 @@ to exist in the build context.
   `NOTIFICATION_TYPE_PROMOTION` notifications are never produced by this service.
 - **No scope checks.** Handlers only require a user principal; `RequireScopes` exists in
   `internal/interceptor/auth.go` but is not used. The service trusts the gateway-forwarded principal metadata.
-- **"Mock mode" is not a real mode.** `main.go` logs "running in mock mode" only when `pgxpool.New` fails (a
-  malformed `DATABASE_URL`). An unreachable database does not fail pool creation (connections are lazy). With a
-  nil pool the alert, prefs and consumer wiring is skipped and the inbox repository dereferences the nil pool on
-  first use.
-- **Inert settings.** No OpenTelemetry is wired (no otel import); the variables listed above as unread are
-  ignored. `testify` is an indirect dependency only.
 - **Listing alerts ignore preferences.** Only chat and order notifications check `type_enabled`.
 
 ## Links

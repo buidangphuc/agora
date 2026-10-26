@@ -97,7 +97,7 @@ features:
       Hardened: ReserveStock is now idempotent on a caller-supplied reservation_id
       (re-reserve with the same id is a no-op) so a retried checkout cannot
       double-decrement stock, and reservations carry a TTL swept by team-domain's
-      ReservationSweeper (internal/service/sweeper.go; team-order runs its own saga-side sweep).
+      ReservationSweeper (internal/listing/sweeper.go; team-order runs its own saga-side sweep).
       (SA-M6/C2). See ADR-0008 (inventory reservation), ADR-0007 (durable saga).
 
   - id: listing.event-durability
@@ -497,7 +497,7 @@ features:
       - "Listing audit: Admin update writes one audit event"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingAdminWritesAuditBeforeChange. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestUpdateListingAdminWritesAuditBeforeChange. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-update-without-a-status-records-the-stored-status
     title: "Listing audit: Update without a status records the stored status"
@@ -510,7 +510,7 @@ features:
       - "Listing audit: Update without a status records the stored status"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingAdminAuditStatusFallsBackToStored. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestUpdateListingAdminAuditStatusFallsBackToStored. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-audit-is-written-before-the-change
     title: "Listing audit: Audit is written before the change"
@@ -523,7 +523,7 @@ features:
       - "Listing audit: Audit is written before the change"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/service TestUpdateWithEventAuditPrecedesUpdate. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/listing TestUpdateWithEventAuditPrecedesUpdate. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-audit-down-refuses-the-admin-update
     title: "Listing audit: Audit down refuses the admin update"
@@ -536,7 +536,7 @@ features:
       - "Listing audit: Audit down refuses the admin update"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingAdminAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestUpdateListingAdminAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-update-failure-after-audit-keeps-the-audit-row
     title: "Listing audit: Update failure after audit keeps the audit row"
@@ -549,7 +549,7 @@ features:
       - "Listing audit: Update failure after audit keeps the audit row"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/service TestUpdateWithEventRepoFailureAfterAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/listing TestUpdateWithEventRepoFailureAfterAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-no-audit-upstream-configured
     title: "Listing audit: No audit upstream configured"
@@ -562,7 +562,7 @@ features:
       - "Listing audit: No audit upstream configured"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/upstream TestNewAuditClientEmptyAddrIsNil and team-domain internal/service TestUpdateWithEventAdminNilAuditUnavailable. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/config TestUpstreamAddressesRequiredInEveryEnv. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-unknown-listing-writes-no-audit-event
     title: "Listing audit: Unknown listing writes no audit event"
@@ -575,7 +575,7 @@ features:
       - "Listing audit: Unknown listing writes no audit event"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/service TestUpdateWithEventNotFoundNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/listing TestUpdateWithEventNotFoundNoAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-empty-listing-id-writes-no-audit-event
     title: "Listing audit: Empty listing id writes no audit event"
@@ -588,7 +588,7 @@ features:
       - "Listing audit: Empty listing id writes no audit event"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingEmptyIDNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestUpdateListingEmptyIDNoAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-seller-without-admin-scope-cannot-update-another-seller-s-listing
     title: "Listing audit: Seller without admin scope cannot update another seller's listing"
@@ -601,7 +601,7 @@ features:
       - "Listing audit: Seller without admin scope cannot update another seller's listing"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingNonOwnerNonAdminDeniedNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestUpdateListingNonOwnerNonAdminDeniedNoAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-caller-without-listing-write-is-denied-before-audit
     title: "Listing audit: Caller without listing.write is denied before audit"
@@ -614,7 +614,7 @@ features:
       - "Listing audit: Caller without listing.write is denied before audit"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingMissingScopeNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestUpdateListingMissingScopeNoAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-admin-delete-writes-one-audit-event
     title: "Listing audit: Admin delete writes one audit event"
@@ -627,7 +627,7 @@ features:
       - "Listing audit: Admin delete writes one audit event"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestDeleteListingAdminWritesAuditBeforeChange. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestDeleteListingAdminWritesAuditBeforeChange. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-audit-down-refuses-the-admin-delete
     title: "Listing audit: Audit down refuses the admin delete"
@@ -640,7 +640,7 @@ features:
       - "Listing audit: Audit down refuses the admin delete"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestDeleteListingAdminAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestAdminDeleteAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-delete-failure-after-audit-keeps-the-audit-row
     title: "Listing audit: Delete failure after audit keeps the audit row"
@@ -653,7 +653,7 @@ features:
       - "Listing audit: Delete failure after audit keeps the audit row"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/service TestDeleteWithEventRepoFailureAfterAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/listing TestDeleteWithEventRepoFailureAfterAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-unknown-listing-on-delete-writes-no-audit-event
     title: "Listing audit: Unknown listing on delete writes no audit event"
@@ -666,7 +666,7 @@ features:
       - "Listing audit: Unknown listing on delete writes no audit event"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/service TestDeleteWithEventNotFoundNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/listing TestDeleteWithEventNotFoundNoAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-empty-id-on-delete-writes-no-audit-event
     title: "Listing audit: Empty id on delete writes no audit event"
@@ -679,7 +679,7 @@ features:
       - "Listing audit: Empty id on delete writes no audit event"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestDeleteListingEmptyIDNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestDeleteListingEmptyIDNoAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-seller-without-admin-scope-cannot-delete-another-seller-s-listing
     title: "Listing audit: Seller without admin scope cannot delete another seller's listing"
@@ -692,7 +692,7 @@ features:
       - "Listing audit: Seller without admin scope cannot delete another seller's listing"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestDeleteListingNonOwnerNonAdminDeniedNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestDeleteListingNonOwnerNonAdminDeniedNoAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-owner-update-writes-no-audit-event
     title: "Listing audit: Owner update writes no audit event"
@@ -705,7 +705,7 @@ features:
       - "Listing audit: Owner update writes no audit event"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestUpdateListingOwnerNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestUpdateListingOwnerNoAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-owner-update-succeeds-while-audit-is-down
     title: "Listing audit: Owner update succeeds while audit is down"
@@ -718,7 +718,7 @@ features:
       - "Listing audit: Owner update succeeds while audit is down"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestOwnerUpdateDeleteIndependentOfAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestOwnerUpdateIndependentOfAudit. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-admin-who-owns-the-listing-is-audited
     title: "Listing audit: Admin who owns the listing is audited"
@@ -731,7 +731,7 @@ features:
       - "Listing audit: Admin who owns the listing is audited"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/service TestUpdateWithEventAdminOwnerIsAudited. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/listing TestUpdateWithEventAdminOwnerIsAudited. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-admin-who-owns-the-listing-is-refused-while-audit-is-down
     title: "Listing audit: Admin who owns the listing is refused while audit is down"
@@ -744,7 +744,7 @@ features:
       - "Listing audit: Admin who owns the listing is refused while audit is down"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/service TestDeleteWithEventAdminOwnerAuditDownUnavailable. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/listing TestDeleteWithEventAdminOwnerAuditDownUnavailable. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-non-owner-without-admin-is-refused-and-unaudited-while-audit-is-down
     title: "Listing audit: Non-owner without admin is refused and unaudited while audit is down"
@@ -757,7 +757,7 @@ features:
       - "Listing audit: Non-owner without admin is refused and unaudited while audit is down"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/handler TestNonOwnerNonAdminDeniedNotUnavailable. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/rpc TestNonOwnerNonAdminDeniedNotUnavailable. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-audit-is-called-as-the-service-principal
     title: "Listing audit: Audit is called as the service principal"
@@ -770,7 +770,7 @@ features:
       - "Listing audit: Audit is called as the service principal"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/upstream TestAuditClientUsesServicePrincipal. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/audit TestAuditWriterUsesServicePrincipal. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-slow-audit-is-cut-off-at-the-timeout
     title: "Listing audit: Slow audit is cut off at the timeout"
@@ -783,7 +783,7 @@ features:
       - "Listing audit: Slow audit is cut off at the timeout"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/upstream TestAuditClientTimeoutSingleAttempt. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/audit TestAuditGateTimeoutSingleAttempt. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-caller-principal-is-never-forwarded
     title: "Listing audit: Caller principal is never forwarded"
@@ -796,7 +796,7 @@ features:
       - "Listing audit: Caller principal is never forwarded"
     tags: [admin, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain internal/upstream TestAuditClientNeverForwardsCallerPrincipal. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain internal/audit TestAuditWriterNeverForwardsCallerPrincipal. Not producible end to end through the gateway (unit level)."
 
   - id: listing.admin-audit-writeauditevent-is-not-reachable-from-the-edge
     title: "Listing audit: WriteAuditEvent is not reachable from the edge"
@@ -903,7 +903,7 @@ features:
       - "Moderation: Approve publishes a pending listing"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateApprovePublishes`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateApprovePublishes`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-reject-records-reason-and-note-for-the-seller
     title: "Moderation: Reject records reason and note for the seller"
@@ -916,7 +916,7 @@ features:
       - "Moderation: Reject records reason and note for the seller"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateRejectRecordsReason`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateRejectRecordsReason`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-ban-takes-down-a-published-listing
     title: "Moderation: Ban takes down a published listing"
@@ -929,7 +929,7 @@ features:
       - "Moderation: Ban takes down a published listing"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateBanPublished`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateBanPublished`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-reject-of-a-published-listing-from-a-report
     title: "Moderation: Reject of a published listing from a report"
@@ -942,7 +942,7 @@ features:
       - "Moderation: Reject of a published listing from a report"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateRejectPublished`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateRejectPublished`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-audit-event-is-written-first
     title: "Moderation: Audit event is written first"
@@ -955,7 +955,7 @@ features:
       - "Moderation: Audit event is written first"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateAuditPrecedesChange`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateAuditPrecedesChange`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-audit-down-refuses-the-decision
     title: "Moderation: Audit down refuses the decision"
@@ -968,7 +968,7 @@ features:
       - "Moderation: Audit down refuses the decision"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingAuditDownUnavailableNoChange`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestModerateListingAuditDownUnavailableNoChange`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-no-audit-upstream-configured
     title: "Moderation: No audit upstream configured"
@@ -981,7 +981,7 @@ features:
       - "Moderation: No audit upstream configured"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateNilAuditUnavailable`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/config` `TestUpstreamAddressesRequiredInEveryEnv`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-approve-of-a-held-listing-is-refused
     title: "Moderation: Approve of a held listing is refused"
@@ -994,7 +994,7 @@ features:
       - "Moderation: Approve of a held listing is refused"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateHeldFailedPreconditionNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateHeldFailedPreconditionNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-approve-of-a-rejected-listing-is-refused
     title: "Moderation: Approve of a rejected listing is refused"
@@ -1007,7 +1007,7 @@ features:
       - "Moderation: Approve of a rejected listing is refused"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateApproveRejectedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateApproveRejectedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-approve-of-a-banned-listing-is-refused
     title: "Moderation: Approve of a banned listing is refused"
@@ -1020,7 +1020,7 @@ features:
       - "Moderation: Approve of a banned listing is refused"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateApproveBannedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateApproveBannedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-concurrent-decision-applies-once
     title: "Moderation: Concurrent decision applies once"
@@ -1033,7 +1033,7 @@ features:
       - "Moderation: Concurrent decision applies once"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestModerateTxConditionalOnLoadedStatus`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestModerateTxConditionalOnLoadedStatus`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-seller-edit-between-check-and-decision-is-refused
     title: "Moderation: Seller edit between check and decision is refused"
@@ -1046,7 +1046,7 @@ features:
       - "Moderation: Seller edit between check and decision is refused"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateStaleLoadFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateStaleLoadFailedPrecondition`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-listingchanged-carries-no-note-or-flags
     title: "Moderation: ListingChanged carries no note or flags"
@@ -1059,7 +1059,7 @@ features:
       - "Moderation: ListingChanged carries no note or flags"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingEventStripsNoteAndFlags`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestModerateListingEventStripsNoteAndFlags`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-second-decision-on-a-decided-listing-is-refused
     title: "Moderation: Second decision on a decided listing is refused"
@@ -1072,7 +1072,7 @@ features:
       - "Moderation: Second decision on a decided listing is refused"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateTwiceSecondRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateTwiceSecondRefused`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-reject-without-a-reason-code-is-invalid
     title: "Moderation: Reject without a reason code is invalid"
@@ -1085,7 +1085,7 @@ features:
       - "Moderation: Reject without a reason code is invalid"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingRejectNeedsReason`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestModerateListingRejectNeedsReason`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-unknown-reason-code-is-invalid
     title: "Moderation: Unknown reason code is invalid"
@@ -1098,7 +1098,7 @@ features:
       - "Moderation: Unknown reason code is invalid"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingUnknownReasonCode`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestModerateListingUnknownReasonCode`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-note-limit-is-500-characters
     title: "Moderation: Note limit is 500 characters"
@@ -1111,7 +1111,7 @@ features:
       - "Moderation: Note limit is 500 characters"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingNoteBoundary500`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestModerateListingNoteBoundary500`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-unspecified-decision-is-invalid
     title: "Moderation: Unspecified decision is invalid"
@@ -1124,7 +1124,7 @@ features:
       - "Moderation: Unspecified decision is invalid"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingUnspecifiedDecision`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestModerateListingUnspecifiedDecision`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-unknown-listing-writes-no-audit-event
     title: "Moderation: Unknown listing writes no audit event"
@@ -1137,7 +1137,7 @@ features:
       - "Moderation: Unknown listing writes no audit event"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateNotFoundNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateNotFoundNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-invalid-request-on-an-unknown-listing-is-invalid
     title: "Moderation: Invalid request on an unknown listing is invalid"
@@ -1150,7 +1150,7 @@ features:
       - "Moderation: Invalid request on an unknown listing is invalid"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingValidatesBeforeLoad`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestModerateListingValidatesBeforeLoad`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-seller-cannot-moderate
     title: "Moderation: Seller cannot moderate"
@@ -1163,7 +1163,7 @@ features:
       - "Moderation: Seller cannot moderate"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestModerateListingNonAdminDenied`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestModerateListingNonAdminDenied`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-moderation-admin-who-owns-the-listing-is-audited
     title: "Moderation: Admin who owns the listing is audited"
@@ -1176,7 +1176,7 @@ features:
       - "Moderation: Admin who owns the listing is audited"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestModerateAdminOwnListingAudited`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestModerateAdminOwnListingAudited`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-decision-flows-end-to-end-with-audit
     title: "Moderation: Decision flows end to end with audit"
@@ -1240,7 +1240,7 @@ features:
       - "Queue: Oldest submission first"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestListModerationQueueOrderedBySubmission`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestListModerationQueueOrderedBySubmission`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-queue-only-pending-listings-appear
     title: "Queue: Only pending listings appear"
@@ -1253,7 +1253,7 @@ features:
       - "Queue: Only pending listings appear"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestListModerationQueueOnlyPending`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestListModerationQueueOnlyPending`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-queue-pagination-boundary
     title: "Queue: Pagination boundary"
@@ -1266,7 +1266,7 @@ features:
       - "Queue: Pagination boundary"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestListModerationQueueKeysetPages`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestListModerationQueueKeysetPages`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-queue-empty-queue
     title: "Queue: Empty queue"
@@ -1279,7 +1279,7 @@ features:
       - "Queue: Empty queue"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestListModerationQueueEmpty`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestListModerationQueueEmpty`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-queue-seller-is-denied
     title: "Queue: Seller is denied"
@@ -1292,7 +1292,7 @@ features:
       - "Queue: Seller is denied"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestListModerationQueueNonAdminDenied`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestListModerationQueueNonAdminDenied`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-queue-reading-the-queue-writes-no-audit-event
     title: "Queue: Reading the queue writes no audit event"
@@ -1305,7 +1305,7 @@ features:
       - "Queue: Reading the queue writes no audit event"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestListModerationQueueNotAudited`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestListModerationQueueNotAudited`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-queue-page-latency-at-10k-pending
     title: "Queue: Page latency at 10k pending"
@@ -1318,7 +1318,7 @@ features:
       - "Queue: Page latency at 10k pending"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestListModerationQueueIndexAndLatency`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestListModerationQueueIndexAndLatency`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-seller-cannot-un-reject-by-sending-published
     title: "Status ownership: Seller cannot un-reject by sending PUBLISHED"
@@ -1331,7 +1331,7 @@ features:
       - "Status ownership: Seller cannot un-reject by sending PUBLISHED"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventRejectedStaysUnpublished`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestUpdateWithEventRejectedStaysUnpublished`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-seller-edit-of-a-rejected-listing-goes-to-manual-review
     title: "Status ownership: Seller edit of a rejected listing goes to manual review"
@@ -1344,7 +1344,7 @@ features:
       - "Status ownership: Seller edit of a rejected listing goes to manual review"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventRejectedGoesToPendingReview`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestUpdateWithEventRejectedGoesToPendingReview`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-server-only-statuses-sent-on-create-are-ignored
     title: "Status ownership: Server-only statuses sent on create are ignored"
@@ -1357,7 +1357,7 @@ features:
       - "Status ownership: Server-only statuses sent on create are ignored"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestCreateListingServerOnlyStatusesStoredAsDraft`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestCreateListingServerOnlyStatusesStoredAsDraft`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-seller-cannot-move-a-published-listing-into-a-server-only-status
     title: "Status ownership: Seller cannot move a published listing into a server-only status"
@@ -1370,7 +1370,7 @@ features:
       - "Status ownership: Seller cannot move a published listing into a server-only status"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventClientBannedIgnored`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestUpdateWithEventClientBannedIgnored`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-status-omitted-keeps-a-published-listing-published
     title: "Status ownership: Status omitted keeps a published listing published"
@@ -1383,7 +1383,7 @@ features:
       - "Status ownership: Status omitted keeps a published listing published"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingOmittedStatusKeepsPublished`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUpdateListingOmittedStatusKeepsPublished`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-seller-can-withdraw-a-published-listing-to-draft
     title: "Status ownership: Seller can withdraw a published listing to draft"
@@ -1396,7 +1396,7 @@ features:
       - "Status ownership: Seller can withdraw a published listing to draft"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventPublishedToDraft`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestUpdateWithEventPublishedToDraft`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-banned-listing-refuses-seller-writes
     title: "Status ownership: Banned listing refuses seller writes"
@@ -1409,7 +1409,7 @@ features:
       - "Status ownership: Banned listing refuses seller writes"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingBannedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUpdateListingBannedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-held-listing-refuses-seller-writes
     title: "Status ownership: Held listing refuses seller writes"
@@ -1422,7 +1422,7 @@ features:
       - "Status ownership: Held listing refuses seller writes"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingHeldFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUpdateListingHeldFailedPrecondition`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-banned-or-held-listing-refuses-seller-delete
     title: "Status ownership: Banned or held listing refuses seller delete"
@@ -1435,7 +1435,7 @@ features:
       - "Status ownership: Banned or held listing refuses seller delete"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestDeleteListingBannedOrHeldFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestDeleteListingBannedOrHeldFailedPrecondition`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-seller-write-racing-a-moderation-decision-is-refused
     title: "Status ownership: Seller write racing a moderation decision is refused"
@@ -1448,7 +1448,7 @@ features:
       - "Status ownership: Seller write racing a moderation decision is refused"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestUpdateTxConditionalOnLoadedStatus`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestUpdateTxConditionalOnLoadedStatus`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-another-seller-still-cannot-edit-the-listing
     title: "Status ownership: Another seller still cannot edit the listing"
@@ -1461,7 +1461,7 @@ features:
       - "Status ownership: Another seller still cannot edit the listing"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingNonOwnerNonAdminDeniedNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUpdateListingNonOwnerNonAdminDeniedNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-admin-updatelisting-cannot-set-status
     title: "Status ownership: Admin UpdateListing cannot set status"
@@ -1474,7 +1474,7 @@ features:
       - "Status ownership: Admin UpdateListing cannot set status"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingAdminCannotSetStatus`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUpdateListingAdminCannotSetStatus`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-admin-content-edit-does-not-re-screen
     title: "Status ownership: Admin content edit does not re-screen"
@@ -1487,7 +1487,7 @@ features:
       - "Status ownership: Admin content edit does not re-screen"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventAdminEditNoScreen`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestUpdateWithEventAdminEditNoScreen`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-admin-s-own-listing-goes-through-the-screen
     title: "Status ownership: Admin's own listing goes through the screen"
@@ -1500,7 +1500,7 @@ features:
       - "Status ownership: Admin's own listing goes through the screen"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestAdminOwnListingFollowsSellerPath`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestAdminOwnListingFollowsSellerPath`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-pending-listing-is-hidden-from-a-stranger
     title: "Status ownership: Pending listing is hidden from a stranger"
@@ -1513,7 +1513,7 @@ features:
       - "Status ownership: Pending listing is hidden from a stranger"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingPendingReviewHiddenFromStranger`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestGetListingPendingReviewHiddenFromStranger`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-owner-sees-status-and-reason-but-not-flags
     title: "Status ownership: Owner sees status and reason but not flags"
@@ -1526,7 +1526,7 @@ features:
       - "Status ownership: Owner sees status and reason but not flags"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingOwnerSeesReasonNotFlags`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestGetListingOwnerSeesReasonNotFlags`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-admin-sees-screen-flags
     title: "Status ownership: Admin sees screen flags"
@@ -1539,7 +1539,7 @@ features:
       - "Status ownership: Admin sees screen flags"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingAdminSeesFlags`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestGetListingAdminSeesFlags`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-status-ownership-screen-flags-are-hidden-from-non-owners
     title: "Status ownership: Screen flags are hidden from non-owners"
@@ -1552,7 +1552,7 @@ features:
       - "Status ownership: Screen flags are hidden from non-owners"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingStripsModerationForStranger`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestGetListingStripsModerationForStranger`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-clean-listing-publishes
     title: "Auto-screen: Clean listing publishes"
@@ -1565,7 +1565,7 @@ features:
       - "Auto-screen: Clean listing publishes"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestCreateWithEventCleanPublishes`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateWithEventCleanPublishes`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-keyword-hit-goes-to-review-without-calling-the-ai
     title: "Auto-screen: Keyword hit goes to review without calling the AI"
@@ -1578,7 +1578,7 @@ features:
       - "Auto-screen: Keyword hit goes to review without calling the AI"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestCreateWithEventKeywordHitPendingReview`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateWithEventKeywordHitPendingReview`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-keyword-match-ignores-case-and-diacritics
     title: "Auto-screen: Keyword match ignores case and diacritics"
@@ -1604,7 +1604,7 @@ features:
       - "Auto-screen: AI REVIEW verdict goes to review"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestCreateWithEventAIReviewPendingReview`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateWithEventAIReviewPendingReview`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-ai-error-fails-safe
     title: "Auto-screen: AI error fails safe"
@@ -1617,7 +1617,7 @@ features:
       - "Auto-screen: AI error fails safe"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestCreateWithEventScreenErrorPendingReview`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateWithEventScreenErrorPendingReview`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-ai-timeout-fails-safe-within-the-bound
     title: "Auto-screen: AI timeout fails safe within the bound"
@@ -1630,7 +1630,7 @@ features:
       - "Auto-screen: AI timeout fails safe within the bound"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/upstream` `TestScreenListingTimeoutBounded` and team-domain `internal/service` `TestCreateWithEventScreenTimeoutPendingReview`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/screen` `TestScreenListingTimeoutBounded` and team-domain `internal/listing` `TestCreateWithEventScreenTimeoutPendingReview`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-unconfigured-team-ai-fails-safe
     title: "Auto-screen: Unconfigured team-ai fails safe"
@@ -1643,7 +1643,7 @@ features:
       - "Auto-screen: Unconfigured team-ai fails safe"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/upstream` `TestNewAIClientEmptyAddrIsNil` and team-domain `internal/service` `TestCreateWithEventNilScreenerPendingReview`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/config` `TestUpstreamAddressesRequiredInEveryEnv`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-draft-save-is-not-screened
     title: "Auto-screen: Draft save is not screened"
@@ -1656,7 +1656,7 @@ features:
       - "Auto-screen: Draft save is not screened"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestCreateWithEventDraftNotScreened`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestCreateWithEventDraftNotScreened`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-price-and-stock-edits-do-not-re-screen
     title: "Auto-screen: Price and stock edits do not re-screen"
@@ -1669,7 +1669,7 @@ features:
       - "Auto-screen: Price and stock edits do not re-screen"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventNonContentEditNoScreen`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestUpdateWithEventNonContentEditNoScreen`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-title-edit-of-a-published-listing-is-re-screened
     title: "Auto-screen: Title edit of a published listing is re-screened"
@@ -1682,7 +1682,7 @@ features:
       - "Auto-screen: Title edit of a published listing is re-screened"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventContentEditRescreens`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestUpdateWithEventContentEditRescreens`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-content-edit-sending-a-server-only-status-is-re-screened
     title: "Auto-screen: Content edit sending a server-only status is re-screened"
@@ -1695,7 +1695,7 @@ features:
       - "Auto-screen: Content edit sending a server-only status is re-screened"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventServerOnlyStatusContentEditRescreens`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestUpdateWithEventServerOnlyStatusContentEditRescreens`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-draft-published-later-is-screened-at-that-moment
     title: "Auto-screen: Draft published later is screened at that moment"
@@ -1708,7 +1708,7 @@ features:
       - "Auto-screen: Draft published later is screened at that moment"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestUpdateWithEventDraftToPublishScreens`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestUpdateWithEventDraftToPublishScreens`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-screen-call-uses-the-service-principal
     title: "Auto-screen: Screen call uses the service principal"
@@ -1721,7 +1721,7 @@ features:
       - "Auto-screen: Screen call uses the service principal"
     tags: [admin, moderation, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/upstream` `TestScreenListingUsesServicePrincipal`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/screen` `TestScreenListingUsesServicePrincipal`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.moderation-auto-screen-keyword-list-loads-from-the-config-file
     title: "Auto-screen: Keyword list loads from the config file"
@@ -1790,7 +1790,7 @@ features:
       - "Seller hold: Suspension holds published and pending listings"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsHoldsPublishedAndPending`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestHoldSellerListingsHoldsPublishedAndPending`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-ban-holds-the-same-way
     title: "Seller hold: Ban holds the same way"
@@ -1803,7 +1803,7 @@ features:
       - "Seller hold: Ban holds the same way"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedBannedHolds`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestUserStatusChangedBannedHolds`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-suspension-to-ban-keeps-the-original-prior-status
     title: "Seller hold: Suspension to ban keeps the original prior status"
@@ -1816,7 +1816,7 @@ features:
       - "Seller hold: Suspension to ban keeps the original prior status"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsKeepsOriginalPriorStatus`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestHoldSellerListingsKeepsOriginalPriorStatus`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-admin-banned-listing-is-not-touched
     title: "Seller hold: Admin-banned listing is not touched"
@@ -1829,7 +1829,7 @@ features:
       - "Seller hold: Admin-banned listing is not touched"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsSkipsBannedListing`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestHoldSellerListingsSkipsBannedListing`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-hold-event-carries-the-status-for-de-indexing
     title: "Seller hold: Hold event carries the status for de-indexing"
@@ -1842,7 +1842,7 @@ features:
       - "Seller hold: Hold event carries the status for de-indexing"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestHoldEventCarriesHeldStatus`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestHoldEventCarriesHeldStatus`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-seller-with-no-listings-is-a-no-op
     title: "Seller hold: Seller with no listings is a no-op"
@@ -1855,7 +1855,7 @@ features:
       - "Seller hold: Seller with no listings is a no-op"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedUnknownSellerNoop`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestUserStatusChangedUnknownSellerNoop`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-held-listings-leave-the-store
     title: "Seller hold: Held listings leave the store"
@@ -1885,7 +1885,7 @@ features:
       - "Seller hold: Other sellers' listings are not touched"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestHoldSellerListingsOnlyTargetsUser`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestHoldSellerListingsOnlyTargetsUser`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-reinstatement-restores-prior-statuses
     title: "Seller hold: Reinstatement restores prior statuses"
@@ -1898,7 +1898,7 @@ features:
       - "Seller hold: Reinstatement restores prior statuses"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsReturnsPriorStatus`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestRestoreSellerListingsReturnsPriorStatus`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-restricted-also-restores
     title: "Seller hold: Restricted also restores"
@@ -1911,7 +1911,7 @@ features:
       - "Seller hold: Restricted also restores"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedRestrictedRestores`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestUserStatusChangedRestrictedRestores`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-restored-listing-is-visible-again
     title: "Seller hold: Restored listing is visible again"
@@ -1941,7 +1941,7 @@ features:
       - "Seller hold: Admin-banned listing is not resurrected"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsLeavesBannedListing`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestRestoreSellerListingsLeavesBannedListing`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-restore-with-nothing-held-is-a-no-op
     title: "Seller hold: Restore with nothing held is a no-op"
@@ -1954,7 +1954,7 @@ features:
       - "Seller hold: Restore with nothing held is a no-op"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsNothingHeldNoop`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestRestoreSellerListingsNothingHeldNoop`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-restored-pending-listing-is-back-in-the-moderation-queue
     title: "Seller hold: Restored pending listing is back in the moderation queue"
@@ -1967,7 +1967,7 @@ features:
       - "Seller hold: Restored pending listing is back in the moderation queue"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestRestoreSellerListingsPendingReturnsToQueueWithoutScreen`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/listing` `TestRestoreSellerListingsPendingReturnsToQueueWithoutScreen`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-suspension-lifted-at-login-restores-listings
     title: "Seller hold: Suspension lifted at login restores listings"
@@ -1997,7 +1997,7 @@ features:
       - "Seller hold: Restore does not touch other sellers' listings"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestRestoreSellerListingsOnlyTargetsUser`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestRestoreSellerListingsOnlyTargetsUser`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-restricted-seller-keeps-listings-published
     title: "Seller hold: Restricted seller keeps listings published"
@@ -2027,7 +2027,7 @@ features:
       - "Seller hold: Restriction of a held seller is not a new hold"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedRestrictedFromSuspendedRestores`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestUserStatusChangedRestrictedFromSuspendedRestores`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-redelivered-event-changes-nothing-twice
     title: "Seller hold: Redelivered event changes nothing twice"
@@ -2040,7 +2040,7 @@ features:
       - "Seller hold: Redelivered event changes nothing twice"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedRedeliveryIsIdempotent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestUserStatusChangedRedeliveryIsIdempotent`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-re-driven-older-suspension-does-not-re-hold-a-reinstated-seller
     title: "Seller hold: Re-driven older suspension does not re-hold a reinstated seller"
@@ -2053,7 +2053,7 @@ features:
       - "Seller hold: Re-driven older suspension does not re-hold a reinstated seller"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestSellerStatusStaleEventSkipped`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestSellerStatusStaleEventSkipped`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-event-with-the-same-changed-at-is-stale
     title: "Seller hold: Event with the same changed_at is stale"
@@ -2066,7 +2066,7 @@ features:
       - "Seller hold: Event with the same changed_at is stale"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/repository` `TestSellerStatusEqualChangedAtSkipped`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/store` `TestSellerStatusEqualChangedAtSkipped`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-other-event-types-are-ignored
     title: "Seller hold: Other event types are ignored"
@@ -2079,7 +2079,7 @@ features:
       - "Seller hold: Other event types are ignored"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestIdentityConsumerIgnoresOtherTypes`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestIdentityConsumerIgnoresOtherTypes`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-malformed-event-is-parked-not-applied
     title: "Seller hold: Malformed event is parked, not applied"
@@ -2092,7 +2092,7 @@ features:
       - "Seller hold: Malformed event is parked, not applied"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedMalformedGoesToDLQ`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestUserStatusChangedMalformedGoesToDLQ`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-database-failure-retries-then-parks
     title: "Seller hold: Database failure retries then parks"
@@ -2105,20 +2105,8 @@ features:
       - "Seller hold: Database failure retries then parks"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestUserStatusChangedDBFailureRetriesThenDLQ`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestUserStatusChangedDBFailureRetriesThenDLQ`. Not producible end to end through the gateway (unit level)."
 
-  - id: listing.seller-hold-consumer-disabled-does-nothing
-    title: "Seller hold: Consumer disabled does nothing"
-    persona: admin
-    priority: P2
-    summary: Unit-verified scenario of change domain-seller-enforcement-hold.
-    entry_route: /
-    services: [team-domain]
-    acceptance:
-      - "Seller hold: Consumer disabled does nothing"
-    tags: [admin, enforcement, unit]
-    status: not-testable
-    notes: "VERIFIED BY team-domain `internal/bootstrap` `TestIdentityConsumerAddonDisabled`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-non-owner-cannot-read-a-held-listing
     title: "Seller hold: Non-owner cannot read a held listing"
@@ -2131,7 +2119,7 @@ features:
       - "Seller hold: Non-owner cannot read a held listing"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestGetListingHeldHiddenFromNonOwner`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestGetListingHeldHiddenFromNonOwner`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-owner-sees-the-held-listing-and-the-reason
     title: "Seller hold: Owner sees the held listing and the reason"
@@ -2148,7 +2136,7 @@ features:
       - "Seller hold: Owner sees the held listing and the reason"
     tags: [admin, enforcement]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/service` `TestListMyListingsShowsHeldWithReason`. Not producible end to end: SetUserStatus(suspended) revokes all sessions, so the suspended owner cannot call ListMyListings through the gateway."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestListMyListingsShowsHeldWithReason`. Not producible end to end: SetUserStatus(suspended) revokes all sessions, so the suspended owner cannot call ListMyListings through the gateway."
 
   - id: listing.seller-hold-owner-cannot-edit-a-held-listing
     title: "Seller hold: Owner cannot edit a held listing"
@@ -2161,7 +2149,7 @@ features:
       - "Seller hold: Owner cannot edit a held listing"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingHeldRefusedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUpdateListingHeldRefusedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-another-seller-cannot-edit-a-held-listing
     title: "Seller hold: Another seller cannot edit a held listing"
@@ -2174,7 +2162,7 @@ features:
       - "Seller hold: Another seller cannot edit a held listing"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestUpdateListingHeldNonOwnerDenied`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUpdateListingHeldNonOwnerDenied`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-owner-cannot-delete-a-held-listing
     title: "Seller hold: Owner cannot delete a held listing"
@@ -2187,7 +2175,7 @@ features:
       - "Seller hold: Owner cannot delete a held listing"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/handler` `TestDeleteListingHeldRefusedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestDeleteListingHeldRefusedFailedPrecondition`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-stock-cannot-be-reserved-on-a-held-listing
     title: "Seller hold: Stock cannot be reserved on a held listing"
@@ -2200,7 +2188,7 @@ features:
       - "Seller hold: Stock cannot be reserved on a held listing"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/grpcserver` `TestReserveStock_HeldListingFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestReserveStock_HeldListingFailedPrecondition`. Not producible end to end through the gateway (unit level)."
 
   - id: listing.seller-hold-reservation-retry-on-a-held-listing-stays-a-no-op
     title: "Seller hold: Reservation retry on a held listing stays a no-op"
@@ -2213,95 +2201,862 @@ features:
       - "Seller hold: Reservation retry on a held listing stays a no-op"
     tags: [admin, enforcement, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/grpcserver` `TestReserveStock_HeldListingExistingReservationNoop`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestReserveStock_HeldListingExistingReservationNoop`. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-handler-failure-logs-the-fingerprint
     title: "Domain key redaction: Handler failure logs the fingerprint"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Handler failure logs the fingerprint"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordLogsKeyFingerprint`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestIdentityConsumerLogsKeyFingerprint`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-raw-key-never-appears-in-any-log-line
     title: "Domain key redaction: Raw key never appears in any log line"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Raw key never appears in any log line"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordParkLogsNoRawKey`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestIdentityConsumerParkLogsNoRawKey`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-dlq-produce-failure-logs-the-fingerprint
     title: "Domain key redaction: DLQ produce failure logs the fingerprint"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: DLQ produce failure logs the fingerprint"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordDLQFailureLogsFingerprint`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestIdentityConsumerDLQFailureLogsFingerprint`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-empty-key-is-still-fingerprinted
     title: "Domain key redaction: Empty key is still fingerprinted"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Empty key is still fingerprinted"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestKeyFingerprintEmptyKey`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestEmptyKeyIsFingerprinted`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-fingerprint-is-stable-and-fixed-length
     title: "Domain key redaction: Fingerprint is stable and fixed length"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Fingerprint is stable and fixed length"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestKeyFingerprintStableAndTwelveHex`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestKeyFingerprintStableTwelveHex`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-kafka-key-and-retry-behaviour-are-unchanged
     title: "Domain key redaction: Kafka key and retry behaviour are unchanged"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Kafka key and retry behaviour are unchanged"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordDLQKeepsOriginalKey`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestParkedRecordKeepsOriginalKey`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
 
   - id: consumer.key-redaction-successful-records-log-no-key
     title: "Domain key redaction: Successful records log no key"
     persona: admin
     priority: P2
-    summary: Unit-verified scenario of change domain-consumer-key-redaction.
+    summary: Unit-verified scenario of change domain-consumer-key-redaction (re-verified by domain-go-sdk-v1).
     entry_route: /
     services: [team-domain]
     acceptance:
       - "Domain key redaction: Successful records log no key"
     tags: [privacy, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-domain `internal/consumer` `TestProcessRecordSuccessLogsNothing`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-domain `internal/events` `TestSuccessfulRecordLogsNoKey`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
+
+  - id: consumer.key-redaction-the-fingerprint-depends-on-the-secret
+    title: "Domain key redaction: The fingerprint depends on the secret"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain key redaction: The fingerprint depends on the secret"
+    tags: [privacy, audit, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/events` `TestKeyFingerprintDependsOnSecret`. Fingerprint is HMAC-SHA256 keyed by LOG_KEY_FP_SECRET. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.go-mod-pins-the-tag-without-replace
+    title: "Domain SDK: go.mod pins the tag without replace"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: go.mod pins the tag without replace"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestGoModRequiresTaggedSDK`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.makefile-references-the-shared-files
+    title: "Domain SDK: Makefile references the shared files"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Makefile references the shared files"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestMakefileUsesSharedBuildFiles`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.superseded-packages-are-gone
+    title: "Domain SDK: Superseded packages are gone"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Superseded packages are gone"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestLegacyPackagesRemoved`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-missing-env-is-refused
+    title: "Domain SDK: A missing ENV is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A missing ENV is refused"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestLoadRequiresEnv`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-missing-grpc-port-is-refused
+    title: "Domain SDK: A missing GRPC_PORT is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A missing GRPC_PORT is refused"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestLoadRequiresGRPCPort`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.the-telemetry-service-name-is-team-domain
+    title: "Domain SDK: The telemetry service name is team-domain"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: The telemetry service name is team-domain"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestOtelServiceNameDefaultsToTeamDomain`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-missing-database-url-is-refused-in-every-environment
+    title: "Domain SDK: A missing database URL is refused in every environment"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A missing database URL is refused in every environment"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestLoadRequiresDatabaseURL`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-missing-screening-terms-file-is-refused
+    title: "Domain SDK: A missing screening terms file is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A missing screening terms file is refused"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestScreenTermsFileMissingFails`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.port-and-shutdown-durations-are-range-checked
+    title: "Domain SDK: Port and shutdown durations are range checked"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Port and shutdown durations are range checked"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestLoadRejectsBadPortAndNegativeDurations`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.removed-variables-are-not-declared
+    title: "Domain SDK: Removed variables are not declared"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Removed variables are not declared"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestNoRemovedEnvKeysDeclared`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-strict-env-refuses-each-unsafe-value
+    title: "Domain SDK: A strict ENV refuses each unsafe value"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A strict ENV refuses each unsafe value"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestStrictEnvRefusesUnsafeSettings`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-local-env-accepts-reflection-and-fills-defaults
+    title: "Domain SDK: A local ENV accepts reflection and fills defaults"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A local ENV accepts reflection and fills defaults"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestLocalEnvAcceptsDefaultsAndReflection`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.an-unset-upstream-address-is-refused-in-every-environment
+    title: "Domain SDK: An unset upstream address is refused in every environment"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: An unset upstream address is refused in every environment"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestUpstreamAddressesRequiredInEveryEnv`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.env-example-matches-the-declared-variables
+    title: "Domain SDK: .env.example matches the declared variables"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: .env.example matches the declared variables"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/config` `TestEnvExampleInSync`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.an-unreachable-database-stops-boot
+    title: "Domain SDK: An unreachable database stops boot"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: An unreachable database stops boot"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunFailsOnUnreachableDatabase`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.the-sweeper-releases-expired-reservations-without-any-switch
+    title: "Domain SDK: The sweeper releases expired reservations without any switch"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: The sweeper releases expired reservations without any switch"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunSweepsExpiredReservations`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.non-test-code-has-no-runtime-fallback
+    title: "Domain SDK: Non-test code has no runtime fallback"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Non-test code has no runtime fallback"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestNoRuntimeFallbacksInSource`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.in-memory-fakes-are-imported-by-tests-only
+    title: "Domain SDK: In-memory fakes are imported by tests only"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: In-memory fakes are imported by tests only"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestFakesImportedOnlyFromTests`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-database-outage-fails-readiness-and-keeps-liveness
+    title: "Domain SDK: A database outage fails readiness and keeps liveness"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A database outage fails readiness and keeps liveness"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestReadinessFailsLivenessHoldsWhenPostgresDown`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-kafka-outage-does-not-fail-readiness
+    title: "Domain SDK: A Kafka outage does not fail readiness"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A Kafka outage does not fail readiness"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestReadinessIgnoresKafkaOutage`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.shutdown-drains-health-before-the-server-stops
+    title: "Domain SDK: Shutdown drains health before the server stops"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Shutdown drains health before the server stops"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestShutdownDrainsHealthBeforeServerStops`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.an-in-flight-write-is-relayed-during-shutdown
+    title: "Domain SDK: An in-flight write is relayed during shutdown"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: An in-flight write is relayed during shutdown"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestShutdownRelaysInFlightWrite`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-failing-component-stops-the-process-with-its-error
+    title: "Domain SDK: A failing component stops the process with its error"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A failing component stops the process with its error"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestConsumerFailureStopsRun`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-hanging-call-cannot-outlive-the-grace-period
+    title: "Domain SDK: A hanging call cannot outlive the grace period"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A hanging call cannot outlive the grace period"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestShutdownGraceBoundsHangingCall`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-call-without-a-principal-is-unauthenticated
+    title: "Domain SDK: A call without a principal is Unauthenticated"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A call without a principal is Unauthenticated"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestRPCsWithoutPrincipalAreUnauthenticated`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-user-principal-cannot-call-a-reservation-rpc
+    title: "Domain SDK: A user principal cannot call a reservation RPC"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A user principal cannot call a reservation RPC"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUserPrincipalCannotCallReservationRPCs`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-seller-cannot-moderate
+    title: "Domain SDK: A seller cannot moderate"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A seller cannot moderate"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestSellerCannotModerateOrReadQueue`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-unique-violation-is-alreadyexists
+    title: "Domain SDK: A unique violation is AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A unique violation is AlreadyExists"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUniqueViolationMapsAlreadyExists`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-duplicate-storefront-slug-is-still-alreadyexists
+    title: "Domain SDK: A duplicate storefront slug is still AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A duplicate storefront slug is still AlreadyExists"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestUpsertStorefrontSlugTakenAlreadyExists`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.cancelled-and-expired-calls-keep-their-codes
+    title: "Domain SDK: Cancelled and expired calls keep their codes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Cancelled and expired calls keep their codes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestContextErrorsKeepTheirCodes`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.an-unknown-error-hides-driver-text
+    title: "Domain SDK: An unknown error hides driver text"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: An unknown error hides driver text"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestInternalErrorHidesDriverText`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.domain-sentinels-keep-their-codes
+    title: "Domain SDK: Domain sentinels keep their codes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Domain sentinels keep their codes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestDomainSentinelsKeepCodes`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.reflection-is-off-by-default
+    title: "Domain SDK: Reflection is off by default"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Reflection is off by default"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestReflectionOffByDefault`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.page-size-defaults-and-caps
+    title: "Domain SDK: Page size defaults and caps"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Page size defaults and caps"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestPageSizeClamp`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-cursor-issued-before-the-migration-is-still-accepted
+    title: "Domain SDK: A cursor issued before the migration is still accepted"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A cursor issued before the migration is still accepted"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestExistingCursorFormatsAccepted`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-malformed-queue-cursor-is-rejected
+    title: "Domain SDK: A malformed queue cursor is rejected"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A malformed queue cursor is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestListModerationQueueInvalidCursor`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.migrations-build-the-v1-outbox-on-an-empty-database
+    title: "Domain SDK: Migrations build the v1 outbox on an empty database"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Migrations build the v1 outbox on an empty database"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `migrations` `TestMigrateUpBuildsV1Outbox`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.existing-rows-are-numbered-by-creation-order
+    title: "Domain SDK: Existing rows are numbered by creation order"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Existing rows are numbered by creation order"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `migrations` `TestOutboxUpgradeNumbersRowsByCreatedAt`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.upgraded-pending-rows-are-relayed
+    title: "Domain SDK: Upgraded pending rows are relayed"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Upgraded pending rows are relayed"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestUpgradedPendingRowsArePublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.upgraded-failed-rows-are-requeued-and-published
+    title: "Domain SDK: Upgraded failed rows are requeued and published"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Upgraded failed rows are requeued and published"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestUpgradedFailedRowsAreRequeuedAndPublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.boot-does-not-migrate
+    title: "Domain SDK: Boot does not migrate"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Boot does not migrate"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunDoesNotMigrate`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.the-migrate-subcommand-applies-the-schema
+    title: "Domain SDK: The migrate subcommand applies the schema"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: The migrate subcommand applies the schema"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestMigrateUpSubcommandAppliesSchema`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-second-migrate-up-changes-nothing
+    title: "Domain SDK: A second migrate up changes nothing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A second migrate up changes nothing"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `migrations` `TestMigrateUpIsIdempotent`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.migrate-without-a-database-fails
+    title: "Domain SDK: Migrate without a database fails"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Migrate without a database fails"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestMigrateFailsWithoutDatabase`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.screening-calls-present-the-service-principal
+    title: "Domain SDK: Screening calls present the service principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: Screening calls present the service principal"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/screen` `TestScreenListingUsesServicePrincipal`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-hung-team-ai-is-cut-off-at-the-bound
+    title: "Domain SDK: A hung team-ai is cut off at the bound"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A hung team-ai is cut off at the bound"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/screen` `TestScreenListingTimeoutBounded`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.an-admin-delete-is-refused-when-audit-is-down
+    title: "Domain SDK: An admin delete is refused when audit is down"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: An admin delete is refused when audit is down"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestAdminDeleteAuditDownUnavailableNoChange`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.the-audit-failure-message-hides-the-cause
+    title: "Domain SDK: The audit failure message hides the cause"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: The audit failure message hides the cause"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestAuditFailureHidesCause`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-non-admin-owner-write-does-not-touch-audit
+    title: "Domain SDK: A non-admin owner write does not touch audit"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Domain SDK: A non-admin owner write does not touch audit"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/rpc` `TestOwnerUpdateIndependentOfAudit`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-request-id-reaches-the-audit-call-and-the-produced-record
+    title: "Listing audit: A request id reaches the audit call and the produced record"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Listing audit: A request id reaches the audit call and the produced record"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRequestIDAndTraceparentContinuity`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.transient-kafka-failure-keeps-the-row-and-retries-it
+    title: "Transient Kafka failure keeps the row and retries it"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Transient Kafka failure keeps the row and retries it"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestRelayerRetriesTransientFailureWithoutLimit`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-poison-row-is-parked-without-blocking-other-listings
+    title: "A poison row is parked without blocking other listings"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "A poison row is parked without blocking other listings"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestPoisonRowParkedOthersPublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.a-parked-row-holds-back-only-its-own-listing
+    title: "A parked row holds back only its own listing"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "A parked row holds back only its own listing"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestParkedRowHoldsBackSameListingOnly`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.pending-rows-are-delivered-with-the-same-wire-bytes
+    title: "Pending rows are delivered with the same wire bytes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Pending rows are delivered with the same wire bytes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestRelayedRecordKeepsEnvelopeBytes`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.relayer-runs-without-any-enable-variable
+    title: "Relayer runs without any enable variable"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Relayer runs without any enable variable"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunRelaysOutbox`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.published-rows-older-than-7-days-are-deleted
+    title: "Outbox purge: Published rows older than 7 days are deleted"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Outbox purge: Published rows older than 7 days are deleted"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/store` `TestPurgeDeletesOnlyOldPublishedRows`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.the-service-runs-the-purge-on-its-schedule
+    title: "Outbox purge: The service runs the purge on its schedule"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Outbox purge: The service runs the purge on its schedule"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunPurgesPublishedOutboxRows`. Not producible end to end through the gateway (unit level)."
+
+  - id: domain-go-sdk.consumer-is-always-running
+    title: "Seller hold: Consumer is always running"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change domain-go-sdk-v1.
+    entry_route: /
+    services: [team-domain]
+    acceptance:
+      - "Seller hold: Consumer is always running"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-domain `internal/app` `TestRunConsumesIdentityEvents`. Not producible end to end through the gateway (unit level)."

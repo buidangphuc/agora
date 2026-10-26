@@ -13,6 +13,7 @@ Names and locations come from the environment with the compose defaults:
     PRM_PAY_PG_HOST          hostname of postgres on the stack network (default `postgres`)
     PRM_PAY_PG_USER/PASS     postgres / postgres
     PRM_PAY_AUDIT_ADDR       audit service the throwaway payment writes admin audit to (default `team-audit-svc:50066`)
+    PRM_PAY_ORDER_ADDR       order service the throwaway payment calls (default `team-order-svc:50055`)
     PLP_TEAM_PAYMENT_IMAGE   image of the throwaway team-payment (default agora-team-payment:local)
 """
 
@@ -133,8 +134,10 @@ class ScratchDb:
             "DATABASE_URL": f"postgres://{_pg_creds()}@{pg_host()}:5432/{self.name}?sslmode=disable",
             "GRPC_PORT": str(GRPC_PORT),
             "ENV": "local",
-            "MOCK_PAYMENTS": "true",
+            "MOCK_DATA": "payment-provider",
             "UPSTREAM_AUDIT_ADDR": os.getenv("PRM_PAY_AUDIT_ADDR", "team-audit-svc:50066"),
+            "UPSTREAM_ORDER_ADDR": os.getenv("PRM_PAY_ORDER_ADDR", "team-order-svc:50055"),
+            "GRPC_REFLECTION_ENABLED": "true",
         }
         args = ["run", "-d", "--name", name, "--network", stack.stack_network()]
         args += ["-p", f"127.0.0.1::{GRPC_PORT}"]

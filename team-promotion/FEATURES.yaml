@@ -229,7 +229,7 @@ features:
       - "Unspecified scope is audited like platform"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherUnspecifiedScopeAudited`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateVoucherUnspecifiedScopeAudited`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-promotion-audit-precedes-the-voucher-insert
     title: "Promotion audit precedes the voucher insert"
@@ -242,7 +242,7 @@ features:
       - "Promotion audit precedes the voucher insert"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherAuditBeforeInsert`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestCreateVoucherAuditBeforeInsert`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-audit-down-blocks-a-platform-voucher
     title: "Audit down blocks a platform voucher"
@@ -276,7 +276,7 @@ features:
       - "Promotion audit upstream not configured"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherNilAuditUnavailable`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestCreateVoucherAuditDownUnavailable`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-promotion-audit-timeout-blocks-the-voucher
     title: "Promotion audit timeout blocks the voucher"
@@ -289,7 +289,7 @@ features:
       - "Promotion audit timeout blocks the voucher"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/upstream` `TestAuditClientTimeoutBounded` and `internal/service` `TestCreateVoucherAuditErrorFailsClosed`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestAuditClientTimeoutBounded` and `internal/voucher` `TestCreateVoucherAuditErrorFailsClosed`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-shop-voucher-by-a-seller-writes-no-event
     title: "Shop voucher by a seller writes no event"
@@ -323,7 +323,7 @@ features:
       - "Non-admin cannot create a platform voucher and nothing is audited"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherPlatformDeniedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateVoucherPlatformDeniedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-invalid-platform-voucher-writes-no-event
     title: "Invalid platform voucher writes no event"
@@ -336,7 +336,7 @@ features:
       - "Invalid platform voucher writes no event"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherInvalidWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateVoucherInvalidWritesNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-promotion-audit-is-called-as-the-service-principal
     title: "Promotion audit is called as the service principal"
@@ -404,7 +404,7 @@ features:
       - "Admin flash sale makes no owner lookup"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateCampaignAdminNoOwnerLookup`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignAdminNoOwnerLookup`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-audit-down-blocks-an-admin-flash-sale
     title: "Audit down blocks an admin flash sale"
@@ -439,7 +439,7 @@ features:
       - "Promotion audit precedes the campaign insert and carries the final id"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateCampaignAuditBeforeInsertSameID`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignAuditBeforeInsertSameID`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-promotion-audit-failure-emits-nothing-for-a-flash-sale
     title: "Promotion audit failure emits nothing for a flash sale"
@@ -452,7 +452,7 @@ features:
       - "Promotion audit failure emits nothing for a flash sale"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateCampaignAuditFailureFailsClosed`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCreateCampaignAuditFailureFailsClosed`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-invalid-campaign-writes-no-event
     title: "Invalid campaign writes no event"
@@ -465,7 +465,7 @@ features:
       - "Invalid campaign writes no event"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateCampaignInvalidWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateCampaignInvalidWritesNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-refused-callers-write-no-flash-sale-event
     title: "Refused callers write no flash-sale event"
@@ -478,7 +478,7 @@ features:
       - "Refused callers write no flash-sale event"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateCampaignDeniedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateCampaignDeniedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-admin-creates-an-ad-campaign-with-an-audit-event
     title: "Admin creates an ad campaign with an audit event"
@@ -555,7 +555,7 @@ features:
       - "Promotion audit precedes the ad campaign insert and carries the final id"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateAdCampaignAuditBeforeInsertSameID`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestCreateAdCampaignAuditBeforeInsertSameID`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-promotion-audit-failure-leaves-no-ad-campaign
     title: "Promotion audit failure leaves no ad campaign"
@@ -568,7 +568,7 @@ features:
       - "Promotion audit failure leaves no ad campaign"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateAdCampaignAuditFailureFailsClosed`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestCreateAdCampaignAuditFailureFailsClosed`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-budget-boundary-is-validated-before-the-audit
     title: "Budget boundary is validated before the audit"
@@ -581,7 +581,7 @@ features:
       - "Budget boundary is validated before the audit"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateAdCampaignBudgetBoundaryAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/sponsored` `TestCreateAdCampaignBudgetBoundaryAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-refused-callers-write-no-ad-campaign-event
     title: "Refused callers write no ad-campaign event"
@@ -594,7 +594,7 @@ features:
       - "Refused callers write no ad-campaign event"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateAdCampaignDeniedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateAdCampaignDeniedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-empty-address-yields-no-client
     title: "Empty address yields no client"
@@ -633,7 +633,7 @@ features:
       - "Seller cannot create a platform voucher with audit unconfigured"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherPlatformSellerDeniedNilAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSellerCannotCreatePlatformVoucher`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.admin-audit-seller-paths-unaffected-with-audit-unconfigured
     title: "Seller paths unaffected with audit unconfigured"
@@ -646,7 +646,7 @@ features:
       - "Seller paths unaffected with audit unconfigured"
     tags: [promotion, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestSellerPathsIgnoreAuditAvailability`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSellerPathsIgnoreAuditAvailability`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.flash-stock-hold-reserve-holds-the-units-of-an-active-campaign
     title: "Reserve holds the units of an active campaign"
@@ -662,7 +662,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Reserve holds the units of an active campaign"
-    notes: "Feature scenario: Reserve holds the units of an active campaign (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockHoldsUnits`"
+    notes: "Feature scenario: Reserve holds the units of an active campaign (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestReserveFlashSaleStockHoldsUnits`"
   - id: promotion.flash-stock-hold-reserve-is-idempotent-on-the-reservation-id
     title: "Reserve is idempotent on the reservation id"
     persona: admin
@@ -677,7 +677,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Reserve is idempotent on the reservation id"
-    notes: "Feature scenario: Reserve is idempotent on the reservation id (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockIdempotent`"
+    notes: "Feature scenario: Reserve is idempotent on the reservation id (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestReserveFlashSaleStockIdempotent`"
   - id: promotion.flash-stock-hold-reserve-replay-with-different-fields-returns-the-stored-outcome
     title: "Reserve replay with different fields returns the stored outcome"
     persona: admin
@@ -689,7 +689,7 @@ features:
       - "Reserve replay with different fields returns the stored outcome"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockReplayIgnoresChangedFields`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockReplayIgnoresChangedFields`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-reserve-refuses-an-ended-campaign
     title: "Reserve refuses an ended campaign"
     persona: admin
@@ -704,7 +704,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Reserve refuses an ended campaign"
-    notes: "Feature scenario: Reserve refuses an ended campaign (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInactiveWindow`"
+    notes: "Feature scenario: Reserve refuses an ended campaign (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestReserveFlashSaleStockRefusesInactiveWindow`"
   - id: promotion.flash-stock-hold-reserve-refuses-a-campaign-that-has-not-started
     title: "Reserve refuses a campaign that has not started"
     persona: admin
@@ -716,7 +716,7 @@ features:
       - "Reserve refuses a campaign that has not started"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInactiveWindow`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockRefusesInactiveWindow`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-reserve-refuses-while-the-kill-switch-is-off
     title: "Reserve refuses while the kill-switch is OFF"
     persona: admin
@@ -728,7 +728,7 @@ features:
       - "Reserve refuses while the kill-switch is OFF"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockRefusesWhenKillSwitchOff`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockRefusesWhenKillSwitchOff`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-reserve-refuses-a-price-that-differs-from-the-campaign
     title: "Reserve refuses a price that differs from the campaign"
     persona: admin
@@ -743,7 +743,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Reserve refuses a price that differs from the campaign"
-    notes: "Feature scenario: Reserve refuses a price that differs from the campaign (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesPriceMismatch`"
+    notes: "Feature scenario: Reserve refuses a price that differs from the campaign (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestReserveFlashSaleStockRefusesPriceMismatch`"
   - id: promotion.flash-stock-hold-reserve-refuses-more-units-than-remain
     title: "Reserve refuses more units than remain"
     persona: admin
@@ -758,7 +758,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Reserve refuses more units than remain"
-    notes: "Feature scenario: Reserve refuses more units than remain (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockRefusesInsufficientStock`"
+    notes: "Feature scenario: Reserve refuses more units than remain (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestReserveFlashSaleStockRefusesInsufficientStock`"
   - id: promotion.flash-stock-hold-reserve-accepts-exactly-the-remaining-units
     title: "Reserve accepts exactly the remaining units"
     persona: admin
@@ -770,7 +770,7 @@ features:
       - "Reserve accepts exactly the remaining units"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockBoundaryExactRemaining`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockBoundaryExactRemaining`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-the-first-failing-check-decides-the-reason
     title: "The first failing check decides the reason"
     persona: admin
@@ -782,7 +782,7 @@ features:
       - "The first failing check decides the reason"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockReasonOrder`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockReasonOrder`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-reserve-covers-a-variant-campaign-only-for-that-variant
     title: "Reserve covers a variant campaign only for that variant"
     persona: admin
@@ -794,7 +794,7 @@ features:
       - "Reserve covers a variant campaign only for that variant"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockVariantScope`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockVariantScope`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-reserve-refuses-a-listing-that-is-not-the-campaign-s
     title: "Reserve refuses a listing that is not the campaign's"
     persona: admin
@@ -806,7 +806,7 @@ features:
       - "Reserve refuses a listing that is not the campaign's"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockVariantScope`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockVariantScope`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-reserve-refuses-an-unknown-campaign
     title: "Reserve refuses an unknown campaign"
     persona: admin
@@ -818,7 +818,7 @@ features:
       - "Reserve refuses an unknown campaign"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockUnknownCampaign`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockUnknownCampaign`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-reserve-replay-after-release-is-not-active
     title: "Reserve replay after release is not active"
     persona: admin
@@ -830,7 +830,7 @@ features:
       - "Reserve replay after release is not active"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockReplayAfterRelease`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockReplayAfterRelease`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-reserve-replay-after-expiry-is-not-active
     title: "Reserve replay after expiry is not active"
     persona: admin
@@ -842,7 +842,7 @@ features:
       - "Reserve replay after expiry is not active"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockReplayAfterExpiry`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockReplayAfterExpiry`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-a-hold-expires-15-minutes-after-reserve
     title: "A hold expires 15 minutes after reserve"
     persona: admin
@@ -854,7 +854,7 @@ features:
       - "A hold expires 15 minutes after reserve"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestFlashHoldExpiresAfterFifteenMinutes`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestFlashHoldExpiresAfterFifteenMinutes`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-reserve-rejects-malformed-input
     title: "Reserve rejects malformed input"
     persona: admin
@@ -866,7 +866,7 @@ features:
       - "Reserve rejects malformed input"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldRPCsRejectInvalidInput`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestFlashHoldRPCsRejectInvalidInput`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-a-reservation-id-of-200-bytes-is-accepted-and-201-is-rejected
     title: "A reservation id of 200 bytes is accepted and 201 is rejected"
     persona: admin
@@ -878,7 +878,7 @@ features:
       - "A reservation id of 200 bytes is accepted and 201 is rejected"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldReservationIDLengthBoundary`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestFlashHoldReservationIDLengthBoundary`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-an-empty-variant-id-is-valid
     title: "An empty variant id is valid"
     persona: admin
@@ -890,7 +890,7 @@ features:
       - "An empty variant id is valid"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldEmptyVariantAccepted`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestFlashHoldEmptyVariantAccepted`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-concurrent-reserves-are-capped
     title: "Concurrent reserves are capped"
     persona: admin
@@ -905,7 +905,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Concurrent reserves are capped"
-    notes: "Feature scenario: Concurrent reserves are capped (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReserveFlashSaleStockConcurrentCap` (in-memory) and `internal/repository` `TestPostgresFlashHoldConcurrentCap` (skipped without a database)"
+    notes: "Feature scenario: Concurrent reserves are capped (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestReserveFlashSaleStockConcurrentCap` and `internal/store` `TestPostgresFlashHoldConcurrentCap`"
   - id: promotion.flash-stock-hold-concurrent-reserves-of-one-reservation-id-hold-once
     title: "Concurrent reserves of one reservation id hold once"
     persona: admin
@@ -917,7 +917,7 @@ features:
       - "Concurrent reserves of one reservation id hold once"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReserveFlashSaleStockConcurrentSameReservation`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReserveFlashSaleStockConcurrentSameReservation`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-concurrent-commits-and-reserves-keep-the-invariant
     title: "Concurrent commits and reserves keep the invariant"
     persona: admin
@@ -929,7 +929,7 @@ features:
       - "Concurrent commits and reserves keep the invariant"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestFlashHoldConcurrentCommitAndReserve`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestFlashHoldConcurrentCommitAndReserve`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-commit-adds-the-quantity-to-stock-sold
     title: "Commit adds the quantity to stock_sold"
     persona: admin
@@ -944,7 +944,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Commit adds the quantity to stock_sold"
-    notes: "Feature scenario: Commit adds the quantity to stock_sold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestCommitFlashSaleStockAddsToSold`"
+    notes: "Feature scenario: Commit adds the quantity to stock_sold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestCommitFlashSaleStockAddsToSold`"
   - id: promotion.flash-stock-hold-commit-is-idempotent
     title: "Commit is idempotent"
     persona: admin
@@ -956,7 +956,7 @@ features:
       - "Commit is idempotent"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCommitFlashSaleStockIdempotent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCommitFlashSaleStockIdempotent`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-commit-of-an-unknown-reservation-does-nothing
     title: "Commit of an unknown reservation does nothing"
     persona: admin
@@ -968,7 +968,7 @@ features:
       - "Commit of an unknown reservation does nothing"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCommitFlashSaleStockUnknown`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCommitFlashSaleStockUnknown`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-commit-of-a-released-hold-is-refused
     title: "Commit of a released hold is refused"
     persona: admin
@@ -980,7 +980,7 @@ features:
       - "Commit of a released hold is refused"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCommitFlashSaleStockAfterRelease`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCommitFlashSaleStockAfterRelease`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-commit-of-an-expired-hold-is-refused
     title: "Commit of an expired hold is refused"
     persona: admin
@@ -995,7 +995,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Commit of an expired hold is refused"
-    notes: "Feature scenario: Commit of an expired hold is refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestCommitFlashSaleStockAfterExpiry`"
+    notes: "Feature scenario: Commit of an expired hold is refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestCommitFlashSaleStockAfterExpiry`"
   - id: promotion.flash-stock-hold-commit-still-works-after-the-sale-window-ended
     title: "Commit still works after the sale window ended"
     persona: admin
@@ -1007,7 +1007,7 @@ features:
       - "Commit still works after the sale window ended"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCommitFlashSaleStockAfterWindowEnded`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestCommitFlashSaleStockAfterWindowEnded`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-commit-rejects-an-empty-reservation-id
     title: "Commit rejects an empty reservation id"
     persona: admin
@@ -1019,7 +1019,7 @@ features:
       - "Commit rejects an empty reservation id"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldRPCsRejectInvalidInput`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestFlashHoldRPCsRejectInvalidInput`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-release-returns-the-units-of-an-active-hold
     title: "Release returns the units of an active hold"
     persona: admin
@@ -1034,7 +1034,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Release returns the units of an active hold"
-    notes: "Feature scenario: Release returns the units of an active hold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReleaseFlashSaleStockReturnsUnits`"
+    notes: "Feature scenario: Release returns the units of an active hold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestReleaseFlashSaleStockReturnsUnits`"
   - id: promotion.flash-stock-hold-release-returns-the-units-of-a-committed-hold
     title: "Release returns the units of a committed hold"
     persona: admin
@@ -1049,7 +1049,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Release returns the units of a committed hold"
-    notes: "Feature scenario: Release returns the units of a committed hold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestReleaseFlashSaleStockAfterCommit`"
+    notes: "Feature scenario: Release returns the units of a committed hold (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestReleaseFlashSaleStockAfterCommit`"
   - id: promotion.flash-stock-hold-release-is-idempotent
     title: "Release is idempotent"
     persona: admin
@@ -1061,7 +1061,7 @@ features:
       - "Release is idempotent"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReleaseFlashSaleStockIdempotent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReleaseFlashSaleStockIdempotent`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-release-of-an-unknown-reservation-is-a-no-op
     title: "Release of an unknown reservation is a no-op"
     persona: admin
@@ -1073,7 +1073,7 @@ features:
       - "Release of an unknown reservation is a no-op"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReleaseFlashSaleStockUnknownNoOp`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReleaseFlashSaleStockUnknownNoOp`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-release-of-an-expired-hold-changes-no-counter
     title: "Release of an expired hold changes no counter"
     persona: admin
@@ -1085,7 +1085,7 @@ features:
       - "Release of an expired hold changes no counter"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestReleaseFlashSaleStockExpiredNoCounterChange`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestReleaseFlashSaleStockExpiredNoCounterChange`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-release-rejects-an-empty-reservation-id
     title: "Release rejects an empty reservation id"
     persona: admin
@@ -1097,7 +1097,7 @@ features:
       - "Release rejects an empty reservation id"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldRPCsRejectInvalidInput`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestFlashHoldRPCsRejectInvalidInput`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-remaining-reflects-holds-and-sold-units
     title: "Remaining reflects holds and sold units"
     persona: admin
@@ -1112,7 +1112,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::Remaining reflects holds and sold units"
-    notes: "Feature scenario: Remaining reflects holds and sold units (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/service` `TestGetFlashSaleStockCountsHolds`"
+    notes: "Feature scenario: Remaining reflects holds and sold units (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/flashsale` `TestGetFlashSaleStockCountsHolds`"
   - id: promotion.flash-stock-hold-remaining-is-floored-at-zero
     title: "Remaining is floored at zero"
     persona: admin
@@ -1124,7 +1124,7 @@ features:
       - "Remaining is floored at zero"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestGetFlashSaleStockRemaining`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestGetFlashSaleStockRemaining`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-stock-of-an-unknown-campaign-is-not-found
     title: "Stock of an unknown campaign is not found"
     persona: admin
@@ -1136,7 +1136,7 @@ features:
       - "Stock of an unknown campaign is not found"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestGetFlashSaleStockUnknownNotFound`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestGetFlashSaleStockUnknownNotFound`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-a-buyer-cannot-reserve-flash-stock
     title: "A buyer cannot reserve flash stock"
     persona: admin
@@ -1151,7 +1151,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::A buyer cannot reserve flash stock"
-    notes: "Feature scenario: A buyer cannot reserve flash stock (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`"
+    notes: "Feature scenario: A buyer cannot reserve flash stock (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/rpc` `TestFlashHoldRPCsAreServiceOnly`"
   - id: promotion.flash-stock-hold-a-user-carrying-the-service-scope-is-still-refused
     title: "A user carrying the service scope is still refused"
     persona: admin
@@ -1166,7 +1166,7 @@ features:
     tags: [promotion, flash-stock-hold]
     status: automated
     covered_by: "promo/flash_sale_stock_hold.feature::A user carrying the service scope is still refused"
-    notes: "Feature scenario: A user carrying the service scope is still refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`"
+    notes: "Feature scenario: A user carrying the service scope is still refused (promo/flash_sale_stock_hold.feature). Unit: team-promotion `internal/rpc` `TestFlashHoldRPCsAreServiceOnly`"
   - id: promotion.flash-stock-hold-a-service-without-the-scope-is-refused
     title: "A service without the scope is refused"
     persona: admin
@@ -1178,7 +1178,7 @@ features:
       - "A service without the scope is refused"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestFlashHoldRPCsAreServiceOnly`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-an-anonymous-caller-is-unauthenticated
     title: "An anonymous caller is unauthenticated"
     persona: admin
@@ -1190,7 +1190,7 @@ features:
       - "An anonymous caller is unauthenticated"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldRPCsAreServiceOnly`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestFlashHoldRPCsAreServiceOnly`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-the-order-service-principal-is-served
     title: "The order service principal is served"
     persona: admin
@@ -1217,7 +1217,7 @@ features:
       - "Migration applies and rolls back"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/repository` `TestPostgresFlashHoldMigrationRoundTrip` (skipped without a database). Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/store` `TestPostgresFlashHoldMigrationRoundTrip`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-a-store-failure-is-a-generic-internal-error
     title: "A store failure is a generic internal error"
     persona: admin
@@ -1229,7 +1229,7 @@ features:
       - "A store failure is a generic internal error"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestFlashHoldStoreFailureIsInternal`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestFlashHoldStoreFailureIsInternal`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-released-and-expired-holds-are-purged-after-30-days
     title: "Released and expired holds are purged after 30 days"
     persona: admin
@@ -1241,7 +1241,7 @@ features:
       - "Released and expired holds are purged after 30 days"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/repository` `TestPurgeReleasedAndExpiredHolds`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/store` `TestPurgeReleasedAndExpiredHolds`. Not producible end to end through the gateway (unit level)."
   - id: promotion.flash-stock-hold-a-committed-hold-older-than-30-days-is-not-purged
     title: "A committed hold older than 30 days is not purged"
     persona: admin
@@ -1253,7 +1253,7 @@ features:
       - "A committed hold older than 30 days is not purged"
     tags: [promotion, flash-stock-hold, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/repository` `TestPurgeKeepsCommittedHolds` and `internal/service` `TestReleaseOldCommittedHoldAfterPurge`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/store` `TestPurgeKeepsCommittedHolds` and `internal/flashsale` `TestReleaseOldCommittedHoldAfterPurge`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.shop-voucher-audit-admin-creates-a-shop-voucher
     title: "Shop voucher audit: admin creates a shop voucher"
@@ -1332,7 +1332,7 @@ features:
       - "Shop voucher audit: audit precedes the insert"
     tags: [promotion, audit, shop-voucher, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherShopAdminAuditBeforeInsert`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestCreateVoucherShopAdminAuditBeforeInsert`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.shop-voucher-audit-audit-not-configured
     title: "Shop voucher audit: audit not configured"
@@ -1345,7 +1345,7 @@ features:
       - "Shop voucher audit: audit not configured"
     tags: [promotion, audit, shop-voucher, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherShopAdminNilAuditUnavailable`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestCreateVoucherAuditDownUnavailable`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.shop-voucher-audit-audit-error-blocks-the-voucher
     title: "Shop voucher audit: audit error blocks the voucher"
@@ -1358,7 +1358,7 @@ features:
       - "Shop voucher audit: audit error blocks the voucher"
     tags: [promotion, audit, shop-voucher, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherShopAdminAuditErrorFailsClosed`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestCreateVoucherShopAdminAuditErrorFailsClosed`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.shop-voucher-audit-seller-path-needs-no-audit-writer
     title: "Shop voucher audit: seller path needs no audit writer"
@@ -1371,7 +1371,7 @@ features:
       - "Shop voucher audit: seller path needs no audit writer"
     tags: [promotion, audit, shop-voucher, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherShopSellerWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateVoucherShopSellerWritesNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.shop-voucher-audit-admin-shop-voucher-is-audited-by-the-handler-with-the-admin-as-actor
     title: "Shop voucher audit: admin shop voucher is audited by the handler with the admin as actor"
@@ -1384,7 +1384,7 @@ features:
       - "Shop voucher audit: admin shop voucher is audited by the handler with the admin as actor"
     tags: [promotion, audit, shop-voucher, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherShopAdminAudited`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateVoucherShopAdminAudited`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.shop-voucher-audit-refused-callers-write-nothing
     title: "Shop voucher audit: refused callers write nothing"
@@ -1397,7 +1397,7 @@ features:
       - "Shop voucher audit: refused callers write nothing"
     tags: [promotion, audit, shop-voucher, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherShopRefusedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateVoucherShopRefusedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.shop-voucher-audit-invalid-request-writes-nothing
     title: "Shop voucher audit: invalid request writes nothing"
@@ -1410,7 +1410,7 @@ features:
       - "Shop voucher audit: invalid request writes nothing"
     tags: [promotion, audit, shop-voucher, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestCreateVoucherShopAdminInvalidWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateVoucherShopAdminInvalidWritesNoAudit`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.shop-voucher-audit-platform-scope-keeps-its-action
     title: "Shop voucher audit: platform scope keeps its action"
@@ -1423,7 +1423,7 @@ features:
       - "Shop voucher audit: platform scope keeps its action"
     tags: [promotion, audit, shop-voucher, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestCreateVoucherPlatformStillPlatformAction`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestCreateVoucherPlatformStillPlatformAction`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-shop-voucher-reports-shop-scope-and-its-seller
     title: "Shop voucher reports SHOP scope and its seller"
@@ -1527,7 +1527,7 @@ features:
       - "Platform voucher ignores the seller id of the request"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReservePlatformIgnoresRequestSeller`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestValidateAndReservePlatformIgnoresRequestSeller`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-a-shop-voucher-without-a-seller-id-is-refused
     title: "A shop voucher without a seller id is refused"
@@ -1540,7 +1540,7 @@ features:
       - "A shop voucher without a seller id is refused"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveShopVoucherRequiresSeller`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestValidateAndReserveShopVoucherRequiresSeller`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-a-rejected-voucher-still-reports-its-scope
     title: "A rejected voucher still reports its scope"
@@ -1553,7 +1553,7 @@ features:
       - "A rejected voucher still reports its scope"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveRejectionsReportScope`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestValidateAndReserveRejectionsReportScope`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-replay-reports-the-stored-voucher-s-scope
     title: "Replay reports the stored voucher's scope"
@@ -1566,7 +1566,7 @@ features:
       - "Replay reports the stored voucher's scope"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveReplayReportsStoredScope`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestValidateAndReserveReplayReportsStoredScope`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-replay-of-a-released-hold-reports-the-scope
     title: "Replay of a released hold reports the scope"
@@ -1579,7 +1579,7 @@ features:
       - "Replay of a released hold reports the scope"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveReleasedReplayReportsScope`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestValidateAndReserveReleasedReplayReportsScope`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-replay-whose-voucher-is-gone-keeps-its-stored-outcome
     title: "Replay whose voucher is gone keeps its stored outcome"
@@ -1592,7 +1592,7 @@ features:
       - "Replay whose voucher is gone keeps its stored outcome"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveReplayMissingVoucherNoScope`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestValidateAndReserveReplayMissingVoucherNoScope`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-a-repository-failure-on-replay-is-an-internal-error
     title: "A repository failure on replay is an internal error"
@@ -1605,7 +1605,7 @@ features:
       - "A repository failure on replay is an internal error"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveReplayStoreErrorPropagates`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestValidateAndReserveReplayStoreErrorPropagates`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-discount-and-reasons-are-unchanged
     title: "Discount and reasons are unchanged"
@@ -1618,7 +1618,7 @@ features:
       - "Discount and reasons are unchanged"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/service` `TestValidateAndReserveIdempotent`, `TestValidateAndReserveRejections`, `TestQuotaExhaustedRejected`, `TestComputeDiscount`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestValidateAndReserveIdempotent`, `TestValidateAndReserveRejections`, `TestQuotaExhaustedRejected`, `TestComputeDiscount`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-the-order-service-receives-the-scope
     title: "The order service receives the scope"
@@ -1631,7 +1631,7 @@ features:
       - "The order service receives the scope"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestValidateAndReserveHandlerEchoesScope`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReserveHandlerEchoesScope`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-a-service-without-the-reserve-scope-is-denied
     title: "A service without the reserve scope is denied"
@@ -1644,7 +1644,7 @@ features:
       - "A service without the reserve scope is denied"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestValidateAndReserveServiceWithoutScopeDenied`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReserveServiceWithoutScopeDenied`. Not producible end to end through the gateway (unit level)."
 
   - id: promotion.voucher-scope-an-empty-reservation-id-is-rejected
     title: "An empty reservation id is rejected"
@@ -1657,4 +1657,873 @@ features:
       - "An empty reservation id is rejected"
     tags: [promotion, voucher-scope, unit]
     status: not-testable
-    notes: "VERIFIED BY team-promotion `internal/handler` `TestValidateAndReserveEmptyReservationIDInvalid`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReserveEmptyReservationIDInvalid`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.service-runtime-hardening
+    title: Promotion service runs on the shared runtime with Postgres, Kafka and Flipt
+    persona: admin
+    priority: P1
+    kind: async_event
+    summary: An admin creates a platform voucher while Kafka is briefly down; the create succeeds and the change event is published after recovery.
+    entry_route: /
+    services: [team-promotion]
+    api:
+      exercised: [promotion.v1.CreateVoucher, promotion.v1.ReserveFlashSaleStock]
+    acceptance:
+      - Given the service runs with Postgres, Kafka and Flipt
+      - When an admin creates a platform voucher and Kafka is briefly down
+      - Then the create succeeds and VoucherChanged is published after recovery
+    tags: [promotion, runtime]
+    status: planned
+    covered_by: ""
+    notes: "Change promotion-go-sdk-v1. Scenario to be added by the e2e author."
+
+  - id: promotion.duplicate-voucher-code-conflict
+    title: Creating the same voucher code twice conflicts
+    persona: admin
+    priority: P1
+    summary: An admin creates the same voucher code twice and the second call is rejected.
+    entry_route: /
+    services: [team-promotion]
+    api:
+      exercised: [promotion.v1.CreateVoucher]
+    acceptance:
+      - Given an admin has created a voucher with a code
+      - When the admin creates a voucher with the same code again
+      - Then the second call fails with AlreadyExists
+    tags: [promotion, vouchers]
+    status: planned
+    covered_by: ""
+    notes: "Change promotion-go-sdk-v1. Scenario to be added by the e2e author."
+
+  - id: promotion.admin-audit-an-empty-audit-address-is-refused-in-every-env
+    title: "An empty audit address is refused in every ENV"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An empty audit address is refused in every ENV"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestLoadRequiresDatabaseURLAndUpstreamAddrs`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-a-failing-audit-writer-refuses-the-audited-action-with-one-message
+    title: "A failing audit writer refuses the audited action with one message"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A failing audit writer refuses the audited action with one message"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestCreateVoucherAuditDownUnavailable`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-a-seller-is-denied-a-platform-voucher-while-audit-is-down
+    title: "A seller is denied a platform voucher while audit is down"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A seller is denied a platform voucher while audit is down"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSellerCannotCreatePlatformVoucher`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.admin-audit-seller-paths-unaffected-with-audit-down
+    title: "Seller paths unaffected with audit down"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Seller paths unaffected with audit down"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSellerPathsIgnoreAuditAvailability`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-missing-env-is-refused
+    title: "Missing ENV is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Missing ENV is refused"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestLoadRequiresEnv`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-missing-database-url-or-upstream-address-is-refused
+    title: "Missing database URL or upstream address is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Missing database URL or upstream address is refused"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestLoadRequiresDatabaseURLAndUpstreamAddrs`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-retired-enable-flags-are-not-read
+    title: "Retired enable flags are not read"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Retired enable flags are not read"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestNoDependencyEnableFlags`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-reflection-is-off-by-default-and-refused-outside-local
+    title: "Reflection is off by default and refused outside local"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Reflection is off by default and refused outside local"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestReflectionDefaultOffAndRefusedInStrictEnv`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-strict-env-requires-brokers
+    title: "Strict ENV requires brokers"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Strict ENV requires brokers"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestStrictEnvRequiresKafkaBrokers`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-ad-limits-must-be-positive
+    title: "Ad limits must be positive"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Ad limits must be positive"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestAdCapsDefaultsAndValidation`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-the-retired-call-timeout-key-is-not-read
+    title: "The retired call timeout key is not read"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The retired call timeout key is not read"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestRetiredCallTimeoutKeyNotRead`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-migrate-settings-need-only-env-and-the-database-url
+    title: "Migrate settings need only ENV and the database URL"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Migrate settings need only ENV and the database URL"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/config` `TestLoadMigrateNeedsOnlyEnvAndDatabaseURL`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-unreachable-database-fails-boot
+    title: "Unreachable database fails boot"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Unreachable database fails boot"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestRunFailsOnUnreachableDatabase`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-boot-does-not-migrate
+    title: "Boot does not migrate"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Boot does not migrate"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestRunDoesNotMigrate`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-migrate-up-applies-migrations-to-an-empty-database
+    title: "migrate up applies migrations to an empty database"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "migrate up applies migrations to an empty database"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestMigrateUpMigratesEmptyDatabase`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-migrate-up-continues-from-version-4
+    title: "migrate up continues from version 4"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "migrate up continues from version 4"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestMigrateFromVersion4AppliesOutboxOnly`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-migrate-up-twice-is-a-no-op
+    title: "migrate up twice is a no-op"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "migrate up twice is a no-op"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestMigrateUpTwiceIsNoop`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-an-unknown-subcommand-is-refused
+    title: "An unknown subcommand is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An unknown subcommand is refused"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestExecuteRejectsUnknownSubcommand`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-the-outbox-migration-equals-the-sdk-schema
+    title: "The outbox migration equals the SDK schema"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The outbox migration equals the SDK schema"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestOutboxMigrationMatchesSDKSchema`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-production-code-has-no-in-memory-backend
+    title: "Production code has no in-memory backend"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Production code has no in-memory backend"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestFakesNotImportedByProductionCode`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-ready-and-live-after-boot
+    title: "Ready and live after boot"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Ready and live after boot"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestHealthServingAfterBoot`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-failing-database-check-flips-readiness-only
+    title: "A failing database check flips readiness only"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A failing database check flips readiness only"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestReadinessFlipsLivenessStays`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-shutdown-drains-health-before-the-stop
+    title: "Shutdown drains health before the stop"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Shutdown drains health before the stop"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestShutdownDrainsHealthFirst`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-kafka-outage-keeps-readiness-serving
+    title: "A Kafka outage keeps readiness SERVING"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A Kafka outage keeps readiness SERVING"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestKafkaOutageKeepsReadiness`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-creating-a-voucher-stores-one-outbox-row
+    title: "Creating a voucher stores one outbox row"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Creating a voucher stores one outbox row"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestCreateVoucherEnqueuesOutboxRow`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-creating-a-campaign-stores-one-outbox-row
+    title: "Creating a campaign stores one outbox row"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Creating a campaign stores one outbox row"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestCreateCampaignEnqueuesFlashSaleChanged`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-the-envelope-carries-identity-and-ids
+    title: "The envelope carries identity and ids"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The envelope carries identity and ids"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/events` `TestEnvelopeCarriesPrincipalAndRequestID`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-an-envelope-without-a-principal-omits-it
+    title: "An envelope without a principal omits it"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An envelope without a principal omits it"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/events` `TestEnvelopeWithoutPrincipalOmitsIt`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-call-without-a-request-id-still-gets-one
+    title: "A call without a request id still gets one"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A call without a request id still gets one"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCallWithoutRequestIDGetsOneInEnvelope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-failed-insert-leaves-no-outbox-row
+    title: "A failed insert leaves no outbox row"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A failed insert leaves no outbox row"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestVoucherInsertFailureLeavesNoOutboxRow`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-kafka-outage-does-not-fail-the-write
+    title: "A Kafka outage does not fail the write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A Kafka outage does not fail the write"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestKafkaOutageKeepsWriteAndRelaysLater`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-the-relayed-record-is-keyed-by-the-entity-id
+    title: "The relayed record is keyed by the entity id"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The relayed record is keyed by the entity id"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/events` `TestRelayedRecordKeyAndHeaders`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-refused-caller-writes-no-outbox-row
+    title: "A refused caller writes no outbox row"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A refused caller writes no outbox row"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestRefusedCallerWritesNoOutboxRow`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-redemption-rpcs-write-no-event
+    title: "Redemption RPCs write no event"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Redemption RPCs write no event"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestRedemptionWritesNoOutboxRow`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-old-published-rows-are-purged
+    title: "Old published rows are purged"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Old published rows are purged"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestOutboxPurgeKeepsRecentAndUnpublished`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-unreachable-flipt-still-boots-and-fails-open
+    title: "Unreachable Flipt still boots and fails open"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Unreachable Flipt still boots and fails open"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/app` `TestUnreachableFliptBootsAndFailsOpen`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-provider-error-returns-the-default
+    title: "A provider error returns the default"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A provider error returns the default"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestFlagErrorFailsOpen`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-the-kill-switch-off-refuses-a-reserve
+    title: "The kill-switch off refuses a reserve"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "The kill-switch off refuses a reserve"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/flashsale` `TestKillSwitchOffViaProvider`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-an-unexpected-error-is-a-generic-internal-error
+    title: "An unexpected error is a generic internal error"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "An unexpected error is a generic internal error"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestInternalErrorIsGeneric`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-duplicate-voucher-code-is-alreadyexists
+    title: "A duplicate voucher code is AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A duplicate voucher code is AlreadyExists"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestDuplicateVoucherCodeIsAlreadyExists`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-cancellation-and-deadline-keep-their-codes
+    title: "Cancellation and deadline keep their codes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Cancellation and deadline keep their codes"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCanceledAndDeadlineMapToCodes`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-unknown-voucher-is-notfound-without-echoing-the-code
+    title: "Unknown voucher is NotFound without echoing the code"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Unknown voucher is NotFound without echoing the code"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestGetVoucherNotFoundDoesNotEchoCode`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-domain-packages-do-not-import-grpc-codes
+    title: "Domain packages do not import grpc codes"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Domain packages do not import grpc codes"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestDomainPackagesDoNotImportGRPCCodes`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-anonymous-caller-is-unauthenticated
+    title: "Anonymous caller is unauthenticated"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Anonymous caller is unauthenticated"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestAnonymousIsUnauthenticated`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-user-holding-the-service-scope-is-denied
+    title: "A user holding the service scope is denied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A user holding the service scope is denied"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestUserWithServiceScopeIsDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-seller-cannot-create-a-platform-voucher
+    title: "A seller cannot create a platform voucher"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A seller cannot create a platform voucher"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSellerCannotCreatePlatformVoucher`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-public-reads-need-no-principal
+    title: "Public reads need no principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Public reads need no principal"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestPublicReadsNeedNoPrincipal`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-user-reserving-inside-its-own-preview-namespace-is-served
+    title: "A user reserving inside its own preview namespace is served"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A user reserving inside its own preview namespace is served"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReservePreviewEchoesScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-user-reserving-outside-its-preview-namespace-is-permissiondenied
+    title: "A user reserving outside its preview namespace is PermissionDenied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A user reserving outside its preview namespace is PermissionDenied"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReservePreviewNamespaceDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-service-principal-is-not-bound-to-the-preview-namespace
+    title: "A service principal is not bound to the preview namespace"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A service principal is not bound to the preview namespace"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReserveHandlerEchoesScope`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-service-principal-without-the-reserve-scope-is-denied
+    title: "A service principal without the reserve scope is denied"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A service principal without the reserve scope is denied"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestValidateAndReserveServiceWithoutScopeDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-subscribe-needs-exactly-listing-write
+    title: "Subscribe needs exactly listing.write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Subscribe needs exactly listing.write"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSubscribeAdminWithoutListingWriteDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-createadcampaign-needs-exactly-listing-write
+    title: "CreateAdCampaign needs exactly listing.write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "CreateAdCampaign needs exactly listing.write"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestCreateAdCampaignAdminWithoutListingWriteDenied`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-entitlements-of-another-seller-need-a-service-principal
+    title: "Entitlements of another seller need a service principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Entitlements of another seller need a service principal"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/rpc` `TestSubscribeAndEntitlementsAuthz`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-listing-lookup-runs-as-the-caller-with-listing-read
+    title: "Listing lookup runs as the caller with listing.read"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Listing lookup runs as the caller with listing.read"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestListingLookupForwardsCallerWithListingRead`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-slow-listing-lookup-is-unavailable
+    title: "A slow listing lookup is unavailable"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A slow listing lookup is unavailable"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestListingLookupTimeoutIsUnavailable`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-audit-is-written-as-the-service-principal
+    title: "Audit is written as the service principal"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Audit is written as the service principal"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestAuditClientUsesServicePrincipal`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-slow-audit-write-is-bounded
+    title: "A slow audit write is bounded"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A slow audit write is bounded"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/upstream` `TestAuditClientTimeoutBounded`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-page-cursor-is-the-plain-offset
+    title: "Page cursor is the plain offset"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Page cursor is the plain offset"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestListVouchersCursorIsPlainOffset`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-oversized-page-size-falls-back-to-the-default
+    title: "Oversized page size falls back to the default"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Oversized page size falls back to the default"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestListVouchersOversizedPageUsesDefault`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-a-malformed-cursor-reads-the-first-page
+    title: "A malformed cursor reads the first page"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A malformed cursor reads the first page"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/voucher` `TestListVouchersMalformedCursorIsOffsetZero`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-every-cited-test-name-exists
+    title: "Every cited test name exists"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Every cited test name exists"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/docs` `TestSpecCitedTestsExist`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.runtime-removed-packages-are-gone
+    title: "Removed packages are gone"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "Removed packages are gone"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/docs` `TestRemovedPackagesAreGone`. Not producible end to end through the gateway (unit level)."
+
+  - id: promotion.flash-hold-a-missing-database-fails-the-database-tests-under-make-check
+    title: "A missing database fails the database tests under make check"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change promotion-go-sdk-v1.
+    entry_route: /
+    services: [team-promotion]
+    acceptance:
+      - "A missing database fails the database tests under make check"
+    tags: [promotion, go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-promotion `internal/store` `TestDatabaseTestsFailWithoutDockerWhenRequired`. Not producible end to end through the gateway (unit level)."

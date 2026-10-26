@@ -121,7 +121,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-audit internal/service TestQueryOneSidedTimeBounds. Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-audit internal/audit TestQueryOneSidedTimeBounds. Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-equal-bounds-match-nothing
     title: Equal bounds match nothing
     persona: admin
@@ -137,7 +137,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-audit internal/service TestQueryEqualTimeBoundsIsEmpty. Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-audit internal/audit TestQueryEqualTimeBoundsIsEmpty. Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-no-match-returns-an-empty-page
     title: No match returns an empty page
     persona: admin
@@ -226,7 +226,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-audit internal/repository TestRepositoryFilterParity (Postgres half runs when TEST_DATABASE_URL is set). Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-audit internal/store TestRepositoryFilterParity. Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-created-before-earlier-than-created-after
     title: created_before earlier than created_after
     persona: admin
@@ -379,7 +379,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-audit internal/repository TestMigration002ActionIndex (runs when TEST_DATABASE_URL is set). Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-audit internal/store TestMigration002ActionIndex. Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-migration-up-is-re-runnable-without-failure
     title: Migration up is re-runnable without failure
     persona: admin
@@ -395,7 +395,7 @@ features:
     - audit
     - unit
     status: not-testable
-    notes: "VERIFIED BY team-audit internal/repository TestMigration002ActionIndex (runs when TEST_DATABASE_URL is set). Not producible end to end through the gateway (unit or database level)."
+    notes: "VERIFIED BY team-audit internal/store TestMigration002ActionIndex. Not producible end to end through the gateway (unit or database level)."
   - id: audit.qf-helper-finds-seeded-events-through-the-gateway
     title: Helper finds seeded events through the gateway
     persona: admin
@@ -472,3 +472,663 @@ features:
     - audit
     status: automated
     covered_by: security/audit_query_filters.feature::Only an admin can query with filters (Helper query with a non-admin token is refused)
+  - id: audit-runtime.the-module-requires-the-v1-0-2-tag
+    title: "The module requires the v1.0.2 tag"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "The module requires the v1.0.2 tag"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestModuleRequiresSDKTag`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-legacy-package-or-a-transport-import-in-the-domain-is-refused
+    title: "A legacy package or a transport import in the domain is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A legacy package or a transport import in the domain is refused"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestLayoutFollowsADR0016`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.the-makefile-uses-the-shared-files-without-copies
+    title: "The Makefile uses the shared files without copies"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "The Makefile uses the shared files without copies"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestMakefileUsesSharedFiles`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.load-reads-the-environment
+    title: "Load reads the environment"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "Load reads the environment"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/config` `TestLoadReadsEnvironment`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-missing-database-url-fails-the-load
+    title: "A missing database URL fails the load"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A missing database URL fails the load"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/config` `TestLoadRequiresDatabaseURL`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-missing-port-or-environment-fails-the-load
+    title: "A missing port or environment fails the load"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A missing port or environment fails the load"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/config` `TestLoadRequiresGRPCPort`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.strict-env-refuses-reflection-before-validation
+    title: "Strict ENV refuses reflection before validation"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "Strict ENV refuses reflection before validation"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/config` `TestStrictEnvRefusesReflectionBeforeValidation`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.reflection-is-off-by-default-and-accepted-locally
+    title: "Reflection is off by default and accepted locally"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "Reflection is off by default and accepted locally"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/config` `TestReflectionDefaultsOffAndLocalAccepts`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.no-dependency-enable-flag-is-declared
+    title: "No dependency enable flag is declared"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "No dependency enable flag is declared"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/config` `TestNoDependencyEnableFlags`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.env-example-matches-the-declared-keys
+    title: ".env.example matches the declared keys"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - ".env.example matches the declared keys"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/config` `TestEnvExampleInSync`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.an-unreachable-database-fails-boot-locally
+    title: "An unreachable database fails boot locally"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "An unreachable database fails boot locally"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestRunFailsWhenDatabaseUnreachable`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.the-server-binary-does-not-link-the-in-memory-store
+    title: "The server binary does not link the in-memory store"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "The server binary does not link the in-memory store"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestServerBinaryExcludesInMemoryStore`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-written-event-is-durable
+    title: "A written event is durable"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A written event is durable"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestRunWriteIsCommittedToPostgres`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.an-empty-database-is-migrated-by-migrate-up
+    title: "An empty database is migrated by migrate up"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "An empty database is migrated by migrate up"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestMigrateUpMigratesEmptyDatabase`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-database-already-at-version-2-is-unchanged
+    title: "A database already at version 2 is unchanged"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A database already at version 2 is unchanged"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestMigrateUpLeavesMigratedDatabaseUnchanged`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-dirty-migration-state-fails-migrate-up
+    title: "A dirty migration state fails migrate up"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A dirty migration state fails migrate up"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestMigrateUpFailsWhenMigrationStateIsDirty`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.run-does-not-migrate
+    title: "Run does not migrate"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "Run does not migrate"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestRunDoesNotMigrate`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.the-migrate-up-subcommand-is-dispatched-by-main
+    title: "The migrate up subcommand is dispatched by main"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "The migrate up subcommand is dispatched by main"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestMigrateUpSubcommandExitsNonZeroOnUnreachableDatabase`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.migration-002-creates-and-drops-the-action-index
+    title: "Migration 002 creates and drops the action index"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "Migration 002 creates and drops the action index"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/store` `TestMigration002ActionIndex`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.readiness-fails-while-liveness-stays-serving
+    title: "Readiness fails while liveness stays serving"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "Readiness fails while liveness stays serving"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestReadinessFollowsDatabaseLivenessDoesNot`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.shutdown-drains-health-first
+    title: "Shutdown drains health first"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "Shutdown drains health first"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestShutdownDrainsHealthFirst`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.an-unknown-health-service-name-is-not-found
+    title: "An unknown health service name is not found"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "An unknown health service name is not found"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/app` `TestUnknownHealthServiceNotFound`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-service-with-audit-write-writes-on-behalf-of-a-user
+    title: "A service with audit.write writes on behalf of a user"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A service with audit.write writes on behalf of a user"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestWriteAuditEventServicePrincipalMayActOnBehalf`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.an-anonymous-write-is-refused
+    title: "An anonymous write is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "An anonymous write is refused"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestWriteAuditEventRequiresAuthentication`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-user-an-admin-or-a-scopeless-service-cannot-write
+    title: "A user, an admin or a scopeless service cannot write"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A user, an admin or a scopeless service cannot write"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestWriteAuditEventRejectsNonServiceCallers`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-non-admin-cannot-query
+    title: "A non-admin cannot query"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A non-admin cannot query"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestQueryAuditLogAdminOnly`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.an-anonymous-query-is-refused
+    title: "An anonymous query is refused"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "An anonymous query is refused"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestQueryAuditLogUnauthenticated`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.authorization-precedes-validation
+    title: "Authorization precedes validation"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "Authorization precedes validation"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestQueryAuditLogAuthBeforeValidation`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.the-forwarded-principal-metadata-is-honoured-over-the-wire
+    title: "The forwarded principal metadata is honoured over the wire"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "The forwarded principal metadata is honoured over the wire"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestWireAuthorization`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.reflection-is-not-served-by-default
+    title: "Reflection is not served by default"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "Reflection is not served by default"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestReflectionOffByDefault`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.an-empty-action-is-invalid
+    title: "An empty action is invalid"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "An empty action is invalid"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestWriteAuditEventValidation`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.an-inverted-time-range-is-invalid
+    title: "An inverted time range is invalid"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "An inverted time range is invalid"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestQueryAuditLogInvertedRangeInvalidArgument`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-storage-failure-is-generic-and-not-leaked
+    title: "A storage failure is generic and not leaked"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A storage failure is generic and not leaked"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestInternalErrorIsGenericAndNotLeaked`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-cancelled-request-returns-canceled
+    title: "A cancelled request returns Canceled"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A cancelled request returns Canceled"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestCanceledRequestMapsToCanceled`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-timed-out-request-returns-deadlineexceeded
+    title: "A timed-out request returns DeadlineExceeded"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A timed-out request returns DeadlineExceeded"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestDeadlineExceededMapsToDeadlineExceeded`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-duplicate-primary-key-returns-alreadyexists
+    title: "A duplicate primary key returns AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A duplicate primary key returns AlreadyExists"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestUniqueViolationMapsToAlreadyExists`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.the-cursor-is-a-decimal-offset
+    title: "The cursor is a decimal offset"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "The cursor is a decimal offset"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestQueryAuditLogCursorPaging`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-malformed-or-negative-cursor-starts-at-the-first-page
+    title: "A malformed or negative cursor starts at the first page"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A malformed or negative cursor starts at the first page"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestMalformedCursorStartsAtFirstPage`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.page-size-is-clamped-to-the-default-and-the-maximum
+    title: "Page size is clamped to the default and the maximum"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "Page size is clamped to the default and the maximum"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestPageSizeClamp`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.the-same-filter-table-gives-the-same-result-on-both-stores
+    title: "The same filter table gives the same result on both stores"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "The same filter table gives the same result on both stores"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/store` `TestRepositoryFilterParity`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-hostile-filter-value-is-matched-literally
+    title: "A hostile filter value is matched literally"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A hostile filter value is matched literally"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/store` `TestQueryFilterValueIsBound`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-query-does-not-log-its-filter-values
+    title: "A query does not log its filter values"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A query does not log its filter values"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestQueryFiltersAreNotLogged`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-refused-query-logs-no-filter-values
+    title: "A refused query logs no filter values"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A refused query logs no filter values"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestRefusedQueryLogsNoFilterValues`. Not producible end to end through the gateway (unit, database, log or boot level)."
+  - id: audit-runtime.a-panicking-repository-does-not-kill-the-process
+    title: "A panicking repository does not kill the process"
+    persona: admin
+    priority: P2
+    summary: Unit-verified scenario of change audit-go-sdk-v1.
+    entry_route: /
+    services:
+    - team-audit
+    acceptance:
+    - "A panicking repository does not kill the process"
+    tags:
+    - go-sdk
+    - unit
+    status: not-testable
+    notes: "VERIFIED BY `team-audit/internal/rpc` `TestPanicIsRecoveredAsInternal`. Not producible end to end through the gateway (unit, database, log or boot level)."

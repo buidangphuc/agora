@@ -1,45 +1,57 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
+
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 )
 
-type Config struct {
-	GRPCPort    int
-	DatabaseURL string
-	KafkaBroker string
+type Notification struct {
+	DomainAddr   string `env:"UPSTREAM_DOMAIN_ADDR"`
+	IdentityAddr string `env:"UPSTREAM_IDENTITY_ADDR"`
 
-	// Upstream gRPC addresses for chat sender names: team-domain (shop display
-	// name via BatchGetStorefronts) and team-identity (GetPublicProfiles).
-	DomainAddr   string
-	IdentityAddr string
+	LowStockThreshold int32 `env:"LOW_STOCK_THRESHOLD" default:"5"`
 
-	// LowStockThreshold: stock at or below this raises a low-stock notification.
-	LowStockThreshold int32
+	ListingTopic         string `env:"LISTING_EVENTS_TOPIC" default:"listing.events"`
+	ListingDLQTopic      string `env:"LISTING_EVENTS_DLQ_TOPIC" default:"listing.events.dlq"`
+	ListingConsumerGroup string `env:"NOTIFICATION_LISTING_CONSUMER_GROUP" default:"team-notification.listing"`
+	ChatTopic            string `env:"CHAT_EVENTS_TOPIC" default:"chat.events"`
+	ChatDLQTopic         string `env:"CHAT_EVENTS_DLQ_TOPIC" default:"chat.events.dlq"`
+	ChatConsumerGroup    string `env:"NOTIFICATION_CHAT_CONSUMER_GROUP" default:"team-notification.chat"`
+	OrderTopic           string `env:"ORDER_EVENTS_TOPIC" default:"order.events"`
+	OrderDLQTopic        string `env:"ORDER_EVENTS_DLQ_TOPIC" default:"order.events.dlq"`
+	OrderConsumerGroup   string `env:"NOTIFICATION_ORDER_CONSUMER_GROUP" default:"team-notification.order"`
 }
 
-func Load() (Config, error) {
-	thr, err := strconv.ParseInt(getEnv("LOW_STOCK_THRESHOLD", "5"), 10, 32)
-	if err != nil || thr < 0 {
-		return Config{}, fmt.Errorf("invalid LOW_STOCK_THRESHOLD %q: want integer in [0, 2147483647]", os.Getenv("LOW_STOCK_THRESHOLD"))
+func (n Notification) Validate() error {
+	var errs []error
+	if n.DomainAddr == "" {
+		errs = append(errs, errors.New("UPSTREAM_DOMAIN_ADDR is required"))
 	}
-	port, _ := strconv.Atoi(getEnv("GRPC_PORT", "50058"))
-	return Config{
-		LowStockThreshold: int32(thr),
-		GRPCPort:          port,
-		DatabaseURL:       getEnv("DATABASE_URL", "postgres://notification_svc:notification_pass@localhost:5440/notification_db?sslmode=disable"),
-		KafkaBroker:       getEnv("KAFKA_BROKER", "localhost:19092"),
-
-		DomainAddr:   getEnv("UPSTREAM_DOMAIN_ADDR", "localhost:50051"),
-		IdentityAddr: getEnv("UPSTREAM_IDENTITY_ADDR", "localhost:50053"),
-	}, nil
+	if n.IdentityAddr == "" {
+		errs = append(errs, errors.New("UPSTREAM_IDENTITY_ADDR is required"))
+	}
+	return errors.Join(errs...)
 }
 
-func getEnv(key, def string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
+type Settings struct {
+	sdkconfig.Runtime
+	sdkconfig.GRPC
+	Postgres     sdkconfig.Postgres
+	Kafka        sdkconfig.Kafka
+	LogKeyFP     sdkconfig.LogKeyFP
+	OTel         sdkconfig.OTel
+	Notification Notification
+}
+
+func Load() (Settings, error) {
+	if raw, ok := os.LookupEnv("LOW_STOCK_THRESHOLD"); ok && raw != "" {
+		if v, err := strconv.ParseInt(raw, 10, 32); err != nil || v < 0 {
+			return Settings{}, fmt.Errorf("invalid LOW_STOCK_THRESHOLD %q: want integer in [0, 2147483647]", raw)
+		}
 	}
-	return def
+	return sdkconfig.Load[Settings]()
 }

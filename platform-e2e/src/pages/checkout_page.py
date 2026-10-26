@@ -81,20 +81,18 @@ class CheckoutPage(BasePage):
     def checked_payment_radio(self) -> Locator:
         return self.page.locator('input[name="paymentMethod"]:checked')
 
-    # ── Voucher (selector row on the Thanh toán step, modal) ──────────────
+    # ── Voucher (platform voucher slot on the Thanh toán step) ────────────
     @property
-    def voucher_open_button(self) -> Locator:
-        return self.page.get_by_role("button", name="Chọn hoặc nhập mã").or_(
-            self.page.get_by_role("button", name="Đổi mã")
-        )
+    def platform_voucher(self) -> Locator:
+        return self.page.get_by_test_id("platform-voucher")
 
     @property
     def voucher_input(self) -> Locator:
-        return self.page.locator('input[name="voucher_code"]')
+        return self.platform_voucher.locator('input[name="voucher_code"]')
 
     @property
     def apply_voucher_button(self) -> Locator:
-        return self.dialog.get_by_role("button", name="Áp dụng")
+        return self.platform_voucher.get_by_role("button", name="Áp dụng")
 
     @property
     def voucher_discount(self) -> Locator:
@@ -106,8 +104,7 @@ class CheckoutPage(BasePage):
 
     @property
     def voucher_error(self) -> Locator:
-        # FormItem help text under the code input (aria-live), inside the modal.
-        return self.dialog.locator('p[aria-live="polite"]')
+        return self.platform_voucher.get_by_role("alert")
 
     # ── Confirm step ──────────────────────────────────────────────────────
     @property

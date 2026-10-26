@@ -13,7 +13,7 @@ Service `platform.referral.v1.ReferralService` (`proto/platform/referral/v1/refe
 Also registers gRPC health (`""` = SERVING) and gRPC reflection (always on).
 
 Authorization rule (same for every RPC): the handler resolves the caller from the `x-principal-id` gRPC
-metadata via the interceptor (`internal/interceptor/principal.go`) and **never from the request body**.
+metadata via the go-sdk auth interceptor (`auth.RequirePrincipal` in `internal/rpc`) and **never from the request body**.
 A missing or empty `x-principal-id` returns `Unauthenticated`, and so does the gateway's anonymous principal (`x-principal-id` equal to `anonymous` or `x-principal-type` equal to `anonymous`). Every RPC acts only on the caller's own
 data; there is no admin or cross-user path. There are no `RequireScopes` / scope checks (see Known gaps).
 
@@ -45,18 +45,23 @@ Migrations are applied by the `team-referral-migrate` job in the root `docker-co
 
 ## Configuration
 
-`internal/config/config.go` reads only two variables:
+Settings are loaded by `internal/config` through go-sdk `pkg/config` (go-sdk v1.0.2). `.env.example` lists exactly the settings; `make check-env` verifies it.
 
-| Variable | Default |
-|---|---|
-| `GRPC_PORT` | `50062` |
-| `DATABASE_URL` | `postgres://referral_svc:referral_pass@localhost:5444/referral_db?sslmode=disable` |
-
-Compose sets `DATABASE_URL` to `...@postgres:5432/referral_db?sslmode=disable` (container network);
-the `localhost:5444` default is for running on the host. Compose also sets `DATABASE_ENABLED` and
-`ENV`, which the code ignores. The remaining `.env.example` entries (`LOG_LEVEL`, `LOG_JSON`,
-`GRPC_HOST`, `GRPC_REFLECTION_ENABLED`, `SHUTDOWN_GRACE_SECONDS`, `DB_MAX_CONNS`, `OTEL_*`) are **not
-read** by any code. Logging is always JSON via `slog`. There is no `.env.example` drift gate for this repo.
+| Variable | Default | Notes |
+|---|---|---|
+| `ENV` | `local` | Required. Deployment environment. |
+| `LOG_LEVEL` | `info` | Log level. |
+| `LOG_JSON` | `true` | JSON logs. |
+| `GRPC_HOST` | `0.0.0.0` | gRPC bind host. |
+| `GRPC_PORT` | `50062` | Required. gRPC port. |
+| `GRPC_REFLECTION_ENABLED` | `true` | gRPC reflection. |
+| `SHUTDOWN_GRACE` | `10s` | Graceful shutdown grace period. |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Delay before draining on shutdown. |
+| `DATABASE_URL` | `postgres://referral_svc:referral_pass@localhost:5444/referral_db?sslmode=disable` | Required. Compose uses `@postgres:5432`. |
+| `DB_MAX_CONNS` | `10` | Postgres pool size. |
+| `OTEL_ENABLED` | `false` | Enable OpenTelemetry. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OTLP endpoint. |
+| `OTEL_SERVICE_NAME` | `team-referral` | OTel service name. |
 
 ## Run locally
 
@@ -75,15 +80,15 @@ reachable at `DATABASE_URL` with the migration applied.
 
 ## Build, test, lint
 
+Layout follows ADR-0016 on go-sdk `v1.0.2`: `cmd/server` (entry), `internal/app` (wiring), `internal/config` (settings), `internal/rpc` (gRPC handlers), `internal/referral` (domain logic), `internal/store` (Postgres store, `internal/store/fake` for tests).
+
 | Command | Does |
 |---|---|
 | `make proto` | `buf generate` into `generated/` (needs `buf` and network for the remote plugins in `buf.gen.yaml`). |
 | `make build` / `make test` / `make tidy` | `go build ./...` / `go test ./...` / `go mod tidy`. |
+| `make check` | vet + lint + test + check-env. |
 
-Tests: `internal/handler/referral_test.go`, `internal/service/referral_test.go` and `internal/interceptor/principal_test.go` (anonymous handling), using the in-memory
-repository (no DB needed). There is no lint target and no CI workflow in this repo; `proto/buf.yaml`
-configures buf lint (STANDARD) and breaking (FILE) but nothing runs them here. The Dockerfile builds with
-Go 1.26 (`go.mod` is `go 1.26.0`).
+The Dockerfile builds with Go 1.26 (`go.mod` is `go 1.26.0`).
 
 ## Spec and verification
 
@@ -101,12 +106,6 @@ Go 1.26 (`go.mod` is `go 1.26.0`).
   `make proto` first.
 - `proto/` is vendored from platform-core (ADR-0001). Never edit it here; change the contract in
   platform-core and re-vendor.
-- **In-memory fallback:** `cmd/server/main.go` falls back to the in-memory repository when
-  `pgxpool.New` returns an error. `pgxpool.New` does not dial eagerly, so an unreachable DB usually
-  does **not** trigger the fallback; the service starts on Postgres and RPCs fail with `Internal`
-  until the DB is up. The in-memory mode only happens on an unparseable `DATABASE_URL`, and then loses
-  all data on restart.
-- No graceful drain beyond `GracefulStop`; `SHUTDOWN_GRACE_SECONDS` is not used.
 
 ## Known gaps
 
@@ -117,12 +116,11 @@ Go 1.26 (`go.mod` is `go 1.26.0`).
 - `ListReferralRewards` `page.total` is the page length, not the ledger size.
 - `HasRedeemed` exists in the repository but is unused; dedup relies on the `referrals.referee_id`
   unique constraint.
-- Reward is a fixed constant (`RewardOnReferral = 10000`) in `internal/service/referral.go`, and the
+- Reward is a fixed constant (`RewardOnReferral = 10000`) in `internal/referral/referral.go`, and the
   proto comment example reason `invitee_first_order` differs from the reason actually written
   (`invitee_joined`).
 - Redeem is not transactional: the referral insert and reward insert are separate statements, so a
   failure in between leaves a referral without a reward.
-- Most `.env.example` variables are inert (see Configuration).
 
 ## Links
 

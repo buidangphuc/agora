@@ -1,0 +1,1 @@
+ALTER TABLE chat_outbox_events ALTER COLUMN seq DROP DEFAULT;

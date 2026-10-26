@@ -67,6 +67,7 @@ Feature: Listing reports
     And team-audit is stopped
     When the admin closes that report as ACTIONED with the note "đã gỡ tin"
     Then the close call fails with "unavailable"
+    And the close call message is "service unavailable"
     And the open reports for "L1" still contain the report
     When team-audit is started again
     And the admin closes that report as ACTIONED with the note "đã gỡ tin"

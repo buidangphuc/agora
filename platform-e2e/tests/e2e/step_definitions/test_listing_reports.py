@@ -191,6 +191,11 @@ def close_fails(rl, code):
     assert _code(rl, "close") == code, rl.responses["close"].text
 
 
+@then(parsers.parse('the close call message is "{message}"'))
+def close_message(rl, message):
+    assert rl.responses["close"].json().get("message") == message, rl.responses["close"].text
+
+
 @then("the close call succeeds with status ACTIONED")
 def close_ok(rl):
     report = ros.ok(rl.responses["close"]).get("report") or {}

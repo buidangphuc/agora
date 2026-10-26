@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent          # platform-gitops/
 WORKSPACE = ROOT.parent                                 # agora polyrepo root
 AUDIT_ADDR = "team-audit:50066"
-AUDIT_READ = re.compile(r'env:"UPSTREAM_AUDIT_ADDR"|Getenv\("UPSTREAM_AUDIT_ADDR"\)')
+AUDIT_READ = re.compile(r'env:"UPSTREAM_AUDIT_ADDR"|Getenv\("UPSTREAM_AUDIT_ADDR"\)|config\.Audit\b')
 # Known producers at the time of writing; discovery must find at least these, so the
 # test cannot pass vacuously if the config scan breaks.
 KNOWN_CALLERS = {"team-domain", "team-engagement", "team-identity", "team-order",

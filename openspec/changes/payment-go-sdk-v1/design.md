@@ -1,0 +1,70 @@
+## Context
+
+team-payment today (main + C4 + q11): `cmd/server/main.go` builds everything by hand; `internal/bootstrap` owns the pool, relayer and Kafka clients; `internal/repository` holds Postgres and in-memory stores side by side; `internal/consumer.SettlementConsumer.Run` is a hand-written loop; `internal/upstream/audit.go` is a hand-written audit client; `MOCK_PAYMENTS` gates `ProcessMockPayment` in the handler. The reference migration on `origin/feat/go-sdk-v1-e2e` (module path and layout) is read only; main's behaviour wins.
+
+## Decisions
+
+### D1 Layout (ADR-0016)
+`cmd/server/main.go` loads settings with `config.Load()`, then calls `app.Run(ctx, s)`; the subcommand `server migrate up` calls `migrate.Up` over the embedded migrations and exits (D10). `internal/app` is the composition root. Build order: logger (`logx`), telemetry (`otelx`), health (`healthx`), pool (`postgres.Open`), Kafka producer (`kafkax.NewProducer`), order connection, audit connection, mock-data set, outbox store, domain service, consumer, relayer, gRPC server (`grpcx.NewServer`), then `lifecycle.Run`. The binary stays `server` (`BINARIES := server`). Rename map used to read existing specs and tests: `handler`/`interceptor`/`grpcserver` -> `rpc`, `service` -> `payment`, `repository` -> `store`, `consumer`/`bootstrap` -> `settlement`/`app`. Test function names are kept when a test moves, so existing `VERIFIED BY` entries stay traceable by name.
+
+### D2 No flags, no fallbacks
+`Settings` embeds `sdkconfig.Runtime` and `sdkconfig.GRPC` and names `Postgres`, `OTel`, `Kafka`, `Outbox`, `Audit`, `LogKeyFP`, `MockData`, plus service groups `Events` (topics, group, DLQ), `Upstream` (`UPSTREAM_ORDER_ADDR`, required in every ENV, as is `UPSTREAM_AUDIT_ADDR`) and `Payout`. `payment.NewService` takes the transaction writer, ledger and settlement ledger as required arguments and returns an error for nil: there is no status-only settle. `app` imports no in-memory store. Test fakes live in `internal/store/fake` (importable only from tests by convention, enforced by a source-scan test over `cmd/server` and `internal/app`).
+
+### D3 Mock data
+Port: `payment.Provider` with one method that returns the settlement outcome for a transaction and a `simulate_success` request. Two adapters: `liveProvider` (no payment rail exists, mock money only per root AGENTS.md section 7, so it refuses with `FailedPrecondition` "mock payments are disabled", the code and text the RPC already returns) and `fixtureProvider` (deterministic: `simulate_success` decides PAID or FAILED, `provider_reference` is `mock-<transaction id>`). Selection: `mockdata.Select(set, "payment-provider", live, fixture)` with `set` from `mockdata.New(s.MockData, "payment-provider")`. Everything around the adapter is the real path: ownership checks, order lookup, cancelled-transaction checks, compare-and-set status update, same-transaction outbox row, race with void. `set.LogActive(logger)` logs once at boot. `MOCK_PAYMENTS` is not read.
+
+### D4 Outbox over the existing table
+The table `payment_outbox_events` keeps its name and its pending rows. SDK `outbox.NewStore(pool, "payment_outbox_events")` needs `seq`, `topic`, `traceparent`. Migrations `0008`-`0017` are `outbox.UpgradeSQL("payment_outbox_events")` split one file per step (Prepare 0008, Backfill 0009, Switch 0010, check/validate/not-null 0011-0013, indexes 0014-0016 one statement each because `CREATE INDEX CONCURRENTLY` cannot run in a transaction, drop `claim_idx` 0017). Deploy order: the first rollout scales the old pods to 0 before the new pods start (Recreate once, never two relayers), the migrate job runs `server migrate up` (PreSync Job in gitops, `team-payment-migrate` in compose), then the new image starts; the README documents it. The upgrade also requeues rows parked as `failed` by the old relayer (`status='pending'`, `attempts=0`, in step 0009). Published rows are purged after 7 days by `outbox.Store.Purge(ctx, 7*24*time.Hour)` called hourly from a goroutine owned by `app` and stopped by `lifecycle`. The settle transaction calls `outboxStore.EnqueueTx(ctx, tx, outbox.Row{EventID, AggregateType: "Payment", AggregateID: orderID, EventType, Payload: envelope bytes})`; `Topic` is empty so the relayer default `payment.events` applies. The envelope bytes and `event_id` are unchanged, so team-order's dedupe is unaffected. The old `OutboxStore`, `PgTxWriter` outbox SQL, `events.Relayer` and their tests are deleted; `events.Publisher` (envelope builder) stays.
+
+### D5 Consumer
+`settlement.Handler` is a `consume.Handler`. It reuses the decode and dispatch code of `SettlementConsumer.HandleEnvelope`, mapping `ErrPermanent` to `consume.Permanent(err)`. Client: `kafkax.NewConsumerClient(s.Kafka, group, []string{orderTopic}, kgo.ConsumeResetOffset(kgo.NewOffset().AtEnd()))` keeps design D10 (a new group starts at the latest offset). DLQ producer is the shared `*kafkax.Producer`. `consume.Options{DLQTopic, Logger, KeyFP}` with `KeyFP` built from `LOG_KEY_FP_SECRET`. The SDK loop commits after apply or DLQ, retries up to 5 attempts with backoff, and parks permanent errors at once. No `processed_events` table: idempotency stays in the ledger keys `(ORDER_SETTLEMENT, payment id)`, `rpc:`/`return:`/`cancel:` refund keys and compare-and-set statuses, which existing tests prove.
+
+### D6 Audit first
+`upstream.AuditWriter` implements `auditx.Writer` over `auditv1.AuditServiceClient` (action `payment.admin_refund`, target `payment`/payment id, metadata `order_id`, `refund_id`, `amount`; the reason is never copied). `RefundPayment` for an admin principal runs `gate.Do(ctx, event, func(ctx) error { return svc.Refund(...) })`. A seller refund does not go through the gate. `UPSTREAM_AUDIT_ADDR` is required in every ENV (empty refuses boot), so there is no nil writer and no mode without audit. The previous `audit unavailable` text changes; no client matches on it (the gateway forwards the code).
+
+### D7 Errors, auth, health
+`internal/rpc/errors.go` builds one `grpcx.ErrorTable` (not found, already exists incl. 23505, failed precondition, permission denied, invalid argument sentinels) and every handler returns `grpcx.Status(ctx, logger, err, table)`. Principal handling uses `sdk auth` (`auth.RequirePrincipal`, `auth.RequireScopes`); the anonymous rejection (id `anonymous` or type ANONYMOUS) is the SDK's `Principal.Anonymous()`. `health.Register("postgres", postgres.Checker(pool))` only: Kafka is not a readiness check (the outbox retries, the consumer reconnects); no other required upstream check is registered because the order client dials lazily and an audit outage must not stop seller refunds; `lifecycle.StopAfter(grpcx.Serve(srv, s.GRPC), relayer, consumer)` stops the relayer and consumer after the server.
+
+### D8 Behaviour changes accepted (user, 2026-10-22 and 2026-10-23)
+`ENV` required; `GRPC_REFLECTION_ENABLED` default false; duration keys without unit suffix; audit refusal text; reflection and mock refused in strict ENV; consumer DLQ record shape and retry count follow the SDK; liveness separate from readiness; `ListLedgerEntries` cursor unchanged; (Round 2) order dispute and other cross-service stalls are not in this service; payment DLQ record shape changes; `UPSTREAM_CALL_TIMEOUT*` removed in favour of the SDK 2 s bound; no fallback mode for the order or audit upstream.
+
+### D10 Migrations (Round 2)
+The binary has the subcommand `server migrate up` (SDK `pkg/migrate`, migrations embedded by `migrations/embed.go`). `app.Run` never migrates. Compose keeps `team-payment-migrate` running the service image with `migrate up`; gitops gets an Argo PreSync migrate Job per service (deploy-go-sdk-v1).
+
+### D9 Traceability of moved tests
+Existing specs (`seller-settlement-credit`, `unpaid-order-payment`, `return-refund-settlement`, `payment-cumulative-refunds`, `admin-refund-audit` and others) cite `internal/handler`, `internal/service`, `internal/repository`, `internal/consumer`. Test names are preserved; only the package path changes, per the rename map in D1. This change MODIFIES a spec only where it describes a removed flag, fallback or env var.
+
+## Clarifications / ### Round 1 — 2026-10-23
+
+- (human, recipe) Target `github.com/buidangphuc/agora/platform-core/packages/go-sdk@v1.0.2`: require the tag, no `replace`, no `third_party`; the Makefile references `../platform-core/make/go-service.mk` and `../platform-core/packages/go-sdk/.golangci.yml` (no copies; revive doc-comment rules are off, so no doc comments are added); `golangci-lint` is pinned as a `go tool` like the SDK `go.mod`; ADR-0016 layout (`cmd/<bin>/main.go` -> `internal/app.Run(ctx, settings)`, `internal/config`, `internal/rpc`, domain packages, `internal/store`, `internal/events` for Kafka).
+- (human, recipe) Delete every dependency enable flag (`DATABASE_ENABLED`, `KAFKA_ENABLED`, `OUTBOX_ENABLED`, `FEATURE_FLAGS_ENABLED`, `*_CONSUMER_ENABLED`, `SESSION_SWEEP_ENABLED`, ...) and every runtime in-memory or noop fallback (`NewInMemory*` in main or bootstrap, `NoopPublisher`, `RequireDurableStorage`): importing a dependency means using it; in-memory implementations stay only as test fakes. Kept flags: `OTEL_ENABLED`, `GRPC_REFLECTION_ENABLED` (off by default, refused in strict ENV), `SEED_ADMIN_ENABLED` (identity, not this service).
+- (human, recipe) Mock is mock data served by the real service, never a mock service: `MOCK_PAYMENTS` moves onto `pkg/mockdata` (`MOCK_DATA=<adapters>`, refused in strict ENV before validation); the real code path always runs.
+- (human, recipe) Use the SDK for everything it covers: config, logx, otelx, healthx (readiness overall, liveness service independent of deps, `probes.livenessService: liveness`), lifecycle, grpcx (error table incl. 23505 to AlreadyExists, Canceled and DeadlineExceeded codes), auth, postgres.Open (no OpenOrLocal), migrate, kafkax and consume (`key_fp` HMAC logging with `LOG_KEY_FP_SECRET`, DLQ), outbox, upstream (service principal), auditx (Writer interface, fail closed "audit trail unavailable"), pagination (keep existing cursor formats). These behaviour changes are accepted.
+- (human, recipe) Keep every current behavioural requirement and every Q1-Q11, C4 and privacy-hardening behaviour green; main's behaviour wins over the old migration on `origin/feat/go-sdk-v1-e2e` (reference only). MODIFY only requirements that describe removed flags, fallbacks or env vars; ADD capability requirements where no spec describes the service.
+- (human, recipe) No DPO sign-off needed: basis legitimate interest, platform log retention.
+- (human, recipe) e2e is not run per service now (once at the end); scenarios may still name e2e features in VERIFIED BY. `docker-compose.services.yaml` and `platform-gitops` edits are not code tasks of this change: they are listed in tasks.md under "Deploy track (done by change deploy-go-sdk-v1)".
+
+### Round 2 — 2026-10-23
+
+- (human) Migrations: every service has a `migrate up` subcommand in its binary (SDK `pkg/migrate`, embedded migrations); the service never migrates at boot; compose keeps a `<svc>-migrate` service running the service image with `migrate up`; gitops gets an Argo PreSync migrate Job per service (in deploy-go-sdk-v1).
+- (human) Kafka is not a readiness check in any service; readiness is Postgres and required upstream checks only. For team-payment readiness is the `postgres` check.
+- (human) The shared deploy-runtime requirement "Services refuse unsafe configuration in staging and production" is MODIFIED only by deploy-go-sdk-v1; this change deletes its copy and lists the team-payment bullet under the Deploy track.
+- (human) Outbox upgrade: the migration requeues rows parked as `failed`; the first rollout scales old pods to 0 before new pods start (Recreate once, never two relayers); published rows are purged after 7 days by SDK `Store.Purge` on a schedule in the service.
+- (human) Raw gitops manifests get strict ENV overlays in deploy-go-sdk-v1 (not team-payment); `LOG_KEY_FP_SECRET` is provisioned in Vault by the user (human task).
+- (human) Upstream addresses and clients the service uses are required in every ENV with no fallback mode: `UPSTREAM_ORDER_ADDR` and `UPSTREAM_AUDIT_ADDR`; the scenario "Payment audit: no audit upstream configured" and the nil-writer scenario are removed (MODIFIED in `admin-refund-audit`).
+- (human) Local compose sets `GRPC_REFLECTION_ENABLED=true` for every service (Deploy track line).
+- (human) Accepted: payment DLQ record shape changes; `UPSTREAM_CALL_TIMEOUT*` removed in favour of the SDK 2 s bound.
+- (human) Docker-backed tests must run: a skip is a gate failure.
+- (human) The agora repo is public: no GOPRIVATE or credentials are needed for the SDK module.
+
+### Round 3 — 2026-10-23
+
+- (derived from the human recipe "pagination (keep existing cursor formats)") SDK v1.0.2 `pagination.EncodeOffset` emits base64 of the bare offset and `DecodeOffset` rejects the legacy base64 of `o:<offset>`. Keeping the cursor format wins over using the SDK codec: `ListLedgerEntries` uses `pagination.Clamp` for the page size and keeps the service's own `o:<offset>` codec; a malformed cursor still fails with `InvalidArgument`.
+
+## Risks
+
+- Outbox upgrade on a live table: mitigated by the stop-relayer-first order and the order-preservation test (scenario "The outbox upgrade keeps pending events in order").
+- `go mod download` in the Docker build now reaches the public module proxy for the SDK tag; the build context stays `./team-payment` and needs no sibling directory.
+- The shared `deploy-runtime` requirement "Services refuse unsafe configuration in staging and production" is MODIFIED only by change deploy-go-sdk-v1; this change carries no copy and lists the team-payment bullet under the Deploy track.
+- Scenarios that live only in unarchived changes and describe a fallback upstream are not touched here; the changes that own them archive first and deploy-go-sdk-v1 removes them.
+- Old pods and new pods must never both run a relayer: the first rollout is Recreate (old pods to 0 first).

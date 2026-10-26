@@ -67,7 +67,7 @@ def when_parked(ekr: dict) -> None:
 
 
 # ── thens ─────────────────────────────────────────────────────────────────
-@then("the handler failure log carries key_fp equal to the first 12 hex of SHA-256 of the key and the logs never contain the raw key")
+@then("the handler failure log carries key_fp equal to the first 12 hex of HMAC-SHA256 of the key under the log secret and the logs never contain the raw key")
 def then_failed(ekr: dict) -> None:
     key = ekr["keys"][0]
     assert k.log_lines(ekr["since_s"]), "positive control: no engagement logs at all"
@@ -77,21 +77,24 @@ def then_failed(ekr: dict) -> None:
     _no_raw(ekr, [key])
 
 
-@then("the parking log carries key_fp and attempts, has no key attribute, the logs never contain the raw key and the DLQ record key is the raw key")
+@then("the parking log carries key_fp, the dlq topic and offset, has no key attribute, the logs never contain the raw key and the DLQ record key is the raw key")
 def then_parked(ekr: dict) -> None:
     key = ekr["keys"][0]
     hits = _lines_for(ekr, {k.fp(key)}, k.PARKED_MSG)
     assert hits, f"no '{k.PARKED_MSG}' record with key_fp={k.fp(key)}; saw {ekr['parked']}"
-    assert all("attempts" in h for h in hits)
+    assert all("dlq" in h and "offset" in h for h in hits)
     assert not any(_has_key_attr(m) for m in ekr["parked"]), "a parking record still has `key`"
     _no_raw(ekr, [key])
     assert k.dlq_keys(ekr["since_ms"], {key}) == {key}, "DLQ record key is not the raw key"
 
 
-@then("the parking log carries key_fp e3b0c44298fc and no key attribute")
+@then("the parking log carries the keyed fingerprint of the empty key, not the plain SHA-256 prefix, and no key attribute")
 def then_nil(ekr: dict) -> None:
-    hits = _lines_for(ekr, {"e3b0c44298fc"}, k.PARKED_MSG)
-    assert hits, f"no parking record with key_fp=e3b0c44298fc; saw {ekr['parked']}"
+    want = k.fp(None)
+    assert want != "e3b0c44298fc", "fingerprint must be keyed"
+    hits = _lines_for(ekr, {want}, k.PARKED_MSG)
+    assert hits, f"no parking record with key_fp={want}; saw {ekr['parked']}"
+    assert not _lines_for(ekr, {"e3b0c44298fc"}, k.PARKED_MSG), "unkeyed SHA-256 prefix logged"
     assert not any(_has_key_attr(m) for m in ekr["parked"]), "a parking record still has `key`"
 
 

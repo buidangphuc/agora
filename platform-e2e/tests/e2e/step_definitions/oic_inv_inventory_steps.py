@@ -181,6 +181,8 @@ def start_domain_image(world: World, ttl: str, sweep: str) -> None:
         "run", "-d", "--name", name, "--network", stack.stack_network(),
         "-e", "ENV=local", "-e", "GRPC_PORT=50061",
         "-e", f"DATABASE_URL={url}",
+        "-e", "UPSTREAM_AI_ADDR=team-ai-svc:50060", "-e", "UPSTREAM_AUDIT_ADDR=team-audit-svc:50066",
+        "-e", "KAFKA_BROKERS=redpanda:9092",
         "-e", f"RESERVATION_TTL={ttl}", "-e", f"RESERVATION_SWEEP_INTERVAL={sweep}",
         stack.image_name("team-domain"),
     )  # fmt: skip
