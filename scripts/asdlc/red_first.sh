@@ -200,7 +200,7 @@ run_test() { # run_test <worktree> <kind> <relfile> -> exit status of the test c
       mod=$(nearest_up "$wt" "$f" go.mod) || return 97
       rel=$(dirname "${f#"$mod"/}"); [ "$mod" = "." ] && rel=$(dirname "$f")
       local names; names=$(go_names "$f"); [ -z "$names" ] && return 98
-      (cd "$wt/$mod" && go test -count=1 "./$rel/" -run "^($names)\$" >"$SCRATCH/out.log" 2>&1) ;;
+      (cd "$wt/$mod" && GO_SDK_REQUIRE_DOCKER=1 go test -count=1 "./$rel/" -run "^($names)\$" >"$SCRATCH/out.log" 2>&1) ;;
     py)
       mod=$(nearest_up "$wt" "$f" pyproject.toml) || mod=$(dirname "$f")
       # Services whose gRPC stubs are generated, not committed (team-ai): build them once per worktree.
@@ -229,6 +229,7 @@ check_file() { # check_file <kind> <relfile>
   fi
   if why=$(exempt_reason "$f"); then
     run_test "$WT_HEAD" "$kind" "$f"; rh=$?
+    if [ $rh -eq 98 ]; then RESULTS+=("$f|n/a|n/a|SKIP (no Test funcs)"); return; fi
     if [ $rh -eq 0 ]; then verdict="EXEMPT ($why)"; green=yes; else verdict="FAIL: red at head"; green=no; FAIL=1; fi
     RESULTS+=("$f|red@base=skip|green@head=$green|$verdict"); return
   fi
