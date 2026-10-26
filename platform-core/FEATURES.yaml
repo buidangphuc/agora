@@ -6209,6 +6209,396 @@ features:
     status: not-testable
     notes: "pah-contract: unit-verified by platform-core/packages/proto/pah_contract_test.sh. Proto contract only, not producible end to end."
 
+  - id: checkout-contract.unit-previewcheckout-exists-on-orderservice
+    title: "Checkout contract: PreviewCheckout exists on OrderService"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: PreviewCheckout exists on OrderService"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: PreviewCheckout exists on OrderService (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go descriptor test `platform-core/packages/proto/platform/order/v1/checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-quote-messages-have-fixed-names-numbers-and-types
+    title: "Checkout contract: Quote messages have fixed names, numbers and types"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Quote messages have fixed names, numbers and types"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Quote messages have fixed names, numbers and types (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go descriptor test `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-quote-semantics-are-documented
+    title: "Checkout contract: Quote semantics are documented"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Quote semantics are documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Quote semantics are documented (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: comment-text assertion in `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-missing-quote-semantics-are-caught
+    title: "Checkout contract: Missing quote semantics are caught"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Missing quote semantics are caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Missing quote semantics are caught (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: comment-text assertion in `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-quote-messages-round-trip
+    title: "Checkout contract: Quote messages round-trip"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Quote messages round-trip"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Quote messages round-trip (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go round-trip test `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-maximum-amounts-round-trip
+    title: "Checkout contract: Maximum amounts round-trip"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Maximum amounts round-trip"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Maximum amounts round-trip (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go round-trip test `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-quote-of-an-empty-selection-is-documented-as-an-error
+    title: "Checkout contract: Quote of an empty selection is documented as an error"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Quote of an empty selection is documented as an error"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Quote of an empty selection is documented as an error (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: comment-text assertion in `checkout_compat_test.go` (tasks 2.1); enforcement is tested end to end in order-multishop-checkout. Not producible end to end."
+
+  - id: checkout-contract.unit-quote-is-documented-as-buyer-only
+    title: "Checkout contract: Quote is documented as buyer-only"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Quote is documented as buyer-only"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Quote is documented as buyer-only (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: comment-text assertion in `checkout_compat_test.go` (tasks 2.1); enforcement is tested end to end in order-multishop-checkout. Not producible end to end."
+
+  - id: checkout-contract.unit-new-createorder-fields-are-documented-as-buyer-only
+    title: "Checkout contract: New CreateOrder fields are documented as buyer-only"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: New CreateOrder fields are documented as buyer-only"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: New CreateOrder fields are documented as buyer-only (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: comment-text assertion in `checkout_compat_test.go` (tasks 2.1); enforcement is tested end to end in order-multishop-checkout. Not producible end to end."
+
+  - id: checkout-contract.unit-createorderrequest-fields-have-fixed-numbers
+    title: "Checkout contract: CreateOrderRequest fields have fixed numbers"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: CreateOrderRequest fields have fixed numbers"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: CreateOrderRequest fields have fixed numbers (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go descriptor test `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-old-readers-skip-the-new-request-fields
+    title: "Checkout contract: Old readers skip the new request fields"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Old readers skip the new request fields"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Old readers skip the new request fields (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go test `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-voucher-routing-is-documented
+    title: "Checkout contract: Voucher routing is documented"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Voucher routing is documented"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Voucher routing is documented (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: comment-text assertion in `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-address-failures-are-documented-as-fail-closed
+    title: "Checkout contract: Address failures are documented as fail closed"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Address failures are documented as fail closed"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Address failures are documented as fail closed (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: comment-text assertion in `checkout_compat_test.go` (tasks 2.1); enforcement is tested end to end in order-address-eta. Not producible end to end."
+
+  - id: checkout-contract.unit-missing-address-failure-note-is-caught
+    title: "Checkout contract: Missing address-failure note is caught"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Missing address-failure note is caught"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Missing address-failure note is caught (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: comment-text assertion in `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-shipping-response-fields-are-fixed
+    title: "Checkout contract: Shipping response fields are fixed"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Shipping response fields are fixed"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Shipping response fields are fixed (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go descriptor test `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-order-fields-are-fixed-and-18-24-stay-free
+    title: "Checkout contract: Order fields are fixed and 18-24 stay free"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Order fields are fixed and 18-24 stay free"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Order fields are fixed and 18-24 stay free (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go descriptor test `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-order-round-trips-and-old-readers-skip-the-new-fields
+    title: "Checkout contract: Order round-trips and old readers skip the new fields"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Order round-trips and old readers skip the new fields"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Order round-trips and old readers skip the new fields (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go round-trip test `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-voucher-response-reports-scope-and-shop
+    title: "Checkout contract: Voucher response reports scope and shop"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Voucher response reports scope and shop"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Voucher response reports scope and shop (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go descriptor and round-trip test `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-existing-order-messages-are-untouched
+    title: "Checkout contract: Existing order messages are untouched"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Existing order messages are untouched"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Existing order messages are untouched (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: Go descriptor test `checkout_compat_test.go` (tasks 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-change-is-backward-compatible
+    title: "Checkout contract: Change is backward compatible"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Change is backward compatible"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Change is backward compatible (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: `make -C platform-core breaking` (tasks 1.4). Not producible end to end."
+
+  - id: checkout-contract.unit-lint-passes
+    title: "Checkout contract: Lint passes"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Lint passes"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Lint passes (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: `make -C platform-core lint-proto` (tasks 1.4). Not producible end to end."
+
+  - id: checkout-contract.unit-wire-breaking-edit-is-rejected
+    title: "Checkout contract: Wire-breaking edit is rejected"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Wire-breaking edit is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Wire-breaking edit is rejected (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: `make -C platform-core breaking` run on a mutated copy plus `checkout_compat_test.go` (tasks 1.4, 2.1). Not producible end to end."
+
+  - id: checkout-contract.unit-new-rpc-and-fields-in-every-generated-language
+    title: "Checkout contract: New RPC and fields in every generated language"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: New RPC and fields in every generated language"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: New RPC and fields in every generated language (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: `make -C platform-core proto` followed by a grep of each generated tree (tasks 2.2). Not producible end to end."
+
+  - id: checkout-contract.unit-copies-match-the-source
+    title: "Checkout contract: Copies match the source"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Copies match the source"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Copies match the source (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: one-off slice-done `cmp` of all copies against the sources (tasks 2.3). Not producible end to end."
+
+  - id: checkout-contract.unit-drifted-or-missing-copy-is-rejected
+    title: "Checkout contract: Drifted or missing copy is rejected"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Drifted or missing copy is rejected"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Drifted or missing copy is rejected (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: one-off slice-done `cmp` of all copies against the sources (tasks 2.3). Not producible end to end."
+
+  - id: checkout-contract.unit-consumer-copies-build-and-lint
+    title: "Checkout contract: Consumer copies build and lint"
+    persona: buyer
+    priority: P2
+    summary: "Checkout contract: Consumer copies build and lint"
+    entry_route: /
+    services: [platform-core]
+    preconditions:
+      login: guest
+    acceptance:
+      - "Checkout contract: Consumer copies build and lint (unit-verified)"
+    tags: [checkout-contract, unit]
+    status: not-testable
+    notes: "q11-checkout-contract: verified by: `buf lint` and `buf build` per consumer proto directory (tasks 2.3). Not producible end to end."
+
   - id: go-sdk.module-path-and-imports-use-the-fetchable-path
     title: "Module path and imports use the fetchable path"
     persona: guest

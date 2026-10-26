@@ -39,6 +39,14 @@ export function CheckoutStepper({
     : "address";
   const currentIndex = stepIndex(current);
   const payRaw = params.get("pay");
+  const itemsRaw = params.get("items");
+  const sv: Record<string, string> = {};
+  for (const entry of params.getAll("sv")) {
+    const i = entry.indexOf(":");
+    if (i <= 0 || i === entry.length - 1) continue;
+    const seller = entry.slice(0, i);
+    if (!(seller in sv)) sv[seller] = entry.slice(i + 1);
+  }
 
   if (!checkoutEnabled && pathname === "/checkout") return null;
 
@@ -60,7 +68,9 @@ export function CheckoutStepper({
                   step,
                   addr: params.get("addr") ?? undefined,
                   pay: payRaw === null ? undefined : Number(payRaw),
-                  voucher: params.get("voucher") ?? undefined,
+                  items: itemsRaw ? itemsRaw.split(",").filter(Boolean) : [],
+                  sv,
+                  pv: params.get("pv") || undefined,
                 }),
                 disabled: pending,
               }

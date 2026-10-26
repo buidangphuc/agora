@@ -8,6 +8,8 @@ import type { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.j
 import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { reorder } from "@/lib/gateway/cart";
 import {
+  type ConfirmedAddressInput,
+  type ShopVoucherInput,
   type ViewOrderReturn,
   cancelOrder,
   confirmReceipt,
@@ -17,7 +19,12 @@ import {
 } from "@/lib/gateway/orders";
 import { createPayment, processMockPayment } from "@/lib/gateway/payment";
 import { findCancelReason } from "./cancelReasons";
-import { PRICE_CHANGED_MESSAGE } from "./shippingCopy";
+import {
+  ADDRESS_CHANGED_MESSAGE,
+  ADDRESS_NOT_FOUND_MESSAGE,
+  PRICE_CHANGED_MESSAGE,
+  UNAVAILABLE_RETRY_MESSAGE,
+} from "./shippingCopy";
 
 export interface OrderActionResult {
   ok: boolean;
@@ -34,20 +41,40 @@ export interface CheckoutData {
 const CHECKOUT_IN_PROGRESS =
   "Đơn hàng đang được xử lý, vui lòng thử lại sau giây lát.";
 
+export interface CheckoutInput {
+  addressId?: string;
+  itemIds?: string[];
+  paymentMethod?: PaymentMethod;
+  shopVouchers?: ShopVoucherInput[];
+  platformVoucherCode?: string;
+  confirmedAddress?: ConfirmedAddressInput;
+  idempotencyKey?: string;
+}
+
+export type CheckoutResult =
+  | { ok: true; data?: CheckoutData }
+  | {
+      ok: false;
+      error: string;
+      priceChanged?: boolean;
+      addressChanged?: boolean;
+      addressNotFound?: boolean;
+    };
+
 export async function checkoutAction(
-  addressId?: string,
-  itemIds?: string[],
-  paymentMethod?: PaymentMethod,
-  voucherCode?: string,
-  idempotencyKey?: string,
-): Promise<ActionResult<CheckoutData>> {
+  input: CheckoutInput,
+): Promise<CheckoutResult> {
   try {
     const orders = await createOrder(
-      addressId,
-      itemIds,
-      paymentMethod,
-      voucherCode,
-      idempotencyKey,
+      input.addressId,
+      input.itemIds,
+      input.paymentMethod,
+      input.idempotencyKey,
+      {
+        shopVouchers: input.shopVouchers,
+        platformVoucherCode: input.platformVoucherCode,
+        confirmedAddress: input.confirmedAddress,
+      },
     );
     revalidatePath("/cart");
     revalidatePath("/checkout");
@@ -55,36 +82,39 @@ export async function checkoutAction(
     revalidatePath("/seller/orders");
 
     const orderIds = orders.map((o) => o.id);
-    let paymentUrl: string | undefined;
-
-    // If online payment method selected and we have orders, initiate payment transaction for the first order
-    if (orders.length > 0 && paymentMethod && paymentMethod !== 1) {
-      // 1 = COD
-      try {
-        const paymentRes = await createPayment(orders[0].id, paymentMethod);
-        paymentUrl = paymentRes.paymentUrl;
-      } catch {
-        // Fall back to direct order view
-      }
-    }
+    const online =
+      orders.length > 0 && input.paymentMethod && input.paymentMethod !== 1;
+    const paymentUrl = online ? `/checkout/pay/${orders[0].id}` : undefined;
 
     return ok({ orderIds, paymentUrl });
   } catch (err: unknown) {
-    // `aborted`: the same idempotency key is still being processed by a
-    // concurrent request. Nothing failed; the buyer can safely retry.
     if (err instanceof ConnectError && err.code === Code.Aborted) {
       return fail(CHECKOUT_IN_PROGRESS);
     }
-    // team-order refused because a cart price moved: the cart was re-priced,
-    // so refresh it and let the buyer confirm the new total.
-    if (
-      err instanceof ConnectError &&
-      err.code === Code.FailedPrecondition &&
-      err.rawMessage.includes("price changed")
-    ) {
-      revalidatePath("/cart");
-      revalidatePath("/checkout");
-      return { ok: false, error: PRICE_CHANGED_MESSAGE, priceChanged: true };
+    if (err instanceof ConnectError && err.code === Code.Unavailable) {
+      return fail(UNAVAILABLE_RETRY_MESSAGE);
+    }
+    if (err instanceof ConnectError && err.code === Code.FailedPrecondition) {
+      if (err.rawMessage.includes("price changed")) {
+        revalidatePath("/cart");
+        revalidatePath("/checkout");
+        return { ok: false, error: PRICE_CHANGED_MESSAGE, priceChanged: true };
+      }
+      if (err.rawMessage.includes("address changed")) {
+        revalidatePath("/checkout");
+        return {
+          ok: false,
+          error: ADDRESS_CHANGED_MESSAGE,
+          addressChanged: true,
+        };
+      }
+      if (err.rawMessage.includes("address not found")) {
+        return {
+          ok: false,
+          error: ADDRESS_NOT_FOUND_MESSAGE,
+          addressNotFound: true,
+        };
+      }
     }
     return fail(err instanceof Error ? err.message : "Đặt hàng thất bại.");
   }

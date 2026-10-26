@@ -96,7 +96,10 @@ type Order struct {
 	ReturnWindowEndsAt *time.Time
 	// ShipBy is the seller's ship-by deadline: stamped at payment (online) or at
 	// placement (COD) and never moved afterwards.
-	ShipBy *time.Time
+	ShipBy                 *time.Time
+	CheckoutID             string
+	PlatformVoucherCode    string
+	PlatformDiscountAmount int64
 	// CompletedBy is the orderv1.CompletedBy of the write that won the move to
 	// Completed; it is set on the row that write returns and is not persisted.
 	CompletedBy int32
@@ -284,14 +287,14 @@ func NewPostgresOrderRepository(pool *pgxpool.Pool, opts ...OrderRepoOption) *Po
 		completedOutbox: cfg.completedOutbox, autoCompleteAfter: cfg.autoCompleteAfter, returnWindow: cfg.returnWindow, shipByAfter: cfg.shipByAfter}
 }
 
-const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at, cancel_reason, payment_reminder_sent_at, shipped_at, auto_complete_at, completed_at, return_window_ends_at, ship_by`
+const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at, cancel_reason, payment_reminder_sent_at, shipped_at, auto_complete_at, completed_at, return_window_ends_at, ship_by, checkout_id, platform_voucher_code, platform_discount_amount`
 const orderItemColumns = `id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url`
 
 func scanOrder(row pgx.Row, o *Order) error {
 	var addrRaw []byte
 	var statusInt int32
 	var paidAt, dueAt, remindedAt *time.Time
-	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt, &dueAt, &o.CancelReason, &remindedAt, &o.ShippedAt, &o.AutoCompleteAt, &o.CompletedAt, &o.ReturnWindowEndsAt, &o.ShipBy); err != nil {
+	if err := row.Scan(&o.ID, &o.BuyerID, &o.SellerID, &statusInt, &o.TotalAmount, &o.Currency, &addrRaw, &o.TrackingNumber, &o.CreatedAt, &o.UpdatedAt, &o.ShippingFee, &o.ItemsSubtotal, &o.PaymentMethod, &o.VoucherCode, &o.DiscountAmount, &paidAt, &dueAt, &o.CancelReason, &remindedAt, &o.ShippedAt, &o.AutoCompleteAt, &o.CompletedAt, &o.ReturnWindowEndsAt, &o.ShipBy, &o.CheckoutID, &o.PlatformVoucherCode, &o.PlatformDiscountAmount); err != nil {
 		return err
 	}
 	o.PaidAt = paidAt
@@ -339,9 +342,9 @@ func insertOrderTx(ctx context.Context, tx pgx.Tx, order *Order) error {
 	if err != nil {
 		return fmt.Errorf("marshal address: %w", err)
 	}
-	const qOrder = `INSERT INTO orders (id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, payment_due_at, ship_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
-	if _, err := tx.Exec(ctx, qOrder, order.ID, order.BuyerID, order.SellerID, int32(order.Status), order.TotalAmount, order.Currency, addrBytes, order.TrackingNumber, order.CreatedAt, order.UpdatedAt, order.ShippingFee, order.ItemsSubtotal, order.PaymentMethod, order.VoucherCode, order.DiscountAmount, order.PaymentDueAt, order.ShipBy); err != nil {
+	const qOrder = `INSERT INTO orders (id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, payment_due_at, ship_by, checkout_id, platform_voucher_code, platform_discount_amount)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`
+	if _, err := tx.Exec(ctx, qOrder, order.ID, order.BuyerID, order.SellerID, int32(order.Status), order.TotalAmount, order.Currency, addrBytes, order.TrackingNumber, order.CreatedAt, order.UpdatedAt, order.ShippingFee, order.ItemsSubtotal, order.PaymentMethod, order.VoucherCode, order.DiscountAmount, order.PaymentDueAt, order.ShipBy, order.CheckoutID, order.PlatformVoucherCode, order.PlatformDiscountAmount); err != nil {
 		return fmt.Errorf("insert order: %w", err)
 	}
 	for i := range order.Items {
@@ -433,6 +436,37 @@ func (r *PostgresOrderRepository) ListBuyerOrders(ctx context.Context, buyerID s
 		return nil, err
 	}
 
+	for i := range orders {
+		items, err := r.loadItems(ctx, orders[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		orders[i].Items = items
+	}
+	return orders, nil
+}
+
+func (r *PostgresOrderRepository) ListOrdersByCheckout(ctx context.Context, checkoutID string) ([]Order, error) {
+	if checkoutID == "" {
+		return nil, nil
+	}
+	const q = `SELECT ` + orderColumns + ` FROM orders WHERE checkout_id = $1 ORDER BY created_at, id`
+	rows, err := r.pool.Query(ctx, q, checkoutID)
+	if err != nil {
+		return nil, fmt.Errorf("list orders by checkout: %w", err)
+	}
+	defer rows.Close()
+	var orders []Order
+	for rows.Next() {
+		var o Order
+		if err := scanOrder(rows, &o); err != nil {
+			return nil, err
+		}
+		orders = append(orders, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	for i := range orders {
 		items, err := r.loadItems(ctx, orders[i].ID)
 		if err != nil {
@@ -652,6 +686,21 @@ func (r *InMemoryOrderRepository) ListSellerOrders(_ context.Context, sellerID s
 			if statusFilter == 0 || int32(o.Status) == statusFilter {
 				res = append(res, o)
 			}
+		}
+	}
+	return res, nil
+}
+
+func (r *InMemoryOrderRepository) ListOrdersByCheckout(_ context.Context, checkoutID string) ([]Order, error) {
+	if checkoutID == "" {
+		return nil, nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var res []Order
+	for _, o := range r.orders {
+		if o.CheckoutID == checkoutID {
+			res = append(res, o)
 		}
 	}
 	return res, nil

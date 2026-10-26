@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CancelReason,
+  CheckoutVoucherScope,
   OrderStatus,
   ReturnStatus,
 } from "@/generated/platform/order/v1/order_pb.js";
@@ -19,6 +20,7 @@ import {
   listBuyerOrders,
   listBuyerOrdersResult,
   listOrderReturns,
+  previewCheckout,
   updateOrderStatus,
 } from "./orders.js";
 
@@ -38,6 +40,7 @@ function stubOrder(rpcs: Record<string, ReturnType<typeof vi.fn>>) {
     updateOrderStatus: vi.fn(),
     cancelOrder: vi.fn(),
     confirmReceipt: vi.fn(),
+    previewCheckout: vi.fn(),
     ...rpcs,
   };
   vi.mocked(makeClients).mockReturnValue({ order } as never);
@@ -90,7 +93,8 @@ describe("orders gateway wrapper", () => {
       addressId: "addr1",
       itemIds: ["it1"],
       paymentMethod: PaymentMethod.MOCK_MOMO,
-      voucherCode: "",
+      shopVouchers: [],
+      platformVoucherCode: "",
     });
     expect(res[0]).toMatchObject({
       id: "o1",
@@ -109,13 +113,14 @@ describe("orders gateway wrapper", () => {
     const order = stubOrder({
       createOrder: vi.fn().mockResolvedValue({ orders: [] }),
     });
-    await createOrder("a", [], PaymentMethod.COD, "V", "key-1");
+    await createOrder("a", [], PaymentMethod.COD, "key-1");
     expect(order.createOrder).toHaveBeenCalledWith(
       {
         addressId: "a",
         itemIds: [],
         paymentMethod: PaymentMethod.COD,
-        voucherCode: "V",
+        shopVouchers: [],
+        platformVoucherCode: "",
       },
       { headers: { "Idempotency-Key": "key-1" } },
     );
@@ -130,7 +135,8 @@ describe("orders gateway wrapper", () => {
       addressId: "",
       itemIds: [],
       paymentMethod: PaymentMethod.COD,
-      voucherCode: "",
+      shopVouchers: [],
+      platformVoucherCode: "",
     });
   });
 
@@ -384,6 +390,257 @@ describe("orders gateway wrapper", () => {
         canEscalate: false,
       },
     ]);
+  });
+
+  it("Checkout coherence: two shops show two groups with their own shipping", async () => {
+    const order = stubOrder({
+      previewCheckout: vi.fn().mockResolvedValue({
+        groups: [
+          {
+            sellerId: "s1",
+            itemIds: ["i1"],
+            itemsSubtotal: 100000n,
+            shippingFee: 20000n,
+            isFreeShipping: false,
+            shopVoucherCode: "SHOP1",
+            shopDiscountAmount: 5000n,
+            platformDiscountAmount: 3000n,
+            totalAmount: 112000n,
+            estimatedDeliveryAt: { seconds: 1_700_000_000n },
+          },
+          {
+            sellerId: "s2",
+            itemIds: ["i2", "i3"],
+            itemsSubtotal: 600000n,
+            shippingFee: 0n,
+            isFreeShipping: true,
+            totalAmount: 597000n,
+          },
+        ],
+        vouchers: [
+          {
+            code: "SHOP1",
+            scope: CheckoutVoucherScope.SHOP,
+            sellerId: "s1",
+            valid: true,
+            reason: "",
+            discountAmount: 5000n,
+          },
+          {
+            code: "SAVE10",
+            scope: CheckoutVoucherScope.PLATFORM,
+            sellerId: "",
+            valid: false,
+            reason: "min spend",
+            discountAmount: 0n,
+          },
+        ],
+        itemsSubtotal: 700000n,
+        shippingFee: 20000n,
+        discountAmount: 8000n,
+        totalAmount: 709000n,
+        shippingQuoted: true,
+        shippingAddress: {
+          id: "a1",
+          recipientName: "A",
+          phone: "090",
+          street: "1 Main",
+          ward: "W",
+          district: "D",
+          city: "HCM",
+        },
+      }),
+    });
+    const res = await previewCheckout({
+      addressId: "a1",
+      itemIds: ["i1", "i2", "i3"],
+      shopVouchers: [{ sellerId: "s1", code: "SHOP1" }],
+      platformVoucherCode: "SAVE10",
+    });
+    expect(order.previewCheckout).toHaveBeenCalledWith(
+      {
+        addressId: "a1",
+        itemIds: ["i1", "i2", "i3"],
+        shopVouchers: [{ sellerId: "s1", code: "SHOP1" }],
+        platformVoucherCode: "SAVE10",
+      },
+      { timeoutMs: 5000 },
+    );
+    expect(res.groups).toHaveLength(2);
+    expect(res.groups[0]).toMatchObject({
+      sellerId: "s1",
+      itemIds: ["i1"],
+      itemsSubtotal: 100000,
+      shippingFee: 20000,
+      isFreeShipping: false,
+      shopVoucherCode: "SHOP1",
+      shopDiscountAmount: 5000,
+      platformDiscountAmount: 3000,
+      totalAmount: 112000,
+      estimatedDeliveryAt: "2023-11-14T22:13:20.000Z",
+    });
+    expect(res.groups[1]).toMatchObject({
+      sellerId: "s2",
+      shippingFee: 0,
+      isFreeShipping: true,
+      totalAmount: 597000,
+      estimatedDeliveryAt: null,
+    });
+    expect(res.vouchers).toEqual([
+      {
+        code: "SHOP1",
+        scope: CheckoutVoucherScope.SHOP,
+        sellerId: "s1",
+        valid: true,
+        reason: "",
+        discountAmount: 5000,
+      },
+      {
+        code: "SAVE10",
+        scope: CheckoutVoucherScope.PLATFORM,
+        sellerId: "",
+        valid: false,
+        reason: "min spend",
+        discountAmount: 0,
+      },
+    ]);
+    expect(res).toMatchObject({
+      itemsSubtotal: 700000,
+      shippingFee: 20000,
+      discountAmount: 8000,
+      totalAmount: 709000,
+      shippingQuoted: true,
+      shippingAddress: {
+        recipientName: "A",
+        phone: "090",
+        street: "1 Main",
+        ward: "W",
+        district: "D",
+        city: "HCM",
+      },
+    });
+  });
+
+  it("Checkout coherence: previewCheckout reports shippingQuoted false and no address when absent", async () => {
+    stubOrder({
+      previewCheckout: vi.fn().mockResolvedValue({
+        groups: [],
+        vouchers: [],
+        itemsSubtotal: 0n,
+        shippingFee: 0n,
+        discountAmount: 0n,
+        totalAmount: 0n,
+        shippingQuoted: false,
+      }),
+    });
+    const res = await previewCheckout({ itemIds: [] });
+    expect(res.shippingQuoted).toBe(false);
+    expect(res.shippingAddress).toBeNull();
+    expect(res.groups).toEqual([]);
+  });
+
+  it("Checkout coherence: a failed preview shows no total", async () => {
+    stubOrder({
+      previewCheckout: vi
+        .fn()
+        .mockRejectedValue(new ConnectError("down", Code.Unavailable)),
+    });
+    const err = await previewCheckout({ itemIds: ["i1"] }).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(ConnectError);
+    expect((err as ConnectError).code).toBe(Code.Unavailable);
+  });
+
+  it("Checkout coherence: the confirmed address is sent with the order", async () => {
+    const order = stubOrder({
+      createOrder: vi.fn().mockResolvedValue({ orders: [protoOrder] }),
+    });
+    await createOrder("a1", ["i1", "i2"], PaymentMethod.COD, "key-9", {
+      shopVouchers: [{ sellerId: "s1", code: "SHOP1" }],
+      platformVoucherCode: "SAVE10",
+      confirmedAddress: {
+        recipientName: "A",
+        phone: "090",
+        street: "1 Main",
+        ward: "W",
+        district: "D",
+        city: "HCM",
+      },
+    });
+    const [req, opts] = order.createOrder.mock.calls[0];
+    expect(req).toMatchObject({
+      addressId: "a1",
+      itemIds: ["i1", "i2"],
+      paymentMethod: PaymentMethod.COD,
+      shopVouchers: [{ sellerId: "s1", code: "SHOP1" }],
+      platformVoucherCode: "SAVE10",
+      confirmedAddress: {
+        recipientName: "A",
+        phone: "090",
+        street: "1 Main",
+        ward: "W",
+        district: "D",
+        city: "HCM",
+      },
+    });
+    expect(opts).toEqual({ headers: { "Idempotency-Key": "key-9" } });
+  });
+
+  it("Checkout coherence: createOrder no longer sends the legacy voucher_code", async () => {
+    const order = stubOrder({
+      createOrder: vi.fn().mockResolvedValue({ orders: [] }),
+    });
+    await createOrder("a1", [], PaymentMethod.COD, undefined, {
+      platformVoucherCode: "SAVE10",
+    });
+    const [req] = order.createOrder.mock.calls[0];
+    expect(req).not.toHaveProperty("voucherCode");
+    expect(req.platformVoucherCode).toBe("SAVE10");
+    expect(req.shopVouchers).toEqual([]);
+  });
+
+  it("Checkout coherence: ViewOrder carries checkout id and platform voucher fields", async () => {
+    stubOrder({
+      getOrder: vi.fn().mockResolvedValue({
+        order: {
+          ...protoOrder,
+          checkoutId: "co1",
+          platformVoucherCode: "SAVE10",
+          platformDiscountAmount: 7000n,
+        },
+      }),
+    });
+    await expect(getOrder("o1")).resolves.toMatchObject({
+      checkoutId: "co1",
+      platformVoucherCode: "SAVE10",
+      platformDiscountAmount: 7000,
+    });
+  });
+
+  it("Checkout coherence: calculateShippingFee returns the delivery estimate as ISO or null", async () => {
+    stubOrder({
+      calculateShippingFee: vi
+        .fn()
+        .mockResolvedValueOnce({
+          shippingFee: 20000n,
+          isFreeShipping: false,
+          message: "",
+          estimatedDeliveryAt: { seconds: 1_700_000_000n },
+        })
+        .mockResolvedValueOnce({
+          shippingFee: 20000n,
+          isFreeShipping: false,
+          message: "",
+        }),
+    });
+    await expect(calculateShippingFee("HCM", 1)).resolves.toMatchObject({
+      estimatedDeliveryAt: "2023-11-14T22:13:20.000Z",
+    });
+    await expect(calculateShippingFee("HCM", 1)).resolves.toMatchObject({
+      estimatedDeliveryAt: null,
+    });
   });
 
   it("Button is shown on an escalable return: canEscalate maps true", async () => {

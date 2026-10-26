@@ -10,12 +10,19 @@ import {
   PaymentStatus,
 } from "@/generated/platform/payment/v1/payment_pb.js";
 import type { ViewOrder } from "@/lib/gateway/orders";
-import { getOrder } from "@/lib/gateway/orders";
+import {
+  getOrder,
+  listBuyerOrders,
+  listBuyerOrdersResult,
+} from "@/lib/gateway/orders";
 import type { ViewPaymentTransaction } from "@/lib/gateway/payment";
 import { createPayment, getPayment } from "@/lib/gateway/payment";
 import { getPrincipal } from "@/lib/gateway/session";
+import { setupUser } from "@/test/user";
 
+import { processMockPaymentAction } from "@/features/order/actions";
 import PaymentNotFound from "../not-found";
+import PayLayout from "./layout";
 import PaymentLoading from "./loading";
 import MockPaymentPage from "./page";
 
@@ -30,7 +37,11 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("@/lib/gateway/session", () => ({ getPrincipal: vi.fn() }));
-vi.mock("@/lib/gateway/orders", () => ({ getOrder: vi.fn() }));
+vi.mock("@/lib/gateway/orders", () => ({
+  getOrder: vi.fn(),
+  listBuyerOrders: vi.fn(),
+  listBuyerOrdersResult: vi.fn(),
+}));
 vi.mock("@/lib/gateway/payment", () => ({
   getPayment: vi.fn(),
   createPayment: vi.fn(),
@@ -93,7 +104,19 @@ beforeEach(() => {
   vi.mocked(getPrincipal).mockReturnValue({ id: "u1", name: "U", scopes: [] });
   vi.mocked(getOrder).mockResolvedValue(order(OrderStatus.PENDING));
   vi.mocked(getPayment).mockResolvedValue(tx(PaymentStatus.PENDING));
+  setSiblings([]);
 });
+
+function setSiblings(orders: ViewOrder[]) {
+  vi.mocked(listBuyerOrders).mockResolvedValue(orders);
+  vi.mocked(listBuyerOrdersResult).mockResolvedValue({ ok: true, orders });
+}
+
+function noGatewayCalls() {
+  expect(getOrder).not.toHaveBeenCalled();
+  expect(getPayment).not.toHaveBeenCalled();
+  expect(createPayment).not.toHaveBeenCalled();
+}
 
 describe("/checkout/pay/[id]", () => {
   it("redirects a signed-out visitor to /login", async () => {
@@ -257,6 +280,157 @@ describe("/checkout/pay/[id]", () => {
     expect(
       screen.getByRole("link", { name: "Đổi phương thức" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Checkout coherence: pay page", () => {
+  it("guest is redirected to login before any payment call", async () => {
+    vi.mocked(getPrincipal).mockReturnValue(null);
+    expect(await outcome()).toBe(
+      "redirect:/login?returnUrl=%2Fcheckout%2Fpay%2Forder-12345678",
+    );
+    noGatewayCalls();
+    let layoutSignal: string | null = null;
+    try {
+      await PayLayout({
+        children: null,
+        params: Promise.resolve({ id: "order-12345678" }),
+      });
+    } catch (e) {
+      if (e instanceof Signal) layoutSignal = e.message;
+      else throw e;
+    }
+    expect(layoutSignal).toBe(
+      "redirect:/login?returnUrl=%2Fcheckout%2Fpay%2Forder-12345678",
+    );
+    noGatewayCalls();
+  });
+
+  it("creates a missing transaction for a pending online order", async () => {
+    vi.mocked(getOrder).mockResolvedValue(
+      order(OrderStatus.PENDING, {
+        paymentMethod: PaymentMethod.MOCK_BANK,
+        paymentMethodText: "Chuyển khoản (Demo)",
+      }),
+    );
+    vi.mocked(getPayment).mockResolvedValue(null);
+    vi.mocked(createPayment).mockResolvedValue({
+      transaction: tx(PaymentStatus.PENDING),
+      paymentUrl: "",
+    });
+    expect(await outcome()).toBeNull();
+    expect(createPayment).toHaveBeenCalledTimes(1);
+    expect(createPayment).toHaveBeenCalledWith(
+      "order-12345678",
+      PaymentMethod.MOCK_BANK,
+    );
+    expect(screen.getByText("330.000")).toBeInTheDocument();
+    expect(screen.getByText("Chuyển khoản (Demo)")).toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "COD",
+      OrderStatus.PENDING,
+      { paymentMethod: PaymentMethod.COD },
+      "Đơn hàng thanh toán khi nhận hàng",
+    ],
+    [
+      "CANCELLED",
+      OrderStatus.CANCELLED,
+      { cancelReason: CancelReason.CHANGED_MIND },
+      "Đơn hàng đã bị hủy",
+    ],
+    ["PAID", OrderStatus.PAID, {}, "Đơn hàng đã được thanh toán"],
+  ])(
+    "no transaction is created for COD or closed orders (%s)",
+    async (_n, status, extra, title) => {
+      vi.mocked(getOrder).mockResolvedValue(order(status, extra));
+      vi.mocked(getPayment).mockResolvedValue(null);
+      expect(await outcome()).toBeNull();
+      expect(screen.getByText(title)).toBeInTheDocument();
+      noPaymentCalls();
+    },
+  );
+
+  it.each(["permission", "notfound"])(
+    "an order of another buyer is not found and not paid (%s)",
+    async () => {
+      vi.mocked(getOrder).mockResolvedValue(null);
+      expect(await outcome("someone-elses")).toBe("notFound");
+      expect(getPayment).not.toHaveBeenCalled();
+      expect(createPayment).not.toHaveBeenCalled();
+    },
+  );
+
+  it("next order lookup failure degrades to no link", async () => {
+    const user = setupUser();
+    vi.mocked(getOrder).mockResolvedValue(
+      order(OrderStatus.PENDING, { checkoutId: "c1" }),
+    );
+    vi.mocked(listBuyerOrdersResult).mockResolvedValue({ ok: false });
+    vi.mocked(listBuyerOrders).mockResolvedValue([]);
+    vi.mocked(processMockPaymentAction).mockResolvedValue({
+      ok: true,
+      data: { message: "paid" },
+    });
+    expect(await outcome()).toBeNull();
+    await user.click(
+      screen.getByRole("button", { name: "Thanh toán thành công" }),
+    );
+    expect(
+      screen.getByText("Thanh toán thành công", { selector: "h2" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Thanh toán đơn tiếp theo" }),
+    ).toBeNull();
+  });
+
+  it("offers the lowest-seller unpaid order of the same checkout after paying", async () => {
+    const user = setupUser();
+    vi.mocked(getOrder).mockResolvedValue(
+      order(OrderStatus.PENDING, { checkoutId: "c1", sellerId: "s1" }),
+    );
+    setSiblings([
+      order(OrderStatus.PENDING, {
+        id: "order-12345678",
+        checkoutId: "c1",
+        sellerId: "s1",
+      }),
+      order(OrderStatus.PENDING, {
+        id: "o3",
+        checkoutId: "c1",
+        sellerId: "s3",
+      }),
+      order(OrderStatus.PENDING, {
+        id: "o2",
+        checkoutId: "c1",
+        sellerId: "s2",
+      }),
+      order(OrderStatus.PAID, { id: "o4", checkoutId: "c1", sellerId: "s0" }),
+      order(OrderStatus.PENDING, {
+        id: "o5",
+        checkoutId: "c2",
+        sellerId: "s0",
+      }),
+      order(OrderStatus.PENDING, {
+        id: "o6",
+        checkoutId: "c1",
+        sellerId: "s0",
+        paymentMethod: PaymentMethod.COD,
+      }),
+    ]);
+    vi.mocked(processMockPaymentAction).mockResolvedValue({
+      ok: true,
+      data: { message: "paid" },
+    });
+    expect(await outcome()).toBeNull();
+    await user.click(
+      screen.getByRole("button", { name: "Thanh toán thành công" }),
+    );
+    expect(
+      screen.getByRole("link", { name: "Thanh toán đơn tiếp theo" }),
+    ).toHaveAttribute("href", "/checkout/pay/o2");
   });
 });
 

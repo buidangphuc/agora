@@ -449,3 +449,71 @@ describe("page_referrer (scrubbed, pushed with every page_location)", () => {
     expect(JSON.stringify(window.dataLayer)).not.toContain("target_id");
   });
 });
+
+describe("page_location items stripping (Cart selection)", () => {
+  const pageLocations = () =>
+    ((window.dataLayer ?? []) as unknown[])
+      .map((e) => (e as { page_location?: unknown } | null)?.page_location)
+      .filter((v): v is string => typeof v === "string");
+
+  beforeEach(() => {
+    document.head.innerHTML = "";
+    Reflect.deleteProperty(window, "dataLayer");
+    vi.stubEnv("NEXT_PUBLIC_GTM_ID", "GTM-TEST");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("[Cart selection: page_location has no items parameter] page_location has no items on consent update", () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/checkout?items=l1%2Cl3&step=payment",
+    );
+    applyConsent(ALL);
+    expect(pageLocations()).toEqual([
+      `${window.location.origin}/checkout?step=payment`,
+    ]);
+    const dump = JSON.stringify(window.dataLayer);
+    expect(dump).not.toContain("l1");
+    expect(dump).not.toContain("items=");
+  });
+
+  it("[Cart selection: page_location has no items parameter] page_location has no items on client navigation", async () => {
+    const { trackPageLocation } = await import("./gtm");
+    applyConsent(ALL);
+    window.history.pushState(null, "", "/cart?items=l1%2Cl3");
+    trackPageLocation();
+    const all = pageLocations();
+    expect(all[all.length - 1]).toBe(`${window.location.origin}/cart`);
+    expect(JSON.stringify(window.dataLayer)).not.toContain("l1");
+  });
+
+  it("[Cart selection: page_location has no items parameter] page_location has no items alongside returnUrl and other params", async () => {
+    const { pageLocationFor } = await import("./gtm");
+    expect(
+      pageLocationFor(
+        "https://shop.example/checkout?a=1&items=l1&returnUrl=%2Fx&b=2",
+      ),
+    ).toBe("https://shop.example/checkout?a=1&b=2");
+  });
+
+  it("[Cart selection: begin_checkout carries no cart line id] begin_checkout has no line id for items=l1", () => {
+    window.history.replaceState(null, "", "/checkout?items=l1");
+    applyConsent(ALL);
+    expect(pageLocations()).toEqual([`${window.location.origin}/checkout`]);
+    expect(JSON.stringify(window.dataLayer)).not.toContain("l1");
+  });
+
+  it.each(["/checkout?items=", "/checkout?items=%00%ff", "/checkout?items=,,"])(
+    "[Cart selection: begin_checkout carries no cart line id] begin_checkout has no line id and no items= fragment for %s",
+    (url) => {
+      window.history.replaceState(null, "", url);
+      applyConsent(ALL);
+      expect(pageLocations()).toEqual([`${window.location.origin}/checkout`]);
+      expect(JSON.stringify(window.dataLayer)).not.toContain("items=");
+    },
+  );
+});
