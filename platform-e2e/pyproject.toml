@@ -58,6 +58,8 @@ markers = [
     "slow: waits on a real timer (a prune cycle, an expiry) and takes over a minute",
     "lifecycle_timers: waits on the short order-lifecycle timers of compose/order-inventory.override.yaml (payment deadline, auto-complete, return window, ship-by)",
     "lifecycle_ui: order lifecycle buyer and seller UI (change frontend-order-lifecycle)",
+    "checkout_coherence: checkout groups, scoped vouchers, delivery dates, address integrity and per-order payment in the buyer UI (change frontend-checkout-coherence)",
+    "cart_selection: cart line and shop ticking, selected-only checkout and Mua ngay of one line in the buyer UI (change frontend-cart-selection)",
     "killswitch: checkout-enabled emergency kill-switch scenarios",
     "wap: mobile/WAP emulation scenarios",
     "needsSeller: Before-seeds a seller account via the gateway API",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -91,6 +92,10 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		return nil, status.Error(codes.PermissionDenied, "only a user can place an order")
 	}
 
+	if err := validateVouchers(req.GetVoucherCode(), req.GetPlatformVoucherCode(), req.GetShopVouchers(), true); err != nil {
+		return nil, err
+	}
+
 	// Emergency kill-switch (authoritative enforcement point). Evaluate the
 	// `checkout-enabled` flag with default TRUE (fail-open): a Flipt outage must
 	// never block checkout, only a deliberate OFF toggle does. When off, reject
@@ -107,28 +112,30 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 		return nil, err
 	}
 
-	var shippingAddr repository.Address
-	// Look up shipping address from identity service if client provided
-	if h.addrClient != nil {
-		resp, err := h.addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
-		if err == nil && resp != nil {
-			for _, a := range resp.GetAddresses() {
-				if req.GetAddressId() != "" && a.GetId() == req.GetAddressId() {
-					shippingAddr = toRepoAddress(a)
-					break
-				}
-				if req.GetAddressId() == "" && a.GetIsDefault() {
-					shippingAddr = toRepoAddress(a)
-					break
-				}
-			}
-			if shippingAddr.ID == "" && len(resp.GetAddresses()) > 0 {
-				shippingAddr = toRepoAddress(resp.GetAddresses()[0])
-			}
+	if h.addrClient == nil {
+		return nil, status.Error(codes.Unavailable, "address service unavailable; please retry")
+	}
+	resp, err := h.addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
+	if err != nil || resp == nil {
+		return nil, clientErr(h.logger, codes.Unavailable, "address service unavailable; please retry", err)
+	}
+	var picked *identityv1.Address
+	for _, a := range resp.GetAddresses() {
+		if (req.GetAddressId() != "" && a.GetId() == req.GetAddressId()) || (req.GetAddressId() == "" && a.GetIsDefault()) {
+			picked = a
+			break
 		}
 	}
+	if picked == nil || strings.TrimSpace(picked.GetCity()) == "" {
+		return nil, status.Error(codes.FailedPrecondition, "address not found")
+	}
+	if c := req.GetConfirmedAddress(); c != nil && !sameDeliveryAddress(c, picked) {
+		h.logger.Warn("checkout refused: address changed", slog.String("address_id", picked.GetId()))
+		return nil, status.Error(codes.FailedPrecondition, "address changed")
+	}
+	shippingAddr := toRepoAddress(picked)
 
-	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode(), service.WithIdempotencyKey(idemKey))
+	orders, err := h.svc.CreateOrdersFromCart(ctx, principal.GetId(), shippingAddr, req.GetItemIds(), int32(req.GetPaymentMethod()), req.GetVoucherCode(), service.WithIdempotencyKey(idemKey), service.WithVouchers(req.GetShopVouchers(), req.GetPlatformVoucherCode()))
 	if err != nil {
 		if errors.Is(err, service.ErrEmptyCart) {
 			return nil, status.Error(codes.FailedPrecondition, "cart is empty")
@@ -169,6 +176,83 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 	return &orderv1.CreateOrderResponse{Orders: wireOrders}, nil
 }
 
+func validateVouchers(legacy, platform string, shop []*orderv1.ShopVoucher, create bool) error {
+	if create && legacy != "" && platform != "" {
+		return status.Error(codes.InvalidArgument, "voucher_code and platform_voucher_code cannot be combined")
+	}
+	if legacy == "" {
+		legacy = platform
+	}
+	seenSeller := make(map[string]struct{}, len(shop))
+	seenCode := make(map[string]struct{}, len(shop)+1)
+	if legacy != "" {
+		seenCode[legacy] = struct{}{}
+	}
+	for _, sv := range shop {
+		if _, dup := seenSeller[sv.GetSellerId()]; dup {
+			return status.Error(codes.InvalidArgument, "only one shop voucher per seller")
+		}
+		seenSeller[sv.GetSellerId()] = struct{}{}
+		if _, dup := seenCode[sv.GetCode()]; dup {
+			return status.Error(codes.InvalidArgument, "a voucher code can be used only once")
+		}
+		seenCode[sv.GetCode()] = struct{}{}
+	}
+	return nil
+}
+
+// PreviewCheckout quotes a checkout without reserving anything. USER only.
+func (h *OrderHandler) PreviewCheckout(ctx context.Context, req *orderv1.PreviewCheckoutRequest) (*orderv1.PreviewCheckoutResponse, error) {
+	principal, err := interceptor.RequirePrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if principal.GetType() != commonv1.PrincipalType_PRINCIPAL_TYPE_USER {
+		return nil, status.Error(codes.PermissionDenied, "only a user can preview a checkout")
+	}
+	if err := validateVouchers("", req.GetPlatformVoucherCode(), req.GetShopVouchers(), false); err != nil {
+		return nil, err
+	}
+	if h.addrClient != nil && req.GetAddressId() != "" {
+		al, aerr := h.addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
+		if aerr != nil || al == nil {
+			return nil, clientErr(h.logger, codes.Unavailable, "address service unavailable; please retry", aerr)
+		}
+		found := false
+		for _, a := range al.GetAddresses() {
+			if a.GetId() == req.GetAddressId() && strings.TrimSpace(a.GetCity()) != "" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, status.Error(codes.FailedPrecondition, "address not found")
+		}
+	}
+	resp, err := h.svc.PreviewCheckout(ctx, principal.GetId(), req.GetAddressId(), req.GetItemIds(),
+		service.WithVouchers(req.GetShopVouchers(), req.GetPlatformVoucherCode()))
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrEmptyCart):
+			return nil, status.Error(codes.FailedPrecondition, "cart is empty")
+		case errors.Is(err, service.ErrAddressNotFound):
+			return nil, status.Error(codes.FailedPrecondition, "address not found")
+		case errors.Is(err, service.ErrSelfPurchase):
+			return nil, clientErr(h.logger, codes.FailedPrecondition, "cannot buy your own listing", err)
+		case errors.Is(err, service.ErrPriceChanged):
+			return nil, status.Error(codes.FailedPrecondition, "price changed")
+		case errors.Is(err, service.ErrVoucherRejected):
+			return nil, status.Error(codes.FailedPrecondition, err.Error())
+		case errors.Is(err, service.ErrAddressUnavailable):
+			return nil, clientErr(h.logger, codes.Unavailable, "address service unavailable; please retry", err)
+		case errors.Is(err, service.ErrPromotionUnavailable):
+			return nil, clientErr(h.logger, codes.Unavailable, "promotion service unavailable; please retry", err)
+		}
+		return nil, internalErr(h.logger, "preview checkout", err)
+	}
+	return resp, nil
+}
+
 // idempotencyKeyFromContext reads, trims and validates the idempotency-key request
 // metadata: "" when absent, INVALID_ARGUMENT when present but not 1..255 printable
 // ASCII bytes or sent more than once.
@@ -193,11 +277,20 @@ func idempotencyKeyFromContext(ctx context.Context) (string, error) {
 }
 
 func (h *OrderHandler) CalculateShippingFee(_ context.Context, req *orderv1.CalculateShippingFeeRequest) (*orderv1.CalculateShippingFeeResponse, error) {
-	fee, isFree, msg := h.svc.CalculateShippingFee(req.GetCity(), req.GetItemsSubtotal())
+	fee, isFree, msg, days, at := h.svc.CalculateShippingFee(req.GetCity(), req.GetItemsSubtotal())
+	var etaAt *timestamppb.Timestamp
+	if strings.TrimSpace(req.GetCity()) == "" {
+		days = 0
+	} else {
+		etaAt = timestamppb.New(at)
+	}
 	return &orderv1.CalculateShippingFeeResponse{
 		ShippingFee:    fee,
 		IsFreeShipping: isFree,
 		Message:        msg,
+
+		EstimatedDeliveryDays: days,
+		EstimatedDeliveryAt:   etaAt,
 	}, nil
 }
 
@@ -711,6 +804,15 @@ func (h *OrderHandler) GetShipmentTracking(ctx context.Context, req *orderv1.Get
 	}, nil
 }
 
+func sameDeliveryAddress(a, b *identityv1.Address) bool {
+	return a.GetRecipientName() == b.GetRecipientName() &&
+		a.GetPhone() == b.GetPhone() &&
+		a.GetStreet() == b.GetStreet() &&
+		a.GetWard() == b.GetWard() &&
+		a.GetDistrict() == b.GetDistrict() &&
+		a.GetCity() == b.GetCity()
+}
+
 func toRepoAddress(a *identityv1.Address) repository.Address {
 	if a == nil {
 		return repository.Address{}
@@ -789,12 +891,15 @@ func toWireOrder(o repository.Order) *orderv1.Order {
 			City:          o.ShippingAddress.City,
 			IsDefault:     o.ShippingAddress.IsDefault,
 		},
-		Items:          items,
-		TrackingNumber: o.TrackingNumber,
-		CreatedAt:      timestamppb.New(o.CreatedAt),
-		UpdatedAt:      timestamppb.New(o.UpdatedAt),
-		VoucherCode:    o.VoucherCode,
-		DiscountAmount: o.DiscountAmount,
+		Items:                  items,
+		TrackingNumber:         o.TrackingNumber,
+		CreatedAt:              timestamppb.New(o.CreatedAt),
+		UpdatedAt:              timestamppb.New(o.UpdatedAt),
+		VoucherCode:            o.VoucherCode,
+		DiscountAmount:         o.DiscountAmount,
+		CheckoutId:             o.CheckoutID,
+		PlatformVoucherCode:    o.PlatformVoucherCode,
+		PlatformDiscountAmount: o.PlatformDiscountAmount,
 	}
 }
 

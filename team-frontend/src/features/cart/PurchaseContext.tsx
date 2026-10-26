@@ -122,6 +122,10 @@ export function PurchaseProvider({
           );
           return;
         }
+        if (res.ok && buyNow && !res.data?.itemId) {
+          error("Không tìm thấy sản phẩm trong giỏ");
+          return;
+        }
         if (res.ok) {
           trackEcommerce("add_to_cart", {
             currency: "VND",
@@ -136,7 +140,10 @@ export function PurchaseProvider({
               },
             ],
           });
-          if (buyNow) router.push("/checkout");
+          if (buyNow)
+            router.push(
+              `/checkout?items=${encodeURIComponent(res.data?.itemId ?? "")}`,
+            );
           else success(`Đã thêm ${quantity} sản phẩm vào giỏ hàng`);
         } else {
           error(failureMessage(res));

@@ -6,7 +6,6 @@ import { PriceTag } from "@/components/ui/PriceTag";
 import { Tag } from "@/components/ui/Tag";
 import { formatPrice } from "@/components/ui/format";
 import { MobileSummaryBar } from "./MobileSummaryBar";
-import { orderTotal } from "./orderTotal";
 import type { ShippingFee } from "./shippingCopy";
 
 export interface OrderSummaryProps {
@@ -14,6 +13,8 @@ export interface OrderSummaryProps {
   subtotal: number;
   /** Server-previewed voucher discount (0 when none). */
   discount: number;
+  /** Server total, shown unchanged. */
+  total?: number;
   voucherCode?: string;
   /** null while no address is chosen yet (cart): the fee is shown as pending. */
   shipping: ShippingFee | null;
@@ -23,16 +24,20 @@ export interface OrderSummaryProps {
   mobileAction?: ReactNode;
   /** Optional notice above the action (kill-switch, saga failure slot). */
   notice?: ReactNode;
+  /** Omit the discount row (cart partial selection). */
+  hideDiscount?: boolean;
 }
 
 function SummaryRows({
   itemCount,
   subtotal,
   discount,
+  total: serverTotal,
   voucherCode,
   shipping,
+  hideDiscount,
 }: Omit<OrderSummaryProps, "action" | "mobileAction" | "notice">) {
-  const total = orderTotal(subtotal, discount, shipping?.fee ?? 0);
+  const total = serverTotal ?? subtotal - discount;
   return (
     <Descriptions
       bordered={false}
@@ -43,21 +48,27 @@ function SummaryRows({
           label: `Tạm tính (${itemCount} sản phẩm)`,
           children: formatPrice(subtotal),
         },
-        {
-          key: "discount",
-          // Label is constant: a Tag in the 1/3-width <dt> wraps to a second
-          // line (+16px). The code chip sits in the value, in a fixed-height
-          // line box, so applying/removing a voucher never shifts layout.
-          label: "Giảm giá",
-          children: (
-            <span className="inline-flex h-4 items-center gap-1.5 whitespace-nowrap">
-              {voucherCode ? <Tag color="success">{voucherCode}</Tag> : null}
-              <span data-testid="voucher-discount">
-                {discount > 0 ? `-${formatPrice(discount)}` : "-"}
-              </span>
-            </span>
-          ),
-        },
+        ...(hideDiscount
+          ? []
+          : [
+              {
+                key: "discount",
+                // Label is constant: a Tag in the 1/3-width <dt> wraps to a second
+                // line (+16px). The code chip sits in the value, in a fixed-height
+                // line box, so applying/removing a voucher never shifts layout.
+                label: "Giảm giá",
+                children: (
+                  <span className="inline-flex h-4 items-center gap-1.5 whitespace-nowrap">
+                    {voucherCode ? (
+                      <Tag color="success">{voucherCode}</Tag>
+                    ) : null}
+                    <span data-testid="voucher-discount">
+                      {discount > 0 ? `-${formatPrice(discount)}` : "-"}
+                    </span>
+                  </span>
+                ),
+              },
+            ]),
         {
           key: "shipping",
           label: "Phí vận chuyển",
@@ -97,11 +108,7 @@ export function OrderSummary({
   notice,
   ...rows
 }: OrderSummaryProps) {
-  const total = orderTotal(
-    rows.subtotal,
-    rows.discount,
-    rows.shipping?.fee ?? 0,
-  );
+  const total = rows.total ?? rows.subtotal - rows.discount;
   return (
     <>
       <Card

@@ -1,4 +1,5 @@
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
+import { Code, ConnectError } from "@connectrpc/connect";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -19,13 +20,15 @@ import {
   checkoutHref,
   resolveCheckout,
 } from "@/features/order/checkoutParams";
-import { orderTotal } from "@/features/order/orderTotal";
 import type { ShippingFee } from "@/features/order/shippingCopy";
 import { isCheckoutEnabled } from "@/lib/flags";
 import { listAddresses } from "@/lib/gateway/addresses";
 import { getCart } from "@/lib/gateway/cart";
-import { calculateShippingFee } from "@/lib/gateway/orders";
-import { listVouchers, previewVoucher } from "@/lib/gateway/promotion";
+import {
+  type ViewCheckoutPreview,
+  previewCheckout,
+} from "@/lib/gateway/orders";
+import { type ViewVoucher, listVouchers } from "@/lib/gateway/promotion";
 import { getPrincipal } from "@/lib/gateway/session";
 
 export const dynamic = "force-dynamic";
@@ -59,38 +62,74 @@ export default async function CheckoutPage(props: {
   const [cart, addresses] = await Promise.all([getCart(), listAddresses()]);
   if (cart.items.length === 0) redirect("/cart");
 
-  const state = resolveCheckout(searchParams, addresses);
-  if (state.needsRedirect) redirect(checkoutHref(state));
+  const resolved = resolveCheckout(searchParams, addresses);
+  if (resolved.needsRedirect) redirect(checkoutHref(resolved));
 
-  const address = addresses.find((a) => a.id === state.addr);
-  // One voucher per order, validated against the first shop's items (unchanged
-  // contract). The discount is the server's preview, never computed here.
-  const sellerId = cart.items[0]?.sellerId ?? "";
-  const code = state.voucher?.trim();
-  const [preview, vouchers] = await Promise.all([
-    code ? previewVoucher(code, cart.subtotal, sellerId) : null,
-    state.step === "payment" ? listVouchers(sellerId) : Promise.resolve([]),
-  ]);
-  const applied = preview?.valid ? code : undefined;
-  const discount = preview?.valid ? preview.discountAmount : 0;
-  const view = { ...state, voucher: applied };
+  const address = addresses.find((a) => a.id === resolved.addr);
+  const items =
+    resolved.items.length > 0
+      ? cart.items.filter((it) => resolved.items.includes(it.id))
+      : cart.items;
+  if (items.length === 0) redirect("/cart");
+  const state = {
+    ...resolved,
+    items: resolved.items.length > 0 ? items.map((it) => it.id) : [],
+  };
 
-  // The fee is team-order's quote on the server cart subtotal; a failed call
-  // raises (error.tsx) rather than showing an invented fee.
-  let shipping: ShippingFee | null = null;
-  if (address) {
-    const quote = await calculateShippingFee(address.city, cart.subtotal);
-    if (!quote) throw new Error("shipping fee unavailable");
-    shipping = { fee: quote.shippingFee, isFree: quote.isFreeShipping };
+  let quote: ViewCheckoutPreview;
+  try {
+    quote = await previewCheckout({
+      addressId: state.addr,
+      itemIds: state.items,
+      shopVouchers: Object.entries(state.sv).map(([sellerId, code]) => ({
+        sellerId,
+        code,
+      })),
+      platformVoucherCode: state.pv,
+    });
+  } catch (e) {
+    if (
+      e instanceof ConnectError &&
+      e.code === Code.FailedPrecondition &&
+      e.rawMessage === "cart is empty"
+    ) {
+      redirect("/cart");
+    }
+    throw e;
   }
-  const total = orderTotal(cart.subtotal, discount, shipping?.fee ?? 0);
-  const trackItems = cart.items.map((it, idx) => ({
+
+  const available: Record<string, ViewVoucher[]> = {};
+  if (state.step === "payment") {
+    await Promise.all(
+      [
+        ...new Set([
+          ...items.map((it) => it.sellerId),
+          ...quote.groups.map((g) => g.sellerId),
+        ]),
+      ].map(async (id) => {
+        available[id] = await listVouchers(id);
+      }),
+    );
+  }
+  const view = state;
+  const discount = quote.discountAmount;
+  const shipping: ShippingFee | null = quote.shippingQuoted
+    ? {
+        fee: quote.shippingFee,
+        isFree:
+          quote.groups.length > 0 &&
+          quote.groups.every((g) => g.isFreeShipping),
+      }
+    : null;
+  const total = quote.totalAmount;
+  const trackItems = items.map((it, idx) => ({
     itemId: it.listingId,
     itemName: it.title,
     price: it.unitPrice,
     quantity: it.quantity,
     index: idx + 1,
   }));
+  const subtotal = quote.itemsSubtotal;
 
   const nextHref =
     state.step === "address"
@@ -116,45 +155,59 @@ export default async function CheckoutPage(props: {
   const steps = {
     address: <AddressStep addresses={addresses} state={view} />,
     shipping: shipping ? (
-      <ShippingStep shipping={shipping} state={view} />
+      <ShippingStep
+        shipping={shipping}
+        state={view}
+        groups={quote.groups}
+        items={items}
+      />
     ) : null,
     payment: (
       <PaymentStep
         state={view}
-        vouchers={vouchers}
-        subtotal={cart.subtotal}
-        sellerId={sellerId}
-        appliedDiscount={discount}
+        groups={quote.groups}
+        quotes={quote.vouchers}
+        available={available}
       />
     ),
     confirm:
-      address && shipping ? (
+      (quote.shippingAddress ?? address) && shipping ? (
         <ConfirmStep
           state={view}
-          address={address}
-          items={cart.items}
+          address={
+            (quote.shippingAddress ?? address) as NonNullable<typeof address>
+          }
+          items={items}
+          groups={quote.groups}
+          shippingQuoted={quote.shippingQuoted}
           shipping={shipping}
           total={total}
           trackItems={trackItems}
+          vouchers={quote.vouchers}
         />
       ) : null,
   } as const;
 
   return (
     <section className="py-2 pb-24 lg:pb-2">
-      <BeginCheckoutBeacon value={cart.subtotal} items={trackItems} />
+      <BeginCheckoutBeacon value={subtotal} items={trackItems} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">{steps[state.step]}</div>
         <div>
           <OrderSummary
-            itemCount={cart.items.length}
-            subtotal={cart.subtotal}
+            itemCount={items.length}
+            subtotal={subtotal}
             discount={discount}
-            voucherCode={applied}
+            total={total}
+            voucherCode={state.pv}
             shipping={shipping}
             action={
               <Link
-                href="/cart"
+                href={
+                  state.items.length > 0
+                    ? `/cart?${new URLSearchParams({ items: state.items.join(",") })}`
+                    : "/cart"
+                }
                 className="block text-center text-xs text-text-secondary hover:text-action-primary"
               >
                 Quay lại giỏ hàng

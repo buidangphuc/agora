@@ -1,0 +1,28 @@
+# plans/q11-checkout-coherence/slices.yaml — one slice = one OpenSpec change.
+# Builds after q10-order-lifecycle merges (base = main with q10); Order fields start at 25.
+initiative: q11-checkout-coherence
+slices:
+  - id: q11-checkout-contract
+    owner: platform-core
+    depends_on: []
+    provides: [OrderService.PreviewCheckout]
+  - id: promotion-voucher-scope
+    owner: team-promotion
+    depends_on: [q11-checkout-contract]
+    uses: [VoucherService.ValidateAndReserve]
+  - id: order-address-eta
+    owner: team-order
+    depends_on: [q11-checkout-contract]
+    uses: [AddressService.ListAddresses, OrderService.CalculateShippingFee, OrderService.CreateOrder]
+  - id: order-multishop-checkout
+    owner: team-order
+    depends_on: [promotion-voucher-scope, order-address-eta]
+    uses: [OrderService.PreviewCheckout, OrderService.CreateOrder, CartService.GetCart, VoucherService.ValidateAndReserve, VoucherService.CommitReservation, VoucherService.ReleaseReservation]
+  - id: frontend-checkout-coherence
+    owner: team-frontend
+    depends_on: [order-multishop-checkout]
+    uses: [OrderService.PreviewCheckout, OrderService.CreateOrder, OrderService.CalculateShippingFee, OrderService.GetOrder, OrderService.ListBuyerOrders, PaymentService.CreatePayment, PaymentService.GetPayment, PaymentService.ProcessMockPayment]
+  - id: frontend-cart-selection
+    owner: team-frontend
+    depends_on: [frontend-checkout-coherence]
+    uses: [CartService.GetCart, CartService.AddToCart, OrderService.CreateOrder, OrderService.PreviewCheckout]

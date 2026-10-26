@@ -7,8 +7,13 @@ import { useRef, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastProvider";
+import { CheckoutVoucherScope } from "@/generated/platform/order/v1/order_pb.js";
 import type { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { type EcommerceItem, trackEcommerce } from "@/lib/analytics";
+import type {
+  ConfirmedAddressInput,
+  ViewVoucherQuote,
+} from "@/lib/gateway/orders";
 import { useCheckoutPending } from "./CheckoutPending";
 import { checkoutAction } from "./actions";
 
@@ -35,8 +40,10 @@ export function MobilePlaceOrderButton() {
 export interface PlaceOrderFormProps {
   addressId: string;
   method: PaymentMethod;
-  /** Only a server-validated code; omitted when none is applied. */
-  voucherCode?: string;
+  /** Server quotes; only the valid ones are placed. */
+  vouchers: ViewVoucherQuote[];
+  itemIds: string[];
+  confirmedAddress: ConfirmedAddressInput;
   /** Payable total, for the `purchase` event. */
   total: number;
   shippingTier: "FREE" | "STANDARD";
@@ -58,7 +65,9 @@ export interface PlaceOrderFormProps {
 export function PlaceOrderForm({
   addressId,
   method,
-  voucherCode,
+  vouchers,
+  itemIds,
+  confirmedAddress,
   total,
   shippingTier,
   items,
@@ -75,6 +84,14 @@ export function PlaceOrderForm({
   const attempt = useRef<{ key: string; sig: string } | null>(null);
   const [phase, setPhase] = useState<"idle" | "pending" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [addressMissing, setAddressMissing] = useState(false);
+
+  const valid = vouchers.filter((v) => v.valid);
+  const shopVouchers = valid
+    .filter((v) => v.scope === CheckoutVoucherScope.SHOP)
+    .map((v) => ({ sellerId: v.sellerId, code: v.code }));
+  const platformVoucherCode =
+    valid.find((v) => v.scope === CheckoutVoucherScope.PLATFORM)?.code ?? "";
 
   function release() {
     inFlight.current = false;
@@ -86,7 +103,10 @@ export function PlaceOrderForm({
     const sig = JSON.stringify([
       addressId,
       method,
-      voucherCode ?? "",
+      shopVouchers,
+      platformVoucherCode,
+      confirmedAddress,
+      itemIds,
       items.map((i) => [i.itemId, i.quantity, i.price]),
     ]);
     if (!attempt.current || attempt.current.sig !== sig) {
@@ -101,17 +121,21 @@ export function PlaceOrderForm({
     setPhase("pending");
     setPending(true);
     setError(null);
+    setAddressMissing(false);
     try {
-      const res = await checkoutAction(
+      const res = await checkoutAction({
         addressId,
-        undefined,
-        method,
-        voucherCode,
-        attemptKey(),
-      );
+        itemIds,
+        paymentMethod: method,
+        shopVouchers,
+        platformVoucherCode,
+        confirmedAddress,
+        idempotencyKey: attemptKey(),
+      });
       if (!res.ok) {
         release();
-        if (res.priceChanged) router.refresh();
+        if (res.priceChanged || res.addressChanged) router.refresh();
+        setAddressMissing(res.addressNotFound === true);
         setError(res.error || "Đặt hàng thất bại.");
         toast.error(res.error || "Đặt hàng thất bại.");
         return;
@@ -120,7 +144,7 @@ export function PlaceOrderForm({
         transactionId: res.data?.orderIds[0] || `order-${Date.now()}`,
         currency: "VND",
         value: total,
-        coupon: voucherCode,
+        coupon: platformVoucherCode || undefined,
         shippingTier,
         paymentType: String(method),
         items,
@@ -167,6 +191,14 @@ export function PlaceOrderForm({
                 >
                   Thử lại
                 </Button>
+                {addressMissing && (
+                  <Link
+                    href="/checkout?step=address"
+                    className="inline-flex items-center justify-center rounded-lg border border-border-strong bg-surface-card px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm hover:bg-surface-muted"
+                  >
+                    Chọn địa chỉ giao hàng
+                  </Link>
+                )}
                 <Link
                   href="/cart"
                   className="inline-flex items-center justify-center rounded-lg border border-border-strong bg-surface-card px-3 py-1.5 text-xs font-medium text-text-primary shadow-sm hover:bg-surface-muted"

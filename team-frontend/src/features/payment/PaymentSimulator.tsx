@@ -25,10 +25,12 @@ export function PaymentSimulator({
   orderId,
   transactionId,
   initialPhase,
+  nextOrderId,
 }: {
   orderId: string;
   transactionId: string;
   initialPhase: SimulatorPhase;
+  nextOrderId?: string;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -72,6 +74,14 @@ export function PaymentSimulator({
             <Link href="/account/orders" className={linkButtonPrimary}>
               Xem đơn hàng
             </Link>
+            {nextOrderId ? (
+              <Link
+                href={`/checkout/pay/${encodeURIComponent(nextOrderId)}`}
+                className={linkButtonPrimary}
+              >
+                Thanh toán đơn tiếp theo
+              </Link>
+            ) : null}
             <Link href="/" className={linkButtonOutline}>
               Tiếp tục mua sắm
             </Link>
