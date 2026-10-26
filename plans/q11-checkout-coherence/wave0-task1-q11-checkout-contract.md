@@ -1,7 +1,7 @@
 # [W0-T1] q11-checkout-contract
 
 ## Role
-feature-run worker (change `openspec/changes/q11-checkout-contract`)
+feature-run worker (change `openspec/changes/archive/2026-10-26-q11-checkout-contract`)
 
 ## Objective
 Implement OpenSpec change `q11-checkout-contract` test-first per its tasks.md (scenario ids there); context in plans/q11-checkout-coherence/00-spec.md and the change's design.md Clarifications.
@@ -28,11 +28,11 @@ Implement OpenSpec change `q11-checkout-contract` test-first per its tasks.md (s
 - team-order/proto/platform/promotion/v1/promotion.proto
 - team-promotion/proto/platform/promotion/v1/promotion.proto
 - platform-core/FEATURES.yaml
-- openspec/changes/q11-checkout-contract/**
+- openspec/changes/archive/2026-10-26-q11-checkout-contract/**
 - platform-core/packages/proto/checkout_consumer_copies_test.sh (# widened at build: task 2-3)
 
 ## Read-only dependencies
-- openspec/changes/q11-checkout-contract/** is frozen by the LOCK.md digest (only task ticks and the 1.1 field-number note change)
+- openspec/changes/archive/2026-10-26-q11-checkout-contract/** is frozen by the LOCK.md digest (only task ticks and the 1.1 field-number note change)
 - platform-core/packages/proto/platform/promotion/v1/flashstock_compat_test.go (pattern to mirror)
 - plans/q11-checkout-coherence/00-spec.md, slices.yaml, LOCK.md
 

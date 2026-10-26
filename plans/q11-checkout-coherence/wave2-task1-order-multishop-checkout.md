@@ -1,7 +1,7 @@
 # [W2-T1] order-multishop-checkout
 
 ## Role
-feature-run worker (change `openspec/changes/order-multishop-checkout`)
+feature-run worker (change `openspec/changes/archive/2026-10-26-order-multishop-checkout`)
 
 ## Objective
 Implement OpenSpec change `order-multishop-checkout` test-first per its tasks.md (scenario ids there); context in plans/q11-checkout-coherence/00-spec.md and the change's design.md Clarifications.
@@ -35,10 +35,10 @@ Implement OpenSpec change `order-multishop-checkout` test-first per its tasks.md
 - platform-e2e/tests/e2e/support/**
 - platform-e2e/tests/e2e/features/order/multishop_checkout.feature
 - platform-e2e/tests/e2e/step_definitions/test_order_multishop_checkout.py
-- openspec/changes/order-multishop-checkout/**
+- openspec/changes/archive/2026-10-26-order-multishop-checkout/**
 
 ## Read-only dependencies
-- openspec/changes/order-multishop-checkout/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-26-order-multishop-checkout/** is frozen by the LOCK.md digest (only task ticks change)
 - team-order/internal/service/lifecycle.go (q10 expiry sweeper; it cancels through CancelOrderWithReason in order.go)
 - platform-e2e two-seller checkout steps (oic-checkout-a-two-seller-checkout-places-one-order-per-seller), support/voucher_seed.py (ensure_known_voucher for SAVE10), voucher_scope_support.py and address_support.py from wave 1
 - plans/q11-checkout-coherence/00-spec.md, slices.yaml, LOCK.md

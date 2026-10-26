@@ -1,7 +1,7 @@
 # [W1-T2] order-address-eta
 
 ## Role
-feature-run worker (change `openspec/changes/order-address-eta`)
+feature-run worker (change `openspec/changes/archive/2026-10-26-order-address-eta`)
 
 ## Objective
 Implement OpenSpec change `order-address-eta` test-first per its tasks.md (scenario ids there); context in plans/q11-checkout-coherence/00-spec.md and the change's design.md Clarifications.
@@ -23,12 +23,12 @@ Implement OpenSpec change `order-address-eta` test-first per its tasks.md (scena
 - platform-e2e/tests/e2e/step_definitions/test_order_address_eta.py
 - platform-e2e/tests/e2e/step_definitions/order_address_eta_steps.py (# widened at build: task 1)
 - plans/q11-checkout-coherence/wave1-task2-order-address-eta.md (# widened at build: task 1; packet widening record)
-- openspec/changes/order-address-eta/**
+- openspec/changes/archive/2026-10-26-order-address-eta/**
 - team-order/internal/handler/flashprice_test.go (# widened at build: task 4)
 - team-order/internal/handler/idempotency_test.go (# widened at build: task 4)
 
 ## Read-only dependencies
-- openspec/changes/order-address-eta/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-26-order-address-eta/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/step_definitions/address_steps.py, oic_inv_checkout_steps.py, cart_checkout_steps.py (reuse; check for an existing address helper before adding address_support.py)
 - plans/q11-checkout-coherence/00-spec.md, slices.yaml, LOCK.md
 

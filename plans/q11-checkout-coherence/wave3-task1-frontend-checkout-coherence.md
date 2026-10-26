@@ -1,7 +1,7 @@
 # [W3-T1] frontend-checkout-coherence
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-checkout-coherence`)
+feature-run worker (change `openspec/changes/archive/2026-10-26-frontend-checkout-coherence`)
 
 ## Objective
 Implement OpenSpec change `frontend-checkout-coherence` test-first per its tasks.md (scenario ids "Checkout coherence: ..."); context in plans/q11-checkout-coherence/00-spec.md and the change's design.md Clarifications.
@@ -44,13 +44,13 @@ Implement OpenSpec change `frontend-checkout-coherence` test-first per its tasks
 - platform-e2e/tests/e2e/step_definitions/checkout_coherence_ui_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_checkout_coherence_ui.py
 - platform-e2e/tests/e2e/support/checkout_coherence_ui_support.py
-- openspec/changes/frontend-checkout-coherence/**
+- openspec/changes/archive/2026-10-26-frontend-checkout-coherence/**
 - team-frontend/src/features/order/CheckoutStepper.tsx (# widened at build: task 1.8)
 - team-frontend/src/features/order/orderFixtures.ts (# widened at build: task 1.8)
 - team-frontend/src/features/order/checkoutFigureGuards.test.ts (# widened at build: task 1.8)
 
 ## Read-only dependencies
-- openspec/changes/frontend-checkout-coherence/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-26-frontend-checkout-coherence/** is frozen by the LOCK.md digest (only task ticks change)
 - team-frontend/proto/** (copied by q11-checkout-contract; never hand-edited), team-frontend/src/app/(checkout)/checkout/pay/[id]/layout.tsx (guest guard, covered by the pay page test)
 - platform-e2e two-seller checkout steps, `d2 buyer has a cart` steps, support/voucher_seed.py (ensure_known_voucher for SAVE10), voucher/address helpers from waves 1-2
 - plans/q11-checkout-coherence/00-spec.md, slices.yaml, LOCK.md

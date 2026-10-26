@@ -1,7 +1,7 @@
 # [W4-T1] frontend-cart-selection
 
 ## Role
-feature-run worker (change `openspec/changes/frontend-cart-selection`)
+feature-run worker (change `openspec/changes/archive/2026-10-26-frontend-cart-selection`)
 
 ## Objective
 Implement OpenSpec change `frontend-cart-selection` test-first per its tasks.md (scenario ids "Cart selection: ..."); context in plans/q11-checkout-coherence/00-spec.md and the change's design.md Clarifications.
@@ -32,12 +32,12 @@ Implement OpenSpec change `frontend-cart-selection` test-first per its tasks.md 
 - platform-e2e/tests/e2e/step_definitions/cart_selection_ui_steps.py
 - platform-e2e/tests/e2e/step_definitions/test_cart_selection_ui.py
 - platform-e2e/tests/e2e/support/cart_selection_ui_support.py
-- openspec/changes/frontend-cart-selection/**
+- openspec/changes/archive/2026-10-26-frontend-cart-selection/**
 - team-frontend/src/features/order/OrderSummary.tsx (widened at build: task 1.2)
 - team-frontend/src/features/order/OrderSummary.test.tsx (widened at build: task 1.2)
 
 ## Read-only dependencies
-- openspec/changes/frontend-cart-selection/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-26-frontend-cart-selection/** is frozen by the LOCK.md digest (only task ticks change)
 - team-frontend/src/features/order/checkoutParams.ts (`items` from frontend-checkout-coherence), team-frontend/src/features/cart/BuyBar.tsx, PurchasePanel.tsx
 - platform-e2e `d2 buyer has a cart` steps, ui_cart_page.feature (regression "Cart page is not a client component" must stay green), cart_checkout_steps.py
 - plans/q11-checkout-coherence/00-spec.md, slices.yaml, LOCK.md

@@ -1,7 +1,7 @@
 # [W5-T1] order-dispute-refund
 
 ## Role
-feature-run worker (change `openspec/changes/order-dispute-refund`)
+feature-run worker (change `openspec/changes/archive/2026-10-26-order-dispute-refund`)
 
 ## Objective
 Implement OpenSpec change `order-dispute-refund` test-first per its tasks.md (scenario ids there); context in plans/q6-trust-enforcement/00-spec.md and the change's design.md Clarifications.
@@ -32,10 +32,10 @@ Implement OpenSpec change `order-dispute-refund` test-first per its tasks.md (sc
 - docker-compose.services.yaml
 - platform-e2e/tests/e2e/features/order/dispute_refund.feature
 - platform-e2e/tests/e2e/step_definitions/test_order_dispute_refund.py
-- openspec/changes/order-dispute-refund/**
+- openspec/changes/archive/2026-10-26-order-dispute-refund/**
 
 ## Read-only dependencies
-- openspec/changes/order-dispute-refund/** is frozen by the LOCK.md digest (only task ticks change)
+- openspec/changes/archive/2026-10-26-order-dispute-refund/** is frozen by the LOCK.md digest (only task ticks change)
 - platform-e2e/tests/e2e/support/oic_order_support.py, prm_rma_support.py, audit_support.py, dde_support.py (reuse)
 - q10 timer overlay
 - plans/q6-trust-enforcement/00-spec.md, slices.yaml, LOCK.md
