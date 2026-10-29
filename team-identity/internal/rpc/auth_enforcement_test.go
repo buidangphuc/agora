@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
-	"github.com/buidangphuc/team-identity/internal/handler"
+	"github.com/buidangphuc/team-identity/internal/rpc"
 )
 
 // Login enforcement: Refusal does not leak the reason or note
@@ -27,7 +27,7 @@ func TestLoginRefusalLeaksNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ah := handler.NewAuthHandler(e.svc)
+	ah := rpc.NewAuthHandler(e.svc)
 	var msgs []string
 	for _, name := range []string{"banned_user", "susp_user"} {
 		_, err := ah.Login(context.Background(), &identityv1.LoginRequest{Username: name, Password: "password123"})

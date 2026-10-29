@@ -1,87 +1,74 @@
-package grpcserver_test
+package rpc_test
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
-	"github.com/golang-jwt/jwt/v5"
 	"io"
 	"log/slog"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
-	"github.com/buidangphuc/team-identity/internal/config"
-	"github.com/buidangphuc/team-identity/internal/grpcserver"
-	"github.com/buidangphuc/team-identity/internal/handler"
-	"github.com/buidangphuc/team-identity/internal/repository"
-	"github.com/buidangphuc/team-identity/internal/service"
-	"github.com/buidangphuc/team-identity/internal/token"
+	"github.com/buidangphuc/team-identity/internal/rpc"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
-func testSigner(t *testing.T) *token.Signer {
+func startWire(t *testing.T, h rpc.Handlers, logger *slog.Logger) *grpc.ClientConn {
 	t.Helper()
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	health, err := healthx.New(healthx.DefaultInterval, logger)
 	if err != nil {
-		t.Fatalf("generate key: %v", err)
+		t.Fatalf("health: %v", err)
 	}
-	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
-	s, err := token.NewSigner(string(pemBytes), "test-kid")
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: sdkconfig.GRPC{}, Logger: logger, Health: health})
+	rpc.Register(srv, h)
+	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		t.Fatalf("NewSigner: %v", err)
+		t.Fatalf("listen: %v", err)
 	}
-	return s
+	go func() { _ = srv.Serve(lis) }()
+	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = conn.Close()
+		srv.Stop()
+	})
+	return conn
 }
 
-func startServer(t *testing.T, userRepo repository.UserRepository, addrRepo repository.AddressRepository) (identityv1.AuthServiceClient, identityv1.AddressServiceClient) {
-	authClient, addrClient, _ := startServerWithSessions(t, userRepo, addrRepo, repository.NewInMemorySessionRepository())
+func discardLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+
+func startServer(t *testing.T, userRepo store.UserRepository, addrRepo store.AddressRepository) (identityv1.AuthServiceClient, identityv1.AddressServiceClient) {
+	authClient, addrClient, _ := startServerWithSessions(t, userRepo, addrRepo, storetest.NewInMemorySessionRepository())
 	return authClient, addrClient
 }
 
 func startServerWithSessions(
 	t *testing.T,
-	userRepo repository.UserRepository,
-	addrRepo repository.AddressRepository,
-	sessionRepo repository.SessionRepository,
+	userRepo store.UserRepository,
+	addrRepo store.AddressRepository,
+	sessionRepo store.SessionRepository,
 ) (identityv1.AuthServiceClient, identityv1.AddressServiceClient, identityv1.SessionServiceClient) {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	cfg := &config.Settings{
-		Server: config.Server{Host: "localhost", Port: 0},
-		JWT:    config.JWT{KID: "test-kid", JWKSHTTPPort: 50063, TTLSeconds: 3600},
-	}
-	authSvc := service.NewAuthService(userRepo, testSigner(t), time.Hour).WithSessions(sessionRepo)
-	authHandler := handler.NewAuthHandler(authSvc).WithExposeResetToken(true)
-	addrHandler := handler.NewAddressHandler(addrRepo, logger)
-	sessionHandler := handler.NewSessionHandler(sessionRepo, logger)
-
-	srv := grpcserver.Build(cfg, authHandler, addrHandler, sessionHandler, nil, nil, nil, logger)
-
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	t.Cleanup(srv.GracefulStop)
-
-	go func() {
-		_ = srv.Serve(lis)
-	}()
-
-	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("dial: %v", err)
-	}
-	t.Cleanup(func() { _ = conn.Close() })
-
+	logger := discardLogger()
+	authSvc := newSvc(t, userRepo, sessionRepo)
+	conn := startWire(t, rpc.Handlers{
+		Auth:    rpc.NewAuthHandler(authSvc).WithExposeResetToken(true),
+		Address: rpc.NewAddressHandler(addrRepo, logger),
+		Session: rpc.NewSessionHandler(sessionRepo, logger),
+	}, logger)
 	return identityv1.NewAuthServiceClient(conn),
 		identityv1.NewAddressServiceClient(conn),
 		identityv1.NewSessionServiceClient(conn)
@@ -99,8 +86,8 @@ func principalCtx(t *testing.T, userID string) (context.Context, context.CancelF
 }
 
 func TestAddressService_CRUD_And_Default(t *testing.T) {
-	userRepo := repository.NewInMemoryUserRepository()
-	addrRepo := repository.NewInMemoryAddressRepository()
+	userRepo := storetest.NewInMemoryUserRepository()
+	addrRepo := storetest.NewInMemoryAddressRepository()
 	_, addrClient := startServer(t, userRepo, addrRepo)
 
 	ctx, cancel := principalCtx(t, "user-buyer-1")
@@ -177,8 +164,8 @@ func TestAddressService_CRUD_And_Default(t *testing.T) {
 }
 
 func TestPasswordManagement_E2E(t *testing.T) {
-	userRepo := repository.NewInMemoryUserRepository()
-	addrRepo := repository.NewInMemoryAddressRepository()
+	userRepo := storetest.NewInMemoryUserRepository()
+	addrRepo := storetest.NewInMemoryAddressRepository()
 	authClient, _ := startServer(t, userRepo, addrRepo)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -258,21 +245,21 @@ func TestPasswordManagement_E2E(t *testing.T) {
 }
 
 func TestSessionService_GRPC_SelfScoped(t *testing.T) {
-	userRepo := repository.NewInMemoryUserRepository()
-	addrRepo := repository.NewInMemoryAddressRepository()
-	sessionRepo := repository.NewInMemorySessionRepository()
+	userRepo := storetest.NewInMemoryUserRepository()
+	addrRepo := storetest.NewInMemoryAddressRepository()
+	sessionRepo := storetest.NewInMemorySessionRepository()
 
 	// Seed sessions + login history for two distinct users.
 	ctxBg := context.Background()
-	sA, err := sessionRepo.CreateSession(ctxBg, repository.Session{UserID: "user-A", Device: "iPhone", IP: "10.0.0.1"})
+	sA, err := sessionRepo.CreateSession(ctxBg, store.Session{UserID: "user-A", Device: "iPhone", IP: "10.0.0.1"})
 	if err != nil {
 		t.Fatalf("seed session A: %v", err)
 	}
-	sB, err := sessionRepo.CreateSession(ctxBg, repository.Session{UserID: "user-B", Device: "Pixel", IP: "10.0.0.2"})
+	sB, err := sessionRepo.CreateSession(ctxBg, store.Session{UserID: "user-B", Device: "Pixel", IP: "10.0.0.2"})
 	if err != nil {
 		t.Fatalf("seed session B: %v", err)
 	}
-	if _, err := sessionRepo.RecordLogin(ctxBg, repository.LoginEvent{UserID: "user-A", IP: "10.0.0.1", UserAgent: "curl", Success: true}); err != nil {
+	if _, err := sessionRepo.RecordLogin(ctxBg, store.LoginEvent{UserID: "user-A", IP: "10.0.0.1", UserAgent: "curl", Success: true}); err != nil {
 		t.Fatalf("seed login A: %v", err)
 	}
 
@@ -322,9 +309,9 @@ func TestSessionService_GRPC_SelfScoped(t *testing.T) {
 // Regression: login/register never recorded a session, so ListSessions was
 // always empty and nothing could be revoked.
 func TestLoginRecordsSession_ListAndRevoke(t *testing.T) {
-	sessionRepo := repository.NewInMemorySessionRepository()
+	sessionRepo := storetest.NewInMemorySessionRepository()
 	authClient, _, sessionClient := startServerWithSessions(t,
-		repository.NewInMemoryUserRepository(), repository.NewInMemoryAddressRepository(), sessionRepo)
+		storetest.NewInMemoryUserRepository(), storetest.NewInMemoryAddressRepository(), sessionRepo)
 
 	bg, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

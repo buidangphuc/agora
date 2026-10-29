@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -10,21 +10,21 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
-	"github.com/buidangphuc/team-identity/internal/handler"
-	"github.com/buidangphuc/team-identity/internal/interceptor"
-	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/rpc"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 func ctxWith(t commonv1.PrincipalType, scopes ...string) context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+	return withPrincipal(context.Background(), &commonv1.Principal{
 		Id: "p-1", Type: t, Scopes: scopes,
 	})
 }
 
-func newProfileHandler(t *testing.T) *handler.ProfileHandler {
+func newProfileHandler(t *testing.T) *rpc.ProfileHandler {
 	t.Helper()
-	repo := repository.NewInMemoryUserRepository()
-	for _, u := range []repository.User{
+	repo := storetest.NewInMemoryUserRepository()
+	for _, u := range []store.User{
 		{ID: "u1", Username: "an", PasswordHash: "secret-hash"},
 		{ID: "u2", Username: "binh", PasswordHash: "secret-hash"},
 	} {
@@ -32,7 +32,7 @@ func newProfileHandler(t *testing.T) *handler.ProfileHandler {
 			t.Fatal(err)
 		}
 	}
-	return handler.NewProfileHandler(repo, nil)
+	return rpc.NewProfileHandler(repo, nil)
 }
 
 func TestGetPublicProfiles_ServicePrincipal(t *testing.T) {
@@ -53,7 +53,7 @@ func TestGetPublicProfiles_ServicePrincipal(t *testing.T) {
 
 func TestGetPublicProfiles_UserPrincipalDenied(t *testing.T) {
 	h := newProfileHandler(t)
-	// A user token that claims the scope is still rejected: type must be service.
+	// A user token that claims the scope is still rejected: type must be identity.
 	for _, ctx := range []context.Context{
 		ctxWith(commonv1.PrincipalType_PRINCIPAL_TYPE_USER, "identity.read", "admin"),
 		ctxWith(commonv1.PrincipalType_PRINCIPAL_TYPE_USER),

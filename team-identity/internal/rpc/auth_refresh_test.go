@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 // G3 (identity-session-refresh tasks 5): AuthHandler Login/Register field mapping and
 // the RefreshSession RPC.
@@ -25,9 +25,9 @@ import (
 	"google.golang.org/grpc/status"
 
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
-	"github.com/buidangphuc/team-identity/internal/handler"
-	"github.com/buidangphuc/team-identity/internal/repository"
-	"github.com/buidangphuc/team-identity/internal/service"
+	"github.com/buidangphuc/team-identity/internal/rpc"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 var rt0 = time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
@@ -38,33 +38,33 @@ func (c *rClock) Now() time.Time          { return c.t }
 func (c *rClock) Advance(d time.Duration) { c.t = c.t.Add(d) }
 
 type rUsers struct {
-	*repository.InMemoryUserRepository
+	*storetest.InMemoryUserRepository
 	deleted bool
 }
 
-func (u *rUsers) GetByID(ctx context.Context, id string) (repository.User, error) {
+func (u *rUsers) GetByID(ctx context.Context, id string) (store.User, error) {
 	if u.deleted {
-		return repository.User{}, repository.ErrNotFound
+		return store.User{}, store.ErrNotFound
 	}
 	return u.InMemoryUserRepository.GetByID(ctx, id)
 }
 
 type rSessions struct {
-	*repository.InMemorySessionRepository
+	*storetest.InMemorySessionRepository
 	rotateErr error
 	calls     int
 }
 
-func (s *rSessions) RotateRefresh(ctx context.Context, p, n string, now time.Time, g, m time.Duration, ip, device string, ev repository.EnqueueFn) (repository.RotateResult, error) {
+func (s *rSessions) RotateRefresh(ctx context.Context, p, n string, now time.Time, g, m time.Duration, ip, device string, ev store.EnqueueFn) (store.RotateResult, error) {
 	s.calls++
 	if s.rotateErr != nil {
-		return repository.RotateResult{}, s.rotateErr
+		return store.RotateResult{}, s.rotateErr
 	}
 	return s.InMemorySessionRepository.RotateRefresh(ctx, p, n, now, g, m, ip, device, ev)
 }
 
 type rEnv struct {
-	h     *handler.AuthHandler
+	h     *rpc.AuthHandler
 	users *rUsers
 	sess  *rSessions
 	clock *rClock
@@ -73,12 +73,12 @@ type rEnv struct {
 func newREnv(t *testing.T) *rEnv {
 	t.Helper()
 	e := &rEnv{
-		users: &rUsers{InMemoryUserRepository: repository.NewInMemoryUserRepository()},
-		sess:  &rSessions{InMemorySessionRepository: repository.NewInMemorySessionRepository()},
+		users: &rUsers{InMemoryUserRepository: storetest.NewInMemoryUserRepository()},
+		sess:  &rSessions{InMemorySessionRepository: storetest.NewInMemorySessionRepository()},
 		clock: &rClock{t: rt0},
 	}
-	svc := service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(e.sess).WithClock(e.clock.Now)
-	e.h = handler.NewAuthHandler(svc)
+	svc := newSvc(t, e.users, e.sess).WithClock(e.clock.Now)
+	e.h = rpc.NewAuthHandler(svc)
 	return e
 }
 
@@ -105,7 +105,7 @@ func TestAuthHandlerMapsRefreshFields_LoginAndRegisterReturnRefreshToken(t *test
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
-	want := rt0.Add(repository.RefreshTTL)
+	want := rt0.Add(store.RefreshTTL)
 	for name, r := range map[string]*identityv1.AuthResult{"register": reg, "login": login.GetResult()} {
 		if r.GetRefreshToken() == "" {
 			t.Errorf("%s: refresh_token not mapped", name)
@@ -116,19 +116,6 @@ func TestAuthHandlerMapsRefreshFields_LoginAndRegisterReturnRefreshToken(t *test
 	}
 	if reg.GetRefreshToken() == login.GetResult().GetRefreshToken() {
 		t.Error("register and login must mint distinct refresh tokens")
-	}
-}
-
-// Scenario: Sessions disabled yields no refresh token (handler mapping).
-func TestAuthHandlerNoSessionsLeavesRefreshFieldsUnset_SessionsDisabled(t *testing.T) {
-	svc := service.NewAuthService(repository.NewInMemoryUserRepository(), testSigner(t), time.Hour)
-	h := handler.NewAuthHandler(svc)
-	r, err := h.Register(context.Background(), &identityv1.RegisterRequest{Username: "bob", Password: "password123", Role: "buyer"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r.GetResult().GetRefreshToken() != "" || r.GetResult().GetRefreshExpiresAt() != nil {
-		t.Fatalf("want empty refresh token and unset expiry, got %q %v", r.GetResult().GetRefreshToken(), r.GetResult().GetRefreshExpiresAt())
 	}
 }
 
@@ -148,7 +135,7 @@ func TestRefreshSessionHandlerRotates_CallableWithoutPrincipal(t *testing.T) {
 	if r.GetPrincipal().GetId() != reg.GetPrincipal().GetId() {
 		t.Fatalf("principal = %v, want %v", r.GetPrincipal(), reg.GetPrincipal())
 	}
-	if want := e.clock.Now().Add(repository.RefreshTTL); !r.GetRefreshExpiresAt().AsTime().Equal(want) {
+	if want := e.clock.Now().Add(store.RefreshTTL); !r.GetRefreshExpiresAt().AsTime().Equal(want) {
 		t.Fatalf("refresh_expires_at = %v, want %v", r.GetRefreshExpiresAt().AsTime(), want)
 	}
 }
@@ -224,7 +211,7 @@ func TestRefreshErrorsAreIndistinguishable_SixCausesOneStatus(t *testing.T) {
 		out["257 bytes"] = func() error { _, err := e.refresh(strings.Repeat("a", 257)); return err }()
 
 		// expired: past the sliding expiry
-		e.clock.Advance(repository.RefreshTTL + time.Second)
+		e.clock.Advance(store.RefreshTTL + time.Second)
 		out["expired"] = func() error { _, err := e.refresh(reg.GetRefreshToken()); return err }()
 
 		// revoked
@@ -286,7 +273,7 @@ func TestRefreshSessionHandlerMapsDBDownToUnavailable(t *testing.T) {
 func TestRefreshSessionHandlerMapsRotateFaultToInternal(t *testing.T) {
 	e := newREnv(t)
 	reg := e.register(t)
-	e.sess.rotateErr = fmt.Errorf("enqueue revoke event: pq: deadlock detected: %w", repository.ErrRotateFault)
+	e.sess.rotateErr = fmt.Errorf("enqueue revoke event: pq: deadlock detected: %w", store.ErrRotateFault)
 	_, err := e.refresh(reg.GetRefreshToken())
 	st, _ := status.FromError(err)
 	if st.Code() != codes.Internal {
@@ -365,7 +352,7 @@ func TestRefreshSecretsNeverLogged(t *testing.T) {
 	e.refresh(badTok)
 	e.sess.rotateErr = errors.New("pq: failure")
 	e.refresh(login.GetResult().GetRefreshToken())
-	e.sess.rotateErr = fmt.Errorf("boom: %w", repository.ErrRotateFault)
+	e.sess.rotateErr = fmt.Errorf("boom: %w", store.ErrRotateFault)
 	e.refresh(login.GetResult().GetRefreshToken())
 
 	for _, line := range cap.lines {

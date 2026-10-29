@@ -1,20 +1,4 @@
-package handler_test
-
-// Task 8 of identity-user-enforcement: AccountAdminHandler.
-//
-// Contract pinned by these tests (the implementer adds exactly this):
-//
-//	func NewAccountAdminHandler(svc *service.AuthService, users UserLister, logger *slog.Logger) *AccountAdminHandler
-//	type UserLister interface {
-//	    ListUsers(ctx, query, status, cursor string, limit int) ([]repository.User, string, error)
-//	}  // *repository.InMemoryUserRepository satisfies it
-//	(*AccountAdminHandler).ListUsers / SetUserStatus implement identityv1.AccountAdminServiceServer.
-//	Scope "admin" on the forwarded principal is required: no principal => Unauthenticated,
-//	principal without it => PermissionDenied. The actor id is the principal id only.
-//	Errors: service.ErrInvalidInput => InvalidArgument; repository.ErrNotFound => NotFound;
-//	service.ErrStatusPrecondition => FailedPrecondition; service.ErrAuditUnavailable (and any
-//	audit failure) => Unavailable with a fixed message that never echoes the cause.
-//	Query > 64 bytes => InvalidArgument. Page size and cursor map to ListUsers(limit, cursor).
+package rpc_test
 
 import (
 	"bytes"
@@ -31,12 +15,13 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
-	"github.com/buidangphuc/team-identity/internal/handler"
-	"github.com/buidangphuc/team-identity/internal/interceptor"
-	"github.com/buidangphuc/team-identity/internal/repository"
-	"github.com/buidangphuc/team-identity/internal/service"
+	"github.com/buidangphuc/team-identity/internal/identity"
+	"github.com/buidangphuc/team-identity/internal/rpc"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 var accNow = time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
@@ -52,10 +37,18 @@ type accAudit struct {
 	err   error
 }
 
-func (f *accAudit) WriteUserSetStatus(_ context.Context, actor, user, st, reason, note string, until *time.Time) error {
+func (f *accAudit) WriteAuditEvent(_ context.Context, ev auditx.Event) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.calls = append(f.calls, accAuditCall{actor, user, st, reason, note, until})
+	var until *time.Time
+	if v, ok := ev.Metadata["until"]; ok {
+		ut, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return err
+		}
+		until = &ut
+	}
+	f.calls = append(f.calls, accAuditCall{ev.ActorID, ev.TargetID, ev.Metadata["status"], ev.Metadata["reason_code"], ev.Metadata["note"], until})
 	return f.err
 }
 
@@ -63,29 +56,26 @@ func (f *accAudit) count() int { f.mu.Lock(); defer f.mu.Unlock(); return len(f.
 
 type accEnv struct {
 	t       *testing.T
-	users   *repository.InMemoryUserRepository
-	sess    *repository.InMemorySessionRepository
+	users   *storetest.InMemoryUserRepository
+	sess    *storetest.InMemorySessionRepository
 	audit   *accAudit
-	svc     *service.AuthService
-	h       *handler.AccountAdminHandler
+	svc     *identity.AuthService
+	h       *rpc.AccountAdminHandler
 	logs    *bytes.Buffer
 	adminID string
 }
 
 func newAccEnv(t *testing.T) *accEnv {
 	t.Helper()
-	e := &accEnv{t: t, users: repository.NewInMemoryUserRepository(), sess: repository.NewInMemorySessionRepository(), audit: &accAudit{}, logs: &bytes.Buffer{}}
+	e := &accEnv{t: t, users: storetest.NewInMemoryUserRepository(), sess: storetest.NewInMemorySessionRepository(), audit: &accAudit{}, logs: &bytes.Buffer{}}
 	e.adminID = "admin-1"
-	if _, err := e.users.Create(context.Background(), repository.User{ID: e.adminID, Username: "root", PasswordHash: "x", Roles: []string{"admin"}}); err != nil {
+	if _, err := e.users.Create(context.Background(), store.User{ID: e.adminID, Username: "root", PasswordHash: "x", Roles: []string{"admin"}}); err != nil {
 		t.Fatal(err)
 	}
 	e.users.AttachSessions(e.sess)
-	e.svc = service.NewAuthService(e.users, testSigner(t), time.Hour).
-		WithClock(func() time.Time { return accNow }).
-		WithSessions(e.sess).
-		WithAudit(e.audit)
 	logger := slog.New(slog.NewTextHandler(e.logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	e.h = handler.NewAccountAdminHandler(e.svc, e.users, logger)
+	e.svc = newSvcWith(t, e.users, e.sess, e.audit, logger).WithClock(func() time.Time { return accNow })
+	e.h = rpc.NewAccountAdminHandler(e.svc, e.users, logger)
 	return e
 }
 
@@ -105,13 +95,13 @@ func (e *accEnv) seller(name string) string {
 }
 
 func adminCtx(id string) context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+	return withPrincipal(context.Background(), &commonv1.Principal{
 		Id: id, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "listing.read"},
 	})
 }
 
 func sellerCtx() context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+	return withPrincipal(context.Background(), &commonv1.Principal{
 		Id: "seller-x", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
 		Scopes: []string{"listing.read", "listing.write", "identity:read", "identity:write"},
 	})
@@ -140,7 +130,7 @@ func (e *accEnv) liveSessions(userID string) int {
 }
 
 // User enforcement: Audit down refuses the change
-func TestSetUserStatusAuditDownUnavailableNoChange(t *testing.T) {
+func TestSetUserStatusAuditDownReturnsUnavailable(t *testing.T) {
 	for name, auditErr := range map[string]error{
 		"error":             errors.New("boom-secret-cause"),
 		"deadline exceeded": context.DeadlineExceeded,
@@ -154,11 +144,14 @@ func TestSetUserStatusAuditDownUnavailableNoChange(t *testing.T) {
 				UserId: uid, Status: identityv1.UserStatus_USER_STATUS_SUSPENDED, ReasonCode: "scam", Until: until,
 			})
 			wantCode(t, err, codes.Unavailable)
+			if status.Convert(err).Message() != auditx.Message {
+				t.Fatalf("message = %q, want %q", status.Convert(err).Message(), auditx.Message)
+			}
 			if strings.Contains(err.Error(), "boom-secret-cause") {
 				t.Fatalf("Unavailable message echoes the cause: %v", err)
 			}
 			u, _ := e.users.GetByID(context.Background(), uid)
-			if u.Status != repository.StatusActive {
+			if u.Status != store.StatusActive {
 				t.Fatalf("user status changed to %q", u.Status)
 			}
 			if got := e.liveSessions(uid); got != 1 {
@@ -204,7 +197,7 @@ func TestSetUserStatusInvalidInput(t *testing.T) {
 	if n := e.audit.count(); n != 0 {
 		t.Fatalf("audit calls = %d, want 0", n)
 	}
-	if u, _ := e.users.GetByID(context.Background(), uid); u.Status != repository.StatusActive {
+	if u, _ := e.users.GetByID(context.Background(), uid); u.Status != store.StatusActive {
 		t.Fatalf("user status changed to %q", u.Status)
 	}
 }
@@ -259,10 +252,17 @@ func TestSetUserStatusRequiresAdminScope(t *testing.T) {
 	_, err = e.h.SetUserStatus(context.Background(), req)
 	wantCode(t, err, codes.Unauthenticated)
 
+	invalid := &identityv1.SetUserStatusRequest{UserId: "", Status: identityv1.UserStatus_USER_STATUS_UNSPECIFIED, ReasonCode: "Bad Reason"}
+	_, err = e.h.SetUserStatus(sellerCtx(), invalid)
+	wantCode(t, err, codes.PermissionDenied)
+
 	if n := e.audit.count(); n != 0 {
 		t.Fatalf("audit calls = %d, want 0", n)
 	}
-	if u, _ := e.users.GetByID(context.Background(), uid); u.Status != repository.StatusActive {
+	if rows := e.sess.OutboxRows(); len(rows) != 0 {
+		t.Fatalf("outbox rows = %d, want 0", len(rows))
+	}
+	if u, _ := e.users.GetByID(context.Background(), uid); u.Status != store.StatusActive {
 		t.Fatalf("user status changed to %q", u.Status)
 	}
 }
@@ -390,4 +390,9 @@ func TestListUsersRequiresAdminScope(t *testing.T) {
 	wantCode(t, err, codes.PermissionDenied)
 	_, err = e.h.ListUsers(context.Background(), &identityv1.ListUsersRequest{})
 	wantCode(t, err, codes.Unauthenticated)
+	_, err = e.h.ListUsers(sellerCtx(), &identityv1.ListUsersRequest{Query: strings.Repeat("a", 65)})
+	wantCode(t, err, codes.PermissionDenied)
+	if n := e.audit.count(); n != 0 {
+		t.Fatalf("audit calls = %d, want 0", n)
+	}
 }

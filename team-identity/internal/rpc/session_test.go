@@ -1,26 +1,25 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-identity/generated/platform/events/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
 	"github.com/buidangphuc/team-identity/internal/events"
-	"github.com/buidangphuc/team-identity/internal/handler"
-	"github.com/buidangphuc/team-identity/internal/interceptor"
-	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/rpc"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 func principalContext(userID string) context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+	return withPrincipal(context.Background(), &commonv1.Principal{
 		Id:     userID,
 		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
 		Scopes: []string{"identity:read", "identity:write"},
@@ -28,12 +27,12 @@ func principalContext(userID string) context.Context {
 }
 
 func TestSessionHandler_ListAndRevoke(t *testing.T) {
-	repo := repository.NewInMemorySessionRepository()
-	h := handler.NewSessionHandler(repo, nil)
+	repo := storetest.NewInMemorySessionRepository()
+	h := rpc.NewSessionHandler(repo, nil)
 
 	// Seed two sessions for the caller.
-	s1, _ := repo.CreateSession(context.Background(), repository.Session{UserID: "user-1", Device: "iPhone", IP: "1.1.1.1"})
-	_, _ = repo.CreateSession(context.Background(), repository.Session{UserID: "user-1", Device: "MacBook", IP: "1.1.1.2"})
+	s1, _ := repo.CreateSession(context.Background(), store.Session{UserID: "user-1", Device: "iPhone", IP: "1.1.1.1"})
+	_, _ = repo.CreateSession(context.Background(), store.Session{UserID: "user-1", Device: "MacBook", IP: "1.1.1.2"})
 
 	ctx := principalContext("user-1")
 
@@ -62,11 +61,11 @@ func TestSessionHandler_ListAndRevoke(t *testing.T) {
 }
 
 func TestSessionHandler_RevokeCrossUserIsolation(t *testing.T) {
-	repo := repository.NewInMemorySessionRepository()
-	h := handler.NewSessionHandler(repo, nil)
+	repo := storetest.NewInMemorySessionRepository()
+	h := rpc.NewSessionHandler(repo, nil)
 
 	// A session that belongs to user-2.
-	victim, _ := repo.CreateSession(context.Background(), repository.Session{UserID: "user-2", Device: "iPad", IP: "2.2.2.2"})
+	victim, _ := repo.CreateSession(context.Background(), store.Session{UserID: "user-2", Device: "iPad", IP: "2.2.2.2"})
 
 	// user-1 must not be able to revoke it, nor see it.
 	ctx := principalContext("user-1")
@@ -88,16 +87,16 @@ func TestSessionHandler_RevokeCrossUserIsolation(t *testing.T) {
 }
 
 func TestSessionHandler_ListLoginHistoryPaginationAndScope(t *testing.T) {
-	repo := repository.NewInMemorySessionRepository()
-	h := handler.NewSessionHandler(repo, nil)
+	repo := storetest.NewInMemorySessionRepository()
+	h := rpc.NewSessionHandler(repo, nil)
 
 	// 3 events for user-1, 1 for user-2.
 	for i := 0; i < 3; i++ {
-		if _, err := repo.RecordLogin(context.Background(), repository.LoginEvent{UserID: "user-1", IP: "1.1.1.1", UserAgent: "chrome", Success: i%2 == 0}); err != nil {
+		if _, err := repo.RecordLogin(context.Background(), store.LoginEvent{UserID: "user-1", IP: "1.1.1.1", UserAgent: "chrome", Success: i%2 == 0}); err != nil {
 			t.Fatalf("RecordLogin: %v", err)
 		}
 	}
-	_, _ = repo.RecordLogin(context.Background(), repository.LoginEvent{UserID: "user-2", IP: "2.2.2.2", UserAgent: "firefox", Success: true})
+	_, _ = repo.RecordLogin(context.Background(), store.LoginEvent{UserID: "user-2", IP: "2.2.2.2", UserAgent: "firefox", Success: true})
 
 	ctx := principalContext("user-1")
 
@@ -134,8 +133,8 @@ func TestSessionHandler_ListLoginHistoryPaginationAndScope(t *testing.T) {
 }
 
 func TestSessionHandler_AnonymousAndBadInput(t *testing.T) {
-	repo := repository.NewInMemorySessionRepository()
-	h := handler.NewSessionHandler(repo, nil)
+	repo := storetest.NewInMemorySessionRepository()
+	h := rpc.NewSessionHandler(repo, nil)
 
 	// No principal on the context => Unauthenticated, no panic.
 	if _, err := h.ListSessions(context.Background(), &identityv1.ListSessionsRequest{}); status.Code(err) != codes.Unauthenticated {
@@ -166,9 +165,9 @@ func TestSessionHandler_AnonymousAndBadInput(t *testing.T) {
 // A revoke writes a SessionRevoked outbox row (key = user id, expiry = created_at
 // + token TTL) alongside the revoke.
 func TestSessionHandler_RevokeEnqueuesSessionRevoked(t *testing.T) {
-	repo := repository.NewInMemorySessionRepository()
-	h := handler.NewSessionHandler(repo, nil).WithTokenTTL(time.Hour)
-	s1, _ := repo.CreateSession(context.Background(), repository.Session{UserID: "user-1", Device: "iPhone"})
+	repo := storetest.NewInMemorySessionRepository()
+	h := rpc.NewSessionHandler(repo, nil).WithTokenTTL(time.Hour)
+	s1, _ := repo.CreateSession(context.Background(), store.Session{UserID: "user-1", Device: "iPhone"})
 
 	if _, err := h.RevokeSession(principalContext("user-1"), &identityv1.RevokeSessionRequest{SessionId: s1.ID}); err != nil {
 		t.Fatalf("RevokeSession: %v", err)
@@ -201,10 +200,10 @@ func TestSessionHandler_RevokeEnqueuesSessionRevoked(t *testing.T) {
 // A failed outbox write rolls the revoke back: the session stays active and the
 // caller gets an error (no half-committed revoke the gateway would never hear of).
 func TestSessionHandler_FailedOutboxWriteRollsBackRevoke(t *testing.T) {
-	repo := repository.NewInMemorySessionRepository()
+	repo := storetest.NewInMemorySessionRepository()
 	repo.FailOutbox = true
-	h := handler.NewSessionHandler(repo, nil).WithTokenTTL(time.Hour)
-	s1, _ := repo.CreateSession(context.Background(), repository.Session{UserID: "user-1"})
+	h := rpc.NewSessionHandler(repo, nil).WithTokenTTL(time.Hour)
+	s1, _ := repo.CreateSession(context.Background(), store.Session{UserID: "user-1"})
 
 	_, err := h.RevokeSession(principalContext("user-1"), &identityv1.RevokeSessionRequest{SessionId: s1.ID})
 	if status.Code(err) != codes.Internal {
@@ -222,10 +221,10 @@ func TestSessionHandler_FailedOutboxWriteRollsBackRevoke(t *testing.T) {
 // Scenarios: RevokeSession denylist expiry is now plus access TTL; Revocation outlives the
 // denylist. A session created long ago must still get now+TTL, and its refresh hashes clear.
 func TestRevokeSessionDenylistExpiry_NowPlusAccessTTL(t *testing.T) {
-	repo := repository.NewInMemorySessionRepository()
-	h := handler.NewSessionHandler(repo, nil).WithTokenTTL(3600 * time.Second)
+	repo := storetest.NewInMemorySessionRepository()
+	h := rpc.NewSessionHandler(repo, nil).WithTokenTTL(3600 * time.Second)
 	old := time.Now().Add(-48 * time.Hour)
-	s1, _ := repo.CreateSession(context.Background(), repository.Session{
+	s1, _ := repo.CreateSession(context.Background(), store.Session{
 		UserID: "user-1", CreatedAt: old, RefreshHash: "h1", PrevRefreshHash: "h0", RefreshExpiresAt: time.Now().Add(time.Hour),
 	})
 	if _, err := h.RevokeSession(principalContext("user-1"), &identityv1.RevokeSessionRequest{SessionId: s1.ID}); err != nil {

@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -6,21 +6,20 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
-	"github.com/buidangphuc/team-identity/internal/handler"
-	"github.com/buidangphuc/team-identity/internal/interceptor"
-	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/rpc"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 func TestAddressHandler(t *testing.T) {
-	repo := repository.NewInMemoryAddressRepository()
-	h := handler.NewAddressHandler(repo, nil)
+	repo := storetest.NewInMemoryAddressRepository()
+	h := rpc.NewAddressHandler(repo, nil)
 
 	principal := &commonv1.Principal{
 		Id:     "user_addr_1",
 		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
 		Scopes: []string{"identity:read", "identity:write"},
 	}
-	ctx := interceptor.ContextWithPrincipal(context.Background(), principal)
+	ctx := withPrincipal(context.Background(), principal)
 
 	t.Run("Create and List Addresses", func(t *testing.T) {
 		createRes, err := h.CreateAddress(ctx, &identityv1.CreateAddressRequest{

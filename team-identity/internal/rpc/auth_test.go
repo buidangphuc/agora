@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -6,18 +6,22 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
-	"github.com/buidangphuc/team-identity/internal/handler"
-	"github.com/buidangphuc/team-identity/internal/interceptor"
-	"github.com/buidangphuc/team-identity/internal/repository"
-	"github.com/buidangphuc/team-identity/internal/service"
+	"github.com/buidangphuc/team-identity/internal/identity"
+	"github.com/buidangphuc/team-identity/internal/rpc"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 	"github.com/buidangphuc/team-identity/internal/token"
 )
 
@@ -36,14 +40,54 @@ func testSigner(t *testing.T) *token.Signer {
 	return s
 }
 
+type nopAudit struct{}
+
+func (nopAudit) WriteAuditEvent(context.Context, auditx.Event) error { return nil }
+
+func newGate(w auditx.Writer, logger *slog.Logger) *auditx.Gate {
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	return auditx.NewGate(w, logger)
+}
+
+func newSvcWith(t *testing.T, users store.UserRepository, sessions store.SessionRepository, w auditx.Writer, logger *slog.Logger) *identity.AuthService {
+	t.Helper()
+	svc, err := identity.NewAuthService(users, sessions, testSigner(t), time.Hour, newGate(w, logger))
+	if err != nil {
+		t.Fatalf("NewAuthService: %v", err)
+	}
+	return svc
+}
+
+func newSvc(t *testing.T, users store.UserRepository, sessions store.SessionRepository) *identity.AuthService {
+	t.Helper()
+	return newSvcWith(t, users, sessions, nopAudit{}, nil)
+}
+
+func newMemSvc(t *testing.T) *identity.AuthService {
+	t.Helper()
+	return newSvc(t, storetest.NewInMemoryUserRepository(), storetest.NewInMemorySessionRepository())
+}
+
+func withPrincipal(ctx context.Context, p *commonv1.Principal) context.Context {
+	typ := auth.TypeAnonymous
+	switch p.GetType() {
+	case commonv1.PrincipalType_PRINCIPAL_TYPE_USER:
+		typ = auth.TypeUser
+	case commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE:
+		typ = auth.TypeService
+	}
+	return auth.WithPrincipal(ctx, auth.Principal{ID: p.GetId(), Type: typ, Scopes: p.GetScopes()})
+}
+
 func userPrincipal(id string) *commonv1.Principal {
 	return &commonv1.Principal{Id: id, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER}
 }
 
 func TestChangePassword_PrincipalGate(t *testing.T) {
-	repo := repository.NewInMemoryUserRepository()
-	svc := service.NewAuthService(repo, testSigner(t), time.Hour)
-	h := handler.NewAuthHandler(svc)
+	svc := newMemSvc(t)
+	h := rpc.NewAuthHandler(svc)
 	bg := context.Background()
 
 	victim, err := h.Register(bg, &identityv1.RegisterRequest{Username: "victim", Password: "victimpass1", Role: "buyer"})
@@ -64,7 +108,7 @@ func TestChangePassword_PrincipalGate(t *testing.T) {
 		if status.Code(err) != codes.Unauthenticated {
 			t.Fatalf("want Unauthenticated, got %v", err)
 		}
-		anon := interceptor.ContextWithPrincipal(bg, &commonv1.Principal{Id: "anonymous", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS})
+		anon := withPrincipal(bg, &commonv1.Principal{Id: "anonymous", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS})
 		_, err = h.ChangePassword(anon, &identityv1.ChangePasswordRequest{UserId: victim.Result.Principal.Id, OldPassword: "victimpass1", NewPassword: "hacked-pass"})
 		if status.Code(err) != codes.Unauthenticated {
 			t.Fatalf("anonymous principal: want Unauthenticated, got %v", err)
@@ -72,7 +116,7 @@ func TestChangePassword_PrincipalGate(t *testing.T) {
 	})
 
 	t.Run("service principal denied", func(t *testing.T) {
-		ctx := interceptor.ContextWithPrincipal(bg, &commonv1.Principal{Id: "svc-x", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE})
+		ctx := withPrincipal(bg, &commonv1.Principal{Id: "svc-x", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE})
 		_, err := h.ChangePassword(ctx, &identityv1.ChangePasswordRequest{OldPassword: "victimpass1", NewPassword: "hacked-pass"})
 		if status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("want PermissionDenied, got %v", err)
@@ -80,7 +124,7 @@ func TestChangePassword_PrincipalGate(t *testing.T) {
 	})
 
 	t.Run("body user_id of another user is ignored", func(t *testing.T) {
-		ctx := interceptor.ContextWithPrincipal(bg, userPrincipal(attacker.Result.Principal.Id))
+		ctx := withPrincipal(bg, userPrincipal(attacker.Result.Principal.Id))
 		// Attacker knows the victim's old password but targets via body user_id:
 		// the call applies to the attacker (whose old password differs) and fails.
 		_, err := h.ChangePassword(ctx, &identityv1.ChangePasswordRequest{UserId: victim.Result.Principal.Id, OldPassword: "victimpass1", NewPassword: "hacked-pass"})
@@ -100,7 +144,7 @@ func TestChangePassword_PrincipalGate(t *testing.T) {
 	})
 
 	t.Run("owner allowed", func(t *testing.T) {
-		ctx := interceptor.ContextWithPrincipal(bg, userPrincipal(victim.Result.Principal.Id))
+		ctx := withPrincipal(bg, userPrincipal(victim.Result.Principal.Id))
 		if _, err := h.ChangePassword(ctx, &identityv1.ChangePasswordRequest{OldPassword: "victimpass1", NewPassword: "victimpass2"}); err != nil {
 			t.Fatal(err)
 		}
@@ -111,9 +155,8 @@ func TestChangePassword_PrincipalGate(t *testing.T) {
 }
 
 func TestAuthHandler(t *testing.T) {
-	repo := repository.NewInMemoryUserRepository()
-	svc := service.NewAuthService(repo, testSigner(t), time.Hour)
-	h := handler.NewAuthHandler(svc).WithExposeResetToken(true) // tests consume the token
+	svc := newMemSvc(t)
+	h := rpc.NewAuthHandler(svc).WithExposeResetToken(true) // tests consume the token
 	ctx := context.Background()
 
 	t.Run("Register handler", func(t *testing.T) {
@@ -153,7 +196,7 @@ func TestAuthHandler(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		cpRes, err := h.ChangePassword(interceptor.ContextWithPrincipal(ctx, userPrincipal(reg.Result.Principal.Id)), &identityv1.ChangePasswordRequest{
+		cpRes, err := h.ChangePassword(withPrincipal(ctx, userPrincipal(reg.Result.Principal.Id)), &identityv1.ChangePasswordRequest{
 			OldPassword: "oldpassword123",
 			NewPassword: "newpassword456",
 		})
@@ -226,10 +269,9 @@ func TestAuthHandler(t *testing.T) {
 }
 
 func TestRequestPasswordReset_TokenHiddenByDefault(t *testing.T) {
-	repo := repository.NewInMemoryUserRepository()
-	svc := service.NewAuthService(repo, testSigner(t), time.Hour)
+	svc := newMemSvc(t)
 	ctx := context.Background()
-	reg := handler.NewAuthHandler(svc)
+	reg := rpc.NewAuthHandler(svc)
 	if _, err := reg.Register(ctx, &identityv1.RegisterRequest{Username: "rp_user", Password: "password123", Role: "buyer"}); err != nil {
 		t.Fatal(err)
 	}

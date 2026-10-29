@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -10,39 +10,39 @@ import (
 	"google.golang.org/grpc/status"
 
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
-	"github.com/buidangphuc/team-identity/internal/handler"
-	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/rpc"
+	"github.com/buidangphuc/team-identity/internal/store"
 )
 
-const driverText = "pq: password authentication failed for user postgres"
+const driverText = "pq: password authentication failed for user postgres password=secret"
 
 var errDriver = errors.New(driverText)
 
-type failAddrRepo struct{ repository.AddressRepository }
+type failAddrRepo struct{ store.AddressRepository }
 
-func (failAddrRepo) List(context.Context, string) ([]repository.Address, error) {
+func (failAddrRepo) List(context.Context, string) ([]store.Address, error) {
 	return nil, errDriver
 }
-func (failAddrRepo) Create(context.Context, repository.Address) (repository.Address, error) {
-	return repository.Address{}, errDriver
+func (failAddrRepo) Create(context.Context, store.Address) (store.Address, error) {
+	return store.Address{}, errDriver
 }
-func (failAddrRepo) Update(context.Context, repository.Address) (repository.Address, error) {
-	return repository.Address{}, errDriver
+func (failAddrRepo) Update(context.Context, store.Address) (store.Address, error) {
+	return store.Address{}, errDriver
 }
 func (failAddrRepo) Delete(context.Context, string, string) error { return errDriver }
-func (failAddrRepo) SetDefault(context.Context, string, string) (repository.Address, error) {
-	return repository.Address{}, errDriver
+func (failAddrRepo) SetDefault(context.Context, string, string) (store.Address, error) {
+	return store.Address{}, errDriver
 }
 
-type failSessRepo struct{ repository.SessionRepository }
+type failSessRepo struct{ store.SessionRepository }
 
-func (failSessRepo) ListSessions(context.Context, string) ([]repository.Session, error) {
+func (failSessRepo) ListSessions(context.Context, string) ([]store.Session, error) {
 	return nil, errDriver
 }
-func (failSessRepo) RevokeSession(context.Context, string, string, repository.EnqueueFn) error {
+func (failSessRepo) RevokeSession(context.Context, string, string, store.EnqueueFn) error {
 	return errDriver
 }
-func (failSessRepo) ListLoginHistory(context.Context, string, int, int) ([]repository.LoginEvent, int64, error) {
+func (failSessRepo) ListLoginHistory(context.Context, string, int, int) ([]store.LoginEvent, int64, error) {
 	return nil, 0, errDriver
 }
 
@@ -53,13 +53,17 @@ func assertGenericInternal(t *testing.T, name string, err error) {
 		t.Errorf("%s: code = %v, want Internal (err=%v)", name, st.Code(), err)
 		return
 	}
-	if strings.Contains(st.Message(), "pq:") || strings.Contains(st.Message(), "postgres") {
+	if st.Message() != "internal error" {
+		t.Errorf("%s: message = %q, want %q", name, st.Message(), "internal error")
+	}
+	if strings.Contains(st.Message(), "pq:") || strings.Contains(st.Message(), "postgres") || strings.Contains(st.Message(), "password=secret") {
 		t.Errorf("%s: driver text leaked: %q", name, st.Message())
 	}
 }
 
+// Scenario: A storage failure is generic and not leaked
 func TestAddressHandlerInternalErrorsAreGeneric(t *testing.T) {
-	h := handler.NewAddressHandler(failAddrRepo{}, nil)
+	h := rpc.NewAddressHandler(failAddrRepo{}, nil)
 	ctx := principalContext("user-1")
 	_, err := h.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
 	assertGenericInternal(t, "list", err)
@@ -73,8 +77,9 @@ func TestAddressHandlerInternalErrorsAreGeneric(t *testing.T) {
 	assertGenericInternal(t, "set default", err)
 }
 
+// Scenario: A storage failure is generic and not leaked
 func TestSessionHandlerInternalErrorsAreGeneric(t *testing.T) {
-	h := handler.NewSessionHandler(failSessRepo{}, nil)
+	h := rpc.NewSessionHandler(failSessRepo{}, nil)
 	ctx := principalContext("user-1")
 	_, err := h.ListSessions(ctx, &identityv1.ListSessionsRequest{})
 	assertGenericInternal(t, "list sessions", err)
