@@ -2,7 +2,6 @@ package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"testing"
 
@@ -26,7 +25,7 @@ func userCtx(id string, scopes ...string) context.Context {
 	return principalCtx(id, "user", scopes...)
 }
 
-func discardLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func discardLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func newHandler(t *testing.T, idx index.Index, saved rpc.SavedSearches) *rpc.Handler {
 	t.Helper()

@@ -37,35 +37,40 @@ type stockCall struct {
 }
 
 func (m *mockIndex) PurgeTombstones(context.Context, time.Time) (int64, error) { return 0, nil }
-func (m *mockIndex) UpdateStock(ctx context.Context, id string, stock int32, version int64) error {
+func (m *mockIndex) UpdateStock(_ context.Context, id string, stock int32, version int64) error {
 	m.stockCalls = append(m.stockCalls, stockCall{id, stock, version})
 	return nil
 }
 
-func (m *mockIndex) Ping(context.Context) error            { return nil }
-func (m *mockIndex) EnsureIndex(ctx context.Context) error { return nil }
-func (m *mockIndex) Upsert(ctx context.Context, doc index.ListingDoc) error {
+func (m *mockIndex) Ping(context.Context) error          { return nil }
+func (m *mockIndex) EnsureIndex(_ context.Context) error { return nil }
+func (m *mockIndex) Upsert(_ context.Context, doc index.ListingDoc) error {
 	m.lastUpsertDoc = doc
 	return nil
 }
-func (m *mockIndex) PartialUpdate(ctx context.Context, id string, partialDoc map[string]interface{}) error {
+
+func (m *mockIndex) PartialUpdate(_ context.Context, id string, partialDoc map[string]interface{}) error {
 	m.lastPartialID = id
 	m.lastPartialDoc = partialDoc
 	return nil
 }
-func (m *mockIndex) Delete(ctx context.Context, id string, version int64) error {
+
+func (m *mockIndex) Delete(_ context.Context, id string, version int64) error {
 	m.lastDeleteID = id
 	m.lastDeleteVer = version
 	m.deletes++
 	return nil
 }
-func (m *mockIndex) Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
+
+func (m *mockIndex) Search(_ context.Context, _ string, _ map[string]string, _ string, _, _ int64, _ int32, _ searchv1.SortBy, _, _ int) (index.SearchResult, error) {
 	return index.SearchResult{}, nil
 }
-func (m *mockIndex) SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
+
+func (m *mockIndex) SearchVector(_ context.Context, _ []float32, _ map[string]string, _ string, _, _ int64, _ int32, _ searchv1.SortBy, _, _ int) (index.SearchResult, error) {
 	return index.SearchResult{}, nil
 }
-func (m *mockIndex) Suggest(ctx context.Context, prefix string, limit int) ([]string, error) {
+
+func (m *mockIndex) Suggest(_ context.Context, _ string, _ int) ([]string, error) {
 	return nil, nil
 }
 
@@ -205,11 +210,14 @@ func TestListingEventHandler_DeletePathsCarryVersion(t *testing.T) {
 		msg proto.Message
 	}{
 		"ListingChanged DELETED": {"platform.listing.v1.ListingChanged", &listingv1.ListingChanged{
-			Listing: &listingv1.Listing{Id: "l-del"}, ChangeType: listingv1.ChangeType_CHANGE_TYPE_DELETED}},
+			Listing: &listingv1.Listing{Id: "l-del"}, ChangeType: listingv1.ChangeType_CHANGE_TYPE_DELETED,
+		}},
 		"ListingBaseInfoChanged DELETED": {"platform.listing.v1.ListingBaseInfoChanged", &listingv1.ListingBaseInfoChanged{
-			ListingId: "l-del", ChangeType: listingv1.ChangeType_CHANGE_TYPE_DELETED}},
+			ListingId: "l-del", ChangeType: listingv1.ChangeType_CHANGE_TYPE_DELETED,
+		}},
 		"ListingStatusChanged REJECTED": {"platform.listing.v1.ListingStatusChanged", &listingv1.ListingStatusChanged{
-			ListingId: "l-del", Status: listingv1.ListingStatus_LISTING_STATUS_REJECTED}},
+			ListingId: "l-del", Status: listingv1.ListingStatus_LISTING_STATUS_REJECTED,
+		}},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -281,7 +289,8 @@ func TestListingEventHandler_CreatedAtOnlyFromCreated(t *testing.T) {
 	} {
 		idx := &mockIndex{}
 		env := envelopeAt(t, "platform.listing.v1.ListingChanged", &listingv1.ListingChanged{
-			Listing: &listingv1.Listing{Id: "l1"}, ChangeType: ct}, at)
+			Listing: &listingv1.Listing{Id: "l1"}, ChangeType: ct,
+		}, at)
 		if err := events.NewListingEventHandler(idx, nil, classified())(context.Background(), rec(env)); err != nil {
 			t.Fatal(err)
 		}
@@ -353,8 +362,10 @@ func TestListingBaseInfoChanged_RefreshesSpuTags(t *testing.T) {
 	idx := &mockIndex{}
 	cls := classified()
 	h := events.NewListingEventHandler(idx, nil, cls)
-	ev := &listingv1.ListingBaseInfoChanged{ListingId: "l-tag", Title: "Tai nghe Bluetooth 5.3", CategoryId: "cat-electronics", SellerId: "s1",
-		Status: listingv1.ListingStatus_LISTING_STATUS_PUBLISHED}
+	ev := &listingv1.ListingBaseInfoChanged{
+		ListingId: "l-tag", Title: "Tai nghe Bluetooth 5.3", CategoryId: "cat-electronics", SellerId: "s1",
+		Status: listingv1.ListingStatus_LISTING_STATUS_PUBLISHED,
+	}
 	if err := h(context.Background(), rec(makeEnvelope(t, "platform.listing.v1.ListingBaseInfoChanged", ev))); err != nil {
 		t.Fatal(err)
 	}

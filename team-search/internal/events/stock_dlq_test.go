@@ -3,7 +3,6 @@ package events_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -96,7 +95,7 @@ func (c captureHandler) Handle(_ context.Context, r slog.Record) error {
 func TestListingEventHandler_ClassifierOutageLogsListingIDAsAttribute(t *testing.T) {
 	var recs []slog.Record
 	prev := slog.Default()
-	slog.SetDefault(slog.New(captureHandler{Handler: slog.NewTextHandler(io.Discard, nil), recs: &recs}))
+	slog.SetDefault(slog.New(captureHandler{Handler: slog.DiscardHandler, recs: &recs}))
 	t.Cleanup(func() { slog.SetDefault(prev) })
 
 	idx := &mockIndex{}

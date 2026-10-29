@@ -18,18 +18,20 @@ type mockIndex struct {
 	searchCalls   int
 }
 
-func (m *mockIndex) EnsureIndex(ctx context.Context) error { return nil }
-func (m *mockIndex) Upsert(ctx context.Context, doc index.ListingDoc) error {
+func (m *mockIndex) EnsureIndex(_ context.Context) error { return nil }
+func (m *mockIndex) Ping(context.Context) error          { return nil }
+func (m *mockIndex) Upsert(_ context.Context, doc index.ListingDoc) error {
 	m.docs = append(m.docs, doc)
 	return nil
 }
-func (m *mockIndex) PartialUpdate(ctx context.Context, id string, partialDoc map[string]interface{}) error {
+
+func (m *mockIndex) PartialUpdate(_ context.Context, _ string, _ map[string]interface{}) error {
 	return nil
 }
-func (m *mockIndex) Delete(ctx context.Context, id string, version int64) error { return nil }
-func (m *mockIndex) PurgeTombstones(context.Context, time.Time) (int64, error)  { return 0, nil }
-func (m *mockIndex) UpdateStock(context.Context, string, int32, int64) error    { return nil }
-func (m *mockIndex) Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
+func (m *mockIndex) Delete(_ context.Context, _ string, _ int64) error         { return nil }
+func (m *mockIndex) PurgeTombstones(context.Context, time.Time) (int64, error) { return 0, nil }
+func (m *mockIndex) UpdateStock(context.Context, string, int32, int64) error   { return nil }
+func (m *mockIndex) Search(_ context.Context, _ string, filters map[string]string, _ string, _, _ int64, minRating int32, _ searchv1.SortBy, _, _ int) (index.SearchResult, error) {
 	m.lastMinRating = minRating
 	m.lastFilters = filters
 	m.searchCalls++
@@ -49,7 +51,8 @@ func (m *mockIndex) Search(ctx context.Context, query string, filters map[string
 		},
 	}, nil
 }
-func (m *mockIndex) SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
+
+func (m *mockIndex) SearchVector(_ context.Context, _ []float32, _ map[string]string, _ string, _, _ int64, _ int32, _ searchv1.SortBy, _, _ int) (index.SearchResult, error) {
 	return index.SearchResult{
 		Hits: []index.Hit{
 			{ListingID: "vec_listing_1", Score: 0.9},
@@ -57,7 +60,8 @@ func (m *mockIndex) SearchVector(ctx context.Context, vector []float32, filters 
 		Total: 1,
 	}, nil
 }
-func (m *mockIndex) Suggest(ctx context.Context, prefix string, limit int) ([]string, error) {
+
+func (m *mockIndex) Suggest(_ context.Context, _ string, _ int) ([]string, error) {
 	return []string{"iPhone 15", "iPhone 15 Pro", "iPhone 15 Pro Max"}, nil
 }
 
