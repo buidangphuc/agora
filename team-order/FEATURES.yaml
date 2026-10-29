@@ -862,8 +862,8 @@ features:
     covered_by: "order/order_events_published.feature::Paying an order publishes an OrderPaidEvent with its line items"
     notes: >
       Ran green against the agora stack (2026-10-05): the paid order's outbox row is
-      published and the envelope is read back from order.events. Needs team-order with
-      KAFKA_ENABLED=true / OUTBOX_ENABLED=true and the order.events topic.
+      published and the envelope is read back from order.events. Needs team-order (the relayer and
+      consumers always run) and the order.events topic.
 
   - id: order.checkout-reserves-and-commits-stock-and-voucher
     title: A buyer checkout reserves and commits stock and voucher
@@ -1619,7 +1619,7 @@ features:
       - "Order audit: Admin force-fails an order"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaWritesAuditEvent. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestForceFailSagaWritesAuditEvent. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-empty-fail-step-is-recorded-as-unspecified
     title: "Order audit: Empty fail step is recorded as unspecified"
     persona: admin
@@ -1631,7 +1631,7 @@ features:
       - "Order audit: Empty fail step is recorded as unspecified"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaAuditEmptyStepUnspecified. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestForceFailSagaAuditEmptyStepUnspecified. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-force-fail-refused-while-audit-is-down
     title: "Order audit: Force-fail refused while audit is down"
     persona: admin
@@ -1643,7 +1643,7 @@ features:
       - "Order audit: Force-fail refused while audit is down"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestForceFailSagaAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-force-fail-refused-without-an-audit-client
     title: "Order audit: Force-fail refused without an audit client"
     persona: admin
@@ -1655,7 +1655,7 @@ features:
       - "Order audit: Force-fail refused without an audit client"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaNilAuditWriterUnavailable. Not producible end to end through the gateway (unit level)."
+    notes: "REMOVED: no audit-less or promotion-less mode; scenario removed by order-go-sdk-v1"
   - id: order.oaa-unauthorized-force-fail-writes-no-event
     title: "Order audit: Unauthorized force-fail writes no event"
     persona: admin
@@ -1667,7 +1667,7 @@ features:
       - "Order audit: Unauthorized force-fail writes no event"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaDeniedWritesNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestForceFailSagaDeniedWritesNoAudit. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-invalid-or-unknown-input-writes-no-event
     title: "Order audit: Invalid or unknown input writes no event"
     persona: admin
@@ -1679,7 +1679,7 @@ features:
       - "Order audit: Invalid or unknown input writes no event"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaInvalidInputWritesNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestForceFailSagaInvalidInputWritesNoAudit. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-invalid-transition-keeps-the-audit-row
     title: "Order audit: Invalid transition keeps the audit row"
     persona: admin
@@ -1691,7 +1691,7 @@ features:
       - "Order audit: Invalid transition keeps the audit row"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestForceFailSagaInvalidStatusAfterAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestForceFailSagaInvalidStatusAfterAudit. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-admin-ships-a-seller-s-order
     title: "Order audit: Admin ships a seller's order"
     persona: admin
@@ -1703,7 +1703,7 @@ features:
       - "Order audit: Admin ships a seller's order"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusAdminWritesAuditEvent. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateOrderStatusAdminWritesAuditEvent. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-seller-updates-their-own-order-unaudited
     title: "Order audit: Seller updates their own order unaudited"
     persona: admin
@@ -1715,7 +1715,7 @@ features:
       - "Order audit: Seller updates their own order unaudited"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusSellerNotAudited. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateOrderStatusSellerNotAudited. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-order-admin-who-is-also-the-seller-is-audited
     title: "Order audit: Order admin who is also the seller is audited"
     persona: admin
@@ -1727,7 +1727,7 @@ features:
       - "Order audit: Order admin who is also the seller is audited"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusOrderAdminSellerIsAudited. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateOrderStatusOrderAdminSellerIsAudited. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-status-update-refused-while-audit-is-down
     title: "Order audit: Status update refused while audit is down"
     persona: admin
@@ -1739,7 +1739,7 @@ features:
       - "Order audit: Status update refused while audit is down"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateOrderStatusAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-status-update-refused-without-an-audit-client
     title: "Order audit: Status update refused without an audit client"
     persona: admin
@@ -1751,7 +1751,7 @@ features:
       - "Order audit: Status update refused without an audit client"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusNilAuditWriterUnavailable. Not producible end to end through the gateway (unit level)."
+    notes: "REMOVED: no audit-less or promotion-less mode; scenario removed by order-go-sdk-v1"
   - id: order.oaa-refused-status-calls-write-no-event
     title: "Order audit: Refused status calls write no event"
     persona: admin
@@ -1763,7 +1763,7 @@ features:
       - "Order audit: Refused status calls write no event"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusRefusedWritesNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateOrderStatusRefusedWritesNoAudit. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-invalid-transition-by-an-admin-keeps-the-audit-row
     title: "Order audit: Invalid transition by an admin keeps the audit row"
     persona: admin
@@ -1775,7 +1775,7 @@ features:
       - "Order audit: Invalid transition by an admin keeps the audit row"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateOrderStatusAdminInvalidTransitionAfterAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateOrderStatusAdminInvalidTransitionAfterAudit. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-admin-approves-a-return
     title: "Order audit: Admin approves a return"
     persona: admin
@@ -1787,7 +1787,7 @@ features:
       - "Order audit: Admin approves a return"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusAdminWritesAuditEvent. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateReturnStatusAdminWritesAuditEvent. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-seller-updates-their-own-return-unaudited
     title: "Order audit: Seller updates their own return unaudited"
     persona: admin
@@ -1799,7 +1799,7 @@ features:
       - "Order audit: Seller updates their own return unaudited"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusSellerNotAudited. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateReturnStatusSellerNotAudited. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-return-update-refused-while-audit-is-down
     title: "Order audit: Return update refused while audit is down"
     persona: admin
@@ -1811,7 +1811,7 @@ features:
       - "Order audit: Return update refused while audit is down"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateReturnStatusAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-return-update-refused-without-an-audit-client
     title: "Order audit: Return update refused without an audit client"
     persona: admin
@@ -1823,7 +1823,7 @@ features:
       - "Order audit: Return update refused without an audit client"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusNilAuditWriterUnavailable. Not producible end to end through the gateway (unit level)."
+    notes: "REMOVED: no audit-less or promotion-less mode; scenario removed by order-go-sdk-v1"
   - id: order.oaa-refused-return-calls-write-no-event
     title: "Order audit: Refused return calls write no event"
     persona: admin
@@ -1835,7 +1835,7 @@ features:
       - "Order audit: Refused return calls write no event"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusRefusedWritesNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateReturnStatusRefusedWritesNoAudit. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-invalid-return-transition-by-an-admin-keeps-the-audit-row
     title: "Order audit: Invalid return transition by an admin keeps the audit row"
     persona: admin
@@ -1847,7 +1847,7 @@ features:
       - "Order audit: Invalid return transition by an admin keeps the audit row"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestUpdateReturnStatusAdminInvalidTransitionAfterAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestUpdateReturnStatusAdminInvalidTransitionAfterAudit. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-admin-creates-a-shipment
     title: "Order audit: Admin creates a shipment"
     persona: admin
@@ -1859,7 +1859,7 @@ features:
       - "Order audit: Admin creates a shipment"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentAdminWritesAuditEvent. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestCreateShipmentAdminWritesAuditEvent. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-seller-creates-a-shipment-unaudited
     title: "Order audit: Seller creates a shipment unaudited"
     persona: admin
@@ -1871,7 +1871,7 @@ features:
       - "Order audit: Seller creates a shipment unaudited"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentSellerNotAudited. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestCreateShipmentSellerNotAudited. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-shipment-refused-while-audit-is-down
     title: "Order audit: Shipment refused while audit is down"
     persona: admin
@@ -1883,7 +1883,7 @@ features:
       - "Order audit: Shipment refused while audit is down"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestCreateShipmentAuditDownUnavailableNoChange. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-shipment-refused-without-an-audit-client
     title: "Order audit: Shipment refused without an audit client"
     persona: admin
@@ -1895,7 +1895,7 @@ features:
       - "Order audit: Shipment refused without an audit client"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentNilAuditWriterUnavailable. Not producible end to end through the gateway (unit level)."
+    notes: "REMOVED: no audit-less or promotion-less mode; scenario removed by order-go-sdk-v1"
   - id: order.oaa-long-carrier-name-is-truncated-in-the-audit-event
     title: "Order audit: Long carrier name is truncated in the audit event"
     persona: admin
@@ -1907,7 +1907,7 @@ features:
       - "Order audit: Long carrier name is truncated in the audit event"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentAuditCarrierTruncated. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestCreateShipmentAuditCarrierTruncated. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-refused-shipment-calls-write-no-event
     title: "Order audit: Refused shipment calls write no event"
     persona: admin
@@ -1919,7 +1919,7 @@ features:
       - "Order audit: Refused shipment calls write no event"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentRefusedWritesNoAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestCreateShipmentRefusedWritesNoAudit. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-shipment-on-a-cancelled-order-keeps-the-audit-row
     title: "Order audit: Shipment on a Cancelled order keeps the audit row"
     persona: admin
@@ -1931,7 +1931,7 @@ features:
       - "Order audit: Shipment on a Cancelled order keeps the audit row"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestCreateShipmentAdminInvalidStatusAfterAudit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestCreateShipmentAdminInvalidStatusAfterAudit. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-audit-call-carries-the-service-principal-only
     title: "Order audit: Audit call carries the service principal only"
     persona: admin
@@ -1943,7 +1943,7 @@ features:
       - "Order audit: Audit call carries the service principal only"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/upstream TestAuditClientUsesServicePrincipal. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/upstream TestAuditWriterUsesServicePrincipal. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-audit-call-is-bounded-by-the-timeout
     title: "Order audit: Audit call is bounded by the timeout"
     persona: admin
@@ -1955,7 +1955,7 @@ features:
       - "Order audit: Audit call is bounded by the timeout"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/upstream TestAuditClientTimeoutNoRetry. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/upstream TestAuditWriterTimeoutNoRetry. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-unset-audit-address-yields-no-client
     title: "Order audit: Unset audit address yields no client"
     persona: admin
@@ -1967,7 +1967,7 @@ features:
       - "Order audit: Unset audit address yields no client"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/upstream TestNewAuditClientEmptyAddrNil. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/upstream TestAuditDialEmptyAddrIsNil. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-config-exposes-the-audit-address
     title: "Order audit: Config exposes the audit address"
     persona: admin
@@ -2129,7 +2129,7 @@ features:
       - "Advertised price: Listing-wide flash price is added to the cart"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestAddToCartFlashPriceListingWide. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestAddToCartFlashPriceListingWide. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-variant-campaign-prices-only-its-variant
     title: "Advertised price: Variant campaign prices only its variant"
@@ -2142,7 +2142,7 @@ features:
       - "Advertised price: Variant campaign prices only its variant"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestAddToCartFlashPriceVariantOnly. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestAddToCartFlashPriceVariantOnly. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-sale-price-at-or-above-the-regular-price-is-ignored
     title: "Advertised price: Sale price at or above the regular price is ignored"
@@ -2155,7 +2155,7 @@ features:
       - "Advertised price: Sale price at or above the regular price is ignored"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestAddToCartFlashPriceNotBelowRegularIgnored. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestAddToCartFlashPriceNotBelowRegularIgnored. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-no-active-campaign-keeps-the-regular-price
     title: "Advertised price: No active campaign keeps the regular price"
@@ -2168,7 +2168,7 @@ features:
       - "Advertised price: No active campaign keeps the regular price"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestAddToCartNoCampaignRegularPrice. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestAddToCartNoCampaignRegularPrice. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-promotion-error-at-add-to-cart-falls-back-to-the-regular-price
     title: "Advertised price: Promotion error at add-to-cart falls back to the regular price"
@@ -2181,7 +2181,7 @@ features:
       - "Advertised price: Promotion error at add-to-cart falls back to the regular price"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestAddToCartPromotionErrorRegularPrice. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestAddToCartPromotionErrorRegularPrice. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-missing-promotion-client-keeps-today-s-behaviour
     title: "Advertised price: Missing promotion client keeps today's behaviour"
@@ -2194,7 +2194,7 @@ features:
       - "Advertised price: Missing promotion client keeps today's behaviour"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestAddToCartNilFlashClientRegularPrice. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestNewCartServiceRefusesNilFlashClient. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-reorder-re-prices-through-add-to-cart
     title: "Advertised price: Reorder re-prices through add-to-cart"
@@ -2207,7 +2207,7 @@ features:
       - "Advertised price: Reorder re-prices through add-to-cart"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestReorderUsesFlashPrice. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestReorderUsesFlashPrice. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-flash-price-is-visible-end-to-end-after-add-to-cart
     title: "Advertised price: Flash price is visible end to end after add-to-cart"
@@ -2239,7 +2239,7 @@ features:
       - "Advertised price: Ended sale refuses checkout and re-prices the cart"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutEndedSaleRefusedAndRepriced. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutEndedSaleRefusedAndRepriced. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-sale-started-after-add-to-cart-refuses-checkout
     title: "Advertised price: Sale started after add-to-cart refuses checkout"
@@ -2252,7 +2252,7 @@ features:
       - "Advertised price: Sale started after add-to-cart refuses checkout"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutSaleStartedRefusedAndRepriced. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutSaleStartedRefusedAndRepriced. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-retry-after-the-re-price-places-the-order-at-the-new-price
     title: "Advertised price: Retry after the re-price places the order at the new price"
@@ -2265,7 +2265,7 @@ features:
       - "Advertised price: Retry after the re-price places the order at the new price"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutRetryAfterRepriceSucceeds. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutRetryAfterRepriceSucceeds. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-matching-flash-price-proceeds-at-the-flash-price
     title: "Advertised price: Matching flash price proceeds at the flash price"
@@ -2278,7 +2278,7 @@ features:
       - "Advertised price: Matching flash price proceeds at the flash price"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutChargesFlashPrice. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutChargesFlashPrice. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-one-changed-line-refuses-the-whole-checkout
     title: "Advertised price: One changed line refuses the whole checkout"
@@ -2291,7 +2291,7 @@ features:
       - "Advertised price: One changed line refuses the whole checkout"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutOneChangedLineRefusesAll. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutOneChangedLineRefusesAll. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-refused-checkout-frees-the-idempotency-key
     title: "Advertised price: Refused checkout frees the idempotency key"
@@ -2304,7 +2304,7 @@ features:
       - "Advertised price: Refused checkout frees the idempotency key"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutPriceChangedFreesIdempotencyKey. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutPriceChangedFreesIdempotencyKey. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-another-buyer-s-cart-is-never-re-priced
     title: "Advertised price: Another buyer's cart is never re-priced"
@@ -2317,7 +2317,7 @@ features:
       - "Advertised price: Another buyer's cart is never re-priced"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutRepriceScopedToBuyer. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutRepriceScopedToBuyer. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-checkout-maps-price-changed-to-failed-precondition
     title: "Advertised price: Checkout maps price changed to FAILED_PRECONDITION"
@@ -2330,7 +2330,7 @@ features:
       - "Advertised price: Checkout maps price changed to FAILED_PRECONDITION"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestCreateOrderPriceChangedFailedPrecondition. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestCreateOrderPriceChangedFailedPrecondition. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-ended-sale-is-refused-end-to-end-and-the-retry-is-charged-the-regular-price
     title: "Advertised price: Ended sale is refused end to end and the retry is charged the regular price"
@@ -2362,7 +2362,7 @@ features:
       - "Advertised price: Promotion outage blocks a flash-priced line"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutPromotionDownFlashLineUnavailable. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutPromotionDownFlashLineUnavailable. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-promotion-outage-does-not-block-a-regular-priced-line
     title: "Advertised price: Promotion outage does not block a regular-priced line"
@@ -2375,7 +2375,7 @@ features:
       - "Advertised price: Promotion outage does not block a regular-priced line"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutPromotionDownRegularLineProceeds. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutPromotionDownRegularLineProceeds. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-cart-price-above-regular-is-a-price-change-even-when-promotion-is-down
     title: "Advertised price: Cart price above regular is a price change even when promotion is down"
@@ -2388,7 +2388,7 @@ features:
       - "Advertised price: Cart price above regular is a price change even when promotion is down"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutPromotionDownCartAboveRegularPriceChanged. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutPromotionDownCartAboveRegularPriceChanged. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-hold-transport-error-releases-the-attempt
     title: "Advertised price: Hold transport error releases the attempt"
@@ -2401,7 +2401,7 @@ features:
       - "Advertised price: Hold transport error releases the attempt"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutFlashHoldTransportErrorUnavailable. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutFlashHoldTransportErrorUnavailable. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-unconfigured-promotion-refuses-a-flash-priced-cart-line
     title: "Advertised price: Unconfigured promotion refuses a flash-priced cart line"
@@ -2414,7 +2414,7 @@ features:
       - "Advertised price: Unconfigured promotion refuses a flash-priced cart line"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutNilPromotionFlashLineRepriced. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestNewOrderServiceRefusesNilDependencies. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-checkout-maps-promotion-unavailable-to-unavailable
     title: "Advertised price: Checkout maps promotion unavailable to UNAVAILABLE"
@@ -2427,7 +2427,7 @@ features:
       - "Advertised price: Checkout maps promotion unavailable to UNAVAILABLE"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/handler TestCreateOrderPromotionUnavailableUnavailable. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/rpc TestCreateOrderPromotionUnavailableUnavailable. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-flash-line-takes-one-hold-for-its-full-quantity
     title: "Advertised price: Flash line takes one hold for its full quantity"
@@ -2440,7 +2440,7 @@ features:
       - "Advertised price: Flash line takes one hold for its full quantity"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutFlashHoldOnePerLineFullQuantity. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutFlashHoldOnePerLineFullQuantity. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-regular-line-makes-no-hold-call
     title: "Advertised price: Regular line makes no hold call"
@@ -2453,7 +2453,7 @@ features:
       - "Advertised price: Regular line makes no hold call"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutRegularLineNoFlashHold. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutRegularLineNoFlashHold. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-refused-hold-is-a-price-change-and-releases-everything
     title: "Advertised price: Refused hold is a price change and releases everything"
@@ -2466,7 +2466,7 @@ features:
       - "Advertised price: Refused hold is a price change and releases everything"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutRefusedFlashHoldPriceChangedReleasesAll. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutRefusedFlashHoldPriceChangedReleasesAll. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-voucher-is-computed-on-the-flash-priced-subtotal
     title: "Advertised price: Voucher is computed on the flash-priced subtotal"
@@ -2479,7 +2479,7 @@ features:
       - "Advertised price: Voucher is computed on the flash-priced subtotal"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutVoucherReservedOnFlashSubtotal. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutVoucherReservedOnFlashSubtotal. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-hold-call-never-carries-the-buyer-principal
     title: "Advertised price: Hold call never carries the buyer principal"
@@ -2524,7 +2524,7 @@ features:
       - "Advertised price: Flash hold is committed before the order exists"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutCommitsFlashHoldInPhaseB. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutCommitsFlashHoldInPhaseB. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-flash-commit-failure-compensates-with-domain-stock-uncommitted
     title: "Advertised price: Flash commit failure compensates with domain stock uncommitted"
@@ -2537,7 +2537,7 @@ features:
       - "Advertised price: Flash commit failure compensates with domain stock uncommitted"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutFlashCommitErrorCompensates. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutFlashCommitErrorCompensates. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-domain-commit-failure-releases-committed-flash-holds
     title: "Advertised price: Domain commit failure releases committed flash holds"
@@ -2550,7 +2550,7 @@ features:
       - "Advertised price: Domain commit failure releases committed flash holds"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutDomainCommitFailureReleasesCommittedFlashHold. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutDomainCommitFailureReleasesCommittedFlashHold. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-uncommitted-result-is-refused
     title: "Advertised price: Uncommitted result is refused"
@@ -2563,7 +2563,7 @@ features:
       - "Advertised price: Uncommitted result is refused"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutFlashCommitFalseCompensates. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutFlashCommitFalseCompensates. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-regular-only-checkout-makes-no-commit-call
     title: "Advertised price: Regular-only checkout makes no commit call"
@@ -2576,7 +2576,7 @@ features:
       - "Advertised price: Regular-only checkout makes no commit call"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutRegularLineNoFlashCommit. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutRegularLineNoFlashCommit. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-payment-settlement-makes-no-flash-call
     title: "Advertised price: Payment settlement makes no flash call"
@@ -2589,7 +2589,7 @@ features:
       - "Advertised price: Payment settlement makes no flash call"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/consumer TestPaymentConsumerMakesNoFlashCall. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/events TestPaymentConsumerMakesNoFlashCall. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-a-retry-uses-fresh-reservation-ids
     title: "Advertised price: A retry uses fresh reservation ids"
@@ -2602,7 +2602,7 @@ features:
       - "Advertised price: A retry uses fresh reservation ids"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCheckoutRetryUsesFreshFlashReservationIDs. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCheckoutRetryUsesFreshFlashReservationIDs. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-placing-a-flash-priced-order-grows-stock-sold-end-to-end
     title: "Advertised price: Placing a flash-priced order grows stock_sold end to end"
@@ -2634,7 +2634,7 @@ features:
       - "Advertised price: Failed checkout returns its flash holds"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestFailAndCompensateReleasesFlashHolds. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestFailAndCompensateReleasesFlashHolds. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-compensation-releases-flash-lines-only
     title: "Advertised price: Compensation releases flash lines only"
@@ -2647,7 +2647,7 @@ features:
       - "Advertised price: Compensation releases flash lines only"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestFailAndCompensateReleasesOnlyFlashLines. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestFailAndCompensateReleasesOnlyFlashLines. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-cancel-returns-the-flash-hold
     title: "Advertised price: Cancel returns the flash hold"
@@ -2660,7 +2660,7 @@ features:
       - "Advertised price: Cancel returns the flash hold"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCancelOrderReleasesFlashHold. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCancelOrderReleasesFlashHold. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-cancel-calls-release-for-every-item
     title: "Advertised price: Cancel calls release for every item"
@@ -2673,7 +2673,7 @@ features:
       - "Advertised price: Cancel calls release for every item"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCancelOrderReleasesEveryItem. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCancelOrderReleasesEveryItem. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-flash-release-failure-never-fails-the-cancel
     title: "Advertised price: Flash release failure never fails the cancel"
@@ -2686,7 +2686,7 @@ features:
       - "Advertised price: Flash release failure never fails the cancel"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCancelOrderFlashReleaseErrorStillCancels. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCancelOrderFlashReleaseErrorStillCancels. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-cancel-of-an-order-that-is-not-pending-or-paid-releases-nothing
     title: "Advertised price: Cancel of an order that is not Pending or Paid releases nothing"
@@ -2699,7 +2699,7 @@ features:
       - "Advertised price: Cancel of an order that is not Pending or Paid releases nothing"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCancelOrderRefusedNoFlashRelease. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCancelOrderRefusedNoFlashRelease. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-cancel-of-a-paid-order-releases-the-committed-hold
     title: "Advertised price: Cancel of a Paid order releases the committed hold"
@@ -2712,7 +2712,7 @@ features:
       - "Advertised price: Cancel of a Paid order releases the committed hold"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/service TestCancelPaidOrderReleasesCommittedFlashHold. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/order TestCancelPaidOrderReleasesCommittedFlashHold. Not producible end to end through the gateway (unit level)."
 
   - id: order.adv-cancelled-placed-order-returns-flash-units-end-to-end
     title: "Advertised price: Cancelled placed order returns flash units end to end"
@@ -2770,7 +2770,7 @@ features:
       - "Advertised price: Unset promotion address yields no client"
     tags: [buyer, pricing, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/upstream TestDialPromotionEmptyAddrNil. Not producible end to end through the gateway (unit level)."
+    notes: "REMOVED: no audit-less or promotion-less mode; scenario removed by order-go-sdk-v1"
 
   - id: order.adv-a-buyer-token-cannot-reserve-flash-stock-end-to-end
     title: "Advertised price: A buyer token cannot reserve flash stock end to end"
@@ -2802,7 +2802,7 @@ features:
       - "Order expiry: Online-pay order gets a 24-hour deadline"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestPlaceOrdersSetsPaymentDueAtAndOrderPlaced`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestPlaceOrdersSetsPaymentDueAtAndOrderPlaced`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-cod-order-has-no-deadline
     title: "Order expiry: COD order has no deadline"
@@ -2815,7 +2815,7 @@ features:
       - "Order expiry: COD order has no deadline"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestPlaceOrdersCodHasNoPaymentDueAt`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestPlaceOrdersCodHasNoPaymentDueAt`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-rolled-back-placement-emits-no-orderplaced
     title: "Order expiry: Rolled-back placement emits no OrderPlaced"
@@ -2828,7 +2828,7 @@ features:
       - "Order expiry: Rolled-back placement emits no OrderPlaced"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestPlaceOrdersRollbackWritesNoOrderPlaced`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestPlaceOrdersRollbackWritesNoOrderPlaced`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-each-seller-order-of-one-checkout-gets-its-own-orderplaced
     title: "Order expiry: Each seller order of one checkout gets its own OrderPlaced"
@@ -2841,7 +2841,7 @@ features:
       - "Order expiry: Each seller order of one checkout gets its own OrderPlaced"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCheckoutEmitsOrderPlacedPerOrder`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCheckoutEmitsOrderPlacedPerOrder`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-a-later-config-change-does-not-move-an-existing-deadline
     title: "Order expiry: A later config change does not move an existing deadline"
@@ -2854,7 +2854,7 @@ features:
       - "Order expiry: A later config change does not move an existing deadline"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPaymentDueAtSnapshotSurvivesConfigChange`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPaymentDueAtSnapshotSurvivesConfigChange`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-defaults-apply-when-nothing-is-configured
     title: "Order expiry: Defaults apply when nothing is configured"
@@ -2912,7 +2912,7 @@ features:
       - "Order expiry: Reminder boundary is inclusive at deadline minus offset"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestReminderBoundary`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestReminderBoundary`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-repeated-sweeps-never-repeat-the-reminder
     title: "Order expiry: Repeated sweeps never repeat the reminder"
@@ -2925,7 +2925,7 @@ features:
       - "Order expiry: Repeated sweeps never repeat the reminder"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestReminderEmittedOnce`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestReminderEmittedOnce`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-a-paid-order-is-never-reminded
     title: "Order expiry: A paid order is never reminded"
@@ -2938,7 +2938,7 @@ features:
       - "Order expiry: A paid order is never reminded"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestReminderSkipsPaidOrder`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestReminderSkipsPaidOrder`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-a-cod-order-is-never-reminded
     title: "Order expiry: A COD order is never reminded"
@@ -2951,7 +2951,7 @@ features:
       - "Order expiry: A COD order is never reminded"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestReminderSkipsCodOrder`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestReminderSkipsCodOrder`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-a-sweep-that-first-sees-an-order-past-its-deadline-sends-no-reminder
     title: "Order expiry: A sweep that first sees an order past its deadline sends no reminder"
@@ -2964,7 +2964,7 @@ features:
       - "Order expiry: A sweep that first sees an order past its deadline sends no reminder"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestLateFirstSweepExpiresWithoutReminder`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestLateFirstSweepExpiresWithoutReminder`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-a-reminder-pass-handles-at-most-100-orders-per-tick
     title: "Order expiry: A reminder pass handles at most 100 orders per tick"
@@ -2977,7 +2977,7 @@ features:
       - "Order expiry: A reminder pass handles at most 100 orders per tick"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestFindReminderDueBatchBound`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestFindReminderDueBatchBound`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-order-unpaid-past-its-deadline-is-cancelled-and-its-stock-released
     title: "Order expiry: Order unpaid past its deadline is cancelled and its stock released"
@@ -3028,7 +3028,7 @@ features:
       - "Order expiry: Expiry releases the voucher hold and flash units once"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestExpiryReleasesVoucherAndFlashOnce`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestExpiryReleasesVoucherAndFlashOnce`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-boundary-at-the-deadline-keeps-the-order-payable
     title: "Order expiry: Boundary at the deadline keeps the order payable"
@@ -3041,7 +3041,7 @@ features:
       - "Order expiry: Boundary at the deadline keeps the order payable"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestExpiryBoundaryStrictlyAfterDeadline`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestExpiryBoundaryStrictlyAfterDeadline`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-a-cod-order-is-never-expired
     title: "Order expiry: A COD order is never expired"
@@ -3073,7 +3073,7 @@ features:
       - "Order expiry: An order without a deadline is never expired"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestExpirySkipsOrderWithoutDeadline`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestExpirySkipsOrderWithoutDeadline`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-a-paid-order-is-never-expired
     title: "Order expiry: A paid order is never expired"
@@ -3086,7 +3086,7 @@ features:
       - "Order expiry: A paid order is never expired"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestExpirySkipsPaidOrder`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestExpirySkipsPaidOrder`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-payment-and-expiry-racing-produce-one-outcome
     title: "Order expiry: Payment and expiry racing produce one outcome"
@@ -3099,7 +3099,7 @@ features:
       - "Order expiry: Payment and expiry racing produce one outcome"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestExpiryVersusPaymentSingleWinner`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestExpiryVersusPaymentSingleWinner`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-two-sweeps-expire-an-order-once
     title: "Order expiry: Two sweeps expire an order once"
@@ -3112,7 +3112,7 @@ features:
       - "Order expiry: Two sweeps expire an order once"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestExpiryConcurrentSweepsReleaseOnce`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestExpiryConcurrentSweepsReleaseOnce`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-a-failed-release-leaves-the-order-cancelled-and-parked
     title: "Order expiry: A failed release leaves the order cancelled and parked"
@@ -3125,7 +3125,7 @@ features:
       - "Order expiry: A failed release leaves the order cancelled and parked"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestExpiryReleaseFailureParksForSweep`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestExpiryReleaseFailureParksForSweep`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-one-failing-pass-does-not-stop-the-next
     title: "Order expiry: One failing pass does not stop the next"
@@ -3138,7 +3138,7 @@ features:
       - "Order expiry: One failing pass does not stop the next"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestSweepLifecyclePassesAreIndependent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestSweepLifecyclePassesAreIndependent`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-an-expiry-pass-handles-at-most-100-orders-per-tick
     title: "Order expiry: An expiry pass handles at most 100 orders per tick"
@@ -3151,7 +3151,7 @@ features:
       - "Order expiry: An expiry pass handles at most 100 orders per tick"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestFindExpiredBatchBound`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestFindExpiredBatchBound`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-a-payment-settling-after-the-expiry-changes-nothing-in-team-order
     title: "Order expiry: A payment settling after the expiry changes nothing in team-order"
@@ -3164,7 +3164,7 @@ features:
       - "Order expiry: A payment settling after the expiry changes nothing in team-order"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestLateSettleAfterExpiryLeavesOrderCancelled`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestLateSettleAfterExpiryLeavesOrderCancelled`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-buyer-cancel-stores-the-chosen-reason
     title: "Order expiry: Buyer cancel stores the chosen reason"
@@ -3196,7 +3196,7 @@ features:
       - "Order expiry: Cancel without a reason code still succeeds"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCancelOrderWithoutReasonCode`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCancelOrderWithoutReasonCode`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-buyer-cannot-send-a-system-reason-code
     title: "Order expiry: Buyer cannot send a system reason code"
@@ -3228,7 +3228,7 @@ features:
       - "Order expiry: Another user cannot cancel with a reason"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCancelOrderOtherUserWithReasonDenied`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCancelOrderOtherUserWithReasonDenied`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-cancel-of-a-shipped-order-is-refused
     title: "Order expiry: Cancel of a shipped order is refused"
@@ -3241,7 +3241,7 @@ features:
       - "Order expiry: Cancel of a shipped order is refused"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCancelShippedOrderKeepsReasonUnset`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCancelShippedOrderKeepsReasonUnset`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-admin-force-fail-records-its-own-reason
     title: "Order expiry: Admin force-fail records its own reason"
@@ -3254,7 +3254,7 @@ features:
       - "Order expiry: Admin force-fail records its own reason"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestForceFailSagaStoresAdminReason`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestForceFailSagaStoresAdminReason`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-concurrent-buyer-cancel-and-expiry-keep-one-reason
     title: "Order expiry: Concurrent buyer cancel and expiry keep one reason"
@@ -3267,7 +3267,7 @@ features:
       - "Order expiry: Concurrent buyer cancel and expiry keep one reason"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestCancelReasonMatchesClaimWinner`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestCancelReasonMatchesClaimWinner`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-system-may-cancel-only-from-pending
     title: "Order expiry: System may cancel only from Pending"
@@ -3280,7 +3280,7 @@ features:
       - "Order expiry: System may cancel only from Pending"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestAllowedFromCancelledSystemIsPendingOnly`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestAllowedFromCancelledSystemIsPendingOnly`. Not producible end to end through the gateway (unit level)."
 
   - id: order.expiry-a-seller-or-admin-cannot-request-cancelled-through-updateorderstatus
     title: "Order expiry: A seller or admin cannot request Cancelled through UpdateOrderStatus"
@@ -3293,7 +3293,7 @@ features:
       - "Order expiry: A seller or admin cannot request Cancelled through UpdateOrderStatus"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestUpdateOrderStatusCancelledStillForbidden`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestUpdateOrderStatusCancelledStillForbidden`. Not producible end to end through the gateway (unit level)."
 
   # ---- order-receipt-completion (initiative q10-order-lifecycle; written from the spec, planned until the code lands).
   - id: order.receipt-buyer-confirms-a-shipped-order
@@ -3364,7 +3364,7 @@ features:
       - "Order receipt: Buyer may confirm while their return is open"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestConfirmReceiptAllowedWithOpenReturn`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestConfirmReceiptAllowedWithOpenReturn`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-confirming-an-unknown-order-is-not-found
     title: "Order receipt: Confirming an unknown order is not found"
@@ -3377,7 +3377,7 @@ features:
       - "Order receipt: Confirming an unknown order is not found"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestConfirmReceiptUnknownOrderNotFound`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestConfirmReceiptUnknownOrderNotFound`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-a-buyer-cannot-complete-through-updateorderstatus
     title: "Order receipt: A buyer cannot complete through UpdateOrderStatus"
@@ -3447,7 +3447,7 @@ features:
       - "Order receipt: A shipped order inside its window is not completed"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestSweepDoesNotCompleteBeforeDeadline`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestSweepDoesNotCompleteBeforeDeadline`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-an-open-return-blocks-auto-complete
     title: "Order receipt: An open return blocks auto-complete"
@@ -3479,7 +3479,7 @@ features:
       - "Order receipt: An approved unrefunded return blocks auto-complete"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestSweepSkipsOrderWithApprovedReturn`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestSweepSkipsOrderWithApprovedReturn`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-an-approved-return-on-a-cash-on-delivery-order-does-not-block-auto-complete
     title: "Order receipt: An approved return on a cash-on-delivery order does not block auto-complete"
@@ -3492,7 +3492,7 @@ features:
       - "Order receipt: An approved return on a cash-on-delivery order does not block auto-complete"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestSweepCompletesCODOrderWithApprovedReturn`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestSweepCompletesCODOrderWithApprovedReturn`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-seller-completion-clears-the-auto-complete-deadline
     title: "Order receipt: Seller completion clears the auto-complete deadline"
@@ -3505,7 +3505,7 @@ features:
       - "Order receipt: Seller completion clears the auto-complete deadline"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestCompletionClearsAutoCompleteAt`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestCompletionClearsAutoCompleteAt`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-a-rejected-return-does-not-block-auto-complete
     title: "Order receipt: A rejected return does not block auto-complete"
@@ -3518,7 +3518,7 @@ features:
       - "Order receipt: A rejected return does not block auto-complete"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestSweepCompletesOrderWithRejectedReturn`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestSweepCompletesOrderWithRejectedReturn`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-confirm-racing-the-sweep-completes-once
     title: "Order receipt: Confirm racing the sweep completes once"
@@ -3531,7 +3531,7 @@ features:
       - "Order receipt: Confirm racing the sweep completes once"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestConfirmReceiptRacesSweepOneCompletion`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestConfirmReceiptRacesSweepOneCompletion`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-the-sweep-handles-at-most-one-batch-per-run
     title: "Order receipt: The sweep handles at most one batch per run"
@@ -3544,7 +3544,7 @@ features:
       - "Order receipt: The sweep handles at most one batch per run"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestSweepAutoCompleteBatchBound`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestSweepAutoCompleteBatchBound`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-a-repeated-sweep-changes-nothing
     title: "Order receipt: A repeated sweep changes nothing"
@@ -3557,7 +3557,7 @@ features:
       - "Order receipt: A repeated sweep changes nothing"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestSweepAutoCompleteIdempotent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestSweepAutoCompleteIdempotent`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-buyer-confirm-emits-ordercompleted-with-completed-by-buyer
     title: "Order receipt: Buyer confirm emits OrderCompleted with completed_by BUYER"
@@ -3608,7 +3608,7 @@ features:
       - "Order receipt: A cash-on-delivery completion is marked not paid online"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestOrderCompletedPaidOnlineFalseForCOD`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestOrderCompletedPaidOnlineFalseForCOD`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-a-refused-completion-emits-nothing
     title: "Order receipt: A refused completion emits nothing"
@@ -3659,7 +3659,7 @@ features:
       - "Order receipt: Outbox failure rolls the completion back"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestCompletionRollsBackWhenOutboxFails`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestCompletionRollsBackWhenOutboxFails`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-return-on-a-shipped-order-is-accepted-and-announced
     title: "Order receipt: Return on a shipped order is accepted and announced"
@@ -3729,7 +3729,7 @@ features:
       - "Order receipt: Return at the exact window end is refused"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCreateReturnAtWindowEndRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCreateReturnAtWindowEndRefused`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-return-on-a-paid-unshipped-order-is-refused
     title: "Order receipt: Return on a paid unshipped order is refused"
@@ -3761,7 +3761,7 @@ features:
       - "Order receipt: Return on a pending or cancelled order is refused"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCreateReturnPendingOrCancelledRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCreateReturnPendingOrCancelledRefused`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-another-buyer-cannot-return-the-order
     title: "Order receipt: Another buyer cannot return the order"
@@ -3774,7 +3774,7 @@ features:
       - "Order receipt: Another buyer cannot return the order"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCreateReturnOtherBuyerDenied`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCreateReturnOtherBuyerDenied`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-return-above-the-cap-is-still-refused
     title: "Order receipt: Return above the cap is still refused"
@@ -3787,7 +3787,7 @@ features:
       - "Order receipt: Return above the cap is still refused"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCreateReturnCapStillEnforced`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCreateReturnCapStillEnforced`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-unanswered-return-is-approved-after-the-window
     title: "Order receipt: Unanswered return is approved after the window"
@@ -3819,7 +3819,7 @@ features:
       - "Order receipt: A return inside its answer window is not approved"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestAutoApproveBeforeDeadlineNoOp`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestAutoApproveBeforeDeadlineNoOp`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-rejected-return-is-never-auto-approved
     title: "Order receipt: Rejected return is never auto-approved"
@@ -3851,7 +3851,7 @@ features:
       - "Order receipt: Approved return is not touched by the sweep"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestAutoApproveSkipsApproved`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestAutoApproveSkipsApproved`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-seller-answer-racing-the-auto-approve-produces-one-transition
     title: "Order receipt: Seller answer racing the auto-approve produces one transition"
@@ -3864,7 +3864,7 @@ features:
       - "Order receipt: Seller answer racing the auto-approve produces one transition"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestAutoApproveRacesSellerAnswerOneTransition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestAutoApproveRacesSellerAnswerOneTransition`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-auto-approved-return-is-refunded-through-the-existing-path
     title: "Order receipt: Auto-approved return is refunded through the existing path"
@@ -3915,7 +3915,7 @@ features:
       - "Order receipt: The auto-approve pass handles at most one batch per run"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestAutoApproveBatchBound`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestAutoApproveBatchBound`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-a-rejected-return-on-a-shipped-order-can-escalate
     title: "Order receipt: A rejected return on a shipped order can escalate"
@@ -3947,7 +3947,7 @@ features:
       - "Order receipt: A rejected return inside the window after completion can escalate"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCanEscalateRejectedInsideWindow`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCanEscalateRejectedInsideWindow`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-a-rejected-return-cannot-escalate-after-the-window-closes
     title: "Order receipt: A rejected return cannot escalate after the window closes"
@@ -3979,7 +3979,7 @@ features:
       - "Order receipt: A return that is not rejected cannot escalate"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCanEscalateFalseUnlessRejected`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCanEscalateFalseUnlessRejected`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-listorderreturns-computes-can-escalate-per-return
     title: "Order receipt: ListOrderReturns computes can_escalate per return"
@@ -3992,7 +3992,7 @@ features:
       - "Order receipt: ListOrderReturns computes can_escalate per return"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestListOrderReturnsCanEscalatePerReturn`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestListOrderReturnsCanEscalatePerReturn`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-a-client-sent-can-escalate-is-ignored
     title: "Order receipt: A client-sent can_escalate is ignored"
@@ -4005,7 +4005,7 @@ features:
       - "Order receipt: A client-sent can_escalate is ignored"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateReturnIgnoresClientCanEscalate`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateReturnIgnoresClientCanEscalate`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-payment-stamps-ship-by-and-the-paid-event-carries-it
     title: "Order receipt: Payment stamps ship_by and the paid event carries it"
@@ -4075,7 +4075,7 @@ features:
       - "Order receipt: A passed ship_by changes nothing"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPassedShipByDoesNotChangeOrder`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPassedShipByDoesNotChangeOrder`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-a-changed-config-does-not-move-an-existing-ship-by
     title: "Order receipt: A changed config does not move an existing ship_by"
@@ -4088,7 +4088,7 @@ features:
       - "Order receipt: A changed config does not move an existing ship_by"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestShipByIsSnapshottedAtPayment`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestShipByIsSnapshottedAtPayment`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-defaults-apply-when-nothing-is-set
     title: "Order receipt: Defaults apply when nothing is set"
@@ -4140,7 +4140,7 @@ features:
       - "Order receipt: The table allows buyer and system to complete only from shipped"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestTransitionsCompletedActors`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestTransitionsCompletedActors`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-a-completed-order-cannot-be-reopened-or-cancelled
     title: "Order receipt: A completed order cannot be reopened or cancelled"
@@ -4172,7 +4172,7 @@ features:
       - "Order receipt: Migration backfills deadlines without completing anything"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestMigrationBackfillsLifecycleDeadlines`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestMigrationBackfillsLifecycleDeadlines`. Not producible end to end through the gateway (unit level)."
 
   - id: order.receipt-the-down-migration-restores-the-old-schema
     title: "Order receipt: The down migration restores the old schema"
@@ -4185,7 +4185,7 @@ features:
       - "Order receipt: The down migration restores the old schema"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestMigrationDownDropsLifecycleColumns`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestMigrationDownDropsLifecycleColumns`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-ho-chi-minh-is-delivered-in-2-days
     title: "Address and ETA: Hồ Chí Minh is delivered in 2 days"
@@ -4198,7 +4198,7 @@ features:
       - "Address and ETA: Hồ Chí Minh is delivered in 2 days"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestShippingETAHoChiMinhTwoDays`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestShippingETAHoChiMinhTwoDays`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-ha-noi-is-delivered-in-2-days
     title: "Address and ETA: Hà Nội is delivered in 2 days"
@@ -4211,7 +4211,7 @@ features:
       - "Address and ETA: Hà Nội is delivered in 2 days"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestShippingETAHaNoiTwoDays`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestShippingETAHaNoiTwoDays`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-any-other-city-is-delivered-in-4-days
     title: "Address and ETA: Any other city is delivered in 4 days"
@@ -4224,7 +4224,7 @@ features:
       - "Address and ETA: Any other city is delivered in 4 days"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestShippingETAOtherCityFourDays`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestShippingETAOtherCityFourDays`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-the-delivery-date-is-a-calendar-date-in-asia-ho-chi-minh
     title: "Address and ETA: The delivery date is a calendar date in Asia/Ho_Chi_Minh"
@@ -4237,7 +4237,7 @@ features:
       - "Address and ETA: The delivery date is a calendar date in Asia/Ho_Chi_Minh"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestShippingETAIsHoChiMinhCalendarDate`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestShippingETAIsHoChiMinhCalendarDate`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-free-shipping-does-not-change-the-delivery-time
     title: "Address and ETA: Free shipping does not change the delivery time"
@@ -4250,7 +4250,7 @@ features:
       - "Address and ETA: Free shipping does not change the delivery time"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestShippingETAIndependentOfFreeShipping`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestShippingETAIndependentOfFreeShipping`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-an-empty-city-gets-no-delivery-date
     title: "Address and ETA: An empty city gets no delivery date"
@@ -4263,7 +4263,7 @@ features:
       - "Address and ETA: An empty city gets no delivery date"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCalculateShippingFeeEmptyCityNoETA`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCalculateShippingFeeEmptyCityNoETA`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-fee-amounts-are-unchanged
     title: "Address and ETA: Fee amounts are unchanged"
@@ -4276,7 +4276,7 @@ features:
       - "Address and ETA: Fee amounts are unchanged"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestShippingFeeAmountsUnchanged` (new; includes the Đà Nẵng 500000 free-shipping case the existing `TestOrderService_CalculateShippingFee` lacks). Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestShippingFeeAmountsUnchanged` (new; includes the Đà Nẵng 500000 free-shipping case the existing `TestOrderService_CalculateShippingFee` lacks). Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-the-delivery-date-is-quoted-through-the-gateway
     title: "Address and ETA: The delivery date is quoted through the gateway"
@@ -4302,7 +4302,7 @@ features:
       - "Address and ETA: The picked address is the order's address"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderUsesPickedAddress`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderUsesPickedAddress`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-an-empty-address-id-uses-the-default-address
     title: "Address and ETA: An empty address id uses the default address"
@@ -4315,7 +4315,7 @@ features:
       - "Address and ETA: An empty address id uses the default address"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderEmptyAddressIDUsesDefault`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderEmptyAddressIDUsesDefault`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-an-unknown-address-id-is-refused-and-nothing-is-reserved
     title: "Address and ETA: An unknown address id is refused and nothing is reserved"
@@ -4328,7 +4328,7 @@ features:
       - "Address and ETA: An unknown address id is refused and nothing is reserved"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderUnknownAddressRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderUnknownAddressRefused`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-a-buyer-without-any-address-is-refused
     title: "Address and ETA: A buyer without any address is refused"
@@ -4341,7 +4341,7 @@ features:
       - "Address and ETA: A buyer without any address is refused"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderNoAddressRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderNoAddressRefused`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-without-a-default-address-an-empty-address-id-is-refused
     title: "Address and ETA: Without a default address an empty address id is refused"
@@ -4354,7 +4354,7 @@ features:
       - "Address and ETA: Without a default address an empty address id is refused"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderNoDefaultAddressRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderNoDefaultAddressRefused`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-an-address-with-an-empty-city-is-refused
     title: "Address and ETA: An address with an empty city is refused"
@@ -4367,7 +4367,7 @@ features:
       - "Address and ETA: An address with an empty city is refused"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderEmptyCityAddressRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderEmptyCityAddressRefused`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-another-buyer-s-address-id-is-refused
     title: "Address and ETA: Another buyer's address id is refused"
@@ -4393,7 +4393,7 @@ features:
       - "Address and ETA: An identity outage never places an order"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderIdentityUnavailableRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderIdentityUnavailableRefused`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-a-missing-address-client-refuses-the-order
     title: "Address and ETA: A missing address client refuses the order"
@@ -4406,7 +4406,7 @@ features:
       - "Address and ETA: A missing address client refuses the order"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderNilAddressClientRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestNewOrderHandlerRefusesNilDependencies`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-a-non-user-principal-is-refused-before-any-identity-call
     title: "Address and ETA: A non-user principal is refused before any identity call"
@@ -4419,7 +4419,7 @@ features:
       - "Address and ETA: A non-user principal is refused before any identity call"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderNonUserNoAddressLookup`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderNonUserNoAddressLookup`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-an-unchanged-confirmed-address-places-the-order
     title: "Address and ETA: An unchanged confirmed address places the order"
@@ -4432,7 +4432,7 @@ features:
       - "Address and ETA: An unchanged confirmed address places the order"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderConfirmedAddressMatches`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderConfirmedAddressMatches`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-an-address-edited-after-confirm-is-refused
     title: "Address and ETA: An address edited after confirm is refused"
@@ -4445,7 +4445,7 @@ features:
       - "Address and ETA: An address edited after confirm is refused"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderEditedAddressRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderEditedAddressRefused`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-each-delivery-field-counts-as-a-change
     title: "Address and ETA: Each delivery field counts as a change"
@@ -4458,7 +4458,7 @@ features:
       - "Address and ETA: Each delivery field counts as a change"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderEachAddressFieldChangeRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderEachAddressFieldChangeRefused`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-metadata-differences-are-not-a-change
     title: "Address and ETA: Metadata differences are not a change"
@@ -4471,7 +4471,7 @@ features:
       - "Address and ETA: Metadata differences are not a change"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderConfirmedAddressIgnoresMetadata`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderConfirmedAddressIgnoresMetadata`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-a-request-without-a-confirmed-address-is-not-compared
     title: "Address and ETA: A request without a confirmed address is not compared"
@@ -4484,7 +4484,7 @@ features:
       - "Address and ETA: A request without a confirmed address is not compared"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderNoConfirmedAddressSkipsCompare`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderNoConfirmedAddressSkipsCompare`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-address-details-are-never-logged
     title: "Address and ETA: Address details are never logged"
@@ -4497,7 +4497,7 @@ features:
       - "Address and ETA: Address details are never logged"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderAddressRefusalLogsIDOnly`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderAddressRefusalLogsIDOnly`. Not producible end to end through the gateway (unit level)."
 
   - id: order.address-eta-an-edited-address-is-refused-end-to-end-and-a-retry-succeeds
     title: "Address and ETA: An edited address is refused end to end and a retry succeeds"
@@ -4537,7 +4537,7 @@ features:
       - "Multishop checkout: Free shipping is decided per group"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutFreeShippingPerGroup`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestQuoteCheckoutFreeShippingPerGroup`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-totals-equal-the-placed-orders
     title: "Multishop checkout: Preview totals equal the placed orders"
     persona: buyer
@@ -4564,7 +4564,7 @@ features:
       - "Multishop checkout: Preview reserves nothing"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutReservesNothing`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPreviewCheckoutReservesNothing`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-limits-itself-to-the-selected-lines
     title: "Multishop checkout: Preview limits itself to the selected lines"
     persona: buyer
@@ -4576,7 +4576,7 @@ features:
       - "Multishop checkout: Preview limits itself to the selected lines"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutSelectsItemIDs`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPreviewCheckoutSelectsItemIDs`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-of-an-empty-selection-is-refused
     title: "Multishop checkout: Preview of an empty selection is refused"
     persona: buyer
@@ -4588,7 +4588,7 @@ features:
       - "Multishop checkout: Preview of an empty selection is refused"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestPreviewCheckoutEmptySelectionFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestPreviewCheckoutEmptySelectionFailedPrecondition`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-without-an-address-quotes-no-shipping
     title: "Multishop checkout: Preview without an address quotes no shipping"
     persona: buyer
@@ -4600,7 +4600,7 @@ features:
       - "Multishop checkout: Preview without an address quotes no shipping"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutNoAddressNotQuoted`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPreviewCheckoutNoAddressNotQuoted`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-with-an-unknown-address-id-is-refused
     title: "Multishop checkout: Preview with an unknown address id is refused"
     persona: buyer
@@ -4612,7 +4612,7 @@ features:
       - "Multishop checkout: Preview with an unknown address id is refused"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestPreviewCheckoutUnknownAddressFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestPreviewCheckoutUnknownAddressFailedPrecondition`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-with-addresses-but-no-default-is-refused
     title: "Multishop checkout: Preview with addresses but no default is refused"
     persona: buyer
@@ -4624,7 +4624,7 @@ features:
       - "Multishop checkout: Preview with addresses but no default is refused"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutNoDefaultAddressFailedPrecondition`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPreviewCheckoutNoDefaultAddressFailedPrecondition`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-fails-closed-when-identity-is-unreachabl
     title: "Multishop checkout: Preview fails closed when identity is unreachable"
     persona: buyer
@@ -4636,7 +4636,7 @@ features:
       - "Multishop checkout: Preview fails closed when identity is unreachable"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutIdentityUnavailable`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPreviewCheckoutIdentityUnavailable`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-echoes-the-address-it-quoted
     title: "Multishop checkout: Preview echoes the address it quoted"
     persona: buyer
@@ -4648,7 +4648,7 @@ features:
       - "Multishop checkout: Preview echoes the address it quoted"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutEchoesShippingAddress`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPreviewCheckoutEchoesShippingAddress`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-refuses-a-changed-price
     title: "Multishop checkout: Preview refuses a changed price"
     persona: buyer
@@ -4660,7 +4660,7 @@ features:
       - "Multishop checkout: Preview refuses a changed price"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutPriceChangedRepricesCart`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPreviewCheckoutPriceChangedRepricesCart`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-of-the-buyer-s-own-listing-is-refused
     title: "Multishop checkout: Preview of the buyer's own listing is refused"
     persona: buyer
@@ -4672,7 +4672,7 @@ features:
       - "Multishop checkout: Preview of the buyer's own listing is refused"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutSelfPurchaseRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPreviewCheckoutSelfPurchaseRefused`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-ignores-another-buyer-s-cart
     title: "Multishop checkout: Preview ignores another buyer's cart"
     persona: buyer
@@ -4699,7 +4699,7 @@ features:
       - "Multishop checkout: Preview needs a user principal"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestPreviewCheckoutRequiresUserPrincipal`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestPreviewCheckoutRequiresUserPrincipal`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-is-reachable-through-the-gateway-for-a-s
     title: "Multishop checkout: Preview is reachable through the gateway for a signed-in buyer"
     persona: buyer
@@ -4726,7 +4726,7 @@ features:
       - "Multishop checkout: Platform discount splits across groups and sums back"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutProratesPlatformDiscount`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestQuoteCheckoutProratesPlatformDiscount`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-remainder-ties-go-to-the-lowest-seller-id
     title: "Multishop checkout: Remainder ties go to the lowest seller id"
     persona: buyer
@@ -4738,7 +4738,7 @@ features:
       - "Multishop checkout: Remainder ties go to the lowest seller id"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutRemainderTieLowestSellerID`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestQuoteCheckoutRemainderTieLowestSellerID`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-single-group-takes-the-whole-platform-discount
     title: "Multishop checkout: A single group takes the whole platform discount"
     persona: buyer
@@ -4750,7 +4750,7 @@ features:
       - "Multishop checkout: A single group takes the whole platform discount"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutSingleGroupWholeDiscount`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestQuoteCheckoutSingleGroupWholeDiscount`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-stacked-discounts-never-make-a-negative-total
     title: "Multishop checkout: Stacked discounts never make a negative total"
     persona: buyer
@@ -4762,7 +4762,7 @@ features:
       - "Multishop checkout: Stacked discounts never make a negative total"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutClampsGroupTotalAtZero`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestQuoteCheckoutClampsGroupTotalAtZero`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-totals-always-add-up
     title: "Multishop checkout: Totals always add up"
     persona: buyer
@@ -4774,7 +4774,7 @@ features:
       - "Multishop checkout: Totals always add up"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutTableTotalsInvariant`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestQuoteCheckoutTableTotalsInvariant`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-each-shop-voucher-discounts-its-own-group
     title: "Multishop checkout: Each shop voucher discounts its own group"
     persona: buyer
@@ -4816,7 +4816,7 @@ features:
       - "Multishop checkout: CreateOrder aborts on a refused shop voucher and holds nothing"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCreateOrderShopVoucherWrongShopAbortsAndReleases`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCreateOrderShopVoucherWrongShopAbortsAndReleases`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-platform-code-in-a-shop-slot-is-refused
     title: "Multishop checkout: A platform code in a shop slot is refused"
     persona: buyer
@@ -4828,7 +4828,7 @@ features:
       - "Multishop checkout: A platform code in a shop slot is refused"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestShopSlotRefusesPlatformScope`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestShopSlotRefusesPlatformScope`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-shop-voucher-for-a-shop-outside-the-selection
     title: "Multishop checkout: A shop voucher for a shop outside the selection is refused"
     persona: buyer
@@ -4840,7 +4840,7 @@ features:
       - "Multishop checkout: A shop voucher for a shop outside the selection is refused"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestShopVoucherSellerNotInSelectionRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestShopVoucherSellerNotInSelectionRefused`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-two-shop-vouchers-for-one-seller-are-rejected
     title: "Multishop checkout: Two shop vouchers for one seller are rejected"
     persona: buyer
@@ -4852,7 +4852,7 @@ features:
       - "Multishop checkout: Two shop vouchers for one seller are rejected"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestShopVouchersDuplicateSellerInvalidArgument`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestShopVouchersDuplicateSellerInvalidArgument`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-platform-voucher-is-split-and-stored-per-order
     title: "Multishop checkout: Platform voucher is split and stored per order"
     persona: buyer
@@ -4879,7 +4879,7 @@ features:
       - "Multishop checkout: Platform min spend is checked on the whole selection"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPlatformVoucherMinSpendOnSelectionSubtotal`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPlatformVoucherMinSpendOnSelectionSubtotal`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-platform-voucher-below-min-spend-is-refused
     title: "Multishop checkout: Platform voucher below min spend is refused"
     persona: buyer
@@ -4906,7 +4906,7 @@ features:
       - "Multishop checkout: A shop code in the platform slot is refused"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPlatformSlotRefusesShopScope`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPlatformSlotRefusesShopScope`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-platform-and-shop-vouchers-stack-on-one-group
     title: "Multishop checkout: Platform and shop vouchers stack on one group"
     persona: buyer
@@ -4918,7 +4918,7 @@ features:
       - "Multishop checkout: Platform and shop vouchers stack on one group"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestQuoteCheckoutStacksShopAndPlatform`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestQuoteCheckoutStacksShopAndPlatform`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-createorder-aborts-on-a-refused-platform-voucher
     title: "Multishop checkout: CreateOrder aborts on a refused platform voucher and holds nothing"
     persona: buyer
@@ -4930,7 +4930,7 @@ features:
       - "Multishop checkout: CreateOrder aborts on a refused platform voucher and holds nothing"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCreateOrderPlatformVoucherRefusedAbortsAndReleases`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCreateOrderPlatformVoucherRefusedAbortsAndReleases`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-every-voucher-hold-of-a-failed-checkout-is-relea
     title: "Multishop checkout: Every voucher hold of a failed checkout is released"
     persona: buyer
@@ -4942,7 +4942,7 @@ features:
       - "Multishop checkout: Every voucher hold of a failed checkout is released"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestFailAndCompensateReleasesAllVoucherHolds`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestFailAndCompensateReleasesAllVoucherHolds`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-legacy-platform-code-becomes-the-platform-vouc
     title: "Multishop checkout: A legacy platform code becomes the platform voucher"
     persona: buyer
@@ -4954,7 +4954,7 @@ features:
       - "Multishop checkout: A legacy platform code becomes the platform voucher"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestLegacyVoucherCodePlatformScopeRouted`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestLegacyVoucherCodePlatformScopeRouted`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-legacy-shop-code-is-refused-as-a-platform-vouc
     title: "Multishop checkout: A legacy shop code is refused as a platform voucher"
     persona: buyer
@@ -4966,7 +4966,7 @@ features:
       - "Multishop checkout: A legacy shop code is refused as a platform voucher"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestLegacyVoucherCodeShopScopeRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestLegacyVoucherCodeShopScopeRefused`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-an-unknown-legacy-code-is-refused
     title: "Multishop checkout: An unknown legacy code is refused"
     persona: buyer
@@ -4978,7 +4978,7 @@ features:
       - "Multishop checkout: An unknown legacy code is refused"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestLegacyVoucherCodeUnknownRefused`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestLegacyVoucherCodeUnknownRefused`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-voucher-named-twice-is-rejected
     title: "Multishop checkout: A voucher named twice is rejected"
     persona: buyer
@@ -4990,7 +4990,7 @@ features:
       - "Multishop checkout: A voucher named twice is rejected"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestVoucherCodeNamedTwiceInvalidArgument`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestVoucherCodeNamedTwiceInvalidArgument`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-legacy-and-platform-voucher-fields-together-are
     title: "Multishop checkout: Legacy and platform voucher fields together are rejected"
     persona: buyer
@@ -5002,7 +5002,7 @@ features:
       - "Multishop checkout: Legacy and platform voucher fields together are rejected"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestLegacyAndPlatformVoucherTogetherInvalidArgument`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestLegacyAndPlatformVoucherTogetherInvalidArgument`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-vouchers-are-ignored-without-a-promotion-client
     title: "Multishop checkout: Vouchers are ignored without a promotion client"
     persona: buyer
@@ -5014,7 +5014,7 @@ features:
       - "Multishop checkout: Vouchers are ignored without a promotion client"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestVouchersIgnoredWithoutPromotionClient`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestNewOrderServiceRefusesNilDependencies`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-promotion-outage-blocks-a-voucher-checkout
     title: "Multishop checkout: A promotion outage blocks a voucher checkout"
     persona: buyer
@@ -5026,7 +5026,7 @@ features:
       - "Multishop checkout: A promotion outage blocks a voucher checkout"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestVoucherTransportErrorUnavailable`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestVoucherTransportErrorUnavailable`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-preview-holds-are-released-and-never-committed
     title: "Multishop checkout: Preview holds are released and never committed"
     persona: buyer
@@ -5038,7 +5038,7 @@ features:
       - "Multishop checkout: Preview holds are released and never committed"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutReleasesPreviewHoldsNeverCommits`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPreviewCheckoutReleasesPreviewHoldsNeverCommits`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-preview-release-failure-does-not-fail-the-prev
     title: "Multishop checkout: A preview release failure does not fail the preview"
     persona: buyer
@@ -5050,7 +5050,7 @@ features:
       - "Multishop checkout: A preview release failure does not fail the preview"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestPreviewCheckoutReleaseErrorIgnored`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestPreviewCheckoutReleaseErrorIgnored`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-orders-of-one-checkout-share-a-checkout-id
     title: "Multishop checkout: Orders of one checkout share a checkout_id"
     persona: buyer
@@ -5077,7 +5077,7 @@ features:
       - "Multishop checkout: Placed totals equal the quote function"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestRunCheckoutPlacesQuotedFigures`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestRunCheckoutPlacesQuotedFigures`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-checkout-without-vouchers-is-unchanged
     title: "Multishop checkout: A checkout without vouchers is unchanged"
     persona: buyer
@@ -5089,7 +5089,7 @@ features:
       - "Multishop checkout: A checkout without vouchers is unchanged"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestRunCheckoutNoVoucherUnchanged`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestRunCheckoutNoVoucherUnchanged`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-non-user-principal-cannot-place-a-multi-vouche
     title: "Multishop checkout: A non-user principal cannot place a multi-voucher checkout"
     persona: buyer
@@ -5101,7 +5101,7 @@ features:
       - "Multishop checkout: A non-user principal cannot place a multi-voucher checkout"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestCreateOrderVouchersRequireUserPrincipal`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderVouchersRequireUserPrincipal`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-the-order-repository-returns-checkout-siblings
     title: "Multishop checkout: The order repository returns checkout siblings"
     persona: buyer
@@ -5113,7 +5113,7 @@ features:
       - "Multishop checkout: The order repository returns checkout siblings"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestListOrdersByCheckout`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestListOrdersByCheckout`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-order-rows-stay-readable-before-the-migration-da
     title: "Multishop checkout: Order rows stay readable before the migration data exists"
     persona: buyer
@@ -5125,7 +5125,7 @@ features:
       - "Multishop checkout: Order rows stay readable before the migration data exists"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestOrderLegacyRowDefaultsNewColumns`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestOrderLegacyRowDefaultsNewColumns`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-first-paid-order-commits-the-platform-voucher
     title: "Multishop checkout: First paid order commits the platform voucher"
     persona: buyer
@@ -5137,7 +5137,7 @@ features:
       - "Multishop checkout: First paid order commits the platform voucher"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestSettleCommitsPlatformVoucherOnFirstPaid`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestSettleCommitsPlatformVoucherOnFirstPaid`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-platform-voucher-is-counted-once-for-two-paid-or
     title: "Multishop checkout: Platform voucher is counted once for two paid orders"
     persona: buyer
@@ -5164,7 +5164,7 @@ features:
       - "Multishop checkout: An order without a platform voucher makes no platform commit"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestSettleNoPlatformCommitWithoutPlatformVoucher`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestSettleNoPlatformCommitWithoutPlatformVoucher`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-platform-commit-failure-is-retried
     title: "Multishop checkout: A platform commit failure is retried"
     persona: buyer
@@ -5176,7 +5176,7 @@ features:
       - "Multishop checkout: A platform commit failure is retried"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestSettlePlatformCommitErrorRetried`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestSettlePlatformCommitErrorRetried`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-cancelling-one-order-keeps-the-platform-voucher
     title: "Multishop checkout: Cancelling one order keeps the platform voucher and sibling prices"
     persona: buyer
@@ -5203,7 +5203,7 @@ features:
       - "Multishop checkout: Cancelling the last unpaid order releases the platform voucher"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCancelLastOrderReleasesPlatformVoucher`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCancelLastOrderReleasesPlatformVoucher`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-paid-sibling-blocks-the-platform-release
     title: "Multishop checkout: A paid sibling blocks the platform release"
     persona: buyer
@@ -5215,7 +5215,7 @@ features:
       - "Multishop checkout: A paid sibling blocks the platform release"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCancelWithPaidSiblingKeepsPlatformVoucher`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCancelWithPaidSiblingKeepsPlatformVoucher`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-the-system-cancel-of-an-expired-order-follows-th
     title: "Multishop checkout: The system cancel of an expired order follows the same rule"
     persona: buyer
@@ -5227,7 +5227,7 @@ features:
       - "Multishop checkout: The system cancel of an expired order follows the same rule"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestSystemCancelReleasesPlatformVoucherWhenAllCancelled`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestSystemCancelReleasesPlatformVoucherWhenAllCancelled`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-a-platform-release-failure-never-fails-the-cance
     title: "Multishop checkout: A platform release failure never fails the cancel"
     persona: buyer
@@ -5239,7 +5239,7 @@ features:
       - "Multishop checkout: A platform release failure never fails the cancel"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCancelPlatformReleaseErrorNeverFailsCancel`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCancelPlatformReleaseErrorNeverFailsCancel`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-cancelling-an-order-without-a-platform-voucher-m
     title: "Multishop checkout: Cancelling an order without a platform voucher makes no platform call"
     persona: buyer
@@ -5251,7 +5251,7 @@ features:
       - "Multishop checkout: Cancelling an order without a platform voucher makes no platform call"
     tags: [order, checkout, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/service` `TestCancelWithoutPlatformVoucherNoPlatformCalls`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/order` `TestCancelWithoutPlatformVoucherNoPlatformCalls`. Not producible end to end through the gateway (unit level)."
   - id: order.omc-the-gateway-forwards-previewcheckout-with-the-ca
     title: "Multishop checkout: The gateway forwards PreviewCheckout with the caller's identity"
     persona: buyer
@@ -5288,7 +5288,7 @@ features:
       - "Dispute refund: Rejected return of an online-paid order is refunded"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeBuyerFavourRejectedReturnRefunded`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeBuyerFavourRejectedReturnRefunded`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-pending-escalated-return-of-an-online-paid-order-is-refunded
     title: "Dispute refund: Pending escalated return of an online-paid order is refunded"
@@ -5301,7 +5301,7 @@ features:
       - "Dispute refund: Pending escalated return of an online-paid order is refunded"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeBuyerFavourPendingReturnRefunded`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeBuyerFavourPendingReturnRefunded`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-already-approved-return-is-refunded-without-a-second-approval
     title: "Dispute refund: Already approved return is refunded without a second approval"
@@ -5314,7 +5314,7 @@ features:
       - "Dispute refund: Already approved return is refunded without a second approval"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeBuyerFavourApprovedReturnRefunded`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeBuyerFavourApprovedReturnRefunded`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-cash-on-delivery-return-stops-at-approved
     title: "Dispute refund: Cash-on-delivery return stops at approved"
@@ -5327,7 +5327,7 @@ features:
       - "Dispute refund: Cash-on-delivery return stops at approved"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeBuyerFavourCODStopsAtApproved`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeBuyerFavourCODStopsAtApproved`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-return-already-refunded-is-left-unchanged
     title: "Dispute refund: Return already refunded is left unchanged"
@@ -5340,7 +5340,7 @@ features:
       - "Dispute refund: Return already refunded is left unchanged"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeBuyerFavourAlreadyRefundedNoop`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeBuyerFavourAlreadyRefundedNoop`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-ruling-reaches-the-refund-end-to-end
     title: "Dispute refund: Ruling reaches the refund end to end"
@@ -5366,7 +5366,7 @@ features:
       - "Dispute refund: Audit event names the resolving admin"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundWritesAuditBeforeChange`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRefundWritesAuditBeforeChange`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-audit-unavailable-leaves-the-return-unchanged
     title: "Dispute refund: Audit unavailable leaves the return unchanged"
@@ -5379,7 +5379,7 @@ features:
       - "Dispute refund: Audit unavailable leaves the return unchanged"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundAuditDownNoChangeRetried`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRefundAuditDownNoChangeRetried`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-missing-audit-client-refuses-the-change
     title: "Dispute refund: Missing audit client refuses the change"
@@ -5392,7 +5392,7 @@ features:
       - "Dispute refund: Missing audit client refuses the change"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundNilAuditWriterNoChange`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRefundNilAuditWriterNoChange`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-recovery-after-audit-comes-back
     title: "Dispute refund: Recovery after audit comes back"
@@ -5418,7 +5418,7 @@ features:
       - "Dispute refund: Audit outage longer than the retry window is not dead-lettered"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRunRetriesTransientWithoutDLQ`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRunRetriesTransientWithoutDLQ`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-event-without-resolver-is-a-permanent-error
     title: "Dispute refund: Event without resolver is a permanent error"
@@ -5431,7 +5431,7 @@ features:
       - "Dispute refund: Event without resolver is a permanent error"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundMissingResolverPermanent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRefundMissingResolverPermanent`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-rejected-return-that-still-fits-is-re-approved
     title: "Dispute refund: Rejected return that still fits is re-approved"
@@ -5444,7 +5444,7 @@ features:
       - "Dispute refund: Rejected return that still fits is re-approved"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestReapproveReturnFitsBoundary`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestReapproveReturnFitsBoundary`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-rejected-return-that-no-longer-fits-stays-rejected
     title: "Dispute refund: Rejected return that no longer fits stays rejected"
@@ -5457,7 +5457,7 @@ features:
       - "Dispute refund: Rejected return that no longer fits stays rejected"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestReapproveReturnExceedsRemainderStaysRejected`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestReapproveReturnExceedsRemainderStaysRejected`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-non-fitting-return-is-dead-lettered-for-cs
     title: "Dispute refund: Non-fitting return is dead-lettered for CS"
@@ -5470,7 +5470,7 @@ features:
       - "Dispute refund: Non-fitting return is dead-lettered for CS"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundNoRemainderDeadLettered`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRefundNoRemainderDeadLettered`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-re-approval-is-not-reachable-from-the-status-rpc
     title: "Dispute refund: Re-approval is not reachable from the status RPC"
@@ -5483,7 +5483,7 @@ features:
       - "Dispute refund: Re-approval is not reachable from the status RPC"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/handler` `TestUpdateReturnStatusRejectedStaysTerminal`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/rpc` `TestUpdateReturnStatusRejectedStaysTerminal`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-two-returns-cannot-both-be-re-approved-past-the-total
     title: "Dispute refund: Two returns cannot both be re-approved past the total"
@@ -5496,7 +5496,7 @@ features:
       - "Dispute refund: Two returns cannot both be re-approved past the total"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/repository` `TestReapproveReturnConcurrentSerialised` (Postgres). Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/store` `TestReapproveReturnConcurrentSerialised` (Postgres). Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-seller-favour-ruling-moves-no-return-and-no-money
     title: "Dispute refund: Seller-favour ruling moves no return and no money"
@@ -5509,7 +5509,7 @@ features:
       - "Dispute refund: Seller-favour ruling moves no return and no money"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeSellerFavourNoop`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeSellerFavourNoop`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-rejected-dispute-moves-no-return-and-no-money
     title: "Dispute refund: Rejected dispute moves no return and no money"
@@ -5522,7 +5522,7 @@ features:
       - "Dispute refund: Rejected dispute moves no return and no money"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRejectedStatusNoop`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRejectedStatusNoop`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-dispute-without-a-return-is-ignored
     title: "Dispute refund: Dispute without a return is ignored"
@@ -5535,7 +5535,7 @@ features:
       - "Dispute refund: Dispute without a return is ignored"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeNoReturnIdNoop`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeNoReturnIdNoop`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-other-event-types-are-ignored
     title: "Dispute refund: Other event types are ignored"
@@ -5548,7 +5548,7 @@ features:
       - "Dispute refund: Other event types are ignored"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeConsumerIgnoresOtherTypes`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeConsumerIgnoresOtherTypes`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-seller-favour-ruling-leaves-the-return-untouched-end-to-end
     title: "Dispute refund: Seller-favour ruling leaves the return untouched end to end"
@@ -5574,7 +5574,7 @@ features:
       - "Dispute refund: Redelivered event refunds once"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRedeliveryRefundsOnce`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRedeliveryRefundsOnce`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-second-ruling-event-on-a-refunded-return-is-acknowledged
     title: "Dispute refund: Second ruling event on a refunded return is acknowledged"
@@ -5587,7 +5587,7 @@ features:
       - "Dispute refund: Second ruling event on a refunded return is acknowledged"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeSecondEventSameReturnRefundsOnce`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeSecondEventSameReturnRefundsOnce`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-auto-approve-winning-the-race-does-not-fail-the-event
     title: "Dispute refund: Auto-approve winning the race does not fail the event"
@@ -5600,7 +5600,7 @@ features:
       - "Dispute refund: Auto-approve winning the race does not fail the event"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputePendingCASLostContinues`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputePendingCASLostContinues`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-seller-refund-winning-the-race-is-acknowledged
     title: "Dispute refund: Seller refund winning the race is acknowledged"
@@ -5613,7 +5613,7 @@ features:
       - "Dispute refund: Seller refund winning the race is acknowledged"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRefundCASLostAcknowledged`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRefundCASLostAcknowledged`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-unknown-return-is-a-permanent-error
     title: "Dispute refund: Unknown return is a permanent error"
@@ -5626,7 +5626,7 @@ features:
       - "Dispute refund: Unknown return is a permanent error"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeUnknownReturnPermanent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeUnknownReturnPermanent`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-malformed-envelope-is-dead-lettered
     title: "Dispute refund: Malformed envelope is dead-lettered"
@@ -5639,7 +5639,7 @@ features:
       - "Dispute refund: Malformed envelope is dead-lettered"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeMalformedRecordPermanent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeMalformedRecordPermanent`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-config-exposes-the-consumer-settings
     title: "Dispute refund: Config exposes the consumer settings"
@@ -5665,7 +5665,7 @@ features:
       - "Dispute refund: Consumer does not start without an audit client"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/bootstrap` `TestDisputeConsumerSkippedWithoutAudit`. Not producible end to end through the gateway (unit level)."
+    notes: "REMOVED: the dispute consumer always starts and UPSTREAM_AUDIT_ADDR is required in every ENV; see order-service-runtime `TestUpstreamAddressesRequiredInEveryEnv`. The scenario is REMOVED in order-dispute-refund before archive."
 
   - id: order.dispute-refund-offset-is-not-committed-when-the-dlq-write-fails
     title: "Dispute refund: Offset is not committed when the DLQ write fails"
@@ -5678,7 +5678,7 @@ features:
       - "Dispute refund: Offset is not committed when the DLQ write fails"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeRunNoCommitWhenDLQFails`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeNoCommitWhenDLQFails`. Not producible end to end through the gateway (unit level)."
 
   - id: order.dispute-refund-return-linked-to-another-order-is-refused
     title: "Dispute refund: Return linked to another order is refused"
@@ -5691,4 +5691,953 @@ features:
       - "Dispute refund: Return linked to another order is refused"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/consumer` `TestDisputeOrderMismatchPermanent`. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeOrderMismatchPermanent`. Not producible end to end through the gateway (unit level)."
+
+  - id: order.gosdk-shared-make-and-lint-files-are-referenced-without-a-local-copy
+    title: "Shared make and lint files are referenced without a local copy"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Shared make and lint files are referenced without a local copy"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestSharedMakeAndLintAreReferenced`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-strict-environment-requires-brokers-and-key-secret
+    title: "A strict environment requires brokers and key secret"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A strict environment requires brokers and key secret"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestStrictEnvRequiresBrokersAndKeySecret`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-missing-upstream-address-refuses-to-start-in-every-environment
+    title: "A missing upstream address refuses to start in every environment"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A missing upstream address refuses to start in every environment"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestUpstreamAddressesRequiredInEveryEnv`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-local-environment-fills-the-documented-defaults
+    title: "A local environment fills the documented defaults"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A local environment fills the documented defaults"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestLocalEnvDefaults`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-malformed-receipt-duration-still-refuses-to-start-and-names-its-key
+    title: "A malformed receipt duration still refuses to start and names its key"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A malformed receipt duration still refuses to start and names its key"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestLifecycleDurationMalformedRejected`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-an-unusable-reservation-duration-still-falls-back-with-a-warning
+    title: "An unusable reservation duration still falls back with a warning"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An unusable reservation duration still falls back with a warning"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestReservationDurations`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-an-unreachable-postgres-stops-the-process
+    title: "An unreachable Postgres stops the process"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An unreachable Postgres stops the process"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestRunFailsWhenPostgresUnreachable`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-nil-promotion-client-is-refused-at-construction
+    title: "A nil promotion client is refused at construction"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A nil promotion client is refused at construction"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestNewOrderServiceRefusesNilDependencies`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-nil-flag-evaluator-is-refused-at-construction
+    title: "A nil flag evaluator is refused at construction"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A nil flag evaluator is refused at construction"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestNewOrderHandlerRefusesNilDependencies`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-nil-audit-gate-is-refused-at-construction
+    title: "A nil audit gate is refused at construction"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A nil audit gate is refused at construction"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestNewOrderHandlerRefusesNilDependencies`; team-order `internal/events` `TestNewDisputeHandlerRefusesNilGate`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-no-runtime-fallback-exists-in-non-test-code
+    title: "No runtime fallback exists in non-test code"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "No runtime fallback exists in non-test code"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestNoRuntimeInMemoryFallback`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-failing-postgres-check-makes-readiness-fail-and-keeps-liveness-servi
+    title: "A failing Postgres check makes readiness fail and keeps liveness serving"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A failing Postgres check makes readiness fail and keeps liveness serving"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestLivenessSurvivesDependencyOutage`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-passing-postgres-check-makes-readiness-serve
+    title: "A passing Postgres check makes readiness serve"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A passing Postgres check makes readiness serve"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestReadinessServesWhenChecksPass`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-kafka-outage-does-not-affect-readiness
+    title: "A Kafka outage does not affect readiness"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A Kafka outage does not affect readiness"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestKafkaOutageDoesNotAffectReadiness`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-shutdown-drains-liveness-before-the-server-stops
+    title: "Shutdown drains liveness before the server stops"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Shutdown drains liveness before the server stops"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestShutdownDrainsHealthFirst`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-kill-switch-off-blocks-createorder
+    title: "Kill-switch off blocks CreateOrder"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Kill-switch off blocks CreateOrder"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestOrderHandler_CreateOrder_KillSwitchOff`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-kill-switch-on-allows-createorder
+    title: "Kill-switch on allows CreateOrder"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Kill-switch on allows CreateOrder"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestOrderHandler_CreateOrder_KillSwitchOn`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-flag-outage-fails-open
+    title: "A flag outage fails open"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A flag outage fails open"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestOrderHandler_CreateOrder_FlagProviderErrorFailsOpen`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-an-empty-flipt-address-refuses-startup
+    title: "An empty Flipt address refuses startup"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An empty Flipt address refuses startup"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestRunRefusesEmptyFliptAddr`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-unique-violation-maps-to-alreadyexists
+    title: "A unique violation maps to AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A unique violation maps to AlreadyExists"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestUniqueViolationMapsToAlreadyExists`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-context-errors-keep-their-grpc-codes
+    title: "Context errors keep their gRPC codes"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Context errors keep their gRPC codes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestContextErrorsKeepGRPCCodes`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-an-unexpected-error-does-not-leak-its-cause
+    title: "An unexpected error does not leak its cause"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An unexpected error does not leak its cause"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestHandlerInternalErrorsAreGenericAndDoNotLeakCause`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-an-anonymous-principal-is-rejected
+    title: "An anonymous principal is rejected"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An anonymous principal is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestAnonymousPrincipalUnauthenticated`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-buyer-cannot-read-another-buyer-s-order
+    title: "A buyer cannot read another buyer's order"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A buyer cannot read another buyer's order"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestGetOrderStrangerPermissionDenied`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-an-oversized-key-is-rejected
+    title: "An oversized key is rejected"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An oversized key is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderOversizedIdempotencyKeyInvalidArgument`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-non-ascii-key-is-rejected
+    title: "A non-ASCII key is rejected"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A non-ASCII key is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestNormalizeIdempotencyKeyRejectsNonASCII`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-padded-key-is-trimmed-and-replays-the-first-checkout
+    title: "A padded key is trimmed and replays the first checkout"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A padded key is trimmed and replays the first checkout"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateOrderPaddedIdempotencyKeyReplays`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-another-buyer-s-key-does-not-replay-their-checkout
+    title: "Another buyer's key does not replay their checkout"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Another buyer's key does not replay their checkout"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestIdempotencyKeyIsScopedToBuyer`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-stock-changes-are-sent-as-the-service-principal-with-the-stock-scope
+    title: "Stock changes are sent as the service principal with the stock scope"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Stock changes are sent as the service principal with the stock scope"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/upstream` `TestStockCallsCarryServicePrincipal`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-voucher-and-flash-holds-are-sent-with-the-promotion-scope
+    title: "Voucher and flash holds are sent with the promotion scope"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Voucher and flash holds are sent with the promotion scope"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/upstream` `TestPromotionCallsCarryPromotionScope`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-buyer-read-forwards-the-buyer-principal-unchanged
+    title: "A buyer read forwards the buyer principal unchanged"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A buyer read forwards the buyer principal unchanged"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/upstream` `TestBuyerReadsForwardBuyerPrincipal`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-service-principal-call-does-not-forward-the-buyer-token
+    title: "A service-principal call does not forward the buyer token"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A service-principal call does not forward the buyer token"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/upstream` `TestServiceCallDoesNotForwardBuyerToken`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-background-read-gets-the-read-only-service-scope
+    title: "A background read gets the read-only service scope"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A background read gets the read-only service scope"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/upstream` `TestBackgroundReadGetsReadOnlyScope`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-only-getlisting-gets-a-synthesized-background-identity
+    title: "Only GetListing gets a synthesized background identity"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Only GetListing gets a synthesized background identity"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/upstream` `TestOnlyGetListingGetsBackgroundIdentity`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-admin-force-fail-with-audit-down-is-refused-and-changes-nothing
+    title: "Admin force-fail with audit down is refused and changes nothing"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Admin force-fail with audit down is refused and changes nothing"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestForceFailSagaAuditDownUnavailableNoChange`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-an-audit-write-that-hangs-is-bounded
+    title: "An audit write that hangs is bounded"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An audit write that hangs is bounded"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestCreateShipmentAuditTimeoutBounded`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-refused-transition-keeps-its-audit-row-and-its-own-error
+    title: "A refused transition keeps its audit row and its own error"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A refused transition keeps its audit row and its own error"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestUpdateOrderStatusAdminInvalidTransitionAfterAudit`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-buyer-cannot-trigger-an-admin-action
+    title: "A buyer cannot trigger an admin action"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A buyer cannot trigger an admin action"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestForceFailSagaDeniedWritesNoAudit`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-seller-is-not-audited-and-works-while-audit-is-down
+    title: "A seller is not audited and works while audit is down"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A seller is not audited and works while audit is down"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/rpc` `TestUpdateOrderStatusSellerNotAudited`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-paid-transition-writes-its-outbox-row-in-the-same-transaction
+    title: "A paid transition writes its outbox row in the same transaction"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A paid transition writes its outbox row in the same transaction"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/store` `TestPaidTransitionWritesOutboxRow`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-failing-enqueue-rolls-the-transition-back
+    title: "A failing enqueue rolls the transition back"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A failing enqueue rolls the transition back"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/store` `TestPaidTransitionRollsBackWhenOutboxFails`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-the-relayer-publishes-keyed-by-order-id
+    title: "The relayer publishes keyed by order id"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The relayer publishes keyed by order id"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestRelayerPublishesKeyedByOrderID`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-pending-row-is-claimed-within-one-poll-interval
+    title: "A pending row is claimed within one poll interval"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A pending row is claimed within one poll interval"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestRelayerPublishesWithinPollInterval`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-events-of-one-order-are-published-in-seq-order
+    title: "Events of one order are published in seq order"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Events of one order are published in seq order"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestRelayerKeepsPerOrderSequence`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-the-upgrade-requeues-rows-parked-as-failed
+    title: "The upgrade requeues rows parked as failed"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The upgrade requeues rows parked as failed"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/store` `TestOutboxUpgradeRequeuesFailedRows`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-the-event-envelope-contract-is-unchanged
+    title: "The event envelope contract is unchanged"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The event envelope contract is unchanged"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestPaidEnvelopeMatchesContract`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-settled-payment-moves-the-order-to-paid-once
+    title: "A settled payment moves the order to PAID once"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A settled payment moves the order to PAID once"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestPaymentRedeliveryAppliesOnce`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-transient-failure-is-retried-and-then-parked
+    title: "A transient failure is retried and then parked"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A transient failure is retried and then parked"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestPaymentTransientFailureParksAfterFiveAttempts`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-poison-record-is-parked-at-once
+    title: "A poison record is parked at once"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A poison record is parked at once"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestPaymentPoisonRecordParkedAtOnce`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-the-offset-is-not-committed-when-the-dlq-write-fails-payment
+    title: "The offset is not committed when the DLQ write fails (payment)"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The offset is not committed when the DLQ write fails (payment)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestPaymentNoCommitWhenDLQFails`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-consumer-logs-carry-a-key-fingerprint-and-not-the-key
+    title: "Consumer logs carry a key fingerprint and not the key"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Consumer logs carry a key fingerprint and not the key"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestPaymentConsumerLogsKeyFingerprintOnly`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-the-same-event-id-is-independent-per-consumer
+    title: "The same event id is independent per consumer"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The same event id is independent per consumer"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/store` `TestProcessedEventsKeyIsPerConsumer`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-group-ids-and-dlq-names-are-unchanged-by-default
+    title: "Group ids and DLQ names are unchanged by default"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Group ids and DLQ names are unchanged by default"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/config` `TestKafkaEngagementConsumerSettings`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-an-audit-outage-is-retried-without-dead-lettering
+    title: "An audit outage is retried without dead-lettering"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An audit outage is retried without dead-lettering"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRunRetriesTransientWithoutDLQ`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-return-that-no-longer-fits-the-order-is-parked-at-once
+    title: "A return that no longer fits the order is parked at once"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A return that no longer fits the order is parked at once"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRefundNoRemainderDeadLettered`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-the-offset-is-not-committed-when-the-dlq-write-fails-dispute
+    title: "The offset is not committed when the DLQ write fails (dispute)"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The offset is not committed when the DLQ write fails (dispute)"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeNoCommitWhenDLQFails`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-redelivered-dispute-event-refunds-once
+    title: "A redelivered dispute event refunds once"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A redelivered dispute event refunds once"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRedeliveryRefundsOnce`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-the-dispute-audit-event-names-the-resolving-admin
+    title: "The dispute audit event names the resolving admin"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The dispute audit event names the resolving admin"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRefundWritesAuditBeforeChange`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-no-start-decision-function-remains
+    title: "No start-decision function remains"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "No start-decision function remains"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestNoDisputeStartDecision`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-release-succeeds-on-the-second-attempt
+    title: "A release succeeds on the second attempt"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A release succeeds on the second attempt"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestCompensationReleaseRetriesUnavailableOnce`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-three-failed-attempts-park-the-reservation
+    title: "Three failed attempts park the reservation"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Three failed attempts park the reservation"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestCompensationReleaseParksAfterThreeFailures`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-non-retryable-code-is-attempted-once
+    title: "A non-retryable code is attempted once"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A non-retryable code is attempted once"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestCompensationReleaseNonRetryableOnce`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-withreleaseretry-still-bounds-the-attempts
+    title: "WithReleaseRetry still bounds the attempts"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "WithReleaseRetry still bounds the attempts"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestWithReleaseRetryBoundsAttempts`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-buyer-cancel-stays-within-the-inline-release-budget
+    title: "A buyer cancel stays within the inline release budget"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A buyer cancel stays within the inline release budget"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestCancelInlineReleaseBudgetParksSlowRelease`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-failed-flash-or-voucher-release-never-fails-the-cancel
+    title: "A failed flash or voucher release never fails the cancel"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A failed flash or voucher release never fails the cancel"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestCancelFlashAndVoucherReleaseFailureIsLoggedOnly`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-each-tick-drives-one-lifecycle-sweep
+    title: "Each tick drives one lifecycle sweep"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Each tick drives one lifecycle sweep"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestRunLifecycleSweeper_TicksCallSweepLifecycle_OrderUnpaidPastDeadlineIsCancelled`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-failing-reservation-sweep-is-retried-on-the-next-tick
+    title: "A failing reservation sweep is retried on the next tick"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A failing reservation sweep is retried on the next tick"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestReservationSweepRetriesAfterFailure`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-shutdown-stops-the-server-before-the-dependents
+    title: "Shutdown stops the server before the dependents"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Shutdown stops the server before the dependents"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/app` `TestShutdownStopsServerBeforeDependents`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-the-key-swap-keeps-existing-rows
+    title: "The key swap keeps existing rows"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The key swap keeps existing rows"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/store` `TestProcessedEventsPKMigrationKeepsRows`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-all-migrations-apply-and-reverse
+    title: "All migrations apply and reverse"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "All migrations apply and reverse"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/store` `TestMigrationsApplyAndReverse`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-migrate-up-applies-the-embedded-migrations-and-exits
+    title: "migrate up applies the embedded migrations and exits"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "migrate up applies the embedded migrations and exits"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `cmd/server` `TestMigrateUpAppliesEmbeddedMigrations`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-migrate-up-against-an-unreachable-postgres-fails
+    title: "migrate up against an unreachable Postgres fails"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "migrate up against an unreachable Postgres fails"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `cmd/server` `TestMigrateUpFailsWhenPostgresUnreachable`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-dry-run-counts-rows-and-calls-nothing
+    title: "A dry run counts rows and calls nothing"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A dry run counts rows and calls nothing"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestResyncDryRunCountsAndCallsNothing`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-a-row-released-in-team-domain-needs-attention
+    title: "A row released in team-domain needs attention"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "A row released in team-domain needs attention"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestResyncReportsNotFoundNeedsAttention`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-an-unreachable-postgres-exits-1-without-calling-team-domain
+    title: "An unreachable Postgres exits 1 without calling team-domain"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "An unreachable Postgres exits 1 without calling team-domain"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestResyncFailsWhenPostgresUnreachable`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-the-command-commits-stock-with-the-stock-scope-only
+    title: "The command commits stock with the stock scope only"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-service-runtime)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "The command commits stock with the stock scope only"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestResyncCommitsAsServicePrincipal`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-advertised-price-a-buyer-token-cannot-reserve-flash-stock-end-to-end
+    title: "Advertised price: A buyer token cannot reserve flash stock end to end"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-advertised-price)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: A buyer token cannot reserve flash stock end to end"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY platform-e2e `features/order/advertised_price.feature` \"Advertised price: A buyer token cannot reserve flash stock end to end\". Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-advertised-price-a-cart-service-without-a-promotion-client-is-refused
+    title: "Advertised price: A cart service without a promotion client is refused"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-advertised-price)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: A cart service without a promotion client is refused"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-order `internal/order` `TestNewCartServiceRefusesNilFlashClient`. Not producible end to end through the gateway (unit level)."
+  - id: order.gosdk-advertised-price-flash-price-is-visible-end-to-end-after-add-to-cart
+    title: "Advertised price: Flash price is visible end to end after add-to-cart"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change order-go-sdk-v1 (capability order-advertised-price)."
+    entry_route: /
+    services: [team-order]
+    acceptance:
+      - "Advertised price: Flash price is visible end to end after add-to-cart"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY platform-e2e `features/order/advertised_price.feature` \"Advertised price: Flash price is visible end to end after add-to-cart\". Not producible end to end through the gateway (unit level)."

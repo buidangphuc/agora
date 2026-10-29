@@ -1,0 +1,106 @@
+package order
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/idempotency"
+	"github.com/buidangphuc/team-order/internal/store"
+)
+
+// IdempotencyKeyMetadata aliases idempotency.MDKey until the handler moves to it.
+const IdempotencyKeyMetadata = idempotency.MDKey
+
+// ErrInvalidIdempotencyKey: the key is empty, longer than idempotency.MaxLen or
+// not printable ASCII. -> INVALID_ARGUMENT.
+var ErrInvalidIdempotencyKey = errors.New("invalid idempotency key")
+
+// ErrCheckoutInProgress: the first checkout with this key has not finished (it is
+// running, or crashed and awaits the sweep). -> ABORTED (retryable).
+var ErrCheckoutInProgress = errors.New("checkout with this idempotency key is in progress; retry")
+
+// NormalizeIdempotencyKey trims surrounding whitespace and requires 1..255
+// printable ASCII bytes (0x20-0x7E).
+func NormalizeIdempotencyKey(raw string) (string, error) {
+	key := strings.TrimSpace(raw)
+	if err := idempotency.Validate(key); err != nil {
+		return "", fmt.Errorf("%w: %w", ErrInvalidIdempotencyKey, err)
+	}
+	return key, nil
+}
+
+// CheckoutOption customises one CreateOrdersFromCart call.
+type CheckoutOption func(*checkoutConfig)
+
+type checkoutConfig struct {
+	idempotencyKey string
+	vouchers       *voucherSlots
+}
+
+// WithIdempotencyKey makes the checkout idempotent on key for this buyer. The key
+// must already be normalised (NormalizeIdempotencyKey); "" means no key.
+func WithIdempotencyKey(key string) CheckoutOption {
+	return func(c *checkoutConfig) { c.idempotencyKey = key }
+}
+
+// replayCheckout answers a CreateOrder whose (buyer, key) already owns a saga. A
+// COMPLETED saga returns the orders it placed (found through its reservations)
+// and re-attempts the cart clear; anything else is still running (or crashed and
+// awaits the sweep): ErrCheckoutInProgress. A compensated saga never matches,
+// because compensation frees the key.
+func (s *OrderService) replayCheckout(ctx context.Context, buyerID string, sg store.Saga) ([]store.Order, error) {
+	if sg.Status != store.SagaStatusCompleted {
+		s.logger.InfoContext(ctx, "checkout with this idempotency key has not finished; asking the client to retry",
+			"saga_id", sg.ID, "saga_status", int(sg.Status))
+		return nil, ErrCheckoutInProgress
+	}
+	reservations, err := s.sagaRepo.ListReservationsBySaga(ctx, sg.ID)
+	if err != nil {
+		return nil, fmt.Errorf("replay checkout: load reservations of saga %s: %w", sg.ID, err)
+	}
+	seen := map[string]bool{}
+	bound := map[string]bool{} // reservation ids that belong to a placed order
+	var orders []store.Order
+	for _, res := range reservations {
+		if res.OrderID == "" {
+			continue
+		}
+		bound[res.ID] = true
+		if seen[res.OrderID] {
+			continue
+		}
+		seen[res.OrderID] = true
+		o, gerr := s.orderRepo.GetOrder(ctx, res.OrderID)
+		if gerr != nil {
+			return nil, fmt.Errorf("replay checkout: load order %s of saga %s: %w", res.OrderID, sg.ID, gerr)
+		}
+		orders = append(orders, o)
+	}
+	if len(orders) == 0 {
+		// Never invent new orders for a key whose orders cannot be found.
+		return nil, fmt.Errorf("replay checkout: saga %s is completed but has no recorded orders", sg.ID)
+	}
+	sort.Slice(orders, func(i, j int) bool { return orders[i].SellerID < orders[j].SellerID })
+	s.logger.InfoContext(ctx, "checkout replayed from idempotency key",
+		"saga_id", sg.ID, "buyer_id", buyerID, "order_count", len(orders))
+
+	// Re-attempt the cart clear: drop the cart items this saga checked out
+	// (recognised by the reservation id they derive) that a failed clear left.
+	cart, cerr := s.cartRepo.GetCart(ctx, buyerID)
+	if cerr != nil {
+		s.logger.WarnContext(ctx, "could not read the cart to clear it on replay",
+			"buyer_id", buyerID, "err", cerr)
+		return orders, nil
+	}
+	var leftover []string
+	for _, it := range cart {
+		if bound[ReservationID(sg.ID, it)] {
+			leftover = append(leftover, it.ID)
+		}
+	}
+	s.clearCart(ctx, buyerID, leftover)
+	return orders, nil
+}

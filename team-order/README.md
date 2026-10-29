@@ -6,9 +6,9 @@ Go 1.26 (`go.mod`; the Dockerfile builds with `golang:1.26`), module `github.com
 
 ## Contract
 
-Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (`internal/interceptor/auth.go`). `RequirePrincipal` rejects missing, `anonymous` and ANONYMOUS-type principals. "Owner or admin" below means `isAdminOrUser` (`internal/handler/order.go`): the principal id equals the named user, or its scopes include `order.admin` (the bare `admin` scope does not open orders). This service does not check `order.read` / `order.write` scopes.
+Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The principal comes from gateway-forwarded metadata `x-principal-id`, `x-principal-type`, `x-principal-scopes` (`internal/rpc`). `RequirePrincipal` rejects missing, `anonymous` and ANONYMOUS-type principals. "Owner or admin" below means `isAdminOrUser` (`internal/rpc/order.go`): the principal id equals the named user, or its scopes include `order.admin` (the bare `admin` scope does not open orders). This service does not check `order.read` / `order.write` scopes.
 
-### CartService (`internal/handler/cart.go`)
+### CartService (`internal/rpc/cart.go`)
 
 | RPC | Authorization |
 |---|---|
@@ -17,7 +17,7 @@ Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The p
 | `UpdateCartItem`, `RemoveFromCart` | authenticated; scoped to the caller's cart |
 | `Reorder` | authenticated; caller must be the buyer of the source order (else `PermissionDenied`) |
 
-### OrderService (`internal/handler/order.go`)
+### OrderService (`internal/rpc/order.go`)
 
 | RPC | Authorization / behaviour |
 |---|---|
@@ -40,28 +40,27 @@ Served from `proto/platform/order/v1/order.proto` (vendored; see Gotchas). The p
 
 The gRPC server also registers `grpc.health.v1` and, when `GRPC_REFLECTION_ENABLED=true`, reflection.
 
-### Multi-shop voucher routing and lifecycle (`internal/service/redemption.go`, `checkoutquote.go`)
+### Multi-shop voucher routing and lifecycle (`internal/order/redemption.go`, `checkoutquote.go`)
 
 - A shop voucher discounts only its own seller group; a platform voucher in a shop slot (or the reverse), or a shop voucher for a seller outside the selection, is refused. The scope and seller id echoed by promotion are checked.
 - The platform voucher is reserved once, on the selection's items subtotal (so `min_spend` is checked on the whole selection), under the id `platform:<checkout_id>`. Its discount is split across groups by `items_subtotal` with integer division; the remainder goes to the largest group, ties to the lowest seller id. A group may carry its shop voucher and its platform share; the group total is clamped at 0.
 - Every order of a checkout stores `checkout_id`, `platform_voucher_code` and `platform_discount_amount` (migration 0010). The sum of the placed `total_amount` equals the preview total.
 - The platform voucher is committed on the first paid order of the checkout. It is released only when every order of the checkout is cancelled before any was paid, including the system cancel of an unpaid order (`CancelOrderWithReason`).
-- Without `UPSTREAM_PROMOTION_ADDR`, vouchers are ignored (preview reason "vouchers unavailable").
 
-### Purchase saga (`CreateOrdersFromCart`: `internal/service/order.go`, `saga.go`, `idempotency.go`, `redemption.go`)
+### Purchase saga (`CreateOrdersFromCart`: `internal/order/order.go`, `saga.go`, `idempotency.go`, `redemption.go`)
 
 A checkout places **every order or none** (design D6 of `port-order-inventory-correctness`):
 
 1. Load the cart (optionally only `item_ids`); empty -> `FailedPrecondition`; buying your own listing -> `FailedPrecondition`. Group items by `seller_id`, **sorted**, one pre-generated order id per group.
 2. Persist an `order_sagas` header (one per attempt). Reservation ids are `sha1(saga_id | cart item | listing | variant | qty)`: every attempt holds its own reservations.
-3. **Phase A, reserve:** per item persist an `order_reservations` row (PENDING) **before** team-domain `ReserveStock`, then RESERVED. Short stock -> `ResourceExhausted`. If `voucher_code` is set and `UPSTREAM_PROMOTION_ADDR` is configured: `ValidateAndReserve` once, on the first group; the hold id is that order's id. A rejected voucher -> `FailedPrecondition`.
+3. **Phase A, reserve:** per item persist an `order_reservations` row (PENDING) **before** team-domain `ReserveStock`, then RESERVED. Short stock -> `ResourceExhausted`. If `voucher_code` is set and `UPSTREAM_PROMOTION_ADDR`: `ValidateAndReserve` once, on the first group; the hold id is that order's id. A rejected voucher -> `FailedPrecondition`.
 4. **Phase B, commit:** `CommitReservation` for every hold in team-domain (its TTL sweep then never restores them). A hold already released -> `FailedPrecondition` ("item no longer reserved"); any other commit error fails the checkout too.
-5. **Phase C, place:** one `order_db` transaction inserts every order and its items, binds each reservation RESERVED -> COMMITTED with its `order_id`, and marks the saga COMPLETED (`OrderPlacer`, `internal/repository/placer.go`).
+5. **Phase C, place:** one `order_db` transaction inserts every order and its items, binds each reservation RESERVED -> COMMITTED with its `order_id`, and marks the saga COMPLETED (`OrderPlacer`, `internal/store/placer.go`).
 6. Any failure in A/B, or a definite failure in C, compensates on a fresh context: every held reservation released by id (3 attempts; a failure is parked RELEASE_FAILED for the sweep), the voucher hold released, saga COMPENSATED. An ambiguous C error is reconciled by looking the order ids up: all present -> placed; none -> compensate; partial -> `Internal`, nothing released.
 7. The cart is cleared after C (best effort).
 8. Payment is **not** a synchronous step. The order moves PENDING -> PAID when `PaymentSettled` arrives (see Events).
 
-**Flash pricing** (`internal/service/flashprice.go`). Before the saga is created, each selected line's advertised price is re-derived (domain `GetListing` regular price, one `GetActiveFlashSale` per listing, same rule as AddToCart). Any line whose cart price differs is re-priced in the cart and the checkout is refused with `FailedPrecondition` "price changed" (nothing held; retry charges the new price). If the flash lookup fails: a cart price above regular is re-priced (`price changed`), equal to regular proceeds, below regular -> `Unavailable`. A listing with no known regular price (0) is not compared. In Phase A each flash line then gets one `ReserveFlashSaleStock` (hold id `<order_id>:<listing_id>:<variant_id>`, expected price = the charged price) after the stock reservation and the voucher (priced on the flash subtotal); a refused hold re-prices that line and fails with `price changed`, a transport error with `Unavailable`, and everything is released. Phase B commits the flash holds **before** the domain commit; a failure compensates and releases the holds. `CancelOrder` releases every item's flash hold, best effort (a failure never fails the cancel).
+**Flash pricing** (`internal/order/flashprice.go`). Before the saga is created, each selected line's advertised price is re-derived (domain `GetListing` regular price, one `GetActiveFlashSale` per listing, same rule as AddToCart). Any line whose cart price differs is re-priced in the cart and the checkout is refused with `FailedPrecondition` "price changed" (nothing held; retry charges the new price). If the flash lookup fails: a cart price above regular is re-priced (`price changed`), equal to regular proceeds, below regular -> `Unavailable`. A listing with no known regular price (0) is not compared. In Phase A each flash line then gets one `ReserveFlashSaleStock` (hold id `<order_id>:<listing_id>:<variant_id>`, expected price = the charged price) after the stock reservation and the voucher (priced on the flash subtotal); a refused hold re-prices that line and fails with `price changed`, a transport error with `Unavailable`, and everything is released. Phase B commits the flash holds **before** the domain commit; a failure compensates and releases the holds. `CancelOrder` releases every item's flash hold, best effort (a failure never fails the cancel).
 
 **Delivery ETA (mock).** `CalculateShippingFee` returns `estimated_delivery_days` and `estimated_delivery_at` (`now + days x 24h`; the frontend shows the calendar date in Asia/Ho_Chi_Minh). Days come from the same city predicate as the fee, so fee and ETA never disagree about what a major city is. An empty city yields no quote (no days, no instant).
 
@@ -74,7 +73,7 @@ A checkout places **every order or none** (design D6 of `port-order-inventory-co
 
 **Idempotency.** `CreateOrder` reads the `idempotency-key` metadata (the gateway forwards `Idempotency-Key`), trimmed, 1-255 printable ASCII bytes, else `InvalidArgument` before anything is reserved. Keys are unique per buyer on `order_sagas` (`(buyer_id, idempotency_key)` partial unique index). A repeat of a COMPLETED checkout returns its orders and retries the cart clear; one still running -> `Aborted` (retry); a compensated checkout frees its key. No key = a fresh checkout every time.
 
-**Status changes** follow one table (`internal/service/transitions.go`) written with a compare-and-set (`UpdateOrderStatusFrom`: `UPDATE ... WHERE status = ANY(allowed)`):
+**Status changes** follow one table (`internal/order/transitions.go`) written with a compare-and-set (`UpdateOrderStatusFrom`: `UPDATE ... WHERE status = ANY(allowed)`):
 
 | From | To | Who |
 |---|---|---|
@@ -97,7 +96,7 @@ An admin acts as the seller on `UpdateOrderStatus`. A target the caller may neve
 | team-domain (`UPSTREAM_DOMAIN_ADDR`) | `GetListing`, `ReserveStock`, `CommitReservation`, `ReleaseStock` | cart add, checkout, cancel, compensation, sweep, `cmd/resync-commits` |
 | team-identity (`UPSTREAM_IDENTITY_ADDR`) | `ListAddresses` | `CreateOrder` shipping address, fail-closed (see Address resolution) |
 | team-audit (`UPSTREAM_AUDIT_ADDR`) | `WriteAuditEvent` as `service-team-order` with only `audit.write` | admin audit, written before the change; failure or unset address -> `Unavailable`, no change |
-| team-promotion (`UPSTREAM_PROMOTION_ADDR`, optional) | `ValidateAndReserve`, `CommitReservation`, `ReleaseReservation`, `GetActiveFlashSale`, `ReserveFlashSaleStock`, `CommitFlashSaleStock`, `ReleaseFlashSaleStock` | voucher hold, commit on settle, release on saga failure; flash price and flash stock holds |
+| team-promotion (`UPSTREAM_PROMOTION_ADDR`) | `ValidateAndReserve`, `CommitReservation`, `ReleaseReservation`, `GetActiveFlashSale`, `ReserveFlashSaleStock`, `CommitFlashSaleStock`, `ReleaseFlashSaleStock` | voucher hold, commit on settle, release on saga failure; flash price and flash stock holds |
 
 `ReserveStock`, `CommitReservation` and `ReleaseStock` always go to team-domain as the service principal `service-team-order` (type `service`) with exactly the scope `listing.write`, never the end user's principal; voucher saga RPCs carry only `promotion.reserve`. Other upstream calls forward the incoming principal metadata unchanged; with none they use the same service principal with only `listing.read` (`internal/upstream/domain.go`).
 
@@ -115,9 +114,8 @@ An admin acts as the seller on `UpdateOrderStatus`. A target the caller may neve
 | produce | `order.events` | `platform.order.v1.OrderPaymentReminder` | `order_id` | Outbox row written in the same transaction as the once-only reminder stamp, when a Pending order enters its reminder window (`PAYMENT_REMINDER_BEFORE` before its deadline). The lifecycle sweeper also cancels Pending orders past their payment deadline with reason code `PAYMENT_EXPIRED` (emits `OrderCancelled`) and releases their stock |
 | produce | `payment.events.dlq` (`PAYMENT_EVENTS_DLQ_TOPIC`) | original record | original key | Poison records, or records that exhausted retries |
 
-- The payment consumer commits offsets only after a record is applied or dead-lettered (auto-commit disabled), retries up to 5 times in process, dedupes on `processed_events` (consumer `team-order.payment`), and runs only with Postgres and `KAFKA_ENABLED=true`.
-- The outbox relayer claims rows with a lease, publishes the stored envelope verbatim, retries with backoff (1s doubling to 5m), and parks a row (`status='failed'`) after `OUTBOX_MAX_ATTEMPTS`. It runs only when Postgres, `KAFKA_ENABLED` and `OUTBOX_ENABLED` are all true.
-- With `KAFKA_ENABLED=false` (the default) outbox rows are still written but never published, and orders do not move to PAID from payment events.
+- The payment consumer commits offsets only after a record is applied or dead-lettered (auto-commit disabled), retries up to 5 times in process, dedupes on `processed_events` (consumer `team-order.payment`), and is always on. The consumers (`PaymentSettled`, `DisputeResolved`) and the outbox relayer live in `internal/events`, built on the SDK `consume` and `outbox` packages.
+- The outbox relayer claims rows with a lease, publishes the stored envelope verbatim, retries with backoff (1s doubling to 5m), and parks a row (`status='failed'`) after the SDK outbox attempt limit. It is always on, and a purger deletes published rows older than 7 days.
 - Event ids are deterministic UUIDv5s (per order for paid and cancelled, per shipment for shipped, per return for `ReturnRefunded`, namespace `agora/team-order/order.events/<Type>`). Consumers in this workspace include team-analytics (`OrderPaidEvent`), team-notification (`order.events`) and team-payment (consumer group `team-payment.settlement`: `OrderPaidEvent` credits the seller, `OrderCancelled` with `previous_status = ORDER_STATUS_PAID` refunds what remains of the payment and deducts the seller, `ReturnRefunded` refunds the return). Consumers filter on `EventEnvelope.type`, so ones that do not handle `OrderCancelled` or `ReturnRefunded` ignore them.
 - Deploy order: team-payment (which understands `ReturnRefunded`) must be deployed before this service emits it; an older team-payment ignores and commits the record, losing it.
 
@@ -138,9 +136,15 @@ Postgres `order_db` (compose credentials `order_svc` / `order_pass`, shared Post
 | 0009 | `orders.shipped_at`, `auto_complete_at`, `completed_at`, `return_window_ends_at`, `ship_by`; `order_returns.auto_approve_at`. Backfill runs only when the columns are first added and completes nothing |
 | 0010 | `orders.checkout_id`, `platform_voucher_code`, `platform_discount_amount` |
 
-The service does **not** migrate on boot. Compose applies migrations with the one-shot `team-order-migrate` job (`migrate/migrate:v4.17.1`, `up`, idempotent), which `team-order` depends on. Standalone, run golang-migrate against `migrations/` yourself.
+| 0011 | `processed_events` primary key `(consumer, event_id)` |
+| 0012-0022 | Outbox upgrade to the SDK v1 `order_outbox_events` shape: prepare, backfill, switch, `seq` constraint and indexes, drop the old claim index, requeue failed rows |
 
-With `DATABASE_ENABLED=false` every repository and the saga store fall back to in-memory implementations, and the Kafka consumer, relayer and sweeper do not start.
+The service does **not** migrate on boot. The binary has a `migrate up` subcommand (`go run ./cmd/server migrate up`, `make migrate`) that applies the embedded `migrations/` against `DATABASE_URL`; compose runs it as the one-shot `team-order-migrate` job (the `team-order` image with `migrate up`), which `team-order` depends on, and gitops runs it as an Argo PreSync Job.
+
+**Outbox upgrade deploy order (0011-0022):** scale the old pods to 0, run `migrate up` (`0011`-`0022`) as the PreSync Job, then start the new image. Old pods write the old outbox shape and must not run during the migration. Published rows are purged after 7 days.
+
+**Health.** The gRPC server registers `grpc.health.v1` with two services: the default (readiness, checks `postgres`) and `liveness` (process only); gitops sets `probes.livenessService: liveness`.
+
 
 ## Configuration
 
@@ -148,28 +152,25 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | Feeds the boot guard `RequireDurableStorage` (staging/prod refuse to start without a database). `IsProd()` is never called |
+| `ENV` | required | No default; staging and production apply the boot guards (reflection off, `DATABASE_URL` set, every upstream address set) |
 | `LOG_LEVEL` | `info` | Only `debug` changes behaviour; anything else is info |
 | `LOG_JSON` | `true` | |
-| `GRPC_HOST` / `GRPC_PORT` | `0.0.0.0` / `50055` | |
-| `GRPC_REFLECTION_ENABLED` | `true` | |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | |
-| `DATABASE_ENABLED` | `true` | |
-| `DATABASE_URL` | empty | Required when `DATABASE_ENABLED=true` (startup fails otherwise) |
+| `GRPC_HOST` / `GRPC_PORT` | `0.0.0.0` / required | Compose and the image use `50055` |
+| `GRPC_REFLECTION_ENABLED` | `false` | Reflection; staging and production refuse to start with `true` |
+| `SHUTDOWN_GRACE` / `SHUTDOWN_DRAIN_DELAY` | `10s` / `0s` | Go durations |
+| `DATABASE_URL` | required | Startup fails when unset or Postgres is unreachable |
 | `DB_MAX_CONNS` | `10` | |
-| `UPSTREAM_DOMAIN_ADDR` | `localhost:50051` | |
-| `UPSTREAM_IDENTITY_ADDR` | `localhost:50053` | |
-| `UPSTREAM_PROMOTION_ADDR` | empty | Empty disables vouchers and flash pricing/holds (lines are priced at the regular price; a flash-priced cart line is re-priced at checkout); `voucher_code`, `shop_vouchers` and `platform_voucher_code` are then ignored |
-| `UPSTREAM_AUDIT_ADDR` | empty | team-audit address; empty means the audited admin actions (`ForceFailSaga`, admin `UpdateOrderStatus`, `UpdateReturnStatus`, `CreateShipment`) fail closed with `Unavailable` |
-| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Bound for one audit write (single attempt, no retry) |
-| `OTEL_ENABLED` | `false` | Declared but not read (see Known gaps) |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | Declared but not read |
-| `OTEL_SERVICE_NAME` | `team-order` | Declared but not read |
-| `FEATURE_FLAGS_ENABLED` | `true` | `false` makes every flag return its default |
+| `UPSTREAM_DOMAIN_ADDR` | required | team-domain; startup fails when empty |
+| `UPSTREAM_IDENTITY_ADDR` | required | team-identity; startup fails when empty |
+| `UPSTREAM_PROMOTION_ADDR` | required | Vouchers, flash pricing and holds; startup fails when empty |
+| `UPSTREAM_AUDIT_ADDR` | required | team-audit address; startup fails when empty, an unreachable audit service makes the audited admin actions (`ForceFailSaga`, admin `UpdateOrderStatus`, `UpdateReturnStatus`, `CreateShipment`) fail with `Unavailable` ("audit trail unavailable") and no change |
+| `LOG_KEY_FP_SECRET` | required | Secret for the log key fingerprints of Kafka record keys |
+| `OTEL_ENABLED` | `false` | Read by the SDK `otelx` setup |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | OTLP endpoint |
+| `OTEL_SERVICE_NAME` | empty | Service name for traces |
 | `FLIPT_ADDR` | `localhost:9000` | Flipt gRPC address |
-| `FEATURE_FLAGS_EVAL_TIMEOUT_MS` | `500` | |
-| `KAFKA_ENABLED` | `false` | Gates the payment consumer and the outbox relayer |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated |
+| `FEATURE_FLAGS_EVAL_TIMEOUT` | `500ms` | Go duration |
+| `KAFKA_BROKERS` | required | Comma-separated; the payment and dispute consumers and the outbox relayer are always on |
 | `ORDER_PAYMENT_CONSUMER_GROUP` | `team-order.payment` | |
 | `PAYMENT_EVENTS_TOPIC` | `payment.events` | |
 | `PAYMENT_EVENTS_DLQ_TOPIC` | `payment.events.dlq` | |
@@ -177,11 +178,9 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `ORDER_DISPUTE_CONSUMER_GROUP` | `team-order.dispute` | |
 | `ENGAGEMENT_EVENTS_DLQ_TOPIC` | `engagement.events.order.dlq` | |
 | `ORDER_EVENTS_TOPIC` | `order.events` | |
-| `OUTBOX_ENABLED` | `true` | Relayer also needs `KAFKA_ENABLED=true` |
 | `OUTBOX_POLL_INTERVAL` | `1s` | Go duration; invalid or non-positive falls back to 1s |
 | `OUTBOX_BATCH_SIZE` | `100` | |
-| `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | |
-| `OUTBOX_MAX_ATTEMPTS` | `10` | |
+| `OUTBOX_CLAIM_LOCK` | `60s` | Go duration |
 | `RESERVATION_TTL` | `15m` | Go duration: stock-hold lifetime before the sweep releases it; also how long an unfinished checkout attempt may stay pending. Empty, invalid or non-positive falls back to the default with a WARN; boot never fails |
 | `RESERVATION_SWEEP_INTERVAL` | `1m` | Go duration: sweep cadence. Same fallback rule |
 | `PAYMENT_DEADLINE` | `24h` | Go duration: how long a non-COD order may stay unpaid before the lifecycle sweeper cancels it with `PAYMENT_EXPIRED`. Invalid or non-positive falls back with a WARN |
@@ -192,11 +191,11 @@ Read by `internal/config/config.go` (struct tags are the source of truth). Defau
 | `RETURN_AUTO_APPROVE_AFTER` | `72h` | Go duration: how long a return waits before it is auto-approved. Strict, same rule |
 | `SHIP_BY_AFTER` | `48h` | Go duration: the seller's ship-by deadline after payment. Strict, same rule |
 
-Drift gate: `TestEnvExampleInSync` (`internal/config/config_test.go`) fails if `.env.example` and the declared env keys differ in either direction. `.env.example` points `DATABASE_URL` at `localhost:5437`; compose uses `postgres:5432`.
+Drift gate: `TestEnvExampleInSync` (`internal/config/config_test.go`) fails if `.env.example` and the declared env keys differ in either direction (run by `make check-env`). `.env.example` points `DATABASE_URL` at `localhost:5437`; compose uses `postgres:5432`.
 
 ### Feature flag: checkout kill-switch
 
-Boolean flag `checkout-enabled` (`internal/featureflags/featureflags.go`), evaluated through OpenFeature with the Flipt provider at the start of `CreateOrder`. It **fails open**: if Flipt is disabled, unreachable at boot, errors, or exceeds `FEATURE_FLAGS_EVAL_TIMEOUT_MS`, checkout stays enabled. Only an explicit OFF in Flipt returns `FailedPrecondition: checkout is temporarily unavailable`. Flip it in the Flipt UI; no redeploy is needed. `go.mod` and `internal/featureflags/provider.go` still mark the Flipt provider package and its streaming behaviour as ASSUMED, to be confirmed.
+Boolean flag `checkout-enabled` (the SDK `flags` package), evaluated through OpenFeature with the Flipt provider at the start of `CreateOrder`. It **fails open**: if Flipt is unreachable, errors, or exceeds `FEATURE_FLAGS_EVAL_TIMEOUT`, checkout stays enabled. Only an explicit OFF in Flipt returns `FailedPrecondition: checkout is temporarily unavailable`. Flip it in the Flipt UI; no redeploy is needed.
 
 ## Run locally
 
@@ -207,29 +206,27 @@ docker compose up -d --build            # whole stack: shared infra + services +
 docker compose up -d --build team-order # this service and its dependencies (team-order-migrate, redpanda-init, Postgres)
 ```
 
-`team-order` is wired in `docker-compose.services.yaml` with Kafka and the outbox relayer enabled, Flipt at `flipt:9000`, promotion at `team-promotion-svc:50061`, and topics created by `redpanda-init`. Its gRPC port is reachable only on the compose network as `team-order-svc:50055`; use the gateway from the host.
+`team-order` is wired in `docker-compose.services.yaml` with Flipt at `flipt:9000`, promotion at `team-promotion-svc:50061`, and topics created by `redpanda-init`. Its gRPC port is reachable only on the compose network as `team-order-svc:50055`; use the gateway from the host.
 
-Standalone (no compose): apply `migrations/` to a Postgres, generate code (below), then:
+Standalone (no compose): generate code (below), run `make migrate` against a Postgres, then:
 
 ```bash
 set -a; . ./.env; set +a   # from .env.example; the process reads the environment and does not load .env itself
 go run ./cmd/server
 ```
 
-With `DATABASE_ENABLED=false` it runs entirely in memory (no PAID transitions from Kafka, no outbox).
 
 ## Build, test and lint
 
 ```bash
-buf generate                # writes generated/ using ./buf.gen.yaml (input: ./proto)
-go build ./cmd/server
-go vet ./...
-gofmt -l .                  # should list nothing outside generated/
-go test ./...
+make proto                  # buf generate into generated/
+make build                  # go build ./...
+make check                  # vet + lint + test (-race, Docker required) + check-env
+GO_SDK_REQUIRE_DOCKER=1 make test
 docker build -t team-order:local .
 ```
 
-There is no Makefile, no `.github/workflows` and no other CI config in this repository; run the commands above as the gate. Tests named `*_pg_test.go` run only when `TEST_DATABASE_URL` (or `DATABASE_URL`) points at a migrated Postgres, otherwise they skip.
+The shared targets come from `platform-core/make/go-service.mk`; lint uses the SDK `.golangci.yml`. Tests that need Postgres or Kafka use the SDK `testkit` containers and fail, not skip, when `GO_SDK_REQUIRE_DOCKER=1` and Docker is missing.
 
 ## Spec and verification
 
@@ -239,10 +236,8 @@ There is no Makefile, no `.github/workflows` and no other CI config in this repo
 
 ## Gotchas
 
-- `generated/` is gitignored (root `.gitignore`) and must be produced with `buf generate`. The Dockerfile builds from the local directory, so the build fails if `generated/` is absent. Never hand-edit it.
+- `generated/` is gitignored (root `.gitignore`) and must be produced with `buf generate`. The Dockerfile builds from the team-order directory, so the build fails if `generated/` is absent. Never hand-edit it.
 - `proto/` is vendored from `platform-core/packages/proto`. Never edit it here; change the contract in platform-core. `proto/buf.gen.yaml` is platform-core's file; use the root `buf.gen.yaml`, which rewrites `go_package` to this module.
-- In-memory fallbacks: `DATABASE_ENABLED=false` (everything in memory), no `UPSTREAM_PROMOTION_ADDR` (no vouchers, no flash price or holds), Flipt unavailable (flags default, checkout open).
-- `KAFKA_ENABLED` defaults to `false`: orders stay PENDING after payment and outbox rows accumulate as `pending`.
 - `coverage.out` and `coverage.summary` in the directory are stray test artifacts, not part of the build.
 
 ## Known gaps
@@ -250,7 +245,6 @@ There is no Makefile, no `.github/workflows` and no other CI config in this repo
 - `CalculateShippingFee` and `GetShipmentTracking` are unauthenticated.
 - Scopes `order.read` / `order.write` are not enforced here; authorization is only the id and admin-scope checks above. Principal metadata is trusted as forwarded.
 - A failed `PaymentSettled` leaves the order PENDING until the lifecycle sweeper cancels it at `payment_due_at` (`PAYMENT_EXPIRED`); orders placed before migration 0008 have no deadline and are never auto-expired.
-- `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` are inert: only the otelgrpc stats handler is attached, and no tracer provider or exporter is configured in this repo.
 - `openspec/specs/order-lifecycle-guards/spec.md:105` and `:115` (and their `FEATURES.yaml` acceptance lines) still say "the payment then succeeds" after the cancel; since payment-unpaid-cancel team-payment refuses that settle (`FAILED_PRECONDITION` "payment cancelled", `openspec/changes/payment-unpaid-cancel/specs/unpaid-order-payment/spec.md:42`) and the e2e scenarios assert the refusal. The change carries no MODIFIED delta for them yet.
 
 ## Runbook: commit re-sync (after deploying port-order-inventory-correctness)
