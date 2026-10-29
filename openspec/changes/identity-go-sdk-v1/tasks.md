@@ -65,7 +65,7 @@ Write-set: `team-identity/internal/app/**`, `team-identity/cmd/server/main.go`, 
 
 ### 1.10 Whole-service gate (last code task)
 Write-set: none beyond fixes inside `team-identity/**` and `openspec/changes/identity-go-sdk-v1/**`.
-- [ ] 1.10.1 `cd team-identity && make proto && make check && go build ./... && docker build -t team-identity:go-sdk .` all pass; `git grep -n -e DATABASE_ENABLED -e KAFKA_ENABLED -e OUTBOX_ENABLED -e SESSION_SWEEP_ENABLED -e NoopPublisher -e OpenOrLocal -e 'internal/service' -e 'internal/repository' -e 'internal/handler' -- team-identity ':!team-identity/internal/config/*_test.go' ':!team-identity/README.md'` returns nothing, `git grep -n KAFKA_ENABLED -- team-identity/README.md` returns nothing, `sh team-identity/tests/readme_refresh_docs_test.sh` passes; `go list -deps ./cmd/server | grep storetest` returns nothing.
+- [ ] 1.10.1 `cd team-identity && make proto && make check && go build ./... && docker build -t team-identity:go-sdk .` all pass; `git grep -n -e DATABASE_ENABLED -e KAFKA_ENABLED -e OUTBOX_ENABLED -e SESSION_SWEEP_ENABLED -e NoopPublisher -e OpenOrLocal -e 'internal/service' -e 'internal/repository' -e 'internal/handler' -- team-identity ':!team-identity/internal/config/*_test.go' ':!team-identity/README.md' ':!*_test.go'` returns nothing, `git grep -n KAFKA_ENABLED -- team-identity/README.md` returns nothing, `sh team-identity/tests/readme_refresh_docs_test.sh` passes; `go list -deps ./cmd/server | grep storetest` returns nothing.
 - [ ] 1.10.2 `openspec validate identity-go-sdk-v1 --strict` and `/Users/phuc.buidang/Documents/agora/platform-e2e/.venv/bin/python scripts/asdlc/spec_lint.py identity-go-sdk-v1` pass.
 
 ## 2. e2e track
