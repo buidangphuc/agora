@@ -2,7 +2,6 @@ package identity_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"testing"
 	"time"
@@ -17,7 +16,7 @@ type nopAudit struct{}
 func (nopAudit) WriteAuditEvent(context.Context, auditx.Event) error { return nil }
 
 func newGate(w auditx.Writer) *auditx.Gate {
-	return auditx.NewGate(w, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return auditx.NewGate(w, slog.New(slog.DiscardHandler))
 }
 
 func newSvcAudit(t *testing.T, users store.UserRepository, sessions store.SessionRepository, w auditx.Writer) *identity.AuthService {

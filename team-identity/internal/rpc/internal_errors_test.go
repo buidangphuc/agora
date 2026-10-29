@@ -23,9 +23,11 @@ type failAddrRepo struct{ store.AddressRepository }
 func (failAddrRepo) List(context.Context, string) ([]store.Address, error) {
 	return nil, errDriver
 }
+
 func (failAddrRepo) Create(context.Context, store.Address) (store.Address, error) {
 	return store.Address{}, errDriver
 }
+
 func (failAddrRepo) Update(context.Context, store.Address) (store.Address, error) {
 	return store.Address{}, errDriver
 }
@@ -39,9 +41,11 @@ type failSessRepo struct{ store.SessionRepository }
 func (failSessRepo) ListSessions(context.Context, string) ([]store.Session, error) {
 	return nil, errDriver
 }
+
 func (failSessRepo) RevokeSession(context.Context, string, string, store.EnqueueFn) error {
 	return errDriver
 }
+
 func (failSessRepo) ListLoginHistory(context.Context, string, int, int) ([]store.LoginEvent, int64, error) {
 	return nil, 0, errDriver
 }

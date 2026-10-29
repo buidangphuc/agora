@@ -2,7 +2,6 @@ package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net"
 	"testing"
@@ -48,7 +47,7 @@ func startWire(t *testing.T, h rpc.Handlers, logger *slog.Logger) *grpc.ClientCo
 	return conn
 }
 
-func discardLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func discardLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func startServer(t *testing.T, userRepo store.UserRepository, addrRepo store.AddressRepository) (identityv1.AuthServiceClient, identityv1.AddressServiceClient) {
 	authClient, addrClient, _ := startServerWithSessions(t, userRepo, addrRepo, storetest.NewInMemorySessionRepository())

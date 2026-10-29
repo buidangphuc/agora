@@ -239,9 +239,11 @@ func TestNoDependencyEnableFlags(t *testing.T) {
 			t.Errorf("unexpected enable flag %s", k)
 		}
 	}
-	for _, k := range []string{"OTEL_ENABLED", "GRPC_REFLECTION_ENABLED", "SEED_ADMIN_ENABLED",
+	for _, k := range []string{
+		"OTEL_ENABLED", "GRPC_REFLECTION_ENABLED", "SEED_ADMIN_ENABLED",
 		"SHUTDOWN_GRACE", "SHUTDOWN_DRAIN_DELAY", "OUTBOX_CLAIM_LOCK", "OUTBOX_PURGE_RETENTION",
-		"OUTBOX_PURGE_INTERVAL", "LOG_KEY_FP_SECRET", "UPSTREAM_AUDIT_ADDR"} {
+		"OUTBOX_PURGE_INTERVAL", "LOG_KEY_FP_SECRET", "UPSTREAM_AUDIT_ADDR",
+	} {
 		if !slices.Contains(keys, k) {
 			t.Errorf("%s must be declared", k)
 		}

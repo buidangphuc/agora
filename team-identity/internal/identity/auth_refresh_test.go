@@ -126,9 +126,9 @@ func jwtClaims(t *testing.T, tok string) (sid string, scopes []string) {
 	return c.Sid, c.Scopes
 }
 
-func (e *refreshEnv) sessionRow(t *testing.T, uid string) store.Session {
+func (e *refreshEnv) sessionRow(ctx context.Context, t *testing.T, uid string) store.Session {
 	t.Helper()
-	items, err := e.sess.ListSessions(context.Background(), uid)
+	items, err := e.sess.ListSessions(ctx, uid)
 	if err != nil || len(items) != 1 {
 		t.Fatalf("want exactly 1 session for %s, got %d err=%v", uid, len(items), err)
 	}
@@ -161,7 +161,7 @@ func (e *refreshEnv) wantInvalid(t *testing.T, tok string) {
 
 func (e *refreshEnv) wantRevokedOnce(t *testing.T) {
 	t.Helper()
-	s := e.sessionRow(t, e.uid)
+	s := e.sessionRow(t.Context(), t, e.uid)
 	if !s.Revoked || s.RefreshHash != "" || s.PrevRefreshHash != "" {
 		t.Fatalf("want revoked with both hashes cleared, got %+v", s)
 	}
@@ -172,7 +172,7 @@ func (e *refreshEnv) wantRevokedOnce(t *testing.T) {
 
 func (e *refreshEnv) wantNotRevoked(t *testing.T) {
 	t.Helper()
-	if s := e.sessionRow(t, e.uid); s.Revoked {
+	if s := e.sessionRow(t.Context(), t, e.uid); s.Revoked {
 		t.Fatalf("session must not be revoked: %+v", s)
 	}
 	if n := len(e.sess.OutboxRows()); n != 0 {
@@ -239,7 +239,7 @@ func TestLoginIssuesRefreshToken(t *testing.T) { // scenario: Login returns a re
 func TestRegisterIssuesRefreshToken(t *testing.T) { // scenario: Register returns a refresh token
 	e := newRefreshEnv(t)
 	assertRefreshTokenShape(t, e.first.RefreshToken)
-	s := e.sessionRow(t, e.uid)
+	s := e.sessionRow(t.Context(), t, e.uid)
 	if s.RefreshHash == "" || s.RefreshHash == e.first.RefreshToken || s.RefreshHash != sha(e.first.RefreshToken) {
 		t.Fatalf("session must hold sha256 of the token, not the token: %q", s.RefreshHash)
 	}
@@ -281,7 +281,7 @@ func TestRefreshRotatesAndKeepsSid(t *testing.T) { // scenario: Successful rotat
 	if res.UserID != e.uid || res.Username != "alice" || res.Type != "user" {
 		t.Fatalf("identity wrong: %+v", res)
 	}
-	s := e.sessionRow(t, e.uid)
+	s := e.sessionRow(t.Context(), t, e.uid)
 	if s.RefreshHash != sha(res.RefreshToken) || s.PrevRefreshHash != sha(r1) || !s.RotatedAt.Equal(e.clock.Now()) {
 		t.Fatalf("row not rotated correctly: %+v", s)
 	}
@@ -343,14 +343,14 @@ func TestRefreshBindsToOwningSession(t *testing.T) { // scenario: A token resolv
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := e.sessionRow(t, e.uid)
+	before := e.sessionRow(t.Context(), t, e.uid)
 	bSid, _ := jwtClaims(t, b.Token)
 	res := e.mustRefresh(t, b.RefreshToken)
 	sid, _ := jwtClaims(t, res.Token)
 	if res.UserID != b.UserID || sid != bSid {
 		t.Fatalf("must resolve to user B / S2: %+v sid=%s", res, sid)
 	}
-	if after := e.sessionRow(t, e.uid); fmt.Sprintf("%+v", after) != fmt.Sprintf("%+v", before) {
+	if after := e.sessionRow(t.Context(), t, e.uid); fmt.Sprintf("%+v", after) != fmt.Sprintf("%+v", before) {
 		t.Fatalf("user A session changed:\nbefore %+v\nafter  %+v", before, after)
 	}
 }
@@ -376,7 +376,7 @@ func TestRefreshExpiredToken(t *testing.T) { // scenario: Expired token
 	e.clock.Advance(30*24*time.Hour + time.Second) // past the sliding expiry, within 90d
 	e.wantInvalid(t, e.first.RefreshToken)
 	e.wantNotRevoked(t)
-	if e.sessionRow(t, e.uid).RefreshHash != sha(e.first.RefreshToken) {
+	if e.sessionRow(t.Context(), t, e.uid).RefreshHash != sha(e.first.RefreshToken) {
 		t.Fatalf("expired token must leave the row unchanged")
 	}
 }
@@ -394,8 +394,10 @@ func TestRefreshRevokedSession(t *testing.T) { // scenario: Revoked session
 func revokeAsLogout(t *testing.T, e *refreshEnv, sid string) {
 	t.Helper()
 	ev := func(s store.Session) (store.OutboxRow, error) {
-		return store.OutboxRow{EventID: "logout-" + s.ID, AggregateType: "Session", AggregateID: s.UserID,
-			EventType: "platform.identity.v1.SessionRevoked", Payload: []byte("x")}, nil
+		return store.OutboxRow{
+			EventID: "logout-" + s.ID, AggregateType: "Session", AggregateID: s.UserID,
+			EventType: "platform.identity.v1.SessionRevoked", Payload: []byte("x"),
+		}, nil
 	}
 	if err := e.sess.RevokeSession(context.Background(), sid, e.uid, ev); err != nil {
 		t.Fatalf("logout revoke: %v", err)
@@ -465,7 +467,7 @@ func TestRefreshPassesPositiveNinetyDayMaxAge(t *testing.T) { // reviewer carry-
 	if e.sess.grace != 10*time.Second {
 		t.Fatalf("grace = %v, want 10s", e.sess.grace)
 	}
-	if e.sess.lastNew != sha(e.sessionRow(t, e.uid).RefreshHash) && e.sess.lastNew != e.sessionRow(t, e.uid).RefreshHash {
+	if e.sess.lastNew != sha(e.sessionRow(t.Context(), t, e.uid).RefreshHash) && e.sess.lastNew != e.sessionRow(t.Context(), t, e.uid).RefreshHash {
 		t.Fatalf("service must pass the sha256 hex of the new token as newHash")
 	}
 }
@@ -502,7 +504,7 @@ func TestRefreshGraceReturnsAccessOnly(t *testing.T) { // scenario: Grace replay
 	r1 := e.first.RefreshToken
 	origSid, _ := jwtClaims(t, e.first.Token)
 	r2res := e.mustRefresh(t, r1)
-	before := e.sessionRow(t, e.uid)
+	before := e.sessionRow(t.Context(), t, e.uid)
 	e.clock.Advance(4 * time.Second)
 	res := e.mustRefresh(t, r1)
 	if sid, _ := jwtClaims(t, res.Token); sid != origSid {
@@ -511,7 +513,7 @@ func TestRefreshGraceReturnsAccessOnly(t *testing.T) { // scenario: Grace replay
 	if res.RefreshToken != "" || !res.RefreshExpiresAt.IsZero() {
 		t.Fatalf("grace replay must mint no refresh token: %+v", res)
 	}
-	after := e.sessionRow(t, e.uid)
+	after := e.sessionRow(t.Context(), t, e.uid)
 	if after.RefreshHash != sha(r2res.RefreshToken) || !after.RefreshExpiresAt.Equal(before.RefreshExpiresAt) {
 		t.Fatalf("row must be unchanged by a grace replay: %+v", after)
 	}
@@ -589,7 +591,7 @@ func TestRefreshUserLookupDBErrorIsUnavailableNotRevoked(t *testing.T) { // scen
 	if !errors.Is(err, identity.ErrRefreshUnavailable) {
 		t.Fatalf("want ErrRefreshUnavailable, got %v", err)
 	}
-	if s := e.sessionRow(t, e.uid); s.Revoked {
+	if s := e.sessionRow(t.Context(), t, e.uid); s.Revoked {
 		t.Fatalf("user-lookup DB error must not revoke")
 	}
 	if n := len(e.sess.OutboxRows()); n != 0 {
@@ -677,7 +679,7 @@ func TestRefreshOutboxFailureIsInternal(t *testing.T) { // scenario: Revoke and 
 	if res.Token != "" || res.RefreshToken != "" {
 		t.Fatalf("no tokens on failure: %+v", res)
 	}
-	if s := e.sessionRow(t, e.uid); s.Revoked {
+	if s := e.sessionRow(t.Context(), t, e.uid); s.Revoked {
 		t.Fatalf("session must stay unrevoked when the outbox write fails")
 	}
 }
@@ -738,7 +740,7 @@ func TestRefreshDeletedUserRevokeOutboxFailureIsInternal(t *testing.T) { // scen
 	if errors.Is(err, identity.ErrRefreshUnavailable) || errors.Is(err, identity.ErrInvalidRefreshToken) {
 		t.Fatalf("must be neither Unavailable nor Invalid: %v", err)
 	}
-	if s := e.sessionRow(t, e.uid); s.Revoked {
+	if s := e.sessionRow(t.Context(), t, e.uid); s.Revoked {
 		t.Fatalf("session must stay unrevoked when the outbox write fails")
 	}
 }

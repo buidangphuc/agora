@@ -44,8 +44,10 @@ func refreshPG(t *testing.T) (*pgxpool.Pool, *store.PostgresSessionRepository) {
 	t.Helper()
 	ctx := context.Background()
 	pool := latestPool(t)
-	for _, q := range []string{`DELETE FROM identity_outbox_events`, `DELETE FROM sessions`, `DELETE FROM users WHERE id LIKE 'u-rf%'`,
-		`INSERT INTO users (id, username, password_hash) VALUES ('u-rf1','u-rf1','x'), ('u-rf2','u-rf2','x')`} {
+	for _, q := range []string{
+		`DELETE FROM identity_outbox_events`, `DELETE FROM sessions`, `DELETE FROM users WHERE id LIKE 'u-rf%'`,
+		`INSERT INTO users (id, username, password_hash) VALUES ('u-rf1','u-rf1','x'), ('u-rf2','u-rf2','x')`,
+	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("reset (%s): %v", q, err)
 		}

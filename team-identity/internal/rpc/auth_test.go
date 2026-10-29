@@ -6,7 +6,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"io"
 	"log/slog"
 	"testing"
 	"time"
@@ -46,7 +45,7 @@ func (nopAudit) WriteAuditEvent(context.Context, auditx.Event) error { return ni
 
 func newGate(w auditx.Writer, logger *slog.Logger) *auditx.Gate {
 	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+		logger = slog.New(slog.DiscardHandler)
 	}
 	return auditx.NewGate(w, logger)
 }

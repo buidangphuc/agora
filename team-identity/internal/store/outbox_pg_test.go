@@ -95,7 +95,7 @@ func TestRevokeRollsBackWhenOutboxFails(t *testing.T) {
 func TestSetUserStatusRollsBackWhenOutboxInsertFails(t *testing.T) {
 	e := pgEnv(t)
 	ctx := context.Background()
-	e.seedUser(t, "ue-oi", "ue-oi")
+	e.seedUser(t.Context(), t, "ue-oi", "ue-oi")
 	e.seedSessions(t, "ue-oi", 2)
 
 	n := 0
@@ -115,7 +115,7 @@ func TestSetUserStatusRollsBackWhenOutboxInsertFails(t *testing.T) {
 	if got := mustGet(t, e, "ue-oi"); got.Status != store.StatusActive {
 		t.Errorf("user status = %q, want active after rollback", got.Status)
 	}
-	if c := activeSessionCount(t, e, "ue-oi"); c != 2 {
+	if c := activeSessionCount(t.Context(), t, e, "ue-oi"); c != 2 {
 		t.Errorf("active sessions = %d, want 2", c)
 	}
 	if rows := e.outbox(t); len(rows) != 0 {

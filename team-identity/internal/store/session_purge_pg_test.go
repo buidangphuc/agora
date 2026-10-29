@@ -23,9 +23,11 @@ func purgePG(t *testing.T) (*pgxpool.Pool, *store.PostgresSessionRepository) {
 	t.Helper()
 	ctx := context.Background()
 	pool := latestPool(t)
-	for _, q := range []string{`DELETE FROM identity_outbox_events`, `DELETE FROM sessions`, `DELETE FROM login_history`,
+	for _, q := range []string{
+		`DELETE FROM identity_outbox_events`, `DELETE FROM sessions`, `DELETE FROM login_history`,
 		`DELETE FROM users WHERE id LIKE 'u-sp%'`,
-		`INSERT INTO users (id, username, password_hash) VALUES ('u-sp1','u-sp1','x')`} {
+		`INSERT INTO users (id, username, password_hash) VALUES ('u-sp1','u-sp1','x')`,
+	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("reset (%s): %v", q, err)
 		}

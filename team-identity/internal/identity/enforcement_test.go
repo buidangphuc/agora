@@ -632,7 +632,7 @@ func TestLoginWrongPasswordNoStatusOracle(t *testing.T) { // Login enforcement: 
 	e.start()
 	for _, name := range []string{"banned1", "susp1", "active1"} {
 		_, err := e.svc.Login(e.ctx, name, "wrong-password")
-		if err != identity.ErrInvalidCredentials {
+		if !errors.Is(err, identity.ErrInvalidCredentials) {
 			t.Fatalf("%s: want exactly ErrInvalidCredentials, got %v", name, err)
 		}
 	}

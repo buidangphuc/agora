@@ -47,8 +47,10 @@ func seedRefreshSession(t *testing.T, r *storetest.InMemorySessionRepository, us
 
 func okEv(id string) store.EnqueueFn {
 	return func(s store.Session) (store.OutboxRow, error) {
-		return store.OutboxRow{EventID: id, AggregateType: "Session", AggregateID: s.UserID,
-			EventType: "platform.identity.v1.SessionRevoked", Payload: []byte{1}}, nil
+		return store.OutboxRow{
+			EventID: id, AggregateType: "Session", AggregateID: s.UserID,
+			EventType: "platform.identity.v1.SessionRevoked", Payload: []byte{1},
+		}, nil
 	}
 }
 
@@ -324,8 +326,10 @@ func TestRotateRefresh_JustBeforeExpiry_StillRotates_RefreshTokenExpired(t *test
 
 func TestRotateRefresh_ExpiredSessionGraceReplay_ReturnsExpiredNoChange_RefreshTokenExpired(t *testing.T) {
 	r := storetest.NewInMemorySessionRepository()
-	s := seedRaw(t, r, store.Session{UserID: "u1", RefreshHash: "h2", PrevRefreshHash: "h1", RotatedAt: refreshT0,
-		RefreshExpiresAt: refreshT0.Add(5 * time.Second), CreatedAt: refreshT0.Add(-time.Hour)})
+	s := seedRaw(t, r, store.Session{
+		UserID: "u1", RefreshHash: "h2", PrevRefreshHash: "h1", RotatedAt: refreshT0,
+		RefreshExpiresAt: refreshT0.Add(5 * time.Second), CreatedAt: refreshT0.Add(-time.Hour),
+	})
 	before := getSession(t, r, "u1", s.ID)
 	p := &evProbe{}
 	res := mustRotate(t, r, "h1", "h3", refreshT0.Add(6*time.Second), p.fn("e"))
@@ -342,8 +346,10 @@ func TestRotateRefresh_ExpiredSessionGraceReplay_ReturnsExpiredNoChange_RefreshT
 
 func TestRotateRefresh_AbsoluteLifetimeExceeded_RevokesWithOneEvent_AbsoluteLifetimeExceeded(t *testing.T) {
 	r := storetest.NewInMemorySessionRepository()
-	s := seedRaw(t, r, store.Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
-		CreatedAt: refreshT0.Add(-refreshMaxAge - time.Millisecond)})
+	s := seedRaw(t, r, store.Session{
+		UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
+		CreatedAt: refreshT0.Add(-refreshMaxAge - time.Millisecond),
+	})
 	p := &evProbe{}
 	res := mustRotate(t, r, "h1", "h2", refreshT0, p.fn("evt-life"))
 	if res.Outcome != store.RotateLifetimeExceeded {
@@ -367,8 +373,10 @@ func TestRotateRefresh_AbsoluteLifetimeExceeded_RevokesWithOneEvent_AbsoluteLife
 
 func TestRotateRefresh_ExactlyMaxAge_StillRotates_AbsoluteLifetimeBoundary(t *testing.T) {
 	r := storetest.NewInMemorySessionRepository()
-	s := seedRaw(t, r, store.Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
-		CreatedAt: refreshT0.Add(-refreshMaxAge)})
+	s := seedRaw(t, r, store.Session{
+		UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
+		CreatedAt: refreshT0.Add(-refreshMaxAge),
+	})
 	p := &evProbe{}
 	res := mustRotate(t, r, "h1", "h2", refreshT0, p.fn("e"))
 	if res.Outcome != store.RotateRotated || p.calls != 0 {
@@ -381,8 +389,10 @@ func TestRotateRefresh_ExactlyMaxAge_StillRotates_AbsoluteLifetimeBoundary(t *te
 
 func TestRotateRefresh_LifetimeExceededOutboxFailure_Atomic_AbsoluteLifetimeExceeded(t *testing.T) {
 	r := storetest.NewInMemorySessionRepository()
-	s := seedRaw(t, r, store.Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
-		CreatedAt: refreshT0.Add(-refreshMaxAge - time.Second)})
+	s := seedRaw(t, r, store.Session{
+		UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
+		CreatedAt: refreshT0.Add(-refreshMaxAge - time.Second),
+	})
 	before := getSession(t, r, "u1", s.ID)
 	boom := errors.New("boom")
 	if _, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, "", "",
@@ -435,8 +445,10 @@ func TestRotateRefresh_FaultsWrapErrRotateFault_NoHashText(t *testing.T) { // sc
 		},
 		"lifetime exceeded FailOutbox": func(t *testing.T) error {
 			r := storetest.NewInMemorySessionRepository()
-			seedRaw(t, r, store.Session{UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
-				CreatedAt: refreshT0.Add(-refreshMaxAge - time.Second)})
+			seedRaw(t, r, store.Session{
+				UserID: "u1", RefreshHash: "h1", RefreshExpiresAt: refreshT0.Add(time.Hour),
+				CreatedAt: refreshT0.Add(-refreshMaxAge - time.Second),
+			})
 			r.FailOutbox = true
 			_, err := r.RotateRefresh(context.Background(), "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("e"))
 			return err

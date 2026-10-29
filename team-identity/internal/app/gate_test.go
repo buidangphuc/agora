@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"bytes"
+	"errors"
 	"os/exec"
 	"strings"
 	"testing"
@@ -18,7 +19,8 @@ func runIn(t *testing.T, dir string, name string, args ...string) (string, int) 
 	if err == nil {
 		return out.String(), 0
 	}
-	if ee, ok := err.(*exec.ExitError); ok {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
 		return out.String(), ee.ExitCode()
 	}
 	t.Fatalf("run %s: %v", name, err)

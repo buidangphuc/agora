@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,7 +45,8 @@ func runServer(t *testing.T, bin, url string, args ...string) (string, int) {
 	if err == nil {
 		return string(out), 0
 	}
-	if ee, ok := err.(*exec.ExitError); ok {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
 		return string(out), ee.ExitCode()
 	}
 	t.Fatalf("run server %v: %v", args, err)

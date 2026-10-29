@@ -49,7 +49,8 @@ func enqueue(t testing.TB, pool *pgxpool.Pool, eventID, aggregateID string) {
 
 func buildForTest(t *testing.T, url string, pub interface {
 	PublishRecord(context.Context, *kgo.Record) error
-}) *built {
+},
+) *built {
 	t.Helper()
 	ctx := context.Background()
 	s := newSettings(t, url, deadBroker)

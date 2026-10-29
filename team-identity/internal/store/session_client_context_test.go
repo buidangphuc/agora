@@ -91,8 +91,10 @@ func ccRejectedUpdatesNothing(t *testing.T, r store.SessionRepository, user stri
 		t.Fatalf("stale changed row: %+v", after)
 	}
 	// expired
-	exp, err := r.CreateSession(context.Background(), store.Session{UserID: user, IP: ccOldIP, Device: ccOldDev, RefreshHash: "cc-exp",
-		RefreshExpiresAt: refreshT0.Add(-time.Minute), CreatedAt: refreshT0.Add(-time.Hour), LastSeen: refreshT0.Add(-time.Hour)})
+	exp, err := r.CreateSession(context.Background(), store.Session{
+		UserID: user, IP: ccOldIP, Device: ccOldDev, RefreshHash: "cc-exp",
+		RefreshExpiresAt: refreshT0.Add(-time.Minute), CreatedAt: refreshT0.Add(-time.Hour), LastSeen: refreshT0.Add(-time.Hour),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

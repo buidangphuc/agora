@@ -18,8 +18,10 @@ func revokedAtPG(t *testing.T) (*pgxpool.Pool, *store.PostgresSessionRepository)
 	t.Helper()
 	ctx := context.Background()
 	pool := latestPool(t)
-	for _, q := range []string{`DELETE FROM identity_outbox_events`, `DELETE FROM sessions`, `DELETE FROM users WHERE id LIKE 'u-ra%'`,
-		`INSERT INTO users (id, username, password_hash) VALUES ('u-ra1','u-ra1','x'), ('u-ra2','u-ra2','x')`} {
+	for _, q := range []string{
+		`DELETE FROM identity_outbox_events`, `DELETE FROM sessions`, `DELETE FROM users WHERE id LIKE 'u-ra%'`,
+		`INSERT INTO users (id, username, password_hash) VALUES ('u-ra1','u-ra1','x'), ('u-ra2','u-ra2','x')`,
+	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("reset (%s): %v", q, err)
 		}
@@ -27,10 +29,10 @@ func revokedAtPG(t *testing.T) (*pgxpool.Pool, *store.PostgresSessionRepository)
 	return pool, store.NewPostgresSessionRepository(pool)
 }
 
-func revokedAtColumnCount(t *testing.T, pool *pgxpool.Pool) int {
+func revokedAtColumnCount(ctx context.Context, t *testing.T, pool *pgxpool.Pool) int {
 	t.Helper()
 	var n int
-	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM information_schema.columns
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.columns
 		WHERE table_name='sessions' AND column_name='revoked_at'`).Scan(&n); err != nil {
 		t.Fatalf("columns: %v", err)
 	}
@@ -38,11 +40,11 @@ func revokedAtColumnCount(t *testing.T, pool *pgxpool.Pool) int {
 }
 
 // revokedAt returns the row's revoked_at (nil when NULL) and revoked flag.
-func revokedAt(t *testing.T, pool *pgxpool.Pool, id string) (*time.Time, bool) {
+func revokedAt(ctx context.Context, t *testing.T, pool *pgxpool.Pool, id string) (*time.Time, bool) {
 	t.Helper()
 	var ts *time.Time
 	var revoked bool
-	if err := pool.QueryRow(context.Background(), `SELECT revoked_at, revoked FROM sessions WHERE id=$1`, id).Scan(&ts, &revoked); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT revoked_at, revoked FROM sessions WHERE id=$1`, id).Scan(&ts, &revoked); err != nil {
 		t.Fatalf("read revoked_at: %v", err)
 	}
 	return ts, revoked
@@ -61,9 +63,9 @@ func wantRecent(t *testing.T, label string, ts *time.Time, revoked bool) {
 	}
 }
 
-func liveSession(t *testing.T, repo *store.PostgresSessionRepository, user, hash string, created time.Time) store.Session {
+func liveSession(ctx context.Context, t *testing.T, repo *store.PostgresSessionRepository, user, hash string, created time.Time) store.Session {
 	t.Helper()
-	s, err := repo.CreateSession(context.Background(), store.Session{
+	s, err := repo.CreateSession(ctx, store.Session{
 		UserID: user, RefreshHash: hash, CreatedAt: created, RefreshExpiresAt: time.Now().Add(30 * 24 * time.Hour),
 	})
 	if err != nil {
@@ -78,19 +80,19 @@ func TestRevokePathsSetRevokedAt(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("user revoke", func(t *testing.T) {
-		s := liveSession(t, repo, "u-ra1", "ra-user", time.Now().Add(-time.Hour))
-		if ts, rv := revokedAt(t, pool, s.ID); ts != nil || rv {
+		s := liveSession(ctx, t, repo, "u-ra1", "ra-user", time.Now().Add(-time.Hour))
+		if ts, rv := revokedAt(ctx, t, pool, s.ID); ts != nil || rv {
 			t.Fatalf("precondition: live session must have NULL revoked_at (ts=%v rv=%v)", ts, rv)
 		}
 		if err := repo.RevokeSession(ctx, s.ID, "u-ra1", nil); err != nil {
 			t.Fatalf("revoke: %v", err)
 		}
-		ts, rv := revokedAt(t, pool, s.ID)
+		ts, rv := revokedAt(ctx, t, pool, s.ID)
 		wantRecent(t, "user revoke", ts, rv)
 	})
 
 	t.Run("reuse detection", func(t *testing.T) {
-		s := liveSession(t, repo, "u-ra1", "ra-reuse-1", time.Now().Add(-time.Hour))
+		s := liveSession(ctx, t, repo, "u-ra1", "ra-reuse-1", time.Now().Add(-time.Hour))
 		if res, err := repo.RotateRefresh(ctx, "ra-reuse-1", "ra-reuse-2", time.Now().Add(-time.Minute), refreshGrace, refreshMaxAge, "", "", okEv("ra-ev-rot")); err != nil || res.Outcome != store.RotateRotated {
 			t.Fatalf("rotate: %+v %v", res, err)
 		}
@@ -98,26 +100,26 @@ func TestRevokePathsSetRevokedAt(t *testing.T) {
 		if err != nil || res.Outcome != store.RotateReuse {
 			t.Fatalf("want RotateReuse, got %+v %v", res, err)
 		}
-		ts, rv := revokedAt(t, pool, s.ID)
+		ts, rv := revokedAt(ctx, t, pool, s.ID)
 		wantRecent(t, "reuse", ts, rv)
 	})
 
 	t.Run("absolute lifetime", func(t *testing.T) {
-		s := liveSession(t, repo, "u-ra2", "ra-life-1", time.Now().Add(-91*24*time.Hour))
+		s := liveSession(ctx, t, repo, "u-ra2", "ra-life-1", time.Now().Add(-91*24*time.Hour))
 		res, err := repo.RotateRefresh(ctx, "ra-life-1", "ra-life-2", time.Now(), refreshGrace, refreshMaxAge, "", "", okEv("ra-ev-life"))
 		if err != nil || res.Outcome != store.RotateLifetimeExceeded {
 			t.Fatalf("want RotateLifetimeExceeded, got %+v %v", res, err)
 		}
-		ts, rv := revokedAt(t, pool, s.ID)
+		ts, rv := revokedAt(ctx, t, pool, s.ID)
 		wantRecent(t, "lifetime", ts, rv)
 	})
 
 	t.Run("untouched sessions keep NULL", func(t *testing.T) {
-		keep := liveSession(t, repo, "u-ra2", "ra-keep", time.Now().Add(-time.Hour))
+		keep := liveSession(ctx, t, repo, "u-ra2", "ra-keep", time.Now().Add(-time.Hour))
 		if res, err := repo.RotateRefresh(ctx, "ra-keep", "ra-keep2", time.Now(), refreshGrace, refreshMaxAge, "", "", okEv("ra-ev-keep")); err != nil || res.Outcome != store.RotateRotated {
 			t.Fatalf("rotate: %+v %v", res, err)
 		}
-		if ts, rv := revokedAt(t, pool, keep.ID); ts != nil || rv {
+		if ts, rv := revokedAt(ctx, t, pool, keep.ID); ts != nil || rv {
 			t.Fatalf("a rotated live session must not get revoked_at (ts=%v rv=%v)", ts, rv)
 		}
 	})
@@ -126,12 +128,12 @@ func TestRevokePathsSetRevokedAt(t *testing.T) {
 func TestRevokeSessionRolledBackLeavesNoRevokedAt_Postgres(t *testing.T) {
 	// Scenario: Session retention: revoke records revoked_at (atomic with outbox)
 	pool, repo := revokedAtPG(t)
-	s := liveSession(t, repo, "u-ra1", "ra-rb", time.Now().Add(-time.Hour))
+	s := liveSession(t.Context(), t, repo, "u-ra1", "ra-rb", time.Now().Add(-time.Hour))
 	err := repo.RevokeSession(context.Background(), s.ID, "u-ra1", func(store.Session) (store.OutboxRow, error) { return store.OutboxRow{}, errors.New("boom") })
 	if err == nil {
 		t.Fatal("want builder error")
 	}
-	if ts, rv := revokedAt(t, pool, s.ID); ts != nil || rv {
+	if ts, rv := revokedAt(t.Context(), t, pool, s.ID); ts != nil || rv {
 		t.Fatalf("rolled-back revoke must leave revoked_at NULL (ts=%v rv=%v)", ts, rv)
 	}
 }
@@ -158,7 +160,7 @@ func TestMigration0008Schema_Postgres(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO sessions (id, user_id, revoked) VALUES ('ra-legacy','u-ra1', true)`); err != nil {
 		t.Fatalf("legacy insert: %v", err)
 	}
-	if ts, rv := revokedAt(t, pool, "ra-legacy"); ts != nil || !rv {
+	if ts, rv := revokedAt(t.Context(), t, pool, "ra-legacy"); ts != nil || !rv {
 		t.Fatalf("legacy revoked row: want NULL revoked_at and revoked=true (ts=%v rv=%v)", ts, rv)
 	}
 	if _, err := repo.ListSessions(ctx, "u-ra1"); err != nil {
@@ -174,18 +176,18 @@ func TestMigration0008Down_Postgres(t *testing.T) {
 	// Scenario: Session retention: legacy rows without timestamps (reversible migration)
 	pool, _ := revokedAtPG(t)
 	ctx := context.Background()
-	if revokedAtColumnCount(t, pool) != 1 {
+	if revokedAtColumnCount(t.Context(), t, pool) != 1 {
 		t.Fatalf("precondition: revoked_at column missing")
 	}
 	if _, err := pool.Exec(ctx, migrationSQL(t, "0008_session_revoked_at.down.sql")); err != nil {
 		t.Fatalf("down: %v", err)
 	}
 	t.Cleanup(func() {
-		if revokedAtColumnCount(t, pool) == 0 {
+		if revokedAtColumnCount(ctx, t, pool) == 0 {
 			_, _ = pool.Exec(ctx, migrationSQL(t, "0008_session_revoked_at.up.sql"))
 		}
 	})
-	if n := revokedAtColumnCount(t, pool); n != 0 {
+	if n := revokedAtColumnCount(t.Context(), t, pool); n != 0 {
 		t.Fatalf("revoked_at left after down: %d", n)
 	}
 	var idx int
@@ -195,7 +197,7 @@ func TestMigration0008Down_Postgres(t *testing.T) {
 	if _, err := pool.Exec(ctx, migrationSQL(t, "0008_session_revoked_at.up.sql")); err != nil {
 		t.Fatalf("re-up: %v", err)
 	}
-	if revokedAtColumnCount(t, pool) != 1 {
+	if revokedAtColumnCount(t.Context(), t, pool) != 1 {
 		t.Fatal("column missing after re-up")
 	}
 }
@@ -204,7 +206,7 @@ func TestSetStatusBulkRevokeSetsRevokedAt_Postgres(t *testing.T) {
 	// Scenario: Session retention: revoke records revoked_at (admin suspend/ban bulk revoke path)
 	pool, repo := revokedAtPG(t)
 	ctx := context.Background()
-	s := liveSession(t, repo, "u-ra2", "ra-setstatus", time.Now().Add(-time.Hour))
+	s := liveSession(t.Context(), t, repo, "u-ra2", "ra-setstatus", time.Now().Add(-time.Hour))
 	revoke := func(s store.Session) (store.OutboxRow, error) {
 		return store.OutboxRow{EventID: "ra-ss-rev-" + s.ID, AggregateType: "Session", AggregateID: s.UserID, EventType: evRevoked, Payload: []byte(s.ID)}, nil
 	}
@@ -214,6 +216,6 @@ func TestSetStatusBulkRevokeSetsRevokedAt_Postgres(t *testing.T) {
 	if _, err := store.NewPostgresUserRepository(pool).SetStatus(ctx, "u-ra2", store.StatusBanned, "scam", time.Time{}, time.Now(), revoke, changed); err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}
-	ts, rv := revokedAt(t, pool, s.ID)
+	ts, rv := revokedAt(t.Context(), t, pool, s.ID)
 	wantRecent(t, "setstatus bulk revoke", ts, rv)
 }

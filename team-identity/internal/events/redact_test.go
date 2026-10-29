@@ -83,7 +83,7 @@ func TestRelayLogsFingerprintNotUserID_Group(t *testing.T) {
 	var buf bytes.Buffer
 	log := newRedactingLogger(t, &buf)
 
-	log.Error("relay publish failed", slog.Group("row", slog.String("aggregate_id", "u-123"), slog.String("event_id", "evt-1")))
+	log.Error("relay publish failed", slog.Group("row", "aggregate_id", "u-123", "event_id", "evt-1"))
 	log.WithGroup("relay").Error("relay publish failed", "aggregate_id", "u-123")
 
 	out := buf.String()
@@ -103,7 +103,7 @@ func TestRedactingHandlerPassesOtherAttributes(t *testing.T) {
 	var buf bytes.Buffer
 	log := newRedactingLogger(t, &buf).With("component", "relay")
 
-	log.Warn("retrying", "event_id", "evt-1", "attempt", 3, slog.Group("g", slog.String("topic", "identity.events")))
+	log.Warn("retrying", "event_id", "evt-1", "attempt", 3, slog.Group("g", "topic", "identity.events"))
 
 	line := decodeLine(t, &buf)
 	if line["msg"] != "retrying" || line["level"] != "WARN" {

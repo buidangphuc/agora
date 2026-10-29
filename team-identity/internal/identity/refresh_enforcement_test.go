@@ -119,10 +119,10 @@ func TestBannedUserRefreshTokenDead(t *testing.T) {
 	if _, err := e.svc.SetUserStatus(context.Background(), "admin-actor", e.uid, store.StatusBanned, "abuse", "", nil); err != nil {
 		t.Fatalf("ban: %v", err)
 	}
-	before := e.sessionRow(t, e.uid)
+	before := e.sessionRow(t.Context(), t, e.uid)
 	outboxBefore := len(e.sess.OutboxRows())
 	e.wantInvalid(t, e.first.RefreshToken)
-	if after := e.sessionRow(t, e.uid); after != before {
+	if after := e.sessionRow(t.Context(), t, e.uid); after != before {
 		t.Fatalf("session row must not change: %+v -> %+v", before, after)
 	}
 	if n := len(e.sess.OutboxRows()); n != outboxBefore {

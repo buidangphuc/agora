@@ -207,7 +207,7 @@ const (
 func TestBuildJWKS(t *testing.T) {
 	t.Run("The JWKS document is public keys only: shared type and metadata", func(t *testing.T) {
 		signer, pub := newTestSigner(t, "kid-active")
-		var set jwtx.JWKS = token.BuildJWKS(token.PublicKey{Kid: signer.KID(), Key: pub})
+		set := token.BuildJWKS(token.PublicKey{Kid: signer.KID(), Key: pub})
 		if len(set.Keys) != 1 {
 			t.Fatalf("expected 1 key, got %d", len(set.Keys))
 		}
@@ -222,7 +222,7 @@ func TestBuildJWKS(t *testing.T) {
 
 	t.Run("The JWKS document is public keys only: golden bytes", func(t *testing.T) {
 		a, b := goldenKeys()
-		var set jwtx.JWKS = token.BuildJWKS(a, b)
+		set := token.BuildJWKS(a, b)
 		got, err := json.Marshal(set)
 		if err != nil {
 			t.Fatalf("marshal: %v", err)
@@ -234,7 +234,7 @@ func TestBuildJWKS(t *testing.T) {
 	})
 
 	t.Run("a nil key is skipped and an empty set marshals as an empty array", func(t *testing.T) {
-		var set jwtx.JWKS = token.BuildJWKS(token.PublicKey{Kid: "x"})
+		set := token.BuildJWKS(token.PublicKey{Kid: "x"})
 		got, _ := json.Marshal(set)
 		if string(got) != `{"keys":[]}` {
 			t.Errorf("got %s", got)
