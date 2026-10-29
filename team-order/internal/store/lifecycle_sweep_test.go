@@ -1,35 +1,36 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
-func sweepStores() (*repository.InMemoryOrderRepository, *repository.InMemoryReturnRepository) {
-	orders := repository.NewInMemoryOrderRepository(repository.WithAutoCompleteAfter(7 * 24 * time.Hour))
-	returns := repository.NewInMemoryReturnRepository(repository.WithReturnAutoApproveAfter(72 * time.Hour))
+func sweepStores() (*fake.InMemoryOrderRepository, *fake.InMemoryReturnRepository) {
+	orders := fake.NewInMemoryOrderRepository(store.WithAutoCompleteAfter(7 * 24 * time.Hour))
+	returns := fake.NewInMemoryReturnRepository(store.WithReturnAutoApproveAfter(72 * time.Hour))
 	orders.SetReturnSource(returns)
 	return orders, returns
 }
 
-func shipOrder(t *testing.T, orders *repository.InMemoryOrderRepository, paid bool) repository.Order {
+func shipOrder(t *testing.T, orders *fake.InMemoryOrderRepository, paid bool) store.Order {
 	t.Helper()
 	ctx := context.Background()
-	o, err := orders.CreateOrder(ctx, repository.Order{BuyerID: "b", SellerID: "s", TotalAmount: 100, Currency: "VND"})
+	o, err := orders.CreateOrder(ctx, store.Order{BuyerID: "b", SellerID: "s", TotalAmount: 100, Currency: "VND"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	from := repository.OrderStatusPending
+	from := store.OrderStatusPending
 	if paid {
-		if _, err = orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, []repository.OrderStatus{from}, ""); err != nil {
+		if _, err = orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, []store.OrderStatus{from}, ""); err != nil {
 			t.Fatal(err)
 		}
-		from = repository.OrderStatusPaid
+		from = store.OrderStatusPaid
 	}
-	if o, err = orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusShipped, []repository.OrderStatus{from}, "T"); err != nil {
+	if o, err = orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped, []store.OrderStatus{from}, "T"); err != nil {
 		t.Fatal(err)
 	}
 	return o
@@ -49,21 +50,21 @@ func TestListAutoCompletableSelectsDueUnblockedShipped(t *testing.T) {
 	appr := shipOrder(t, orders, true)
 	codAppr := shipOrder(t, orders, false)
 	rej := shipOrder(t, orders, true)
-	mk := func(orderID string, to repository.ReturnStatus) {
-		ret, err := returns.CreateReturn(ctx, repository.OrderReturn{OrderID: orderID, BuyerID: "b", SellerID: "s", Status: repository.ReturnStatusPending})
+	mk := func(orderID string, to store.ReturnStatus) {
+		ret, err := returns.CreateReturn(ctx, store.OrderReturn{OrderID: orderID, BuyerID: "b", SellerID: "s", Status: store.ReturnStatusPending})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if to != repository.ReturnStatusPending {
-			if _, err := returns.TransitionReturn(ctx, ret.ID, repository.ReturnStatusPending, to); err != nil {
+		if to != store.ReturnStatusPending {
+			if _, err := returns.TransitionReturn(ctx, ret.ID, store.ReturnStatusPending, to); err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
-	mk(pend.ID, repository.ReturnStatusPending)
-	mk(appr.ID, repository.ReturnStatusApproved)
-	mk(codAppr.ID, repository.ReturnStatusApproved)
-	mk(rej.ID, repository.ReturnStatusRejected)
+	mk(pend.ID, store.ReturnStatusPending)
+	mk(appr.ID, store.ReturnStatusApproved)
+	mk(codAppr.ID, store.ReturnStatusApproved)
+	mk(rej.ID, store.ReturnStatusRejected)
 
 	got, err := orders.ListAutoCompletable(ctx, time.Now().Add(30*24*time.Hour), 100)
 	if err != nil {
@@ -110,21 +111,21 @@ func TestListAutoCompletableHonoursLimitOldestFirst(t *testing.T) {
 func TestListAutoApprovableSelectsOnlyDuePending(t *testing.T) {
 	ctx := context.Background()
 	_, returns := sweepStores()
-	mk := func(to repository.ReturnStatus) repository.OrderReturn {
-		ret, err := returns.CreateReturn(ctx, repository.OrderReturn{OrderID: "o", BuyerID: "b", SellerID: "s", Status: repository.ReturnStatusPending})
+	mk := func(to store.ReturnStatus) store.OrderReturn {
+		ret, err := returns.CreateReturn(ctx, store.OrderReturn{OrderID: "o", BuyerID: "b", SellerID: "s", Status: store.ReturnStatusPending})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if to != repository.ReturnStatusPending {
-			if ret, err = returns.TransitionReturn(ctx, ret.ID, repository.ReturnStatusPending, to); err != nil {
+		if to != store.ReturnStatusPending {
+			if ret, err = returns.TransitionReturn(ctx, ret.ID, store.ReturnStatusPending, to); err != nil {
 				t.Fatal(err)
 			}
 		}
 		return ret
 	}
-	pend1, pend2 := mk(repository.ReturnStatusPending), mk(repository.ReturnStatusPending)
-	mk(repository.ReturnStatusRejected)
-	mk(repository.ReturnStatusApproved)
+	pend1, pend2 := mk(store.ReturnStatusPending), mk(store.ReturnStatusPending)
+	mk(store.ReturnStatusRejected)
+	mk(store.ReturnStatusApproved)
 
 	got, err := returns.ListAutoApprovable(ctx, time.Now().Add(30*24*time.Hour), 100)
 	if err != nil {

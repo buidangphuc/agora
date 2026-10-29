@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 // Task 2 (order-multishop-checkout). The repository API these tests pin:
@@ -18,21 +19,22 @@ import (
 //   - migration 0010 adds the three columns, defaulting to '' / '' / 0 for existing rows.
 
 type checkoutRepo interface {
-	repository.OrderRepository
-	ListOrdersByCheckout(ctx context.Context, checkoutID string) ([]repository.Order, error)
+	store.OrderRepository
+	ListOrdersByCheckout(ctx context.Context, checkoutID string) ([]store.Order, error)
 }
 
 func checkoutRepoFactories() map[string]func(t *testing.T) checkoutRepo {
 	return map[string]func(t *testing.T) checkoutRepo{
-		"memory": func(t *testing.T) checkoutRepo { return repository.NewInMemoryOrderRepository() },
+		"memory": func(t *testing.T) checkoutRepo { return fake.NewInMemoryOrderRepository() },
 		"postgres": func(t *testing.T) checkoutRepo {
-			return repository.NewPostgresOrderRepository(pgPool(t))
+			pool := pgPool(t)
+			return store.NewPostgresOrderRepository(pool, newOutbox(t, pool))
 		},
 	}
 }
 
-func checkoutOrder(buyer, seller, checkoutID, platformCode string, platformDiscount int64) repository.Order {
-	return repository.Order{
+func checkoutOrder(buyer, seller, checkoutID, platformCode string, platformDiscount int64) store.Order {
+	return store.Order{
 		BuyerID:                buyer,
 		SellerID:               seller,
 		TotalAmount:            90000,
@@ -41,13 +43,13 @@ func checkoutOrder(buyer, seller, checkoutID, platformCode string, platformDisco
 		CheckoutID:             checkoutID,
 		PlatformVoucherCode:    platformCode,
 		PlatformDiscountAmount: platformDiscount,
-		Items: []repository.OrderItem{
+		Items: []store.OrderItem{
 			{ListingID: uid("lst"), Title: "item", Quantity: 1, UnitPrice: 100000},
 		},
 	}
 }
 
-func checkoutIDs(orders []repository.Order) []string {
+func checkoutIDs(orders []store.Order) []string {
 	out := make([]string, 0, len(orders))
 	for _, o := range orders {
 		out = append(out, o.ID)
@@ -160,10 +162,10 @@ func TestOrderLegacyRowDefaultsNewColumns(t *testing.T) {
 	t.Run("Multishop checkout: Order rows stay readable before the migration data exists", func(t *testing.T) {
 		ctx := context.Background()
 		pool := pgPool(t)
-		repo := repository.NewPostgresOrderRepository(pool)
+		repo := store.NewPostgresOrderRepository(pool, newOutbox(t, pool))
 
 		id := uid("legacy")
-		addr, _ := json.Marshal(repository.Address{})
+		addr, _ := json.Marshal(store.Address{})
 		now := time.Now()
 		const q = `INSERT INTO orders (id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount)
 			VALUES ($1, $2, $3, 1, 50000, 'VND', $4, '', $5, $5, 0, 50000, 0, '', 0)`

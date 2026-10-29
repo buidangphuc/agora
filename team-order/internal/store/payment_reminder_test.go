@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 const reminderOffset = 2 * time.Hour
@@ -28,7 +28,7 @@ func decodeReminderPayloads(t *testing.T, payloads [][]byte) []*orderv1.OrderPay
 		if err := proto.Unmarshal(p, &env); err != nil {
 			t.Fatal(err)
 		}
-		if env.GetType() != events.OrderPaymentReminderEventType {
+		if env.GetType() != OrderPaymentReminderEventType {
 			continue
 		}
 		var ev orderv1.OrderPaymentReminder
@@ -40,18 +40,18 @@ func decodeReminderPayloads(t *testing.T, payloads [][]byte) []*orderv1.OrderPay
 	return out
 }
 
-func newUnpaid(t *testing.T, repo repository.OrderRepository, method paymentv1.PaymentMethod, due *time.Time) repository.Order {
+func newUnpaid(t *testing.T, repo store.OrderRepository, method paymentv1.PaymentMethod, due *time.Time) store.Order {
 	t.Helper()
-	o, err := repo.CreateOrder(context.Background(), repository.Order{BuyerID: "b", SellerID: "s", TotalAmount: 10,
+	o, err := repo.CreateOrder(context.Background(), store.Order{BuyerID: "b", SellerID: "s", TotalAmount: 10,
 		Currency: "VND", PaymentMethod: int32(method), PaymentDueAt: due,
-		Items: []repository.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 10}}})
+		Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 10}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return o
 }
 
-func ids(os []repository.Order) map[string]bool {
+func ids(os []store.Order) map[string]bool {
 	m := map[string]bool{}
 	for _, o := range os {
 		m[o.ID] = true
@@ -65,7 +65,7 @@ const momo = paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO
 // unstamped orders whose window is open; MarkReminderSent is the once-only CAS
 // that stamps the order and writes the OrderPaymentReminder row together.
 // `due` is a deadline unique to this run so shared databases never collide.
-func runReminderContract(t *testing.T, repo repository.OrderRepository, rows reminderRowsFn, due time.Time) {
+func runReminderContract(t *testing.T, repo store.OrderRepository, rows reminderRowsFn, due time.Time) {
 	ctx := context.Background()
 	find := func(now time.Time) map[string]bool {
 		t.Helper()
@@ -101,8 +101,8 @@ func runReminderContract(t *testing.T, repo repository.OrderRepository, rows rem
 		d := due.Add(24 * time.Hour)
 		in := d.Add(-time.Hour)
 		paid := newUnpaid(t, repo, momo, &d)
-		if _, err := repo.UpdateOrderStatusFrom(ctx, paid.ID, repository.OrderStatusPaid,
-			[]repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+		if _, err := repo.UpdateOrderStatusFrom(ctx, paid.ID, store.OrderStatusPaid,
+			[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 			t.Fatal(err)
 		}
 		cod := newUnpaid(t, repo, paymentv1.PaymentMethod_PAYMENT_METHOD_COD, &d)
@@ -122,7 +122,7 @@ func runReminderContract(t *testing.T, repo repository.OrderRepository, rows rem
 		o := newUnpaid(t, repo, momo, &d)
 		now := d.Add(-time.Hour)
 		got, err := repo.MarkReminderSent(ctx, o.ID, now)
-		if err != nil || got.PaymentReminderSentAt == nil || got.Status != repository.OrderStatusPending {
+		if err != nil || got.PaymentReminderSentAt == nil || got.Status != store.OrderStatusPending {
 			t.Fatalf("mark: %v %+v", err, got)
 		}
 		stored, _ := repo.GetOrder(ctx, o.ID)
@@ -137,7 +137,7 @@ func runReminderContract(t *testing.T, repo repository.OrderRepository, rows rem
 		if find(now)[o.ID] {
 			t.Fatal("a stamped order is no longer due")
 		}
-		if _, err := repo.MarkReminderSent(ctx, o.ID, now); !errors.Is(err, repository.ErrStatusConflict) {
+		if _, err := repo.MarkReminderSent(ctx, o.ID, now); !errors.Is(err, store.ErrStatusConflict) {
 			t.Fatalf("second mark: want ErrStatusConflict, got %v", err)
 		}
 		if n := len(rows(t, o.ID)); n != 1 {
@@ -148,11 +148,11 @@ func runReminderContract(t *testing.T, repo repository.OrderRepository, rows rem
 	t.Run("mark refuses a non-pending order and writes nothing", func(t *testing.T) { // Order expiry: A paid order is never reminded
 		d := due.Add(72 * time.Hour)
 		o := newUnpaid(t, repo, momo, &d)
-		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid,
-			[]repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid,
+			[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := repo.MarkReminderSent(ctx, o.ID, d.Add(-time.Hour)); !errors.Is(err, repository.ErrStatusConflict) {
+		if _, err := repo.MarkReminderSent(ctx, o.ID, d.Add(-time.Hour)); !errors.Is(err, store.ErrStatusConflict) {
 			t.Fatalf("want ErrStatusConflict, got %v", err)
 		}
 		if stored, _ := repo.GetOrder(ctx, o.ID); stored.PaymentReminderSentAt != nil {
@@ -177,7 +177,7 @@ func runReminderContract(t *testing.T, repo repository.OrderRepository, rows rem
 					mu.Lock()
 					wins++
 					mu.Unlock()
-				} else if !errors.Is(err, repository.ErrStatusConflict) {
+				} else if !errors.Is(err, store.ErrStatusConflict) {
 					t.Errorf("unexpected error: %v", err)
 				}
 			}()
@@ -193,7 +193,7 @@ func runReminderContract(t *testing.T, repo repository.OrderRepository, rows rem
 }
 
 // Scenario: Order expiry: A reminder pass handles at most 100 orders per tick
-func runFindReminderDueBatchBound(t *testing.T, repo repository.OrderRepository, total int, due time.Time) {
+func runFindReminderDueBatchBound(t *testing.T, repo store.OrderRepository, total int, due time.Time) {
 	ctx := context.Background()
 	for i := 0; i < total; i++ {
 		d := due
@@ -222,28 +222,8 @@ func runFindReminderDueBatchBound(t *testing.T, repo repository.OrderRepository,
 	}
 }
 
-func inMemoryReminderRepo() (*repository.InMemoryOrderRepository, reminderRowsFn) {
-	outbox := repository.NewInMemoryOutboxRepository()
-	repo := repository.NewInMemoryOrderRepository(repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithReminderOutbox(events.BuildPaymentReminderOutboxRow), repository.WithInMemoryOutbox(outbox))
-	return repo, func(t *testing.T, id string) []*orderv1.OrderPaymentReminder {
-		var payloads [][]byte
-		for _, r := range outbox.EnqueuedRows() {
-			if r.AggregateID == id {
-				payloads = append(payloads, r.Payload)
-			}
-		}
-		return decodeReminderPayloads(t, payloads)
-	}
-}
-
-func TestReminderContract_InMemory(t *testing.T) {
-	repo, rows := inMemoryReminderRepo()
-	runReminderContract(t, repo, rows, time.Date(2031, 1, 1, 12, 0, 0, 0, time.UTC))
-}
-
 func TestFindReminderDueBatchBound(t *testing.T) {
-	repo, _ := inMemoryReminderRepo()
+	repo := fake.NewInMemoryOrderRepository()
 	runFindReminderDueBatchBound(t, repo, 250, time.Date(2031, 1, 1, 12, 0, 0, 0, time.UTC))
 }
 
@@ -257,8 +237,8 @@ func uniqueDue() time.Time {
 func TestReminderContract_Postgres(t *testing.T) {
 	pool := pgPool(t)
 	ctx := context.Background()
-	repo := repository.NewPostgresOrderRepository(pool, repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithReminderOutbox(events.BuildPaymentReminderOutboxRow))
+	repo := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithReminderOutbox(BuildPaymentReminderOutboxRow))
 	rows := func(t *testing.T, id string) []*orderv1.OrderPaymentReminder {
 		r, err := pool.Query(ctx, `SELECT payload FROM order_outbox_events WHERE aggregate_id = $1`, id)
 		if err != nil {
@@ -280,6 +260,6 @@ func TestReminderContract_Postgres(t *testing.T) {
 
 func TestFindReminderDueBatchBound_Postgres(t *testing.T) {
 	pool := pgPool(t)
-	repo := repository.NewPostgresOrderRepository(pool, repository.WithReminderOutbox(events.BuildPaymentReminderOutboxRow))
+	repo := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), store.WithReminderOutbox(BuildPaymentReminderOutboxRow))
 	runFindReminderDueBatchBound(t, repo, 105, uniqueDue())
 }

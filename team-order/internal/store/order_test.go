@@ -1,23 +1,24 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 func TestInMemoryOrderRepository(t *testing.T) {
-	repo := repository.NewInMemoryOrderRepository()
+	repo := fake.NewInMemoryOrderRepository()
 	ctx := context.Background()
 
 	t.Run("Create and Get Order", func(t *testing.T) {
-		o := repository.Order{
+		o := store.Order{
 			BuyerID:     "buyer_1",
 			SellerID:    "seller_1",
 			TotalAmount: 250000,
-			Status:      repository.OrderStatusPending,
-			Items: []repository.OrderItem{
+			Status:      store.OrderStatusPending,
+			Items: []store.OrderItem{
 				{ListingID: "item_1", Quantity: 1, UnitPrice: 250000, Title: "Phone"},
 			},
 		}
@@ -57,11 +58,11 @@ func TestInMemoryOrderRepository(t *testing.T) {
 		}
 
 		// Update Order Status
-		updated, err := repo.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, []repository.OrderStatus{repository.OrderStatusPending}, "SPX123456")
+		updated, err := repo.UpdateOrderStatusFrom(ctx, created.ID, store.OrderStatusPaid, []store.OrderStatus{store.OrderStatusPending}, "SPX123456")
 		if err != nil {
 			t.Fatalf("unexpected error updating status: %v", err)
 		}
-		if updated.Status != repository.OrderStatusPaid {
+		if updated.Status != store.OrderStatusPaid {
 			t.Errorf("expected status PAID, got %v", updated.Status)
 		}
 		if updated.TrackingNumber != "SPX123456" {

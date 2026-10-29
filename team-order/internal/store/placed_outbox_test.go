@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -11,16 +11,15 @@ import (
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 const testPaymentDeadline = 24 * time.Hour
 
 type placedFixture struct {
-	placer repository.OrderPlacer
-	orders repository.OrderRepository
-	sagas  repository.SagaRepository
+	placer store.OrderPlacer
+	orders store.OrderRepository
+	sagas  store.SagaRepository
 	// placedFacts returns the decoded OrderPlaced outbox rows keyed to orderID.
 	placedFacts func(t *testing.T, orderID string) []*orderv1.OrderPlaced
 }
@@ -33,7 +32,7 @@ func decodePlacedPayloads(t *testing.T, payloads [][]byte) []*orderv1.OrderPlace
 		if err := proto.Unmarshal(p, &env); err != nil {
 			t.Fatal(err)
 		}
-		if env.GetType() != events.OrderPlacedEventType {
+		if env.GetType() != OrderPlacedEventType {
 			continue
 		}
 		var ev orderv1.OrderPlaced
@@ -45,10 +44,10 @@ func decodePlacedPayloads(t *testing.T, payloads [][]byte) []*orderv1.OrderPlace
 	return out
 }
 
-func placedOrder(id, seller string, method paymentv1.PaymentMethod, deadline time.Duration) repository.PlacedOrder {
+func placedOrder(id, seller string, method paymentv1.PaymentMethod, deadline time.Duration) store.PlacedOrder {
 	o := order(id, seller)
 	o.PaymentMethod = int32(method)
-	return repository.PlacedOrder{Order: o, PaymentDeadline: deadline}
+	return store.PlacedOrder{Order: o, PaymentDeadline: deadline}
 }
 
 func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) {
@@ -61,7 +60,7 @@ func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) 
 		id := uid("ord")
 		po := placedOrder(id, "sa", paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, testPaymentDeadline)
 		po.ReservationIDs = res
-		if _, err := f.placer.PlaceOrders(ctx, sagaID, []repository.PlacedOrder{po}); err != nil {
+		if _, err := f.placer.PlaceOrders(ctx, sagaID, []store.PlacedOrder{po}); err != nil {
 			t.Fatal(err)
 		}
 		got, err := f.orders.GetOrder(ctx, id)
@@ -103,7 +102,7 @@ func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) 
 		// The service leaves PaymentDeadline zero for COD; the order must carry none.
 		po := placedOrder(id, "sa", paymentv1.PaymentMethod_PAYMENT_METHOD_COD, 0)
 		po.ReservationIDs = res
-		if _, err := f.placer.PlaceOrders(ctx, sagaID, []repository.PlacedOrder{po}); err != nil {
+		if _, err := f.placer.PlaceOrders(ctx, sagaID, []store.PlacedOrder{po}); err != nil {
 			t.Fatal(err)
 		}
 		got, err := f.orders.GetOrder(ctx, id)
@@ -129,7 +128,7 @@ func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) 
 	t.Run("TestPlaceOrdersRollbackWritesNoOrderPlaced", func(t *testing.T) {
 		f := fx(t)
 		sagaID, res := newCheckout(t, f.sagas, "la", "lb")
-		if err := f.sagas.UpdateReservationStatus(ctx, res[1], repository.ReservationStatusReleased); err != nil {
+		if err := f.sagas.UpdateReservationStatus(ctx, res[1], store.ReservationStatusReleased); err != nil {
 			t.Fatal(err)
 		}
 		oa, ob := uid("ord"), uid("ord")
@@ -137,12 +136,12 @@ func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) 
 		a.ReservationIDs = res[:1]
 		b := placedOrder(ob, "sb", paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, testPaymentDeadline)
 		b.ReservationIDs = res[1:]
-		_, err := f.placer.PlaceOrders(ctx, sagaID, []repository.PlacedOrder{a, b})
-		if !errors.Is(err, repository.ErrReservationLost) {
+		_, err := f.placer.PlaceOrders(ctx, sagaID, []store.PlacedOrder{a, b})
+		if !errors.Is(err, store.ErrReservationLost) {
 			t.Fatalf("want ErrReservationLost, got %v", err)
 		}
 		for _, id := range []string{oa, ob} {
-			if _, err := f.orders.GetOrder(ctx, id); !errors.Is(err, repository.ErrOrderNotFound) {
+			if _, err := f.orders.GetOrder(ctx, id); !errors.Is(err, store.ErrOrderNotFound) {
 				t.Fatalf("order %s must not exist: %v", id, err)
 			}
 			if n := len(f.placedFacts(t, id)); n != 0 {
@@ -160,7 +159,7 @@ func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) 
 		a.ReservationIDs = res[:1]
 		b := placedOrder(ob, "sb", paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, testPaymentDeadline)
 		b.ReservationIDs = res[1:]
-		if _, err := f.placer.PlaceOrders(ctx, sagaID, []repository.PlacedOrder{a, b}); err != nil {
+		if _, err := f.placer.PlaceOrders(ctx, sagaID, []store.PlacedOrder{a, b}); err != nil {
 			t.Fatal(err)
 		}
 		for id, seller := range map[string]string{oa: "sa", ob: "sb"} {
@@ -172,33 +171,12 @@ func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) 
 	})
 }
 
-func TestPlacedOutbox_InMemory(t *testing.T) {
-	runPlacedOutboxContract(t, func(t *testing.T) placedFixture {
-		outbox := repository.NewInMemoryOutboxRepository()
-		orders := repository.NewInMemoryOrderRepository(repository.WithPlacedOutbox(events.BuildPlacedOutboxRow),
-			repository.WithInMemoryOutbox(outbox))
-		sagas := repository.NewInMemorySagaRepository()
-		return placedFixture{
-			placer: repository.NewInMemoryOrderPlacer(orders, sagas), orders: orders, sagas: sagas,
-			placedFacts: func(t *testing.T, orderID string) []*orderv1.OrderPlaced {
-				var payloads [][]byte
-				for _, r := range outbox.EnqueuedRows() {
-					if r.AggregateID == orderID {
-						payloads = append(payloads, r.Payload)
-					}
-				}
-				return decodePlacedPayloads(t, payloads)
-			},
-		}
-	})
-}
-
 func TestPlacedOutbox_Postgres(t *testing.T) {
 	pool := pgPool(t)
 	runPlacedOutboxContract(t, func(t *testing.T) placedFixture {
-		orders := repository.NewPostgresOrderRepository(pool, repository.WithPlacedOutbox(events.BuildPlacedOutboxRow))
+		orders := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), store.WithPlacedOutbox(BuildPlacedOutboxRow))
 		return placedFixture{
-			placer: orders, orders: orders, sagas: repository.NewPostgresSagaRepository(pool),
+			placer: orders, orders: orders, sagas: store.NewPostgresSagaRepository(pool),
 			placedFacts: func(t *testing.T, orderID string) []*orderv1.OrderPlaced {
 				r, err := pool.Query(context.Background(), `SELECT payload FROM order_outbox_events WHERE aggregate_id = $1`, orderID)
 				if err != nil {

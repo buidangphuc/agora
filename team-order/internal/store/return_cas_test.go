@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -9,10 +9,10 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 // returnRowsFn counts the outbox rows written for one return.
@@ -20,8 +20,8 @@ type returnRowsFn func(t *testing.T, orderID, returnID string) int
 
 // fakeReturnOutbox is a minimal ReturnOutboxBuilder: event id = return id, so a
 // test can count rows per return without the events package.
-func fakeReturnOutbox(ret repository.OrderReturn, currency string) (repository.OutboxRow, error) {
-	return repository.OutboxRow{
+func fakeReturnOutbox(ret store.OrderReturn, currency string) (outbox.Row, error) {
+	return outbox.Row{
 		EventID:       "rr-" + ret.ID,
 		AggregateType: "Order",
 		AggregateID:   ret.OrderID,
@@ -31,24 +31,24 @@ func fakeReturnOutbox(ret repository.OrderReturn, currency string) (repository.O
 }
 
 type returnFixture struct {
-	orders  repository.OrderRepository
-	returns repository.ReturnRepository
+	orders  store.OrderRepository
+	returns store.ReturnRepository
 	rows    returnRowsFn
 }
 
-func newReturnOrder(t *testing.T, f returnFixture, total int64) repository.Order {
+func newReturnOrder(t *testing.T, f returnFixture, total int64) store.Order {
 	t.Helper()
-	o, err := f.orders.CreateOrder(context.Background(), repository.Order{BuyerID: uid("b"), SellerID: uid("s"),
-		TotalAmount: total, Currency: "VND", Items: []repository.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: total}}})
+	o, err := f.orders.CreateOrder(context.Background(), store.Order{BuyerID: uid("b"), SellerID: uid("s"),
+		TotalAmount: total, Currency: "VND", Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: total}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return o
 }
 
-func newReturn(t *testing.T, f returnFixture, o repository.Order, amount int64) repository.OrderReturn {
+func newReturn(t *testing.T, f returnFixture, o store.Order, amount int64) store.OrderReturn {
 	t.Helper()
-	r, err := f.returns.CreateReturnCapped(context.Background(), repository.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID,
+	r, err := f.returns.CreateReturnCapped(context.Background(), store.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID,
 		SellerID: o.SellerID, Reason: "broken", RefundAmount: amount}, o.TotalAmount)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func newReturn(t *testing.T, f returnFixture, o repository.Order, amount int64) 
 
 func runReturnRepoContract(t *testing.T, f returnFixture) {
 	ctx := context.Background()
-	P, A, J, R := repository.ReturnStatusPending, repository.ReturnStatusApproved, repository.ReturnStatusRejected, repository.ReturnStatusRefunded
+	P, A, J, R := store.ReturnStatusPending, store.ReturnStatusApproved, store.ReturnStatusRejected, store.ReturnStatusRefunded
 
 	t.Run("won approved to refunded writes one outbox row", func(t *testing.T) {
 		o := newReturnOrder(t, f, 500000)
@@ -80,7 +80,7 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 			t.Fatalf("want 1 row, got %d", n)
 		}
 		// A replay of the same transition loses the CAS and writes nothing more.
-		if _, err := f.returns.TransitionReturn(ctx, r.ID, A, R); !errors.Is(err, repository.ErrReturnStatusConflict) {
+		if _, err := f.returns.TransitionReturn(ctx, r.ID, A, R); !errors.Is(err, store.ErrReturnStatusConflict) {
 			t.Fatalf("want ErrReturnStatusConflict, got %v", err)
 		}
 		if n := f.rows(t, o.ID, r.ID); n != 1 {
@@ -92,7 +92,7 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 		o := newReturnOrder(t, f, 500000)
 		r := newReturn(t, f, o, 100000)
 		// Pending -> Refunded via a wrong `from` loses the CAS.
-		if _, err := f.returns.TransitionReturn(ctx, r.ID, A, R); !errors.Is(err, repository.ErrReturnStatusConflict) {
+		if _, err := f.returns.TransitionReturn(ctx, r.ID, A, R); !errors.Is(err, store.ErrReturnStatusConflict) {
 			t.Fatalf("want conflict, got %v", err)
 		}
 		if got, _ := f.returns.GetReturn(ctx, r.ID); got.Status != P {
@@ -107,7 +107,7 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 		if n := f.rows(t, o.ID, r.ID); n != 0 {
 			t.Fatalf("approve/reject must write none, got %d", n)
 		}
-		if _, err := f.returns.TransitionReturn(ctx, "missing-"+r.ID, P, A); !errors.Is(err, repository.ErrReturnNotFound) {
+		if _, err := f.returns.TransitionReturn(ctx, "missing-"+r.ID, P, A); !errors.Is(err, store.ErrReturnNotFound) {
 			t.Fatalf("want not found, got %v", err)
 		}
 	})
@@ -131,7 +131,7 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 				switch {
 				case err == nil:
 					wins++
-				case errors.Is(err, repository.ErrReturnStatusConflict):
+				case errors.Is(err, store.ErrReturnStatusConflict):
 					conflicts++
 				default:
 					t.Errorf("unexpected error: %v", err)
@@ -156,14 +156,14 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, err := f.returns.CreateReturnCapped(ctx, repository.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID,
+				_, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID,
 					SellerID: o.SellerID, Reason: "r", RefundAmount: 100000}, o.TotalAmount)
 				mu.Lock()
 				defer mu.Unlock()
 				switch {
 				case err == nil:
 					ok++
-				case errors.Is(err, repository.ErrReturnExceedsRemainder):
+				case errors.Is(err, store.ErrReturnExceedsRemainder):
 					over++
 				default:
 					t.Errorf("unexpected error: %v", err)
@@ -190,8 +190,8 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 	t.Run("cap rules and a rejected return frees its amount", func(t *testing.T) {
 		o := newReturnOrder(t, f, 500000)
 		first := newReturn(t, f, o, 300000)
-		if _, err := f.returns.CreateReturnCapped(ctx, repository.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
-			Reason: "r", RefundAmount: 300000}, o.TotalAmount); !errors.Is(err, repository.ErrReturnExceedsRemainder) {
+		if _, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
+			Reason: "r", RefundAmount: 300000}, o.TotalAmount); !errors.Is(err, store.ErrReturnExceedsRemainder) {
 			t.Fatalf("want ErrReturnExceedsRemainder, got %v", err)
 		}
 		// No amount defaults to the remainder.
@@ -199,12 +199,12 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 		if rest.RefundAmount != 200000 {
 			t.Fatalf("default amount: %d", rest.RefundAmount)
 		}
-		if _, err := f.returns.CreateReturnCapped(ctx, repository.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
-			Reason: "r"}, o.TotalAmount); !errors.Is(err, repository.ErrNoReturnableRemainder) {
+		if _, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
+			Reason: "r"}, o.TotalAmount); !errors.Is(err, store.ErrNoReturnableRemainder) {
 			t.Fatalf("want ErrNoReturnableRemainder, got %v", err)
 		}
-		if _, err := f.returns.CreateReturnCapped(ctx, repository.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
-			Reason: "r", RefundAmount: 1}, o.TotalAmount); !errors.Is(err, repository.ErrReturnExceedsRemainder) {
+		if _, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
+			Reason: "r", RefundAmount: 1}, o.TotalAmount); !errors.Is(err, store.ErrReturnExceedsRemainder) {
 			t.Fatalf("a positive amount with nothing left: want ErrReturnExceedsRemainder, got %v", err)
 		}
 		if _, err := f.returns.TransitionReturn(ctx, first.ID, P, J); err != nil {
@@ -234,28 +234,11 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 	})
 }
 
-func TestReturnRepoContract_InMemory(t *testing.T) {
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository()
-	returns := repository.NewInMemoryReturnRepository(repository.WithReturnOutbox(fakeReturnOutbox),
-		repository.WithInMemoryReturnOutbox(outbox, orders))
-	rows := func(t *testing.T, _, returnID string) int {
-		n := 0
-		for _, row := range outbox.EnqueuedRows() {
-			if row.EventID == "rr-"+returnID {
-				n++
-			}
-		}
-		return n
-	}
-	runReturnRepoContract(t, returnFixture{orders: orders, returns: returns, rows: rows})
-}
-
 func TestReturnRepoContract_Postgres(t *testing.T) {
 	pool := pgPool(t)
 	ctx := context.Background()
-	orders := repository.NewPostgresOrderRepository(pool)
-	returns := repository.NewPostgresReturnRepository(pool, repository.WithReturnOutbox(fakeReturnOutbox))
+	orders := store.NewPostgresOrderRepository(pool, newOutbox(t, pool))
+	returns := store.NewPostgresReturnRepository(pool, newOutbox(t, pool), store.WithReturnOutbox(fakeReturnOutbox))
 	rows := func(t *testing.T, orderID, returnID string) int {
 		var n int
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM order_outbox_events WHERE aggregate_id = $1 AND event_id = $2`,
@@ -267,20 +250,20 @@ func TestReturnRepoContract_Postgres(t *testing.T) {
 	runReturnRepoContract(t, returnFixture{orders: orders, returns: returns, rows: rows})
 
 	// Rollback: a failing builder undoes the transition, and nothing is written.
-	failing := repository.NewPostgresReturnRepository(pool, repository.WithReturnOutbox(
-		func(repository.OrderReturn, string) (repository.OutboxRow, error) {
-			return repository.OutboxRow{}, errors.New("boom")
+	failing := store.NewPostgresReturnRepository(pool, newOutbox(t, pool), store.WithReturnOutbox(
+		func(store.OrderReturn, string) (outbox.Row, error) {
+			return outbox.Row{}, errors.New("boom")
 		}))
 	f := returnFixture{orders: orders, returns: failing, rows: rows}
 	o := newReturnOrder(t, f, 500000)
 	r := newReturn(t, f, o, 200000)
-	if _, err := failing.TransitionReturn(ctx, r.ID, repository.ReturnStatusPending, repository.ReturnStatusApproved); err != nil {
+	if _, err := failing.TransitionReturn(ctx, r.ID, store.ReturnStatusPending, store.ReturnStatusApproved); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := failing.TransitionReturn(ctx, r.ID, repository.ReturnStatusApproved, repository.ReturnStatusRefunded); err == nil {
+	if _, err := failing.TransitionReturn(ctx, r.ID, store.ReturnStatusApproved, store.ReturnStatusRefunded); err == nil {
 		t.Fatal("expected error from failing return outbox builder")
 	}
-	if got, _ := failing.GetReturn(ctx, r.ID); got.Status != repository.ReturnStatusApproved {
+	if got, _ := failing.GetReturn(ctx, r.ID); got.Status != store.ReturnStatusApproved {
 		t.Fatalf("transition must roll back, status %v", got.Status)
 	}
 	if n := rows(t, o.ID, r.ID); n != 0 {
@@ -289,10 +272,10 @@ func TestReturnRepoContract_Postgres(t *testing.T) {
 	// The currency reaches the builder from the order.
 	var payload []byte
 	ok := newReturn(t, returnFixture{orders: orders, returns: returns}, o, 100000)
-	if _, err := returns.TransitionReturn(ctx, ok.ID, repository.ReturnStatusPending, repository.ReturnStatusApproved); err != nil {
+	if _, err := returns.TransitionReturn(ctx, ok.ID, store.ReturnStatusPending, store.ReturnStatusApproved); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := returns.TransitionReturn(ctx, ok.ID, repository.ReturnStatusApproved, repository.ReturnStatusRefunded); err != nil {
+	if _, err := returns.TransitionReturn(ctx, ok.ID, store.ReturnStatusApproved, store.ReturnStatusRefunded); err != nil {
 		t.Fatal(err)
 	}
 	if err := pool.QueryRow(ctx, `SELECT payload FROM order_outbox_events WHERE event_id = $1`, "rr-"+ok.ID).Scan(&payload); err != nil {
@@ -308,15 +291,15 @@ func TestReturnRepoContract_Postgres(t *testing.T) {
 func TestReturnRefundedOutbox_Postgres(t *testing.T) {
 	pool := pgPool(t)
 	ctx := context.Background()
-	orders := repository.NewPostgresOrderRepository(pool)
-	returns := repository.NewPostgresReturnRepository(pool, repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow))
+	orders := store.NewPostgresOrderRepository(pool, newOutbox(t, pool))
+	returns := store.NewPostgresReturnRepository(pool, newOutbox(t, pool), store.WithReturnOutbox(BuildReturnRefundedOutboxRow))
 	f := returnFixture{orders: orders, returns: returns}
 	o := newReturnOrder(t, f, 500000)
 	r := newReturn(t, f, o, 200000)
-	if _, err := returns.TransitionReturn(ctx, r.ID, repository.ReturnStatusPending, repository.ReturnStatusApproved); err != nil {
+	if _, err := returns.TransitionReturn(ctx, r.ID, store.ReturnStatusPending, store.ReturnStatusApproved); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := returns.TransitionReturn(ctx, r.ID, repository.ReturnStatusApproved, repository.ReturnStatusRefunded); err != nil {
+	if _, err := returns.TransitionReturn(ctx, r.ID, store.ReturnStatusApproved, store.ReturnStatusRefunded); err != nil {
 		t.Fatal(err)
 	}
 	var eventID, eventType string
@@ -325,7 +308,7 @@ func TestReturnRefundedOutbox_Postgres(t *testing.T) {
 		Scan(&eventID, &eventType, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if eventID != events.ReturnRefundedEventID(r.ID) || eventType != events.ReturnRefundedEventType {
+	if eventID != ReturnRefundedEventID(r.ID) || eventType != ReturnRefundedEventType {
 		t.Fatalf("row id/type: %s %s", eventID, eventType)
 	}
 	var env eventsv1.EventEnvelope

@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -8,23 +8,23 @@ import (
 
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 // expiryRepo is the order repository as the expiry pass uses it. FindExpired
 // returns up to limit Pending, non-COD orders whose payment_due_at is strictly
 // before now, earliest deadline first.
 type expiryRepo interface {
-	repository.OrderRepository
-	FindExpired(ctx context.Context, now time.Time, limit int) ([]repository.Order, error)
+	store.OrderRepository
+	FindExpired(ctx context.Context, now time.Time, limit int) ([]store.Order, error)
 }
 
-var expired = []repository.OrderStatus{repository.OrderStatusPending}
+var expired = []store.OrderStatus{store.OrderStatusPending}
 
-func expire(ctx context.Context, repo repository.OrderRepository, id string) (repository.Order, error) {
-	return repo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, expired, "",
-		repository.WithCancelReason(int32(orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED)))
+func expire(ctx context.Context, repo store.OrderRepository, id string) (store.Order, error) {
+	return repo.UpdateOrderStatusFrom(ctx, id, store.OrderStatusCancelled, expired, "",
+		store.WithCancelReason(int32(orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED)))
 }
 
 // runExpiryContract: FindExpired selects exactly the Pending online orders past
@@ -56,8 +56,8 @@ func runExpiryContract(t *testing.T, repo expiryRepo, due time.Time) {
 		d := due.Add(24 * time.Hour)
 		now := d.Add(time.Hour)
 		paid := newUnpaid(t, repo, momo, &d)
-		if _, err := repo.UpdateOrderStatusFrom(ctx, paid.ID, repository.OrderStatusPaid,
-			[]repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+		if _, err := repo.UpdateOrderStatusFrom(ctx, paid.ID, store.OrderStatusPaid,
+			[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 			t.Fatal(err)
 		}
 		gone := newUnpaid(t, repo, momo, &d)
@@ -80,7 +80,7 @@ func runExpiryContract(t *testing.T, repo expiryRepo, due time.Time) {
 		d := due.Add(48 * time.Hour)
 		o := newUnpaid(t, repo, momo, &d)
 		got, err := expire(ctx, repo, o.ID)
-		if err != nil || got.Status != repository.OrderStatusCancelled ||
+		if err != nil || got.Status != store.OrderStatusCancelled ||
 			got.CancelReason != int32(orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED) {
 			t.Fatalf("claim: %v %+v", err, got)
 		}
@@ -163,39 +163,32 @@ func runFindExpiredBatchBound(t *testing.T, repo expiryRepo, total int, due time
 	}
 }
 
-func inMemoryExpiryRepo() (*repository.InMemoryOrderRepository, *repository.InMemoryOutboxRepository) {
-	outbox := repository.NewInMemoryOutboxRepository()
-	repo := repository.NewInMemoryOrderRepository(repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow), repository.WithInMemoryOutbox(outbox))
-	return repo, outbox
-}
-
 func TestFindExpiredContract_InMemory(t *testing.T) {
-	repo, _ := inMemoryExpiryRepo()
+	repo := fake.NewInMemoryOrderRepository()
 	runExpiryContract(t, repo, time.Date(2031, 1, 1, 12, 0, 0, 0, time.UTC))
 }
 
 func TestFindExpiredContract_Postgres(t *testing.T) {
 	pool := pgPool(t)
-	repo := repository.NewPostgresOrderRepository(pool, repository.WithCancelledOutbox(events.BuildCancelledOutboxRow))
+	repo := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), store.WithCancelledOutbox(BuildCancelledOutboxRow))
 	runExpiryContract(t, repo, uniqueDue())
 }
 
 // Scenario: Order expiry: An expiry pass handles at most 100 orders per tick
 func TestFindExpiredBatchBound(t *testing.T) {
-	repo, _ := inMemoryExpiryRepo()
+	repo := fake.NewInMemoryOrderRepository()
 	runFindExpiredBatchBound(t, repo, 250, time.Date(2031, 1, 1, 12, 0, 0, 0, time.UTC))
 }
 
 func TestFindExpiredBatchBound_Postgres(t *testing.T) {
 	pool := pgPool(t)
-	repo := repository.NewPostgresOrderRepository(pool, repository.WithCancelledOutbox(events.BuildCancelledOutboxRow))
+	repo := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), store.WithCancelledOutbox(BuildCancelledOutboxRow))
 	runFindExpiredBatchBound(t, repo, 105, uniqueDue())
 }
 
 // raceOutcome: PaymentSettled (to Paid) and the expiry claim race on one Pending
 // order past its deadline; exactly one CAS wins and the outbox matches the winner.
-func runExpiryVersusPayment(t *testing.T, repo repository.OrderRepository, due time.Time, cancelledRows func(id string) int, paidRows func(id string) int) {
+func runExpiryVersusPayment(t *testing.T, repo store.OrderRepository, due time.Time, cancelledRows func(id string) int, paidRows func(id string) int) {
 	ctx := context.Background()
 	for i := 0; i < 20; i++ {
 		d := due.Add(time.Duration(i) * time.Minute)
@@ -207,8 +200,8 @@ func runExpiryVersusPayment(t *testing.T, repo repository.OrderRepository, due t
 		go func() {
 			defer wg.Done()
 			<-start
-			_, paidErr = repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid,
-				[]repository.OrderStatus{repository.OrderStatusPending}, "")
+			_, paidErr = repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid,
+				[]store.OrderStatus{store.OrderStatusPending}, "")
 		}()
 		go func() { defer wg.Done(); <-start; _, expErr = expire(ctx, repo, o.ID) }()
 		close(start)
@@ -219,11 +212,11 @@ func runExpiryVersusPayment(t *testing.T, repo repository.OrderRepository, due t
 		stored, _ := repo.GetOrder(ctx, o.ID)
 		switch {
 		case paidErr == nil:
-			if stored.Status != repository.OrderStatusPaid || cancelledRows(o.ID) != 0 || paidRows(o.ID) != 1 {
+			if stored.Status != store.OrderStatusPaid || cancelledRows(o.ID) != 0 || paidRows(o.ID) != 1 {
 				t.Fatalf("round %d paid won: status=%v cancelled=%d paid=%d", i, stored.Status, cancelledRows(o.ID), paidRows(o.ID))
 			}
 		default:
-			if stored.Status != repository.OrderStatusCancelled ||
+			if stored.Status != store.OrderStatusCancelled ||
 				stored.CancelReason != int32(orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED) ||
 				cancelledRows(o.ID) != 1 || paidRows(o.ID) != 0 {
 				t.Fatalf("round %d expiry won: status=%v reason=%d cancelled=%d paid=%d", i, stored.Status,
@@ -235,27 +228,10 @@ func runExpiryVersusPayment(t *testing.T, repo repository.OrderRepository, due t
 
 // Scenario: Order expiry: Payment and expiry racing produce one outcome
 func TestExpiryVersusPaymentSingleWinner(t *testing.T) {
-	repo, outbox := inMemoryExpiryRepo()
-	count := func(typ string) func(string) int {
-		return func(id string) int {
-			n := 0
-			for _, r := range outbox.EnqueuedRows() {
-				if r.AggregateID == id && r.EventType == typ {
-					n++
-				}
-			}
-			return n
-		}
-	}
-	runExpiryVersusPayment(t, repo, time.Date(2031, 1, 1, 12, 0, 0, 0, time.UTC),
-		count(events.OrderCancelledEventType), count(events.OrderPaidEventType))
-}
-
-func TestExpiryVersusPaymentSingleWinner_Postgres(t *testing.T) {
 	pool := pgPool(t)
 	ctx := context.Background()
-	repo := repository.NewPostgresOrderRepository(pool, repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow))
+	repo := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithCancelledOutbox(BuildCancelledOutboxRow))
 	count := func(typ string) func(string) int {
 		return func(id string) int {
 			var n int
@@ -265,5 +241,5 @@ func TestExpiryVersusPaymentSingleWinner_Postgres(t *testing.T) {
 			return n
 		}
 	}
-	runExpiryVersusPayment(t, repo, uniqueDue(), count(events.OrderCancelledEventType), count(events.OrderPaidEventType))
+	runExpiryVersusPayment(t, repo, uniqueDue(), count(OrderCancelledEventType), count(OrderPaidEventType))
 }

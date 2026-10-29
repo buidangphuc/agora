@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -8,10 +8,10 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 // cancelRows returns the decoded OrderCancelled facts written for an order.
@@ -25,7 +25,7 @@ func decodeCancelPayloads(t *testing.T, payloads [][]byte) []*orderv1.OrderCance
 		if err := proto.Unmarshal(p, &env); err != nil {
 			t.Fatal(err)
 		}
-		if env.GetType() != events.OrderCancelledEventType {
+		if env.GetType() != OrderCancelledEventType {
 			continue
 		}
 		var ev orderv1.OrderCancelled
@@ -37,10 +37,10 @@ func decodeCancelPayloads(t *testing.T, payloads [][]byte) []*orderv1.OrderCance
 	return out
 }
 
-func newCancelOrder(t *testing.T, repo repository.OrderRepository) repository.Order {
+func newCancelOrder(t *testing.T, repo store.OrderRepository) store.Order {
 	t.Helper()
-	o, err := repo.CreateOrder(context.Background(), repository.Order{BuyerID: "b", SellerID: "s", TotalAmount: 10,
-		Currency: "VND", Items: []repository.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 10}}})
+	o, err := repo.CreateOrder(context.Background(), store.Order{BuyerID: "b", SellerID: "s", TotalAmount: 10,
+		Currency: "VND", Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 10}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,12 +50,12 @@ func newCancelOrder(t *testing.T, repo repository.OrderRepository) repository.Or
 // runCancelledOutboxContract: one OrderCancelled row per won cancel, from Pending
 // and from Paid with the right previous_status; none for a lost claim and none
 // for any other transition.
-func runCancelledOutboxContract(t *testing.T, repo repository.OrderRepository, rows cancelRowsFn) {
+func runCancelledOutboxContract(t *testing.T, repo store.OrderRepository, rows cancelRowsFn) {
 	ctx := context.Background()
 
 	t.Run("won cancel from pending", func(t *testing.T) {
 		o := newCancelOrder(t, repo)
-		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCancelled, fromPendingPaid, ""); err != nil {
+		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCancelled, fromPendingPaid, ""); err != nil {
 			t.Fatal(err)
 		}
 		got := rows(t, o.ID)
@@ -71,13 +71,13 @@ func runCancelledOutboxContract(t *testing.T, repo repository.OrderRepository, r
 
 	t.Run("won cancel from paid", func(t *testing.T) {
 		o := newCancelOrder(t, repo)
-		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, fromPending, ""); err != nil {
+		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, ""); err != nil {
 			t.Fatal(err)
 		}
 		if n := len(rows(t, o.ID)); n != 0 {
 			t.Fatalf("the move to Paid must not write an OrderCancelled row: %d", n)
 		}
-		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCancelled, fromPendingPaid, ""); err != nil {
+		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCancelled, fromPendingPaid, ""); err != nil {
 			t.Fatal(err)
 		}
 		got := rows(t, o.ID)
@@ -95,13 +95,13 @@ func runCancelledOutboxContract(t *testing.T, repo repository.OrderRepository, r
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCancelled, fromPendingPaid, "")
+				_, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCancelled, fromPendingPaid, "")
 				mu.Lock()
 				defer mu.Unlock()
 				switch {
 				case err == nil:
 					wins++
-				case errors.Is(err, repository.ErrStatusConflict):
+				case errors.Is(err, store.ErrStatusConflict):
 				default:
 					t.Errorf("unexpected: %v", err)
 				}
@@ -118,17 +118,17 @@ func runCancelledOutboxContract(t *testing.T, repo repository.OrderRepository, r
 
 	t.Run("other transitions write no cancel fact", func(t *testing.T) {
 		o := newCancelOrder(t, repo)
-		paid := []repository.OrderStatus{repository.OrderStatusPaid}
-		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, fromPending, ""); err != nil {
+		paid := []store.OrderStatus{store.OrderStatusPaid}
+		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, ""); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusShipped, paid, "TRK"); err != nil {
+		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped, paid, "TRK"); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCancelled, fromPendingPaid, ""); !errors.Is(err, repository.ErrStatusConflict) {
+		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCancelled, fromPendingPaid, ""); !errors.Is(err, store.ErrStatusConflict) {
 			t.Fatalf("a shipped order cannot be cancelled: %v", err)
 		}
-		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCompleted, []repository.OrderStatus{repository.OrderStatusShipped}, ""); err != nil {
+		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, []store.OrderStatus{store.OrderStatusShipped}, ""); err != nil {
 			t.Fatal(err)
 		}
 		if n := len(rows(t, o.ID)); n != 0 {
@@ -137,26 +137,11 @@ func runCancelledOutboxContract(t *testing.T, repo repository.OrderRepository, r
 	})
 }
 
-func TestCancelledOutbox_InMemory(t *testing.T) {
-	outbox := repository.NewInMemoryOutboxRepository()
-	repo := repository.NewInMemoryOrderRepository(repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow), repository.WithInMemoryOutbox(outbox))
-	runCancelledOutboxContract(t, repo, func(t *testing.T, id string) []*orderv1.OrderCancelled {
-		var payloads [][]byte
-		for _, r := range outbox.EnqueuedRows() {
-			if r.AggregateID == id {
-				payloads = append(payloads, r.Payload)
-			}
-		}
-		return decodeCancelPayloads(t, payloads)
-	})
-}
-
 func TestCancelledOutbox_Postgres(t *testing.T) {
 	pool := pgPool(t)
 	ctx := context.Background()
-	repo := repository.NewPostgresOrderRepository(pool, repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow))
+	repo := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithCancelledOutbox(BuildCancelledOutboxRow))
 	rows := func(t *testing.T, id string) []*orderv1.OrderCancelled {
 		r, err := pool.Query(ctx, `SELECT payload FROM order_outbox_events WHERE aggregate_id = $1`, id)
 		if err != nil {
@@ -180,7 +165,7 @@ func TestCancelledOutbox_Postgres(t *testing.T) {
 
 	// The stored row carries the stable id and the order key.
 	o := newCancelOrder(t, repo)
-	if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCancelled, fromPendingPaid, ""); err != nil {
+	if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCancelled, fromPendingPaid, ""); err != nil {
 		t.Fatal(err)
 	}
 	var eventID, eventType string
@@ -188,24 +173,24 @@ func TestCancelledOutbox_Postgres(t *testing.T) {
 		Scan(&eventID, &eventType); err != nil {
 		t.Fatal(err)
 	}
-	if eventID != events.OrderCancelledEventID(o.ID) || eventType != events.OrderCancelledEventType {
+	if eventID != OrderCancelledEventID(o.ID) || eventType != OrderCancelledEventType {
 		t.Fatalf("row id/type: %s %s", eventID, eventType)
 	}
 
 	// Rollback: a failing builder undoes the cancel, and nothing is written.
-	failing := repository.NewPostgresOrderRepository(pool, repository.WithCancelledOutbox(
-		func(repository.Order) (repository.OutboxRow, error) {
-			return repository.OutboxRow{}, errors.New("boom")
+	failing := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), store.WithCancelledOutbox(
+		func(store.Order) (outbox.Row, error) {
+			return outbox.Row{}, errors.New("boom")
 		}))
 	o2 := newCancelOrder(t, failing)
-	if _, err := failing.UpdateOrderStatusFrom(ctx, o2.ID, repository.OrderStatusCancelled, fromPendingPaid, ""); err == nil {
+	if _, err := failing.UpdateOrderStatusFrom(ctx, o2.ID, store.OrderStatusCancelled, fromPendingPaid, ""); err == nil {
 		t.Fatal("expected error from failing cancel outbox builder")
 	}
 	got, err := failing.GetOrder(ctx, o2.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Status != repository.OrderStatusPending {
+	if got.Status != store.OrderStatusPending {
 		t.Fatalf("cancel must roll back, status %v", got.Status)
 	}
 	if n := len(rows(t, o2.ID)); n != 0 {

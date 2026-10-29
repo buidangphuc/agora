@@ -1,18 +1,19 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 func TestInMemoryReturnRepository(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryReturnRepository()
+	repo := fake.NewInMemoryReturnRepository()
 
 	// 1. Create Return
-	req := repository.OrderReturn{
+	req := store.OrderReturn{
 		OrderID:      "order-123",
 		BuyerID:      "buyer-456",
 		SellerID:     "seller-789",
@@ -27,8 +28,8 @@ func TestInMemoryReturnRepository(t *testing.T) {
 	if created.ID == "" {
 		t.Errorf("expected generated ID, got empty")
 	}
-	if created.Status != repository.ReturnStatusPending {
-		t.Errorf("expected status PENDING (%d), got %d", repository.ReturnStatusPending, created.Status)
+	if created.Status != store.ReturnStatusPending {
+		t.Errorf("expected status PENDING (%d), got %d", store.ReturnStatusPending, created.Status)
 	}
 
 	// 2. Get Return
@@ -61,19 +62,19 @@ func TestInMemoryReturnRepository(t *testing.T) {
 	}
 
 	// 5. Update Status
-	updated, err := repo.TransitionReturn(ctx, created.ID, repository.ReturnStatusPending, repository.ReturnStatusApproved)
+	updated, err := repo.TransitionReturn(ctx, created.ID, store.ReturnStatusPending, store.ReturnStatusApproved)
 	if err != nil {
 		t.Fatalf("TransitionReturn failed: %v", err)
 	}
-	if updated.Status != repository.ReturnStatusApproved {
+	if updated.Status != store.ReturnStatusApproved {
 		t.Errorf("expected APPROVED, got %d", updated.Status)
 	}
 
 	// 6. Not Found cases
-	if _, err := repo.GetReturn(ctx, "non-existent"); err != repository.ErrReturnNotFound {
+	if _, err := repo.GetReturn(ctx, "non-existent"); err != store.ErrReturnNotFound {
 		t.Errorf("expected ErrReturnNotFound, got %v", err)
 	}
-	if _, err := repo.GetReturnByOrderID(ctx, "non-existent"); err != repository.ErrReturnNotFound {
+	if _, err := repo.GetReturnByOrderID(ctx, "non-existent"); err != store.ErrReturnNotFound {
 		t.Errorf("expected ErrReturnNotFound, got %v", err)
 	}
 }

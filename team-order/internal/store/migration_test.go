@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"

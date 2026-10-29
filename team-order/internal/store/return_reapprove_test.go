@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -6,14 +6,14 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 type reapprover interface {
-	ReapproveReturn(ctx context.Context, id string, orderTotal int64) (repository.OrderReturn, error)
+	ReapproveReturn(ctx context.Context, id string, orderTotal int64) (store.OrderReturn, error)
 }
 
-func asReapprover(t *testing.T, r repository.ReturnRepository) reapprover {
+func asReapprover(t *testing.T, r store.ReturnRepository) reapprover {
 	t.Helper()
 	ra, ok := r.(reapprover)
 	if !ok {
@@ -22,10 +22,10 @@ func asReapprover(t *testing.T, r repository.ReturnRepository) reapprover {
 	return ra
 }
 
-func rejectedReturn(t *testing.T, f returnFixture, o repository.Order, amount int64) repository.OrderReturn {
+func rejectedReturn(t *testing.T, f returnFixture, o store.Order, amount int64) store.OrderReturn {
 	t.Helper()
 	r := newReturn(t, f, o, amount)
-	if _, err := f.returns.TransitionReturn(context.Background(), r.ID, repository.ReturnStatusPending, repository.ReturnStatusRejected); err != nil {
+	if _, err := f.returns.TransitionReturn(context.Background(), r.ID, store.ReturnStatusPending, store.ReturnStatusRejected); err != nil {
 		t.Fatal(err)
 	}
 	return r
@@ -44,13 +44,13 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 		if err != nil {
 			t.Fatalf("want success at the exact boundary, got %v", err)
 		}
-		if got.Status != repository.ReturnStatusApproved || got.RefundAmount != 400000 {
+		if got.Status != store.ReturnStatusApproved || got.RefundAmount != 400000 {
 			t.Fatalf("returned row: %+v", got)
 		}
-		if st, _ := f.returns.GetReturn(ctx, target.ID); st.Status != repository.ReturnStatusApproved || st.RefundAmount != 400000 {
+		if st, _ := f.returns.GetReturn(ctx, target.ID); st.Status != store.ReturnStatusApproved || st.RefundAmount != 400000 {
 			t.Fatalf("persisted: %+v", st)
 		}
-		if st, _ := f.returns.GetReturn(ctx, other.ID); st.Status != repository.ReturnStatusPending {
+		if st, _ := f.returns.GetReturn(ctx, other.ID); st.Status != store.ReturnStatusPending {
 			t.Fatalf("other return must be untouched: %v", st.Status)
 		}
 		if n := f.rows(t, o.ID, target.ID); f.rows != nil && n != 0 {
@@ -62,10 +62,10 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 		o := newReturnOrder(t, f, total)
 		target := rejectedReturn(t, f, o, 400000)
 		newReturn(t, f, o, 700000)
-		if _, err := ra.ReapproveReturn(ctx, target.ID, o.TotalAmount); !errors.Is(err, repository.ErrReturnExceedsRemainder) {
+		if _, err := ra.ReapproveReturn(ctx, target.ID, o.TotalAmount); !errors.Is(err, store.ErrReturnExceedsRemainder) {
 			t.Fatalf("want ErrReturnExceedsRemainder, got %v", err)
 		}
-		if st, _ := f.returns.GetReturn(ctx, target.ID); st.Status != repository.ReturnStatusRejected {
+		if st, _ := f.returns.GetReturn(ctx, target.ID); st.Status != store.ReturnStatusRejected {
 			t.Fatalf("must stay REJECTED, got %v", st.Status)
 		}
 	})
@@ -74,7 +74,7 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 		o := newReturnOrder(t, f, total)
 		target := rejectedReturn(t, f, o, 400000)
 		newReturn(t, f, o, 600001)
-		if _, err := ra.ReapproveReturn(ctx, target.ID, o.TotalAmount); !errors.Is(err, repository.ErrReturnExceedsRemainder) {
+		if _, err := ra.ReapproveReturn(ctx, target.ID, o.TotalAmount); !errors.Is(err, store.ErrReturnExceedsRemainder) {
 			t.Fatalf("want ErrReturnExceedsRemainder, got %v", err)
 		}
 	})
@@ -91,13 +91,13 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 	t.Run("TestReapproveReturnNotRejectedConflicts: Dispute refund: Rejected return that no longer fits stays rejected", func(t *testing.T) {
 		o := newReturnOrder(t, f, total)
 		pending := newReturn(t, f, o, 100000)
-		if _, err := ra.ReapproveReturn(ctx, pending.ID, o.TotalAmount); !errors.Is(err, repository.ErrReturnStatusConflict) {
+		if _, err := ra.ReapproveReturn(ctx, pending.ID, o.TotalAmount); !errors.Is(err, store.ErrReturnStatusConflict) {
 			t.Fatalf("want ErrReturnStatusConflict, got %v", err)
 		}
-		if st, _ := f.returns.GetReturn(ctx, pending.ID); st.Status != repository.ReturnStatusPending {
+		if st, _ := f.returns.GetReturn(ctx, pending.ID); st.Status != store.ReturnStatusPending {
 			t.Fatalf("status must be unchanged: %v", st.Status)
 		}
-		if _, err := ra.ReapproveReturn(ctx, "missing-"+pending.ID, o.TotalAmount); !errors.Is(err, repository.ErrReturnNotFound) {
+		if _, err := ra.ReapproveReturn(ctx, "missing-"+pending.ID, o.TotalAmount); !errors.Is(err, store.ErrReturnNotFound) {
 			t.Fatalf("want ErrReturnNotFound, got %v", err)
 		}
 	})
@@ -120,7 +120,7 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 				switch {
 				case err == nil:
 					ok++
-				case errors.Is(err, repository.ErrReturnExceedsRemainder):
+				case errors.Is(err, store.ErrReturnExceedsRemainder):
 					over++
 				default:
 					t.Errorf("unexpected error: %v", err)
@@ -135,10 +135,10 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 		list, _ := f.returns.ListReturnsByOrder(ctx, o.ID)
 		var sum int64
 		for _, r := range list {
-			if r.Status != repository.ReturnStatusRejected {
+			if r.Status != store.ReturnStatusRejected {
 				sum += r.RefundAmount
 			}
-			if r.Status == repository.ReturnStatusApproved {
+			if r.Status == store.ReturnStatusApproved {
 				approved++
 			}
 		}
@@ -148,28 +148,11 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 	})
 }
 
-func TestReapproveReturn_InMemory(t *testing.T) {
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository()
-	returns := repository.NewInMemoryReturnRepository(repository.WithReturnOutbox(fakeReturnOutbox),
-		repository.WithInMemoryReturnOutbox(outbox, orders))
-	rows := func(t *testing.T, _, returnID string) int {
-		n := 0
-		for _, row := range outbox.EnqueuedRows() {
-			if row.EventID == "rr-"+returnID {
-				n++
-			}
-		}
-		return n
-	}
-	runReapproveContract(t, returnFixture{orders: orders, returns: returns, rows: rows})
-}
-
 func TestReapproveReturn_Postgres(t *testing.T) {
 	pool := pgPool(t)
 	ctx := context.Background()
-	orders := repository.NewPostgresOrderRepository(pool)
-	returns := repository.NewPostgresReturnRepository(pool, repository.WithReturnOutbox(fakeReturnOutbox))
+	orders := store.NewPostgresOrderRepository(pool, newOutbox(t, pool))
+	returns := store.NewPostgresReturnRepository(pool, newOutbox(t, pool), store.WithReturnOutbox(fakeReturnOutbox))
 	rows := func(t *testing.T, orderID, returnID string) int {
 		var n int
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM order_outbox_events WHERE aggregate_id = $1 AND event_id = $2`,

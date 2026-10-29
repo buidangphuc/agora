@@ -1,4 +1,4 @@
-package repository_test
+package store_test
 
 import (
 	"context"
@@ -8,21 +8,21 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 // Task 4 (order-receipt-completion). The repository API these tests pin:
-//   - repository.WithAutoCompleteAfter / WithReturnWindow / WithShipByAfter (OrderRepoOption):
+//   - store.WithAutoCompleteAfter / WithReturnWindow / WithShipByAfter (OrderRepoOption):
 //     durations in force at the moment of each stamp.
-//   - repository.WithCompletedOutbox(b) (OrderRepoOption) and repository.CompletedOutboxBuilder.
-//   - repository.WithCompletedBy(int32) (StatusOption): the orderv1.CompletedBy of the write.
+//   - store.WithCompletedOutbox(b) (OrderRepoOption) and store.CompletedOutboxBuilder.
+//   - store.WithCompletedBy(int32) (StatusOption): the orderv1.CompletedBy of the write.
 //   - Order gains ShippedAt, AutoCompleteAt, CompletedAt, ReturnWindowEndsAt, ShipBy (*time.Time)
 //     and CompletedBy (int32, set on the row a won move to Completed returns).
-//   - events.BuildCompletedOutboxRow, events.OrderCompletedEventType.
+//   - BuildCompletedOutboxRow, OrderCompletedEventType.
 
 const (
 	rcAutoComplete = 7 * 24 * time.Hour
@@ -31,29 +31,29 @@ const (
 )
 
 var (
-	rcFromShipped    = []repository.OrderStatus{repository.OrderStatusShipped}
-	rcFromPaidOrPend = []repository.OrderStatus{repository.OrderStatusPending, repository.OrderStatusPaid}
-	rcFromPaid       = []repository.OrderStatus{repository.OrderStatusPaid}
+	rcFromShipped    = []store.OrderStatus{store.OrderStatusShipped}
+	rcFromPaidOrPend = []store.OrderStatus{store.OrderStatusPending, store.OrderStatusPaid}
+	rcFromPaid       = []store.OrderStatus{store.OrderStatusPaid}
 )
 
 type rcFixture struct {
-	repo   repository.OrderRepository
-	placer repository.OrderPlacer
-	sagas  repository.SagaRepository
+	repo   store.OrderRepository
+	placer store.OrderPlacer
+	sagas  store.SagaRepository
 	// rows returns the decoded envelopes written for an order, in write order.
 	rows func(t *testing.T, orderID string) []*eventsv1.EventEnvelope
 }
 
-type rcFactory func(t *testing.T, extra ...repository.OrderRepoOption) rcFixture
+type rcFactory func(t *testing.T, extra ...store.OrderRepoOption) rcFixture
 
-func rcBaseOpts() []repository.OrderRepoOption {
-	return []repository.OrderRepoOption{
-		repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithPlacedOutbox(events.BuildPlacedOutboxRow),
-		repository.WithCompletedOutbox(events.BuildCompletedOutboxRow),
-		repository.WithAutoCompleteAfter(rcAutoComplete),
-		repository.WithReturnWindow(rcReturnWindow),
-		repository.WithShipByAfter(rcShipBy),
+func rcBaseOpts() []store.OrderRepoOption {
+	return []store.OrderRepoOption{
+		store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithPlacedOutbox(BuildPlacedOutboxRow),
+		store.WithCompletedOutbox(BuildCompletedOutboxRow),
+		store.WithAutoCompleteAfter(rcAutoComplete),
+		store.WithReturnWindow(rcReturnWindow),
+		store.WithShipByAfter(rcShipBy),
 	}
 }
 
@@ -74,7 +74,7 @@ func rcCompleted(t *testing.T, envs []*eventsv1.EventEnvelope) []*orderv1.OrderC
 	t.Helper()
 	var out []*orderv1.OrderCompleted
 	for _, e := range envs {
-		if e.GetType() != events.OrderCompletedEventType {
+		if e.GetType() != OrderCompletedEventType {
 			continue
 		}
 		var ev orderv1.OrderCompleted
@@ -86,26 +86,26 @@ func rcCompleted(t *testing.T, envs []*eventsv1.EventEnvelope) []*orderv1.OrderC
 	return out
 }
 
-func rcNewOrder(t *testing.T, repo repository.OrderRepository, method paymentv1.PaymentMethod) repository.Order {
+func rcNewOrder(t *testing.T, repo store.OrderRepository, method paymentv1.PaymentMethod) store.Order {
 	t.Helper()
-	o, err := repo.CreateOrder(context.Background(), repository.Order{BuyerID: "b", SellerID: "s", TotalAmount: 120000,
+	o, err := repo.CreateOrder(context.Background(), store.Order{BuyerID: "b", SellerID: "s", TotalAmount: 120000,
 		Currency: "VND", PaymentMethod: int32(method),
-		Items: []repository.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 120000}}})
+		Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 120000}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return o
 }
 
-func rcShip(t *testing.T, repo repository.OrderRepository, o repository.Order) repository.Order {
+func rcShip(t *testing.T, repo store.OrderRepository, o store.Order) store.Order {
 	t.Helper()
 	ctx := context.Background()
 	if o.PaymentMethod != int32(paymentv1.PaymentMethod_PAYMENT_METHOD_COD) {
-		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, fromPending, ""); err != nil {
+		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, ""); err != nil {
 			t.Fatal(err)
 		}
 	}
-	shipped, err := repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusShipped, rcFromPaidOrPend, "TRK-"+o.ID)
+	shipped, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped, rcFromPaidOrPend, "TRK-"+o.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,15 +124,15 @@ func rcNear(t *testing.T, name string, got *time.Time, want time.Time) {
 
 func runCompletionContract(t *testing.T, fx rcFactory) {
 	ctx := context.Background()
-	buyer := repository.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_BUYER))
-	seller := repository.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_SELLER))
+	buyer := store.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_BUYER))
+	seller := store.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_SELLER))
 
 	// Scenario: Order receipt: Shipping stamps the auto-complete deadline
 	t.Run("TestShippingStampsAutoCompleteAt", func(t *testing.T) {
 		f := fx(t)
 		o := rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
 		shipped := rcShip(t, f.repo, o)
-		if shipped.Status != repository.OrderStatusShipped || shipped.ShippedAt == nil || shipped.AutoCompleteAt == nil {
+		if shipped.Status != store.OrderStatusShipped || shipped.ShippedAt == nil || shipped.AutoCompleteAt == nil {
 			t.Fatalf("shipped: %+v", shipped)
 		}
 		if want := shipped.ShippedAt.Add(rcAutoComplete); !shipped.AutoCompleteAt.Equal(want) {
@@ -154,7 +154,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	t.Run("TestCompletionClearsAutoCompleteAt", func(t *testing.T) {
 		f := fx(t)
 		o := rcShip(t, f.repo, rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
-		done, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCompleted, rcFromShipped, "", seller)
+		done, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "", seller)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -162,7 +162,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 			t.Fatalf("returned row: %+v", done)
 		}
 		got, _ := f.repo.GetOrder(ctx, o.ID)
-		if got.Status != repository.OrderStatusCompleted || got.CompletedAt == nil || got.AutoCompleteAt != nil {
+		if got.Status != store.OrderStatusCompleted || got.CompletedAt == nil || got.AutoCompleteAt != nil {
 			t.Fatalf("stored row: completed_at=%v auto_complete_at=%v status=%v", got.CompletedAt, got.AutoCompleteAt, got.Status)
 		}
 		rcNear(t, "return_window_ends_at", got.ReturnWindowEndsAt, got.CompletedAt.Add(rcReturnWindow))
@@ -172,7 +172,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	t.Run("TestBuyerCompletionEmitsOrderCompleted", func(t *testing.T) {
 		f := fx(t)
 		o := rcShip(t, f.repo, rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
-		done, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCompleted, rcFromShipped, "", buyer)
+		done, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "", buyer)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -196,7 +196,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 		}
 		var id string
 		for _, e := range f.rows(t, o.ID) {
-			if e.GetType() == events.OrderCompletedEventType {
+			if e.GetType() == OrderCompletedEventType {
 				id = e.GetEventId()
 			}
 		}
@@ -209,7 +209,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	t.Run("TestSellerCompletionEmitsOrderCompleted", func(t *testing.T) {
 		f := fx(t)
 		o := rcShip(t, f.repo, rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
-		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCompleted, rcFromShipped, "", seller); err != nil {
+		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "", seller); err != nil {
 			t.Fatal(err)
 		}
 		got := rcCompleted(t, f.rows(t, o.ID))
@@ -217,7 +217,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 			t.Fatalf("want 1 OrderCompleted by SELLER, got %+v", got)
 		}
 		// A second completion loses the CAS and emits nothing more.
-		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCompleted, rcFromShipped, "", buyer); !errors.Is(err, repository.ErrStatusConflict) {
+		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "", buyer); !errors.Is(err, store.ErrStatusConflict) {
 			t.Fatalf("second completion: want ErrStatusConflict, got %v", err)
 		}
 		if n := len(rcCompleted(t, f.rows(t, o.ID))); n != 1 {
@@ -229,7 +229,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	t.Run("TestOrderCompletedPaidOnlineFalseForCOD", func(t *testing.T) {
 		f := fx(t)
 		o := rcShip(t, f.repo, rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_COD))
-		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCompleted, rcFromShipped, "", buyer); err != nil {
+		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "", buyer); err != nil {
 			t.Fatal(err)
 		}
 		got := rcCompleted(t, f.rows(t, o.ID))
@@ -245,7 +245,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 		if o.ShipBy != nil {
 			t.Fatalf("pending online order must have no ship_by: %v", o.ShipBy)
 		}
-		paid, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, fromPending, "")
+		paid, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, "")
 		if err != nil || paid.PaidAt == nil {
 			t.Fatalf("pay: %v %+v", err, paid)
 		}
@@ -256,7 +256,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 		var ev orderv1.OrderPaidEvent
 		n := 0
 		for _, e := range f.rows(t, o.ID) {
-			if e.GetType() == events.OrderPaidEventType {
+			if e.GetType() == OrderPaidEventType {
 				n++
 				if err := proto.Unmarshal(e.GetPayload(), &ev); err != nil {
 					t.Fatal(err)
@@ -274,15 +274,15 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	t.Run("TestShipByIsSnapshottedAtPayment", func(t *testing.T) {
 		f := fx(t)
 		o := rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
-		paid, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, fromPending, "")
+		paid, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, "")
 		if err != nil {
 			t.Fatal(err)
 		}
 		orig := *paid.ShipBy
-		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusShipped, rcFromPaid, "T"); err != nil {
+		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped, rcFromPaid, "T"); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCompleted, rcFromShipped, "", buyer); err != nil {
+		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "", buyer); err != nil {
 			t.Fatal(err)
 		}
 		got, _ := f.repo.GetOrder(ctx, o.ID)
@@ -293,15 +293,15 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 }
 
 // Scenario: Order receipt: Outbox failure rolls the completion back
-func runCompletionRollbackContract(t *testing.T, mk func(t *testing.T, opts ...repository.OrderRepoOption) repository.OrderRepository) {
+func runCompletionRollbackContract(t *testing.T, mk func(t *testing.T, opts ...store.OrderRepoOption) store.OrderRepository) {
 	ctx := context.Background()
-	failing := mk(t, repository.WithAutoCompleteAfter(rcAutoComplete), repository.WithReturnWindow(rcReturnWindow),
-		repository.WithCompletedOutbox(func(repository.Order) (repository.OutboxRow, error) {
-			return repository.OutboxRow{}, errors.New("boom")
+	failing := mk(t, store.WithAutoCompleteAfter(rcAutoComplete), store.WithReturnWindow(rcReturnWindow),
+		store.WithCompletedOutbox(func(store.Order) (outbox.Row, error) {
+			return outbox.Row{}, errors.New("boom")
 		}))
 	o := rcShip(t, failing, rcNewOrder(t, failing, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
-	_, err := failing.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusCompleted, rcFromShipped, "",
-		repository.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_BUYER)))
+	_, err := failing.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "",
+		store.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_BUYER)))
 	if err == nil {
 		t.Fatal("completion must fail when the outbox row cannot be written")
 	}
@@ -309,50 +309,23 @@ func runCompletionRollbackContract(t *testing.T, mk func(t *testing.T, opts ...r
 	if gerr != nil {
 		t.Fatal(gerr)
 	}
-	if got.Status != repository.OrderStatusShipped || got.CompletedAt != nil || got.ReturnWindowEndsAt != nil || got.AutoCompleteAt == nil {
+	if got.Status != store.OrderStatusShipped || got.CompletedAt != nil || got.ReturnWindowEndsAt != nil || got.AutoCompleteAt == nil {
 		t.Fatalf("order must stay SHIPPED with its deadline: %+v", got)
 	}
 }
 
-func TestCompletionRollsBackWhenOutboxFails_InMemory(t *testing.T) {
-	runCompletionRollbackContract(t, func(t *testing.T, opts ...repository.OrderRepoOption) repository.OrderRepository {
-		return repository.NewInMemoryOrderRepository(append(opts, repository.WithInMemoryOutbox(repository.NewInMemoryOutboxRepository()))...)
+func TestCompletionRollsBackWhenOutboxFails(t *testing.T) {
+	pool := pgPool(t)
+	runCompletionRollbackContract(t, func(t *testing.T, opts ...store.OrderRepoOption) store.OrderRepository {
+		return store.NewPostgresOrderRepository(pool, newOutbox(t, pool), opts...)
 	})
 }
 
-func TestCompletionRollsBackWhenOutboxFails_Postgres(t *testing.T) {
+func TestOrderCompletion(t *testing.T) {
 	pool := pgPool(t)
-	runCompletionRollbackContract(t, func(t *testing.T, opts ...repository.OrderRepoOption) repository.OrderRepository {
-		return repository.NewPostgresOrderRepository(pool, opts...)
-	})
-}
-
-func rcInMemory(t *testing.T, extra ...repository.OrderRepoOption) rcFixture {
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository(append(append(rcBaseOpts(), extra...), repository.WithInMemoryOutbox(outbox))...)
-	sagas := repository.NewInMemorySagaRepository()
-	return rcFixture{repo: orders, placer: repository.NewInMemoryOrderPlacer(orders, sagas), sagas: sagas,
-		rows: func(t *testing.T, id string) []*eventsv1.EventEnvelope {
-			var payloads [][]byte
-			for _, r := range outbox.EnqueuedRows() {
-				if r.AggregateID == id {
-					payloads = append(payloads, r.Payload)
-				}
-			}
-			return rcDecode(t, payloads)
-		}}
-}
-
-func TestOrderCompletion_InMemory(t *testing.T) {
-	runCompletionContract(t, rcInMemory)
-	runShipByPlacementContract(t, rcInMemory)
-}
-
-func TestOrderCompletion_Postgres(t *testing.T) {
-	pool := pgPool(t)
-	f := func(t *testing.T, extra ...repository.OrderRepoOption) rcFixture {
-		orders := repository.NewPostgresOrderRepository(pool, append(rcBaseOpts(), extra...)...)
-		return rcFixture{repo: orders, placer: orders, sagas: repository.NewPostgresSagaRepository(pool),
+	f := func(t *testing.T, extra ...store.OrderRepoOption) rcFixture {
+		orders := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), append(rcBaseOpts(), extra...)...)
+		return rcFixture{repo: orders, placer: orders, sagas: store.NewPostgresSagaRepository(pool),
 			rows: func(t *testing.T, id string) []*eventsv1.EventEnvelope {
 				r, err := pool.Query(context.Background(), `SELECT payload FROM order_outbox_events WHERE aggregate_id = $1 ORDER BY created_at`, id)
 				if err != nil {
@@ -381,11 +354,11 @@ func TestOrderCompletion_Postgres(t *testing.T) {
 		ctx := context.Background()
 		before := f(t)
 		o := rcNewOrder(t, before.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
-		paid, err := before.repo.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, fromPending, "")
+		paid, err := before.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, "")
 		if err != nil {
 			t.Fatal(err)
 		}
-		after := f(t, repository.WithShipByAfter(time.Hour)) // restarted with a changed SHIP_BY_AFTER
+		after := f(t, store.WithShipByAfter(time.Hour)) // restarted with a changed SHIP_BY_AFTER
 		got, err := after.repo.GetOrder(ctx, o.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -398,12 +371,12 @@ func TestOrderCompletion_Postgres(t *testing.T) {
 
 func runShipByPlacementContract(t *testing.T, fx rcFactory) {
 	ctx := context.Background()
-	place := func(t *testing.T, f rcFixture, method paymentv1.PaymentMethod, deadline time.Duration) (repository.Order, *orderv1.OrderPlaced) {
+	place := func(t *testing.T, f rcFixture, method paymentv1.PaymentMethod, deadline time.Duration) (store.Order, *orderv1.OrderPlaced) {
 		t.Helper()
 		sagaID, res := newCheckout(t, f.sagas, "la")
 		po := placedOrder(uid("ord"), "sa", method, deadline)
 		po.ReservationIDs = res
-		if _, err := f.placer.PlaceOrders(ctx, sagaID, []repository.PlacedOrder{po}); err != nil {
+		if _, err := f.placer.PlaceOrders(ctx, sagaID, []store.PlacedOrder{po}); err != nil {
 			t.Fatal(err)
 		}
 		got, err := f.repo.GetOrder(ctx, po.Order.ID)
@@ -412,7 +385,7 @@ func runShipByPlacementContract(t *testing.T, fx rcFactory) {
 		}
 		var placed []*orderv1.OrderPlaced
 		for _, e := range f.rows(t, got.ID) {
-			if e.GetType() != events.OrderPlacedEventType {
+			if e.GetType() != OrderPlacedEventType {
 				continue
 			}
 			var ev orderv1.OrderPlaced

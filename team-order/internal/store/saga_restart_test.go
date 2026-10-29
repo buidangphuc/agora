@@ -1,15 +1,12 @@
-package repository_test
+package store_test
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 // SA-M8 (durable saga state): a reservation written by one repository instance is
@@ -19,23 +16,23 @@ import (
 // when the owning OrderService is torn down and rebuilt.
 func TestReservationRepository_SurvivesRestart_SharedStore(t *testing.T) {
 	ctx := context.Background()
-	store := repository.NewReservationStore()
+	shared := fake.NewReservationStore()
 
 	// "Process 1" persists a reservation, then goes away.
-	repoA := repository.NewInMemorySagaRepositoryWithStore(store)
-	if _, err := repoA.CreateReservation(ctx, repository.Reservation{
+	repoA := fake.NewInMemorySagaRepositoryWithStore(shared)
+	if _, err := repoA.CreateReservation(ctx, store.Reservation{
 		ID:        "res_durable",
 		SagaID:    "saga_1",
 		ListingID: "lst_1",
 		Quantity:  2,
-		Status:    repository.ReservationStatusReserved,
+		Status:    store.ReservationStatusReserved,
 		ExpiresAt: time.Now().Add(time.Hour),
 	}); err != nil {
 		t.Fatalf("create reservation: %v", err)
 	}
 
 	// "Process 2" starts fresh over the same durable store and must see it.
-	repoB := repository.NewInMemorySagaRepositoryWithStore(store)
+	repoB := fake.NewInMemorySagaRepositoryWithStore(shared)
 	got, err := repoB.GetReservation(ctx, "res_durable")
 	if err != nil {
 		t.Fatalf("reservation not durable across restart: %v", err)
@@ -52,37 +49,21 @@ func TestReservationRepository_SurvivesRestart_SharedStore(t *testing.T) {
 // runs only when TEST_DATABASE_URL (or DATABASE_URL) points at a reachable
 // Postgres; otherwise it skips, so the unit suite stays green with no database.
 func TestSagaReservation_PersistsAcrossRestart_Postgres(t *testing.T) {
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		dsn = os.Getenv("DATABASE_URL")
-	}
-	if dsn == "" {
-		t.Skip("no TEST_DATABASE_URL/DATABASE_URL set; skipping Postgres durability test")
-	}
-
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Skipf("cannot connect to Postgres (%v); skipping", err)
-	}
-	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
-		t.Skipf("Postgres unreachable (%v); skipping", err)
-	}
-	applyMigrations(t, ctx, pool)
+	pool := pgPool(t)
 
 	// Instance 1 persists a saga header and a RESERVED reservation, then goes away.
-	repoA := repository.NewPostgresSagaRepository(pool)
-	saga, _, err := repoA.CreateSaga(ctx, repository.Saga{BuyerID: "buyer_c2"})
+	repoA := store.NewPostgresSagaRepository(pool)
+	saga, _, err := repoA.CreateSaga(ctx, store.Saga{BuyerID: "buyer_c2"})
 	if err != nil {
 		t.Fatalf("create saga: %v", err)
 	}
-	res, err := repoA.CreateReservation(ctx, repository.Reservation{
+	res, err := repoA.CreateReservation(ctx, store.Reservation{
 		ID:        "res_pg_durable",
 		SagaID:    saga.ID,
 		ListingID: "lst_pg",
 		Quantity:  4,
-		Status:    repository.ReservationStatusReserved,
+		Status:    store.ReservationStatusReserved,
 		ExpiresAt: time.Now().Add(-time.Minute), // already expired: the sweep would reclaim it
 	})
 	if err != nil {
@@ -91,12 +72,12 @@ func TestSagaReservation_PersistsAcrossRestart_Postgres(t *testing.T) {
 
 	// Instance 2 (fresh repo over the same pool) must see the RESERVED reservation,
 	// and it must show up in the releasable/sweep set.
-	repoB := repository.NewPostgresSagaRepository(pool)
+	repoB := store.NewPostgresSagaRepository(pool)
 	got, err := repoB.GetReservation(ctx, res.ID)
 	if err != nil {
 		t.Fatalf("reservation not durable across restart: %v", err)
 	}
-	if got.Status != repository.ReservationStatusReserved || got.ListingID != "lst_pg" || got.Quantity != 4 {
+	if got.Status != store.ReservationStatusReserved || got.ListingID != "lst_pg" || got.Quantity != 4 {
 		t.Fatalf("reservation state lost across restart: %+v", got)
 	}
 
@@ -122,29 +103,13 @@ func TestSagaReservation_PersistsAcrossRestart_Postgres(t *testing.T) {
 // at a reachable Postgres with the migrations applied; otherwise it skips, so the
 // unit suite stays green where no database is provisioned.
 func TestReturnsAndShipments_PersistAcrossRestart_Postgres(t *testing.T) {
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		dsn = os.Getenv("DATABASE_URL")
-	}
-	if dsn == "" {
-		t.Skip("no TEST_DATABASE_URL/DATABASE_URL set; skipping Postgres durability test")
-	}
-
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Skipf("cannot connect to Postgres (%v); skipping", err)
-	}
-	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
-		t.Skipf("Postgres unreachable (%v); skipping", err)
-	}
-	applyMigrations(t, ctx, pool)
+	pool := pgPool(t)
 
 	// Seed an order to satisfy the FK on returns/shipments.
-	orderRepo := repository.NewPostgresOrderRepository(pool)
-	order, err := orderRepo.CreateOrder(ctx, repository.Order{
-		BuyerID: "buyer_m8", SellerID: "seller_m8", Status: repository.OrderStatusCompleted,
+	orderRepo := store.NewPostgresOrderRepository(pool, newOutbox(t, pool))
+	order, err := orderRepo.CreateOrder(ctx, store.Order{
+		BuyerID: "buyer_m8", SellerID: "seller_m8", Status: store.OrderStatusCompleted,
 		TotalAmount: 100000, Currency: "VND",
 	})
 	if err != nil {
@@ -152,16 +117,16 @@ func TestReturnsAndShipments_PersistAcrossRestart_Postgres(t *testing.T) {
 	}
 
 	// Instance 1 writes a return and a shipment.
-	retRepoA := repository.NewPostgresReturnRepository(pool)
-	ret, err := retRepoA.CreateReturn(ctx, repository.OrderReturn{
+	retRepoA := store.NewPostgresReturnRepository(pool, newOutbox(t, pool))
+	ret, err := retRepoA.CreateReturn(ctx, store.OrderReturn{
 		OrderID: order.ID, BuyerID: "buyer_m8", SellerID: "seller_m8",
 		Reason: "durability check", RefundAmount: 100000,
 	})
 	if err != nil {
 		t.Fatalf("create return: %v", err)
 	}
-	shipRepoA := repository.NewPostgresShipmentRepository(pool)
-	ship, err := shipRepoA.CreateShipment(ctx, repository.Shipment{
+	shipRepoA := store.NewPostgresShipmentRepository(pool, newOutbox(t, pool))
+	ship, err := shipRepoA.CreateShipment(ctx, store.Shipment{
 		OrderID: order.ID, Carrier: "GHN", TrackingCode: "M8-" + order.ID,
 	})
 	if err != nil {
@@ -169,32 +134,10 @@ func TestReturnsAndShipments_PersistAcrossRestart_Postgres(t *testing.T) {
 	}
 
 	// Instance 2 (fresh repos over the same pool) must read them back.
-	if got, err := repository.NewPostgresReturnRepository(pool).GetReturn(ctx, ret.ID); err != nil || got.ID != ret.ID {
+	if got, err := store.NewPostgresReturnRepository(pool, newOutbox(t, pool)).GetReturn(ctx, ret.ID); err != nil || got.ID != ret.ID {
 		t.Fatalf("return not durable across restart: got %+v err %v", got, err)
 	}
-	if got, err := repository.NewPostgresShipmentRepository(pool).GetShipment(ctx, ship.ID); err != nil || got.ID != ship.ID {
+	if got, err := store.NewPostgresShipmentRepository(pool, newOutbox(t, pool)).GetShipment(ctx, ship.ID); err != nil || got.ID != ship.ID {
 		t.Fatalf("shipment not durable across restart: got %+v err %v", got, err)
-	}
-}
-
-func applyMigrations(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-	t.Helper()
-	dir := filepath.Join("..", "..", "migrations")
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Skipf("cannot read migrations dir (%v); skipping", err)
-	}
-	for _, e := range entries {
-		name := e.Name()
-		if len(name) < 7 || name[len(name)-7:] != ".up.sql" {
-			continue
-		}
-		sqlBytes, err := os.ReadFile(filepath.Join(dir, name))
-		if err != nil {
-			t.Fatalf("read migration %s: %v", name, err)
-		}
-		if _, err := pool.Exec(ctx, string(sqlBytes)); err != nil {
-			t.Fatalf("apply migration %s: %v", name, err)
-		}
 	}
 }

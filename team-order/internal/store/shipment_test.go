@@ -1,23 +1,24 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 func TestInMemoryShipmentRepository(t *testing.T) {
 	ctx := context.Background()
-	repo := repository.NewInMemoryShipmentRepository()
+	repo := fake.NewInMemoryShipmentRepository()
 
 	// 1. Create Shipment
-	s := repository.Shipment{
+	s := store.Shipment{
 		OrderID:      "order-abc",
 		Carrier:      "SPX",
 		TrackingCode: "SPX-VN-123456",
-		Checkpoints: []repository.ShipmentCheckpoint{
+		Checkpoints: []store.ShipmentCheckpoint{
 			{
 				Timestamp:   time.Now(),
 				Location:    "Kho Hub Tân Bình, TP.HCM",
@@ -33,7 +34,7 @@ func TestInMemoryShipmentRepository(t *testing.T) {
 	if created.ID == "" {
 		t.Errorf("expected generated shipment ID")
 	}
-	if created.Status != repository.ShipmentStatusPending {
+	if created.Status != store.ShipmentStatusPending {
 		t.Errorf("expected status PENDING, got %d", created.Status)
 	}
 	if len(created.Checkpoints) != 1 {
@@ -71,7 +72,7 @@ func TestInMemoryShipmentRepository(t *testing.T) {
 	}
 
 	// 5. Add Checkpoint
-	newCp := repository.ShipmentCheckpoint{
+	newCp := store.ShipmentCheckpoint{
 		ShipmentID:  created.ID,
 		Timestamp:   time.Now(),
 		Location:    "Kho Trung Chuyển Củ Chi",
@@ -95,22 +96,22 @@ func TestInMemoryShipmentRepository(t *testing.T) {
 	}
 
 	// 6. Update Status
-	updated, err := repo.UpdateShipmentStatus(ctx, created.ID, repository.ShipmentStatusInTransit)
+	updated, err := repo.UpdateShipmentStatus(ctx, created.ID, store.ShipmentStatusInTransit)
 	if err != nil {
 		t.Fatalf("UpdateShipmentStatus failed: %v", err)
 	}
-	if updated.Status != repository.ShipmentStatusInTransit {
+	if updated.Status != store.ShipmentStatusInTransit {
 		t.Errorf("expected status IN_TRANSIT, got %d", updated.Status)
 	}
 
 	// 7. Not Found checks
-	if _, err := repo.GetShipment(ctx, "non-existent"); err != repository.ErrShipmentNotFound {
+	if _, err := repo.GetShipment(ctx, "non-existent"); err != store.ErrShipmentNotFound {
 		t.Errorf("expected ErrShipmentNotFound, got %v", err)
 	}
-	if _, err := repo.GetShipmentByTrackingCode(ctx, "non-existent"); err != repository.ErrShipmentNotFound {
+	if _, err := repo.GetShipmentByTrackingCode(ctx, "non-existent"); err != store.ErrShipmentNotFound {
 		t.Errorf("expected ErrShipmentNotFound, got %v", err)
 	}
-	if _, err := repo.GetShipmentByOrderID(ctx, "non-existent"); err != repository.ErrShipmentNotFound {
+	if _, err := repo.GetShipmentByOrderID(ctx, "non-existent"); err != store.ErrShipmentNotFound {
 		t.Errorf("expected ErrShipmentNotFound, got %v", err)
 	}
 }

@@ -1,22 +1,22 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 func TestSweepQueries_Postgres(t *testing.T) {
 	pool := pgPool(t)
 	ctx := context.Background()
-	orders := repository.NewPostgresOrderRepository(pool)
-	sagas := repository.NewPostgresSagaRepository(pool)
+	orders := store.NewPostgresOrderRepository(pool, newOutbox(t, pool))
+	sagas := store.NewPostgresSagaRepository(pool)
 
 	sagaID, res := newCheckout(t, sagas, "la", "lb")
 	live, cancelled := uid("ord"), uid("ord")
-	if _, err := orders.PlaceOrders(ctx, sagaID, []repository.PlacedOrder{
+	if _, err := orders.PlaceOrders(ctx, sagaID, []store.PlacedOrder{
 		{Order: order(live, "sa"), ReservationIDs: res[:1]},
 		{Order: order(cancelled, "sb"), ReservationIDs: res[1:]},
 	}); err != nil {
@@ -54,7 +54,7 @@ func TestSweepQueries_Postgres(t *testing.T) {
 		t.Fatal("an order cancelled after the cut-off must not be returned")
 	}
 
-	pending, _, _ := sagas.CreateSaga(ctx, repository.Saga{BuyerID: uid("b")})
+	pending, _, _ := sagas.CreateSaga(ctx, store.Saga{BuyerID: uid("b")})
 	stale, err := sagas.FindStalePendingSagas(ctx, time.Now().Add(time.Second), 100000)
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +69,7 @@ func TestSweepQueries_Postgres(t *testing.T) {
 	}
 }
 
-func containsRes(rs []repository.Reservation, id string) bool {
+func containsRes(rs []store.Reservation, id string) bool {
 	for _, r := range rs {
 		if r.ID == id {
 			return true
