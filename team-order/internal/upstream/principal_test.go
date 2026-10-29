@@ -309,3 +309,34 @@ func TestOnlyGetListingGetsBackgroundIdentity(t *testing.T) {
 		t.Errorf("GetListing principal id = %q, want service-team-order", got)
 	}
 }
+
+// Scenario: Advertised price: Hold RPCs carry the service principal
+func TestServiceFlashClientSendsServicePrincipal(t *testing.T) {
+	w := wire(t)
+	ctx := buyerCtx()
+	if _, err := w.flash.ReserveFlashSaleStock(ctx, &promotionv1.ReserveFlashSaleStockRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.flash.CommitFlashSaleStock(ctx, &promotionv1.CommitFlashSaleStockRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.flash.ReleaseFlashSaleStock(ctx, &promotionv1.ReleaseFlashSaleStockRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	for _, rpc := range []string{"ReserveFlashSaleStock", "CommitFlashSaleStock", "ReleaseFlashSaleStock"} {
+		md := w.seen.get(rpc)
+		assertPrincipal(t, rpc, md, "service-team-order", "service", "promotion.reserve")
+		if got := one(md, "x-principal-id"); got == "u-7" {
+			t.Errorf("%s: buyer id forwarded", rpc)
+		}
+	}
+}
+
+// Scenario: Advertised price: Price read keeps the forwarded principal
+func TestServiceFlashClientReadNotWrapped(t *testing.T) {
+	w := wire(t)
+	if _, err := w.flash.GetActiveFlashSale(buyerCtx(), &promotionv1.GetActiveFlashSaleRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	assertPrincipal(t, "GetActiveFlashSale", w.seen.get("GetActiveFlashSale"), "u-7", "user", "listing.read")
+}
