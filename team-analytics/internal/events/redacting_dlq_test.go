@@ -137,3 +137,25 @@ func TestRedactingDLQPassesOtherRecordsUnchanged(t *testing.T) {
 	assert.Equal(t, boom, errA)
 	assert.Equal(t, boom, errB)
 }
+
+func TestRedactingDLQDropsUndecodableTrackingPayload(t *testing.T) {
+	sink := &hDLQSink{}
+	r := hRedactor(t, sink)
+
+	rec := hTrackingDLQRecord(t, nil)
+	env := &eventsv1.EventEnvelope{}
+	require.NoError(t, proto.Unmarshal(rec.Value, env))
+	env.Payload = append([]byte{0xff, 0xff, 0xff, 0xff}, []byte("123.456")...)
+	rec.Value = hMarshal(t, env)
+
+	require.NoError(t, r.PublishRecord(context.Background(), rec))
+
+	require.Len(t, sink.got, 1, "scenario: A tracking record with an undecodable payload is published without its payload")
+	got := &eventsv1.EventEnvelope{}
+	require.NoError(t, proto.Unmarshal(sink.got[0].Value, got))
+	assert.Empty(t, got.GetPayload())
+	assert.Equal(t, "evt-9", got.GetEventId())
+	assert.Equal(t, rec.Key, sink.got[0].Key)
+	assert.Equal(t, rec.Headers, sink.got[0].Headers)
+	assert.NotContains(t, string(sink.got[0].Value), "123.456")
+}

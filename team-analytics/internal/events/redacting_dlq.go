@@ -37,7 +37,8 @@ func (d *RedactingDLQ) redact(r *kgo.Record) *kgo.Record {
 	}
 	var te analyticsv1.TrackingEvent
 	if err := proto.Unmarshal(env.GetPayload(), &te); err != nil {
-		return r
+		d.logger.Warn("dead-letter payload dropped", "key_fp", d.fp.Of(r.Key), "err", err)
+		return d.withPayload(r, &env, nil)
 	}
 	consent := te.GetConsent()
 	if te.GetGaClientId() == "" || (consent.GetVersion() == consentVersionCurrent && consent.GetAnalytics()) {
@@ -46,14 +47,18 @@ func (d *RedactingDLQ) redact(r *kgo.Record) *kgo.Record {
 	te.GaClientId = ""
 	payload, err := proto.Marshal(&te)
 	if err != nil {
-		d.logger.Warn("dead-letter redaction failed", "key_fp", d.fp.Of(r.Key), "err", err)
-		return r
+		d.logger.Warn("dead-letter payload dropped", "key_fp", d.fp.Of(r.Key), "err", err)
+		payload = nil
 	}
+	return d.withPayload(r, &env, payload)
+}
+
+func (d *RedactingDLQ) withPayload(r *kgo.Record, env *eventsv1.EventEnvelope, payload []byte) *kgo.Record {
 	env.Payload = payload
-	value, err := proto.Marshal(&env)
+	value, err := proto.Marshal(env)
 	if err != nil {
-		d.logger.Warn("dead-letter redaction failed", "key_fp", d.fp.Of(r.Key), "err", err)
-		return r
+		d.logger.Warn("dead-letter value dropped", "key_fp", d.fp.Of(r.Key), "err", err)
+		value = nil
 	}
 	out := *r
 	out.Value = value
