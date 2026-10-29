@@ -1,17 +1,17 @@
-package repository
+package store
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 )
 
 var (
@@ -90,7 +90,7 @@ type ReturnRepository interface {
 // the compare-and-set returned (its RefundAmount is the stored amount and its
 // UpdatedAt the transition time); currency is the order's currency. Injected by
 // internal/events so the repository stays free of an events dependency.
-type ReturnOutboxBuilder func(ret OrderReturn, currency string) (OutboxRow, error)
+type ReturnOutboxBuilder func(ret OrderReturn, currency string) (outbox.Row, error)
 
 // ReturnRepoOption customizes a return repository.
 type ReturnRepoOption func(*returnRepoConfig)
@@ -98,8 +98,6 @@ type ReturnRepoOption func(*returnRepoConfig)
 type returnRepoConfig struct {
 	refundedOutbox   ReturnOutboxBuilder
 	requestedOutbox  ReturnOutboxBuilder
-	outbox           OutboxRepository // in-memory repo only
-	orders           OrderReader      // in-memory repo only: the order currency
 	autoApproveAfter time.Duration
 }
 
@@ -122,13 +120,6 @@ func WithReturnRequestedOutbox(b ReturnOutboxBuilder) ReturnRepoOption {
 	return func(c *returnRepoConfig) { c.requestedOutbox = b }
 }
 
-// WithInMemoryReturnOutbox sets the outbox store the in-memory repository writes
-// to, atomically with the transition, and the order store it reads the currency
-// from. Ignored by the Postgres repository.
-func WithInMemoryReturnOutbox(o OutboxRepository, orders OrderReader) ReturnRepoOption {
-	return func(c *returnRepoConfig) { c.outbox = o; c.orders = orders }
-}
-
 func newReturnRepoConfig(opts []ReturnRepoOption) returnRepoConfig {
 	var c returnRepoConfig
 	for _, o := range opts {
@@ -137,11 +128,11 @@ func newReturnRepoConfig(opts []ReturnRepoOption) returnRepoConfig {
 	return c
 }
 
-// returnRemainder applies the cap rule to the sum of the order's non-rejected
+// ReturnRemainder applies the cap rule to the sum of the order's non-rejected
 // returns, returning the amount to store. A positive amount above the remainder
 // (including a remainder of 0) is ErrReturnExceedsRemainder; a defaulted amount
 // with nothing left is ErrNoReturnableRemainder.
-func returnRemainder(requested, orderTotal, taken int64) (int64, error) {
+func ReturnRemainder(requested, orderTotal, taken int64) (int64, error) {
 	remaining := orderTotal - taken
 	if remaining < 0 {
 		remaining = 0
@@ -160,14 +151,15 @@ func returnRemainder(requested, orderTotal, taken int64) (int64, error) {
 
 type PostgresReturnRepository struct {
 	pool             *pgxpool.Pool
+	outbox           *outbox.Store
 	refundedOutbox   ReturnOutboxBuilder
 	requestedOutbox  ReturnOutboxBuilder
 	autoApproveAfter time.Duration
 }
 
-func NewPostgresReturnRepository(pool *pgxpool.Pool, opts ...ReturnRepoOption) *PostgresReturnRepository {
+func NewPostgresReturnRepository(pool *pgxpool.Pool, ob *outbox.Store, opts ...ReturnRepoOption) *PostgresReturnRepository {
 	cfg := newReturnRepoConfig(opts)
-	return &PostgresReturnRepository{pool: pool, refundedOutbox: cfg.refundedOutbox, requestedOutbox: cfg.requestedOutbox, autoApproveAfter: cfg.autoApproveAfter}
+	return &PostgresReturnRepository{pool: pool, outbox: ob, refundedOutbox: cfg.refundedOutbox, requestedOutbox: cfg.requestedOutbox, autoApproveAfter: cfg.autoApproveAfter}
 }
 
 const returnColumns = `id, order_id, buyer_id, seller_id, reason, refund_amount, status, created_at, updated_at, auto_approve_at`
@@ -181,7 +173,7 @@ func scanReturn(row pgx.Row, r *OrderReturn) error {
 	return nil
 }
 
-func prepareReturn(ret *OrderReturn, autoApproveAfter time.Duration) {
+func PrepareReturn(ret *OrderReturn, autoApproveAfter time.Duration) {
 	if ret.ID == "" {
 		ret.ID = uuid.NewString()
 	}
@@ -197,7 +189,7 @@ const insertReturnSQL = `INSERT INTO order_returns (` + returnColumns + `)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
 func (r *PostgresReturnRepository) CreateReturn(ctx context.Context, ret OrderReturn) (OrderReturn, error) {
-	prepareReturn(&ret, r.autoApproveAfter)
+	PrepareReturn(&ret, r.autoApproveAfter)
 	if _, err := r.pool.Exec(ctx, insertReturnSQL, ret.ID, ret.OrderID, ret.BuyerID, ret.SellerID, ret.Reason, ret.RefundAmount, int32(ret.Status), ret.CreatedAt, ret.UpdatedAt, ret.AutoApproveAt); err != nil {
 		return OrderReturn{}, fmt.Errorf("insert return request: %w", err)
 	}
@@ -205,12 +197,12 @@ func (r *PostgresReturnRepository) CreateReturn(ctx context.Context, ret OrderRe
 }
 
 func (r *PostgresReturnRepository) CreateReturnCapped(ctx context.Context, ret OrderReturn, orderTotal int64) (OrderReturn, error) {
-	prepareReturn(&ret, r.autoApproveAfter)
+	PrepareReturn(&ret, r.autoApproveAfter)
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return OrderReturn{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// The order row lock serialises every capped create of this order, so the sum
 	// below always sees the returns committed before it.
@@ -226,7 +218,7 @@ func (r *PostgresReturnRepository) CreateReturnCapped(ctx context.Context, ret O
 		ret.OrderID, int32(ReturnStatusRejected)).Scan(&taken); err != nil {
 		return OrderReturn{}, fmt.Errorf("sum returns of order %q: %w", ret.OrderID, err)
 	}
-	amount, err := returnRemainder(ret.RefundAmount, orderTotal, taken)
+	amount, err := ReturnRemainder(ret.RefundAmount, orderTotal, taken)
 	if err != nil {
 		return OrderReturn{}, err
 	}
@@ -239,7 +231,7 @@ func (r *PostgresReturnRepository) CreateReturnCapped(ctx context.Context, ret O
 		if err != nil {
 			return OrderReturn{}, fmt.Errorf("build return requested outbox row: %w", err)
 		}
-		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
 			return OrderReturn{}, err
 		}
 	}
@@ -328,7 +320,7 @@ func (r *PostgresReturnRepository) TransitionReturn(ctx context.Context, id stri
 	if err != nil {
 		return OrderReturn{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// The status condition is decided by this UPDATE itself (row lock), never by
 	// an earlier read: of concurrent transitions of one return, one wins.
@@ -360,7 +352,7 @@ func (r *PostgresReturnRepository) TransitionReturn(ctx context.Context, id stri
 		if err != nil {
 			return OrderReturn{}, fmt.Errorf("build return refunded outbox row: %w", err)
 		}
-		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
 			return OrderReturn{}, err
 		}
 	}
@@ -370,186 +362,12 @@ func (r *PostgresReturnRepository) TransitionReturn(ctx context.Context, id stri
 	return ret, nil
 }
 
-// InMemoryReturnRepository
-type InMemoryReturnRepository struct {
-	mu               sync.RWMutex
-	returns          map[string]OrderReturn
-	refundedOutbox   ReturnOutboxBuilder
-	requestedOutbox  ReturnOutboxBuilder
-	outbox           OutboxRepository
-	orders           OrderReader
-	autoApproveAfter time.Duration
-}
-
-func NewInMemoryReturnRepository(opts ...ReturnRepoOption) *InMemoryReturnRepository {
-	cfg := newReturnRepoConfig(opts)
-	return &InMemoryReturnRepository{
-		returns:          make(map[string]OrderReturn),
-		refundedOutbox:   cfg.refundedOutbox,
-		requestedOutbox:  cfg.requestedOutbox,
-		outbox:           cfg.outbox,
-		orders:           cfg.orders,
-		autoApproveAfter: cfg.autoApproveAfter,
-	}
-}
-
-func (r *InMemoryReturnRepository) CreateReturn(_ context.Context, ret OrderReturn) (OrderReturn, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	prepareReturn(&ret, r.autoApproveAfter)
-	r.returns[ret.ID] = ret
-	return ret, nil
-}
-
-func (r *InMemoryReturnRepository) CreateReturnCapped(ctx context.Context, ret OrderReturn, orderTotal int64) (OrderReturn, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	var taken int64
-	for _, existing := range r.returns {
-		if existing.OrderID == ret.OrderID && existing.Status != ReturnStatusRejected {
-			taken += existing.RefundAmount
-		}
-	}
-	amount, err := returnRemainder(ret.RefundAmount, orderTotal, taken)
-	if err != nil {
-		return OrderReturn{}, err
-	}
-	ret.RefundAmount = amount
-	prepareReturn(&ret, r.autoApproveAfter)
-	if r.requestedOutbox != nil && r.outbox != nil {
-		currency := ""
-		if r.orders != nil {
-			o, err := r.orders.GetOrder(ctx, ret.OrderID)
-			if err != nil {
-				return OrderReturn{}, fmt.Errorf("read currency of order %q: %w", ret.OrderID, err)
-			}
-			currency = o.Currency
-		}
-		row, err := r.requestedOutbox(ret, currency)
-		if err != nil {
-			return OrderReturn{}, fmt.Errorf("build return requested outbox row: %w", err)
-		}
-		if err := r.outbox.Enqueue(ctx, row); err != nil {
-			return OrderReturn{}, err
-		}
-	}
-	r.returns[ret.ID] = ret
-	return ret, nil
-}
-
-func (r *InMemoryReturnRepository) GetReturn(_ context.Context, id string) (OrderReturn, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	ret, ok := r.returns[id]
-	if !ok {
-		return OrderReturn{}, ErrReturnNotFound
-	}
-	return ret, nil
-}
-
-func (r *InMemoryReturnRepository) GetReturnByOrderID(_ context.Context, orderID string) (OrderReturn, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	for _, ret := range r.returns {
-		if ret.OrderID == orderID {
-			return ret, nil
-		}
-	}
-	return OrderReturn{}, ErrReturnNotFound
-}
-
-func (r *InMemoryReturnRepository) filter(keep func(OrderReturn) bool) []OrderReturn {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var res []OrderReturn
-	for _, ret := range r.returns {
-		if keep(ret) {
-			res = append(res, ret)
-		}
-	}
-	return res
-}
-
-func (r *InMemoryReturnRepository) ListReturnsByBuyer(_ context.Context, buyerID string) ([]OrderReturn, error) {
-	return r.filter(func(ret OrderReturn) bool { return ret.BuyerID == buyerID }), nil
-}
-
-func (r *InMemoryReturnRepository) ListReturnsBySeller(_ context.Context, sellerID string) ([]OrderReturn, error) {
-	return r.filter(func(ret OrderReturn) bool { return ret.SellerID == sellerID }), nil
-}
-
-func (r *InMemoryReturnRepository) ListReturnsByOrder(_ context.Context, orderID string) ([]OrderReturn, error) {
-	res := r.filter(func(ret OrderReturn) bool { return ret.OrderID == orderID })
-	sort.Slice(res, func(i, j int) bool {
-		if !res[i].CreatedAt.Equal(res[j].CreatedAt) {
-			return res[i].CreatedAt.After(res[j].CreatedAt)
-		}
-		return res[i].ID > res[j].ID
-	})
-	return res, nil
-}
-
-func (r *InMemoryReturnRepository) TransitionReturn(ctx context.Context, id string, from, to ReturnStatus) (OrderReturn, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	ret, ok := r.returns[id]
-	if !ok {
-		return OrderReturn{}, ErrReturnNotFound
-	}
-	if ret.Status != from {
-		return OrderReturn{}, ErrReturnStatusConflict
-	}
-	ret.Status = to
-	ret.UpdatedAt = time.Now()
-	// Mirror the Postgres repo: the outbox row and the transition are one unit;
-	// the return is stored only after the row is enqueued.
-	if from == ReturnStatusApproved && to == ReturnStatusRefunded && r.refundedOutbox != nil && r.outbox != nil {
-		currency := ""
-		if r.orders != nil {
-			o, err := r.orders.GetOrder(ctx, ret.OrderID)
-			if err != nil {
-				return OrderReturn{}, fmt.Errorf("read currency of order %q: %w", ret.OrderID, err)
-			}
-			currency = o.Currency
-		}
-		row, err := r.refundedOutbox(ret, currency)
-		if err != nil {
-			return OrderReturn{}, fmt.Errorf("build return refunded outbox row: %w", err)
-		}
-		if err := r.outbox.Enqueue(ctx, row); err != nil {
-			return OrderReturn{}, err
-		}
-	}
-	r.returns[id] = ret
-	return ret, nil
-}
-
-// ListAutoApprovable: PENDING returns with auto_approve_at <= now, oldest first.
-func (r *InMemoryReturnRepository) ListAutoApprovable(_ context.Context, now time.Time, limit int) ([]OrderReturn, error) {
-	res := r.filter(func(ret OrderReturn) bool {
-		return ret.Status == ReturnStatusPending && ret.AutoApproveAt != nil && !ret.AutoApproveAt.After(now)
-	})
-	sort.Slice(res, func(i, j int) bool {
-		if !res[i].AutoApproveAt.Equal(*res[j].AutoApproveAt) {
-			return res[i].AutoApproveAt.Before(*res[j].AutoApproveAt)
-		}
-		return res[i].ID < res[j].ID
-	})
-	if limit > 0 && len(res) > limit {
-		res = res[:limit]
-	}
-	return res, nil
-}
-
 func (r *PostgresReturnRepository) ReapproveReturn(ctx context.Context, id string, orderTotal int64) (OrderReturn, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return OrderReturn{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var orderID string
 	if err := tx.QueryRow(ctx, `SELECT order_id FROM order_returns WHERE id = $1`, id).Scan(&orderID); err != nil {
@@ -578,7 +396,7 @@ func (r *PostgresReturnRepository) ReapproveReturn(ctx context.Context, id strin
 		orderID, int32(ReturnStatusRejected)).Scan(&taken); err != nil {
 		return OrderReturn{}, fmt.Errorf("sum returns of order %q: %w", orderID, err)
 	}
-	if _, err := returnRemainder(amount, orderTotal, taken); err != nil {
+	if _, err := ReturnRemainder(amount, orderTotal, taken); err != nil {
 		return OrderReturn{}, err
 	}
 	const q = `UPDATE order_returns SET status = $3, updated_at = now()
@@ -593,30 +411,5 @@ func (r *PostgresReturnRepository) ReapproveReturn(ctx context.Context, id strin
 	if err := tx.Commit(ctx); err != nil {
 		return OrderReturn{}, fmt.Errorf("commit tx: %w", err)
 	}
-	return ret, nil
-}
-
-func (r *InMemoryReturnRepository) ReapproveReturn(_ context.Context, id string, orderTotal int64) (OrderReturn, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	ret, ok := r.returns[id]
-	if !ok {
-		return OrderReturn{}, ErrReturnNotFound
-	}
-	if ret.Status != ReturnStatusRejected {
-		return OrderReturn{}, ErrReturnStatusConflict
-	}
-	var taken int64
-	for _, existing := range r.returns {
-		if existing.OrderID == ret.OrderID && existing.Status != ReturnStatusRejected {
-			taken += existing.RefundAmount
-		}
-	}
-	if _, err := returnRemainder(ret.RefundAmount, orderTotal, taken); err != nil {
-		return OrderReturn{}, err
-	}
-	ret.Status = ReturnStatusApproved
-	ret.UpdatedAt = time.Now()
-	r.returns[id] = ret
 	return ret, nil
 }

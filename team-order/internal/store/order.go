@@ -1,4 +1,4 @@
-package repository
+package store
 
 import (
 	"context"
@@ -6,14 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 )
 
@@ -130,7 +129,7 @@ type OrderRepository interface {
 
 // ReminderOutboxBuilder turns an order that has just been stamped as reminded
 // into the OrderPaymentReminder outbox row written in the same transaction.
-type ReminderOutboxBuilder func(order Order) (OutboxRow, error)
+type ReminderOutboxBuilder func(order Order) (outbox.Row, error)
 
 // WithReminderOutbox makes every won MarkReminderSent write the reminder outbox
 // row built by b in the SAME transaction as the stamp.
@@ -167,18 +166,18 @@ func newStatusConfig(opts []StatusOption) statusConfig {
 // outbox row to persist alongside that transition (ADR-0013). order.UpdatedAt is
 // the transition timestamp. The builder is injected (internal/events owns the
 // envelope/contract) so the repository stays free of an events dependency.
-type PaidOutboxBuilder func(order Order) (OutboxRow, error)
+type PaidOutboxBuilder func(order Order) (outbox.Row, error)
 
 // CancelledOutboxBuilder turns an order that has just won the claim to CANCELLED
 // into the outbox row to persist alongside that claim. order is the row the
 // compare-and-set returned: PaidAt is set iff the order was cancelled from Paid
 // (paid_at is written only by the move to Paid, and only Pending/Paid cancel).
-type CancelledOutboxBuilder func(order Order) (OutboxRow, error)
+type CancelledOutboxBuilder func(order Order) (outbox.Row, error)
 
 // OrderRepoOption customizes an order repository.
 // PlacedOutboxBuilder turns an order that has just been placed into the OrderPlaced
 // outbox row written in the placement transaction.
-type PlacedOutboxBuilder func(order Order) (OutboxRow, error)
+type PlacedOutboxBuilder func(order Order) (outbox.Row, error)
 
 // WithPlacedOutbox makes PlaceOrders write one OrderPlaced outbox row per order in
 // the same transaction as the placement.
@@ -190,7 +189,7 @@ type OrderRepoOption func(*orderRepoConfig)
 
 // CompletedOutboxBuilder turns an order that has just won the move to Completed
 // into the OrderCompleted outbox row written in the same transaction.
-type CompletedOutboxBuilder func(order Order) (OutboxRow, error)
+type CompletedOutboxBuilder func(order Order) (outbox.Row, error)
 
 // WithCompletedOutbox makes every won move to Completed write the row built by b in
 // the SAME transaction as the status change.
@@ -236,7 +235,6 @@ type orderRepoConfig struct {
 	placedOutbox    PlacedOutboxBuilder
 	reminderOutbox  ReminderOutboxBuilder
 	completedOutbox CompletedOutboxBuilder
-	outbox          OutboxRepository // in-memory repo only
 
 	autoCompleteAfter, returnWindow, shipByAfter time.Duration
 }
@@ -255,13 +253,6 @@ func WithCancelledOutbox(b CancelledOutboxBuilder) OrderRepoOption {
 	return func(c *orderRepoConfig) { c.cancelledOutbox = b }
 }
 
-// WithInMemoryOutbox sets the outbox store the in-memory repository writes to,
-// atomically with the status change. Ignored by the Postgres repository, which
-// always writes to order_outbox_events in its own transaction.
-func WithInMemoryOutbox(o OutboxRepository) OrderRepoOption {
-	return func(c *orderRepoConfig) { c.outbox = o }
-}
-
 func newOrderRepoConfig(opts []OrderRepoOption) orderRepoConfig {
 	var c orderRepoConfig
 	for _, o := range opts {
@@ -272,6 +263,7 @@ func newOrderRepoConfig(opts []OrderRepoOption) orderRepoConfig {
 
 type PostgresOrderRepository struct {
 	pool            *pgxpool.Pool
+	outbox          *outbox.Store
 	paidOutbox      PaidOutboxBuilder
 	cancelledOutbox CancelledOutboxBuilder
 	placedOutbox    PlacedOutboxBuilder
@@ -281,14 +273,18 @@ type PostgresOrderRepository struct {
 	autoCompleteAfter, returnWindow, shipByAfter time.Duration
 }
 
-func NewPostgresOrderRepository(pool *pgxpool.Pool, opts ...OrderRepoOption) *PostgresOrderRepository {
+func NewPostgresOrderRepository(pool *pgxpool.Pool, ob *outbox.Store, opts ...OrderRepoOption) *PostgresOrderRepository {
 	cfg := newOrderRepoConfig(opts)
-	return &PostgresOrderRepository{pool: pool, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, reminderOutbox: cfg.reminderOutbox,
-		completedOutbox: cfg.completedOutbox, autoCompleteAfter: cfg.autoCompleteAfter, returnWindow: cfg.returnWindow, shipByAfter: cfg.shipByAfter}
+	return &PostgresOrderRepository{
+		pool: pool, outbox: ob, paidOutbox: cfg.paidOutbox, cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, reminderOutbox: cfg.reminderOutbox,
+		completedOutbox: cfg.completedOutbox, autoCompleteAfter: cfg.autoCompleteAfter, returnWindow: cfg.returnWindow, shipByAfter: cfg.shipByAfter,
+	}
 }
 
-const orderColumns = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at, cancel_reason, payment_reminder_sent_at, shipped_at, auto_complete_at, completed_at, return_window_ends_at, ship_by, checkout_id, platform_voucher_code, platform_discount_amount`
-const orderItemColumns = `id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url`
+const (
+	orderColumns     = `id, buyer_id, seller_id, status, total_amount, currency, shipping_address, tracking_number, created_at, updated_at, shipping_fee, items_subtotal, payment_method, voucher_code, discount_amount, paid_at, payment_due_at, cancel_reason, payment_reminder_sent_at, shipped_at, auto_complete_at, completed_at, return_window_ends_at, ship_by, checkout_id, platform_voucher_code, platform_discount_amount`
+	orderItemColumns = `id, order_id, listing_id, variant_id, title, variant_name, quantity, unit_price, image_url`
+)
 
 func scanOrder(row pgx.Row, o *Order) error {
 	var addrRaw []byte
@@ -324,7 +320,7 @@ func (r *PostgresOrderRepository) CreateOrder(ctx context.Context, order Order) 
 	if err != nil {
 		return Order{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	if err := insertOrderTx(ctx, tx, &order); err != nil {
 		return Order{}, err
@@ -530,7 +526,7 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 	if err != nil {
 		return Order{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// The status condition is decided by this UPDATE itself (row lock), never by
 	// an earlier read. paid_at is recorded by the move to Paid and nothing else.
@@ -574,7 +570,7 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 		if err != nil {
 			return Order{}, fmt.Errorf("build order paid outbox row: %w", err)
 		}
-		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
 			return Order{}, err
 		}
 	}
@@ -585,7 +581,7 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 		if err != nil {
 			return Order{}, fmt.Errorf("build order cancelled outbox row: %w", err)
 		}
-		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
 			return Order{}, err
 		}
 	}
@@ -596,7 +592,7 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 			if err != nil {
 				return Order{}, fmt.Errorf("build order completed outbox row: %w", err)
 			}
-			if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+			if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
 				return Order{}, err
 			}
 		}
@@ -604,181 +600,6 @@ func (r *PostgresOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id 
 	if err := tx.Commit(ctx); err != nil {
 		return Order{}, fmt.Errorf("commit tx: %w", err)
 	}
-	return o, nil
-}
-
-// InMemoryOrderRepository for unit tests
-type InMemoryOrderRepository struct {
-	mu              sync.RWMutex
-	orders          map[string]Order
-	paidOutbox      PaidOutboxBuilder
-	cancelledOutbox CancelledOutboxBuilder
-	placedOutbox    PlacedOutboxBuilder
-	reminderOutbox  ReminderOutboxBuilder
-	completedOutbox CompletedOutboxBuilder
-	outbox          OutboxRepository
-	returnSource    ReturnRepository
-
-	autoCompleteAfter, returnWindow, shipByAfter time.Duration
-}
-
-func NewInMemoryOrderRepository(opts ...OrderRepoOption) *InMemoryOrderRepository {
-	cfg := newOrderRepoConfig(opts)
-	return &InMemoryOrderRepository{orders: make(map[string]Order), paidOutbox: cfg.paidOutbox,
-		cancelledOutbox: cfg.cancelledOutbox, placedOutbox: cfg.placedOutbox, reminderOutbox: cfg.reminderOutbox, outbox: cfg.outbox,
-		completedOutbox: cfg.completedOutbox, autoCompleteAfter: cfg.autoCompleteAfter, returnWindow: cfg.returnWindow, shipByAfter: cfg.shipByAfter}
-}
-
-func (r *InMemoryOrderRepository) CreateOrder(_ context.Context, order Order) (Order, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if order.ID == "" {
-		order.ID = uuid.NewString()
-	}
-	if order.Currency == "" {
-		order.Currency = "VND"
-	}
-	if order.Status == 0 {
-		order.Status = OrderStatusPending
-	}
-	order.CreatedAt = time.Now()
-	order.UpdatedAt = time.Now()
-	for i := range order.Items {
-		if order.Items[i].ID == "" {
-			order.Items[i].ID = uuid.NewString()
-		}
-		order.Items[i].OrderID = order.ID
-	}
-	r.orders[order.ID] = order
-	return order, nil
-}
-
-func (r *InMemoryOrderRepository) GetOrder(_ context.Context, id string) (Order, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	o, ok := r.orders[id]
-	if !ok {
-		return Order{}, ErrOrderNotFound
-	}
-	return o, nil
-}
-
-func (r *InMemoryOrderRepository) ListBuyerOrders(_ context.Context, buyerID string, statusFilter int32) ([]Order, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var res []Order
-	for _, o := range r.orders {
-		if o.BuyerID == buyerID {
-			if statusFilter == 0 || int32(o.Status) == statusFilter {
-				res = append(res, o)
-			}
-		}
-	}
-	return res, nil
-}
-
-func (r *InMemoryOrderRepository) ListSellerOrders(_ context.Context, sellerID string, statusFilter int32) ([]Order, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var res []Order
-	for _, o := range r.orders {
-		if o.SellerID == sellerID {
-			if statusFilter == 0 || int32(o.Status) == statusFilter {
-				res = append(res, o)
-			}
-		}
-	}
-	return res, nil
-}
-
-func (r *InMemoryOrderRepository) ListOrdersByCheckout(_ context.Context, checkoutID string) ([]Order, error) {
-	if checkoutID == "" {
-		return nil, nil
-	}
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var res []Order
-	for _, o := range r.orders {
-		if o.CheckoutID == checkoutID {
-			res = append(res, o)
-		}
-	}
-	return res, nil
-}
-
-func (r *InMemoryOrderRepository) UpdateOrderStatusFrom(ctx context.Context, id string, to OrderStatus, allowedFrom []OrderStatus, trackingNumber string, opts ...StatusOption) (Order, error) {
-	cfg := newStatusConfig(opts)
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	o, ok := r.orders[id]
-	if !ok {
-		return Order{}, ErrOrderNotFound
-	}
-	allowed := false
-	for _, st := range allowedFrom {
-		if o.Status == st {
-			allowed = true
-			break
-		}
-	}
-	if !allowed {
-		return Order{}, ErrStatusConflict
-	}
-	o.Status = to
-	if trackingNumber != "" {
-		o.TrackingNumber = trackingNumber
-	}
-	o.UpdatedAt = time.Now()
-	if to == OrderStatusCancelled {
-		o.CancelReason = cfg.cancelReason
-	}
-	if to == OrderStatusPaid {
-		paidAt := o.UpdatedAt
-		o.PaidAt = &paidAt
-		o.ShipBy = stampAfter(paidAt, r.shipByAfter)
-	}
-	if to == OrderStatusShipped {
-		shippedAt := o.UpdatedAt
-		o.ShippedAt = &shippedAt
-		o.AutoCompleteAt = stampAfter(shippedAt, r.autoCompleteAfter)
-	}
-	if to == OrderStatusCompleted {
-		completedAt := o.UpdatedAt
-		o.CompletedAt = &completedAt
-		o.AutoCompleteAt = nil
-		o.ReturnWindowEndsAt = stampAfter(completedAt, r.returnWindow)
-		o.CompletedBy = cfg.completedBy
-	}
-	// Mirror the Postgres repo: the outbox row and the status change are one unit;
-	// the order is stored only after the row is enqueued.
-	if to == OrderStatusPaid && r.paidOutbox != nil && r.outbox != nil {
-		row, err := r.paidOutbox(o)
-		if err != nil {
-			return Order{}, fmt.Errorf("build order paid outbox row: %w", err)
-		}
-		if err := r.outbox.Enqueue(ctx, row); err != nil {
-			return Order{}, err
-		}
-	}
-	if to == OrderStatusCancelled && r.cancelledOutbox != nil && r.outbox != nil {
-		row, err := r.cancelledOutbox(o)
-		if err != nil {
-			return Order{}, fmt.Errorf("build order cancelled outbox row: %w", err)
-		}
-		if err := r.outbox.Enqueue(ctx, row); err != nil {
-			return Order{}, err
-		}
-	}
-	if to == OrderStatusCompleted && r.completedOutbox != nil && r.outbox != nil {
-		row, err := r.completedOutbox(o)
-		if err != nil {
-			return Order{}, fmt.Errorf("build order completed outbox row: %w", err)
-		}
-		if err := r.outbox.Enqueue(ctx, row); err != nil {
-			return Order{}, err
-		}
-	}
-	r.orders[id] = o
 	return o, nil
 }
 
@@ -818,61 +639,9 @@ func (r *PostgresOrderRepository) ListAutoCompletable(ctx context.Context, now t
 	return res, rows.Err()
 }
 
-// SetReturnSource lets the in-memory order store evaluate the blocking-return
-// rule of ListAutoCompletable (the Postgres store does it in SQL).
-func (r *InMemoryOrderRepository) SetReturnSource(src ReturnRepository) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.returnSource = src
-}
-
-// ListAutoCompletable: SHIPPED orders with auto_complete_at <= now and no blocking
-// return (PENDING, or APPROVED when the order has paid_at), oldest deadline first.
-func (r *InMemoryOrderRepository) ListAutoCompletable(ctx context.Context, now time.Time, limit int) ([]Order, error) {
-	r.mu.RLock()
-	var due []Order
-	for _, o := range r.orders {
-		if o.Status == OrderStatusShipped && o.AutoCompleteAt != nil && !o.AutoCompleteAt.After(now) {
-			due = append(due, o)
-		}
-	}
-	src := r.returnSource
-	r.mu.RUnlock()
-	sort.Slice(due, func(i, j int) bool {
-		if !due[i].AutoCompleteAt.Equal(*due[j].AutoCompleteAt) {
-			return due[i].AutoCompleteAt.Before(*due[j].AutoCompleteAt)
-		}
-		return due[i].ID < due[j].ID
-	})
-	var res []Order
-	for _, o := range due {
-		if limit > 0 && len(res) >= limit {
-			break
-		}
-		if src != nil {
-			rets, err := src.ListReturnsByOrder(ctx, o.ID)
-			if err != nil {
-				return nil, err
-			}
-			blocked := false
-			for _, ret := range rets {
-				if ret.Status == ReturnStatusPending || (ret.Status == ReturnStatusApproved && o.PaidAt != nil) {
-					blocked = true
-					break
-				}
-			}
-			if blocked {
-				continue
-			}
-		}
-		res = append(res, o)
-	}
-	return res, nil
-}
-
-// codPaymentMethod is paymentv1.PaymentMethod_PAYMENT_METHOD_COD; COD orders have
+// CodPaymentMethod is paymentv1.PaymentMethod_PAYMENT_METHOD_COD; COD orders have
 // no payment deadline and are never reminded.
-const codPaymentMethod = int32(paymentv1.PaymentMethod_PAYMENT_METHOD_COD)
+const CodPaymentMethod = int32(paymentv1.PaymentMethod_PAYMENT_METHOD_COD)
 
 func (r *PostgresOrderRepository) FindReminderDue(ctx context.Context, now time.Time, before time.Duration, limit int) ([]Order, error) {
 	const q = `SELECT ` + orderColumns + ` FROM orders
@@ -880,7 +649,7 @@ func (r *PostgresOrderRepository) FindReminderDue(ctx context.Context, now time.
 		  AND payment_reminder_sent_at IS NULL
 		  AND payment_due_at - make_interval(secs => $3) <= $4 AND payment_due_at > $4
 		ORDER BY payment_due_at, id LIMIT $5`
-	rows, err := r.pool.Query(ctx, q, int32(OrderStatusPending), codPaymentMethod, before.Seconds(), now, limit)
+	rows, err := r.pool.Query(ctx, q, int32(OrderStatusPending), CodPaymentMethod, before.Seconds(), now, limit)
 	if err != nil {
 		return nil, fmt.Errorf("find reminder due: %w", err)
 	}
@@ -900,7 +669,7 @@ func (r *PostgresOrderRepository) FindExpired(ctx context.Context, now time.Time
 	const q = `SELECT ` + orderColumns + ` FROM orders
 		WHERE status = $1 AND payment_method <> $2 AND payment_due_at IS NOT NULL AND payment_due_at < $3
 		ORDER BY payment_due_at, id LIMIT $4`
-	rows, err := r.pool.Query(ctx, q, int32(OrderStatusPending), codPaymentMethod, now, limit)
+	rows, err := r.pool.Query(ctx, q, int32(OrderStatusPending), CodPaymentMethod, now, limit)
 	if err != nil {
 		return nil, fmt.Errorf("find expired: %w", err)
 	}
@@ -921,7 +690,7 @@ func (r *PostgresOrderRepository) MarkReminderSent(ctx context.Context, id strin
 	if err != nil {
 		return Order{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	const q = `UPDATE orders SET payment_reminder_sent_at = $2
 		WHERE id = $1 AND status = $3 AND payment_reminder_sent_at IS NULL
 		RETURNING ` + orderColumns
@@ -949,87 +718,12 @@ func (r *PostgresOrderRepository) MarkReminderSent(ctx context.Context, id strin
 		if err != nil {
 			return Order{}, fmt.Errorf("build payment reminder outbox row: %w", err)
 		}
-		if err := enqueueOutboxTx(ctx, tx, row); err != nil {
+		if err := r.outbox.EnqueueTx(ctx, tx, row); err != nil {
 			return Order{}, err
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Order{}, fmt.Errorf("commit tx: %w", err)
 	}
-	return o, nil
-}
-
-func (r *InMemoryOrderRepository) FindReminderDue(_ context.Context, now time.Time, before time.Duration, limit int) ([]Order, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var res []Order
-	for _, o := range r.orders {
-		if o.Status != OrderStatusPending || o.PaymentMethod == codPaymentMethod || o.PaymentDueAt == nil ||
-			o.PaymentReminderSentAt != nil {
-			continue
-		}
-		due := *o.PaymentDueAt
-		if due.Add(-before).After(now) || !due.After(now) {
-			continue
-		}
-		res = append(res, o)
-	}
-	sort.Slice(res, func(i, j int) bool {
-		if !res[i].PaymentDueAt.Equal(*res[j].PaymentDueAt) {
-			return res[i].PaymentDueAt.Before(*res[j].PaymentDueAt)
-		}
-		return res[i].ID < res[j].ID
-	})
-	if limit > 0 && len(res) > limit {
-		res = res[:limit]
-	}
-	return res, nil
-}
-
-func (r *InMemoryOrderRepository) FindExpired(_ context.Context, now time.Time, limit int) ([]Order, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var res []Order
-	for _, o := range r.orders {
-		if o.Status != OrderStatusPending || o.PaymentMethod == codPaymentMethod || o.PaymentDueAt == nil ||
-			!o.PaymentDueAt.Before(now) {
-			continue
-		}
-		res = append(res, o)
-	}
-	sort.Slice(res, func(i, j int) bool {
-		if !res[i].PaymentDueAt.Equal(*res[j].PaymentDueAt) {
-			return res[i].PaymentDueAt.Before(*res[j].PaymentDueAt)
-		}
-		return res[i].ID < res[j].ID
-	})
-	if limit > 0 && len(res) > limit {
-		res = res[:limit]
-	}
-	return res, nil
-}
-
-func (r *InMemoryOrderRepository) MarkReminderSent(ctx context.Context, id string, now time.Time) (Order, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	o, ok := r.orders[id]
-	if !ok {
-		return Order{}, ErrOrderNotFound
-	}
-	if o.Status != OrderStatusPending || o.PaymentReminderSentAt != nil {
-		return Order{}, ErrStatusConflict
-	}
-	sent := now
-	o.PaymentReminderSentAt = &sent
-	if r.reminderOutbox != nil && r.outbox != nil {
-		row, err := r.reminderOutbox(o)
-		if err != nil {
-			return Order{}, fmt.Errorf("build payment reminder outbox row: %w", err)
-		}
-		if err := r.outbox.Enqueue(ctx, row); err != nil {
-			return Order{}, err
-		}
-	}
-	r.orders[id] = o
 	return o, nil
 }
