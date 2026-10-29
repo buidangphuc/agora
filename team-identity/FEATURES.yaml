@@ -2416,3 +2416,731 @@ features:
     tags: [auth, session, unit]
     status: not-testable
     notes: "frontend-session-client-context: unit-verified, not producible end to end (identity trusts only gateway-stamped metadata (ADR-0010); forged metadata cannot be sent straight at identity). Verified by: `team-identity/internal/rpc/auth_test.go`"
+
+  - id: auth.sdk-session-retention-the-sweeper-always-runs
+    title: "Session retention: the sweeper always runs"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Session retention: the sweeper always runs"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestSweeperRunsAtStart`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-missing-port-environment-key-or-key-id-fails-the-load
+    title: "A missing port, environment, key or key id fails the load"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A missing port, environment, key or key id fails the load"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestValidateRequiresPrivateKeyAndKID`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-removed-variables-are-ignored-when-set
+    title: "Removed variables are ignored when set"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Removed variables are ignored when set"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestRemovedVariablesAreIgnored`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-audit-address-is-required-in-every-env
+    title: "The audit address is required in every ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The audit address is required in every ENV"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestAuditAddrRequiredInEveryEnv`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-purge-settings-are-validated
+    title: "Purge settings are validated"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Purge settings are validated"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestOutboxPurgeSettingsValidated`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-migrate-loader-needs-only-the-environment-and-the-database
+    title: "The migrate loader needs only the environment and the database"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The migrate loader needs only the environment and the database"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestLoadMigrateNeedsOnlyDatabase`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-strict-env-requires-the-brokers-and-log-fingerprint-secret
+    title: "Strict ENV requires the brokers and log fingerprint secret"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Strict ENV requires the brokers and log fingerprint secret"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestStrictEnvRequiresDependencyAddresses`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-reset-token-is-never-exposed-in-a-deployed-env
+    title: "The reset token is never exposed in a deployed ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The reset token is never exposed in a deployed ENV"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestPasswordResetExposeTokenDefaultsOffAndRefusedInProd`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-development-signing-key-is-refused-when-settings-load-in-a-deploye
+    title: "The development signing key is refused when settings load in a deployed ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The development signing key is refused when settings load in a deployed ENV"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestStrictEnvRefusesDevSigningKey`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-every-strict-refusal-of-one-load-is-reported-together
+    title: "Every strict refusal of one load is reported together"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Every strict refusal of one load is reported together"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestStrictEnvReportsAllRefusals`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-development-signing-key-is-refused-by-run-in-a-deployed-env
+    title: "The development signing key is refused by Run in a deployed ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The development signing key is refused by Run in a deployed ENV"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestRunRefusesDevSigningKeyBeforeConnecting`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-an-unusable-signing-key-fails-boot-in-every-env
+    title: "An unusable signing key fails boot in every ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "An unusable signing key fails boot in every ENV"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestRunFailsOnUnparsableSigningKey`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-seed-admin-keeps-its-guard
+    title: "Seed admin keeps its guard"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Seed admin keeps its guard"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestSeedAdminValidation`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-server-binary-does-not-link-the-in-memory-fakes
+    title: "The server binary does not link the in-memory fakes"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The server binary does not link the in-memory fakes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestServerBinaryExcludesFakes`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-an-empty-database-is-migrated-by-the-subcommand
+    title: "An empty database is migrated by the subcommand"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "An empty database is migrated by the subcommand"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestMigrateUpAppliesAllMigrations`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-service-never-migrates-at-boot
+    title: "The service never migrates at boot"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The service never migrates at boot"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestRunDoesNotMigrate`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-binary-dispatches-migrate-up
+    title: "The binary dispatches migrate up"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The binary dispatches migrate up"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `cmd/server` `TestMigrateSubcommandDispatch`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-database-already-at-version-8-is-upgraded-without-data-loss
+    title: "A database already at version 8 is upgraded without data loss"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A database already at version 8 is upgraded without data loss"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestMigrateUpgradesVersionEightDatabase`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-dirty-migration-state-fails-the-subcommand
+    title: "A dirty migration state fails the subcommand"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A dirty migration state fails the subcommand"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestMigrateFailsWhenStateIsDirty`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-failed-migration-leaves-no-half-started-server
+    title: "A failed migration leaves no half-started server"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A failed migration leaves no half-started server"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestMigrateFailsWhenStateIsDirty`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-outbox-migrations-equal-the-sdk-upgrade-steps
+    title: "The outbox migrations equal the SDK upgrade steps"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The outbox migrations equal the SDK upgrade steps"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestOutboxMigrationsEqualUpgradeSQL`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-row-parked-by-the-old-relayer-is-relayed-after-the-upgrade
+    title: "A row parked by the old relayer is relayed after the upgrade"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A row parked by the old relayer is relayed after the upgrade"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestOutboxUpgradeRequeuesParkedRows`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-unpublished-rows-of-the-old-aggregate-join-the-user-aggregate
+    title: "Unpublished rows of the old aggregate join the user aggregate"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Unpublished rows of the old aggregate join the user aggregate"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestOutboxUpgradeUnifiesAggregateType`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-migrations-0001-to-0008-keep-their-down-steps
+    title: "Migrations 0001 to 0008 keep their down steps"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Migrations 0001 to 0008 keep their down steps"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestMigration0007UserStatusUpDown`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-kafka-outage-does-not-fail-readiness-or-login
+    title: "A Kafka outage does not fail readiness or login"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A Kafka outage does not fail readiness or login"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestKafkaOutageKeepsReadinessAndAuth`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-public-rpcs-need-no-principal
+    title: "Public RPCs need no principal"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Public RPCs need no principal"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestRefreshSessionIsPublic`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-protected-rpc-refuses-an-anonymous-or-wrong-caller
+    title: "A protected RPC refuses an anonymous or wrong caller"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A protected RPC refuses an anonymous or wrong caller"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestAuthorizationBoundary`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-duplicate-username-returns-the-explicit-message
+    title: "A duplicate username returns the explicit message"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A duplicate username returns the explicit message"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestRegisterDuplicateUsernameMessage`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-an-unmapped-unique-violation-returns-alreadyexists
+    title: "An unmapped unique violation returns AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "An unmapped unique violation returns AlreadyExists"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestUniqueViolationMapsToAlreadyExists`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-panicking-handler-does-not-stop-the-server
+    title: "A panicking handler does not stop the server"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A panicking handler does not stop the server"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestPanicIsRecoveredAsInternal`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-locked-accounts-keep-their-message
+    title: "Locked accounts keep their message"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Locked accounts keep their message"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestLoginBannedKeepsLockedMessage`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-revoke-commits-with-its-outbox-row
+    title: "A revoke commits with its outbox row"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A revoke commits with its outbox row"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestRevokeEnqueuesOutboxRowAtomically`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-an-outbox-failure-rolls-the-write-back
+    title: "An outbox failure rolls the write back"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "An outbox failure rolls the write back"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestRevokeRollsBackWhenOutboxFails`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-both-event-types-share-one-aggregate-and-keep-order
+    title: "Both event types share one aggregate and keep order"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Both event types share one aggregate and keep order"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestSetUserStatusOutboxOrderPG`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-published-records-carry-key-topic-and-headers
+    title: "Published records carry key, topic and headers"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Published records carry key, topic and headers"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestRelayedRecordCarriesKeyTopicAndHeaders`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-broker-outage-keeps-rows-pending-and-retries-without-a-limit
+    title: "A broker outage keeps rows pending and retries without a limit"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A broker outage keeps rows pending and retries without a limit"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestTransientPublishFailuresNeverPark`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-event-payload-stays-minimal
+    title: "The event payload stays minimal"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The event payload stays minimal"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/events` `TestUserStatusChangedPayloadMinimal`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-refused-caller-leaves-no-outbox-row
+    title: "A refused caller leaves no outbox row"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A refused caller leaves no outbox row"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestSetUserStatusRequiresAdminScope`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-relay-failure-logs-carry-a-fingerprint-not-the-user-id
+    title: "Relay failure logs carry a fingerprint, not the user id"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Relay failure logs carry a fingerprint, not the user id"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/events` `TestRelayLogsFingerprintNotUserID`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-published-rows-older-than-seven-days-are-purged
+    title: "Published rows older than seven days are purged"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Published rows older than seven days are purged"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestOutboxPurgeKeepsRecentAndUnpublished`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-failed-purge-is-retried-and-logs-counts-only
+    title: "A failed purge is retried and logs counts only"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A failed purge is retried and logs counts only"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestOutboxPurgeSurvivesError`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-an-audit-failure-refuses-the-change-with-the-sdk-message
+    title: "An audit failure refuses the change with the SDK message"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "An audit failure refuses the change with the SDK message"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/identity` `TestSetUserStatusAuditDownUnavailableNoChange`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-audit-gate-logs-no-target-and-no-cause
+    title: "The audit gate logs no target and no cause"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The audit gate logs no target and no cause"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/identity` `TestAuditGateLogsNoTargetID`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-caller-without-the-admin-scope-triggers-no-audit-write
+    title: "A caller without the admin scope triggers no audit write"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A caller without the admin scope triggers no audit write"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestSetUserStatusRequiresAdminScope`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-audit-client-sends-the-service-principal
+    title: "The audit client sends the service principal"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The audit client sends the service principal"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/upstream` `TestAuditUsesServicePrincipal`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-signed-token-decodes-as-the-shared-claims
+    title: "A signed token decodes as the shared claims"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A signed token decodes as the shared claims"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/token` `TestSignRS256`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-service-token-carries-no-sid
+    title: "A service token carries no sid"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A service token carries no sid"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/token` `TestSignedTokenOmitsEmptySID`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-jwks-document-is-public-keys-only
+    title: "The JWKS document is public keys only"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The JWKS document is public keys only"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/token` `TestBuildJWKS`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-jwks-listener-refuses-other-methods
+    title: "The JWKS listener refuses other methods"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The JWKS listener refuses other methods"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/token` `TestJWKSHandlerMethodsAndPaths`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-listener-starts-with-the-service-and-drains-on-shutdown
+    title: "The listener starts with the service and drains on shutdown"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The listener starts with the service and drains on shutdown"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestJWKSListenerServesAndDrains`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-call-logs-carry-request-id-and-principal-id
+    title: "Call logs carry request id and principal id"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Call logs carry request id and principal id"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestCallLogsCarryRequestAndPrincipalID`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-refused-call-logs-the-principal-and-no-request-body
+    title: "A refused call logs the principal and no request body"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A refused call logs the principal and no request body"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestDeniedCallLogsCarryNoRequestBody`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-secrets-never-reach-logs-or-spans
+    title: "Secrets never reach logs or spans"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Secrets never reach logs or spans"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestSecretsNeverReachLogsOrSpans`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-failed-sweep-is-retried-on-the-next-tick
+    title: "A failed sweep is retried on the next tick"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A failed sweep is retried on the next tick"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/identity` `TestSweeperSurvivesError`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-non-positive-interval-is-refused-at-load
+    title: "A non-positive interval is refused at load"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A non-positive interval is refused at load"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestRetentionInvalidRejected`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-enabled-seeding-creates-the-admin-once
+    title: "Enabled seeding creates the admin once"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Enabled seeding creates the admin once"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestRunSeedsAdminOnce`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
