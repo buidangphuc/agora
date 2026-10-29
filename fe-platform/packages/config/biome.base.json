@@ -1,0 +1,27 @@
+{
+  "files": {
+    "ignore": [
+      ".next/**",
+      "node_modules/**",
+      "**/generated/**",
+      "next-env.d.ts"
+    ]
+  },
+  "organizeImports": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "useImportType": "off"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  }
+}
