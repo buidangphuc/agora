@@ -868,7 +868,7 @@ features:
       - "Funnel purchases count distinct transaction ids (unit-verified)"
     tags: [tracking, unit]
     status: not-testable
-    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/query/service_test.go. Not producible end to end."
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/rpc/service_test.go TestGetSellerFunnel_CheckoutPurchase. Not producible end to end."
 
   - id: tracking.unit-funnel-projects-checkout-and-purchase
     title: "Funnel projects checkout and purchase"
@@ -883,7 +883,7 @@ features:
       - "Funnel projects checkout and purchase (unit-verified)"
     tags: [tracking, unit]
     status: not-testable
-    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/query/service_test.go. Not producible end to end."
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/rpc/service_test.go TestGetSellerFunnel_CheckoutPurchase. Not producible end to end."
 
   - id: tracking.unit-exported-file-has-ecommerce-columns
     title: "Exported file has ecommerce columns"
@@ -1200,7 +1200,7 @@ features:
       - "A seller filter narrows the funnel"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/channel_funnel_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/channel_funnel_test.go TestChannelFunnel_ASellerFilterNarrowsTheFunnel. Not producible end to end."
 
   - id: ga4-export-import.counts-are-split-by-channel
     title: "Counts are split by channel"
@@ -1290,7 +1290,7 @@ features:
       - "Revenue is never read from GA4 data"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/channel_funnel_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/channel_funnel_test.go TestChannelFunnel_RevenueIsNeverReadFromGA4Data. Not producible end to end."
 
   - id: ga4-export-import.the-job-is-a-no-op-when-unconfigured
     title: "The job is a no-op when unconfigured"
@@ -1305,7 +1305,7 @@ features:
       - "The job is a no-op when unconfigured"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/cmd/consumer/ga4import_trigger_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/ga4import/importer_test.go TestTriggerIsANoOpWhenUnconfigured_TheJobIsANoOpWhenUnconfigured, TestScheduledRunIsANoOpWhenUnconfigured_TheJobIsANoOpWhenUnconfigured. Not producible end to end."
 
   - id: ga4-export-import.invalid-threshold-is-rejected-at-startup
     title: "Invalid threshold is rejected at startup"
@@ -1350,7 +1350,7 @@ features:
       - "Divergence at the threshold does not alert"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/ga4_reconcile_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/ga4_reconcile_test.go TestReconcile_DivergenceAtTheThresholdDoesNotAlert. Not producible end to end."
 
   - id: tracking-data-quality.zero-first-party-events-are-handled
     title: "Zero first-party events are handled"
@@ -1365,7 +1365,7 @@ features:
       - "Zero first-party events are handled"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/ga4_reconcile_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/ga4_reconcile_test.go TestReconcile_ZeroFirstPartyEventsAreHandled. Not producible end to end."
 
   - id: tracking-data-quality.a-missing-import-is-reported-not-treated-as-divergence
     title: "A missing import is reported, not treated as divergence"
@@ -1410,7 +1410,7 @@ features:
       - "Reconciliation failure does not break the report"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/ga4_reconcile_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/ga4_reconcile_test.go TestReconcile_FailureDoesNotBreakTheReport. Not producible end to end."
 
   - id: tracking-data-quality.only-admins-see-reconciliation-reasons
     title: "Only admins see reconciliation reasons"
@@ -1425,7 +1425,7 @@ features:
       - "Only admins see reconciliation reasons"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/ga4_reconcile_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/ga4_reconcile_test.go TestReconcile_OnlyAdminsSeeReconciliationReasons. Not producible end to end."
 
   - id: ga4-export-import.consent-and-client-id-are-persisted
     title: "Consent and client id are persisted"
@@ -1440,7 +1440,7 @@ features:
       - "Consent and client id are persisted (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/consumer/tracking_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/events/tracking_test.go TestConsentAndClientIdArePersisted. Not producible end to end."
 
   - id: ga4-export-import.client-id-is-blanked-without-analytics-consent
     title: "Client id is blanked without analytics consent"
@@ -1455,7 +1455,7 @@ features:
       - "Client id is blanked without analytics consent (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/consumer/tracking_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/events/tracking_test.go TestClientIdIsBlankedWithoutAnalyticsConsent. Not producible end to end."
 
   - id: ga4-export-import.a-legacy-payload-without-consent-is-stored-as-no-consent
     title: "A legacy payload without consent is stored as no consent"
@@ -1470,7 +1470,7 @@ features:
       - "A legacy payload without consent is stored as no consent (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/consumer/tracking_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/events/tracking_test.go TestLegacyPayloadWithoutConsentIsStoredAsNoConsent. Not producible end to end."
 
   - id: ga4-export-import.the-import-runs-inside-the-consumer-without-a-second-writer
     title: "The import runs inside the consumer without a second writer"
@@ -1485,7 +1485,7 @@ features:
       - "The import runs inside the consumer without a second writer (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/cmd/consumer/ga4import_trigger_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/ga4import/importer_test.go TestTriggerImportsFixtureDateThroughTheConsumerWriter_TheImportRunsInsideTheConsumerWithoutASecondWriter. Not producible end to end."
 
   - id: ga4-export-import.the-internal-trigger-is-not-exposed-through-the-gateway
     title: "The internal trigger is not exposed through the gateway"
@@ -1515,7 +1515,7 @@ features:
       - "An invalid date is rejected by the trigger (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/cmd/consumer/ga4import_trigger_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/ga4import/importer_test.go TestTriggerRejectsInvalidDateWith4xx_AnInvalidDateIsRejectedByTheTrigger. Not producible end to end."
 
   - id: ga4-export-import.a-failed-import-returns-5xx-with-the-date
     title: "A failed import returns 5xx with the date"
@@ -1530,7 +1530,7 @@ features:
       - "A failed import returns 5xx with the date (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/cmd/consumer/ga4import_trigger_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/ga4import/importer_test.go TestTriggerReturns5xxWithDateWhenExportTableMissing_AFailedImportReturns5xxWithTheDate. Not producible end to end."
 
   # ---- add-ga4-purchase-relay (planned until the e2e is green against the relay) ----
 
@@ -2073,7 +2073,7 @@ features:
       - "Loop storage: each new type is stored under its name"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventTypesMapToNames. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestNewLoopEventTypesMapToNames. Not producible end to end (consumer-internal mapping)."
 
   - id: loop-event-storage.a-produced-event-of-each-new-type-reaches-the-warehouse
     title: "Loop storage: a produced event of each new type reaches the warehouse"
@@ -2103,7 +2103,7 @@ features:
       - "Loop storage: existing types keep their names"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestExistingEventTypeNamesUnchanged. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestExistingEventTypeNamesUnchanged. Not producible end to end (consumer-internal mapping)."
 
   - id: loop-event-storage.an-unrecognised-enum-value-is-stored-as-unspecified-without-failing
     title: "Loop storage: an unrecognised enum value is stored as unspecified without failing"
@@ -2118,7 +2118,7 @@ features:
       - "Loop storage: an unrecognised enum value is stored as unspecified without failing"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestUnrecognisedEventTypeIsUnspecified. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestUnrecognisedEventTypeIsUnspecified. Not producible end to end (consumer-internal mapping)."
 
   - id: loop-event-storage.properties-and-listing-id-are-preserved
     title: "Loop storage: properties and listing id are preserved"
@@ -2134,7 +2134,7 @@ features:
     tags: [tracking, analytics, loop-event-storage, unit]
     status: automated
     covered_by: "tracking/loop_event_storage.feature::Loop storage: properties and listing id are preserved"
-    notes: "analytics-loop-event-storage:  also unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventsPreservePropertiesAndPrincipal."
+    notes: "analytics-loop-event-storage:  also unit-verified: team-analytics/internal/events/tracking_test.go TestNewLoopEventsPreservePropertiesAndPrincipal."
 
   - id: loop-event-storage.an-event-with-no-properties-is-stored-with-empty-properties
     title: "Loop storage: an event with no properties is stored with empty properties"
@@ -2149,7 +2149,7 @@ features:
       - "Loop storage: an event with no properties is stored with empty properties"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestReferralRedeemWithoutPropertiesIsStored. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestReferralRedeemWithoutPropertiesIsStored. Not producible end to end (consumer-internal mapping)."
 
   - id: loop-event-storage.the-client-id-is-blanked-without-analytics-consent
     title: "Loop storage: the client id is blanked without analytics consent"
@@ -2165,7 +2165,7 @@ features:
     tags: [tracking, analytics, loop-event-storage, unit]
     status: automated
     covered_by: "tracking/loop_event_storage.feature::Loop storage: the client id is blanked without analytics consent"
-    notes: "analytics-loop-event-storage:  also unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventClientIdBlankedWithoutConsent."
+    notes: "analytics-loop-event-storage:  also unit-verified: team-analytics/internal/events/tracking_test.go TestNewLoopEventClientIdBlankedWithoutConsent."
 
   - id: loop-event-storage.a-replayed-event-is-stored-once
     title: "Loop storage: a replayed event is stored once"
@@ -2195,7 +2195,7 @@ features:
       - "Loop storage: a non-tracking envelope is still skipped"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestNonTrackingEnvelopeIsSkipped. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestNonTrackingEnvelopeIsSkipped. Not producible end to end (consumer-internal mapping)."
 
   - id: loop-event-storage.an-undecodable-payload-is-still-a-consumer-error
     title: "Loop storage: an undecodable payload is still a consumer error"
@@ -2210,7 +2210,7 @@ features:
       - "Loop storage: an undecodable payload is still a consumer error"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestMalformedEnvelopeErrors. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestMalformedEnvelopeErrors. Not producible end to end (consumer-internal mapping)."
 
   - id: analytics.review-hidden-reaches-warehouse
     title: "Analytics review hidden: a produced ReviewHidden reaches the warehouse"
@@ -2241,7 +2241,7 @@ features:
       - "Analytics review hidden: a ReviewHidden envelope maps to a review_hidden fact"
     tags: [analytics, unit]
     status: not-testable
-    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelopeReviewHidden. Not producible end to end."
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/events/engagement_test.go TestEngagementFactFromEnvelopeReviewHidden. Not producible end to end."
 
   - id: analytics.unit-review-hidden-hidden-at-missing-falls-back-to-the-envelope-time
     title: "Analytics review hidden: hidden_at missing falls back to the envelope time"
@@ -2256,7 +2256,7 @@ features:
       - "Analytics review hidden: hidden_at missing falls back to the envelope time"
     tags: [analytics, unit]
     status: not-testable
-    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelopeReviewHidden. Not producible end to end."
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/events/engagement_test.go TestEngagementFactFromEnvelopeReviewHidden. Not producible end to end."
 
   - id: analytics.unit-review-hidden-a-corrupt-payload-is-dead-lettered
     title: "Analytics review hidden: a corrupt payload is dead-lettered"
@@ -2271,7 +2271,7 @@ features:
       - "Analytics review hidden: a corrupt payload is dead-lettered"
     tags: [analytics, unit]
     status: not-testable
-    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelopeRejects, TestProcessEngagementRecordsDeadLettersAndContinues. Not producible end to end."
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/events/engagement_test.go TestEngagementFactFromEnvelopeRejects, TestMalformedEngagementRecordIsPermanent (handlers_test.go). Not producible end to end."
 
   - id: analytics.unit-review-hidden-existing-engagement-types-are-unchanged
     title: "Analytics review hidden: existing engagement types are unchanged"
@@ -2286,7 +2286,7 @@ features:
       - "Analytics review hidden: existing engagement types are unchanged"
     tags: [analytics, unit]
     status: not-testable
-    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelope. Not producible end to end."
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/events/engagement_test.go TestEngagementFactFromEnvelope. Not producible end to end."
 
   - id: analytics.unit-review-hidden-a-review-created-row-stores-its-review-id
     title: "Analytics review hidden: a review_created row stores its review id"
