@@ -83,7 +83,6 @@ func (h *AuthHandler) RequestPasswordReset(ctx context.Context, req *identityv1.
 		return nil, statusErr(ctx, h.logger, err)
 	}
 	h.logger.InfoContext(ctx, "password_reset.issued",
-		"user_id", iss.UserID,
 		"expires_at", iss.ExpiresAt.Unix(),
 		"token_fingerprint", identity.TokenFingerprint(iss.Token))
 	resp := &identityv1.RequestPasswordResetResponse{ExpiresAt: iss.ExpiresAt.Unix()}

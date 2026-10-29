@@ -538,7 +538,6 @@ func (s *OrderService) clearCart(ctx context.Context, buyerID string, itemIDs []
 	defer cancel()
 	if err := s.cartRepo.RemoveItems(ctx, buyerID, itemIDs); err != nil {
 		s.logger.ErrorContext(ctx, "failed to remove checked-out items from cart",
-			"buyer_id", buyerID,
 			"item_count", len(itemIDs),
 			"err", err,
 		)

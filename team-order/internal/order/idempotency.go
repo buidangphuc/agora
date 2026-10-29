@@ -85,14 +85,14 @@ func (s *OrderService) replayCheckout(ctx context.Context, buyerID string, sg st
 	}
 	sort.Slice(orders, func(i, j int) bool { return orders[i].SellerID < orders[j].SellerID })
 	s.logger.InfoContext(ctx, "checkout replayed from idempotency key",
-		"saga_id", sg.ID, "buyer_id", buyerID, "order_count", len(orders))
+		"saga_id", sg.ID, "order_count", len(orders))
 
 	// Re-attempt the cart clear: drop the cart items this saga checked out
 	// (recognised by the reservation id they derive) that a failed clear left.
 	cart, cerr := s.cartRepo.GetCart(ctx, buyerID)
 	if cerr != nil {
 		s.logger.WarnContext(ctx, "could not read the cart to clear it on replay",
-			"buyer_id", buyerID, "err", cerr)
+			"saga_id", sg.ID, "err", cerr)
 		return orders, nil
 	}
 	var leftover []string
