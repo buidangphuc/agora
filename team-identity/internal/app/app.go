@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
@@ -24,6 +25,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
 
 	"github.com/buidangphuc/team-identity/internal/config"
+	"github.com/buidangphuc/team-identity/internal/events"
 	"github.com/buidangphuc/team-identity/internal/identity"
 	"github.com/buidangphuc/team-identity/internal/rpc"
 	"github.com/buidangphuc/team-identity/internal/store"
@@ -102,6 +104,11 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 		pub = producer
 	}
 
+	fp, err := kafkax.NewFingerprinter(s.LogKeyFP.Secret)
+	if err != nil {
+		return nil, fmt.Errorf("log key fingerprint: %w", err)
+	}
+
 	outStore, err := store.Outbox(pool)
 	if err != nil {
 		return nil, err
@@ -145,7 +152,7 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 	relayer, err := outbox.NewRelayer(outStore, pub, outbox.RelayerOptions{
 		Topic:  s.Events.IdentityTopic,
 		Config: s.Outbox,
-		Logger: logger,
+		Logger: slog.New(events.RedactingHandler(logger.Handler(), fp)),
 	})
 	if err != nil {
 		return nil, err
