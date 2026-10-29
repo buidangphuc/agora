@@ -24,9 +24,9 @@ func Purge(ctx context.Context, p Purger, ttl time.Duration, logger *slog.Logger
 	cutoff := now().Add(-ttl)
 	n, err := p.PurgeTombstones(ctx, cutoff)
 	if err != nil {
-		logger.Warn("tombstone purge failed", "err", err)
+		logger.WarnContext(ctx, "tombstone purge failed", "err", err)
 		return fmt.Errorf("purge tombstones: %w", err)
 	}
-	logger.Info("tombstone purge", "purged", n, "older_than", cutoff)
+	logger.InfoContext(ctx, "tombstone purge", "purged", n, "older_than", cutoff)
 	return nil
 }

@@ -96,7 +96,7 @@ func RunIndexer(ctx context.Context, s config.IndexerSettings) (err error) {
 		return err
 	}
 
-	logger.Info("indexer consuming",
+	logger.InfoContext(ctx, "indexer consuming",
 		"topic", s.Events.ListingTopic,
 		"group", s.Events.ConsumerGroup,
 		"opensearch_index", s.OpenSearch.Index,
