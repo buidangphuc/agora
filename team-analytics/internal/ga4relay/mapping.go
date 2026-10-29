@@ -3,10 +3,15 @@ package ga4relay
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/buidangphuc/team-analytics/internal/warehouse"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
+	"google.golang.org/protobuf/proto"
+
+	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
+	eventsv1 "github.com/buidangphuc/team-analytics/generated/platform/events/v1"
 )
 
 // mappingTTL is how long a buyer -> GA client id mapping lives after the last
@@ -89,19 +94,33 @@ func (h *MappingHandler) SkippedCount(reason string) int64 {
 	return h.skipped[reason]
 }
 
+const trackingEventType = "platform.analytics.v1.TrackingEvent"
+
 // Handle applies one tracking record to the mapping.
-func (h *MappingHandler) Handle(ctx context.Context, rec warehouse.TrackingRecord) error {
-	if rec.PrincipalID == "" {
+func (h *MappingHandler) Handle(ctx context.Context, rec consume.Record) error {
+	var env eventsv1.EventEnvelope
+	if err := proto.Unmarshal(rec.Value, &env); err != nil {
+		return consume.Permanent(fmt.Errorf("%w: invalid envelope", ErrDeadLetter))
+	}
+	if env.GetType() != trackingEventType {
 		return nil
 	}
-	if !rec.ConsentAnalytics {
+	var te analyticsv1.TrackingEvent
+	if err := proto.Unmarshal(env.GetPayload(), &te); err != nil {
+		return consume.Permanent(fmt.Errorf("%w: invalid tracking event", ErrDeadLetter))
+	}
+	principalID := env.GetPrincipal().GetId()
+	if principalID == "" {
+		return nil
+	}
+	if !te.GetConsent().GetAnalytics() {
 		h.skip("no_consent")
-		return h.store.Delete(ctx, rec.PrincipalID)
+		return h.store.Delete(ctx, principalID)
 	}
-	if rec.GaClientID == "" {
+	if te.GetGaClientId() == "" {
 		return nil
 	}
-	return h.store.Put(ctx, rec.PrincipalID, rec.GaClientID)
+	return h.store.Put(ctx, principalID, te.GetGaClientId())
 }
 
 func (s *memoryMappingStore) Purge(_ context.Context) (int64, error) {

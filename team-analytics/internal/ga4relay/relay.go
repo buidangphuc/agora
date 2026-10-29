@@ -4,13 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
 	"google.golang.org/protobuf/proto"
 
 	eventsv1 "github.com/buidangphuc/team-analytics/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-analytics/generated/platform/order/v1"
+	"github.com/buidangphuc/team-analytics/internal/config"
 )
 
 const (
@@ -18,38 +23,28 @@ const (
 	maxItems      = 200
 )
 
-// Message is a consumed Kafka record.
-type Message struct {
-	Topic     string
-	Partition int32
-	Offset    int64
-	Key       []byte
-	Value     []byte
-}
-
 // Sender delivers a Measurement Protocol body.
 type Sender interface {
 	Send(ctx context.Context, body []byte) error
 }
 
-// DLQProducer publishes an unprocessable message to the dead-letter topic.
-type DLQProducer interface {
-	Publish(ctx context.Context, msg Message, reason string) error
-}
-
-// OffsetCommitter commits a consumed message's offset.
-type OffsetCommitter interface {
-	Commit(ctx context.Context, msg Message) error
-}
+// ErrDeadLetter marks a record that can never be relayed.
+var ErrDeadLetter = errors.New("ga4relay: dead letter")
 
 // RelayConfig wires a Relay.
 type RelayConfig struct {
-	Mappings  MappingStore
-	Ledger    Ledger
-	Sender    Sender
-	DLQ       DLQProducer
-	Committer OffsetCommitter
-	Now       func() time.Time
+	Mappings MappingStore
+	Ledger   Ledger
+	Sender   Sender
+	Now      func() time.Time
+	Logger   *slog.Logger
+	KeyFP    *kafkax.Fingerprinter
+}
+
+// ConsumerOptions returns the SDK consumer options for the relay: one record
+// per poll keeps a GA4 outage under the rebalance timeout.
+func ConsumerOptions(s config.Settings) consume.Options {
+	return consume.Options{DLQTopic: s.GA4.RelayDLQTopic, MaxPollRecords: 1}
 }
 
 // Relay turns OrderPaidEvents into GA4 purchase events.
@@ -118,30 +113,46 @@ func (r *Relay) lock(orderID string) func() {
 	}
 }
 
-func (r *Relay) commit(ctx context.Context, msg Message) error {
-	return r.cfg.Committer.Commit(ctx, msg)
-}
-
-func (r *Relay) deadLetter(ctx context.Context, msg Message, reason string) error {
-	if err := r.cfg.DLQ.Publish(ctx, msg, reason); err != nil {
-		return err
+func (r *Relay) logger() *slog.Logger {
+	if r.cfg.Logger != nil {
+		return r.cfg.Logger
 	}
-	r.incFailed(reason)
-	return r.commit(ctx, msg)
+	return slog.Default()
 }
 
-// Handle processes one message. nil means the offset was committed.
-func (r *Relay) Handle(ctx context.Context, msg Message) error {
+func (r *Relay) deadLetter(rec consume.Record, reason string, cause error) error {
+	r.incFailed(reason)
+	args := []any{"topic", rec.Topic, "reason", reason}
+	if r.cfg.KeyFP != nil {
+		args = append(args, "key_fp", r.cfg.KeyFP.Of(rec.Key))
+	}
+	r.logger().Warn("ga4 relay dead-lettered record", args...)
+	if cause != nil {
+		return consume.Permanent(fmt.Errorf("%w: %s: %w", ErrDeadLetter, reason, cause))
+	}
+	return consume.Permanent(fmt.Errorf("%w: %s", ErrDeadLetter, reason))
+}
+
+// Handle processes one record. nil means sent, skipped, ignored or already sent.
+func (r *Relay) Handle(ctx context.Context, rec consume.Record) error {
+	err := r.handle(ctx, rec)
+	if err != nil && !errors.Is(err, ErrDeadLetter) {
+		r.incFailed("store")
+	}
+	return err
+}
+
+func (r *Relay) handle(ctx context.Context, rec consume.Record) error {
 	var env eventsv1.EventEnvelope
-	if err := proto.Unmarshal(msg.Value, &env); err != nil {
-		return r.deadLetter(ctx, msg, "invalid")
+	if err := proto.Unmarshal(rec.Value, &env); err != nil {
+		return r.deadLetter(rec, "invalid", nil)
 	}
 	if env.GetType() != orderPaidType {
-		return r.commit(ctx, msg)
+		return nil
 	}
 	var ev orderv1.OrderPaidEvent
 	if err := proto.Unmarshal(env.GetPayload(), &ev); err != nil || ev.GetOrderId() == "" {
-		return r.deadLetter(ctx, msg, "invalid")
+		return r.deadLetter(rec, "invalid", nil)
 	}
 	orderID := ev.GetOrderId()
 
@@ -153,7 +164,7 @@ func (r *Relay) Handle(ctx context.Context, msg Message) error {
 		return err
 	}
 	if sent {
-		return r.commit(ctx, msg)
+		return nil
 	}
 	clientID, ok, err := r.cfg.Mappings.Get(ctx, ev.GetBuyerId())
 	if err != nil {
@@ -161,7 +172,7 @@ func (r *Relay) Handle(ctx context.Context, msg Message) error {
 	}
 	if !ok || clientID == "" {
 		r.incSkipped("no_client_id")
-		return r.commit(ctx, msg)
+		return nil
 	}
 	if ev.GetPaidAt() == nil {
 		r.mu.Lock()
@@ -175,14 +186,11 @@ func (r *Relay) Handle(ctx context.Context, msg Message) error {
 	if err := r.cfg.Sender.Send(ctx, body); err != nil {
 		var se *SendError
 		if errors.As(err, &se) {
-			return r.deadLetter(ctx, msg, se.Reason)
+			return r.deadLetter(rec, se.Reason, err)
 		}
 		return err
 	}
-	if err := r.cfg.Ledger.MarkSent(ctx, orderID); err != nil {
-		return err
-	}
-	return r.commit(ctx, msg)
+	return r.cfg.Ledger.MarkSent(ctx, orderID)
 }
 
 type gaItem struct {
