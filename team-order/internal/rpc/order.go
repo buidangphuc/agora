@@ -105,7 +105,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 	// never block checkout, only a deliberate OFF toggle does. When off, reject
 	// before running the purchase saga.
 	if !h.flags.BooleanEnabled(ctx, flagCheckoutEnabled, true) {
-		h.logger.WarnContext(ctx, "checkout blocked by kill-switch", "buyer_id", principal.ID)
+		h.logger.WarnContext(ctx, "checkout blocked by kill-switch")
 		return nil, status.Error(codes.FailedPrecondition, "checkout is temporarily unavailable")
 	}
 
@@ -148,7 +148,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *orderv1.CreateOrder
 			// Invalid/expired voucher: reject the checkout with the promotion-supplied
 			// reason (never silently drop the voucher and charge full price).
 			// err carries only the promotion-supplied reason (user-facing by design).
-			h.logger.WarnContext(ctx, "voucher rejected", "buyer_id", principal.ID, "error", err)
+			h.logger.WarnContext(ctx, "voucher rejected", "error", err)
 			return nil, status.Error(codes.FailedPrecondition, err.Error())
 		}
 		if errors.Is(err, order.ErrPriceChanged) {

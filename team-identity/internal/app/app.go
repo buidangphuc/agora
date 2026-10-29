@@ -135,7 +135,7 @@ func build(ctx context.Context, s config.Settings, pub outbox.Publisher) (b *bui
 	if s.SeedAdmin.Enabled {
 		sctx, cancel := context.WithTimeout(ctx, seedTimeout)
 		if err := svc.EnsureAdmin(sctx, s.SeedAdmin.Username, s.SeedAdmin.Password); err != nil {
-			logger.WarnContext(ctx, "seed admin failed", "username", s.SeedAdmin.Username)
+			logger.WarnContext(ctx, "seed admin failed", "err", err)
 		}
 		cancel()
 	}

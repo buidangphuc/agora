@@ -28,7 +28,10 @@ func TestRequestPasswordReset_LogsIssuanceWithFingerprintNotToken(t *testing.T) 
 	}
 	out := buf.String()
 	uid := reg.GetResult().GetPrincipal().GetId()
-	for _, want := range []string{"password_reset.issued", "user_id=" + uid, "expires_at=", "token_fingerprint=" + identity.TokenFingerprint(res.ResetToken)} {
+	if strings.Contains(out, uid) {
+		t.Errorf("raw user id leaked into log:\n%s", out)
+	}
+	for _, want := range []string{"password_reset.issued", "expires_at=", "token_fingerprint=" + identity.TokenFingerprint(res.ResetToken)} {
 		if !strings.Contains(out, want) {
 			t.Errorf("log missing %q:\n%s", want, out)
 		}
