@@ -511,6 +511,17 @@ class Guards(unittest.TestCase):
         self.assertTrue(guard and write, "seed must read then write LOG_KEY_FP_SECRET")
         self.assertLess(guard.start(), write.start())
 
+    def test_vault_seed_keeps_existing_log_key_and_drops_removed_keys(self):
+        text = (ROOT / "platform/vault-config/vault-config.yaml").read_text()
+        data = {}
+        for d in yq_docs(text):
+            data.update(d.get("data", {}) if isinstance(d.get("data"), dict) else {})
+        self.assertIn("ga4-relay", data["SERVICES"].split())
+        script = "\n".join(v for v in data.values() if "vault kv" in v)
+        self.assertRegex(script, r'if \[ -z "\$log_key" \]')
+        self.assertNotIn("HTTP_PORT", script)
+        self.assertNotIn("LOG_KEY_FP_SECRET=\"dev", script)
+
     def test_dlq_topics_have_seven_day_retention(self):
         text = (ROOT / "platform/infra/redpanda.yaml").read_text()
         value = "retention.ms=604800000"
