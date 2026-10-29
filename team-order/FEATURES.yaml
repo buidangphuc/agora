@@ -1967,7 +1967,7 @@ features:
       - "Order audit: Unset audit address yields no client"
     tags: [security, audit, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order internal/upstream TestAuditDialEmptyAddrIsNil. Not producible end to end through the gateway (unit level)."
+    notes: "VERIFIED BY team-order internal/config TestUpstreamAddressesRequiredInEveryEnv. Not producible end to end through the gateway (unit level)."
   - id: order.oaa-config-exposes-the-audit-address
     title: "Order audit: Config exposes the audit address"
     persona: admin
@@ -5392,7 +5392,7 @@ features:
       - "Dispute refund: Missing audit client refuses the change"
     tags: [order, dispute, unit]
     status: not-testable
-    notes: "VERIFIED BY team-order `internal/events` `TestDisputeRefundNilAuditWriterNoChange`. Not producible end to end through the gateway (unit level)."
+    notes: "REMOVED: no audit-less or promotion-less mode; scenario removed by order-go-sdk-v1"
 
   - id: order.dispute-refund-recovery-after-audit-comes-back
     title: "Dispute refund: Recovery after audit comes back"
