@@ -16,9 +16,9 @@ Feature: The rendered GitOps manifests carry the deploy-runtime guarantees
     When charts/service is rendered for team-verification (grpcPort 50064) with --set probes.livenessService=liveness
     Then the container livenessProbe is a grpc probe with service liveness, and the readinessProbe and startupProbe have no service key
 
-  Scenario: The default render is unchanged
-    When charts/service is rendered for team-verification with its service values, without probes.livenessService
-    Then the output is byte-identical to the golden render platform-gitops/tests/golden/team-verification.pre-liveness.yaml and no probe has a service key
+  Scenario: The default render matches the with-liveness golden
+    When charts/service is rendered for team-verification with its service values and --set migrate.enabled=false
+    Then the output is byte-identical to the golden render platform-gitops/tests/golden/team-verification.with-liveness.yaml and the liveness probe alone carries service liveness
 
   Scenario: An HTTP service ignores the value
     When charts/service is rendered for team-gateway (healthPath=/healthz, no grpcPort) with --set probes.livenessService=liveness

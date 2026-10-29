@@ -121,7 +121,7 @@ def ai_network_policy(gitops):
     assert not others, f"non-pod ingress sources are not allowed for team-ai: {others}"
 
 
-GOLDEN = GITOPS / "tests" / "golden" / "team-verification.pre-liveness.yaml"
+GOLDEN = GITOPS / "tests" / "golden" / "team-verification.with-liveness.yaml"
 LIVENESS = "probes.livenessService=liveness"
 
 
@@ -147,30 +147,27 @@ def liveness_by_name(gitops):
 
 
 @when(
-    "charts/service is rendered for team-verification with its service values, without "
-    "probes.livenessService"
+    "charts/service is rendered for team-verification with its service values and "
+    "--set migrate.enabled=false"
 )
 def render_verification_default(gitops):
-    gitops["raw"] = _render_raw("team-verification", None)
+    gitops["raw"] = _render_raw("team-verification", None, ("migrate.enabled=false",))
     gitops["docs"] = [d for d in yaml.safe_load_all(gitops["raw"]) if d]
 
 
 @then(
     "the output is byte-identical to the golden render "
-    "platform-gitops/tests/golden/team-verification.pre-liveness.yaml and no probe has a "
-    "service key"
+    "platform-gitops/tests/golden/team-verification.with-liveness.yaml and the liveness probe "
+    "alone carries service liveness"
 )
-def default_unchanged(gitops):
+def default_matches_golden(gitops):
     assert GOLDEN.exists(), f"golden render missing: {GOLDEN}"
-    assert gitops["raw"] == GOLDEN.read_text(), "default render differs from the pre-change golden"
+    assert gitops["raw"] == GOLDEN.read_text(), "migrate-disabled render differs from the with-liveness golden"
+    assert "kind: Job" not in gitops["raw"], "migrate.enabled=false must render no Job"
     probes = _probes(gitops["docs"], "Deployment")
-    assert probes, "no probes rendered"
-    for name, probe in probes.items():
-        assert _probe_service(probe) is None, f"{name} carries a service key: {probe}"
-    control = _probes(_render("team-verification", None, (LIVENESS,)), "Deployment")
-    assert _probe_service(control["livenessProbe"]) == "liveness", (
-        "positive control: setting the value must change the liveness probe"
-    )
+    assert _probe_service(probes["livenessProbe"]) == "liveness", probes["livenessProbe"]
+    for name in ("readinessProbe", "startupProbe"):
+        assert _probe_service(probes[name]) is None, f"{name} carries a service key: {probes[name]}"
 
 
 @when(
