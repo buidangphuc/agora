@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -10,13 +10,14 @@ import (
 	"google.golang.org/grpc"
 
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 // ── test doubles ──
 
-// fakeDomainClient models team-domain's stock service. ReserveStock is idempotent
+// fakeDomainClient models team-domain's stock order. ReserveStock is idempotent
 // on reservation_id (mirrors the W1-T2 contract): repeated reserves with the same
 // id decrement only once. It records the context each ReleaseStock ran under so a
 // test can assert compensation used a live (background) context.
@@ -31,14 +32,20 @@ type fakeDomainClient struct {
 	releaseCtxOK bool // true if every ReleaseStock ran under a non-cancelled ctx
 	releaseSeen  bool
 	releaseErr   error
+	prices       map[string]int64
+}
+
+func (f *fakeDomainClient) withPrices(p map[string]int64) *fakeDomainClient {
+	f.prices = p
+	return f
 }
 
 func newFakeDomain() *fakeDomainClient {
 	return &fakeDomainClient{reservedIDs: map[string]int{}, failReserve: map[string]bool{}, declineStock: map[string]bool{}, releaseCtxOK: true}
 }
 
-func (f *fakeDomainClient) GetListing(_ context.Context, _ *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
-	return &listingv1.GetListingResponse{}, nil
+func (f *fakeDomainClient) GetListing(_ context.Context, req *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
+	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), Price: f.prices[req.GetId()], SellerId: "s1", Stock: 100}}, nil
 }
 
 func (f *fakeDomainClient) ReserveStock(_ context.Context, req *listingv1.ReserveStockRequest, _ ...grpc.CallOption) (*listingv1.ReserveStockResponse, error) {
@@ -94,53 +101,55 @@ func (f *fakeDomainClient) releasedListing(listingID string) bool {
 // fakeOrderRepo is an in-memory order repo whose CreateOrder can be made to fail.
 type fakeOrderRepo struct {
 	mu       sync.Mutex
-	orders   map[string]repository.Order
+	orders   map[string]store.Order
 	calls    int
 	failCall int    // fail the Nth CreateOrder call (0 = never)
 	failFor  string // fail CreateOrder when SellerID == failFor ("" = ignore)
 }
 
 func newFakeOrderRepo() *fakeOrderRepo {
-	return &fakeOrderRepo{orders: map[string]repository.Order{}}
+	return &fakeOrderRepo{orders: map[string]store.Order{}}
 }
 
-func (r *fakeOrderRepo) CreateOrder(_ context.Context, o repository.Order) (repository.Order, error) {
+func (r *fakeOrderRepo) CreateOrder(_ context.Context, o store.Order) (store.Order, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls++
 	if (r.failCall != 0 && r.calls == r.failCall) || (r.failFor != "" && o.SellerID == r.failFor) {
-		return repository.Order{}, errors.New("simulated persist failure")
+		return store.Order{}, errors.New("simulated persist failure")
 	}
 	if o.ID == "" {
 		o.ID = "ord_" + o.SellerID + "_" + time.Now().Format("150405.000000000")
 	}
-	o.Status = repository.OrderStatusPending
+	o.Status = store.OrderStatusPending
 	r.orders[o.ID] = o
 	return o, nil
 }
 
-func (r *fakeOrderRepo) GetOrder(_ context.Context, id string) (repository.Order, error) {
+func (r *fakeOrderRepo) GetOrder(_ context.Context, id string) (store.Order, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	o, ok := r.orders[id]
 	if !ok {
-		return repository.Order{}, repository.ErrOrderNotFound
+		return store.Order{}, store.ErrOrderNotFound
 	}
 	return o, nil
 }
 
-func (r *fakeOrderRepo) ListBuyerOrders(_ context.Context, _ string, _ int32) ([]repository.Order, error) {
+func (r *fakeOrderRepo) ListBuyerOrders(_ context.Context, _ string, _ int32) ([]store.Order, error) {
 	return nil, nil
 }
-func (r *fakeOrderRepo) ListSellerOrders(_ context.Context, _ string, _ int32) ([]repository.Order, error) {
+
+func (r *fakeOrderRepo) ListSellerOrders(_ context.Context, _ string, _ int32) ([]store.Order, error) {
 	return nil, nil
 }
-func (r *fakeOrderRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string, _ ...repository.StatusOption) (repository.Order, error) {
+
+func (r *fakeOrderRepo) UpdateOrderStatusFrom(_ context.Context, id string, to store.OrderStatus, from []store.OrderStatus, trackingNumber string, _ ...store.StatusOption) (store.Order, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	o, ok := r.orders[id]
 	if !ok {
-		return repository.Order{}, repository.ErrOrderNotFound
+		return store.Order{}, store.ErrOrderNotFound
 	}
 	allowed := false
 	for _, st := range from {
@@ -149,13 +158,13 @@ func (r *fakeOrderRepo) UpdateOrderStatusFrom(_ context.Context, id string, to r
 		}
 	}
 	if !allowed {
-		return repository.Order{}, repository.ErrStatusConflict
+		return store.Order{}, store.ErrStatusConflict
 	}
 	o.Status = to
 	if trackingNumber != "" {
 		o.TrackingNumber = trackingNumber
 	}
-	if to == repository.OrderStatusPaid {
+	if to == store.OrderStatusPaid {
 		now := time.Now()
 		o.PaidAt = &now
 	}
@@ -171,22 +180,25 @@ func (r *fakeOrderRepo) count() int {
 
 // fakeCartRepo lets a test seed items and optionally fail RemoveItems.
 type fakeCartRepo struct {
-	items         []repository.CartItem
+	items         []store.CartItem
 	removeErr     error
 	removeCalled  bool
 	removedItemID []string
 }
 
-func (c *fakeCartRepo) GetCart(_ context.Context, _ string) ([]repository.CartItem, error) {
+func (c *fakeCartRepo) GetCart(_ context.Context, _ string) ([]store.CartItem, error) {
 	return c.items, nil
 }
-func (c *fakeCartRepo) AddItem(_ context.Context, _ repository.CartItem) ([]repository.CartItem, error) {
+
+func (c *fakeCartRepo) AddItem(_ context.Context, _ store.CartItem) ([]store.CartItem, error) {
 	return c.items, nil
 }
-func (c *fakeCartRepo) UpdateItem(_ context.Context, _, _ string, _ int32) ([]repository.CartItem, error) {
+
+func (c *fakeCartRepo) UpdateItem(_ context.Context, _, _ string, _ int32) ([]store.CartItem, error) {
 	return c.items, nil
 }
-func (c *fakeCartRepo) RemoveItem(_ context.Context, _, _ string) ([]repository.CartItem, error) {
+
+func (c *fakeCartRepo) RemoveItem(_ context.Context, _, _ string) ([]store.CartItem, error) {
 	return c.items, nil
 }
 func (c *fakeCartRepo) ClearCart(_ context.Context, _ string) error { return nil }
@@ -196,21 +208,21 @@ func (c *fakeCartRepo) RemoveItems(_ context.Context, _ string, ids []string) er
 	return c.removeErr
 }
 
-func addr() repository.Address { return repository.Address{City: "Hà Nội"} }
+func addr() store.Address { return store.Address{City: "Hà Nội"} }
 
 // team-domain reports insufficient stock as Success=false with no transport error; checkout
 // must treat that as a failed hold, not create an order that oversells the listing.
 func TestCreateOrders_DeclinedReserveFailsCheckoutWithoutOrder(t *testing.T) {
 	ctx := context.Background()
-	domain := newFakeDomain()
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 1000})
 	domain.declineStock["lst_1"] = true
 	orderRepo := newFakeOrderRepo()
-	saga := repository.NewInMemorySagaRepository()
-	cart := &fakeCartRepo{items: []repository.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 1000}}}
-	svc := service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil, service.WithSagaRepository(saga))
+	saga := fake.NewInMemorySagaRepository()
+	cart := &fakeCartRepo{items: []store.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 1000}}}
+	svc := newSvc(t, orderRepo, cart, nil, nil, domain, nil, nil, order.WithSagaRepository(saga))
 
 	_, err := svc.CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, "")
-	if !errors.Is(err, service.ErrInsufficientStock) {
+	if !errors.Is(err, order.ErrInsufficientStock) {
 		t.Fatalf("expected ErrInsufficientStock, got %v", err)
 	}
 	if orderRepo.count() != 0 {
@@ -222,22 +234,22 @@ func TestCreateOrders_DeclinedReserveFailsCheckoutWithoutOrder(t *testing.T) {
 
 func TestSweepExpiredReservations_ReleasesLeakedStock(t *testing.T) {
 	ctx := context.Background()
-	domain := newFakeDomain()
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 1000})
 	orderRepo := newFakeOrderRepo()
-	saga := repository.NewInMemorySagaRepository()
+	saga := fake.NewInMemorySagaRepository()
 
 	// Simulate a crashed checkout: stock was reserved but the process died before
 	// the order persisted, leaving a RESERVED reservation whose TTL has elapsed.
-	_, _ = saga.CreateReservation(ctx, repository.Reservation{
+	_, _ = saga.CreateReservation(ctx, store.Reservation{
 		ID:        "res_leaked",
 		SagaID:    "saga_dead",
 		ListingID: "lst_1",
 		Quantity:  3,
-		Status:    repository.ReservationStatusReserved,
+		Status:    store.ReservationStatusReserved,
 		ExpiresAt: time.Now().Add(-time.Minute),
 	})
 
-	svc := service.NewOrderService(orderRepo, &fakeCartRepo{}, nil, nil, domain, nil, nil, service.WithSagaRepository(saga))
+	svc := newSvc(t, orderRepo, &fakeCartRepo{}, nil, nil, domain, nil, nil, order.WithSagaRepository(saga))
 
 	n, err := svc.SweepExpiredReservations(ctx, time.Now())
 	if err != nil {
@@ -250,7 +262,7 @@ func TestSweepExpiredReservations_ReleasesLeakedStock(t *testing.T) {
 		t.Fatal("expected ReleaseStock called for the leaked listing")
 	}
 	got, _ := saga.GetReservation(ctx, "res_leaked")
-	if got.Status != repository.ReservationStatusReleased {
+	if got.Status != store.ReservationStatusReleased {
 		t.Fatalf("expected reservation RELEASED, got status %d", got.Status)
 	}
 	if orderRepo.count() != 0 {
@@ -261,13 +273,13 @@ func TestSweepExpiredReservations_ReleasesLeakedStock(t *testing.T) {
 // ── AD3: compensation runs on a background ctx even when the request ctx is dead ──
 
 func TestCompensation_RunsOnBackgroundCtx_WhenRequestCancelled(t *testing.T) {
-	domain := newFakeDomain()
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 1000})
 	orderRepo := newFakeOrderRepo()
 	orderRepo.failFor = "s1" // force compensation after a successful reserve
-	saga := repository.NewInMemorySagaRepository()
-	cart := &fakeCartRepo{items: []repository.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 1000}}}
+	saga := fake.NewInMemorySagaRepository()
+	cart := &fakeCartRepo{items: []store.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 1000}}}
 
-	svc := service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil, service.WithSagaRepository(saga))
+	svc := newSvc(t, orderRepo, cart, nil, nil, domain, nil, nil, order.WithSagaRepository(saga))
 
 	// The request context is already cancelled when checkout runs.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -290,11 +302,11 @@ func TestCompensation_RunsOnBackgroundCtx_WhenRequestCancelled(t *testing.T) {
 
 func (c *fakeCartRepo) UpdateItemPrice(_ context.Context, _, _ string, _ int64) error { return nil }
 
-// Stubs so the fake satisfies repository.OrderRepository (order-unpaid-expiry reminder pass).
-func (f *fakeOrderRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]repository.Order, error) {
+// Stubs so the fake satisfies store.OrderRepository (order-unpaid-expiry reminder pass).
+func (f *fakeOrderRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]store.Order, error) {
 	return nil, nil
 }
 
-func (f *fakeOrderRepo) MarkReminderSent(context.Context, string, time.Time) (repository.Order, error) {
-	return repository.Order{}, nil
+func (f *fakeOrderRepo) MarkReminderSent(context.Context, string, time.Time) (store.Order, error) {
+	return store.Order{}, nil
 }

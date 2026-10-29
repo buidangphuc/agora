@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 // ---- order-advertised-price tasks 5-8: checkout at the advertised flash price ----
 //
@@ -37,6 +37,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 
@@ -44,10 +45,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
+	"github.com/buidangphuc/team-order/internal/upstream"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
@@ -182,13 +186,13 @@ func (p *subtotalPromo) ValidateAndReserve(ctx context.Context, in *promotionv1.
 
 type flashRig struct {
 	domain *pricedDomain
-	orders *repository.InMemoryOrderRepository
+	orders *fake.InMemoryOrderRepository
 	sagas  *recordingSagaRepo
-	carts  *repository.InMemoryCartRepository
+	carts  *fake.InMemoryCartRepository
 	flash  *holdFake
 	promo  *subtotalPromo
 	events []string
-	svc    *service.OrderService
+	svc    *order.OrderService
 }
 
 // newFlashRig: lst_1 regular 500000 and lst_2 regular 200000, both seller s1,
@@ -196,9 +200,9 @@ type flashRig struct {
 func newFlashRig(t *testing.T, withFlash bool) *flashRig {
 	t.Helper()
 	r := &flashRig{
-		orders: repository.NewInMemoryOrderRepository(),
-		sagas:  &recordingSagaRepo{SagaRepository: repository.NewInMemorySagaRepository()},
-		carts:  repository.NewInMemoryCartRepository(),
+		orders: fake.NewInMemoryOrderRepository(),
+		sagas:  &recordingSagaRepo{SagaRepository: fake.NewInMemorySagaRepository()},
+		carts:  fake.NewInMemoryCartRepository(),
 		flash:  &holdFake{sales: map[string]*promotionv1.GetActiveFlashSaleResponse{}},
 		promo:  &subtotalPromo{fakePromotion: newFakePromotion(1000)},
 	}
@@ -210,11 +214,11 @@ func newFlashRig(t *testing.T, withFlash bool) *flashRig {
 			"lst_2": {Id: "lst_2", Price: 200000, SellerId: "s1", Stock: 10},
 		},
 	}
-	opts := []service.OrderServiceOption{service.WithSagaRepository(r.sagas), service.WithPromotionClient(r.promo)}
+	opts := []order.OrderServiceOption{order.WithSagaRepository(r.sagas), order.WithPromotionClient(r.promo)}
 	if withFlash {
-		opts = append(opts, service.WithOrderFlashSaleClient(r.flash))
+		opts = append(opts, order.WithOrderFlashSaleClient(r.flash))
 	}
-	r.svc = service.NewOrderService(r.orders, r.carts, nil, nil, r.domain, nil, nil, opts...)
+	r.svc = newSvc(t, r.orders, r.carts, nil, nil, r.domain, nil, nil, opts...)
 	return r
 }
 
@@ -225,7 +229,7 @@ func (r *flashRig) sale(listing string, price int64) {
 
 func (r *flashRig) addLine(t *testing.T, buyer, listing string, qty int32, price int64) {
 	t.Helper()
-	if _, err := r.carts.AddItem(context.Background(), repository.CartItem{
+	if _, err := r.carts.AddItem(context.Background(), store.CartItem{
 		UserID: buyer, ListingID: listing, Quantity: qty, UnitPrice: price, SellerID: "s1", Title: listing,
 	}); err != nil {
 		t.Fatal(err)
@@ -247,7 +251,7 @@ func (r *flashRig) cartPrice(t *testing.T, buyer, listing string) int64 {
 	return 0
 }
 
-func (r *flashRig) checkout(buyer, voucher string, opts ...service.CheckoutOption) ([]repository.Order, error) {
+func (r *flashRig) checkout(buyer, voucher string, opts ...order.CheckoutOption) ([]store.Order, error) {
 	return r.svc.CreateOrdersFromCart(context.Background(), buyer, addr(), nil, 1, voucher, opts...)
 }
 
@@ -300,16 +304,16 @@ func (r *flashRig) assertCompensated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sg.Status != repository.SagaStatusCompensated {
+	if sg.Status != store.SagaStatusCompensated {
 		t.Fatalf("saga status = %v, want COMPENSATED", sg.Status)
 	}
 }
 
 func TestFlashReservationIDShape(t *testing.T) {
-	if got := service.FlashReservationID("o1", "l1", "v1"); got != "o1:l1:v1" {
+	if got := order.FlashReservationID("o1", "l1", "v1"); got != "o1:l1:v1" {
 		t.Errorf("with variant = %q, want o1:l1:v1", got)
 	}
-	if got := service.FlashReservationID("o1", "l1", ""); got != "o1:l1:" {
+	if got := order.FlashReservationID("o1", "l1", ""); got != "o1:l1:" {
 		t.Errorf("without variant = %q, want o1:l1:", got)
 	}
 }
@@ -321,7 +325,7 @@ func TestCheckoutEndedSaleRefusedAndRepriced(t *testing.T) {
 	r.addLine(t, "b1", "lst_1", 1, 350000)
 
 	_, err := r.checkout("b1", "")
-	if !errors.Is(err, service.ErrPriceChanged) {
+	if !errors.Is(err, order.ErrPriceChanged) {
 		t.Fatalf("err = %v, want ErrPriceChanged", err)
 	}
 	if got := r.cartPrice(t, "b1", "lst_1"); got != 500000 {
@@ -339,7 +343,7 @@ func TestCheckoutSaleStartedRefusedAndRepriced(t *testing.T) {
 	r.addLine(t, "b1", "lst_1", 1, 500000)
 
 	_, err := r.checkout("b1", "")
-	if !errors.Is(err, service.ErrPriceChanged) {
+	if !errors.Is(err, order.ErrPriceChanged) {
 		t.Fatalf("err = %v, want ErrPriceChanged", err)
 	}
 	if got := r.cartPrice(t, "b1", "lst_1"); got != 350000 {
@@ -353,7 +357,7 @@ func TestCheckoutRetryAfterRepriceSucceeds(t *testing.T) {
 	r.sale("lst_1", 350000)
 	r.addLine(t, "b1", "lst_1", 1, 500000)
 
-	if _, err := r.checkout("b1", ""); !errors.Is(err, service.ErrPriceChanged) {
+	if _, err := r.checkout("b1", ""); !errors.Is(err, order.ErrPriceChanged) {
 		t.Fatalf("first call err = %v, want ErrPriceChanged", err)
 	}
 	orders, err := r.checkout("b1", "")
@@ -393,7 +397,7 @@ func TestCheckoutOneChangedLineRefusesAll(t *testing.T) {
 	r.addLine(t, "b1", "lst_2", 1, 150000) // flash ended: regular is 200000
 
 	_, err := r.checkout("b1", "")
-	if !errors.Is(err, service.ErrPriceChanged) {
+	if !errors.Is(err, order.ErrPriceChanged) {
 		t.Fatalf("err = %v, want ErrPriceChanged", err)
 	}
 	if got := r.cartPrice(t, "b1", "lst_2"); got != 200000 {
@@ -412,10 +416,10 @@ func TestCheckoutPriceChangedFreesIdempotencyKey(t *testing.T) {
 	r := newFlashRig(t, true)
 	r.addLine(t, "b1", "lst_1", 1, 350000) // ended sale
 
-	if _, err := r.checkout("b1", "", service.WithIdempotencyKey("key-1")); !errors.Is(err, service.ErrPriceChanged) {
+	if _, err := r.checkout("b1", "", order.WithIdempotencyKey("key-1")); !errors.Is(err, order.ErrPriceChanged) {
 		t.Fatalf("first call err = %v, want ErrPriceChanged", err)
 	}
-	orders, err := r.checkout("b1", "", service.WithIdempotencyKey("key-1"))
+	orders, err := r.checkout("b1", "", order.WithIdempotencyKey("key-1"))
 	if err != nil || len(orders) != 1 {
 		t.Fatalf("retry with the same key must run: %v", err)
 	}
@@ -429,7 +433,7 @@ func TestCheckoutRepriceScopedToBuyer(t *testing.T) {
 	r.addLine(t, "b1", "lst_1", 1, 350000)
 	r.addLine(t, "b2", "lst_1", 1, 350000)
 
-	if _, err := r.checkout("b1", ""); !errors.Is(err, service.ErrPriceChanged) {
+	if _, err := r.checkout("b1", ""); !errors.Is(err, order.ErrPriceChanged) {
 		t.Fatalf("err = %v, want ErrPriceChanged", err)
 	}
 	if got := r.cartPrice(t, "b1", "lst_1"); got != 500000 {
@@ -446,7 +450,7 @@ func TestCheckoutPromotionDownFlashLineUnavailable(t *testing.T) {
 	r.addLine(t, "b1", "lst_1", 1, 350000)
 
 	_, err := r.checkout("b1", "")
-	if !errors.Is(err, service.ErrPromotionUnavailable) {
+	if !errors.Is(err, order.ErrPromotionUnavailable) {
 		t.Fatalf("err = %v, want ErrPromotionUnavailable", err)
 	}
 	if got := r.cartPrice(t, "b1", "lst_1"); got != 350000 {
@@ -478,7 +482,7 @@ func TestCheckoutPromotionDownCartAboveRegularPriceChanged(t *testing.T) {
 	r.addLine(t, "b1", "lst_1", 1, 600000) // regular is 500000
 
 	_, err := r.checkout("b1", "")
-	if !errors.Is(err, service.ErrPriceChanged) {
+	if !errors.Is(err, order.ErrPriceChanged) {
 		t.Fatalf("err = %v, want ErrPriceChanged", err)
 	}
 	if got := r.cartPrice(t, "b1", "lst_1"); got != 500000 {
@@ -486,18 +490,85 @@ func TestCheckoutPromotionDownCartAboveRegularPriceChanged(t *testing.T) {
 	}
 }
 
-func TestCheckoutNilPromotionFlashLineRepriced(t *testing.T) {
-	r := newFlashRig(t, false)
-	r.addLine(t, "b1", "lst_1", 1, 350000)
-
-	_, err := r.checkout("b1", "")
-	if !errors.Is(err, service.ErrPriceChanged) {
-		t.Fatalf("err = %v, want ErrPriceChanged", err)
+func TestNewOrderServiceRefusesNilDependencies(t *testing.T) {
+	var typedNilFlash *holdFake
+	valid := func() []order.OrderServiceOption {
+		return []order.OrderServiceOption{
+			order.WithSagaRepository(fake.NewInMemorySagaRepository()),
+			order.WithPromotionClient(idlePromotion{}),
+			order.WithOrderFlashSaleClient(idleFlash{}),
+		}
 	}
-	if got := r.cartPrice(t, "b1", "lst_1"); got != 500000 {
-		t.Errorf("cart line = %d, want 500000", got)
+	build := func(addrClient identityv1.AddressServiceClient, domain upstream.DomainClient, opts ...order.OrderServiceOption) (*order.OrderService, error) {
+		return order.NewOrderService(fake.NewInMemoryOrderRepository(), fake.NewInMemoryCartRepository(), fake.NewInMemoryReturnRepository(),
+			fake.NewInMemoryShipmentRepository(), domain, addrClient, nil, opts...)
 	}
-	r.assertNothingHeld(t)
+	dom := upstreamtest.NewDomain(map[string]int32{})
+	if svc, err := build(idleAddress{}, dom, valid()...); err != nil || svc == nil {
+		t.Fatalf("a fully wired service must build: svc=%v err=%v", svc, err)
+	}
+	for _, tc := range []struct {
+		name string
+		want string
+		addr identityv1.AddressServiceClient
+		dom  upstream.DomainClient
+		opts []order.OrderServiceOption
+	}{
+		{
+			"A nil promotion client is refused at construction: no option", "promotion",
+			idleAddress{},
+			dom,
+			[]order.OrderServiceOption{order.WithSagaRepository(fake.NewInMemorySagaRepository()), order.WithOrderFlashSaleClient(idleFlash{})},
+		},
+		{
+			"A nil promotion client is refused at construction: nil option", "promotion",
+			idleAddress{},
+			dom,
+			[]order.OrderServiceOption{order.WithSagaRepository(fake.NewInMemorySagaRepository()), order.WithPromotionClient(nil), order.WithOrderFlashSaleClient(idleFlash{})},
+		},
+		{
+			"A nil promotion client is refused at construction: no flash option", "flash",
+			idleAddress{},
+			dom,
+			[]order.OrderServiceOption{order.WithSagaRepository(fake.NewInMemorySagaRepository()), order.WithPromotionClient(idlePromotion{})},
+		},
+		{
+			"A nil promotion client is refused at construction: nil flash", "flash",
+			idleAddress{},
+			dom,
+			[]order.OrderServiceOption{order.WithSagaRepository(fake.NewInMemorySagaRepository()), order.WithPromotionClient(idlePromotion{}), order.WithOrderFlashSaleClient(nil)},
+		},
+		{
+			"A nil promotion client is refused at construction: typed nil flash", "flash",
+			idleAddress{},
+			dom,
+			[]order.OrderServiceOption{order.WithSagaRepository(fake.NewInMemorySagaRepository()), order.WithPromotionClient(idlePromotion{}), order.WithOrderFlashSaleClient(typedNilFlash)},
+		},
+		{
+			"A nil promotion client is refused at construction: no saga repository", "saga",
+			idleAddress{},
+			dom,
+			[]order.OrderServiceOption{order.WithPromotionClient(idlePromotion{}), order.WithOrderFlashSaleClient(idleFlash{})},
+		},
+		{
+			"A nil promotion client is refused at construction: nil saga repository", "saga",
+			idleAddress{},
+			dom,
+			[]order.OrderServiceOption{order.WithSagaRepository(nil), order.WithPromotionClient(idlePromotion{}), order.WithOrderFlashSaleClient(idleFlash{})},
+		},
+		{"A nil promotion client is refused at construction: nil listing client", "listing", idleAddress{}, nil, valid()},
+		{"A nil promotion client is refused at construction: nil address client", "address", nil, dom, valid()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, err := build(tc.addr, tc.dom, tc.opts...)
+			if err == nil || svc != nil {
+				t.Fatalf("want a non-nil error and no service, got svc=%v err=%v", svc, err)
+			}
+			if !strings.Contains(strings.ToLower(err.Error()), tc.want) {
+				t.Errorf("error must name the missing %s dependency, got %q", tc.want, err)
+			}
+		})
+	}
 }
 
 // ----------------------------------------------------------------- Phase A
@@ -521,7 +592,7 @@ func TestCheckoutFlashHoldOnePerLineFullQuantity(t *testing.T) {
 	if got.GetCampaignId() != "c1" || got.GetListingId() != "lst_1" || got.GetVariantId() != "" {
 		t.Errorf("campaign/listing/variant = %q/%q/%q", got.GetCampaignId(), got.GetListingId(), got.GetVariantId())
 	}
-	if want := service.FlashReservationID(orders[0].ID, "lst_1", ""); got.GetReservationId() != want {
+	if want := order.FlashReservationID(orders[0].ID, "lst_1", ""); got.GetReservationId() != want {
 		t.Errorf("reservation_id = %q, want %q", got.GetReservationId(), want)
 	}
 }
@@ -554,7 +625,7 @@ func TestCheckoutRefusedFlashHoldPriceChangedReleasesAll(t *testing.T) {
 	}
 
 	_, err := r.checkout("b1", "SAVE")
-	if !errors.Is(err, service.ErrPriceChanged) {
+	if !errors.Is(err, order.ErrPriceChanged) {
 		t.Fatalf("err = %v, want ErrPriceChanged", err)
 	}
 	ids := r.flash.reserveIDs()
@@ -604,7 +675,7 @@ func TestCheckoutFlashHoldTransportErrorUnavailable(t *testing.T) {
 	}
 
 	_, err := r.checkout("b1", "")
-	if !errors.Is(err, service.ErrPromotionUnavailable) {
+	if !errors.Is(err, order.ErrPromotionUnavailable) {
 		t.Fatalf("err = %v, want ErrPromotionUnavailable", err)
 	}
 	ids := r.flash.reserveIDs()
@@ -642,7 +713,7 @@ func TestCheckoutCommitsFlashHoldInPhaseB(t *testing.T) {
 	if err != nil || len(orders) != 1 {
 		t.Fatalf("checkout: %v", err)
 	}
-	want := service.FlashReservationID(orders[0].ID, "lst_1", "")
+	want := order.FlashReservationID(orders[0].ID, "lst_1", "")
 	if len(r.flash.committed) != 1 || r.flash.committed[0] != want {
 		t.Errorf("committed = %v, want [%s]", r.flash.committed, want)
 	}
@@ -672,7 +743,7 @@ func TestCheckoutFlashCommitErrorCompensates(t *testing.T) {
 	}
 
 	_, err := r.checkout("b1", "")
-	if !errors.Is(err, service.ErrPromotionUnavailable) {
+	if !errors.Is(err, order.ErrPromotionUnavailable) {
 		t.Fatalf("err = %v, want ErrPromotionUnavailable", err)
 	}
 	if r.domain.Calls.Commit != 0 {
@@ -719,7 +790,7 @@ func TestCheckoutFlashCommitFalseCompensates(t *testing.T) {
 	}
 
 	_, err := r.checkout("b1", "")
-	if !errors.Is(err, service.ErrPromotionUnavailable) {
+	if !errors.Is(err, order.ErrPromotionUnavailable) {
 		t.Fatalf("err = %v, want ErrPromotionUnavailable", err)
 	}
 	if r.domain.Calls.Commit != 0 {
@@ -755,7 +826,7 @@ func TestCheckoutRetryUsesFreshFlashReservationIDs(t *testing.T) {
 		return &promotionv1.ReserveFlashSaleStockResponse{Reserved: true}, nil
 	}
 
-	if _, err := r.checkout("b1", ""); !errors.Is(err, service.ErrPromotionUnavailable) {
+	if _, err := r.checkout("b1", ""); !errors.Is(err, order.ErrPromotionUnavailable) {
 		t.Fatalf("first attempt err = %v, want ErrPromotionUnavailable", err)
 	}
 	if _, err := r.checkout("b1", ""); err != nil {
@@ -808,7 +879,7 @@ func TestFailAndCompensateReleasesOnlyFlashLines(t *testing.T) {
 
 // placeFlashOrder checks out one flash line (lst_1 x2 at 350000) and optionally a
 // regular line (lst_2) and returns the single order.
-func placeFlashOrder(t *testing.T, withRegular bool) (*flashRig, repository.Order) {
+func placeFlashOrder(t *testing.T, withRegular bool) (*flashRig, store.Order) {
 	t.Helper()
 	r := newFlashRig(t, true)
 	r.sale("lst_1", 350000)
@@ -831,7 +902,7 @@ func TestCancelOrderReleasesFlashHold(t *testing.T) {
 	hold := r.flash.reserveIDs()[0]
 
 	res, err := r.svc.CancelOrder(context.Background(), o.ID)
-	if err != nil || res.Status != repository.OrderStatusCancelled {
+	if err != nil || res.Status != store.OrderStatusCancelled {
 		t.Fatalf("cancel: %v %+v", err, res)
 	}
 	if got := r.flash.releasedIDs(); len(got) != 1 || got[0] != hold {
@@ -846,7 +917,7 @@ func TestCancelOrderReleasesEveryItem(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := r.flash.releasedIDs()
-	want := []string{service.FlashReservationID(o.ID, "lst_1", ""), service.FlashReservationID(o.ID, "lst_2", "")}
+	want := []string{order.FlashReservationID(o.ID, "lst_1", ""), order.FlashReservationID(o.ID, "lst_2", "")}
 	if len(got) != 2 || !contains(got, want[0]) || !contains(got, want[1]) {
 		t.Errorf("released = %v, want one call per item %v", got, want)
 	}
@@ -859,23 +930,23 @@ func TestCancelOrderFlashReleaseErrorStillCancels(t *testing.T) {
 	}
 
 	res, err := r.svc.CancelOrder(context.Background(), o.ID)
-	if err != nil || res.Status != repository.OrderStatusCancelled {
+	if err != nil || res.Status != store.OrderStatusCancelled {
 		t.Fatalf("a flash release error must not fail the cancel: %v %+v", err, res)
 	}
 	got, _ := r.orders.GetOrder(context.Background(), o.ID)
-	if got.Status != repository.OrderStatusCancelled {
+	if got.Status != store.OrderStatusCancelled {
 		t.Errorf("order status = %v, want Cancelled", got.Status)
 	}
 }
 
 func TestCancelOrderRefusedNoFlashRelease(t *testing.T) {
 	r, o := placeFlashOrder(t, false)
-	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), o.ID, repository.OrderStatusShipped,
-		[]repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), o.ID, store.OrderStatusShipped,
+		[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := r.svc.CancelOrder(context.Background(), o.ID); !errors.Is(err, service.ErrInvalidStatus) {
+	if _, err := r.svc.CancelOrder(context.Background(), o.ID); !errors.Is(err, order.ErrInvalidStatus) {
 		t.Fatalf("err = %v, want ErrInvalidStatus", err)
 	}
 	if got := r.flash.releasedIDs(); len(got) != 0 {
@@ -886,13 +957,13 @@ func TestCancelOrderRefusedNoFlashRelease(t *testing.T) {
 func TestCancelPaidOrderReleasesCommittedFlashHold(t *testing.T) {
 	r, o := placeFlashOrder(t, false)
 	hold := r.flash.reserveIDs()[0]
-	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), o.ID, repository.OrderStatusPaid,
-		[]repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), o.ID, store.OrderStatusPaid,
+		[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 		t.Fatal(err)
 	}
 
 	res, err := r.svc.CancelOrder(context.Background(), o.ID)
-	if err != nil || res.Status != repository.OrderStatusCancelled {
+	if err != nil || res.Status != store.OrderStatusCancelled {
 		t.Fatalf("cancel paid: %v %+v", err, res)
 	}
 	if got := r.flash.releasedIDs(); len(got) != 1 || got[0] != hold {
@@ -911,7 +982,7 @@ func TestCheckoutNilListingFailsClosed(t *testing.T) {
 	if err == nil {
 		t.Fatal("checkout must fail when the listing is nil")
 	}
-	if errors.Is(err, service.ErrPriceChanged) || errors.Is(err, service.ErrPromotionUnavailable) {
+	if errors.Is(err, order.ErrPriceChanged) || errors.Is(err, order.ErrPromotionUnavailable) {
 		t.Fatalf("err = %v, want a plain error (not price changed / promotion unavailable)", err)
 	}
 	if got := r.cartPrice(t, "b1", "lst_nil"); got != 350000 {
@@ -931,7 +1002,7 @@ func TestCancelOrderFlashReleaseHasOwnTimeout(t *testing.T) {
 	r.domain.ReleaseHang = true // set after checkout: blocks until the inline deadline
 
 	res, err := r.svc.CancelOrder(context.Background(), o.ID)
-	if err != nil || res.Status != repository.OrderStatusCancelled {
+	if err != nil || res.Status != store.OrderStatusCancelled {
 		t.Fatalf("cancel: %v %+v", err, res)
 	}
 	r.flash.mu.Lock()

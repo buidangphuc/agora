@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -11,8 +11,9 @@ import (
 
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
@@ -53,12 +54,12 @@ func (p *platPromo) platformReleases(prefix string) []string {
 }
 
 type listCountingOrders struct {
-	*repository.InMemoryOrderRepository
+	*fake.InMemoryOrderRepository
 	mu    sync.Mutex
 	lists int
 }
 
-func (l *listCountingOrders) ListOrdersByCheckout(ctx context.Context, id string) ([]repository.Order, error) {
+func (l *listCountingOrders) ListOrdersByCheckout(ctx context.Context, id string) ([]store.Order, error) {
 	l.mu.Lock()
 	l.lists++
 	l.mu.Unlock()
@@ -68,41 +69,42 @@ func (l *listCountingOrders) ListOrdersByCheckout(ctx context.Context, id string
 type platRig struct {
 	orders *listCountingOrders
 	promo  *platPromo
-	svc    *service.OrderService
+	svc    *order.OrderService
 }
 
 func newPlatRig(t *testing.T, promo *platPromo) *platRig {
 	t.Helper()
-	orders := &listCountingOrders{InMemoryOrderRepository: repository.NewInMemoryOrderRepository()}
-	svc := service.NewOrderService(orders, repository.NewInMemoryCartRepository(), nil, nil,
+	orders := &listCountingOrders{InMemoryOrderRepository: fake.NewInMemoryOrderRepository()}
+	svc := newSvc(t, orders, fake.NewInMemoryCartRepository(), nil, nil,
 		upstreamtest.NewDomain(map[string]int32{}), nil, nil,
-		service.WithPromotionClient(promo),
-		service.WithReleaseRetry(time.Second, 2, time.Millisecond))
+		order.WithPromotionClient(promo),
+		order.WithReleaseRetry(time.Second, 2, time.Millisecond))
 	return &platRig{orders: orders, promo: promo, svc: svc}
 }
 
-func (r *platRig) place(t *testing.T, seller, checkoutID, platformCode string, due *time.Time) repository.Order {
+func (r *platRig) place(t *testing.T, seller, checkoutID, platformCode string, due *time.Time) store.Order {
 	t.Helper()
-	o, err := r.orders.CreateOrder(context.Background(), repository.Order{
+	o, err := r.orders.CreateOrder(context.Background(), store.Order{
 		BuyerID: "buyer_1", SellerID: seller, TotalAmount: 3000, Currency: "VND",
 		PaymentMethod: int32(paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO), PaymentDueAt: due,
 		CheckoutID: checkoutID, PlatformVoucherCode: platformCode,
-		Items: []repository.OrderItem{{ListingID: "lst_" + seller, Quantity: 1, UnitPrice: 3000}}})
+		Items: []store.OrderItem{{ListingID: "lst_" + seller, Quantity: 1, UnitPrice: 3000}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return o
 }
 
-func (r *platRig) setStatus(t *testing.T, id string, to repository.OrderStatus) {
+func (r *platRig) setStatus(t *testing.T, id string, to store.OrderStatus) {
 	t.Helper()
 	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), id, to,
-		[]repository.OrderStatus{repository.OrderStatusPending, repository.OrderStatusPaid}, ""); err != nil {
+		[]store.OrderStatus{store.OrderStatusPending, store.OrderStatusPaid}, ""); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (r *platRig) status(t *testing.T, id string) repository.OrderStatus {
+func (r *platRig) status(t *testing.T, id string) store.OrderStatus {
 	t.Helper()
 	o, err := r.orders.GetOrder(context.Background(), id)
 	if err != nil {
@@ -136,7 +138,7 @@ func TestCancelWithPaidSiblingKeepsPlatformVoucher(t *testing.T) {
 	r := newPlatRig(t, &platPromo{})
 	a := r.place(t, "sa", "chk_1", "PLAT", nil)
 	b := r.place(t, "sb", "chk_1", "PLAT", nil)
-	r.setStatus(t, a.ID, repository.OrderStatusPaid)
+	r.setStatus(t, a.ID, store.OrderStatusPaid)
 	if _, err := r.svc.CancelOrder(context.Background(), b.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +157,7 @@ func TestSystemCancelReleasesPlatformVoucherWhenAllCancelled(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.svc.SweepLifecycle(context.Background(), due.Add(time.Minute))
-	if r.status(t, b.ID) != repository.OrderStatusCancelled {
+	if r.status(t, b.ID) != store.OrderStatusCancelled {
 		t.Fatalf("sweeper should have cancelled the expired order")
 	}
 	got := r.promo.platformReleases("platform:")
@@ -171,7 +173,7 @@ func TestCancelPlatformReleaseErrorNeverFailsCancel(t *testing.T) {
 	if _, err := r.svc.CancelOrder(context.Background(), a.ID); err != nil {
 		t.Fatalf("cancel must succeed despite platform release failure: %v", err)
 	}
-	if r.status(t, a.ID) != repository.OrderStatusCancelled {
+	if r.status(t, a.ID) != store.OrderStatusCancelled {
 		t.Fatalf("order must be Cancelled")
 	}
 	if len(r.promo.platformReleases("platform:")) == 0 {

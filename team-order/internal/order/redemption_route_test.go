@@ -1,4 +1,4 @@
-package service
+package order
 
 import (
 	"context"
@@ -77,8 +77,8 @@ func (p *routePromo) wasReleased(id string) bool {
 	return false
 }
 
-func routeSvc(p PromotionClient) *OrderService {
-	return NewOrderService(nil, nil, nil, nil, nil, nil, nil, WithPromotionClient(p))
+func routeSvc(t testing.TB, p PromotionClient) *OrderService {
+	return internalSvc(t, WithPromotionClient(p))
 }
 
 func twoGroups(a, b int64) []quoteGroupInput {
@@ -97,7 +97,7 @@ func routeInput(slots voucherSlots, groups []quoteGroupInput) voucherResolveInpu
 
 func TestShopSlotAcceptsShopScope_MultishopCheckout(t *testing.T) {
 	p := newRoutePromo(map[string]routeVoucher{"SHOPA": {scope: promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP, sellerID: "A", discount: 30000}})
-	out, err := routeSvc(p).resolveVouchers(context.Background(), routeInput(
+	out, err := routeSvc(t, p).resolveVouchers(context.Background(), routeInput(
 		voucherSlots{shops: []shopVoucherSlot{{sellerID: "A", code: "SHOPA"}}}, twoGroups(300000, 300000)))
 	if err != nil {
 		t.Fatalf("Multishop checkout: shop voucher for a group in the selection: err=%v", err)
@@ -114,7 +114,7 @@ func TestShopSlotAcceptsShopScope_MultishopCheckout(t *testing.T) {
 
 func TestShopSlotRefusesPlatformScope_MultishopCheckout_APlatformCodeInAShopSlotIsRefused(t *testing.T) {
 	p := newRoutePromo(map[string]routeVoucher{"PLAT": {scope: promotionv1.VoucherScope_VOUCHER_SCOPE_PLATFORM, discount: 60000}})
-	out, err := routeSvc(p).resolveVouchers(context.Background(), routeInput(
+	out, err := routeSvc(t, p).resolveVouchers(context.Background(), routeInput(
 		voucherSlots{shops: []shopVoucherSlot{{sellerID: "A", code: "PLAT"}}}, twoGroups(300000, 300000)))
 	if err != nil {
 		t.Fatalf("Multishop checkout: A platform code in a shop slot is refused: err=%v", err)
@@ -130,7 +130,7 @@ func TestShopSlotRefusesPlatformScope_MultishopCheckout_APlatformCodeInAShopSlot
 
 func TestShopVoucherSellerNotInSelectionRefused_MultishopCheckout(t *testing.T) {
 	p := newRoutePromo(map[string]routeVoucher{"SHOPZ": {scope: promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP, sellerID: "Z", discount: 30000}})
-	out, err := routeSvc(p).resolveVouchers(context.Background(), routeInput(
+	out, err := routeSvc(t, p).resolveVouchers(context.Background(), routeInput(
 		voucherSlots{shops: []shopVoucherSlot{{sellerID: "Z", code: "SHOPZ"}}}, twoGroups(300000, 300000)))
 	if err != nil {
 		t.Fatalf("Multishop checkout: A shop voucher for a shop outside the selection is refused: err=%v", err)
@@ -146,7 +146,7 @@ func TestShopVoucherSellerNotInSelectionRefused_MultishopCheckout(t *testing.T) 
 
 func TestPlatformVoucherMinSpendOnSelectionSubtotal_MultishopCheckout(t *testing.T) {
 	p := newRoutePromo(map[string]routeVoucher{"PLAT": {scope: promotionv1.VoucherScope_VOUCHER_SCOPE_PLATFORM, discount: 60000, minSpend: 500000}})
-	out, err := routeSvc(p).resolveVouchers(context.Background(), routeInput(
+	out, err := routeSvc(t, p).resolveVouchers(context.Background(), routeInput(
 		voucherSlots{platformCode: "PLAT"}, twoGroups(300000, 300000)))
 	if err != nil {
 		t.Fatalf("Multishop checkout: Platform min spend is checked on the whole selection: err=%v", err)
@@ -165,7 +165,7 @@ func TestPlatformVoucherMinSpendOnSelectionSubtotal_MultishopCheckout(t *testing
 
 func TestPlatformSlotRefusesShopScope_MultishopCheckout_AShopCodeInThePlatformSlotIsRefused(t *testing.T) {
 	p := newRoutePromo(map[string]routeVoucher{"SHOPB": {scope: promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP, sellerID: "", discount: 30000}})
-	out, err := routeSvc(p).resolveVouchers(context.Background(), routeInput(
+	out, err := routeSvc(t, p).resolveVouchers(context.Background(), routeInput(
 		voucherSlots{platformCode: "SHOPB"}, twoGroups(300000, 300000)))
 	if err != nil {
 		t.Fatalf("Multishop checkout: A shop code in the platform slot is refused: err=%v", err)
@@ -180,7 +180,7 @@ func TestPlatformSlotRefusesShopScope_MultishopCheckout_AShopCodeInThePlatformSl
 
 func TestLegacyVoucherCodePlatformScopeRouted_MultishopCheckout(t *testing.T) {
 	p := newRoutePromo(map[string]routeVoucher{"PLAT": {scope: promotionv1.VoucherScope_VOUCHER_SCOPE_PLATFORM, discount: 60000}})
-	out, err := routeSvc(p).resolveVouchers(context.Background(), routeInput(
+	out, err := routeSvc(t, p).resolveVouchers(context.Background(), routeInput(
 		voucherSlots{legacyCode: "PLAT"}, twoGroups(300000, 300000)))
 	if err != nil {
 		t.Fatalf("Multishop checkout: A legacy platform code becomes the platform voucher: err=%v", err)
@@ -204,7 +204,7 @@ func TestLegacyVoucherCodeShopScopeRefused_MultishopCheckout(t *testing.T) {
 	}{{"shop in selection", "B"}, {"shop outside selection", "Z"}} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := newRoutePromo(map[string]routeVoucher{"SHOPX": {scope: promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP, sellerID: tc.seller, discount: 30000}})
-			out, err := routeSvc(p).resolveVouchers(context.Background(), routeInput(
+			out, err := routeSvc(t, p).resolveVouchers(context.Background(), routeInput(
 				voucherSlots{legacyCode: "SHOPX"}, twoGroups(300000, 300000)))
 			if err != nil {
 				t.Fatalf("Multishop checkout: A legacy shop code is refused as a platform voucher: err=%v", err)
@@ -224,7 +224,7 @@ func TestLegacyVoucherCodeShopScopeRefused_MultishopCheckout(t *testing.T) {
 
 func TestLegacyVoucherCodeUnknownRefused_MultishopCheckout(t *testing.T) {
 	p := newRoutePromo(map[string]routeVoucher{})
-	out, err := routeSvc(p).resolveVouchers(context.Background(), routeInput(
+	out, err := routeSvc(t, p).resolveVouchers(context.Background(), routeInput(
 		voucherSlots{legacyCode: "NOPE"}, twoGroups(300000, 300000)))
 	if err != nil {
 		t.Fatalf("Multishop checkout: An unknown legacy code is refused: err=%v", err)
@@ -234,22 +234,6 @@ func TestLegacyVoucherCodeUnknownRefused_MultishopCheckout(t *testing.T) {
 	}
 	if n := len(p.calls()); n != 1 {
 		t.Errorf("Multishop checkout: An unknown legacy code is refused: want 1 call, got %d", n)
-	}
-}
-
-func TestVouchersIgnoredWithoutPromotionClient_MultishopCheckout(t *testing.T) {
-	svc := NewOrderService(nil, nil, nil, nil, nil, nil, nil)
-	out, err := svc.resolveVouchers(context.Background(), routeInput(
-		voucherSlots{platformCode: "PLAT", shops: []shopVoucherSlot{{sellerID: "A", code: "SHOPA"}}}, twoGroups(300000, 300000)))
-	if err != nil {
-		t.Fatalf("Multishop checkout: Vouchers are ignored without a promotion client: err=%v", err)
-	}
-	const reason = "vouchers unavailable"
-	if out.platform.valid || out.platform.reason != reason || out.platform.discount != 0 {
-		t.Errorf("Multishop checkout: Vouchers are ignored without a promotion client: platform=%+v", out.platform)
-	}
-	if o := out.shops["A"]; o.valid || o.reason != reason || o.discount != 0 {
-		t.Errorf("Multishop checkout: Vouchers are ignored without a promotion client: shop=%+v", o)
 	}
 }
 
@@ -265,7 +249,7 @@ func TestVoucherTransportErrorUnavailable_MultishopCheckout(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := newRoutePromo(nil)
 			p.failWith = errors.New("connection refused")
-			_, err := routeSvc(p).resolveVouchers(context.Background(), routeInput(tc.slots, twoGroups(300000, 300000)))
+			_, err := routeSvc(t, p).resolveVouchers(context.Background(), routeInput(tc.slots, twoGroups(300000, 300000)))
 			if !errors.Is(err, ErrPromotionUnavailable) {
 				t.Errorf("Multishop checkout: A promotion outage blocks a voucher checkout: want ErrPromotionUnavailable, got %v", err)
 			}

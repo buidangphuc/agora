@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -6,26 +6,26 @@ import (
 	"testing"
 
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 // Scenario "Order expiry: System may cancel only from Pending".
 func TestAllowedFromCancelledSystemIsPendingOnly(t *testing.T) {
-	sys := service.AllowedFrom(repository.OrderStatusCancelled, service.ActorSystem)
-	if len(sys) != 1 || sys[0] != repository.OrderStatusPending {
+	sys := order.AllowedFrom(store.OrderStatusCancelled, order.ActorSystem)
+	if len(sys) != 1 || sys[0] != store.OrderStatusPending {
 		t.Fatalf("system may cancel from %v, want exactly [Pending]", sys)
 	}
-	buyer := service.AllowedFrom(repository.OrderStatusCancelled, service.ActorBuyer)
-	got := map[repository.OrderStatus]bool{}
+	buyer := order.AllowedFrom(store.OrderStatusCancelled, order.ActorBuyer)
+	got := map[store.OrderStatus]bool{}
 	for _, s := range buyer {
 		got[s] = true
 	}
-	if len(buyer) != 2 || !got[repository.OrderStatusPending] || !got[repository.OrderStatusPaid] {
+	if len(buyer) != 2 || !got[store.OrderStatusPending] || !got[store.OrderStatusPaid] {
 		t.Fatalf("buyer may cancel from %v, want exactly Pending and Paid", buyer)
 	}
 	// The system class still pays and nothing else changed for the seller.
-	if seller := service.AllowedFrom(repository.OrderStatusCancelled, service.ActorSeller); len(seller) != 0 {
+	if seller := order.AllowedFrom(store.OrderStatusCancelled, order.ActorSeller); len(seller) != 0 {
 		t.Fatalf("seller must never reach Cancelled, got %v", seller)
 	}
 }
@@ -33,12 +33,12 @@ func TestAllowedFromCancelledSystemIsPendingOnly(t *testing.T) {
 // Scenario "Order expiry: A seller or admin cannot request Cancelled through UpdateOrderStatus".
 func TestUpdateOrderStatusCancelledStillForbidden(t *testing.T) {
 	svc, orders, outbox, o := newCancelOutboxRig(t)
-	_, err := svc.UpdateOrderStatus(context.Background(), o.ID, service.ActorSeller, repository.OrderStatusCancelled, "")
-	if !errors.Is(err, service.ErrActorForbidden) {
+	_, err := svc.UpdateOrderStatus(context.Background(), o.ID, order.ActorSeller, store.OrderStatusCancelled, "")
+	if !errors.Is(err, order.ErrActorForbidden) {
 		t.Fatalf("want ErrActorForbidden, got %v", err)
 	}
 	got, gerr := orders.GetOrder(context.Background(), o.ID)
-	if gerr != nil || got.Status != repository.OrderStatusPending || got.CancelReason != 0 {
+	if gerr != nil || got.Status != store.OrderStatusPending || got.CancelReason != 0 {
 		t.Fatalf("order must be unchanged: %v %+v", gerr, got)
 	}
 	if n := len(cancelFacts(t, outbox, o.ID)); n != 0 {
@@ -65,7 +65,7 @@ func TestCancelOrderWithReasonStoresItOnRowAndEvent(t *testing.T) {
 				t.Fatalf("returned order cancel_reason %d, want %d", res.CancelReason, reason)
 			}
 			stored, _ := orders.GetOrder(context.Background(), o.ID)
-			if stored.Status != repository.OrderStatusCancelled || stored.CancelReason != int32(reason) {
+			if stored.Status != store.OrderStatusCancelled || stored.CancelReason != int32(reason) {
 				t.Fatalf("stored order: %+v", stored)
 			}
 			facts := cancelFacts(t, outbox, o.ID)
@@ -84,7 +84,7 @@ func TestCancelOrderWithoutReasonStoresUnspecified(t *testing.T) {
 		t.Fatal(err)
 	}
 	stored, _ := orders.GetOrder(context.Background(), o.ID)
-	if stored.Status != repository.OrderStatusCancelled || stored.CancelReason != 0 {
+	if stored.Status != store.OrderStatusCancelled || stored.CancelReason != 0 {
 		t.Fatalf("stored order: %+v", stored)
 	}
 	facts := cancelFacts(t, outbox, o.ID)
@@ -97,16 +97,16 @@ func TestCancelOrderWithoutReasonStoresUnspecified(t *testing.T) {
 func TestCancelShippedOrderKeepsReasonUnset(t *testing.T) {
 	svc, orders, outbox, o := newCancelOutboxRig(t)
 	ctx := context.Background()
-	if _, err := orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusShipped,
-		[]repository.OrderStatus{repository.OrderStatusPending}, "TRK"); err != nil {
+	if _, err := orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped,
+		[]store.OrderStatus{store.OrderStatusPending}, "TRK"); err != nil {
 		t.Fatal(err)
 	}
 	_, err := svc.CancelOrderWithReason(ctx, o.ID, orderv1.CancelReason_CANCEL_REASON_CHANGED_MIND)
-	if !errors.Is(err, service.ErrInvalidStatus) {
+	if !errors.Is(err, order.ErrInvalidStatus) {
 		t.Fatalf("want ErrInvalidStatus, got %v", err)
 	}
 	stored, _ := orders.GetOrder(ctx, o.ID)
-	if stored.Status != repository.OrderStatusShipped || stored.CancelReason != 0 {
+	if stored.Status != store.OrderStatusShipped || stored.CancelReason != 0 {
 		t.Fatalf("shipped order must be untouched: %+v", stored)
 	}
 	if n := len(cancelFacts(t, outbox, o.ID)); n != 0 {
@@ -123,7 +123,7 @@ func TestSecondCancelWithOtherReasonKeepsFirstReason(t *testing.T) {
 	if _, err := svc.CancelOrderWithReason(ctx, o.ID, orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.CancelOrderWithReason(ctx, o.ID, orderv1.CancelReason_CANCEL_REASON_CHANGED_MIND); !errors.Is(err, service.ErrInvalidStatus) {
+	if _, err := svc.CancelOrderWithReason(ctx, o.ID, orderv1.CancelReason_CANCEL_REASON_CHANGED_MIND); !errors.Is(err, order.ErrInvalidStatus) {
 		t.Fatalf("second cancel: want ErrInvalidStatus, got %v", err)
 	}
 	stored, _ := orders.GetOrder(ctx, o.ID)

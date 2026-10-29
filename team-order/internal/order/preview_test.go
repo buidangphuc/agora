@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 // ---- order-multishop-checkout task 6: PreviewCheckout service ----
 //
@@ -30,8 +30,9 @@ import (
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
@@ -92,11 +93,11 @@ func (p *pvPromo) releasedIDs() []string {
 
 type pvRig struct {
 	domain *upstreamtest.Domain
-	orders *repository.InMemoryOrderRepository
+	orders *fake.InMemoryOrderRepository
 	sagas  *recordingSagaRepo
-	cart   *repository.InMemoryCartRepository
+	cart   *fake.InMemoryCartRepository
 	promo  *pvPromo
-	svc    *service.OrderService
+	svc    *order.OrderService
 }
 
 type pvOpts struct {
@@ -105,7 +106,7 @@ type pvOpts struct {
 	buyer      string
 	listings   map[string]*listingv1.Listing
 	releaseErr error
-	lines      []repository.CartItem
+	lines      []store.CartItem
 }
 
 // pvNew: cart of buyer_1 = ci_a (sa, 2 x 1000), ci_b (sb, 1 x 2000), ci_c (sb, 1 x 1000).
@@ -117,14 +118,14 @@ func pvNew(t *testing.T, o pvOpts) *pvRig {
 	}
 	r := &pvRig{
 		domain: upstreamtest.NewDomain(map[string]int32{"lst_a": 10, "lst_b": 10, "lst_c": 10}),
-		orders: repository.NewInMemoryOrderRepository(),
-		sagas:  &recordingSagaRepo{SagaRepository: repository.NewInMemorySagaRepository()},
-		cart:   repository.NewInMemoryCartRepository(),
+		orders: fake.NewInMemoryOrderRepository(),
+		sagas:  &recordingSagaRepo{SagaRepository: fake.NewInMemorySagaRepository()},
+		cart:   fake.NewInMemoryCartRepository(),
 		promo:  &pvPromo{msPromo: newMsPromo(msCatalog()), releaseErr: o.releaseErr},
 	}
 	lines := o.lines
 	if lines == nil {
-		lines = []repository.CartItem{
+		lines = []store.CartItem{
 			{ID: "ci_a", ListingID: "lst_a", Quantity: 2, SellerID: "sa", UnitPrice: 1000},
 			{ID: "ci_b", ListingID: "lst_b", Quantity: 1, SellerID: "sb", UnitPrice: 2000},
 			{ID: "ci_c", ListingID: "lst_c", Quantity: 1, SellerID: "sb", UnitPrice: 1000},
@@ -136,28 +137,28 @@ func pvNew(t *testing.T, o pvOpts) *pvRig {
 			t.Fatal(err)
 		}
 	}
-	inner := r.sagas.SagaRepository.(*repository.InMemorySagaRepository)
-	opts := []service.OrderServiceOption{
-		service.WithSagaRepository(r.sagas),
-		service.WithOrderPlacer(repository.NewInMemoryOrderPlacer(r.orders, inner)),
-		service.WithPromotionClient(r.promo),
+	inner := r.sagas.SagaRepository.(*fake.InMemorySagaRepository)
+	opts := []order.OrderServiceOption{
+		order.WithSagaRepository(r.sagas),
+		order.WithOrderPlacer(fake.NewInMemoryOrderPlacer(r.orders, inner)),
+		order.WithPromotionClient(r.promo),
 	}
 	ac := &pvAddr{addrs: o.addrs, err: o.addrErr}
 	if o.listings != nil {
-		r.svc = service.NewOrderService(r.orders, r.cart, nil, nil, &pricedDomain{Domain: r.domain, listings: o.listings}, ac, nil, opts...)
+		r.svc = newSvc(t, r.orders, r.cart, nil, nil, &pricedDomain{Domain: r.domain, listings: o.listings}, ac, nil, opts...)
 	} else {
-		r.svc = service.NewOrderService(r.orders, r.cart, nil, nil, r.domain, ac, nil, opts...)
+		r.svc = newSvc(t, r.orders, r.cart, nil, nil, r.domain, ac, nil, opts...)
 	}
 	return r
 }
 
-func (r *pvRig) cartSnapshot(t *testing.T, buyer string) map[string]repository.CartItem {
+func (r *pvRig) cartSnapshot(t *testing.T, buyer string) map[string]store.CartItem {
 	t.Helper()
 	items, err := r.cart.GetCart(context.Background(), buyer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := map[string]repository.CartItem{}
+	m := map[string]store.CartItem{}
 	for _, it := range items {
 		m[it.ID] = it
 	}
@@ -180,7 +181,7 @@ func TestPreviewCheckoutReservesNothing_MultishopCheckout(t *testing.T) {
 	before := r.cartSnapshot(t, "buyer_1")
 
 	resp, err := r.svc.PreviewCheckout(context.Background(), "buyer_1", "", nil,
-		service.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, ""))
+		order.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, ""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +247,7 @@ func TestPreviewCheckoutSelectsItemIDs_MultishopCheckout(t *testing.T) {
 func TestPreviewCheckoutEmptySelectionRefused_MultishopCheckout(t *testing.T) {
 	r := pvNew(t, pvOpts{addrs: []*identityv1.Address{pvHome()}})
 	_, err := r.svc.PreviewCheckout(context.Background(), "buyer_1", "", []string{"nope"})
-	if !errors.Is(err, service.ErrEmptyCart) {
+	if !errors.Is(err, order.ErrEmptyCart) {
 		t.Fatalf("want ErrEmptyCart, got %v", err)
 	}
 }
@@ -254,7 +255,7 @@ func TestPreviewCheckoutEmptySelectionRefused_MultishopCheckout(t *testing.T) {
 func TestPreviewCheckoutNoAddressNotQuoted_MultishopCheckout(t *testing.T) {
 	r := pvNew(t, pvOpts{
 		addrs: nil,
-		lines: []repository.CartItem{{ID: "ci_x", ListingID: "lst_a", Quantity: 1, SellerID: "sa", UnitPrice: 300000}},
+		lines: []store.CartItem{{ID: "ci_x", ListingID: "lst_a", Quantity: 1, SellerID: "sa", UnitPrice: 300000}},
 	})
 
 	resp, err := r.svc.PreviewCheckout(context.Background(), "buyer_1", "", nil)
@@ -282,7 +283,7 @@ func TestPreviewCheckoutNoDefaultAddressFailedPrecondition_MultishopCheckout(t *
 	r := pvNew(t, pvOpts{addrs: []*identityv1.Address{a, b}})
 
 	resp, err := r.svc.PreviewCheckout(context.Background(), "buyer_1", "", nil)
-	if !errors.Is(err, service.ErrAddressNotFound) {
+	if !errors.Is(err, order.ErrAddressNotFound) {
 		t.Fatalf("want ErrAddressNotFound, got resp=%v err=%v", resp, err)
 	}
 	if !strings.Contains(err.Error(), "address not found") {
@@ -293,7 +294,7 @@ func TestPreviewCheckoutNoDefaultAddressFailedPrecondition_MultishopCheckout(t *
 func TestPreviewCheckoutUnknownAddressIDRefused_MultishopCheckout(t *testing.T) {
 	r := pvNew(t, pvOpts{addrs: []*identityv1.Address{pvHome()}})
 	_, err := r.svc.PreviewCheckout(context.Background(), "buyer_1", "addr_not_mine", nil)
-	if !errors.Is(err, service.ErrAddressNotFound) {
+	if !errors.Is(err, order.ErrAddressNotFound) {
 		t.Fatalf("want ErrAddressNotFound, got %v", err)
 	}
 }
@@ -302,8 +303,8 @@ func TestPreviewCheckoutIdentityUnavailable_MultishopCheckout(t *testing.T) {
 	r := pvNew(t, pvOpts{addrErr: status.Error(codes.Unavailable, "identity down")})
 
 	_, err := r.svc.PreviewCheckout(context.Background(), "buyer_1", "", nil,
-		service.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, "PLAT"))
-	if !errors.Is(err, service.ErrAddressUnavailable) {
+		order.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, "PLAT"))
+	if !errors.Is(err, order.ErrAddressUnavailable) {
 		t.Fatalf("want ErrAddressUnavailable, got %v", err)
 	}
 	if held := r.promo.heldIDs(); len(held) != 0 {
@@ -356,7 +357,7 @@ func TestPreviewCheckoutPriceChangedRepricesCart_MultishopCheckout(t *testing.T)
 	})
 
 	resp, err := r.svc.PreviewCheckout(context.Background(), "buyer_1", "", nil)
-	if !errors.Is(err, service.ErrPriceChanged) {
+	if !errors.Is(err, order.ErrPriceChanged) {
 		t.Fatalf("want ErrPriceChanged, got resp=%v err=%v", resp, err)
 	}
 	if got := r.cartSnapshot(t, "buyer_1")["ci_a"].UnitPrice; got != 1500 {
@@ -374,7 +375,7 @@ func TestPreviewCheckoutSelfPurchaseRefused_MultishopCheckout(t *testing.T) {
 	})
 
 	_, err := r.svc.PreviewCheckout(context.Background(), "sa", "", nil)
-	if !errors.Is(err, service.ErrSelfPurchase) {
+	if !errors.Is(err, order.ErrSelfPurchase) {
 		t.Fatalf("want ErrSelfPurchase, got %v", err)
 	}
 }
@@ -383,7 +384,7 @@ func TestPreviewCheckoutReleasesPreviewHoldsNeverCommits_MultishopCheckout(t *te
 	r := pvNew(t, pvOpts{addrs: []*identityv1.Address{pvHome()}})
 
 	resp, err := r.svc.PreviewCheckout(context.Background(), "buyer_1", "", nil,
-		service.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, "PLAT"))
+		order.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, "PLAT"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -435,7 +436,7 @@ func TestPreviewCheckoutReleaseErrorIgnored_MultishopCheckout(t *testing.T) {
 	})
 
 	resp, err := r.svc.PreviewCheckout(context.Background(), "buyer_1", "", nil,
-		service.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, ""))
+		order.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, ""))
 	if err != nil {
 		t.Fatalf("a release failure must not fail the preview: %v", err)
 	}

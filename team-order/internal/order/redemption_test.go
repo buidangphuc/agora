@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -10,8 +10,9 @@ import (
 	"google.golang.org/grpc"
 
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 // fakePromotion models team-promotion's VoucherService. ValidateAndReserve is
@@ -82,14 +83,14 @@ func (f *fakePromotion) reservedHas(id string) bool {
 // A valid voucher records the discount on the order and reduces its total.
 func TestCreateOrders_ValidVoucher_DiscountAndReducedTotal(t *testing.T) {
 	ctx := context.Background()
-	domain := newFakeDomain()
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 100000, "lst_2": 50000})
 	orderRepo := newFakeOrderRepo()
-	saga := repository.NewInMemorySagaRepository()
-	cart := &fakeCartRepo{items: []repository.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 100000}}}
+	saga := fake.NewInMemorySagaRepository()
+	cart := &fakeCartRepo{items: []store.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 100000}}}
 	promo := newFakePromotion(30000)
 
-	svc := service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil,
-		service.WithSagaRepository(saga), service.WithPromotionClient(promo))
+	svc := newSvc(t, orderRepo, cart, nil, nil, domain, nil, nil,
+		order.WithSagaRepository(saga), order.WithPromotionClient(promo))
 
 	orders, err := svc.CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, "SAVE30")
 	if err != nil {
@@ -118,14 +119,14 @@ func TestCreateOrders_ValidVoucher_DiscountAndReducedTotal(t *testing.T) {
 // called — the pre-voucher path is byte-for-byte the same.
 func TestCreateOrders_NoVoucher_Unchanged(t *testing.T) {
 	ctx := context.Background()
-	domain := newFakeDomain()
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 100000, "lst_2": 50000})
 	orderRepo := newFakeOrderRepo()
-	saga := repository.NewInMemorySagaRepository()
-	cart := &fakeCartRepo{items: []repository.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 100000}}}
+	saga := fake.NewInMemorySagaRepository()
+	cart := &fakeCartRepo{items: []store.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 100000}}}
 	promo := newFakePromotion(30000)
 
-	svc := service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil,
-		service.WithSagaRepository(saga), service.WithPromotionClient(promo))
+	svc := newSvc(t, orderRepo, cart, nil, nil, domain, nil, nil,
+		order.WithSagaRepository(saga), order.WithPromotionClient(promo))
 
 	orders, err := svc.CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, "")
 	if err != nil {
@@ -148,22 +149,22 @@ func TestCreateOrders_NoVoucher_Unchanged(t *testing.T) {
 // voucher is never silently dropped.
 func TestCreateOrders_InvalidVoucher_RejectedAndStockReleased(t *testing.T) {
 	ctx := context.Background()
-	domain := newFakeDomain()
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 100000, "lst_2": 50000})
 	orderRepo := newFakeOrderRepo()
-	saga := repository.NewInMemorySagaRepository()
-	cart := &fakeCartRepo{items: []repository.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 100000}}}
+	saga := fake.NewInMemorySagaRepository()
+	cart := &fakeCartRepo{items: []store.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 100000}}}
 	promo := newFakePromotion(0)
 	promo.valid = false
 	promo.reason = "voucher expired"
 
-	svc := service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil,
-		service.WithSagaRepository(saga), service.WithPromotionClient(promo))
+	svc := newSvc(t, orderRepo, cart, nil, nil, domain, nil, nil,
+		order.WithSagaRepository(saga), order.WithPromotionClient(promo))
 
 	_, err := svc.CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, "EXPIRED")
 	if err == nil {
 		t.Fatal("expected checkout to fail for an invalid voucher")
 	}
-	if !errors.Is(err, service.ErrVoucherRejected) {
+	if !errors.Is(err, order.ErrVoucherRejected) {
 		t.Fatalf("expected ErrVoucherRejected, got %v", err)
 	}
 	if !strings.Contains(err.Error(), "voucher expired") {
@@ -184,15 +185,15 @@ func TestCreateOrders_InvalidVoucher_RejectedAndStockReleased(t *testing.T) {
 // hold is released on compensation — exactly once, for the id it was reserved under.
 func TestCreateOrders_CompensationReleasesVoucher(t *testing.T) {
 	ctx := context.Background()
-	domain := newFakeDomain()
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 100000, "lst_2": 50000})
 	orderRepo := newFakeOrderRepo()
 	orderRepo.failFor = "s1" // reserve + voucher succeed, then persist fails → compensate
-	saga := repository.NewInMemorySagaRepository()
-	cart := &fakeCartRepo{items: []repository.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 100000}}}
+	saga := fake.NewInMemorySagaRepository()
+	cart := &fakeCartRepo{items: []store.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 100000}}}
 	promo := newFakePromotion(30000)
 
-	svc := service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil,
-		service.WithSagaRepository(saga), service.WithPromotionClient(promo))
+	svc := newSvc(t, orderRepo, cart, nil, nil, domain, nil, nil,
+		order.WithSagaRepository(saga), order.WithPromotionClient(promo))
 
 	_, err := svc.CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, "SAVE30")
 	if err == nil {
@@ -213,17 +214,17 @@ func TestCreateOrders_CompensationReleasesVoucher(t *testing.T) {
 // exactly once (quota is not decremented per item) and applies one discount.
 func TestCreateOrders_SingleSeller_ValidatesVoucherOnce(t *testing.T) {
 	ctx := context.Background()
-	domain := newFakeDomain()
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 100000, "lst_2": 50000})
 	orderRepo := newFakeOrderRepo()
-	saga := repository.NewInMemorySagaRepository()
-	cart := &fakeCartRepo{items: []repository.CartItem{
+	saga := fake.NewInMemorySagaRepository()
+	cart := &fakeCartRepo{items: []store.CartItem{
 		{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 100000},
 		{ID: "ci_2", ListingID: "lst_2", Quantity: 2, SellerID: "s1", UnitPrice: 50000},
 	}}
 	promo := newFakePromotion(30000)
 
-	svc := service.NewOrderService(orderRepo, cart, nil, nil, domain, nil, nil,
-		service.WithSagaRepository(saga), service.WithPromotionClient(promo))
+	svc := newSvc(t, orderRepo, cart, nil, nil, domain, nil, nil,
+		order.WithSagaRepository(saga), order.WithPromotionClient(promo))
 
 	orders, err := svc.CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, "SAVE30")
 	if err != nil {

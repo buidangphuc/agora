@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -10,17 +10,16 @@ import (
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
-func placedFacts(t *testing.T, outbox *repository.InMemoryOutboxRepository) map[string]*orderv1.OrderPlaced {
+func placedFacts(t *testing.T, outbox *pgOutbox) map[string]*orderv1.OrderPlaced {
 	t.Helper()
 	out := map[string]*orderv1.OrderPlaced{}
 	for _, r := range outbox.EnqueuedRows() {
-		if r.EventType != events.OrderPlacedEventType {
+		if r.EventType != OrderPlacedEventType {
 			continue
 		}
 		var env eventsv1.EventEnvelope
@@ -40,24 +39,21 @@ func placedFacts(t *testing.T, outbox *repository.InMemoryOutboxRepository) map[
 }
 
 // placedRig is the two-seller checkout rig with the OrderPlaced outbox wired.
-func placedRig(t *testing.T, deadline time.Duration) (*checkoutRig, *repository.InMemoryOutboxRepository) {
+func placedRig(t *testing.T, deadline time.Duration) (*checkoutRig, *pgOutbox) {
 	t.Helper()
-	outbox := repository.NewInMemoryOutboxRepository()
+	outbox := newPGOutbox(t)
 	r := &checkoutRig{
 		domain: upstreamtest.NewDomain(map[string]int32{"lst_a": 10, "lst_b": 5}),
-		orders: repository.NewInMemoryOrderRepository(repository.WithPlacedOutbox(events.BuildPlacedOutboxRow),
-			repository.WithInMemoryOutbox(outbox)),
-		sagas: &recordingSagaRepo{SagaRepository: repository.NewInMemorySagaRepository()},
-		cart: &fakeCartRepo{items: []repository.CartItem{
+		orders: outbox.orders(store.WithPlacedOutbox(BuildPlacedOutboxRow)),
+		sagas:  &recordingSagaRepo{SagaRepository: outbox.sagas()},
+		cart: &fakeCartRepo{items: []store.CartItem{
 			{ID: "ci_b", ListingID: "lst_b", Quantity: 1, SellerID: "sb", UnitPrice: 2000},
 			{ID: "ci_a", ListingID: "lst_a", Quantity: 2, SellerID: "sa", UnitPrice: 1000},
 		}},
 	}
-	inner := r.sagas.SagaRepository.(*repository.InMemorySagaRepository)
-	r.svc = service.NewOrderService(r.orders, r.cart, nil, nil, r.domain, nil, nil,
-		service.WithSagaRepository(r.sagas),
-		service.WithOrderPlacer(repository.NewInMemoryOrderPlacer(r.orders, inner)),
-		service.WithPaymentDeadline(deadline))
+	r.svc = newSvc(t, r.orders, r.cart, nil, nil, r.domain, nil, nil,
+		order.WithSagaRepository(r.sagas),
+		order.WithPaymentDeadline(deadline))
 	return r, outbox
 }
 
@@ -140,8 +136,8 @@ func TestPaymentDueAtSnapshotSurvivesConfigChange(t *testing.T) {
 		t.Fatalf("order: %v %v", err, before.PaymentDueAt)
 	}
 	// "Restart" with PAYMENT_DEADLINE=1h over the same store.
-	restarted := service.NewOrderService(r.orders, r.cart, nil, nil, r.domain, nil, nil,
-		service.WithPaymentDeadline(time.Hour))
+	restarted := newSvc(t, r.orders, r.cart, nil, nil, r.domain, nil, nil,
+		order.WithPaymentDeadline(time.Hour))
 	after, err := restarted.GetOrder(context.Background(), before.ID)
 	if err != nil || after.PaymentDueAt == nil {
 		t.Fatalf("get after restart: %v %v", err, after.PaymentDueAt)

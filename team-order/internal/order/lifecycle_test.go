@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -16,9 +16,9 @@ import (
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
@@ -27,28 +27,30 @@ const lifecycleOffset = 2 * time.Hour
 var lifecycleDue = time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 
 type lifecycleRig struct {
-	orders *repository.InMemoryOrderRepository
-	outbox *repository.InMemoryOutboxRepository
-	svc    *service.OrderService
+	orders *store.PostgresOrderRepository
+	outbox *pgOutbox
+	svc    *order.OrderService
 }
 
 func newLifecycleRig(t *testing.T) *lifecycleRig {
 	t.Helper()
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository(repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow),
-		repository.WithReminderOutbox(events.BuildPaymentReminderOutboxRow), repository.WithInMemoryOutbox(outbox))
-	svc := service.NewOrderService(orders, repository.NewInMemoryCartRepository(), nil, nil,
+	outbox := newPGOutbox(t)
+	orders := outbox.orders(store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithCancelledOutbox(BuildCancelledOutboxRow),
+		store.WithReminderOutbox(BuildPaymentReminderOutboxRow))
+	svc := newSvc(t, orders, fake.NewInMemoryCartRepository(), nil, nil,
 		upstreamtest.NewDomain(map[string]int32{}), nil, nil,
-		service.WithPaymentReminderBefore(lifecycleOffset))
+		order.WithPaymentReminderBefore(lifecycleOffset))
 	return &lifecycleRig{orders: orders, outbox: outbox, svc: svc}
 }
 
-func (r *lifecycleRig) place(t *testing.T, method paymentv1.PaymentMethod, due *time.Time) repository.Order {
+func (r *lifecycleRig) place(t *testing.T, method paymentv1.PaymentMethod, due *time.Time) store.Order {
 	t.Helper()
-	o, err := r.orders.CreateOrder(context.Background(), repository.Order{BuyerID: "buyer_1", SellerID: "s1",
+	o, err := r.orders.CreateOrder(context.Background(), store.Order{
+		BuyerID: "buyer_1", SellerID: "s1",
 		TotalAmount: 3000, Currency: "VND", PaymentMethod: int32(method), PaymentDueAt: due,
-		Items: []repository.OrderItem{{ListingID: "lst_1", Quantity: 1, UnitPrice: 3000}}})
+		Items: []store.OrderItem{{ListingID: "lst_1", Quantity: 1, UnitPrice: 3000}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +61,7 @@ func (r *lifecycleRig) reminders(t *testing.T, orderID string) []*orderv1.OrderP
 	t.Helper()
 	var out []*orderv1.OrderPaymentReminder
 	for _, row := range r.outbox.EnqueuedRows() {
-		if row.EventType != events.OrderPaymentReminderEventType || row.AggregateID != orderID {
+		if row.EventType != OrderPaymentReminderEventType || row.AggregateID != orderID {
 			continue
 		}
 		var env eventsv1.EventEnvelope
@@ -78,7 +80,7 @@ func (r *lifecycleRig) reminders(t *testing.T, orderID string) []*orderv1.OrderP
 func (r *lifecycleRig) allReminders() int {
 	n := 0
 	for _, row := range r.outbox.EnqueuedRows() {
-		if row.EventType == events.OrderPaymentReminderEventType {
+		if row.EventType == OrderPaymentReminderEventType {
 			n++
 		}
 	}
@@ -97,7 +99,7 @@ func TestReminderEmittedInsideWindow(t *testing.T) {
 		t.Fatalf("want one reminder carrying the order's deadline, got %+v", got)
 	}
 	stored, _ := r.orders.GetOrder(context.Background(), o.ID)
-	if stored.PaymentReminderSentAt == nil || stored.Status != repository.OrderStatusPending {
+	if stored.PaymentReminderSentAt == nil || stored.Status != store.OrderStatusPending {
 		t.Fatalf("stamped and still pending expected: %+v", stored)
 	}
 }
@@ -150,8 +152,8 @@ func TestReminderSkipsPaidOrder(t *testing.T) {
 	r := newLifecycleRig(t)
 	due := lifecycleDue
 	o := r.place(t, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, &due)
-	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), o.ID, repository.OrderStatusPaid,
-		[]repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), o.ID, store.OrderStatusPaid,
+		[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 		t.Fatal(err)
 	}
 	r.svc.SweepLifecycle(context.Background(), due.Add(-time.Hour))
@@ -207,7 +209,7 @@ func TestReminderPassBatchBoundPerTick(t *testing.T) {
 
 // ---- task 6: expiry pass ----
 
-func (r *lifecycleRig) status(t *testing.T, id string) repository.Order {
+func (r *lifecycleRig) status(t *testing.T, id string) store.Order {
 	t.Helper()
 	o, err := r.orders.GetOrder(context.Background(), id)
 	if err != nil {
@@ -218,7 +220,7 @@ func (r *lifecycleRig) status(t *testing.T, id string) repository.Order {
 
 func (r *lifecycleRig) cancelled(t *testing.T) int {
 	t.Helper()
-	os, err := r.orders.ListBuyerOrders(context.Background(), "buyer_1", int32(repository.OrderStatusCancelled))
+	os, err := r.orders.ListBuyerOrders(context.Background(), "buyer_1", int32(store.OrderStatusCancelled))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,20 +231,19 @@ func (r *lifecycleRig) cancelled(t *testing.T) int {
 // MOCK_MOMO order with a 1h payment deadline.
 type expiryRig struct {
 	domain *pricedDomain
-	orders *repository.InMemoryOrderRepository
-	outbox *repository.InMemoryOutboxRepository
-	sagas  *repository.InMemorySagaRepository
+	orders *store.PostgresOrderRepository
+	outbox *pgOutbox
+	sagas  *store.PostgresSagaRepository
 	promo  *fakePromotion
 	flash  *holdFake
-	svc    *service.OrderService
-	order  repository.Order
+	svc    *order.OrderService
+	order  store.Order
 }
 
 func newExpiryRig(t *testing.T, voucher string) *expiryRig {
 	t.Helper()
 	r := &expiryRig{
-		outbox: repository.NewInMemoryOutboxRepository(),
-		sagas:  repository.NewInMemorySagaRepository(),
+		outbox: newPGOutbox(t),
 		promo:  newFakePromotion(500),
 		flash:  &holdFake{sales: map[string]*promotionv1.GetActiveFlashSaleResponse{"lst_1": activeSale("", 350000)}},
 		domain: &pricedDomain{
@@ -250,18 +251,21 @@ func newExpiryRig(t *testing.T, voucher string) *expiryRig {
 			listings: map[string]*listingv1.Listing{"lst_1": {Id: "lst_1", Price: 500000, SellerId: "s1", Stock: 10}},
 		},
 	}
-	r.orders = repository.NewInMemoryOrderRepository(repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow),
-		repository.WithReminderOutbox(events.BuildPaymentReminderOutboxRow), repository.WithInMemoryOutbox(r.outbox))
-	carts := repository.NewInMemoryCartRepository()
-	if _, err := carts.AddItem(context.Background(), repository.CartItem{UserID: "buyer_1", ListingID: "lst_1",
-		Quantity: 2, UnitPrice: 350000, SellerID: "s1", Title: "lst_1"}); err != nil {
+	r.sagas = r.outbox.sagas()
+	r.orders = r.outbox.orders(store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithCancelledOutbox(BuildCancelledOutboxRow),
+		store.WithReminderOutbox(BuildPaymentReminderOutboxRow))
+	carts := fake.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), store.CartItem{
+		UserID: "buyer_1", ListingID: "lst_1",
+		Quantity: 2, UnitPrice: 350000, SellerID: "s1", Title: "lst_1",
+	}); err != nil {
 		t.Fatal(err)
 	}
-	r.svc = service.NewOrderService(r.orders, carts, nil, nil, r.domain, nil, nil,
-		service.WithSagaRepository(r.sagas), service.WithPromotionClient(r.promo),
-		service.WithOrderFlashSaleClient(r.flash), service.WithPaymentDeadline(time.Hour),
-		service.WithPaymentReminderBefore(lifecycleOffset), service.WithReleaseRetry(time.Second, 2, time.Millisecond))
+	r.svc = newSvc(t, r.orders, carts, nil, nil, r.domain, nil, nil,
+		order.WithSagaRepository(r.sagas), order.WithPromotionClient(r.promo),
+		order.WithOrderFlashSaleClient(r.flash), order.WithPaymentDeadline(time.Hour),
+		order.WithPaymentReminderBefore(lifecycleOffset), order.WithReleaseRetry(time.Second, 2, time.Millisecond))
 	placed, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil,
 		int32(paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO), voucher)
 	if err != nil || len(placed) != 1 {
@@ -284,7 +288,7 @@ func TestExpiryCancelsUnpaidOrderAndReleasesStock(t *testing.T) {
 	r := newExpiryRig(t, "")
 	r.svc.SweepLifecycle(context.Background(), r.due().Add(time.Second))
 	got, _ := r.orders.GetOrder(context.Background(), r.order.ID)
-	if got.Status != repository.OrderStatusCancelled ||
+	if got.Status != store.OrderStatusCancelled ||
 		got.CancelReason != int32(orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED) {
 		t.Fatalf("want Cancelled/PAYMENT_EXPIRED, got status=%v reason=%d", got.Status, got.CancelReason)
 	}
@@ -311,7 +315,7 @@ func TestExpiryEmitsOrderCancelledWithExpiryReason(t *testing.T) {
 // Scenario: Order expiry: Expiry releases the voucher hold and flash units once
 func TestExpiryReleasesVoucherAndFlashOnce(t *testing.T) {
 	r := newExpiryRig(t, "VOUCHER")
-	hold := service.FlashReservationID(r.order.ID, "lst_1", "")
+	hold := order.FlashReservationID(r.order.ID, "lst_1", "")
 	r.svc.SweepLifecycle(context.Background(), r.due().Add(time.Second))
 	if len(r.promo.releasedIDs) != 1 || r.promo.releasedIDs[0] != r.order.ID {
 		t.Fatalf("voucher hold must be released once under the order id: %v", r.promo.releasedIDs)
@@ -336,11 +340,11 @@ func TestExpiryBoundaryStrictlyAfterDeadline(t *testing.T) {
 	due := lifecycleDue
 	o := r.place(t, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, &due)
 	r.svc.SweepLifecycle(context.Background(), due)
-	if got := r.status(t, o.ID); got.Status != repository.OrderStatusPending {
+	if got := r.status(t, o.ID); got.Status != store.OrderStatusPending {
 		t.Fatalf("at exactly the deadline the order stays payable, got %v", got.Status)
 	}
 	r.svc.SweepLifecycle(context.Background(), due.Add(time.Second))
-	if got := r.status(t, o.ID); got.Status != repository.OrderStatusCancelled {
+	if got := r.status(t, o.ID); got.Status != store.OrderStatusCancelled {
 		t.Fatalf("one second after the deadline: want Cancelled, got %v", got.Status)
 	}
 }
@@ -354,14 +358,14 @@ func TestExpirySkipsCodOrder(t *testing.T) {
 	control := r.place(t, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, &due) // positive control
 	r.svc.SweepLifecycle(context.Background(), due.Add(48*time.Hour))
 	for _, id := range []string{cod.ID, codWithDue.ID} {
-		if got := r.status(t, id); got.Status != repository.OrderStatusPending {
+		if got := r.status(t, id); got.Status != store.OrderStatusPending {
 			t.Fatalf("COD order %s must stay Pending, got %v", id, got.Status)
 		}
 		if n := len(cancelFacts(t, r.outbox, id)); n != 0 {
 			t.Fatalf("COD order %s: want no OrderCancelled, got %d", id, n)
 		}
 	}
-	if got := r.status(t, control.ID); got.Status != repository.OrderStatusCancelled {
+	if got := r.status(t, control.ID); got.Status != store.OrderStatusCancelled {
 		t.Fatalf("the online control order must expire, got %v", got.Status)
 	}
 }
@@ -373,10 +377,10 @@ func TestExpirySkipsOrderWithoutDeadline(t *testing.T) {
 	legacy := r.place(t, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, nil)
 	control := r.place(t, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, &due)
 	r.svc.SweepLifecycle(context.Background(), due.Add(1000*time.Hour))
-	if got := r.status(t, legacy.ID); got.Status != repository.OrderStatusPending {
+	if got := r.status(t, legacy.ID); got.Status != store.OrderStatusPending {
 		t.Fatalf("an order with no deadline stays Pending, got %v", got.Status)
 	}
-	if got := r.status(t, control.ID); got.Status != repository.OrderStatusCancelled {
+	if got := r.status(t, control.ID); got.Status != store.OrderStatusCancelled {
 		t.Fatalf("control must expire, got %v", got.Status)
 	}
 }
@@ -387,18 +391,18 @@ func TestExpirySkipsPaidOrder(t *testing.T) {
 	due := lifecycleDue
 	paid := r.place(t, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, &due)
 	control := r.place(t, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, &due)
-	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), paid.ID, repository.OrderStatusPaid,
-		[]repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), paid.ID, store.OrderStatusPaid,
+		[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 		t.Fatal(err)
 	}
 	r.svc.SweepLifecycle(context.Background(), due.Add(time.Hour))
-	if got := r.status(t, paid.ID); got.Status != repository.OrderStatusPaid {
+	if got := r.status(t, paid.ID); got.Status != store.OrderStatusPaid {
 		t.Fatalf("a paid order stays Paid, got %v", got.Status)
 	}
 	if n := len(cancelFacts(t, r.outbox, paid.ID)); n != 0 {
 		t.Fatalf("paid order: want no OrderCancelled, got %d", n)
 	}
-	if got := r.status(t, control.ID); got.Status != repository.OrderStatusCancelled {
+	if got := r.status(t, control.ID); got.Status != store.OrderStatusCancelled {
 		t.Fatalf("control must expire, got %v", got.Status)
 	}
 }
@@ -415,7 +419,7 @@ func TestExpiryConcurrentSweepsReleaseOnce(t *testing.T) {
 	}
 	close(start)
 	wg.Wait()
-	if got := r.status2(t); got.Status != repository.OrderStatusCancelled {
+	if got := r.status2(t); got.Status != store.OrderStatusCancelled {
 		t.Fatalf("want Cancelled, got %v", got.Status)
 	}
 	if n := len(cancelFacts(t, r.outbox, r.order.ID)); n != 1 {
@@ -427,7 +431,7 @@ func TestExpiryConcurrentSweepsReleaseOnce(t *testing.T) {
 	}
 }
 
-func (r *expiryRig) status2(t *testing.T) repository.Order {
+func (r *expiryRig) status2(t *testing.T) store.Order {
 	t.Helper()
 	o, err := r.orders.GetOrder(context.Background(), r.order.ID)
 	if err != nil {
@@ -441,12 +445,12 @@ func TestExpiryReleaseFailureParksForSweep(t *testing.T) {
 	r := newExpiryRig(t, "")
 	r.domain.ReleaseErr = func(string) error { return status.Error(codes.Unavailable, "team-domain stopped") }
 	r.svc.SweepLifecycle(context.Background(), r.due().Add(time.Second))
-	if got := r.status2(t); got.Status != repository.OrderStatusCancelled ||
+	if got := r.status2(t); got.Status != store.OrderStatusCancelled ||
 		got.CancelReason != int32(orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED) {
 		t.Fatalf("order must be Cancelled/PAYMENT_EXPIRED despite the failed release: %+v", got)
 	}
 	held, _ := r.sagas.ListReservationsByOrder(context.Background(), r.order.ID)
-	if len(held) != 1 || held[0].Status != repository.ReservationStatusReleaseFailed {
+	if len(held) != 1 || held[0].Status != store.ReservationStatusReleaseFailed {
 		t.Fatalf("release must be parked RELEASE_FAILED: %+v", held)
 	}
 	r.domain.ReleaseErr = nil
@@ -460,28 +464,30 @@ func TestExpiryReleaseFailureParksForSweep(t *testing.T) {
 
 // failingExpiryRepo makes the expiry query fail, as a database error would.
 type failingExpiryRepo struct {
-	*repository.InMemoryOrderRepository
+	*store.PostgresOrderRepository
 	calls int
 }
 
-func (f *failingExpiryRepo) FindExpired(context.Context, time.Time, int) ([]repository.Order, error) {
+func (f *failingExpiryRepo) FindExpired(context.Context, time.Time, int) ([]store.Order, error) {
 	f.calls++
 	return nil, errors.New("database unavailable")
 }
 
 // Scenario: Order expiry: One failing pass does not stop the next
 func TestSweepLifecyclePassesAreIndependent(t *testing.T) {
-	outbox := repository.NewInMemoryOutboxRepository()
-	inner := repository.NewInMemoryOrderRepository(repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow),
-		repository.WithReminderOutbox(events.BuildPaymentReminderOutboxRow), repository.WithInMemoryOutbox(outbox))
-	repo := &failingExpiryRepo{InMemoryOrderRepository: inner}
-	svc := service.NewOrderService(repo, repository.NewInMemoryCartRepository(), nil, nil,
-		upstreamtest.NewDomain(map[string]int32{}), nil, nil, service.WithPaymentReminderBefore(lifecycleOffset))
+	outbox := newPGOutbox(t)
+	inner := outbox.orders(store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithCancelledOutbox(BuildCancelledOutboxRow),
+		store.WithReminderOutbox(BuildPaymentReminderOutboxRow))
+	repo := &failingExpiryRepo{PostgresOrderRepository: inner}
+	svc := newSvc(t, repo, fake.NewInMemoryCartRepository(), nil, nil,
+		upstreamtest.NewDomain(map[string]int32{}), nil, nil, order.WithPaymentReminderBefore(lifecycleOffset))
 	due := lifecycleDue
-	o, err := inner.CreateOrder(context.Background(), repository.Order{BuyerID: "buyer_1", SellerID: "s1", TotalAmount: 3000,
+	o, err := inner.CreateOrder(context.Background(), store.Order{
+		BuyerID: "buyer_1", SellerID: "s1", TotalAmount: 3000,
 		Currency: "VND", PaymentMethod: int32(paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO), PaymentDueAt: &due,
-		Items: []repository.OrderItem{{ListingID: "lst_1", Quantity: 1, UnitPrice: 3000}}})
+		Items: []store.OrderItem{{ListingID: "lst_1", Quantity: 1, UnitPrice: 3000}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -491,7 +497,7 @@ func TestSweepLifecyclePassesAreIndependent(t *testing.T) {
 	}
 	n := 0
 	for _, row := range outbox.EnqueuedRows() {
-		if row.EventType == events.OrderPaymentReminderEventType && row.AggregateID == o.ID {
+		if row.EventType == OrderPaymentReminderEventType && row.AggregateID == o.ID {
 			n++
 		}
 	}
@@ -508,7 +514,7 @@ func TestLateFirstSweepCancelsOrder(t *testing.T) {
 	o := r.place(t, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, &due)
 	r.svc.SweepLifecycle(context.Background(), due.Add(time.Minute))
 	got := r.status(t, o.ID)
-	if got.Status != repository.OrderStatusCancelled ||
+	if got.Status != store.OrderStatusCancelled ||
 		got.CancelReason != int32(orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED) {
 		t.Fatalf("a late first sweep must expire the order: %+v", got)
 	}

@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -10,18 +10,18 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
 // cancelFacts decodes the OrderCancelled rows the outbox holds for an order.
-func cancelFacts(t *testing.T, outbox *repository.InMemoryOutboxRepository, orderID string) []*orderv1.OrderCancelled {
+func cancelFacts(t *testing.T, outbox *pgOutbox, orderID string) []*orderv1.OrderCancelled {
 	t.Helper()
 	var out []*orderv1.OrderCancelled
 	for _, r := range outbox.EnqueuedRows() {
-		if r.AggregateID != orderID || r.EventType != events.OrderCancelledEventType {
+		if r.AggregateID != orderID || r.EventType != OrderCancelledEventType {
 			continue
 		}
 		var env eventsv1.EventEnvelope
@@ -37,17 +37,17 @@ func cancelFacts(t *testing.T, outbox *repository.InMemoryOutboxRepository, orde
 	return out
 }
 
-func newCancelOutboxRig(t *testing.T) (*service.OrderService, *repository.InMemoryOrderRepository, *repository.InMemoryOutboxRepository, repository.Order) {
+func newCancelOutboxRig(t *testing.T) (*order.OrderService, *store.PostgresOrderRepository, *pgOutbox, store.Order) {
 	t.Helper()
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository(repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow), repository.WithInMemoryOutbox(outbox))
-	carts := repository.NewInMemoryCartRepository()
-	if _, err := carts.AddItem(context.Background(), repository.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "s1"}); err != nil {
+	outbox := newPGOutbox(t)
+	orders := outbox.orders(store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithCancelledOutbox(BuildCancelledOutboxRow))
+	carts := fake.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), store.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "s1"}); err != nil {
 		t.Fatal(err)
 	}
-	svc := service.NewOrderService(orders, carts, nil, nil, upstreamtest.NewDomain(map[string]int32{"lst_1": 10}), nil, nil,
-		service.WithReleaseRetry(time.Second, 1, time.Millisecond))
+	svc := newSvc(t, orders, carts, nil, nil, upstreamtest.NewDomain(map[string]int32{"lst_1": 10}), nil, nil,
+		order.WithSagaRepository(outbox.sagas()), order.WithReleaseRetry(time.Second, 1, time.Millisecond))
 	placed, err := svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, "")
 	if err != nil || len(placed) != 1 {
 		t.Fatalf("checkout: %v", err)
@@ -69,15 +69,15 @@ func TestCancelOrder_EmitsCancelledFactThroughTheClaim(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc, orders, outbox, o := newCancelOutboxRig(t)
 			if tc.pay {
-				if _, err := orders.UpdateOrderStatusFrom(context.Background(), o.ID, repository.OrderStatusPaid,
-					[]repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+				if _, err := orders.UpdateOrderStatusFrom(context.Background(), o.ID, store.OrderStatusPaid,
+					[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 					t.Fatal(err)
 				}
 			}
 			if _, err := svc.CancelOrder(context.Background(), o.ID); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := svc.CancelOrder(context.Background(), o.ID); !errors.Is(err, service.ErrInvalidStatus) {
+			if _, err := svc.CancelOrder(context.Background(), o.ID); !errors.Is(err, order.ErrInvalidStatus) {
 				t.Fatalf("second cancel: want ErrInvalidStatus, got %v", err)
 			}
 			facts := cancelFacts(t, outbox, o.ID)
@@ -96,13 +96,13 @@ func TestCancelOrder_EmitsCancelledFactThroughTheClaim(t *testing.T) {
 func TestCancelOrder_RefusedCancelEmitsNothing(t *testing.T) {
 	svc, orders, outbox, o := newCancelOutboxRig(t)
 	ctx := context.Background()
-	if _, err := orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, []repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+	if _, err := orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, []store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusShipped, []repository.OrderStatus{repository.OrderStatusPaid}, "TRK"); err != nil {
+	if _, err := orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped, []store.OrderStatus{store.OrderStatusPaid}, "TRK"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.CancelOrder(ctx, o.ID); !errors.Is(err, service.ErrInvalidStatus) {
+	if _, err := svc.CancelOrder(ctx, o.ID); !errors.Is(err, order.ErrInvalidStatus) {
 		t.Fatalf("want ErrInvalidStatus, got %v", err)
 	}
 	if n := len(cancelFacts(t, outbox, o.ID)); n != 0 {

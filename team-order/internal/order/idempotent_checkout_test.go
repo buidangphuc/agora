@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -8,43 +8,44 @@ import (
 	"time"
 
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
 type keyedRig struct {
 	domain *upstreamtest.Domain
-	orders *repository.InMemoryOrderRepository
-	sagas  *repository.InMemorySagaRepository
-	carts  *repository.InMemoryCartRepository
-	svc    *service.OrderService
+	orders *fake.InMemoryOrderRepository
+	sagas  *fake.InMemorySagaRepository
+	carts  *fake.InMemoryCartRepository
+	svc    *order.OrderService
 }
 
 // newKeyedRig: listing lst_1 (seller s1) with stock 10; addToCart puts 2 of it in
 // a buyer's cart.
-func newKeyedRig() *keyedRig {
+func newKeyedRig(t *testing.T) *keyedRig {
 	r := &keyedRig{
 		domain: upstreamtest.NewDomain(map[string]int32{"lst_1": 10}),
-		orders: repository.NewInMemoryOrderRepository(),
-		sagas:  repository.NewInMemorySagaRepository(),
-		carts:  repository.NewInMemoryCartRepository(),
+		orders: fake.NewInMemoryOrderRepository(),
+		sagas:  fake.NewInMemorySagaRepository(),
+		carts:  fake.NewInMemoryCartRepository(),
 	}
-	r.svc = service.NewOrderService(r.orders, r.carts, nil, nil, r.domain, nil, nil, service.WithSagaRepository(r.sagas))
+	r.svc = newSvc(t, r.orders, r.carts, nil, nil, r.domain, nil, nil, order.WithSagaRepository(r.sagas))
 	return r
 }
 
 func (r *keyedRig) addToCart(t *testing.T, buyer string) {
 	t.Helper()
-	if _, err := r.carts.AddItem(context.Background(), repository.CartItem{
+	if _, err := r.carts.AddItem(context.Background(), store.CartItem{
 		UserID: buyer, ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "s1", Title: "item",
 	}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (r *keyedRig) checkout(buyer, key string) ([]repository.Order, error) {
-	return r.svc.CreateOrdersFromCart(context.Background(), buyer, addr(), nil, 1, "", service.WithIdempotencyKey(key))
+func (r *keyedRig) checkout(buyer, key string) ([]store.Order, error) {
+	return r.svc.CreateOrdersFromCart(context.Background(), buyer, addr(), nil, 1, "", order.WithIdempotencyKey(key))
 }
 
 func (r *keyedRig) orderCount(t *testing.T, buyer string) int {
@@ -56,7 +57,7 @@ func (r *keyedRig) orderCount(t *testing.T, buyer string) int {
 	return len(os)
 }
 
-func ids(os []repository.Order) []string {
+func ids(os []store.Order) []string {
 	var out []string
 	for _, o := range os {
 		out = append(out, o.ID)
@@ -70,17 +71,17 @@ func TestNormalizeIdempotencyKey(t *testing.T) {
 		long[i] = 'a'
 	}
 	for _, bad := range []string{"", "   ", string(long), "café", "a\x01b"} {
-		if _, err := service.NormalizeIdempotencyKey(bad); !errors.Is(err, service.ErrInvalidIdempotencyKey) {
+		if _, err := order.NormalizeIdempotencyKey(bad); !errors.Is(err, order.ErrInvalidIdempotencyKey) {
 			t.Errorf("%q: want ErrInvalidIdempotencyKey, got %v", bad, err)
 		}
 	}
-	if k, err := service.NormalizeIdempotencyKey("  " + string(long[:255]) + " "); err != nil || len(k) != 255 {
+	if k, err := order.NormalizeIdempotencyKey("  " + string(long[:255]) + " "); err != nil || len(k) != 255 {
 		t.Fatalf("a 255-byte key must be accepted (trimmed): %v %d", err, len(k))
 	}
 }
 
 func TestKeyedCheckout_SameKeyReturnsSameOrders(t *testing.T) {
-	r := newKeyedRig()
+	r := newKeyedRig(t)
 	r.addToCart(t, "buyer_1")
 	first, err := r.checkout("buyer_1", "K1")
 	if err != nil {
@@ -105,7 +106,7 @@ func TestKeyedCheckout_SameKeyReturnsSameOrders(t *testing.T) {
 }
 
 func TestKeyedCheckout_ConcurrentDuplicatesCreateOneOrderSet(t *testing.T) {
-	r := newKeyedRig()
+	r := newKeyedRig(t)
 	r.addToCart(t, "buyer_1")
 	// Slow the reserve down so duplicates overlap the first attempt.
 	r.domain.ReserveErr = func(*listingv1.ReserveStockRequest) error {
@@ -115,7 +116,7 @@ func TestKeyedCheckout_ConcurrentDuplicatesCreateOneOrderSet(t *testing.T) {
 	const n = 8
 	var wg sync.WaitGroup
 	start := make(chan struct{})
-	results := make([][]repository.Order, n)
+	results := make([][]store.Order, n)
 	errs := make([]error, n)
 	for i := 0; i < n; i++ {
 		wg.Add(1)
@@ -132,7 +133,7 @@ func TestKeyedCheckout_ConcurrentDuplicatesCreateOneOrderSet(t *testing.T) {
 	succeeded := 0
 	for i := 0; i < n; i++ {
 		if errs[i] != nil {
-			if !errors.Is(errs[i], service.ErrCheckoutInProgress) {
+			if !errors.Is(errs[i], order.ErrCheckoutInProgress) {
 				t.Fatalf("call %d: want orders or ErrCheckoutInProgress, got %v", i, errs[i])
 			}
 			continue
@@ -155,7 +156,7 @@ func TestKeyedCheckout_ConcurrentDuplicatesCreateOneOrderSet(t *testing.T) {
 }
 
 func TestKeyedCheckout_InProgressIsAborted(t *testing.T) {
-	r := newKeyedRig()
+	r := newKeyedRig(t)
 	r.addToCart(t, "buyer_1")
 	entered := make(chan struct{})
 	release := make(chan struct{})
@@ -167,7 +168,7 @@ func TestKeyedCheckout_InProgressIsAborted(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { _, err := r.checkout("buyer_1", "K-slow"); done <- err }()
 	<-entered
-	if _, err := r.checkout("buyer_1", "K-slow"); !errors.Is(err, service.ErrCheckoutInProgress) {
+	if _, err := r.checkout("buyer_1", "K-slow"); !errors.Is(err, order.ErrCheckoutInProgress) {
 		t.Fatalf("a duplicate while the first attempt runs must be ErrCheckoutInProgress, got %v", err)
 	}
 	r.domain.ReserveErr = nil
@@ -178,10 +179,10 @@ func TestKeyedCheckout_InProgressIsAborted(t *testing.T) {
 }
 
 func TestKeyedCheckout_FailedCheckoutFreesTheKey(t *testing.T) {
-	r := newKeyedRig()
+	r := newKeyedRig(t)
 	r.domain.SetStock("lst_1", 1) // the cart wants 2
 	r.addToCart(t, "buyer_1")
-	if _, err := r.checkout("buyer_1", "K-free"); !errors.Is(err, service.ErrInsufficientStock) {
+	if _, err := r.checkout("buyer_1", "K-free"); !errors.Is(err, order.ErrInsufficientStock) {
 		t.Fatalf("want ErrInsufficientStock, got %v", err)
 	}
 	r.domain.SetStock("lst_1", 10) // restock
@@ -195,8 +196,8 @@ func TestKeyedCheckout_FailedCheckoutFreesTheKey(t *testing.T) {
 }
 
 func TestKeyedCheckout_EmptyCartFreesTheKey(t *testing.T) {
-	r := newKeyedRig()
-	if _, err := r.checkout("buyer_1", "K-empty"); !errors.Is(err, service.ErrEmptyCart) {
+	r := newKeyedRig(t)
+	if _, err := r.checkout("buyer_1", "K-empty"); !errors.Is(err, order.ErrEmptyCart) {
 		t.Fatalf("want ErrEmptyCart, got %v", err)
 	}
 	r.addToCart(t, "buyer_1")
@@ -206,7 +207,7 @@ func TestKeyedCheckout_EmptyCartFreesTheKey(t *testing.T) {
 }
 
 func TestKeyedCheckout_KeysAreScopedToTheBuyer(t *testing.T) {
-	r := newKeyedRig()
+	r := newKeyedRig(t)
 	r.addToCart(t, "buyer_1")
 	r.addToCart(t, "buyer_2")
 	a, err := r.checkout("buyer_1", "SAME")
@@ -226,7 +227,7 @@ func TestKeyedCheckout_KeysAreScopedToTheBuyer(t *testing.T) {
 }
 
 func TestUnkeyedCheckout_RunsFreshEveryTime(t *testing.T) {
-	r := newKeyedRig()
+	r := newKeyedRig(t)
 	r.addToCart(t, "buyer_1")
 	if _, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, ""); err != nil {
 		t.Fatal(err)
@@ -242,7 +243,7 @@ func TestUnkeyedCheckout_RunsFreshEveryTime(t *testing.T) {
 
 // failOnceCart fails the first RemoveItems, as a lost cart clear after placement.
 type failOnceCart struct {
-	*repository.InMemoryCartRepository
+	*fake.InMemoryCartRepository
 	mu     sync.Mutex
 	failed bool
 }
@@ -259,9 +260,9 @@ func (c *failOnceCart) RemoveItems(ctx context.Context, userID string, ids []str
 }
 
 func TestKeyedReplay_RetriesTheCartClear(t *testing.T) {
-	r := newKeyedRig()
+	r := newKeyedRig(t)
 	cart := &failOnceCart{InMemoryCartRepository: r.carts}
-	r.svc = service.NewOrderService(r.orders, cart, nil, nil, r.domain, nil, nil, service.WithSagaRepository(r.sagas))
+	r.svc = newSvc(t, r.orders, cart, nil, nil, r.domain, nil, nil, order.WithSagaRepository(r.sagas))
 	r.addToCart(t, "buyer_1")
 	if _, err := r.checkout("buyer_1", "K-cart"); err != nil {
 		t.Fatal(err)

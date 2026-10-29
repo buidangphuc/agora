@@ -1,4 +1,4 @@
-package service
+package order
 
 import (
 	"fmt"
@@ -8,9 +8,9 @@ import (
 
 const quoteCity = "Đà Nẵng"
 
-func quoteSvc() *OrderService {
+func quoteSvc(t testing.TB) *OrderService {
 	now := time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC)
-	return NewOrderService(nil, nil, nil, nil, nil, nil, nil, WithClock(func() time.Time { return now }))
+	return internalSvc(t, WithClock(func() time.Time { return now }))
 }
 
 func quoteGroupFor(t *testing.T, r quoteResult, seller string) quoteGroup {
@@ -25,7 +25,7 @@ func quoteGroupFor(t *testing.T, r quoteResult, seller string) quoteGroup {
 }
 
 func TestQuoteCheckoutFreeShippingPerGroup(t *testing.T) {
-	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, groups: []quoteGroupInput{
+	r := quoteSvc(t).quoteCheckout(quoteInput{city: quoteCity, groups: []quoteGroupInput{
 		{sellerID: "A", itemsSubtotal: 600000},
 		{sellerID: "B", itemsSubtotal: 100000},
 	}})
@@ -45,7 +45,7 @@ func TestQuoteCheckoutFreeShippingPerGroup(t *testing.T) {
 }
 
 func TestQuoteCheckoutProratesPlatformDiscount(t *testing.T) {
-	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 10001, groups: []quoteGroupInput{
+	r := quoteSvc(t).quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 10001, groups: []quoteGroupInput{
 		{sellerID: "A", itemsSubtotal: 200000},
 		{sellerID: "B", itemsSubtotal: 100000},
 		{sellerID: "C", itemsSubtotal: 100000},
@@ -65,7 +65,7 @@ func TestQuoteCheckoutProratesPlatformDiscount(t *testing.T) {
 }
 
 func TestQuoteCheckoutRemainderTieLowestSellerID(t *testing.T) {
-	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 100000, groups: []quoteGroupInput{
+	r := quoteSvc(t).quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 100000, groups: []quoteGroupInput{
 		{sellerID: "seller-c", itemsSubtotal: 100000},
 		{sellerID: "seller-a", itemsSubtotal: 100000},
 		{sellerID: "seller-b", itemsSubtotal: 100000},
@@ -79,7 +79,7 @@ func TestQuoteCheckoutRemainderTieLowestSellerID(t *testing.T) {
 }
 
 func TestQuoteCheckoutRemainderGoesToLargestGroupNotLowestID(t *testing.T) {
-	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 10001, groups: []quoteGroupInput{
+	r := quoteSvc(t).quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 10001, groups: []quoteGroupInput{
 		{sellerID: "A", itemsSubtotal: 100000},
 		{sellerID: "B", itemsSubtotal: 300000},
 	}})
@@ -92,7 +92,7 @@ func TestQuoteCheckoutRemainderGoesToLargestGroupNotLowestID(t *testing.T) {
 }
 
 func TestQuoteCheckoutRemainderTwoTieLowestSellerID(t *testing.T) {
-	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 100001, groups: []quoteGroupInput{
+	r := quoteSvc(t).quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 100001, groups: []quoteGroupInput{
 		{sellerID: "seller-c", itemsSubtotal: 100000},
 		{sellerID: "seller-a", itemsSubtotal: 100000},
 		{sellerID: "seller-b", itemsSubtotal: 100000},
@@ -106,7 +106,7 @@ func TestQuoteCheckoutRemainderTwoTieLowestSellerID(t *testing.T) {
 }
 
 func TestQuoteCheckoutSingleGroupWholeDiscount(t *testing.T) {
-	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 50000, groups: []quoteGroupInput{
+	r := quoteSvc(t).quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 50000, groups: []quoteGroupInput{
 		{sellerID: "A", itemsSubtotal: 300000},
 	}})
 	if len(r.groups) != 1 || r.groups[0].platformDiscount != 50000 {
@@ -115,7 +115,7 @@ func TestQuoteCheckoutSingleGroupWholeDiscount(t *testing.T) {
 }
 
 func TestQuoteCheckoutClampsGroupTotalAtZero(t *testing.T) {
-	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 60000, groups: []quoteGroupInput{
+	r := quoteSvc(t).quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 60000, groups: []quoteGroupInput{
 		{sellerID: "A", itemsSubtotal: 100000, shopVoucherCode: "SHOPA", shopDiscount: 100000},
 	}})
 	if len(r.groups) != 1 {
@@ -134,7 +134,7 @@ func TestQuoteCheckoutClampsGroupTotalAtZero(t *testing.T) {
 }
 
 func TestQuoteCheckoutStacksShopAndPlatform(t *testing.T) {
-	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 60000, groups: []quoteGroupInput{
+	r := quoteSvc(t).quoteCheckout(quoteInput{city: quoteCity, platformDiscount: 60000, groups: []quoteGroupInput{
 		{sellerID: "A", itemsSubtotal: 300000, shopVoucherCode: "SHOPA", shopDiscount: 30000},
 		{sellerID: "B", itemsSubtotal: 300000},
 	}})
@@ -151,7 +151,7 @@ func TestQuoteCheckoutStacksShopAndPlatform(t *testing.T) {
 }
 
 func TestQuoteCheckoutGroupsSortedBySellerID(t *testing.T) {
-	r := quoteSvc().quoteCheckout(quoteInput{city: quoteCity, groups: []quoteGroupInput{
+	r := quoteSvc(t).quoteCheckout(quoteInput{city: quoteCity, groups: []quoteGroupInput{
 		{sellerID: "B", itemsSubtotal: 1000}, {sellerID: "A", itemsSubtotal: 1000},
 	}})
 	if len(r.groups) != 2 || r.groups[0].sellerID != "A" || r.groups[1].sellerID != "B" {
@@ -171,7 +171,7 @@ func TestQuoteCheckoutTableTotalsInvariant(t *testing.T) {
 	shop := [][]int64{{0}, {5000, 0}, {100000, 0, 50}}
 	platforms := []int64{0, 1, 10001, 99999, 250000}
 	cities := []string{"Hà Nội", quoteCity}
-	s := quoteSvc()
+	s := quoteSvc(t)
 	for si, subs := range subtotals {
 		for pi, d := range platforms {
 			for ci, city := range cities {

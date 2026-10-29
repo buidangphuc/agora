@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -11,8 +11,9 @@ import (
 
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 type msVoucher struct {
@@ -97,10 +98,10 @@ func msCatalog() map[string]msVoucher {
 // twoSellerRig groups: sa = 2 x 1000 = 2000, sb = 1 x 2000 = 2000, Ha Noi shipping 20000 each.
 func TestRunCheckoutPlacesQuotedFigures_MultishopCheckout(t *testing.T) {
 	promo := newMsPromo(msCatalog())
-	r := twoSellerRig(t, 5, service.WithPromotionClient(promo))
+	r := twoSellerRig(t, 5, order.WithPromotionClient(promo))
 
 	got, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, "",
-		service.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, "PLAT"))
+		order.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, "PLAT"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +150,7 @@ func TestRunCheckoutPlacesQuotedFigures_MultishopCheckout(t *testing.T) {
 
 func TestRunCheckoutNoVoucherUnchanged_MultishopCheckout(t *testing.T) {
 	promo := newMsPromo(msCatalog())
-	r := twoSellerRig(t, 5, service.WithPromotionClient(promo))
+	r := twoSellerRig(t, 5, order.WithPromotionClient(promo))
 
 	got, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, "")
 	if err != nil {
@@ -176,7 +177,7 @@ func TestRunCheckoutNoVoucherUnchanged_MultishopCheckout(t *testing.T) {
 
 func assertAbortedAndNothingHeld(t *testing.T, r *checkoutRig, promo *msPromo, err error) {
 	t.Helper()
-	if !errors.Is(err, service.ErrVoucherRejected) {
+	if !errors.Is(err, order.ErrVoucherRejected) {
 		t.Fatalf("want ErrVoucherRejected, got %v", err)
 	}
 	if n := len(r.buyerOrders(t)); n != 0 {
@@ -191,17 +192,17 @@ func assertAbortedAndNothingHeld(t *testing.T, r *checkoutRig, promo *msPromo, e
 	if held := promo.heldIDs(); len(held) != 0 {
 		t.Fatalf("voucher holds left behind: %v", held)
 	}
-	if st := r.sagaStatus(t); st != repository.SagaStatusCompensated {
+	if st := r.sagaStatus(t); st != store.SagaStatusCompensated {
 		t.Fatalf("saga status %v, want COMPENSATED", st)
 	}
 }
 
 func TestCreateOrderShopVoucherWrongShopAbortsAndReleases_MultishopCheckout(t *testing.T) {
 	promo := newMsPromo(msCatalog())
-	r := twoSellerRig(t, 5, service.WithPromotionClient(promo))
+	r := twoSellerRig(t, 5, order.WithPromotionClient(promo))
 
 	_, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, "",
-		service.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}, {SellerId: "sb", Code: "SHOPA"}}, "PLAT"))
+		order.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}, {SellerId: "sb", Code: "SHOPA"}}, "PLAT"))
 	if err == nil || !strings.Contains(err.Error(), "voucher belongs to another shop") {
 		t.Fatalf("want promotion's reason in the error, got %v", err)
 	}
@@ -213,10 +214,10 @@ func TestCreateOrderShopVoucherWrongShopAbortsAndReleases_MultishopCheckout(t *t
 
 func TestCreateOrderPlatformVoucherRefusedAbortsAndReleases_MultishopCheckout(t *testing.T) {
 	promo := newMsPromo(msCatalog())
-	r := twoSellerRig(t, 5, service.WithPromotionClient(promo))
+	r := twoSellerRig(t, 5, order.WithPromotionClient(promo))
 
 	_, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, "",
-		service.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, "NOPE"))
+		order.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}}, "NOPE"))
 	if err == nil || !strings.Contains(err.Error(), "voucher not found") {
 		t.Fatalf("want promotion's reason in the error, got %v", err)
 	}
@@ -235,18 +236,18 @@ func TestCreateOrderPlatformVoucherRefusedAbortsAndReleases_MultishopCheckout(t 
 func TestFailAndCompensateReleasesAllVoucherHolds_MultishopCheckout(t *testing.T) {
 	promo := newMsPromo(msCatalog())
 	promo.catalog["SHOPB"] = msVoucher{scope: promotionv1.VoucherScope_VOUCHER_SCOPE_SHOP, sellerID: "sb", discount: 300}
-	orders := repository.NewInMemoryOrderRepository()
-	inner := repository.NewInMemorySagaRepository()
+	orders := fake.NewInMemoryOrderRepository()
+	inner := fake.NewInMemorySagaRepository()
 	r := twoSellerRig(t, 5)
 	r.orders = orders
 	r.sagas = &recordingSagaRepo{SagaRepository: inner}
-	r.svc = service.NewOrderService(orders, r.cart, nil, nil, r.domain, nil, nil,
-		service.WithSagaRepository(r.sagas),
-		service.WithPromotionClient(promo),
-		service.WithOrderPlacer(faultyPlacer{inner: repository.NewInMemoryOrderPlacer(orders, inner), mode: "before"}))
+	r.svc = newSvc(t, orders, r.cart, nil, nil, r.domain, nil, nil,
+		order.WithSagaRepository(r.sagas),
+		order.WithPromotionClient(promo),
+		order.WithOrderPlacer(faultyPlacer{inner: fake.NewInMemoryOrderPlacer(orders, inner), mode: "before"}))
 
 	_, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, "",
-		service.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}, {SellerId: "sb", Code: "SHOPB"}}, "PLAT"))
+		order.WithVouchers([]*orderv1.ShopVoucher{{SellerId: "sa", Code: "SHOPA"}, {SellerId: "sb", Code: "SHOPB"}}, "PLAT"))
 	if err == nil {
 		t.Fatal("placement fails, so the checkout must fail")
 	}

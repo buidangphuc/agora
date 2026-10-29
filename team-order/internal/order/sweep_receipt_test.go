@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -10,9 +10,8 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 const (
@@ -22,44 +21,41 @@ const (
 )
 
 type rcRig struct {
-	svc     *service.OrderService
-	orders  *repository.InMemoryOrderRepository
-	returns *repository.InMemoryReturnRepository
-	outbox  *repository.InMemoryOutboxRepository
+	svc     *order.OrderService
+	orders  *store.PostgresOrderRepository
+	returns *store.PostgresReturnRepository
+	outbox  *pgOutbox
 }
 
-func newRCRig() *rcRig {
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository(
-		repository.WithCompletedOutbox(events.BuildCompletedOutboxRow),
-		repository.WithInMemoryOutbox(outbox),
-		repository.WithAutoCompleteAfter(rcAutoComplete),
-		repository.WithReturnWindow(15*24*time.Hour),
-		repository.WithShipByAfter(2*24*time.Hour))
-	returns := repository.NewInMemoryReturnRepository(
-		repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow),
-		repository.WithInMemoryReturnOutbox(outbox, orders),
-		repository.WithReturnAutoApproveAfter(rcAutoApprove))
-	orders.SetReturnSource(returns)
-	return &rcRig{svc: service.NewOrderService(orders, nil, returns, nil, nil, nil, nil), orders: orders, returns: returns, outbox: outbox}
+func newRCRig(t *testing.T) *rcRig {
+	outbox := newPGOutbox(t)
+	orders := outbox.orders(
+		store.WithCompletedOutbox(BuildCompletedOutboxRow),
+		store.WithAutoCompleteAfter(rcAutoComplete),
+		store.WithReturnWindow(15*24*time.Hour),
+		store.WithShipByAfter(2*24*time.Hour))
+	returns := outbox.returns(
+		store.WithReturnOutbox(BuildReturnRefundedOutboxRow),
+		store.WithReturnAutoApproveAfter(rcAutoApprove))
+	return &rcRig{svc: newSvc(t, orders, nil, returns, nil, nil, nil, nil), orders: orders, returns: returns, outbox: outbox}
 }
 
 // shipped creates a SHIPPED order (paid online when paid, else cash on delivery).
-func (r *rcRig) shipped(t *testing.T, paid bool) repository.Order {
+func (r *rcRig) shipped(t *testing.T, paid bool) store.Order {
 	t.Helper()
 	ctx := context.Background()
-	o, err := r.orders.CreateOrder(ctx, repository.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 5000, Currency: "VND"})
+	o, err := r.orders.CreateOrder(ctx, store.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 5000, Currency: "VND"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	from := repository.OrderStatusPending
+	from := store.OrderStatusPending
 	if paid {
-		if _, err := r.orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, []repository.OrderStatus{from}, ""); err != nil {
+		if _, err := r.orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, []store.OrderStatus{from}, ""); err != nil {
 			t.Fatal(err)
 		}
-		from = repository.OrderStatusPaid
+		from = store.OrderStatusPaid
 	}
-	o, err = r.orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusShipped, []repository.OrderStatus{from}, "T")
+	o, err = r.orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped, []store.OrderStatus{from}, "T")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,20 +65,20 @@ func (r *rcRig) shipped(t *testing.T, paid bool) repository.Order {
 	return o
 }
 
-func (r *rcRig) newReturn(t *testing.T, orderID string, st repository.ReturnStatus) repository.OrderReturn {
+func (r *rcRig) newReturn(t *testing.T, orderID string, st store.ReturnStatus) store.OrderReturn {
 	t.Helper()
 	ctx := context.Background()
-	ret, err := r.returns.CreateReturn(ctx, repository.OrderReturn{OrderID: orderID, BuyerID: "buyer_1", SellerID: "seller_1", Reason: "x", RefundAmount: 1000, Status: repository.ReturnStatusPending})
+	ret, err := r.returns.CreateReturn(ctx, store.OrderReturn{OrderID: orderID, BuyerID: "buyer_1", SellerID: "seller_1", Reason: "x", RefundAmount: 1000, Status: store.ReturnStatusPending})
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := map[repository.ReturnStatus][]repository.ReturnStatus{
-		repository.ReturnStatusPending:  {},
-		repository.ReturnStatusApproved: {repository.ReturnStatusApproved},
-		repository.ReturnStatusRejected: {repository.ReturnStatusRejected},
-		repository.ReturnStatusRefunded: {repository.ReturnStatusApproved, repository.ReturnStatusRefunded},
+	path := map[store.ReturnStatus][]store.ReturnStatus{
+		store.ReturnStatusPending:  {},
+		store.ReturnStatusApproved: {store.ReturnStatusApproved},
+		store.ReturnStatusRejected: {store.ReturnStatusRejected},
+		store.ReturnStatusRefunded: {store.ReturnStatusApproved, store.ReturnStatusRefunded},
 	}[st]
-	cur := repository.ReturnStatusPending
+	cur := store.ReturnStatusPending
 	for _, next := range path {
 		if ret, err = r.returns.TransitionReturn(ctx, ret.ID, cur, next); err != nil {
 			t.Fatal(err)
@@ -92,7 +88,7 @@ func (r *rcRig) newReturn(t *testing.T, orderID string, st repository.ReturnStat
 	return ret
 }
 
-func (r *rcRig) order(t *testing.T, id string) repository.Order {
+func (r *rcRig) order(t *testing.T, id string) store.Order {
 	t.Helper()
 	o, err := r.orders.GetOrder(context.Background(), id)
 	if err != nil {
@@ -101,7 +97,7 @@ func (r *rcRig) order(t *testing.T, id string) repository.Order {
 	return o
 }
 
-func (r *rcRig) ret(t *testing.T, id string) repository.OrderReturn {
+func (r *rcRig) ret(t *testing.T, id string) store.OrderReturn {
 	t.Helper()
 	o, err := r.returns.GetReturn(context.Background(), id)
 	if err != nil {
@@ -114,7 +110,7 @@ func (r *rcRig) completedFacts(t *testing.T, orderID string) []*orderv1.OrderCom
 	t.Helper()
 	var out []*orderv1.OrderCompleted
 	for _, row := range r.outbox.EnqueuedRows() {
-		if row.AggregateID != orderID || row.EventType != events.OrderCompletedEventType {
+		if row.AggregateID != orderID || row.EventType != OrderCompletedEventType {
 			continue
 		}
 		var env eventsv1.EventEnvelope
@@ -155,13 +151,13 @@ func (r *rcRig) sweepApprove(t *testing.T, now time.Time) int {
 
 // Scenario: Order receipt: Unconfirmed shipped order completes after the window
 func TestSweepCompletesUnconfirmedShippedOrder(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
 	if n := r.sweepComplete(t, pastDeadline()); n != 1 {
 		t.Fatalf("completed %d orders, want 1", n)
 	}
 	got := r.order(t, o.ID)
-	if got.Status != repository.OrderStatusCompleted || got.CompletedAt == nil || got.AutoCompleteAt != nil {
+	if got.Status != store.OrderStatusCompleted || got.CompletedAt == nil || got.AutoCompleteAt != nil {
 		t.Fatalf("want COMPLETED with completed_at and no auto_complete_at: %+v", got)
 	}
 	facts := r.completedFacts(t, o.ID)
@@ -172,86 +168,86 @@ func TestSweepCompletesUnconfirmedShippedOrder(t *testing.T) {
 
 // Scenario: Order receipt: A shipped order inside its window is not completed
 func TestSweepDoesNotCompleteBeforeDeadline(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
 	if n := r.sweepComplete(t, beforeDeadline()); n != 0 {
 		t.Fatalf("completed %d orders, want 0", n)
 	}
-	if r.order(t, o.ID).Status != repository.OrderStatusShipped || len(r.completedFacts(t, o.ID)) != 0 {
+	if r.order(t, o.ID).Status != store.OrderStatusShipped || len(r.completedFacts(t, o.ID)) != 0 {
 		t.Fatal("order must stay SHIPPED with no OrderCompleted")
 	}
 }
 
 // Scenario: Order receipt: An open return blocks auto-complete
 func TestSweepSkipsOrderWithOpenReturn(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
-	ret := r.newReturn(t, o.ID, repository.ReturnStatusPending)
+	ret := r.newReturn(t, o.ID, store.ReturnStatusPending)
 	now := pastDeadline()
 	// Auto-approve is not part of this pass: the return stays PENDING and blocks.
 	if n := r.sweepComplete(t, now); n != 0 {
 		t.Fatalf("completed %d orders with a PENDING return, want 0", n)
 	}
-	if r.order(t, o.ID).Status != repository.OrderStatusShipped {
+	if r.order(t, o.ID).Status != store.OrderStatusShipped {
 		t.Fatal("order must stay SHIPPED")
 	}
-	if _, err := r.returns.TransitionReturn(context.Background(), ret.ID, repository.ReturnStatusPending, repository.ReturnStatusRejected); err != nil {
+	if _, err := r.returns.TransitionReturn(context.Background(), ret.ID, store.ReturnStatusPending, store.ReturnStatusRejected); err != nil {
 		t.Fatal(err)
 	}
-	if n := r.sweepComplete(t, now); n != 1 || r.order(t, o.ID).Status != repository.OrderStatusCompleted {
+	if n := r.sweepComplete(t, now); n != 1 || r.order(t, o.ID).Status != store.OrderStatusCompleted {
 		t.Fatalf("first run after REJECTED must complete the order (n=%d)", n)
 	}
 }
 
 // Scenario: Order receipt: An approved unrefunded return blocks auto-complete
 func TestSweepSkipsOrderWithApprovedReturn(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
-	ret := r.newReturn(t, o.ID, repository.ReturnStatusApproved)
+	ret := r.newReturn(t, o.ID, store.ReturnStatusApproved)
 	now := pastDeadline()
-	if n := r.sweepComplete(t, now); n != 0 || r.order(t, o.ID).Status != repository.OrderStatusShipped {
+	if n := r.sweepComplete(t, now); n != 0 || r.order(t, o.ID).Status != store.OrderStatusShipped {
 		t.Fatalf("an APPROVED return on an online-paid order must block (n=%d)", n)
 	}
-	if _, err := r.returns.TransitionReturn(context.Background(), ret.ID, repository.ReturnStatusApproved, repository.ReturnStatusRefunded); err != nil {
+	if _, err := r.returns.TransitionReturn(context.Background(), ret.ID, store.ReturnStatusApproved, store.ReturnStatusRefunded); err != nil {
 		t.Fatal(err)
 	}
-	if n := r.sweepComplete(t, now); n != 1 || r.order(t, o.ID).Status != repository.OrderStatusCompleted {
+	if n := r.sweepComplete(t, now); n != 1 || r.order(t, o.ID).Status != store.OrderStatusCompleted {
 		t.Fatalf("first run after REFUNDED must complete the order (n=%d)", n)
 	}
 }
 
 // Scenario: Order receipt: An approved return on a cash-on-delivery order does not block auto-complete
 func TestSweepCompletesCODOrderWithApprovedReturn(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, false)
-	ret := r.newReturn(t, o.ID, repository.ReturnStatusApproved)
+	ret := r.newReturn(t, o.ID, store.ReturnStatusApproved)
 	if n := r.sweepComplete(t, pastDeadline()); n != 1 {
 		t.Fatalf("completed %d orders, want 1", n)
 	}
-	if r.order(t, o.ID).Status != repository.OrderStatusCompleted {
+	if r.order(t, o.ID).Status != store.OrderStatusCompleted {
 		t.Fatal("COD order must complete")
 	}
 	if f := r.completedFacts(t, o.ID); len(f) != 1 || f[0].GetCompletedBy() != orderv1.CompletedBy_COMPLETED_BY_SYSTEM || f[0].GetPaidOnline() {
 		t.Fatalf("want one SYSTEM, not-paid-online OrderCompleted, got %v", f)
 	}
-	if r.ret(t, ret.ID).Status != repository.ReturnStatusApproved {
+	if r.ret(t, ret.ID).Status != store.ReturnStatusApproved {
 		t.Fatal("the return must still read APPROVED")
 	}
 }
 
 // Scenario: Order receipt: A rejected return does not block auto-complete
 func TestSweepCompletesOrderWithRejectedReturn(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
-	r.newReturn(t, o.ID, repository.ReturnStatusRejected)
-	if n := r.sweepComplete(t, pastDeadline()); n != 1 || r.order(t, o.ID).Status != repository.OrderStatusCompleted {
+	r.newReturn(t, o.ID, store.ReturnStatusRejected)
+	if n := r.sweepComplete(t, pastDeadline()); n != 1 || r.order(t, o.ID).Status != store.OrderStatusCompleted {
 		t.Fatalf("a REJECTED return must not block (n=%d)", n)
 	}
 }
 
 // Scenario: Order receipt: Confirm racing the sweep completes once
 func TestConfirmReceiptRacesSweepOneCompletion(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
 	now := pastDeadline()
 	var wg sync.WaitGroup
@@ -267,7 +263,7 @@ func TestConfirmReceiptRacesSweepOneCompletion(t *testing.T) {
 	if (confirmErr == nil) == (swept == 1) {
 		t.Fatalf("exactly one side must win: confirmErr=%v swept=%d", confirmErr, swept)
 	}
-	if r.order(t, o.ID).Status != repository.OrderStatusCompleted {
+	if r.order(t, o.ID).Status != store.OrderStatusCompleted {
 		t.Fatal("order must be COMPLETED")
 	}
 	if f := r.completedFacts(t, o.ID); len(f) != 1 {
@@ -277,16 +273,16 @@ func TestConfirmReceiptRacesSweepOneCompletion(t *testing.T) {
 
 // Scenario: Order receipt: The sweep handles at most one batch per run
 func TestSweepAutoCompleteBatchBound(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	ids := make([]string, 0, 250)
 	for i := 0; i < 250; i++ {
 		ids = append(ids, r.shipped(t, true).ID)
 	}
 	now := pastDeadline()
-	completed := func() (done, open []repository.Order) {
+	completed := func() (done, open []store.Order) {
 		for _, id := range ids {
 			o := r.order(t, id)
-			if o.Status == repository.OrderStatusCompleted {
+			if o.Status == store.OrderStatusCompleted {
 				done = append(done, o)
 			} else {
 				open = append(open, o)
@@ -330,7 +326,7 @@ func TestSweepAutoCompleteBatchBound(t *testing.T) {
 
 // Scenario: Order receipt: A repeated sweep changes nothing
 func TestSweepAutoCompleteIdempotent(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
 	now := pastDeadline()
 	if n := r.sweepComplete(t, now); n != 1 {
@@ -348,17 +344,17 @@ func TestSweepAutoCompleteIdempotent(t *testing.T) {
 
 // Scenario: Order receipt: Unanswered return is approved after the window
 func TestAutoApproveUnansweredReturn(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
-	ret := r.newReturn(t, o.ID, repository.ReturnStatusPending)
+	ret := r.newReturn(t, o.ID, store.ReturnStatusPending)
 	if n := r.sweepApprove(t, pastDeadline()); n != 1 {
 		t.Fatalf("approved %d returns, want 1", n)
 	}
-	if r.ret(t, ret.ID).Status != repository.ReturnStatusApproved {
+	if r.ret(t, ret.ID).Status != store.ReturnStatusApproved {
 		t.Fatal("return must read APPROVED")
 	}
 	for _, row := range r.outbox.EnqueuedRows() {
-		if row.EventType == events.ReturnRefundedEventType {
+		if row.EventType == ReturnRefundedEventType {
 			t.Fatal("auto-approve must not write ReturnRefunded")
 		}
 	}
@@ -366,47 +362,47 @@ func TestAutoApproveUnansweredReturn(t *testing.T) {
 
 // Scenario: Order receipt: A return inside its answer window is not approved
 func TestAutoApproveBeforeDeadlineNoOp(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
-	ret := r.newReturn(t, o.ID, repository.ReturnStatusPending)
+	ret := r.newReturn(t, o.ID, store.ReturnStatusPending)
 	if n := r.sweepApprove(t, beforeDeadline()); n != 0 {
 		t.Fatalf("approved %d returns, want 0", n)
 	}
-	if r.ret(t, ret.ID).Status != repository.ReturnStatusPending {
+	if r.ret(t, ret.ID).Status != store.ReturnStatusPending {
 		t.Fatal("return must stay PENDING")
 	}
 }
 
 // Scenario: Order receipt: Rejected return is never auto-approved
 func TestAutoApproveSkipsRejected(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
-	ret := r.newReturn(t, o.ID, repository.ReturnStatusRejected)
-	if n := r.sweepApprove(t, pastDeadline()); n != 0 || r.ret(t, ret.ID).Status != repository.ReturnStatusRejected {
+	ret := r.newReturn(t, o.ID, store.ReturnStatusRejected)
+	if n := r.sweepApprove(t, pastDeadline()); n != 0 || r.ret(t, ret.ID).Status != store.ReturnStatusRejected {
 		t.Fatalf("a REJECTED return must stay REJECTED (n=%d)", n)
 	}
 }
 
 // Scenario: Order receipt: Approved return is not touched by the sweep
 func TestAutoApproveSkipsApproved(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
-	ret := r.newReturn(t, o.ID, repository.ReturnStatusApproved)
+	ret := r.newReturn(t, o.ID, store.ReturnStatusApproved)
 	before := r.ret(t, ret.ID)
 	if n := r.sweepApprove(t, pastDeadline()); n != 0 {
 		t.Fatalf("sweep reported %d approvals, want 0", n)
 	}
 	after := r.ret(t, ret.ID)
-	if after.Status != repository.ReturnStatusApproved || !after.UpdatedAt.Equal(before.UpdatedAt) {
+	if after.Status != store.ReturnStatusApproved || !after.UpdatedAt.Equal(before.UpdatedAt) {
 		t.Fatalf("approved return touched: %+v -> %+v", before, after)
 	}
 }
 
 // Scenario: Order receipt: Seller answer racing the auto-approve produces one transition
 func TestAutoApproveRacesSellerAnswerOneTransition(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	o := r.shipped(t, true)
-	ret := r.newReturn(t, o.ID, repository.ReturnStatusPending)
+	ret := r.newReturn(t, o.ID, store.ReturnStatusPending)
 	now := pastDeadline()
 	var wg sync.WaitGroup
 	var rejectErr, sweepErr error
@@ -414,7 +410,7 @@ func TestAutoApproveRacesSellerAnswerOneTransition(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_, rejectErr = r.svc.UpdateReturnStatus(context.Background(), ret.ID, repository.ReturnStatusRejected)
+		_, rejectErr = r.svc.UpdateReturnStatus(context.Background(), ret.ID, store.ReturnStatusRejected)
 	}()
 	go func() { defer wg.Done(); swept, sweepErr = r.svc.AutoApproveReturns(context.Background(), now) }()
 	wg.Wait()
@@ -425,17 +421,17 @@ func TestAutoApproveRacesSellerAnswerOneTransition(t *testing.T) {
 	switch {
 	case swept == 1 && rejectErr != nil:
 		// the sweep won; the seller's late reject lost its compare-and-set
-		if got != repository.ReturnStatusApproved {
+		if got != store.ReturnStatusApproved {
 			t.Fatalf("sweep won but return reads %v", got)
 		}
 	case swept == 0 && rejectErr == nil:
-		if got != repository.ReturnStatusRejected {
+		if got != store.ReturnStatusRejected {
 			t.Fatalf("seller won but return reads %v", got)
 		}
 	case swept == 1 && rejectErr == nil:
 		// reject applied after an approve is a legal seller move (APPROVED -> REJECTED);
 		// the two are then sequential, not racing, and the final state is REJECTED.
-		if got != repository.ReturnStatusRejected {
+		if got != store.ReturnStatusRejected {
 			t.Fatalf("approve then reject must end REJECTED, got %v", got)
 		}
 	default:
@@ -445,17 +441,17 @@ func TestAutoApproveRacesSellerAnswerOneTransition(t *testing.T) {
 
 // Scenario: Order receipt: The auto-approve pass handles at most one batch per run
 func TestAutoApproveBatchBound(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	ids := make([]string, 0, 250)
 	for i := 0; i < 250; i++ {
 		o := r.shipped(t, true)
-		ids = append(ids, r.newReturn(t, o.ID, repository.ReturnStatusPending).ID)
+		ids = append(ids, r.newReturn(t, o.ID, store.ReturnStatusPending).ID)
 	}
 	now := pastDeadline()
 	pending := func() int {
 		n := 0
 		for _, id := range ids {
-			if r.ret(t, id).Status == repository.ReturnStatusPending {
+			if r.ret(t, id).Status == store.ReturnStatusPending {
 				n++
 			}
 		}
@@ -474,13 +470,13 @@ func TestAutoApproveBatchBound(t *testing.T) {
 
 // Scenario: Order receipt: A passed ship_by changes nothing
 func TestPassedShipByDoesNotChangeOrder(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	ctx := context.Background()
-	o, err := r.orders.CreateOrder(ctx, repository.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 5000, Currency: "VND"})
+	o, err := r.orders.CreateOrder(ctx, store.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 5000, Currency: "VND"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	paid, err := r.orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, []repository.OrderStatus{repository.OrderStatusPending}, "")
+	paid, err := r.orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, []store.OrderStatus{store.OrderStatusPending}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -490,7 +486,7 @@ func TestPassedShipByDoesNotChangeOrder(t *testing.T) {
 	rows := len(r.outbox.EnqueuedRows())
 	r.svc.SweepLifecycle(ctx, paid.ShipBy.Add(24*time.Hour))
 	got := r.order(t, o.ID)
-	if got.Status != repository.OrderStatusPaid || !got.UpdatedAt.Equal(paid.UpdatedAt) || len(r.outbox.EnqueuedRows()) != rows {
+	if got.Status != store.OrderStatusPaid || !got.UpdatedAt.Equal(paid.UpdatedAt) || len(r.outbox.EnqueuedRows()) != rows {
 		t.Fatalf("a passed ship_by must change nothing: %+v, outbox %d -> %d", got, rows, len(r.outbox.EnqueuedRows()))
 	}
 }
@@ -498,15 +494,15 @@ func TestPassedShipByDoesNotChangeOrder(t *testing.T) {
 // Scenarios: Order receipt: Unconfirmed shipped order completes after the window;
 // Unanswered return is approved after the window (both passes run from SweepLifecycle)
 func TestSweepLifecycleRunsBothPasses(t *testing.T) {
-	r := newRCRig()
+	r := newRCRig(t)
 	a := r.shipped(t, true)
 	b := r.shipped(t, true)
-	ret := r.newReturn(t, b.ID, repository.ReturnStatusPending)
+	ret := r.newReturn(t, b.ID, store.ReturnStatusPending)
 	r.svc.SweepLifecycle(context.Background(), pastDeadline())
-	if r.order(t, a.ID).Status != repository.OrderStatusCompleted {
+	if r.order(t, a.ID).Status != store.OrderStatusCompleted {
 		t.Fatal("SweepLifecycle must auto-complete the unblocked shipped order")
 	}
-	if r.ret(t, ret.ID).Status != repository.ReturnStatusApproved {
+	if r.ret(t, ret.ID).Status != store.ReturnStatusApproved {
 		t.Fatal("SweepLifecycle must auto-approve the unanswered return")
 	}
 }

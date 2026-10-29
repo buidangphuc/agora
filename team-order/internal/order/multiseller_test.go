@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -8,42 +8,44 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
 type checkoutRig struct {
 	domain *upstreamtest.Domain
-	orders *repository.InMemoryOrderRepository
+	orders store.OrderRepository
 	sagas  *recordingSagaRepo
 	cart   *fakeCartRepo
-	svc    *service.OrderService
+	svc    *order.OrderService
 }
 
 // twoSellerRig: seller sa sells lst_a (stock 10), seller sb sells lst_b (stock
 // stockB); the cart holds 2 x lst_a and 1 x lst_b.
-func twoSellerRig(t *testing.T, stockB int32, opts ...service.OrderServiceOption) *checkoutRig {
+func twoSellerRig(t *testing.T, stockB int32, opts ...order.OrderServiceOption) *checkoutRig {
 	t.Helper()
+	orders := fake.NewInMemoryOrderRepository()
 	r := &checkoutRig{
 		domain: upstreamtest.NewDomain(map[string]int32{"lst_a": 10, "lst_b": stockB}),
-		orders: repository.NewInMemoryOrderRepository(),
-		sagas:  &recordingSagaRepo{SagaRepository: repository.NewInMemorySagaRepository()},
-		cart: &fakeCartRepo{items: []repository.CartItem{
+		orders: orders,
+		sagas:  &recordingSagaRepo{SagaRepository: fake.NewInMemorySagaRepository()},
+		cart: &fakeCartRepo{items: []store.CartItem{
 			{ID: "ci_b", ListingID: "lst_b", Quantity: 1, SellerID: "sb", UnitPrice: 2000},
 			{ID: "ci_a", ListingID: "lst_a", Quantity: 2, SellerID: "sa", UnitPrice: 1000},
 		}},
 	}
-	inner := r.sagas.SagaRepository.(*repository.InMemorySagaRepository)
-	all := append([]service.OrderServiceOption{
-		service.WithSagaRepository(r.sagas),
-		service.WithOrderPlacer(repository.NewInMemoryOrderPlacer(r.orders, inner)),
+	inner := r.sagas.SagaRepository.(*fake.InMemorySagaRepository)
+	all := append([]order.OrderServiceOption{
+		order.WithSagaRepository(r.sagas),
+		order.WithOrderPlacer(fake.NewInMemoryOrderPlacer(orders, inner)),
 	}, opts...)
-	r.svc = service.NewOrderService(r.orders, r.cart, nil, nil, r.domain, nil, nil, all...)
+	r.svc = newSvc(t, r.orders, r.cart, nil, nil, r.domain, nil, nil, all...)
 	return r
 }
 
-func (r *checkoutRig) buyerOrders(t *testing.T) []repository.Order {
+func (r *checkoutRig) buyerOrders(t *testing.T) []store.Order {
 	t.Helper()
 	os, err := r.orders.ListBuyerOrders(context.Background(), "buyer_1", 0)
 	if err != nil {
@@ -52,7 +54,7 @@ func (r *checkoutRig) buyerOrders(t *testing.T) []repository.Order {
 	return os
 }
 
-func (r *checkoutRig) sagaStatus(t *testing.T) repository.SagaStatus {
+func (r *checkoutRig) sagaStatus(t *testing.T) store.SagaStatus {
 	t.Helper()
 	res, err := r.sagas.ListReservationsBySaga(context.Background(), r.sagas.lastSagaID())
 	if err != nil || len(res) == 0 {
@@ -68,7 +70,7 @@ func (r *checkoutRig) sagaStatus(t *testing.T) repository.SagaStatus {
 func TestCheckout_SecondSellerOutOfStock_PlacesNothing(t *testing.T) {
 	r := twoSellerRig(t, 0)
 	_, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, "")
-	if !errors.Is(err, service.ErrInsufficientStock) {
+	if !errors.Is(err, order.ErrInsufficientStock) {
 		t.Fatalf("want ErrInsufficientStock, got %v", err)
 	}
 	if got := r.buyerOrders(t); len(got) != 0 {
@@ -80,7 +82,7 @@ func TestCheckout_SecondSellerOutOfStock_PlacesNothing(t *testing.T) {
 	if r.cart.removeCalled {
 		t.Fatal("the cart must stay intact")
 	}
-	if st := r.sagaStatus(t); st != repository.SagaStatusCompensated {
+	if st := r.sagaStatus(t); st != store.SagaStatusCompensated {
 		t.Fatalf("saga status %v, want COMPENSATED", st)
 	}
 }
@@ -95,7 +97,7 @@ func TestCheckout_TwoSellers_OneOrderEach(t *testing.T) {
 		t.Fatalf("want one order per seller in sorted order, got %+v", got)
 	}
 	for _, o := range got {
-		if o.Status != repository.OrderStatusPending {
+		if o.Status != store.OrderStatusPending {
 			t.Fatalf("order %s status %v", o.ID, o.Status)
 		}
 	}
@@ -107,14 +109,14 @@ func TestCheckout_TwoSellers_OneOrderEach(t *testing.T) {
 	}
 	res, _ := r.sagas.ListReservationsBySaga(context.Background(), r.sagas.lastSagaID())
 	for _, x := range res {
-		if x.Status != repository.ReservationStatusCommitted || x.OrderID == "" {
+		if x.Status != store.ReservationStatusCommitted || x.OrderID == "" {
 			t.Fatalf("reservation %+v must be bound COMMITTED", x)
 		}
 		if r.domain.State(x.ID) != upstreamtest.StateCommitted {
 			t.Fatalf("reservation %s must be committed in team-domain, is %q", x.ID, r.domain.State(x.ID))
 		}
 	}
-	if st := r.sagaStatus(t); st != repository.SagaStatusCompleted {
+	if st := r.sagaStatus(t); st != store.SagaStatusCompleted {
 		t.Fatalf("saga status %v, want COMPLETED", st)
 	}
 	// A placed order's stock survives team-domain's TTL sweep.
@@ -132,7 +134,7 @@ func TestCheckout_CommitRefused_PlacesNothing(t *testing.T) {
 		return nil
 	}
 	_, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, "")
-	if !errors.Is(err, service.ErrReservationLost) {
+	if !errors.Is(err, order.ErrReservationLost) {
 		t.Fatalf("want ErrReservationLost, got %v", err)
 	}
 	if got := r.buyerOrders(t); len(got) != 0 {
@@ -164,11 +166,11 @@ func TestCheckout_CommitUnimplemented_IsAFailure(t *testing.T) {
 // acknowledgement), or fails without placing anything, or places only the first
 // order.
 type faultyPlacer struct {
-	inner repository.OrderPlacer
+	inner store.OrderPlacer
 	mode  string // "after-commit", "before", "partial"
 }
 
-func (p faultyPlacer) PlaceOrders(ctx context.Context, sagaID string, placed []repository.PlacedOrder) ([]repository.Order, error) {
+func (p faultyPlacer) PlaceOrders(ctx context.Context, sagaID string, placed []store.PlacedOrder) ([]store.Order, error) {
 	switch p.mode {
 	case "after-commit":
 		if _, err := p.inner.PlaceOrders(ctx, sagaID, placed); err != nil {
@@ -192,17 +194,17 @@ func TestCheckout_AmbiguousPlacement(t *testing.T) {
 	}{
 		{"after-commit", nil, 2, 8, false},
 		{"before", nil, 0, 10, true},
-		{"partial", service.ErrPlacementUnknown, 1, 8, false},
+		{"partial", order.ErrPlacementUnknown, 1, 8, false},
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
-			orders := repository.NewInMemoryOrderRepository()
-			inner := repository.NewInMemorySagaRepository()
+			orders := fake.NewInMemoryOrderRepository()
+			inner := fake.NewInMemorySagaRepository()
 			r := twoSellerRig(t, 5)
 			r.orders = orders
 			r.sagas = &recordingSagaRepo{SagaRepository: inner}
-			r.svc = service.NewOrderService(orders, r.cart, nil, nil, r.domain, nil, nil,
-				service.WithSagaRepository(r.sagas),
-				service.WithOrderPlacer(faultyPlacer{inner: repository.NewInMemoryOrderPlacer(orders, inner), mode: tc.mode}))
+			r.svc = newSvc(t, orders, r.cart, nil, nil, r.domain, nil, nil,
+				order.WithSagaRepository(r.sagas),
+				order.WithOrderPlacer(faultyPlacer{inner: fake.NewInMemoryOrderPlacer(orders, inner), mode: tc.mode}))
 
 			got, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", addr(), nil, 1, "")
 			switch {

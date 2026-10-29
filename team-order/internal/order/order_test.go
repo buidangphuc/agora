@@ -1,4 +1,4 @@
-package service_test
+package order_test
 
 import (
 	"context"
@@ -6,31 +6,34 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	outboxsdk "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 type mockOrderServiceRepo struct {
-	orders map[string]repository.Order
+	orders map[string]store.Order
 }
 
-func (m *mockOrderServiceRepo) CreateOrder(ctx context.Context, o repository.Order) (repository.Order, error) {
+func (m *mockOrderServiceRepo) CreateOrder(ctx context.Context, o store.Order) (store.Order, error) {
 	if m.orders == nil {
-		m.orders = make(map[string]repository.Order)
+		m.orders = make(map[string]store.Order)
 	}
 	m.orders[o.ID] = o
 	return o, nil
 }
 
-func (m *mockOrderServiceRepo) GetOrder(ctx context.Context, id string) (repository.Order, error) {
+func (m *mockOrderServiceRepo) GetOrder(ctx context.Context, id string) (store.Order, error) {
 	if o, ok := m.orders[id]; ok {
 		return o, nil
 	}
-	return repository.Order{}, repository.ErrOrderNotFound
+	return store.Order{}, store.ErrOrderNotFound
 }
 
-func (m *mockOrderServiceRepo) ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]repository.Order, error) {
-	var list []repository.Order
+func (m *mockOrderServiceRepo) ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]store.Order, error) {
+	var list []store.Order
 	for _, o := range m.orders {
 		if o.BuyerID == buyerID {
 			list = append(list, o)
@@ -39,8 +42,8 @@ func (m *mockOrderServiceRepo) ListBuyerOrders(ctx context.Context, buyerID stri
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]repository.Order, error) {
-	var list []repository.Order
+func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]store.Order, error) {
+	var list []store.Order
 	for _, o := range m.orders {
 		if o.SellerID == sellerID {
 			list = append(list, o)
@@ -49,10 +52,10 @@ func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID st
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string, _ ...repository.StatusOption) (repository.Order, error) {
+func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to store.OrderStatus, from []store.OrderStatus, trackingNumber string, _ ...store.StatusOption) (store.Order, error) {
 	o, ok := m.orders[id]
 	if !ok {
-		return repository.Order{}, repository.ErrOrderNotFound
+		return store.Order{}, store.ErrOrderNotFound
 	}
 	allowed := false
 	for _, st := range from {
@@ -61,13 +64,13 @@ func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id strin
 		}
 	}
 	if !allowed {
-		return repository.Order{}, repository.ErrStatusConflict
+		return store.Order{}, store.ErrStatusConflict
 	}
 	o.Status = to
 	if trackingNumber != "" {
 		o.TrackingNumber = trackingNumber
 	}
-	if to == repository.OrderStatusPaid {
+	if to == store.OrderStatusPaid {
 		now := time.Now()
 		o.PaidAt = &now
 	}
@@ -75,12 +78,12 @@ func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id strin
 	return o, nil
 }
 
-func etaService(now time.Time) *service.OrderService {
-	return service.NewOrderService(nil, nil, nil, nil, nil, nil, nil, service.WithClock(func() time.Time { return now }))
+func etaService(t *testing.T, now time.Time) *order.OrderService {
+	return newSvc(t, nil, nil, nil, nil, nil, nil, nil, order.WithClock(func() time.Time { return now }))
 }
 
 func TestOrderService_CalculateShippingFee(t *testing.T) {
-	s := service.NewOrderService(nil, nil, nil, nil, nil, nil, nil)
+	s := newSvc(t, nil, nil, nil, nil, nil, nil, nil)
 
 	fee, isFree, _, _, _ := s.CalculateShippingFee("Hà Nội", 600000)
 	if !isFree || fee != 0 {
@@ -100,7 +103,7 @@ func TestOrderService_CalculateShippingFee(t *testing.T) {
 
 func TestShippingETAHoChiMinhTwoDays(t *testing.T) {
 	now := time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC)
-	_, _, _, days, at := etaService(now).CalculateShippingFee("Hồ Chí Minh", 300000)
+	_, _, _, days, at := etaService(t, now).CalculateShippingFee("Hồ Chí Minh", 300000)
 	if days != 2 {
 		t.Errorf("Address and ETA: Hồ Chí Minh is delivered in 2 days: days=%d", days)
 	}
@@ -111,7 +114,7 @@ func TestShippingETAHoChiMinhTwoDays(t *testing.T) {
 
 func TestShippingETAHaNoiTwoDays(t *testing.T) {
 	now := time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC)
-	_, _, _, days, at := etaService(now).CalculateShippingFee("Hà Nội", 300000)
+	_, _, _, days, at := etaService(t, now).CalculateShippingFee("Hà Nội", 300000)
 	if days != 2 {
 		t.Errorf("Address and ETA: Hà Nội is delivered in 2 days: days=%d", days)
 	}
@@ -122,7 +125,7 @@ func TestShippingETAHaNoiTwoDays(t *testing.T) {
 
 func TestShippingETAOtherCityFourDays(t *testing.T) {
 	now := time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC)
-	_, _, _, days, at := etaService(now).CalculateShippingFee("Đà Nẵng", 300000)
+	_, _, _, days, at := etaService(t, now).CalculateShippingFee("Đà Nẵng", 300000)
 	if days != 4 {
 		t.Errorf("Address and ETA: Any other city is delivered in 4 days: days=%d", days)
 	}
@@ -133,7 +136,7 @@ func TestShippingETAOtherCityFourDays(t *testing.T) {
 
 func TestShippingETAIsHoChiMinhCalendarDate(t *testing.T) {
 	now := time.Date(2026, 10, 16, 18, 0, 0, 0, time.UTC)
-	_, _, _, _, at := etaService(now).CalculateShippingFee("Đà Nẵng", 300000)
+	_, _, _, _, at := etaService(t, now).CalculateShippingFee("Đà Nẵng", 300000)
 	loc, err := time.LoadLocation("Asia/Ho_Chi_Minh")
 	if err != nil {
 		t.Fatalf("load tz: %v", err)
@@ -145,7 +148,7 @@ func TestShippingETAIsHoChiMinhCalendarDate(t *testing.T) {
 
 func TestShippingETAIndependentOfFreeShipping(t *testing.T) {
 	now := time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC)
-	fee, isFree, _, days, at := etaService(now).CalculateShippingFee("Đà Nẵng", 600000)
+	fee, isFree, _, days, at := etaService(t, now).CalculateShippingFee("Đà Nẵng", 600000)
 	if fee != 0 || !isFree {
 		t.Errorf("Address and ETA: Free shipping does not change the delivery time: fee=%d free=%v", fee, isFree)
 	}
@@ -155,7 +158,7 @@ func TestShippingETAIndependentOfFreeShipping(t *testing.T) {
 }
 
 func TestShippingFeeAmountsUnchanged(t *testing.T) {
-	s := etaService(time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC))
+	s := etaService(t, time.Date(2026, 10, 16, 5, 0, 0, 0, time.UTC))
 	cases := []struct {
 		city     string
 		subtotal int64
@@ -176,11 +179,11 @@ func TestShippingFeeAmountsUnchanged(t *testing.T) {
 
 func TestOrderService_GetOrder(t *testing.T) {
 	repo := &mockOrderServiceRepo{
-		orders: map[string]repository.Order{
-			"ord_1": {ID: "ord_1", BuyerID: "buyer_1", TotalAmount: 100000, Status: repository.OrderStatusPending},
+		orders: map[string]store.Order{
+			"ord_1": {ID: "ord_1", BuyerID: "buyer_1", TotalAmount: 100000, Status: store.OrderStatusPending},
 		},
 	}
-	s := service.NewOrderService(repo, nil, nil, nil, nil, nil, nil)
+	s := newSvc(t, repo, nil, nil, nil, nil, nil, nil)
 	ctx := context.Background()
 
 	o, err := s.GetOrder(ctx, "ord_1")
@@ -199,18 +202,18 @@ func TestOrderService_GetOrder(t *testing.T) {
 
 func TestOrderService_CancelOrder(t *testing.T) {
 	repo := &mockOrderServiceRepo{
-		orders: map[string]repository.Order{
-			"ord_cancel": {ID: "ord_cancel", BuyerID: "buyer_1", Status: repository.OrderStatusPending},
+		orders: map[string]store.Order{
+			"ord_cancel": {ID: "ord_cancel", BuyerID: "buyer_1", Status: store.OrderStatusPending},
 		},
 	}
-	s := service.NewOrderService(repo, nil, nil, nil, nil, nil, nil)
+	s := newSvc(t, repo, nil, nil, nil, nil, nil, nil)
 	ctx := context.Background()
 
 	cancelled, err := s.CancelOrder(ctx, "ord_cancel")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cancelled.Status != repository.OrderStatusCancelled {
+	if cancelled.Status != store.OrderStatusCancelled {
 		t.Errorf("expected status cancelled, got %v", cancelled.Status)
 	}
 }
@@ -218,13 +221,13 @@ func TestOrderService_CancelOrder(t *testing.T) {
 func TestOrderService_ReturnRequest(t *testing.T) {
 	paidAt := time.Now()
 	orderRepo := &mockOrderServiceRepo{
-		orders: map[string]repository.Order{
+		orders: map[string]store.Order{
 			"ord_paid_online": {
 				ID:          "ord_paid_online",
 				BuyerID:     "buyer_1",
 				SellerID:    "seller_1",
 				TotalAmount: 500000,
-				Status:      repository.OrderStatusCompleted,
+				Status:      store.OrderStatusCompleted,
 				PaidAt:      &paidAt,
 			},
 			"ord_delivered": {
@@ -232,19 +235,19 @@ func TestOrderService_ReturnRequest(t *testing.T) {
 				BuyerID:     "buyer_1",
 				SellerID:    "seller_1",
 				TotalAmount: 500000,
-				Status:      repository.OrderStatusCompleted,
+				Status:      store.OrderStatusCompleted,
 			},
 			"ord_pending": {
 				ID:          "ord_pending",
 				BuyerID:     "buyer_1",
 				SellerID:    "seller_1",
 				TotalAmount: 200000,
-				Status:      repository.OrderStatusPending,
+				Status:      store.OrderStatusPending,
 			},
 		},
 	}
-	returnRepo := repository.NewInMemoryReturnRepository()
-	s := service.NewOrderService(orderRepo, nil, returnRepo, nil, nil, nil, nil)
+	returnRepo := fake.NewInMemoryReturnRepository()
+	s := newSvc(t, orderRepo, nil, returnRepo, nil, nil, nil, nil)
 	ctx := context.Background()
 
 	t.Run("Create Return - Success", func(t *testing.T) {
@@ -255,7 +258,7 @@ func TestOrderService_ReturnRequest(t *testing.T) {
 		if ret.ID == "" {
 			t.Errorf("expected generated return ID")
 		}
-		if ret.Status != repository.ReturnStatusPending {
+		if ret.Status != store.ReturnStatusPending {
 			t.Errorf("expected status PENDING, got %d", ret.Status)
 		}
 		if ret.RefundAmount != 500000 {
@@ -274,7 +277,7 @@ func TestOrderService_ReturnRequest(t *testing.T) {
 
 	t.Run("Create Return - Unauthorized Buyer", func(t *testing.T) {
 		_, err := s.CreateReturnRequest(ctx, "other_buyer", "ord_delivered", "Reason", 100000)
-		if err != service.ErrUnauthorizedReturn {
+		if err != order.ErrUnauthorizedReturn {
 			t.Errorf("expected ErrUnauthorizedReturn, got %v", err)
 		}
 	})
@@ -300,25 +303,25 @@ func TestOrderService_ReturnRequest(t *testing.T) {
 		}
 
 		// Pending -> Approved
-		approved, err := s.UpdateReturnStatus(ctx, ret.ID, repository.ReturnStatusApproved)
+		approved, err := s.UpdateReturnStatus(ctx, ret.ID, store.ReturnStatusApproved)
 		if err != nil {
 			t.Fatalf("Update to Approved failed: %v", err)
 		}
-		if approved.Status != repository.ReturnStatusApproved {
+		if approved.Status != store.ReturnStatusApproved {
 			t.Errorf("expected APPROVED, got %d", approved.Status)
 		}
 
 		// Approved -> Refunded
-		refunded, err := s.UpdateReturnStatus(ctx, ret.ID, repository.ReturnStatusRefunded)
+		refunded, err := s.UpdateReturnStatus(ctx, ret.ID, store.ReturnStatusRefunded)
 		if err != nil {
 			t.Fatalf("Update to Refunded failed: %v", err)
 		}
-		if refunded.Status != repository.ReturnStatusRefunded {
+		if refunded.Status != store.ReturnStatusRefunded {
 			t.Errorf("expected REFUNDED, got %d", refunded.Status)
 		}
 
 		// Refunded -> Approved (Invalid, terminal state)
-		_, err = s.UpdateReturnStatus(ctx, ret.ID, repository.ReturnStatusApproved)
+		_, err = s.UpdateReturnStatus(ctx, ret.ID, store.ReturnStatusApproved)
 		if err == nil {
 			t.Errorf("expected error updating terminal state, got nil")
 		}
@@ -327,18 +330,18 @@ func TestOrderService_ReturnRequest(t *testing.T) {
 
 func TestOrderService_Shipment(t *testing.T) {
 	orderRepo := &mockOrderServiceRepo{
-		orders: map[string]repository.Order{
+		orders: map[string]store.Order{
 			"ord_to_ship": {
 				ID:          "ord_to_ship",
 				BuyerID:     "buyer_1",
 				SellerID:    "seller_1",
 				TotalAmount: 300000,
-				Status:      repository.OrderStatusPaid,
+				Status:      store.OrderStatusPaid,
 			},
 		},
 	}
-	shipmentRepo := repository.NewInMemoryShipmentRepository()
-	s := service.NewOrderService(orderRepo, nil, nil, shipmentRepo, nil, nil, nil)
+	shipmentRepo := fake.NewInMemoryShipmentRepository()
+	s := newSvc(t, orderRepo, nil, nil, shipmentRepo, nil, nil, nil)
 	ctx := context.Background()
 
 	t.Run("Create Shipment", func(t *testing.T) {
@@ -358,7 +361,7 @@ func TestOrderService_Shipment(t *testing.T) {
 
 		// Order should now be marked SHIPPED
 		ord, _ := orderRepo.GetOrder(ctx, "ord_to_ship")
-		if ord.Status != repository.OrderStatusShipped {
+		if ord.Status != store.OrderStatusShipped {
 			t.Errorf("expected order status SHIPPED, got %v", ord.Status)
 		}
 		if ord.TrackingNumber != "GHN-VN-12345" {
@@ -405,21 +408,19 @@ func TestOrderService_Shipment(t *testing.T) {
 // The shipment outbox builder receives the order's buyer and seller, so the
 // OrderShipped event can name the user to notify.
 func TestOrderService_CreateShipmentCarriesOrderParties(t *testing.T) {
-	orderRepo := &mockOrderServiceRepo{
-		orders: map[string]repository.Order{
-			"ord_parties": {ID: "ord_parties", BuyerID: "buyer_9", SellerID: "seller_9", Status: repository.OrderStatusPaid},
-		},
+	outbox := newPGOutbox(t)
+	orderRepo := outbox.orders()
+	if _, err := orderRepo.CreateOrder(context.Background(), store.Order{ID: "ord_parties", BuyerID: "buyer_9", SellerID: "seller_9", Status: store.OrderStatusPaid}); err != nil {
+		t.Fatal(err)
 	}
-	outbox := repository.NewInMemoryOutboxRepository()
-	var seen repository.Shipment
-	shipmentRepo := repository.NewInMemoryShipmentRepository(
-		repository.WithShipmentOutbox(func(sh repository.Shipment) (repository.OutboxRow, error) {
+	var seen store.Shipment
+	shipmentRepo := outbox.shipments(
+		store.WithShipmentOutbox(func(sh store.Shipment) (outboxsdk.Row, error) {
 			seen = sh
-			return repository.OutboxRow{EventID: "e1", AggregateID: sh.OrderID}, nil
+			return outboxsdk.Row{EventID: "e1", AggregateType: "Order", AggregateID: sh.OrderID, EventType: "platform.order.v1.OrderShipped", Payload: []byte("x")}, nil
 		}),
-		repository.WithInMemoryShipmentOutbox(outbox),
 	)
-	s := service.NewOrderService(orderRepo, nil, nil, shipmentRepo, nil, nil, nil)
+	s := newSvc(t, orderRepo, nil, nil, shipmentRepo, nil, nil, nil)
 
 	if _, err := s.CreateShipment(context.Background(), "ord_parties", "GHN", "GHN-1"); err != nil {
 		t.Fatalf("CreateShipment: %v", err)
@@ -433,10 +434,10 @@ func TestOrderService_CreateShipmentCarriesOrderParties(t *testing.T) {
 }
 
 func TestOrderService_RejectsBuyingOwnListing(t *testing.T) {
-	cartRepo := repository.NewInMemoryCartRepository()
-	orderRepo := repository.NewInMemoryOrderRepository()
+	cartRepo := fake.NewInMemoryCartRepository()
+	orderRepo := fake.NewInMemoryOrderRepository()
 	ctx := context.Background()
-	for _, it := range []repository.CartItem{
+	for _, it := range []store.CartItem{
 		{UserID: "seller_1", ListingID: "l1", Quantity: 1, UnitPrice: 1000, SellerID: "seller_2"},
 		{UserID: "seller_1", ListingID: "l2", Quantity: 1, UnitPrice: 1000, SellerID: "seller_1"},
 	} {
@@ -445,9 +446,9 @@ func TestOrderService_RejectsBuyingOwnListing(t *testing.T) {
 		}
 	}
 	// nil domain client: the guard must trip before any stock call.
-	s := service.NewOrderService(orderRepo, cartRepo, nil, nil, nil, nil, nil)
-	_, err := s.CreateOrdersFromCart(ctx, "seller_1", repository.Address{}, nil, 0, "")
-	if !errors.Is(err, service.ErrSelfPurchase) {
+	s := newSvc(t, orderRepo, cartRepo, nil, nil, nil, nil, nil)
+	_, err := s.CreateOrdersFromCart(ctx, "seller_1", store.Address{}, nil, 0, "")
+	if !errors.Is(err, order.ErrSelfPurchase) {
 		t.Fatalf("err = %v, want ErrSelfPurchase", err)
 	}
 	if got, _ := orderRepo.ListBuyerOrders(ctx, "seller_1", 0); len(got) != 0 {
@@ -455,11 +456,11 @@ func TestOrderService_RejectsBuyingOwnListing(t *testing.T) {
 	}
 }
 
-// Stubs so the fake satisfies repository.OrderRepository (order-unpaid-expiry reminder pass).
-func (m *mockOrderServiceRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]repository.Order, error) {
+// Stubs so the fake satisfies store.OrderRepository (order-unpaid-expiry reminder pass).
+func (m *mockOrderServiceRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]store.Order, error) {
 	return nil, nil
 }
 
-func (m *mockOrderServiceRepo) MarkReminderSent(context.Context, string, time.Time) (repository.Order, error) {
-	return repository.Order{}, nil
+func (m *mockOrderServiceRepo) MarkReminderSent(context.Context, string, time.Time) (store.Order, error) {
+	return store.Order{}, nil
 }
