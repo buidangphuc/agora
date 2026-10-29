@@ -133,8 +133,7 @@ func (s *AuthService) recordLogin(ctx context.Context, userID string, success bo
 	if _, err := s.sessions.RecordLogin(ctx, store.LoginEvent{
 		UserID: userID, IP: clip(c.IP, 64), UserAgent: clip(c.UserAgent, 256), Success: success,
 	}); err != nil {
-		slog.ErrorContext(ctx, "login recording failed",
-			"op", "record login", "user_id", userID, "error", err)
+		slog.ErrorContext(ctx, "login recording failed", "op", "record login", "error", err)
 	}
 }
 

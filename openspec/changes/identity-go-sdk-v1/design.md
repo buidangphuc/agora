@@ -120,3 +120,7 @@ The SDK relayer logs `aggregate_id` (the user id) on failed rows. `events.Redact
 - Docker-backed tests must run: a skip is a gate failure (D9). (human)
 - Items of the same decision list that concern other services (analytics, gateway, search, order, promotion, payment, engagement, domain) do not apply to identity. (human)
 - Rows requeue and aggregate unification in `0019`, and the signing-key guard in `Settings.Validate`, are confirmed by the decisions above. (human)
+
+### Round 3 — 2026-10-29
+- Privacy review: the failed login-history write logged the raw `user_id` through the default logger (`internal/identity/auth.go`) → **the line logs only `op` and `error`**; the user id is not needed to act on a failed best-effort write. (human)
+- Privacy review: retention for pending and parked outbox rows → **none; only published rows are purged**. A pending row is an undelivered `SessionRevoked` or `UserStatusChanged`, so deleting it would leave a revoked token valid at the gateway; a parked row is logged at ERROR and is requeued or removed by an operator (README deploy section). (human)
