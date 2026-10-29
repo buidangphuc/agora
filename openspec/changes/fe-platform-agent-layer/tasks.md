@@ -21,5 +21,5 @@
 ## 4. Guidelines v1 and done-condition
 
 - [ ] 4.1 Revise `docs/agents/frontend.md` to v1, each new rule citing the finding behind it; verify it stays under one page
-- [ ] 4.2 Done-condition: `npm run check` exits 0 after a fresh `npm ci`, no new disable comments, `npm audit` clean, `openspec validate fe-platform-agent-layer --strict` passes
+- [x] 4.2 Done-condition: `npm run check` exits 0 after a fresh `npm ci`, no new disable comments, `npm audit` clean, `openspec validate fe-platform-agent-layer --strict` passes
 - [ ] 4.3 e2e track: none (no user-facing capability, no FEATURES.yaml entry); confirm `repo-doctor` reports no new drift
