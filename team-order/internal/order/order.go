@@ -199,11 +199,11 @@ func (s *OrderService) CreateOrdersFromCart(
 	// abandon frees the key of a keyed saga whose checkout never reserved anything.
 	abandon := func(cause error) ([]store.Order, error) {
 		if keyed {
-			bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+			bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.releaseCfg.timeout)
 			defer cancel()
 			if err := s.sagaRepo.UpdateSagaStatus(bg, saga.ID, store.SagaStatusFailed); err != nil {
 				s.logger.ErrorContext(ctx, "failed to free the idempotency key of an abandoned checkout",
-					slog.String("saga_id", saga.ID), slog.Any("err", err))
+					"saga_id", saga.ID, "err", err)
 			}
 		}
 		return nil, cause
@@ -349,8 +349,8 @@ func (s *OrderService) runCheckout(
 	// and the settle-time commit address the same hold with only the order id.
 	var voucherReservationIDs []string
 	fail := func(cause error) ([]store.Order, error) {
-		s.releaseFlashHolds(groups)
-		s.failAndCompensate(saga.ID, voucherReservationIDs...)
+		s.releaseFlashHolds(ctx, groups)
+		s.failAndCompensate(ctx, saga.ID, voucherReservationIDs...)
 		return nil, cause
 	}
 
@@ -509,38 +509,38 @@ func (s *OrderService) runCheckout(
 		// An error is not proof that nothing was written (lost commit ack, deadline):
 		// find out before releasing anything.
 		s.logger.ErrorContext(ctx, "order placement failed; reconciling before compensating",
-			slog.String("saga_id", saga.ID), slog.Any("err", perr))
-		existing, outcome := s.reconcilePlacement(placed)
+			"saga_id", saga.ID, "err", perr)
+		existing, outcome := s.reconcilePlacement(ctx, placed)
 		switch outcome {
 		case placementAbsent:
 			return fail(fmt.Errorf("place orders: %w", perr))
 		case placementComplete:
 			s.logger.WarnContext(ctx, "placement reported an error but every order exists; treating the checkout as placed",
-				slog.String("saga_id", saga.ID))
+				"saga_id", saga.ID)
 			created = existing
 		default:
-			return nil, fmt.Errorf("%w: %v", ErrPlacementUnknown, perr)
+			return nil, fmt.Errorf("%w: %w", ErrPlacementUnknown, perr)
 		}
 	}
 
 	// The orders exist; removing the checked-out items is best effort.
-	s.clearCart(buyerID, checkedOut)
+	s.clearCart(ctx, buyerID, checkedOut)
 	return created, nil
 }
 
 // clearCart removes checked-out items on a fresh context (the orders already
 // exist, so a cancelled request must not leave them in the cart).
-func (s *OrderService) clearCart(buyerID string, itemIDs []string) {
+func (s *OrderService) clearCart(ctx context.Context, buyerID string, itemIDs []string) {
 	if len(itemIDs) == 0 {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.releaseCfg.timeout)
 	defer cancel()
 	if err := s.cartRepo.RemoveItems(ctx, buyerID, itemIDs); err != nil {
 		s.logger.ErrorContext(ctx, "failed to remove checked-out items from cart",
-			slog.String("buyer_id", buyerID),
-			slog.Int("item_count", len(itemIDs)),
-			slog.Any("err", err),
+			"buyer_id", buyerID,
+			"item_count", len(itemIDs),
+			"err", err,
 		)
 	}
 }
@@ -684,7 +684,7 @@ func (s *OrderService) CancelOrderWithReason(ctx context.Context, id string, rea
 	// gone, and neither release may be abandoned because of it. The budget is the
 	// short inline one: a release that cannot finish in time is parked and the
 	// sweep retries it, so the buyer's cancel still succeeds.
-	bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.inlineTimeout)
+	bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.releaseCfg.inlineTimeout)
 	defer cancel()
 
 	pending, rerr := s.releaseOrderReservations(bg, claimed)
@@ -692,13 +692,13 @@ func (s *OrderService) CancelOrderWithReason(ctx context.Context, id string, rea
 		// The order is Cancelled; its reservations still hold stock and the sweep
 		// releases them. Never fail a cancel the buyer has been granted.
 		s.logger.ErrorContext(ctx, "order cancelled but its release could not be recorded; the sweep will release it",
-			slog.String("order_id", claimed.ID), slog.Any("err", rerr))
+			"order_id", claimed.ID, "err", rerr)
 		pending = true
 	}
 	if claimed.VoucherCode != "" {
 		s.releaseVoucher(bg, claimed.ID) // the hold id is the order id
 	}
-	s.releaseOrderFlashHolds(claimed)
+	s.releaseOrderFlashHolds(ctx, claimed)
 	s.releasePlatformVoucherIfCheckoutCancelled(bg, claimed)
 	return CancelResult{Order: claimed, ReleasePending: pending}, nil
 }
@@ -716,7 +716,7 @@ func (s *OrderService) releasePlatformVoucherIfCheckoutCancelled(ctx context.Con
 	siblings, err := lister.ListOrdersByCheckout(ctx, claimed.CheckoutID)
 	if err != nil {
 		s.logger.WarnContext(ctx, "platform voucher release skipped: cannot list checkout orders",
-			slog.String("checkout_id", claimed.CheckoutID), slog.Any("err", err))
+			"checkout_id", claimed.CheckoutID, "err", err)
 		return
 	}
 	for _, o := range siblings {
@@ -737,7 +737,7 @@ func (s *OrderService) releaseOrderReservations(ctx context.Context, order store
 	}
 	if len(reservations) == 0 && len(order.Items) > 0 {
 		s.logger.WarnContext(ctx, "cancelled order has no reservations to release (placed before reservation tracking?)",
-			slog.String("order_id", order.ID))
+			"order_id", order.ID)
 	}
 	for _, res := range reservations {
 		if res.Status != store.ReservationStatusCommitted && res.Status != store.ReservationStatusReleaseFailed {
@@ -797,7 +797,7 @@ func (s *OrderService) CreateReturnRequest(ctx context.Context, buyerID, orderID
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrReturnExceedsRemainder):
-			return store.OrderReturn{}, fmt.Errorf("%w: %v", ErrInvalidRefundAmount, err)
+			return store.OrderReturn{}, fmt.Errorf("%w: %w", ErrInvalidRefundAmount, err)
 		case errors.Is(err, store.ErrNoReturnableRemainder):
 			return store.OrderReturn{}, ErrNothingToReturn
 		case errors.Is(err, store.ErrOrderNotFound):
@@ -806,9 +806,9 @@ func (s *OrderService) CreateReturnRequest(ctx context.Context, buyerID, orderID
 		return store.OrderReturn{}, fmt.Errorf("create return in repo: %w", err)
 	}
 	s.logger.InfoContext(ctx, "created return request",
-		slog.String("return_id", created.ID),
-		slog.String("order_id", orderID),
-		slog.Int64("refund_amount", created.RefundAmount),
+		"return_id", created.ID,
+		"order_id", orderID,
+		"refund_amount", created.RefundAmount,
 	)
 
 	return created, nil
@@ -870,9 +870,9 @@ func (s *OrderService) UpdateReturnStatus(ctx context.Context, id string, newSta
 	}
 
 	s.logger.InfoContext(ctx, "updated return request status",
-		slog.String("return_id", id),
-		slog.Int("old_status", int(existing.Status)),
-		slog.Int("new_status", int(newStatus)),
+		"return_id", id,
+		"old_status", int(existing.Status),
+		"new_status", int(newStatus),
 	)
 
 	return updated, nil
@@ -932,15 +932,15 @@ func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, tra
 	created, err := s.shipmentRepo.CreateShipment(ctx, shipment)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "order marked Shipped but its shipment could not be created; fix by hand",
-			slog.String("order_id", orderID), slog.String("tracking_code", trackingCode), slog.Any("err", err))
+			"order_id", orderID, "tracking_code", trackingCode, "err", err)
 		return store.Shipment{}, fmt.Errorf("create shipment: %w", err)
 	}
 
 	s.logger.InfoContext(ctx, "created shipment tracking",
-		slog.String("shipment_id", created.ID),
-		slog.String("order_id", orderID),
-		slog.String("carrier", carrier),
-		slog.String("tracking_code", trackingCode),
+		"shipment_id", created.ID,
+		"order_id", orderID,
+		"carrier", carrier,
+		"tracking_code", trackingCode,
 	)
 	return created, nil
 }

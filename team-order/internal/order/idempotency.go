@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sort"
 	"strings"
 
@@ -55,7 +54,7 @@ func WithIdempotencyKey(key string) CheckoutOption {
 func (s *OrderService) replayCheckout(ctx context.Context, buyerID string, sg store.Saga) ([]store.Order, error) {
 	if sg.Status != store.SagaStatusCompleted {
 		s.logger.InfoContext(ctx, "checkout with this idempotency key has not finished; asking the client to retry",
-			slog.String("saga_id", sg.ID), slog.Int("saga_status", int(sg.Status)))
+			"saga_id", sg.ID, "saga_status", int(sg.Status))
 		return nil, ErrCheckoutInProgress
 	}
 	reservations, err := s.sagaRepo.ListReservationsBySaga(ctx, sg.ID)
@@ -86,14 +85,14 @@ func (s *OrderService) replayCheckout(ctx context.Context, buyerID string, sg st
 	}
 	sort.Slice(orders, func(i, j int) bool { return orders[i].SellerID < orders[j].SellerID })
 	s.logger.InfoContext(ctx, "checkout replayed from idempotency key",
-		slog.String("saga_id", sg.ID), slog.String("buyer_id", buyerID), slog.Int("order_count", len(orders)))
+		"saga_id", sg.ID, "buyer_id", buyerID, "order_count", len(orders))
 
 	// Re-attempt the cart clear: drop the cart items this saga checked out
 	// (recognised by the reservation id they derive) that a failed clear left.
 	cart, cerr := s.cartRepo.GetCart(ctx, buyerID)
 	if cerr != nil {
 		s.logger.WarnContext(ctx, "could not read the cart to clear it on replay",
-			slog.String("buyer_id", buyerID), slog.Any("err", cerr))
+			"buyer_id", buyerID, "err", cerr)
 		return orders, nil
 	}
 	var leftover []string
@@ -102,6 +101,6 @@ func (s *OrderService) replayCheckout(ctx context.Context, buyerID string, sg st
 			leftover = append(leftover, it.ID)
 		}
 	}
-	s.clearCart(buyerID, leftover)
+	s.clearCart(ctx, buyerID, leftover)
 	return orders, nil
 }

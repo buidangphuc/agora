@@ -71,16 +71,16 @@ func ResyncCommittedReservations(ctx context.Context, repo store.SagaRepository,
 			case codes.FailedPrecondition:
 				rep.Released++
 				logger.WarnContext(ctx, "resync: reservation already released in team-domain; skipped",
-					slog.String("reservation_id", res.ID), slog.String("order_id", res.OrderID),
-					slog.String("listing_id", res.ListingID), slog.Int("quantity", int(res.Quantity)))
+					"reservation_id", res.ID, "order_id", res.OrderID,
+					"listing_id", res.ListingID, "quantity", int(res.Quantity))
 			case codes.NotFound:
 				rep.NotFound++
 				logger.WarnContext(ctx, "resync: reservation unknown to team-domain; skipped",
-					slog.String("reservation_id", res.ID), slog.String("order_id", res.OrderID))
+					"reservation_id", res.ID, "order_id", res.OrderID)
 			default:
 				rep.Failed++
 				logger.ErrorContext(ctx, "resync: commit failed; re-run to retry",
-					slog.String("reservation_id", res.ID), slog.Any("err", err))
+					"reservation_id", res.ID, "err", err)
 			}
 		}
 	}

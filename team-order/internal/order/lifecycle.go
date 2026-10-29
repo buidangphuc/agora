@@ -30,10 +30,10 @@ func (s *OrderService) SweepLifecycle(ctx context.Context, now time.Time) {
 	s.expireUnpaid(ctx, now)
 	s.remindUnpaid(ctx, now)
 	if _, err := s.AutoCompleteShipped(ctx, now); err != nil {
-		s.logger.Error("auto-complete shipped orders", "error", err)
+		s.logger.ErrorContext(ctx, "auto-complete shipped orders", "error", err)
 	}
 	if _, err := s.AutoApproveReturns(ctx, now); err != nil {
-		s.logger.Error("auto-approve returns", "error", err)
+		s.logger.ErrorContext(ctx, "auto-approve returns", "error", err)
 	}
 }
 
@@ -60,7 +60,7 @@ func (s *OrderService) AutoCompleteShipped(ctx context.Context, now time.Time) (
 			done++
 		case errors.Is(err, store.ErrStatusConflict), errors.Is(err, store.ErrOrderNotFound):
 		default:
-			s.logger.Error("auto-complete order", "order_id", o.ID, "error", err)
+			s.logger.ErrorContext(ctx, "auto-complete order", "order_id", o.ID, "error", err)
 		}
 	}
 	return done, nil
@@ -86,7 +86,7 @@ func (s *OrderService) AutoApproveReturns(ctx context.Context, now time.Time) (i
 			done++
 		case errors.Is(err, store.ErrReturnStatusConflict), errors.Is(err, store.ErrReturnNotFound):
 		default:
-			s.logger.Error("auto-approve return", "return_id", ret.ID, "error", err)
+			s.logger.ErrorContext(ctx, "auto-approve return", "return_id", ret.ID, "error", err)
 		}
 	}
 	return done, nil
@@ -99,14 +99,14 @@ func (s *OrderService) expireUnpaid(ctx context.Context, now time.Time) {
 	}
 	due, err := finder.FindExpired(ctx, now, lifecycleBatch)
 	if err != nil {
-		s.logger.Error("find expired orders", "error", err)
+		s.logger.ErrorContext(ctx, "find expired orders", "error", err)
 		return
 	}
 	for _, o := range due {
 		if _, err := s.CancelOrderWithReason(ctx, o.ID, orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED); err != nil {
 			// Lost the race (paid, cancelled or expired by another replica): nothing to do.
 			if !errors.Is(err, ErrInvalidStatus) && !errors.Is(err, store.ErrOrderNotFound) {
-				s.logger.Error("expire unpaid order", "order_id", o.ID, "error", err)
+				s.logger.ErrorContext(ctx, "expire unpaid order", "order_id", o.ID, "error", err)
 			}
 		}
 	}
@@ -119,14 +119,14 @@ func (s *OrderService) remindUnpaid(ctx context.Context, now time.Time) {
 	}
 	due, err := s.orderRepo.FindReminderDue(ctx, now, before, lifecycleBatch)
 	if err != nil {
-		s.logger.Error("find orders due a payment reminder", "error", err)
+		s.logger.ErrorContext(ctx, "find orders due a payment reminder", "error", err)
 		return
 	}
 	for _, o := range due {
 		if _, err := s.orderRepo.MarkReminderSent(ctx, o.ID, now); err != nil {
 			// Lost the race (another replica, paid or cancelled meanwhile): nothing to send.
 			if !errors.Is(err, store.ErrStatusConflict) && !errors.Is(err, store.ErrOrderNotFound) {
-				s.logger.Error("mark payment reminder sent", "order_id", o.ID, "error", err)
+				s.logger.ErrorContext(ctx, "mark payment reminder sent", "order_id", o.ID, "error", err)
 			}
 		}
 	}

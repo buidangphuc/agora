@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"reflect"
 
 	"google.golang.org/grpc"
@@ -143,7 +142,7 @@ func (s *OrderService) precheckPrices(ctx context.Context, buyerID string, items
 		if lk, ok := lookups[it.ListingID]; ok {
 			if lk.err != nil {
 				s.logger.WarnContext(ctx, "flash sale lookup failed at checkout",
-					slog.String("listing_id", it.ListingID), slog.Any("err", lk.err))
+					"listing_id", it.ListingID, "err", lk.err)
 				switch {
 				case it.UnitPrice > regular:
 					fixes[it.ID] = regular
@@ -167,7 +166,7 @@ func (s *OrderService) precheckPrices(ctx context.Context, buyerID string, items
 		for id, price := range fixes {
 			if err := s.cartRepo.UpdateItemPrice(ctx, buyerID, id, price); err != nil {
 				s.logger.ErrorContext(ctx, "failed to re-price cart line",
-					slog.String("item_id", id), slog.Any("err", err))
+					"item_id", id, "err", err)
 			}
 		}
 		return nil, ErrPriceChanged
@@ -205,15 +204,15 @@ func (s *OrderService) holdFlashLine(ctx context.Context, buyerID string, g *sel
 	if err != nil {
 		// The hold may have been applied; release it by id on compensation.
 		g.flashHolds = append(g.flashHolds, flashHold{reservationID: id})
-		s.logger.WarnContext(ctx, "flash stock hold failed", slog.String("listing_id", it.ListingID), slog.Any("err", err))
-		return fmt.Errorf("%w: %v", ErrPromotionUnavailable, err)
+		s.logger.WarnContext(ctx, "flash stock hold failed", "listing_id", it.ListingID, "err", err)
+		return fmt.Errorf("%w: %w", ErrPromotionUnavailable, err)
 	}
 	if !resp.GetReserved() {
 		s.logger.WarnContext(ctx, "flash stock hold refused",
-			slog.String("listing_id", it.ListingID), slog.String("reason", resp.GetReason()))
+			"listing_id", it.ListingID, "reason", resp.GetReason())
 		if uerr := s.cartRepo.UpdateItemPrice(ctx, buyerID, it.ID, fl.regular); uerr != nil {
 			s.logger.ErrorContext(ctx, "failed to re-price cart line",
-				slog.String("item_id", it.ID), slog.Any("err", uerr))
+				"item_id", it.ID, "err", uerr)
 		}
 		return ErrPriceChanged
 	}
@@ -227,7 +226,7 @@ func (s *OrderService) commitFlashHolds(ctx context.Context, groups []*sellerGro
 		for _, h := range g.flashHolds {
 			resp, err := s.orderFlash.CommitFlashSaleStock(ctx, &promotionv1.CommitFlashSaleStockRequest{ReservationId: h.reservationID})
 			if err != nil {
-				return fmt.Errorf("%w: commit flash hold %s: %v", ErrPromotionUnavailable, h.reservationID, err)
+				return fmt.Errorf("%w: commit flash hold %s: %w", ErrPromotionUnavailable, h.reservationID, err)
 			}
 			if !resp.GetCommitted() {
 				return fmt.Errorf("%w: flash hold %s not committed", ErrPromotionUnavailable, h.reservationID)
@@ -238,17 +237,17 @@ func (s *OrderService) commitFlashHolds(ctx context.Context, groups []*sellerGro
 }
 
 // releaseFlashHolds releases every recorded hold, best effort, on a fresh context.
-func (s *OrderService) releaseFlashHolds(groups []*sellerGroup) {
+func (s *OrderService) releaseFlashHolds(ctx context.Context, groups []*sellerGroup) {
 	if s.orderFlash == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.releaseCfg.timeout)
 	defer cancel()
 	for _, g := range groups {
 		for _, h := range g.flashHolds {
 			if _, err := s.orderFlash.ReleaseFlashSaleStock(ctx, &promotionv1.ReleaseFlashSaleStockRequest{ReservationId: h.reservationID}); err != nil {
 				s.logger.ErrorContext(ctx, "flash hold release failed",
-					slog.String("reservation_id", h.reservationID), slog.Any("err", err))
+					"reservation_id", h.reservationID, "err", err)
 			}
 		}
 	}
@@ -257,20 +256,20 @@ func (s *OrderService) releaseFlashHolds(groups []*sellerGroup) {
 // releaseOrderFlashHolds releases the flash hold of every item of a cancelled
 // order (best effort: a failure is logged and never fails the cancel; releasing a
 // hold that never existed is a no-op in team-promotion).
-func (s *OrderService) releaseOrderFlashHolds(order store.Order) {
+func (s *OrderService) releaseOrderFlashHolds(ctx context.Context, order store.Order) {
 	if s.orderFlash == nil {
 		return
 	}
 	// Its own deadline, like releaseFlashHolds: a stock release that used up the
 	// shared inline budget must not starve these calls.
-	ctx, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.releaseCfg.timeout)
 	defer cancel()
 	items := order.Items
 	if len(items) == 0 {
 		full, err := s.orderRepo.GetOrder(ctx, order.ID)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "cannot load cancelled order items to release flash holds",
-				slog.String("order_id", order.ID), slog.Any("err", err))
+				"order_id", order.ID, "err", err)
 			return
 		}
 		items = full.Items
@@ -279,7 +278,7 @@ func (s *OrderService) releaseOrderFlashHolds(order store.Order) {
 		id := FlashReservationID(order.ID, it.ListingID, it.VariantID)
 		if _, err := s.orderFlash.ReleaseFlashSaleStock(ctx, &promotionv1.ReleaseFlashSaleStockRequest{ReservationId: id}); err != nil {
 			s.logger.ErrorContext(ctx, "flash hold release failed on cancel",
-				slog.String("reservation_id", id), slog.Any("err", err))
+				"reservation_id", id, "err", err)
 		}
 	}
 }

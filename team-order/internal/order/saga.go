@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -182,7 +181,7 @@ func (s *OrderService) reserveStock(ctx context.Context, res store.Reservation, 
 			// Not fatal: placement requires RESERVED, so a lost write fails the
 			// checkout definitively and compensation releases by id.
 			s.logger.WarnContext(ctx, "failed to mark reservation reserved",
-				slog.String("reservation_id", res.ID), slog.Any("err", uerr))
+				"reservation_id", res.ID, "err", uerr)
 		}
 		return nil
 	}
@@ -194,19 +193,19 @@ func (s *OrderService) reserveStock(ctx context.Context, res store.Reservation, 
 		next = store.ReservationStatusReleaseFailed
 	}
 	s.logger.WarnContext(ctx, "stock reservation failed",
-		slog.String("listing_id", res.ListingID),
-		slog.String("variant_id", res.VariantID),
-		slog.Int("qty", int(res.Quantity)),
-		slog.Any("err", rerr),
+		"listing_id", res.ListingID,
+		"variant_id", res.VariantID,
+		"qty", int(res.Quantity),
+		"err", rerr,
 	)
 	// Recorded on a fresh context: the request context may be what failed.
-	bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+	bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.releaseCfg.timeout)
 	defer cancel()
 	if uerr := s.sagaRepo.UpdateReservationStatus(bg, res.ID, next); uerr != nil {
 		s.logger.WarnContext(ctx, "failed to record reservation outcome",
-			slog.String("reservation_id", res.ID), slog.Any("err", uerr))
+			"reservation_id", res.ID, "err", uerr)
 	}
-	return fmt.Errorf("%w: %s (%v)", ErrInsufficientStock, title, rerr)
+	return fmt.Errorf("%w: %s (%w)", ErrInsufficientStock, title, rerr)
 }
 
 // isTransportError reports whether err leaves the remote outcome unknown.
@@ -236,7 +235,7 @@ func (s *OrderService) commitDomainReservations(ctx context.Context, reservation
 		switch status.Code(err) {
 		case codes.FailedPrecondition, codes.NotFound:
 			s.logger.WarnContext(ctx, "reservation no longer held at commit; refusing to place the order",
-				slog.String("reservation_id", res.ID), slog.String("listing_id", res.ListingID), slog.Any("err", err))
+				"reservation_id", res.ID, "listing_id", res.ListingID, "err", err)
 			return fmt.Errorf("%w: listing %s", ErrReservationLost, res.ListingID)
 		default:
 			return fmt.Errorf("commit reservation %s: %w", res.ID, err)
@@ -249,21 +248,21 @@ func (s *OrderService) commitDomainReservations(ctx context.Context, reservation
 // every reservation of the saga that holds (or may hold) stock, by its id, the
 // voucher hold, and marks the saga COMPENSATED. It reads the durable reservation
 // set and runs on a fresh background context (AD3).
-func (s *OrderService) failAndCompensate(sagaID string, voucherReservationIDs ...string) {
-	bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+func (s *OrderService) failAndCompensate(ctx context.Context, sagaID string, voucherReservationIDs ...string) {
+	bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.releaseCfg.timeout)
 	defer cancel()
 	all, err := s.sagaRepo.ListReservationsBySaga(bg, sagaID)
 	if err != nil {
 		s.logger.ErrorContext(bg, "failed to load reservations for compensation; the sweep will release them",
-			slog.String("saga_id", sagaID), slog.Any("err", err))
+			"saga_id", sagaID, "err", err)
 	}
-	s.compensate(all)
+	s.compensate(ctx, all)
 	for _, id := range voucherReservationIDs {
 		s.releaseVoucher(bg, id)
 	}
 	if uerr := s.sagaRepo.UpdateSagaStatus(bg, sagaID, store.SagaStatusCompensated); uerr != nil {
 		s.logger.ErrorContext(bg, "failed to mark saga compensated",
-			slog.String("saga_id", sagaID), slog.Any("err", uerr))
+			"saga_id", sagaID, "err", uerr)
 	}
 }
 
@@ -277,8 +276,8 @@ const (
 )
 
 // reconcilePlacement looks every pre-generated order id up on a fresh context.
-func (s *OrderService) reconcilePlacement(placed []store.PlacedOrder) ([]store.Order, placementState) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+func (s *OrderService) reconcilePlacement(ctx context.Context, placed []store.PlacedOrder) ([]store.Order, placementState) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.releaseCfg.timeout)
 	defer cancel()
 	var found []store.Order
 	for _, p := range placed {
@@ -289,7 +288,7 @@ func (s *OrderService) reconcilePlacement(placed []store.PlacedOrder) ([]store.O
 		case errors.Is(err, store.ErrOrderNotFound):
 		default:
 			s.logger.ErrorContext(ctx, "cannot reconcile order placement: lookup failed; not compensating",
-				slog.String("order_id", p.Order.ID), slog.Any("err", err))
+				"order_id", p.Order.ID, "err", err)
 			return nil, placementUnknown
 		}
 	}
@@ -300,28 +299,28 @@ func (s *OrderService) reconcilePlacement(placed []store.PlacedOrder) ([]store.O
 		return found, placementComplete
 	}
 	s.logger.ErrorContext(ctx, "order placement is PARTIAL; not compensating",
-		slog.Int("placed", len(placed)), slog.Int("found", len(found)))
+		"placed", len(placed), "found", len(found))
 	return nil, placementUnknown
 }
 
 // compensate releases the stock held by reservations no order owns (RESERVED, or
 // parked RELEASE_FAILED) on a fresh background context with its own deadline
 // (AD3). A release that keeps failing is parked RELEASE_FAILED for the sweep.
-func (s *OrderService) compensate(reservations []store.Reservation) {
-	s.releaseAll(reservations, store.ReservationStatusReserved, store.ReservationStatusReleaseFailed)
+func (s *OrderService) compensate(ctx context.Context, reservations []store.Reservation) {
+	s.releaseAll(ctx, reservations, store.ReservationStatusReserved, store.ReservationStatusReleaseFailed)
 }
 
 // releaseHeld releases reservations of Cancelled orders (COMMITTED, or parked
 // RELEASE_FAILED) by their original id.
-func (s *OrderService) releaseHeld(reservations []store.Reservation) {
-	s.releaseAll(reservations, store.ReservationStatusCommitted, store.ReservationStatusReleaseFailed)
+func (s *OrderService) releaseHeld(ctx context.Context, reservations []store.Reservation) {
+	s.releaseAll(ctx, reservations, store.ReservationStatusCommitted, store.ReservationStatusReleaseFailed)
 }
 
-func (s *OrderService) releaseAll(reservations []store.Reservation, statuses ...store.ReservationStatus) {
+func (s *OrderService) releaseAll(ctx context.Context, reservations []store.Reservation, statuses ...store.ReservationStatus) {
 	if len(reservations) == 0 {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.releaseCfg.timeout)
 	defer cancel()
 	for _, res := range reservations {
 		eligible := false
@@ -343,13 +342,13 @@ func (s *OrderService) releaseAll(reservations []store.Reservation, statuses ...
 func (s *OrderService) releaseOrPark(ctx context.Context, res store.Reservation) (released bool, err error) {
 	if rerr := s.releaseReservationWithRetry(ctx, res); rerr != nil {
 		s.logger.ErrorContext(ctx, "release failed; parking for the sweep",
-			slog.String("reservation_id", res.ID),
-			slog.String("listing_id", res.ListingID),
-			slog.Any("err", rerr),
+			"reservation_id", res.ID,
+			"listing_id", res.ListingID,
+			"err", rerr,
 		)
 		if uerr := s.sagaRepo.UpdateReservationStatus(ctx, res.ID, store.ReservationStatusReleaseFailed); uerr != nil {
 			s.logger.ErrorContext(ctx, "failed to park reservation as release-failed",
-				slog.String("reservation_id", res.ID), slog.Any("err", uerr))
+				"reservation_id", res.ID, "err", uerr)
 			return false, fmt.Errorf("park reservation %s: %w", res.ID, uerr)
 		}
 		return false, nil
@@ -357,7 +356,7 @@ func (s *OrderService) releaseOrPark(ctx context.Context, res store.Reservation)
 	if uerr := s.sagaRepo.UpdateReservationStatus(ctx, res.ID, store.ReservationStatusReleased); uerr != nil {
 		// The stock is back; re-releasing a stale row is a no-op in team-domain.
 		s.logger.ErrorContext(ctx, "failed to mark reservation released",
-			slog.String("reservation_id", res.ID), slog.Any("err", uerr))
+			"reservation_id", res.ID, "err", uerr)
 	}
 	return true, nil
 }
@@ -424,8 +423,8 @@ func (s *OrderService) SweepExpiredReservations(ctx context.Context, now time.Ti
 	}
 	all := append(append([]store.Reservation{}, stale...), heldOnly...)
 	before := s.countReleased(ctx, all)
-	s.compensate(stale)
-	s.releaseHeld(heldOnly)
+	s.compensate(ctx, stale)
+	s.releaseHeld(ctx, heldOnly)
 	released := s.countReleased(ctx, all) - before
 	s.settleStalePendingSagas(ctx, now)
 	return released, nil
@@ -440,13 +439,13 @@ func (s *OrderService) SweepExpiredReservations(ctx context.Context, now time.Ti
 func (s *OrderService) settleStalePendingSagas(ctx context.Context, now time.Time) {
 	sagas, err := s.sagaRepo.FindStalePendingSagas(ctx, now.Add(-s.reservationTTL), 100)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "find stale pending sagas", slog.Any("err", err))
+		s.logger.ErrorContext(ctx, "find stale pending sagas", "err", err)
 		return
 	}
 	for _, sg := range sagas {
 		reservations, err := s.sagaRepo.ListReservationsBySaga(ctx, sg.ID)
 		if err != nil {
-			s.logger.ErrorContext(ctx, "load reservations of a stale saga", slog.String("saga_id", sg.ID), slog.Any("err", err))
+			s.logger.ErrorContext(ctx, "load reservations of a stale saga", "saga_id", sg.ID, "err", err)
 			continue
 		}
 		placed := false
@@ -463,7 +462,7 @@ func (s *OrderService) settleStalePendingSagas(ctx context.Context, now time.Tim
 		if placed {
 			next = store.SagaStatusCompleted
 		} else {
-			s.compensate(holding)
+			s.compensate(ctx, holding)
 			settled := true
 			for _, res := range holding {
 				if got, gerr := s.sagaRepo.GetReservation(ctx, res.ID); gerr != nil || got.Status != store.ReservationStatusReleased {
@@ -475,11 +474,11 @@ func (s *OrderService) settleStalePendingSagas(ctx context.Context, now time.Tim
 			}
 		}
 		if err := s.sagaRepo.UpdateSagaStatus(ctx, sg.ID, next); err != nil {
-			s.logger.ErrorContext(ctx, "failed to settle a stale saga", slog.String("saga_id", sg.ID), slog.Any("err", err))
+			s.logger.ErrorContext(ctx, "failed to settle a stale saga", "saga_id", sg.ID, "err", err)
 			continue
 		}
 		s.logger.WarnContext(ctx, "settled a stale pending checkout attempt",
-			slog.String("saga_id", sg.ID), slog.Int("status", int(next)))
+			"saga_id", sg.ID, "status", int(next))
 	}
 }
 

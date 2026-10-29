@@ -208,7 +208,7 @@ func (s *CartService) flashPrice(ctx context.Context, listingID, variantID strin
 	}
 	resp, err := s.flash.GetActiveFlashSale(ctx, &promotionv1.GetActiveFlashSaleRequest{ListingId: listingID})
 	if err != nil {
-		s.logger.Warn("flash sale lookup failed; using regular price", slog.String("listing_id", listingID), slog.Any("err", err))
+		s.logger.WarnContext(ctx, "flash sale lookup failed; using regular price", "listing_id", listingID, "err", err)
 		return regular
 	}
 	c := resp.GetCampaign()

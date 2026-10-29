@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"google.golang.org/grpc"
 
@@ -81,7 +80,7 @@ func (s *OrderService) releaseVoucher(ctx context.Context, reservationID string)
 	}
 	if _, err := s.promo.ReleaseReservation(ctx, &promotionv1.ReleaseReservationRequest{ReservationId: reservationID}); err != nil {
 		s.logger.WarnContext(ctx, "voucher release failed",
-			slog.String("reservation_id", reservationID), slog.Any("err", err))
+			"reservation_id", reservationID, "err", err)
 	}
 }
 
@@ -181,7 +180,7 @@ func (s *OrderService) routeVoucher(ctx context.Context, buyerID, code, reservat
 		SellerId:      sellerID,
 	})
 	if err != nil {
-		return o, fmt.Errorf("%w: validate voucher %q: %v", ErrPromotionUnavailable, code, err)
+		return o, fmt.Errorf("%w: validate voucher %q: %w", ErrPromotionUnavailable, code, err)
 	}
 	if !resp.GetValid() {
 		o.reason = resp.GetReason()
