@@ -3193,6 +3193,22 @@ features:
     status: not-testable
     notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestRedactingDLQPassesOtherRecordsUnchanged. Not producible end to end; the migration runs the platform-e2e suite once at the end."
 
+  - id: analytics.runtime-a-tracking-record-with-an-undecodable-payload-is-published-without-its-payload
+    title: "A tracking record with an undecodable payload is published without its payload"
+    persona: guest
+    priority: P2
+    summary: "A tracking record with an undecodable payload is published without its payload (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the redacting producer receives a tracking envelope whose payload bytes are not a valid `TrackingEvent` and contain `123.456`"
+      - "THEN the published record decodes to the same envelope with an empty payload, the same key and headers, and its value does not contain `123.456`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestRedactingDLQDropsUndecodableTrackingPayload. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
   - id: analytics.runtime-a-parked-tracking-batch-on-the-broker-carries-no-client-id-w
     title: "A parked tracking batch on the broker carries no client id without consent"
     persona: guest

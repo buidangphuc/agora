@@ -33,16 +33,26 @@ func TestEngagementFactFromEnvelope(t *testing.T) {
 		payload proto.Message
 		want    warehouse.EngagementFactRecord
 	}{
-		{"favorite added", events.FavoriteAddedEventType, &engagementv1.FavoriteAdded{UserId: "u", ListingId: "l"},
-			warehouse.EngagementFactRecord{Fact: "favorite_added", UserID: "u", ListingID: "l"}},
-		{"favorite removed", events.FavoriteRemovedEventType, &engagementv1.FavoriteRemoved{UserId: "u", ListingId: "l"},
-			warehouse.EngagementFactRecord{Fact: "favorite_removed", UserID: "u", ListingID: "l"}},
-		{"seller followed", events.SellerFollowedEventType, &engagementv1.SellerFollowed{UserId: "u", SellerId: "s"},
-			warehouse.EngagementFactRecord{Fact: "seller_followed", UserID: "u", SellerID: "s"}},
-		{"seller unfollowed", events.SellerUnfollowedEventType, &engagementv1.SellerUnfollowed{UserId: "u", SellerId: "s"},
-			warehouse.EngagementFactRecord{Fact: "seller_unfollowed", UserID: "u", SellerID: "s"}},
-		{"review created", events.ReviewCreatedEventType, &engagementv1.ReviewCreated{ReviewId: "r", UserId: "u", ListingId: "l", SellerId: "s", Rating: 4},
-			warehouse.EngagementFactRecord{Fact: "review_created", ReviewID: "r", UserID: "u", ListingID: "l", SellerID: "s", Rating: 4}},
+		{
+			"favorite added", events.FavoriteAddedEventType, &engagementv1.FavoriteAdded{UserId: "u", ListingId: "l"},
+			warehouse.EngagementFactRecord{Fact: "favorite_added", UserID: "u", ListingID: "l"},
+		},
+		{
+			"favorite removed", events.FavoriteRemovedEventType, &engagementv1.FavoriteRemoved{UserId: "u", ListingId: "l"},
+			warehouse.EngagementFactRecord{Fact: "favorite_removed", UserID: "u", ListingID: "l"},
+		},
+		{
+			"seller followed", events.SellerFollowedEventType, &engagementv1.SellerFollowed{UserId: "u", SellerId: "s"},
+			warehouse.EngagementFactRecord{Fact: "seller_followed", UserID: "u", SellerID: "s"},
+		},
+		{
+			"seller unfollowed", events.SellerUnfollowedEventType, &engagementv1.SellerUnfollowed{UserId: "u", SellerId: "s"},
+			warehouse.EngagementFactRecord{Fact: "seller_unfollowed", UserID: "u", SellerID: "s"},
+		},
+		{
+			"review created", events.ReviewCreatedEventType, &engagementv1.ReviewCreated{ReviewId: "r", UserId: "u", ListingId: "l", SellerId: "s", Rating: 4},
+			warehouse.EngagementFactRecord{Fact: "review_created", ReviewID: "r", UserID: "u", ListingID: "l", SellerID: "s", Rating: 4},
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
