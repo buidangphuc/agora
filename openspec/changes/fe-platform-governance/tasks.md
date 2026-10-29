@@ -24,13 +24,13 @@
 
 ## 6. Upgrade rehearsal
 
-- [ ] 6.1 In a throwaway worktree rename `border-subtle` to `border-soft` in tokens with a major changeset and a Migration section, version and publish 2.0.0 (and the dependent `ui` bump); verify the registry lists the new versions
-- [ ] 6.2 In the consumer, install the new versions, confirm the class check fails, apply the documented migration, confirm `npm run check` and the build pass; record commands, outputs and timings in `docs/governance/upgrade-rehearsal.md`
-- [ ] 6.3 Remove the rehearsal versions from the local registry and delete the throwaway worktree; verify the registry lists only 0.1.0 and the repository tokens still contain `border-subtle`
+- [x] 6.1 In a throwaway worktree rename `border-subtle` to `border-soft` in tokens with a major changeset and a Migration section, version and publish 2.0.0 (and the dependent `ui` bump); verify the registry lists the new versions
+- [x] 6.2 In the consumer, install the new versions, confirm the class check fails, apply the documented migration, confirm `npm run check` and the build pass; record commands, outputs and timings in `docs/governance/upgrade-rehearsal.md`
+- [x] 6.3 Remove the rehearsal versions from the local registry and delete the throwaway worktree; verify the registry lists only the pre-rehearsal versions (tokens 0.1.0 and 0.1.1, ui 0.1.0) and the repository tokens still contain `border-subtle`
 
 ## 7. CI, docs and done-condition
 
-- [ ] 7.1 Add the PR-only `release:status` step to `.github/workflows/fe-platform-ci.yml` with full-history checkout; verify the YAML parses and the command matches the script
-- [ ] 7.2 Update `docs/agents/project.md`, `AGENTS.md` and the `fe-platform` skill to mention changesets and the registry; verify the check order in project.md still matches `npm run check`
+- [x] 7.1 Add the PR-only `release:status` step to `.github/workflows/fe-platform-ci.yml` with full-history checkout; verify the YAML parses and the command matches the script
+- [x] 7.2 Update `docs/agents/project.md`, `AGENTS.md` and the `fe-platform` skill to mention changesets and the registry; verify the check order in project.md still matches `npm run check`
 - [ ] 7.3 Done-condition: consumer upgraded across one breaking token change following the written policy (6.2), `npm run check` exits 0 after a fresh `npm ci`, no new disable comments, `npm audit` clean, registry stopped, `openspec validate fe-platform-governance --strict` passes
 - [ ] 7.4 e2e track: none (no user-facing capability, no FEATURES.yaml entry); confirm `repo-doctor` reports no new drift

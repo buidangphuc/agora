@@ -20,6 +20,8 @@ jobs:
         working-directory: fe-platform
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -28,3 +30,8 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build -w templates/app
+      - name: changeset required for published packages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: npm run release:status
