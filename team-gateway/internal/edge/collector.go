@@ -1,6 +1,7 @@
 package edge
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -290,7 +291,10 @@ func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) ht
 		}
 
 		for _, it := range items {
-			if err := pub.PublishTrackingEvent(r.Context(), it.ev, principal, requestID, it.eventID); err != nil {
+			pctx, cancel := context.WithTimeout(r.Context(), e.trackTimeout)
+			err := pub.PublishTrackingEvent(pctx, it.ev, principal, requestID, it.eventID)
+			cancel()
+			if err != nil {
 				// Best-effort: log and keep going; the browsing action must not fail.
 				logger.Warn("publish tracking event",
 					slog.String("event_type", it.ev.GetEventType().String()),

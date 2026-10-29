@@ -22,6 +22,7 @@ import (
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/idempotency"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/resilience"
 	"github.com/buidangphuc/team-gateway/internal/token"
 )
 
@@ -61,6 +62,16 @@ type Edge struct {
 	// streamRevocationEvery is how often an open stream polls the revocation list.
 	streamRevocationEvery time.Duration
 	reflection            bool
+	retry                 resilience.Policy
+	trackTimeout          time.Duration
+}
+
+const defaultTrackPublishTimeout = 2 * time.Second
+
+// WithTrackPublishTimeout bounds one tracking publish (TRACK_PUBLISH_TIMEOUT).
+func (e *Edge) WithTrackPublishTimeout(d time.Duration) *Edge {
+	e.trackTimeout = d
+	return e
 }
 
 // defaultStreamMaxBytes caps a streaming request message (STREAM_MAX_REQUEST_BYTES).
@@ -121,7 +132,15 @@ func (e *Edge) verifyToken(tok string) (*token.Claims, error) {
 // NewEdge builds the edge helper. The verifier checks RS256 tokens against
 // team-identity's JWKS (ADR-0006); the edge holds no signing material.
 func NewEdge(verifier *token.Verifier, publicScopes []string, callTimeout time.Duration, retryMax int, rps float64, burst int) *Edge {
+	retry, _ := resilience.Retry(resilience.RetryOptions{
+		MaxAttempts: max(retryMax, 0) + 1,
+		BaseDelay:   50 * time.Millisecond,
+		MaxDelay:    200 * time.Millisecond,
+		RetryIf:     func(err error) bool { return status.Code(err) == codes.Unavailable },
+	})
 	return &Edge{
+		retry:        retry,
+		trackTimeout: defaultTrackPublishTimeout,
 		verifier:     verifier,
 		publicScopes: publicScopes,
 		callTimeout:  callTimeout,
@@ -207,20 +226,10 @@ func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context
 
 // callRead runs an idempotent read with a deadline, retrying on Unavailable.
 func (e *Edge) callRead(ctx context.Context, fn func(context.Context) error) error {
-	var err error
-	for attempt := 0; attempt <= e.retryMax; attempt++ {
+	return resilience.Do(ctx, func(ctx context.Context) error {
 		noteAttempt(ctx)
-		err = e.callOnce(ctx, fn)
-		if err == nil || status.Code(err) != codes.Unavailable {
-			return err
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 50 * time.Millisecond):
-		}
-	}
-	return err
+		return e.callOnce(ctx, fn)
+	}, e.retry)
 }
 
 // callWrite runs a non-idempotent call once, with a deadline (no retry).
@@ -249,6 +258,7 @@ func (e *Edge) callOnce(ctx context.Context, fn func(context.Context) error) err
 }
 
 func withPrincipal(ctx context.Context, p resolvedPrincipal) context.Context {
+	ctx = auth.WithPrincipal(ctx, auth.Principal{ID: p.id, Type: auth.PrincipalType(p.ptype), Scopes: p.scopes})
 	return context.WithValue(ctx, principalKey, p)
 }
 
@@ -258,7 +268,7 @@ func principalFrom(ctx context.Context) (resolvedPrincipal, bool) {
 }
 
 func withRequestID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, requestIDKey, id)
+	return context.WithValue(reqctx.WithRequestID(ctx, id), requestIDKey, id)
 }
 
 func requestIDFrom(ctx context.Context) string {
