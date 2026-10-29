@@ -368,10 +368,10 @@ func logUpstreamError(logger *slog.Logger, procedure, rid string, err error) {
 	var ue *upstreamError
 	if errors.As(err, &ue) {
 		logger.Error("edge.upstream_error",
-			slog.String("method", procedure),
-			slog.String("request_id", rid),
-			slog.String("code", connect.CodeOf(err).String()),
-			slog.String("original", ue.Original().Error()),
+			"method", procedure,
+			"request_id", rid,
+			"code", connect.CodeOf(err).String(),
+			"original", ue.Original().Error(),
 		)
 	}
 }

@@ -56,7 +56,7 @@ func (a *accountAdminUpstream) ListUsers(context.Context, *identityv1.ListUsersR
 func callAccountAdmin(t *testing.T, up *accountAdminUpstream, path, body string) (int, string) {
 	t.Helper()
 	f := newCockpitFixture(t)
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{AccountAdmin: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{AccountAdmin: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	t.Cleanup(srv.Close)
 	req, _ := http.NewRequest(http.MethodPost, srv.URL+path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

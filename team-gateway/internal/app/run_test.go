@@ -59,10 +59,10 @@ func TestReadinessWaitsForJWKS(t *testing.T) {
 	testkit.Eventually(t, 10*time.Second, func() bool { return jwks.hits.Load() >= 1 })
 	holdsFor(t, 3*time.Second, 500*time.Millisecond, func() error {
 		if st, err := checkOnce(t, g.addr(), ""); err != nil || st != notServing {
-			return fmt.Errorf("readiness = %v, %v; want NOT_SERVING while the JWKS has never been fetched", st, err)
+			return fmt.Errorf("readiness = %v, %w; want NOT_SERVING while the JWKS has never been fetched", st, err)
 		}
 		if st, err := checkOnce(t, g.addr(), "liveness"); err != nil || st != serving {
-			return fmt.Errorf("liveness = %v, %v; want SERVING", st, err)
+			return fmt.Errorf("liveness = %v, %w; want SERVING", st, err)
 		}
 		return nil
 	})
@@ -86,10 +86,10 @@ func TestReadinessIgnoresKafkaAfterCatchUp(t *testing.T) {
 
 	holdsFor(t, 12*time.Second, 250*time.Millisecond, func() error {
 		if st, err := checkOnce(t, g.addr(), ""); err != nil || st != serving {
-			return fmt.Errorf("readiness = %v, %v; want SERVING after a broker outage", st, err)
+			return fmt.Errorf("readiness = %v, %w; want SERVING after a broker outage", st, err)
 		}
 		if st, err := checkOnce(t, g.addr(), "liveness"); err != nil || st != serving {
-			return fmt.Errorf("liveness = %v, %v; want SERVING", st, err)
+			return fmt.Errorf("liveness = %v, %w; want SERVING", st, err)
 		}
 		if code, _ := healthzStatus(t, g); code != http.StatusOK {
 			return fmt.Errorf("/healthz = %d, want 200", code)
@@ -110,10 +110,10 @@ func TestStartWithoutBrokerIsNotReadyUntilCaughtUp(t *testing.T) {
 	testkit.Eventually(t, 10*time.Second, func() bool { return jwks.okHit.Load() >= 1 })
 	holdsFor(t, 3*time.Second, 500*time.Millisecond, func() error {
 		if st, err := checkOnce(t, g.addr(), ""); err != nil || st != notServing {
-			return fmt.Errorf("readiness = %v, %v; want NOT_SERVING without a broker", st, err)
+			return fmt.Errorf("readiness = %v, %w; want NOT_SERVING without a broker", st, err)
 		}
 		if st, err := checkOnce(t, g.addr(), "liveness"); err != nil || st != serving {
-			return fmt.Errorf("liveness = %v, %v; want SERVING", st, err)
+			return fmt.Errorf("liveness = %v, %w; want SERVING", st, err)
 		}
 		if code, body := healthzStatus(t, g); code != http.StatusOK || body != "ok" {
 			return fmt.Errorf("/healthz = %d %q, want 200 ok", code, body)
@@ -171,7 +171,7 @@ func TestReadyAfterJWKSOutageWithCachedKeys(t *testing.T) {
 
 	holdsFor(t, 12*time.Second, 500*time.Millisecond, func() error {
 		if st, err := checkOnce(t, g.addr(), ""); err != nil || st != serving {
-			return fmt.Errorf("readiness = %v, %v; want SERVING after a JWKS outage", st, err)
+			return fmt.Errorf("readiness = %v, %w; want SERVING after a JWKS outage", st, err)
 		}
 		return nil
 	})
@@ -381,7 +381,7 @@ func TestProducerIsBuiltWithoutEnableFlag(t *testing.T) {
 	waitLive(t, g)
 	holdsFor(t, 3*time.Second, 500*time.Millisecond, func() error {
 		if st, err := checkOnce(t, g.addr(), ""); err != nil || st != notServing {
-			return fmt.Errorf("readiness = %v, %v; want NOT_SERVING: KAFKA_ENABLED must not turn the broker off", st, err)
+			return fmt.Errorf("readiness = %v, %w; want NOT_SERVING: KAFKA_ENABLED must not turn the broker off", st, err)
 		}
 		return nil
 	})

@@ -118,7 +118,7 @@ func (c *Consumer) Run(ctx context.Context) error {
 	if ctx.Err() != nil {
 		return nil
 	}
-	c.logger.Info("revocation consumer started (no consumer group, from earliest offset)",
+	c.logger.InfoContext(ctx, "revocation consumer started (no consumer group, from earliest offset)",
 		"topic", c.topic)
 
 	pending := map[int32]int64{}
@@ -137,11 +137,11 @@ func (c *Consumer) Run(ctx context.Context) error {
 			return nil
 		}
 		fetches.EachError(func(topic string, part int32, err error) {
-			c.logger.Warn("revocation consumer fetch error", "topic", topic, "partition", int(part), "err", err)
+			c.logger.WarnContext(ctx, "revocation consumer fetch error", "topic", topic, "partition", int(part), "err", err)
 		})
 		fetches.EachRecord(func(r *kgo.Record) {
 			if err := Apply(c.list, r.Value); err != nil {
-				c.logger.Warn("revocation consumer skipped an undecodable record",
+				c.logger.WarnContext(ctx, "revocation consumer skipped an undecodable record",
 					"partition", int(r.Partition), "offset", r.Offset, "err", err)
 			}
 			if end, ok := pending[r.Partition]; ok && r.Offset+1 >= end {
@@ -167,7 +167,7 @@ func (c *Consumer) captureEnds(ctx context.Context) map[int32]int64 {
 		if err == nil {
 			return ends
 		}
-		c.logger.Warn("revocation consumer cannot read end offsets; revocations are NOT enforced until it recovers (fail open)",
+		c.logger.WarnContext(ctx, "revocation consumer cannot read end offsets; revocations are NOT enforced until it recovers (fail open)",
 			"topic", c.topic, "err", err)
 		select {
 		case <-ctx.Done():
@@ -229,9 +229,9 @@ func (c *Consumer) probeLoop(ctx context.Context) {
 		ok := c.client.Ping(pctx) == nil
 		if was := c.up.Swap(ok); was != ok && ctx.Err() == nil {
 			if ok {
-				c.logger.Info("revocation consumer connected to Kafka")
+				c.logger.InfoContext(ctx, "revocation consumer connected to Kafka")
 			} else {
-				c.logger.Warn("revocation consumer cannot reach Kafka; revocations are NOT enforced (fail open)")
+				c.logger.WarnContext(ctx, "revocation consumer cannot reach Kafka; revocations are NOT enforced (fail open)")
 			}
 		}
 	}

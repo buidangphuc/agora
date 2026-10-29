@@ -111,7 +111,7 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 	e.WithTrustedProxies(trusted)
 	if s.Edge.TrustedProxies == "" {
-		logger.Info("TRUSTED_PROXIES empty: X-Forwarded-For is ignored; client IP is the socket peer")
+		logger.InfoContext(ctx, "TRUSTED_PROXIES empty: X-Forwarded-For is ignored; client IP is the socket peer")
 	}
 
 	list := revocation.NewDenylist()
@@ -121,7 +121,7 @@ func Run(ctx context.Context, s config.Settings) error {
 	}
 	e.WithRevocations(list)
 	if err := revocation.RegisterMetrics(consumer); err != nil {
-		logger.Warn("revocation metrics not registered", "err", err)
+		logger.WarnContext(ctx, "revocation metrics not registered", "err", err)
 	}
 	health.Register("revocation", func(context.Context) error {
 		if !consumer.CaughtUp() {
@@ -147,7 +147,7 @@ func Run(ctx context.Context, s config.Settings) error {
 	mux.Handle(healthHandler(health.Server()))
 	mux.Handle("/", corsMW.Handler(edgeMux))
 
-	srv := &http.Server{Addr: s.Addr(), Handler: mux, Protocols: new(http.Protocols)}
+	srv := &http.Server{Addr: s.Addr(), Handler: mux, ReadHeaderTimeout: 10 * time.Second, Protocols: new(http.Protocols)}
 	srv.Protocols.SetHTTP1(true)
 	srv.Protocols.SetUnencryptedHTTP2(true)
 
@@ -158,7 +158,7 @@ func Run(ctx context.Context, s config.Settings) error {
 		Closers:       []func(context.Context) error{stack.Close},
 		Logger:        logger,
 	}
-	logger.Info("gateway listening (Connect: gRPC + gRPC-web + JSON)", "addr", srv.Addr)
+	logger.InfoContext(ctx, "gateway listening (Connect: gRPC + gRPC-web + JSON)", "addr", srv.Addr)
 	return lifecycle.Run(ctx, opts,
 		lifecycle.HTTP(srv, s.ShutdownGrace*4/5),
 		lifecycle.Func(func(ctx context.Context) error { trusted.Run(ctx, 30*time.Second); <-ctx.Done(); return nil }),
@@ -179,7 +179,7 @@ func primeJWKS(ctx context.Context, v *token.Verifier, logger *slog.Logger) erro
 			<-ctx.Done()
 			return nil
 		}
-		logger.Warn("JWKS prime failed (retrying in background)", "err", err)
+		logger.WarnContext(ctx, "JWKS prime failed (retrying in background)", "err", err)
 		select {
 		case <-ctx.Done():
 			return nil

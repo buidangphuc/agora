@@ -2,7 +2,7 @@ package edge_test
 
 import (
 	"context"
-	"io"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +25,7 @@ const idempotencyRefusal = "invalid Idempotency-Key header: must be a single pri
 func TestAnonymousPrincipalIsForwardedWithPublicScopes(t *testing.T) {
 	spy := &upstreamSpy{}
 	e := edge.NewEdge(nil, []string{"listing.read", "search:read"}, time.Second, 0, 1000, 1000)
-	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.NewTextHandler(io.Discard, nil)))...)
+	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.DiscardHandler))...)
 	mux := http.NewServeMux()
 	p, h := searchv1connect.NewSearchServiceHandler(edge.NewSearchForwarder(spySearch{spy: spy}, e), opts)
 	mux.Handle(p, h)
@@ -66,7 +66,11 @@ func TestValidIdempotencyKey(t *testing.T) {
 			t.Errorf("%s: code = %v, want invalid_argument (%v)", name, connect.CodeOf(err), err)
 			continue
 		}
-		if msg := err.(*connect.Error).Message(); msg != idempotencyRefusal {
+		if msg := func() *connect.Error {
+			target := &connect.Error{}
+			_ = errors.As(err, &target)
+			return target
+		}().Message(); msg != idempotencyRefusal {
 			t.Errorf("%s: message = %q, want %q", name, msg, idempotencyRefusal)
 		}
 		if up.calls != 0 {
@@ -94,7 +98,11 @@ func TestRepeatedIdempotencyKeyIsRefusedAndWhitespaceTrimmed(t *testing.T) {
 	if connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatalf("repeated header: code = %v, want invalid_argument (%v)", connect.CodeOf(err), err)
 	}
-	if msg := err.(*connect.Error).Message(); msg != idempotencyRefusal {
+	if msg := func() *connect.Error {
+		target := &connect.Error{}
+		_ = errors.As(err, &target)
+		return target
+	}().Message(); msg != idempotencyRefusal {
 		t.Errorf("message = %q, want %q", msg, idempotencyRefusal)
 	}
 	if up.calls != 0 {

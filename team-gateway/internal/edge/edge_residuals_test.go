@@ -92,6 +92,7 @@ func (s *syncBuf) Write(p []byte) (int, error) {
 	defer s.mu.Unlock()
 	return s.b.Write(p)
 }
+
 func (s *syncBuf) String() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -116,7 +117,7 @@ func newResFixture(t *testing.T, rps float64, burst int, trackRPS float64, track
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))

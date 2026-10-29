@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -39,7 +40,7 @@ func newSSELife(t *testing.T) *sseLife {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
@@ -94,7 +95,7 @@ func readAll(t *testing.T, resp *http.Response, limit time.Duration) (string, ti
 	}()
 	select {
 	case r := <-ch:
-		if r.err != io.EOF {
+		if !errors.Is(r.err, io.EOF) {
 			t.Fatalf("body ended with %v, want a clean close", r.err)
 		}
 		return r.s, time.Since(start)

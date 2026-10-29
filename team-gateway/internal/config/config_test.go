@@ -303,8 +303,10 @@ func TestEnvExampleInSync(t *testing.T) {
 			lines[k] = true
 		}
 	}
-	for _, k := range []string{"GRPC_HOST", "GRPC_PORT", "SHUTDOWN_GRACE", "SHUTDOWN_DRAIN_DELAY",
-		"GRPC_REFLECTION_ENABLED", "MOCK_DATA", "TRACK_PUBLISH_TIMEOUT"} {
+	for _, k := range []string{
+		"GRPC_HOST", "GRPC_PORT", "SHUTDOWN_GRACE", "SHUTDOWN_DRAIN_DELAY",
+		"GRPC_REFLECTION_ENABLED", "MOCK_DATA", "TRACK_PUBLISH_TIMEOUT",
+	} {
 		if !lines[k] {
 			t.Errorf(".env.example does not list %s", k)
 		}

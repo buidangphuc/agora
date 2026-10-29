@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"math/big"
 	"net/http"
@@ -49,7 +48,7 @@ func TestListOrderReturnsIsRoutedAndForwardedUnchanged(t *testing.T) {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
@@ -58,7 +57,7 @@ func TestListOrderReturnsIsRoutedAndForwardedUnchanged(t *testing.T) {
 
 	up := &returnsOrder{spy: &upstreamSpy{}}
 	e := edge.NewEdge(token.NewVerifier(jwks.URL, time.Minute), []string{"order.read"}, time.Second, 0, 1000, 1000)
-	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.NewTextHandler(io.Discard, nil)))...)
+	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.DiscardHandler))...)
 	mux := http.NewServeMux()
 	p, h := orderv1connect.NewOrderServiceHandler(edge.NewOrderForwarder(up, e), opts)
 	mux.Handle(p, h)

@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"math/big"
 	"net/http"
@@ -50,7 +49,7 @@ func jwksVerifier(t *testing.T) (*rsa.PrivateKey, *token.Verifier) {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
@@ -126,7 +125,7 @@ func TestBearerTokenIsNeverLogged(t *testing.T) {
 func TestAnonymousCallerContextCarriesSDKPrincipalAndRequestID(t *testing.T) {
 	up := &ctxCapture{}
 	e := edge.NewEdge(nil, []string{"listing.read", "search:read"}, time.Second, 0, 1000, 1000)
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Search: up}, e, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Search: up}, e, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	defer srv.Close()
 	if err := search(t, srv, map[string]string{"X-Request-Id": "req-ctx-1"}); err != nil {
 		t.Fatal(err)
@@ -153,7 +152,7 @@ func TestVerifiedCallerContextCarriesSDKPrincipal(t *testing.T) {
 	key, v := jwksVerifier(t)
 	up := &ctxCapture{}
 	e := edge.NewEdge(v, []string{"search:read"}, time.Second, 0, 1000, 1000)
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Search: up}, e, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Search: up}, e, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	defer srv.Close()
 	tok := mint(t, key, "kid-1", time.Now().Add(time.Hour))
 	if err := search(t, srv, map[string]string{"Authorization": "Bearer " + tok}); err != nil {
@@ -174,7 +173,7 @@ const reflectionPath = "/grpc.reflection.v1.ServerReflection/ServerReflectionInf
 
 func reflectionStatus(t *testing.T, e *edge.Edge) int {
 	t.Helper()
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{}, e, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{}, e, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	defer srv.Close()
 	res, err := srv.Client().Post(srv.URL+reflectionPath, "application/grpc+proto", strings.NewReader(""))
 	if err != nil {

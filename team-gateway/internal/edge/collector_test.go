@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"math/big"
 	"net/http"
@@ -48,7 +47,7 @@ func TestHandleTrackWithAttribution(t *testing.T) {
 		publicScopes: []string{"public"},
 	}
 	pub := &mockAnalyticsPublisher{}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	handler := HandleTrack(edge, pub, logger)
 
 	beacon := trackBeacon{
@@ -106,7 +105,7 @@ func TestHandleTrackEcommerceBatchAndGA4Aliases(t *testing.T) {
 		publicScopes: []string{"public"},
 	}
 	pub := &mockAnalyticsPublisher{}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	handler := HandleTrack(edge, pub, logger)
 
 	batch := []trackBeacon{
@@ -177,7 +176,7 @@ func TestHandleTrackExceedsBatchLimit(t *testing.T) {
 		publicScopes: []string{"public"},
 	}
 	pub := &mockAnalyticsPublisher{}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	handler := HandleTrack(edge, pub, logger)
 
 	oversized := make([]trackBeacon, 101)
@@ -220,7 +219,7 @@ func (l *loopRecorder) Close() {}
 func loopPost(t *testing.T, e *Edge, body string, mod func(*http.Request)) (*loopRecorder, *httptest.ResponseRecorder) {
 	t.Helper()
 	pub := &loopRecorder{}
-	h := HandleTrack(e, pub, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := HandleTrack(e, pub, slog.New(slog.DiscardHandler))
 	req := httptest.NewRequest(http.MethodPost, "/api/track", strings.NewReader(body))
 	if mod != nil {
 		mod(req)
@@ -313,7 +312,7 @@ func loopSignedEdge(t *testing.T, sub string) (*Edge, string) {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
