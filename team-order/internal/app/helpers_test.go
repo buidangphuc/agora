@@ -136,21 +136,6 @@ func waitServing(t *testing.T, r *running) {
 	}
 }
 
-func waitLiveness(t *testing.T, r *running) {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	_, err := grpc_health_v1.NewHealthClient(r.conn).Check(ctx, &grpc_health_v1.HealthCheckRequest{Service: "liveness"}, grpc.WaitForReady(true))
-	if err != nil {
-		select {
-		case <-r.done:
-			t.Fatalf("app exited before serving: %v", r.err)
-		default:
-		}
-		t.Fatalf("liveness not reachable: %v", err)
-	}
-}
-
 func healthStatus(r *running, service string) grpc_health_v1.HealthCheckResponse_ServingStatus {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
