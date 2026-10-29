@@ -1,4 +1,4 @@
-package service
+package identity
 
 import (
 	"context"
@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"google.golang.org/grpc/metadata"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 	commonv1 "github.com/buidangphuc/team-identity/generated/platform/common/v1"
 	"github.com/buidangphuc/team-identity/internal/authz"
 	"github.com/buidangphuc/team-identity/internal/events"
-	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/store"
 )
 
 var (
@@ -42,19 +42,19 @@ func newRefreshToken() (string, error) {
 }
 
 // revokedEvent builds the SessionRevoked outbox row for a session revoked by refresh.
-func (s *AuthService) revokedEvent(ctx context.Context, now time.Time) repository.EnqueueFn {
+func (s *AuthService) revokedEvent(ctx context.Context, now time.Time) store.EnqueueFn {
 	requestID := requestIDFromCtx(ctx)
-	return func(revoked repository.Session) (repository.OutboxRow, error) {
+	return func(revoked store.Session) (store.OutboxRow, error) {
 		eventID := uuid.NewString()
 		principal := &commonv1.Principal{Id: revoked.UserID, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER}
 		payload, err := events.BuildSessionRevokedEnvelope(eventID, revoked.ID, revoked.UserID,
 			now.Add(s.ttl), principal, requestID)
 		if err != nil {
-			return repository.OutboxRow{}, err
+			return store.OutboxRow{}, err
 		}
-		return repository.OutboxRow{
+		return store.OutboxRow{
 			EventID:       eventID,
-			AggregateType: "Session",
+			AggregateType: "User",
 			AggregateID:   revoked.UserID,
 			EventType:     events.SessionRevokedEventType,
 			Payload:       payload,
@@ -66,7 +66,7 @@ func (s *AuthService) revokedEvent(ctx context.Context, now time.Time) repositor
 // RefreshSession rotates a refresh token and issues a new access token bound to the
 // same session. Tokens and hashes never appear in errors.
 func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (AuthResult, error) {
-	if s.sessions == nil || refreshToken == "" {
+	if refreshToken == "" {
 		return AuthResult{}, ErrInvalidRefreshToken
 	}
 	newRaw, err := newRefreshToken()
@@ -81,14 +81,14 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 		return AuthResult{}, mapRotateErr(err)
 	}
 	switch res.Outcome {
-	case repository.RotateRotated, repository.RotateReplayedInGrace:
+	case store.RotateRotated, store.RotateReplayedInGrace:
 	default:
 		return AuthResult{}, ErrInvalidRefreshToken
 	}
 
 	u, err := s.repo.GetByID(ctx, res.Session.UserID)
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, store.ErrNotFound) {
 			if err := s.revokeRefreshed(ctx, res.Session, ev); err != nil {
 				return AuthResult{}, err
 			}
@@ -96,7 +96,7 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 		}
 		return AuthResult{}, fmt.Errorf("%w: user lookup", ErrRefreshUnavailable)
 	}
-	if u.Status == repository.StatusSuspended || u.Status == repository.StatusBanned {
+	if u.Status == store.StatusSuspended || u.Status == store.StatusBanned {
 		if err := s.revokeRefreshed(ctx, res.Session, ev); err != nil {
 			return AuthResult{}, err
 		}
@@ -108,17 +108,17 @@ func (s *AuthService) RefreshSession(ctx context.Context, refreshToken string) (
 		return AuthResult{}, ErrRefreshInternal
 	}
 	out := AuthResult{Token: signed, UserID: u.ID, Username: u.Username, Type: "user", Scopes: scopes}
-	if res.Outcome == repository.RotateRotated {
+	if res.Outcome == store.RotateRotated {
 		out.RefreshToken, out.RefreshExpiresAt = newRaw, res.Session.RefreshExpiresAt
 	}
 	return out, nil
 }
 
 // revokeRefreshed revokes the session a refresh just resolved; an already-gone session is fine.
-func (s *AuthService) revokeRefreshed(ctx context.Context, sess repository.Session, ev repository.EnqueueFn) error {
+func (s *AuthService) revokeRefreshed(ctx context.Context, sess store.Session, ev store.EnqueueFn) error {
 	if rerr := s.sessions.RevokeSession(ctx, sess.ID, sess.UserID, ev); rerr != nil &&
-		!errors.Is(rerr, repository.ErrSessionNotFound) {
-		if errors.Is(rerr, repository.ErrRotateFault) {
+		!errors.Is(rerr, store.ErrSessionNotFound) {
+		if errors.Is(rerr, store.ErrRotateFault) {
 			return ErrRefreshInternal
 		}
 		return ErrRefreshUnavailable
@@ -130,18 +130,11 @@ func (s *AuthService) revokeRefreshed(ctx context.Context, sess repository.Sessi
 // ErrRotateFault maps to ErrRefreshInternal; any other error is transient
 // (ErrRefreshUnavailable). The cause is not wrapped, as it may embed hash text.
 func mapRotateErr(err error) error {
-	if errors.Is(err, repository.ErrRotateFault) {
+	if errors.Is(err, store.ErrRotateFault) {
 		return ErrRefreshInternal
 	}
 	return ErrRefreshUnavailable
 }
 
-// requestIDFromCtx reads the gateway-forwarded x-request-id (trace continuity only).
-func requestIDFromCtx(ctx context.Context) string {
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if v := md.Get("x-request-id"); len(v) > 0 {
-			return v[0]
-		}
-	}
-	return ""
-}
+// requestIDFromCtx reads the gateway-forwarded request id (trace continuity only).
+func requestIDFromCtx(ctx context.Context) string { return reqctx.RequestID(ctx) }

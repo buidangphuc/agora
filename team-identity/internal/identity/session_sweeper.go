@@ -1,11 +1,11 @@
-package service
+package identity
 
 import (
 	"context"
 	"log/slog"
 	"time"
 
-	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/store"
 )
 
 const defaultSweepBatchSize = 500
@@ -26,12 +26,12 @@ type SweepResult struct {
 
 // SessionSweeper periodically purges ended sessions and old login history.
 type SessionSweeper struct {
-	repo   repository.SessionRepository
+	repo   store.SessionRepository
 	cfg    SessionSweeperConfig
 	logger *slog.Logger
 }
 
-func NewSessionSweeper(repo repository.SessionRepository, cfg SessionSweeperConfig, logger *slog.Logger) *SessionSweeper {
+func NewSessionSweeper(repo store.SessionRepository, cfg SessionSweeperConfig, logger *slog.Logger) *SessionSweeper {
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = defaultSweepBatchSize
 	}
@@ -69,31 +69,19 @@ func (s *SessionSweeper) SweepOnce(ctx context.Context, now time.Time) (SweepRes
 	return res, nil
 }
 
-// Run sweeps immediately and then every Interval until ctx is cancelled. Errors are logged
-// as warnings and retried on the next tick. Logs carry counts only.
-func (s *SessionSweeper) Run(ctx context.Context) {
-	interval := s.cfg.Interval
-	if interval <= 0 {
-		interval = time.Hour
+// Tick runs one sweep. Failures are logged as warnings (counts only) and retried on the next tick,
+// so it returns nil unless the sweep was cut short by ctx.
+func (s *SessionSweeper) Tick(ctx context.Context) error {
+	res, err := s.SweepOnce(ctx, time.Now())
+	switch {
+	case ctx.Err() != nil:
+		return ctx.Err()
+	case err != nil:
+		s.logger.Warn("session retention sweep failed; will retry",
+			"sessions_purged", res.Sessions, "login_events_purged", res.LoginEvents)
+	case res.Sessions > 0 || res.LoginEvents > 0:
+		s.logger.Info("session retention sweep done",
+			"sessions_purged", res.Sessions, "login_events_purged", res.LoginEvents)
 	}
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		res, err := s.SweepOnce(ctx, time.Now())
-		switch {
-		case ctx.Err() != nil:
-			return
-		case err != nil:
-			s.logger.Warn("session retention sweep failed; will retry",
-				"sessions_purged", res.Sessions, "login_events_purged", res.LoginEvents)
-		case res.Sessions > 0 || res.LoginEvents > 0:
-			s.logger.Info("session retention sweep done",
-				"sessions_purged", res.Sessions, "login_events_purged", res.LoginEvents)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-	}
+	return nil
 }

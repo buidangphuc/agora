@@ -1,7 +1,7 @@
-// Package service holds team-identity's business logic: registration, login,
+// Package identity holds team-identity's business logic: registration, login,
 // and token issuance. It is transport-agnostic; the handler maps its results to
 // the proto AuthService.
-package service
+package identity
 
 import (
 	"context"
@@ -15,8 +15,9 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 	"github.com/buidangphuc/team-identity/internal/authz"
-	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/store"
 	"github.com/buidangphuc/team-identity/internal/token"
 )
 
@@ -32,7 +33,7 @@ var (
 	// ErrTokenAlreadyUsed is an already used reset token.
 	ErrTokenAlreadyUsed = errors.New("reset token already used")
 	// ErrAccountLocked is the login/refresh refusal for suspended and banned users.
-	ErrAccountLocked = repository.ErrAccountLocked
+	ErrAccountLocked = store.ErrAccountLocked
 )
 
 // AuthResult is the domain outcome of register/login: a signed token + the
@@ -64,9 +65,9 @@ func WithClient(ctx context.Context, c ClientInfo) context.Context {
 }
 
 type AuthService struct {
-	repo     repository.UserRepository
-	sessions repository.SessionRepository // nil: no session is recorded
-	audit    AuditWriter                  // nil: status changes are refused
+	repo     store.UserRepository
+	sessions store.SessionRepository
+	gate     *auditx.Gate
 	signer   *token.Signer
 	ttl      time.Duration
 	now      func() time.Time
@@ -85,15 +86,15 @@ func (s *AuthService) clock() time.Time {
 	return s.now()
 }
 
-// WithSessions makes Register/Login record a session row and stamp its id into
-// the token as `sid`.
-func (s *AuthService) WithSessions(r repository.SessionRepository) *AuthService {
-	s.sessions = r
-	return s
-}
-
-func NewAuthService(repo repository.UserRepository, signer *token.Signer, ttl time.Duration) *AuthService {
-	return &AuthService{repo: repo, signer: signer, ttl: ttl}
+// NewAuthService wires the service; the session store and the audit gate are required.
+func NewAuthService(repo store.UserRepository, sessions store.SessionRepository, signer *token.Signer, ttl time.Duration, gate *auditx.Gate) (*AuthService, error) {
+	if sessions == nil {
+		return nil, errors.New("identity: session store is required")
+	}
+	if gate == nil {
+		return nil, errors.New("identity: audit gate is required")
+	}
+	return &AuthService{repo: repo, sessions: sessions, gate: gate, signer: signer, ttl: ttl}, nil
 }
 
 // Register creates a user (role buyer/seller; admin is seeded only) and issues a
@@ -107,7 +108,7 @@ func (s *AuthService) Register(ctx context.Context, username, password, role str
 	if err != nil {
 		return AuthResult{}, err
 	}
-	u := repository.User{
+	u := store.User{
 		ID:           uuid.NewString(),
 		Username:     username,
 		PasswordHash: string(hash),
@@ -126,13 +127,10 @@ const recordTimeout = 2 * time.Second
 // recordLogin appends a login event (with the forwarded client IP/UA). It is
 // best-effort: a failure is logged server-side and never fails or alters the login.
 func (s *AuthService) recordLogin(ctx context.Context, userID string, success bool) {
-	if s.sessions == nil {
-		return
-	}
 	c, _ := ctx.Value(clientCtxKey{}).(ClientInfo)
 	ctx, cancel := context.WithTimeout(ctx, recordTimeout)
 	defer cancel()
-	if _, err := s.sessions.RecordLogin(ctx, repository.LoginEvent{
+	if _, err := s.sessions.RecordLogin(ctx, store.LoginEvent{
 		UserID: userID, IP: clip(c.IP, 64), UserAgent: clip(c.UserAgent, 256), Success: success,
 	}); err != nil {
 		slog.ErrorContext(ctx, "login recording failed",
@@ -147,7 +145,7 @@ func (s *AuthService) recordLogin(ctx context.Context, userID string, success bo
 func (s *AuthService) Login(ctx context.Context, username, password string) (AuthResult, error) {
 	u, err := s.repo.GetByUsername(ctx, strings.TrimSpace(username))
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+		if errors.Is(err, store.ErrNotFound) {
 			return AuthResult{}, ErrInvalidCredentials
 		}
 		return AuthResult{}, err
@@ -160,13 +158,13 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Aut
 	if err != nil {
 		return AuthResult{}, err
 	}
-	if u.Status == repository.StatusSuspended || u.Status == repository.StatusBanned {
+	if u.Status == store.StatusSuspended || u.Status == store.StatusBanned {
 		s.recordLogin(ctx, u.ID, false)
 		return AuthResult{}, ErrAccountLocked
 	}
 	res, err := s.issue(ctx, u)
 	if err != nil {
-		if errors.Is(err, repository.ErrAccountLocked) {
+		if errors.Is(err, store.ErrAccountLocked) {
 			s.recordLogin(ctx, u.ID, false)
 		}
 		return AuthResult{}, err
@@ -175,29 +173,23 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (Aut
 	return res, nil
 }
 
-func (s *AuthService) issue(ctx context.Context, u repository.User) (AuthResult, error) {
+func (s *AuthService) issue(ctx context.Context, u store.User) (AuthResult, error) {
 	scopes := authz.ScopesForUser(u.Roles, u.Status)
-	sid := ""
-	var refreshToken string
-	var refreshExp time.Time
-	if s.sessions != nil {
-		c, _ := ctx.Value(clientCtxKey{}).(ClientInfo)
-		raw, err := newRefreshToken()
-		if err != nil {
-			return AuthResult{}, err
-		}
-		now := s.clock()
-		refreshToken, refreshExp = raw, now.Add(repository.RefreshTTL)
-		sess, err := s.sessions.CreateSession(ctx, repository.Session{
-			UserID: u.ID, Device: clip(c.UserAgent, 256), IP: clip(c.IP, 64),
-			CreatedAt: now, RefreshHash: hashToken(raw), RefreshExpiresAt: refreshExp,
-		})
-		if err != nil {
-			return AuthResult{}, err
-		}
-		sid = sess.ID
+	c, _ := ctx.Value(clientCtxKey{}).(ClientInfo)
+	refreshToken, err := newRefreshToken()
+	if err != nil {
+		return AuthResult{}, err
 	}
-	signed, err := s.signer.SignWithSession(u.ID, u.Username, "user", scopes, sid, s.ttl)
+	now := s.clock()
+	refreshExp := now.Add(store.RefreshTTL)
+	sess, err := s.sessions.CreateSession(ctx, store.Session{
+		UserID: u.ID, Device: clip(c.UserAgent, 256), IP: clip(c.IP, 64),
+		CreatedAt: now, RefreshHash: hashToken(refreshToken), RefreshExpiresAt: refreshExp,
+	})
+	if err != nil {
+		return AuthResult{}, err
+	}
+	signed, err := s.signer.SignWithSession(u.ID, u.Username, "user", scopes, sess.ID, s.ttl)
 	if err != nil {
 		return AuthResult{}, err
 	}
@@ -257,7 +249,7 @@ func (s *AuthService) IssuePasswordReset(ctx context.Context, username string) (
 	tokenHash := hashToken(rawToken)
 	expiresAt := time.Now().Add(15 * time.Minute)
 
-	err = s.repo.CreateResetToken(ctx, repository.PasswordResetToken{
+	err = s.repo.CreateResetToken(ctx, store.PasswordResetToken{
 		TokenHash: tokenHash,
 		UserID:    u.ID,
 		ExpiresAt: expiresAt,
@@ -280,7 +272,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, rawToken, newPassword s
 	tokenHash := hashToken(rawToken)
 	t, err := s.repo.GetResetToken(ctx, tokenHash)
 	if err != nil {
-		if errors.Is(err, repository.ErrTokenNotFound) {
+		if errors.Is(err, store.ErrTokenNotFound) {
 			return ErrInvalidToken
 		}
 		return err
@@ -319,20 +311,20 @@ func hashToken(raw string) string {
 func (s *AuthService) EnsureAdmin(ctx context.Context, username, password string) error {
 	if _, err := s.repo.GetByUsername(ctx, username); err == nil {
 		return nil // already exists
-	} else if !errors.Is(err, repository.ErrNotFound) {
+	} else if !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
-	_, err = s.repo.Create(ctx, repository.User{
+	_, err = s.repo.Create(ctx, store.User{
 		ID:           uuid.NewString(),
 		Username:     username,
 		PasswordHash: string(hash),
 		Roles:        []string{authz.RoleAdmin},
 	})
-	if errors.Is(err, repository.ErrConflict) {
+	if errors.Is(err, store.ErrConflict) {
 		return nil
 	}
 	return err
