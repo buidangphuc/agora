@@ -23,6 +23,7 @@ Short on purpose. v1 changes come from `docs/experiments/p5-five-screens.md`; fi
 ## Boundaries
 - Feature code imports UI only from `packages/ui` and values only from `packages/tokens`. Use the existing component before writing a control; a missing variant is added to the component, not styled around it.
 - Components never call the network. Data loads in server components or `lib/` functions through `@fe-platform/api-client`; screens receive plain view models, never proto types. Failures are `ApiError`; `not_found` becomes `notFound()`.
+- `templates/app/app/(public)/shop` is a demo with hardcoded products, cart maths in `lib/shop.ts` and no order call. Copy its look, never its data or pricing logic: real catalogue and order data come from the gateway, and the owning services stay authoritative for prices, totals and field rules.
 - Public routes must not import internal-only code.
 - A component used by one feature stays in that feature until a second use appears.
 

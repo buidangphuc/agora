@@ -61,3 +61,8 @@ Applied on request after the record above; the metrics and verdict describe the 
 - Finding 1: added `Link` to `packages/ui` (wraps `next/link`, `next` is now a peer dependency), with `text-link` and `text-link-hover` tokens in both themes. The contrast gate rejected the first dark value (4.32:1 on `surface-muted`); dark uses primary-300. Every `next/link` in the shop and products pages now uses `Link`. Checked in the browser: links are coloured and underlined in light and dark.
 - Finding 3 and 5: checkout is now a server action. It validates on the server, redirects with field codes only (`?error=phone`), and passes delivery details to the confirmation page in a 10-minute httpOnly cookie, so no personal data is in the URL. Known limit: after a validation error the fields are empty again (values are not echoed).
 - Findings 2 and 6 are covered by guidelines v1 only; findings 4 and 7 are unchanged.
+
+## Boundary review (repo-doctor, after the run)
+
+`repo-doctor` structural sweep: no fe-platform finding (15 warnings, all about other services' ungenerated code in a clean checkout). `contract-boundary-reviewer` over `fe-platform/`: no blocking violation; the api-client reaches only the gateway and generates from `platform-core`. One non-blocking note: the `/shop` demo hardcodes products and computes cart totals in the frontend and has no order RPC. Guidelines now say `/shop` is a demo and must not be copied for data or pricing logic.
+
