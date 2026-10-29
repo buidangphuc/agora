@@ -1,5 +1,4 @@
-import { Table } from "@fe-platform/ui";
-import Link from "next/link";
+import { Link, Table } from "@fe-platform/ui";
 import {
   SHOP_PRODUCTS,
   cartQuery,

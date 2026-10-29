@@ -90,6 +90,8 @@ export const semantic = {
     "text-secondary": "neutral-600",
     "text-disabled": "neutral-400",
     "text-inverse": "white",
+    "text-link": "primary-700",
+    "text-link-hover": "primary-800",
     "text-danger": "danger-dark",
     "text-success": "success-dark",
     "text-warning": "promo-dark",
@@ -109,6 +111,8 @@ export const semantic = {
     "text-secondary": "neutral-300",
     "text-disabled": "neutral-500",
     "text-inverse": "white",
+    "text-link": "primary-300",
+    "text-link-hover": "primary-200",
     "text-danger": "danger-light",
     "text-success": "success",
     "text-warning": "promo",
@@ -172,6 +176,9 @@ export const components = {
     th: "border-b border-border-strong bg-surface-muted p-2 text-left text-text-primary",
     td: "border-b border-border-subtle p-2",
     empty: "p-6 text-center text-text-secondary",
+  },
+  link: {
+    base: "text-text-link underline underline-offset-2 hover:text-text-link-hover rounded-xs focus-visible:ring-2 focus-visible:ring-focus-ring",
   },
   card: {
     base: "rounded-xl bg-surface-card border border-border-subtle p-4",

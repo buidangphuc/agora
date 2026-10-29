@@ -130,6 +130,35 @@
       "native": "input"
     },
     {
+      "name": "Link",
+      "kind": "component",
+      "purpose": "Navigation to another page. Use for every \"go there\" action; Button is for actions on the current page.",
+      "client": false,
+      "props": [
+        {
+          "name": "href",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "prefetch",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "replace",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "scroll",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "native": "a"
+    },
+    {
       "name": "Select",
       "kind": "component",
       "purpose": "Single choice from a short list; use Input for free text.",
@@ -246,6 +275,8 @@
       "text-danger",
       "text-disabled",
       "text-inverse",
+      "text-link",
+      "text-link-hover",
       "text-primary",
       "text-secondary",
       "text-success",

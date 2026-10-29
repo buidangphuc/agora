@@ -1,5 +1,4 @@
-import { Button } from "@fe-platform/ui";
-import Link from "next/link";
+import { Button, Link } from "@fe-platform/ui";
 import { notFound } from "next/navigation";
 import {
   addToCart,

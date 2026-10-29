@@ -100,7 +100,3 @@ export function cartQuery(lines: readonly CartLine[]): string {
   const raw = serializeCart(lines);
   return raw ? `?cart=${raw}` : "";
 }
-
-export function textParam(v: string | string[] | undefined): string {
-  return (Array.isArray(v) ? v[0] : v) ?? "";
-}

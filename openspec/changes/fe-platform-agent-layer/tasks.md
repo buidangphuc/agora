@@ -23,3 +23,8 @@
 - [ ] 4.1 Revise `docs/agents/frontend.md` to v1, each new rule citing the finding behind it; verify it stays under one page
 - [x] 4.2 Done-condition: `npm run check` exits 0 after a fresh `npm ci`, no new disable comments, `npm audit` clean, `openspec validate fe-platform-agent-layer --strict` passes
 - [ ] 4.3 e2e track: none (no user-facing capability, no FEATURES.yaml entry); confirm `repo-doctor` reports no new drift
+
+## 5. Follow-up fixes from the experiment (requested after the run)
+
+- [x] 5.1 Add `Link` to `packages/ui` with `text-link` tokens and contrast pairs in both themes; verify the contrast gate, axe state matrix and catalog entry, and replace `next/link` in the shop and products pages
+- [x] 5.2 Replace the GET checkout with a server action that validates on the server and passes delivery details in an httpOnly cookie; verify unit tests (validation, redirect without personal data, empty cart) and a browser run through the flow

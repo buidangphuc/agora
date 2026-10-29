@@ -4,6 +4,7 @@ import {
   Checkbox,
   Dialog,
   Input,
+  Link,
   Select,
   Table,
   ToastProvider,
@@ -15,6 +16,9 @@ const options = [
 ];
 
 export const stateMatrix: Record<string, Record<string, ReactNode>> = {
+  Link: {
+    default: <Link href="/shop">Back to shop</Link>,
+  },
   Button: {
     default: <Button>Save</Button>,
     secondary: <Button variant="secondary">Cancel</Button>,

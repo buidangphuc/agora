@@ -6,7 +6,7 @@ Short on purpose. v1 changes come from `docs/experiments/p5-five-screens.md`; fi
 
 ## Hierarchy
 - One primary action per view; secondary beside it; danger only for destructive actions.
-- Never two primary buttons in one view. Navigation is a link, not a button-styled link. There is no Link component yet and plain links look like body text; keep link text explicit ("Continue to checkout") and do not restyle ad hoc [1].
+- Never two primary buttons in one view. Navigation is a `Link`, never a button-styled link and never a bare `next/link` or `<a>`, which render like body text [1]. Button is for actions on the current page.
 
 ## Spacing and layout
 - Use the spacing, radius and type scale from tokens only: no arbitrary values, no raw colours.

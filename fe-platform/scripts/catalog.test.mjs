@@ -15,6 +15,7 @@ describe("catalog", () => {
       "Checkbox",
       "Dialog",
       "Input",
+      "Link",
       "Select",
       "Table",
       "ToastProvider",
