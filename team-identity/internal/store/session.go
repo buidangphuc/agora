@@ -1,17 +1,17 @@
-package repository
+package store
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 )
 
 // ErrSessionNotFound is returned when a session does not exist or is not owned
@@ -124,10 +124,12 @@ const sessionAbsoluteMaxAge = 90 * 24 * time.Hour
 
 type PostgresSessionRepository struct {
 	pool *pgxpool.Pool
+	ob   *outbox.Store
 }
 
 func NewPostgresSessionRepository(pool *pgxpool.Pool) *PostgresSessionRepository {
-	return &PostgresSessionRepository{pool: pool}
+	ob, _ := Outbox(pool)
+	return &PostgresSessionRepository{pool: pool, ob: ob}
 }
 
 const sessionColumns = `id, user_id, device, ip, created_at, last_seen, revoked,
@@ -234,7 +236,7 @@ func (r *PostgresSessionRepository) RevokeSession(ctx context.Context, sessionID
 		if err != nil {
 			return fmt.Errorf("build revoke event: %w: %w", ErrRotateFault, err)
 		}
-		if err := enqueueTx(ctx, tx, row); err != nil {
+		if err := enqueueTx(ctx, r.ob, tx, row); err != nil {
 			return fmt.Errorf("enqueue revoke event: %w: %w", ErrRotateFault, err)
 		}
 	}
@@ -278,7 +280,7 @@ func (r *PostgresSessionRepository) RotateRefresh(ctx context.Context, presented
 		if err != nil {
 			return RotateResult{}, fmt.Errorf("build revoke event: %w: %w", ErrRotateFault, err)
 		}
-		if err := enqueueTx(ctx, tx, row); err != nil {
+		if err := enqueueTx(ctx, r.ob, tx, row); err != nil {
 			return RotateResult{}, fmt.Errorf("enqueue revoke event: %w: %w", ErrRotateFault, err)
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -388,259 +390,4 @@ func (r *PostgresSessionRepository) PurgeLoginHistory(ctx context.Context, befor
 		return 0, fmt.Errorf("purge login history: %w", err)
 	}
 	return int(tag.RowsAffected()), nil
-}
-
-// --- InMemory implementation (tests, no live DB) ---
-
-type InMemorySessionRepository struct {
-	mu       sync.RWMutex
-	sessions map[string]Session
-	logins   []LoginEvent
-	seq      int64
-	outbox   []OutboxRow
-	users    *InMemoryUserRepository // set by AttachSessions
-
-	// FailOutbox makes the outbox write of a revoke fail, exercising the
-	// rollback path (the session must stay un-revoked and no row is recorded).
-	FailOutbox bool
-}
-
-func NewInMemorySessionRepository() *InMemorySessionRepository {
-	return &InMemorySessionRepository{sessions: make(map[string]Session)}
-}
-
-func (r *InMemorySessionRepository) CreateSession(_ context.Context, s Session) (Session, error) {
-	if r.users != nil {
-		// Lock order: users then sessions (same as SetStatus).
-		r.users.mu.RLock()
-		defer r.users.mu.RUnlock()
-		if u, ok := r.users.byID[s.UserID]; ok {
-			if u.Status == StatusSuspended || u.Status == StatusBanned {
-				return Session{}, ErrAccountLocked
-			}
-			s.UserStatus = u.Status
-		}
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if s.ID == "" {
-		s.ID = uuid.NewString()
-	}
-	now := time.Now().UTC()
-	if s.CreatedAt.IsZero() {
-		// Monotonic-ish ordering for deterministic tests.
-		r.seq++
-		s.CreatedAt = now.Add(time.Duration(r.seq) * time.Millisecond)
-	}
-	if s.LastSeen.IsZero() {
-		s.LastSeen = s.CreatedAt
-	}
-	r.sessions[s.ID] = s
-	return s, nil
-}
-
-func (r *InMemorySessionRepository) ListSessions(_ context.Context, userID string) ([]Session, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	var items []Session
-	for _, s := range r.sessions {
-		if s.UserID == userID {
-			items = append(items, s)
-		}
-	}
-	sort.Slice(items, func(i, j int) bool {
-		if !items[i].LastSeen.Equal(items[j].LastSeen) {
-			return items[i].LastSeen.After(items[j].LastSeen)
-		}
-		return items[i].CreatedAt.After(items[j].CreatedAt)
-	})
-	return items, nil
-}
-
-func (r *InMemorySessionRepository) RevokeSession(_ context.Context, sessionID, userID string, ev EnqueueFn) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	s, ok := r.sessions[sessionID]
-	if !ok || s.UserID != userID {
-		return ErrSessionNotFound
-	}
-	s.Revoked = true
-	s.RefreshHash, s.PrevRefreshHash = "", ""
-	// Mirror the Postgres transaction: build/record the outbox row first and only
-	// then commit the revoke, so a failing outbox write leaves the session intact.
-	if ev != nil {
-		row, err := ev(s)
-		if err != nil {
-			return fmt.Errorf("build revoke event: %w: %w", ErrRotateFault, err)
-		}
-		if r.FailOutbox {
-			return fmt.Errorf("enqueue revoke event: %w", ErrRotateFault)
-		}
-		r.outbox = append(r.outbox, row)
-	}
-	r.sessions[sessionID] = s
-	return nil
-}
-
-func (r *InMemorySessionRepository) RotateRefresh(_ context.Context, presentedHash, newHash string, now time.Time, grace, maxAge time.Duration, ip, device string, ev EnqueueFn) (RotateResult, error) {
-	if ev == nil {
-		return RotateResult{}, errEnqueueRequired
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if presentedHash == "" {
-		return RotateResult{Outcome: RotateStale}, nil
-	}
-	var s Session
-	found := false
-	for _, c := range r.sessions {
-		if !c.Revoked && (c.RefreshHash == presentedHash || c.PrevRefreshHash == presentedHash) {
-			s, found = c, true
-			break
-		}
-	}
-	if !found {
-		return RotateResult{Outcome: RotateStale}, nil
-	}
-	revoke := func(outcome RotateOutcome) (RotateResult, error) {
-		s.Revoked = true
-		s.RefreshHash, s.PrevRefreshHash = "", ""
-		row, err := ev(s)
-		if err != nil {
-			return RotateResult{}, fmt.Errorf("build revoke event: %w: %w", ErrRotateFault, err)
-		}
-		if r.FailOutbox {
-			return RotateResult{}, fmt.Errorf("enqueue revoke event: %w", ErrRotateFault)
-		}
-		r.outbox = append(r.outbox, row)
-		r.sessions[s.ID] = s
-		return RotateResult{Outcome: outcome, Session: s}, nil
-	}
-	if now.Sub(s.CreatedAt) > maxAge {
-		return revoke(RotateLifetimeExceeded)
-	}
-	if !s.RefreshExpiresAt.IsZero() && !now.Before(s.RefreshExpiresAt) {
-		return RotateResult{Outcome: RotateExpired, Session: s}, nil
-	}
-	switch {
-	case s.RefreshHash == presentedHash:
-		for _, c := range r.sessions {
-			if c.ID != s.ID && (c.RefreshHash == newHash) && newHash != "" {
-				return RotateResult{}, fmt.Errorf("%w: %w", errRefreshHashConflict, ErrRotateFault)
-			}
-		}
-		s.PrevRefreshHash = s.RefreshHash
-		s.RefreshHash = newHash
-		s.RotatedAt = now
-		s.LastSeen = now
-		if ip != "" {
-			s.IP = ip
-		}
-		if device != "" {
-			s.Device = device
-		}
-		s.RefreshExpiresAt = now.Add(RefreshTTL)
-		r.sessions[s.ID] = s
-		return RotateResult{Outcome: RotateRotated, Session: s}, nil
-	case !s.RotatedAt.IsZero() && now.Sub(s.RotatedAt) <= grace:
-		return RotateResult{Outcome: RotateReplayedInGrace, Session: s}, nil
-	default:
-		return revoke(RotateReuse)
-	}
-}
-
-// OutboxRows returns a copy of the outbox rows recorded by revokes, for assertions.
-func (r *InMemorySessionRepository) OutboxRows() []OutboxRow {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return append([]OutboxRow(nil), r.outbox...)
-}
-
-func (r *InMemorySessionRepository) RecordLogin(_ context.Context, e LoginEvent) (LoginEvent, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if e.ID == "" {
-		e.ID = uuid.NewString()
-	}
-	if e.CreatedAt.IsZero() {
-		r.seq++
-		e.CreatedAt = time.Now().UTC().Add(time.Duration(r.seq) * time.Millisecond)
-	}
-	r.logins = append(r.logins, e)
-	return e, nil
-}
-
-func (r *InMemorySessionRepository) ListLoginHistory(_ context.Context, userID string, limit, offset int) ([]LoginEvent, int64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	var owned []LoginEvent
-	for _, e := range r.logins {
-		if e.UserID == userID {
-			owned = append(owned, e)
-		}
-	}
-	sort.Slice(owned, func(i, j int) bool {
-		if !owned[i].CreatedAt.Equal(owned[j].CreatedAt) {
-			return owned[i].CreatedAt.After(owned[j].CreatedAt)
-		}
-		return owned[i].ID > owned[j].ID
-	})
-
-	total := int64(len(owned))
-	if offset < 0 {
-		offset = 0
-	}
-	if offset >= len(owned) {
-		return nil, total, nil
-	}
-	end := offset + limit
-	if limit <= 0 || end > len(owned) {
-		end = len(owned)
-	}
-	return owned[offset:end], total, nil
-}
-
-// PurgeSessions: the in-memory model has no revoked_at, so revoked rows age from LastSeen.
-func (r *InMemorySessionRepository) PurgeSessions(_ context.Context, now time.Time, retention time.Duration, limit int) (int, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	cutoff := now.Add(-retention)
-	absCutoff := now.Add(-retention - sessionAbsoluteMaxAge)
-	ids := make([]string, 0)
-	for id, s := range r.sessions {
-		var dead bool
-		if s.Revoked {
-			dead = s.LastSeen.Before(cutoff)
-		} else {
-			dead = (!s.RefreshExpiresAt.IsZero() && s.RefreshExpiresAt.Before(cutoff)) || s.CreatedAt.Before(absCutoff)
-		}
-		if dead {
-			ids = append(ids, id)
-		}
-	}
-	sort.Strings(ids)
-	if limit >= 0 && len(ids) > limit {
-		ids = ids[:limit]
-	}
-	for _, id := range ids {
-		delete(r.sessions, id)
-	}
-	return len(ids), nil
-}
-
-func (r *InMemorySessionRepository) PurgeLoginHistory(_ context.Context, before time.Time, limit int) (int, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	kept := make([]LoginEvent, 0, len(r.logins))
-	n := 0
-	for _, e := range r.logins {
-		if e.CreatedAt.Before(before) && (limit < 0 || n < limit) {
-			n++
-			continue
-		}
-		kept = append(kept, e)
-	}
-	r.logins = kept
-	return n, nil
 }

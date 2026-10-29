@@ -1,4 +1,4 @@
-package repository
+package store
 
 import (
 	"context"
@@ -10,15 +10,19 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
 )
 
 // PostgresUserRepository is the production store (identity_db, Rule 3).
 type PostgresUserRepository struct {
 	pool *pgxpool.Pool
+	ob   *outbox.Store
 }
 
 func NewPostgresUserRepository(pool *pgxpool.Pool) *PostgresUserRepository {
-	return &PostgresUserRepository{pool: pool}
+	ob, _ := Outbox(pool)
+	return &PostgresUserRepository{pool: pool, ob: ob}
 }
 
 const userColumns = `id, username, password_hash, roles, status, COALESCE(status_reason, ''), status_until, status_changed_at, created_at`
@@ -243,7 +247,7 @@ func (r *PostgresUserRepository) SetStatus(ctx context.Context, userID, status, 
 			if err != nil {
 				return StatusResult{}, fmt.Errorf("build revoke event: %w", err)
 			}
-			if err := enqueueTx(ctx, tx, row); err != nil {
+			if err := enqueueTx(ctx, r.ob, tx, row); err != nil {
 				return StatusResult{}, err
 			}
 			revoked++
@@ -260,7 +264,7 @@ func (r *PostgresUserRepository) SetStatus(ctx context.Context, userID, status, 
 	if err != nil {
 		return StatusResult{}, fmt.Errorf("build status event: %w", err)
 	}
-	if err := enqueueTx(ctx, tx, row); err != nil {
+	if err := enqueueTx(ctx, r.ob, tx, row); err != nil {
 		return StatusResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -291,7 +295,7 @@ func (r *PostgresUserRepository) LiftExpiredSuspension(ctx context.Context, user
 	if err != nil {
 		return false, fmt.Errorf("build status event: %w", err)
 	}
-	if err := enqueueTx(ctx, tx, row); err != nil {
+	if err := enqueueTx(ctx, r.ob, tx, row); err != nil {
 		return false, err
 	}
 	if err := tx.Commit(ctx); err != nil {

@@ -1,11 +1,10 @@
-package repository
+package store
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -89,7 +88,7 @@ func (r *PostgresAddressRepository) Create(ctx context.Context, a Address) (Addr
 	if err != nil {
 		return Address{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// If this is the first address or marked default, reset other defaults
 	if a.IsDefault {
@@ -124,7 +123,7 @@ func (r *PostgresAddressRepository) Update(ctx context.Context, a Address) (Addr
 	if err != nil {
 		return Address{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	if a.IsDefault {
 		if _, err := tx.Exec(ctx, `UPDATE user_addresses SET is_default = false WHERE user_id = $1`, a.UserID); err != nil {
@@ -167,7 +166,7 @@ func (r *PostgresAddressRepository) SetDefault(ctx context.Context, id, userID s
 	if err != nil {
 		return Address{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	if _, err := tx.Exec(ctx, `UPDATE user_addresses SET is_default = false WHERE user_id = $1`, userID); err != nil {
 		return Address{}, fmt.Errorf("reset default: %w", err)
@@ -186,103 +185,4 @@ func (r *PostgresAddressRepository) SetDefault(ctx context.Context, id, userID s
 		return Address{}, fmt.Errorf("commit tx: %w", err)
 	}
 	return out, nil
-}
-
-// InMemoryAddressRepository is a deterministic fake store for tests.
-type InMemoryAddressRepository struct {
-	mu   sync.RWMutex
-	byID map[string]Address
-}
-
-func NewInMemoryAddressRepository() *InMemoryAddressRepository {
-	return &InMemoryAddressRepository{byID: make(map[string]Address)}
-}
-
-func (r *InMemoryAddressRepository) List(_ context.Context, userID string) ([]Address, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	var items []Address
-	for _, a := range r.byID {
-		if a.UserID == userID {
-			items = append(items, a)
-		}
-	}
-	return items, nil
-}
-
-func (r *InMemoryAddressRepository) Get(_ context.Context, id, userID string) (Address, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	a, ok := r.byID[id]
-	if !ok || a.UserID != userID {
-		return Address{}, ErrAddressNotFound
-	}
-	return a, nil
-}
-
-func (r *InMemoryAddressRepository) Create(_ context.Context, a Address) (Address, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if a.ID == "" {
-		a.ID = uuid.NewString()
-	}
-	if a.IsDefault {
-		for id, item := range r.byID {
-			if item.UserID == a.UserID {
-				item.IsDefault = false
-				r.byID[id] = item
-			}
-		}
-	}
-	r.byID[a.ID] = a
-	return a, nil
-}
-
-func (r *InMemoryAddressRepository) Update(_ context.Context, a Address) (Address, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	existing, ok := r.byID[a.ID]
-	if !ok || existing.UserID != a.UserID {
-		return Address{}, ErrAddressNotFound
-	}
-	if a.IsDefault {
-		for id, item := range r.byID {
-			if item.UserID == a.UserID {
-				item.IsDefault = false
-				r.byID[id] = item
-			}
-		}
-	}
-	r.byID[a.ID] = a
-	return a, nil
-}
-
-func (r *InMemoryAddressRepository) Delete(_ context.Context, id, userID string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	a, ok := r.byID[id]
-	if !ok || a.UserID != userID {
-		return ErrAddressNotFound
-	}
-	delete(r.byID, id)
-	return nil
-}
-
-func (r *InMemoryAddressRepository) SetDefault(_ context.Context, id, userID string) (Address, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	a, ok := r.byID[id]
-	if !ok || a.UserID != userID {
-		return Address{}, ErrAddressNotFound
-	}
-	for k, item := range r.byID {
-		if item.UserID == userID {
-			item.IsDefault = false
-			r.byID[k] = item
-		}
-	}
-	a.IsDefault = true
-	r.byID[id] = a
-	return a, nil
 }
