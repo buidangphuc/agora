@@ -97,3 +97,32 @@ func TestDockerfileBuildsBothBinaries(t *testing.T) {
 		t.Errorf("Dockerfile references third_party")
 	}
 }
+
+func TestReadmeDropsRetiredKeysAndStalePackages(t *testing.T) {
+	readme := serviceFile(t, "README.md")
+	for _, banned := range []string{
+		"DATABASE_ENABLED", "KAFKA_ENABLED", "SHUTDOWN_GRACE_SECONDS",
+		"internal/handler", "internal/consumer", "internal/bootstrap", "internal/repository",
+	} {
+		if strings.Contains(readme, banned) {
+			t.Errorf("README.md still mentions %s", banned)
+		}
+	}
+	for _, want := range []string{
+		"ENV", "GRPC_PORT", "SHUTDOWN_GRACE", "GRPC_REFLECTION_ENABLED",
+		"LOG_KEY_FP_SECRET", "UPSTREAM_AI_ADDR", "/indexer", "make",
+	} {
+		if !strings.Contains(readme, want) {
+			t.Errorf("README.md does not document %s", want)
+		}
+	}
+}
+
+func TestNoLeftoverLegacyPackages(t *testing.T) {
+	for _, dir := range []string{"consumer", "repository", "handler", "bootstrap"} {
+		p := filepath.Join("..", dir)
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("legacy package internal/%s still exists", dir)
+		}
+	}
+}
