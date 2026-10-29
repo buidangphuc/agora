@@ -451,8 +451,8 @@ func TestRotateRefresh_LifetimeExceededOutboxFailureRollsBack_Postgres(t *testin
 			t.Fatalf("must roll back: %+v", after)
 		}
 	}
-	if outboxCount(t, pool) != 1 {
-		t.Fatal("only the pre-existing row expected")
+	if n := outboxCount(t, pool); n != 0 {
+		t.Fatalf("failed attempts must leave no outbox row, got %d", n)
 	}
 }
 
