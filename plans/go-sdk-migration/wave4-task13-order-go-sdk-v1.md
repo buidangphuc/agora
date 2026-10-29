@@ -9,6 +9,12 @@ Implement OpenSpec change `order-go-sdk-v1` test-first per its tasks.md sections
 ## Write-set (EXCLUSIVE)
 - team-order/**
 - openspec/changes/order-go-sdk-v1/**
+- team-order/internal/order/order.go (widened at build: task 1.8)
+- team-order/internal/order/idempotency.go (widened at build: task 1.8)
+- team-order/internal/order/saga.go (widened at build: task 1.8)
+- team-order/internal/order/flashprice.go (widened at build: task 1.8)
+- team-order/internal/order/lifecycle.go (widened at build: task 1.8)
+- team-order/internal/rpc/order.go (widened at build: task 1.8)
 
 ## Verify
 - cd team-order && make proto && make check && go build ./... && GO_SDK_REQUIRE_DOCKER=1 go test -race ./... -count=1
