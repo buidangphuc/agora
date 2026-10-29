@@ -84,6 +84,8 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+          ports:
+            - { name: grpc, containerPort: 50059 }
           env:
             - { name: KAFKA_BROKERS, value: "redpanda:9092" }
             - { name: KAFKA_ORDER_TOPIC, value: "order.events" }
