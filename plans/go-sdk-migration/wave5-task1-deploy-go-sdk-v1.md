@@ -22,6 +22,8 @@ Implement OpenSpec change `deploy-go-sdk-v1` test-first per its tasks.md section
 - platform-e2e/scripts/tests/test_gitops_ga4.py
 - platform-e2e/compose/**
 - openspec/changes/deploy-go-sdk-v1/**
+- platform-gitops/platform/search-indexer-overlays/** (widened at build: task 1.6.1)
+- platform-gitops/platform/team-analytics-overlays/** (widened at build: task 1.6.1)
 
 ## Verify
 - python -m pytest platform-gitops/tests scripts/asdlc/tests -q
