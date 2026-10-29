@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import time
 
 from pytest_bdd import given, then, when
 
@@ -20,7 +19,6 @@ IMAGE = os.environ.get("SEARCH_BOOT_IMAGE", "agora-team-search:local")
 BROKERS = "redpanda:9092"
 UNREACHABLE_DB = "postgres://u:p@127.0.0.1:1/db?sslmode=disable"
 OPENSEARCH_URL = os.environ.get("SEARCH_BOOT_OPENSEARCH_URL", "http://host.docker.internal:9200")
-FALLBACK_MARKER = "saved searches use an in-memory store"
 
 
 def _run(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -56,11 +54,11 @@ def exits_non_zero(world: World) -> None:
 def log_names_database(world: World) -> None:
     proc: subprocess.CompletedProcess[str] = world.state.extra["boot"]
     log = proc.stdout + proc.stderr
-    assert "DATABASE_ENABLED" in log and "DATABASE_URL" in log, log
+    assert "DATABASE_URL" in log or "postgres" in log, log
 
 
 @then(
-    "the same image with ENV production, DATABASE_ENABLED true and an unreachable database exits non-zero"
+    "the same image with ENV production and an unreachable database exits non-zero"
 )
 def production_unreachable(world: World) -> None:
     proc = _run(
@@ -68,7 +66,6 @@ def production_unreachable(world: World) -> None:
             "ENV": "production",
             "GRPC_PORT": "50052",
             "KAFKA_BROKERS": BROKERS,
-            "DATABASE_ENABLED": "true",
             "DATABASE_URL": UNREACHABLE_DB,
             "OPENSEARCH_URL": OPENSEARCH_URL,
         }
@@ -77,27 +74,16 @@ def production_unreachable(world: World) -> None:
     assert proc.returncode != 0 and "postgres" in log, log
 
 
-@then("the same image with ENV local and DATABASE_ENABLED false falls back to in-memory storage")
-def local_falls_back(world: World) -> None:
-    """Control: the failure above is the database rule, not a generic boot failure."""
-    env = {
-        "ENV": "local",
-        "GRPC_PORT": "50052",
-        "DATABASE_ENABLED": "false",
-        "DATABASE_URL": UNREACHABLE_DB,
-        "OPENSEARCH_URL": OPENSEARCH_URL,
-    }
-    args = ["docker", "run", "-d", "--rm"]
-    for key, value in env.items():
-        args += ["-e", f"{key}={value}"]
-    cid = subprocess.run([*args, IMAGE], capture_output=True, text=True, check=True).stdout.strip()
-    log = ""
-    try:
-        deadline = time.monotonic() + 60
-        while time.monotonic() < deadline and FALLBACK_MARKER not in log:
-            time.sleep(1)
-            logs = subprocess.run(["docker", "logs", cid], capture_output=True, text=True)
-            log = logs.stdout + logs.stderr
-    finally:
-        subprocess.run(["docker", "rm", "-f", cid], capture_output=True, check=False)
-    assert FALLBACK_MARKER in log and "ping postgres" not in log, log
+@then("the same image with ENV local and an unreachable database exits non-zero")
+def local_unreachable(world: World) -> None:
+    proc = _run(
+        {
+            "ENV": "local",
+            "GRPC_PORT": "50052",
+            "KAFKA_BROKERS": BROKERS,
+            "DATABASE_URL": UNREACHABLE_DB,
+            "OPENSEARCH_URL": OPENSEARCH_URL,
+        }
+    )
+    log = proc.stdout + proc.stderr
+    assert proc.returncode != 0 and "postgres" in log, log
