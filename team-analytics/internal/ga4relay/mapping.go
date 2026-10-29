@@ -25,50 +25,6 @@ type MappingStore interface {
 	Delete(ctx context.Context, buyerID string) error
 }
 
-type memEntry struct {
-	clientID string
-	expires  time.Time
-}
-
-type memoryMappingStore struct {
-	mu  sync.Mutex
-	now func() time.Time
-	m   map[string]memEntry
-}
-
-// NewMemoryMappingStore returns an in-memory MappingStore with 30d expiry.
-func NewMemoryMappingStore(now func() time.Time) MappingStore {
-	return &memoryMappingStore{now: now, m: map[string]memEntry{}}
-}
-
-func (s *memoryMappingStore) Get(_ context.Context, buyerID string) (string, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	e, ok := s.m[buyerID]
-	if !ok {
-		return "", false, nil
-	}
-	if !s.now().Before(e.expires) {
-		delete(s.m, buyerID)
-		return "", false, nil
-	}
-	return e.clientID, true, nil
-}
-
-func (s *memoryMappingStore) Put(_ context.Context, buyerID, clientID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.m[buyerID] = memEntry{clientID: clientID, expires: s.now().Add(mappingTTL)}
-	return nil
-}
-
-func (s *memoryMappingStore) Delete(_ context.Context, buyerID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.m, buyerID)
-	return nil
-}
-
 // MappingHandler maintains the mapping from tracking records.
 type MappingHandler struct {
 	store   MappingStore
@@ -121,18 +77,4 @@ func (h *MappingHandler) Handle(ctx context.Context, rec consume.Record) error {
 		return nil
 	}
 	return h.store.Put(ctx, principalID, te.GetGaClientId())
-}
-
-func (s *memoryMappingStore) Purge(_ context.Context) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var n int64
-	now := s.now()
-	for k, e := range s.m {
-		if !now.Before(e.expires) {
-			delete(s.m, k)
-			n++
-		}
-	}
-	return n, nil
 }
