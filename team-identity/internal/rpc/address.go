@@ -1,46 +1,36 @@
-package handler
+package rpc
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
-	"github.com/buidangphuc/team-identity/internal/interceptor"
-	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/store"
 )
 
 type AddressHandler struct {
 	identityv1.UnimplementedAddressServiceServer
 
-	repo   repository.AddressRepository
+	repo   store.AddressRepository
 	logger *slog.Logger
 }
 
-func NewAddressHandler(repo repository.AddressRepository, logger *slog.Logger) *AddressHandler {
-	if logger == nil {
-		logger = slog.Default()
-	}
-	return &AddressHandler{
-		repo:   repo,
-		logger: logger,
-	}
+func NewAddressHandler(repo store.AddressRepository, logger *slog.Logger) *AddressHandler {
+	return &AddressHandler{repo: repo, logger: orDefault(logger)}
 }
 
-func (h *AddressHandler) ListAddresses(
-	ctx context.Context,
-	_ *identityv1.ListAddressesRequest,
-) (*identityv1.ListAddressesResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+func (h *AddressHandler) ListAddresses(ctx context.Context, _ *identityv1.ListAddressesRequest) (*identityv1.ListAddressesResponse, error) {
+	p, err := auth.RequireUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	items, err := h.repo.List(ctx, principal.GetId())
+	items, err := h.repo.List(ctx, p.ID)
 	if err != nil {
-		return nil, internalErr(h.logger, "list addresses", err)
+		return nil, statusErr(ctx, h.logger, err)
 	}
 	wire := make([]*identityv1.Address, 0, len(items))
 	for _, a := range items {
@@ -49,20 +39,16 @@ func (h *AddressHandler) ListAddresses(
 	return &identityv1.ListAddressesResponse{Addresses: wire}, nil
 }
 
-func (h *AddressHandler) CreateAddress(
-	ctx context.Context,
-	req *identityv1.CreateAddressRequest,
-) (*identityv1.CreateAddressResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+func (h *AddressHandler) CreateAddress(ctx context.Context, req *identityv1.CreateAddressRequest) (*identityv1.CreateAddressResponse, error) {
+	p, err := auth.RequireUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if req.GetRecipientName() == "" || req.GetPhone() == "" || req.GetStreet() == "" || req.GetCity() == "" {
 		return nil, status.Error(codes.InvalidArgument, "recipient_name, phone, street, and city are required")
 	}
-
-	created, err := h.repo.Create(ctx, repository.Address{
-		UserID:        principal.GetId(),
+	created, err := h.repo.Create(ctx, store.Address{
+		UserID:        p.ID,
 		RecipientName: req.GetRecipientName(),
 		Phone:         req.GetPhone(),
 		Street:        req.GetStreet(),
@@ -72,16 +58,13 @@ func (h *AddressHandler) CreateAddress(
 		IsDefault:     req.GetIsDefault(),
 	})
 	if err != nil {
-		return nil, internalErr(h.logger, "create address", err)
+		return nil, statusErr(ctx, h.logger, err)
 	}
 	return &identityv1.CreateAddressResponse{Address: toWireAddress(created)}, nil
 }
 
-func (h *AddressHandler) UpdateAddress(
-	ctx context.Context,
-	req *identityv1.UpdateAddressRequest,
-) (*identityv1.UpdateAddressResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+func (h *AddressHandler) UpdateAddress(ctx context.Context, req *identityv1.UpdateAddressRequest) (*identityv1.UpdateAddressResponse, error) {
+	p, err := auth.RequireUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -91,10 +74,9 @@ func (h *AddressHandler) UpdateAddress(
 	if req.GetRecipientName() == "" || req.GetPhone() == "" || req.GetStreet() == "" || req.GetCity() == "" {
 		return nil, status.Error(codes.InvalidArgument, "recipient_name, phone, street, and city are required")
 	}
-
-	updated, err := h.repo.Update(ctx, repository.Address{
+	updated, err := h.repo.Update(ctx, store.Address{
 		ID:            req.GetId(),
-		UserID:        principal.GetId(),
+		UserID:        p.ID,
 		RecipientName: req.GetRecipientName(),
 		Phone:         req.GetPhone(),
 		Street:        req.GetStreet(),
@@ -104,56 +86,41 @@ func (h *AddressHandler) UpdateAddress(
 		IsDefault:     req.GetIsDefault(),
 	})
 	if err != nil {
-		if errors.Is(err, repository.ErrAddressNotFound) {
-			return nil, status.Error(codes.NotFound, "address not found")
-		}
-		return nil, internalErr(h.logger, "update address", err)
+		return nil, statusErr(ctx, h.logger, err)
 	}
 	return &identityv1.UpdateAddressResponse{Address: toWireAddress(updated)}, nil
 }
 
-func (h *AddressHandler) DeleteAddress(
-	ctx context.Context,
-	req *identityv1.DeleteAddressRequest,
-) (*identityv1.DeleteAddressResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+func (h *AddressHandler) DeleteAddress(ctx context.Context, req *identityv1.DeleteAddressRequest) (*identityv1.DeleteAddressResponse, error) {
+	p, err := auth.RequireUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if req.GetId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "address id is required")
 	}
-	if err := h.repo.Delete(ctx, req.GetId(), principal.GetId()); err != nil {
-		if errors.Is(err, repository.ErrAddressNotFound) {
-			return nil, status.Error(codes.NotFound, "address not found")
-		}
-		return nil, internalErr(h.logger, "delete address", err)
+	if err := h.repo.Delete(ctx, req.GetId(), p.ID); err != nil {
+		return nil, statusErr(ctx, h.logger, err)
 	}
 	return &identityv1.DeleteAddressResponse{}, nil
 }
 
-func (h *AddressHandler) SetDefaultAddress(
-	ctx context.Context,
-	req *identityv1.SetDefaultAddressRequest,
-) (*identityv1.SetDefaultAddressResponse, error) {
-	principal, err := interceptor.RequirePrincipal(ctx)
+func (h *AddressHandler) SetDefaultAddress(ctx context.Context, req *identityv1.SetDefaultAddressRequest) (*identityv1.SetDefaultAddressResponse, error) {
+	p, err := auth.RequireUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if req.GetId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "address id is required")
 	}
-	updated, err := h.repo.SetDefault(ctx, req.GetId(), principal.GetId())
+	updated, err := h.repo.SetDefault(ctx, req.GetId(), p.ID)
 	if err != nil {
-		if errors.Is(err, repository.ErrAddressNotFound) {
-			return nil, status.Error(codes.NotFound, "address not found")
-		}
-		return nil, internalErr(h.logger, "set default address", err)
+		return nil, statusErr(ctx, h.logger, err)
 	}
 	return &identityv1.SetDefaultAddressResponse{Address: toWireAddress(updated)}, nil
 }
 
-func toWireAddress(a repository.Address) *identityv1.Address {
+func toWireAddress(a store.Address) *identityv1.Address {
 	return &identityv1.Address{
 		Id:            a.ID,
 		UserId:        a.UserID,
