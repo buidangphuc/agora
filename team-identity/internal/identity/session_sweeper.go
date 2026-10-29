@@ -77,10 +77,10 @@ func (s *SessionSweeper) Tick(ctx context.Context) error {
 	case ctx.Err() != nil:
 		return ctx.Err()
 	case err != nil:
-		s.logger.Warn("session retention sweep failed; will retry",
+		s.logger.WarnContext(ctx, "session retention sweep failed; will retry",
 			"sessions_purged", res.Sessions, "login_events_purged", res.LoginEvents)
 	case res.Sessions > 0 || res.LoginEvents > 0:
-		s.logger.Info("session retention sweep done",
+		s.logger.InfoContext(ctx, "session retention sweep done",
 			"sessions_purged", res.Sessions, "login_events_purged", res.LoginEvents)
 	}
 	return nil

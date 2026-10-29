@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"log/slog"
+	"math"
 	"regexp"
 	"time"
 	"unicode/utf8"
@@ -133,5 +134,5 @@ func (h *AccountAdminHandler) SetUserStatus(ctx context.Context, req *identityv1
 	if err != nil {
 		return nil, statusErr(ctx, h.logger, err)
 	}
-	return &identityv1.SetUserStatusResponse{User: toAdminUser(res.User), SessionsRevoked: int32(res.SessionsRevoked)}, nil
+	return &identityv1.SetUserStatusResponse{User: toAdminUser(res.User), SessionsRevoked: int32(min(res.SessionsRevoked, math.MaxInt32))}, nil
 }
