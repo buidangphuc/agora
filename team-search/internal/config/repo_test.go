@@ -108,14 +108,42 @@ func TestReadmeDropsRetiredKeysAndStalePackages(t *testing.T) {
 			t.Errorf("README.md still mentions %s", banned)
 		}
 	}
-	for _, want := range []string{
-		"ENV", "GRPC_PORT", "SHUTDOWN_GRACE", "GRPC_REFLECTION_ENABLED",
-		"LOG_KEY_FP_SECRET", "UPSTREAM_AI_ADDR", "/indexer", "make",
-	} {
+	for _, want := range []string{"/indexer", "make"} {
 		if !strings.Contains(readme, want) {
 			t.Errorf("README.md does not document %s", want)
 		}
 	}
+	for _, key := range []string{
+		"ENV", "GRPC_PORT", "SHUTDOWN_GRACE", "GRPC_REFLECTION_ENABLED",
+		"LOG_KEY_FP_SECRET", "UPSTREAM_AI_ADDR", "TOMBSTONE_TTL", "TOMBSTONE_PURGE_INTERVAL",
+	} {
+		if readmeRow(readme, key) == "" {
+			t.Errorf("README.md has no table row for %s", key)
+		}
+	}
+	if row := readmeRow(readme, "GRPC_REFLECTION_ENABLED"); !strings.Contains(row, "`false`") {
+		t.Errorf("GRPC_REFLECTION_ENABLED row must show default `false`: %q", row)
+	}
+	for _, key := range []string{"TOMBSTONE_TTL", "TOMBSTONE_PURGE_INTERVAL"} {
+		if row := strings.ToLower(readmeRow(readme, key)); strings.Contains(row, "falls back") || strings.Contains(row, "fallback") {
+			t.Errorf("%s row still describes a fallback: %q", key, row)
+		}
+	}
+	for _, key := range []string{"ENV", "GRPC_PORT", "UPSTREAM_AI_ADDR"} {
+		if row := readmeRow(readme, key); !strings.Contains(strings.ToLower(row), "required") {
+			t.Errorf("%s row must be marked required: %q", key, row)
+		}
+	}
+}
+
+func readmeRow(readme, key string) string {
+	prefix := "| `" + key + "` |"
+	for _, line := range strings.Split(readme, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			return line
+		}
+	}
+	return ""
 }
 
 func TestNoLeftoverLegacyPackages(t *testing.T) {
