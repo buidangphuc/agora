@@ -252,7 +252,7 @@ func readExampleValue(t *testing.T, key string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		if v, ok := strings.CutPrefix(sc.Text(), key+"="); ok {
@@ -357,8 +357,8 @@ func TestReservationDefaultsFromEnv(t *testing.T) {
 	if d, w := s.ReservationSweepInterval(); d != time.Minute || !strings.Contains(w, "RESERVATION_SWEEP_INTERVAL") {
 		t.Fatalf("interval=%s warn=%q", d, w)
 	}
-	os.Unsetenv("RESERVATION_TTL")
-	os.Unsetenv("RESERVATION_SWEEP_INTERVAL")
+	_ = os.Unsetenv("RESERVATION_TTL")
+	_ = os.Unsetenv("RESERVATION_SWEEP_INTERVAL")
 	s = mustLoad(t)
 	if d, w := s.ReservationTTL(); d != 15*time.Minute || w != "" {
 		t.Fatalf("unset ttl: %s warn=%q", d, w)
@@ -553,7 +553,7 @@ func TestEnvExampleInSync(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	got := map[string]struct{}{}
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
