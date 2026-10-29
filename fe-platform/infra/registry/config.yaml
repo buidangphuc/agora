@@ -1,0 +1,19 @@
+storage: /verdaccio/storage
+web:
+  title: fe-platform local registry
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+packages:
+  "@fe-platform/*":
+    access: $all
+    publish: $all
+    unpublish: $all
+  "**":
+    access: $all
+    proxy: npmjs
+max_body_size: 50mb
+log:
+  type: stdout
+  format: pretty
+  level: warn

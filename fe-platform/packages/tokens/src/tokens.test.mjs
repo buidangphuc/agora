@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -80,6 +82,29 @@ describe("generated css", () => {
     );
     expect(committed).toBe(toCss());
   });
+
+  it("matches the committed type declarations", () => {
+    const pkg = join(here, "..");
+    const tmp = mkdtempSync(join(tmpdir(), "tokens-types-"));
+    try {
+      const run = spawnSync(
+        "npx",
+        ["tsc", "-p", "tsconfig.build.json", "--outDir", tmp],
+        { cwd: pkg, encoding: "utf8" },
+      );
+      expect(run.status).toBe(0);
+      const committedDir = join(pkg, "dist", "types");
+      const names = readdirSync(tmp).sort();
+      expect(readdirSync(committedDir).sort()).toEqual(names);
+      for (const n of names) {
+        expect(readFileSync(join(committedDir, n), "utf8")).toBe(
+          readFileSync(join(tmp, n), "utf8"),
+        );
+      }
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  }, 30000);
 
   it("declares every semantic token in the dark block", () => {
     const css = toCss();

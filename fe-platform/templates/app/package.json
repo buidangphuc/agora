@@ -12,7 +12,7 @@
   "dependencies": {
     "@fe-platform/api-client": "^0.1.0",
     "@fe-platform/config": "*",
-    "@fe-platform/tokens": "^0.1.0",
+    "@fe-platform/tokens": "^0.1.1",
     "@fe-platform/ui": "^0.1.0",
     "autoprefixer": "^10.6.2",
     "next": "^15.5.27",

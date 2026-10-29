@@ -20,7 +20,7 @@
     "catalog:check": "node scripts/catalog.mjs --check",
     "release:status": "changeset status --since=${BASE:-origin/main}",
     "release:version": "changeset version && npm install --package-lock-only",
-    "release:publish": "changeset publish"
+    "release:publish": "node scripts/release-publish.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",

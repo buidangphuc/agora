@@ -14,13 +14,13 @@
 
 ## 4. Registry
 
-- [ ] 4.1 Add `infra/registry/` (docker-compose bound to 127.0.0.1:4873, `config.yaml`, README with start, stop and publish); verify `docker compose up -d` serves the registry and `npm ping --registry http://127.0.0.1:4873` succeeds
-- [ ] 4.2 Publish 0.1.0 of the three packages through `npm run release:publish`; verify `npm view @fe-platform/ui version --registry ...` returns 0.1.0 and installing the three into an empty directory resolves from the registry
+- [x] 4.1 Add `infra/registry/` (docker-compose bound to 127.0.0.1:4873, `config.yaml`, README with start, stop and publish); verify `docker compose up -d` serves the registry and `npm ping --registry http://127.0.0.1:4873` succeeds
+- [x] 4.2 Publish the three packages (0.1.0, then tokens 0.1.1 through `npm run release:version` and `npm run release:publish`); verify `npm view @fe-platform/ui version --registry ...` returns 0.1.0 and installing the three into an empty directory resolves from the registry
 
 ## 5. Consumer app
 
-- [ ] 5.1 Create `examples/consumer` (own lockfile, `.npmrc` scoped registry, Next page with Button, Link, Table and `border-border-subtle`, `transpilePackages`); verify `npm ci` installs the packages from the registry and `next build` passes
-- [ ] 5.2 Add the consumer class check (every Tailwind class used must generate CSS) to its `npm run check`; verify green on 0.1.0 and red when a used class does not exist
+- [x] 5.1 Create `examples/consumer` (own lockfile, `.npmrc` scoped registry, Next page with Button, Link, Table and `border-border-subtle`, `transpilePackages`); verify `npm ci` installs the packages from the registry and `next build` passes
+- [x] 5.2 Add the consumer class check (every Tailwind class used must generate CSS) to its `npm run check`; verify green on 0.1.0 and red when a used class does not exist
 
 ## 6. Upgrade rehearsal
 

@@ -3,6 +3,7 @@ import { scanImports } from "./check-boundaries.mjs";
 import { scanDisables } from "./check-disables.mjs";
 import { scanTokens } from "./check-tokens.mjs";
 import { measure } from "./experiment-metrics.mjs";
+import { publishEnv } from "./release-publish.mjs";
 
 describe("scanImports", () => {
   it("flags a public route importing internal code", () => {
@@ -132,5 +133,13 @@ describe("measure", () => {
     expect(m.classes.spacing).toEqual(["gap-2", "p-4"]);
     expect(m.classes.radius).toEqual(["rounded-lg"]);
     expect(m.classes.text).toEqual(["text-sm"]);
+  });
+});
+
+describe("publishEnv", () => {
+  it("adds a dummy loopback token only when none is set", () => {
+    const key = "npm_config_//127.0.0.1:4873/:_authToken";
+    expect(publishEnv({})[key]).toBe("dev-local-anonymous");
+    expect(publishEnv({ [key]: "mine" })[key]).toBe("mine");
   });
 });
