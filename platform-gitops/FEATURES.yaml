@@ -634,3 +634,875 @@ features:
     status: automated
     covered_by: "ops/gitops_render.feature::The canary Rollout renders the same liveness probe"
     notes: "Scenario: ops/gitops_render.feature::The canary Rollout renders the same liveness probe (go-sdk-v1-0-2). Red until the chart opt-in lands."
+
+  - id: gitops.dgsv1-grpc-service-renders-all-three-probes
+    title: "gRPC service renders all three probes"
+    persona: admin
+    priority: P1
+    summary: "gRPC service renders all three probes"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "gRPC service renders all three probes"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: covered by the e2e scenario ops/gitops_render.feature \"Every Go service renders a liveness probe by name\" (same spec scenario under another title); exempt here."
+
+  - id: gitops.dgsv1-http-service-also-gets-liveness-and-startup
+    title: "HTTP service also gets liveness and startup"
+    persona: admin
+    priority: P1
+    summary: "HTTP service also gets liveness and startup"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "HTTP service also gets liveness and startup"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: covered by the e2e scenario ops/gitops_render.feature \"An HTTP service ignores the value\" (same spec scenario under another title); exempt here."
+
+  - id: gitops.dgsv1-every-go-service-renders-a-liveness-probe-by-name
+    title: "Every Go service renders a liveness probe by name"
+    persona: admin
+    priority: P1
+    summary: "Every Go service renders a liveness probe by name"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "Every Go service renders a liveness probe by name"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/gitops_render.feature::Every Go service renders a liveness probe by name"
+    notes: "deploy-go-sdk-v1 deploy-runtime scenario."
+
+  - id: gitops.dgsv1-the-gateway-renders-no-http-probe
+    title: "The gateway renders no HTTP probe"
+    persona: admin
+    priority: P1
+    summary: "The gateway renders no HTTP probe"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "The gateway renders no HTTP probe"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: covered by the e2e scenario ops/gitops_render.feature \"The gateway is probed over gRPC\" (same spec scenario under another title); exempt here."
+
+  - id: gitops.dgsv1-disabling-migrate-renders-the-with-liveness-golden
+    title: "Disabling migrate renders the with-liveness golden"
+    persona: admin
+    priority: P1
+    summary: "Disabling migrate renders the with-liveness golden"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "Disabling migrate renders the with-liveness golden"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: covered by the e2e scenario ops/gitops_render.feature \"The default render matches the with-liveness golden\" (same spec scenario under another title); exempt here."
+
+  - id: gitops.dgsv1-reflection-is-refused-in-every-strict-environment
+    title: "Reflection is refused in every strict environment"
+    persona: admin
+    priority: P2
+    summary: "Reflection is refused in every strict environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Reflection is refused in every strict environment (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-chat/internal/config` `TestStrictEnvRefusesReflectionFirst`; `team-verification/internal/config` `TestStrictEnvRefusesReflection`; `team-search/internal/config` `TestLoadRefusesReflectionInStrictEnv`; `team-audit/internal/config` `TestStrictEnvRefusesReflectionBeforeValidation`; `team-notification/internal/config` `TestLoadRefusesReflectionInStrictEnv`; `team-promotion/internal/config` `TestReflectionDefaultOffAndRefusedInStrictEnv`; `team-payment/internal/config` `TestReflectionRefusedInStrictEnv`; `team-engagement/internal/config` `TestStrictEnvRefusesReflection`; `team-domain/internal/config` `TestStrictEnvRefusesUnsafeSettings`; `team-order/internal/config` `TestReflectionRefusedInStrictEnv`; `team-identity/internal/config` `TestStrictEnvRefusesReflectionBeforeValidation`. Not producible end to end."
+
+  - id: gitops.dgsv1-an-unrecognised-environment-refuses-reflection-only
+    title: "An unrecognised environment refuses reflection only"
+    persona: admin
+    priority: P2
+    summary: "An unrecognised environment refuses reflection only"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "An unrecognised environment refuses reflection only (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-gateway/internal/config` `TestEnvOutsideBothSetsRefusesOnlyReflection`; `team-engagement/internal/config` `TestUnrecognisedEnvRefusesReflectionButIsNotStrict`. Not producible end to end."
+
+  - id: gitops.dgsv1-local-and-test-environments-allow-reflection
+    title: "Local and test environments allow reflection"
+    persona: admin
+    priority: P2
+    summary: "Local and test environments allow reflection"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Local and test environments allow reflection (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-engagement/internal/config` `TestLocalAndTestAllowReflection`; `team-domain/internal/config` `TestLocalEnvAcceptsDefaultsAndReflection`. Not producible end to end."
+
+  - id: gitops.dgsv1-team-gateway-refuses-mock-data-in-staging
+    title: "team-gateway refuses mock data in staging"
+    persona: admin
+    priority: P2
+    summary: "team-gateway refuses mock data in staging"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "team-gateway refuses mock data in staging (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-gateway/internal/config` `TestStrictEnvRefusesMockDataFirst`; `team-verification/internal/config` `TestStrictEnvRefusesMockDataFirst`; `team-analytics/internal/config` `TestStrictEnvRefusesMockDataBeforeValidation`. Not producible end to end."
+
+  - id: gitops.dgsv1-strict-environments-refuse-missing-brokers-and-log-key-secret
+    title: "Strict environments refuse missing brokers and log key secret"
+    persona: admin
+    priority: P2
+    summary: "Strict environments refuse missing brokers and log key secret"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Strict environments refuse missing brokers and log key secret (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-chat/internal/config` `TestStrictEnvRequiresKafkaBrokers`; `team-notification/internal/config` `TestLoadRequiresKafkaBrokersAndKeyFPSecretInStrictEnv`; `team-payment/internal/config` `TestStrictEnvRequiresBrokersAuditAndKeySecret`; `team-engagement/internal/config` `TestStrictEnvRequiresBrokersAuditAndSecret`; `team-domain/internal/config` `TestStrictEnvRefusesUnsafeSettings`; `team-order/internal/config` `TestStrictEnvRequiresBrokersAndKeySecret`. Not producible end to end."
+
+  - id: gitops.dgsv1-team-promotion-and-team-identity-refuse-an-empty-broker-list-in-a-stri
+    title: "team-promotion and team-identity refuse an empty broker list in a strict environment"
+    persona: admin
+    priority: P2
+    summary: "team-promotion and team-identity refuse an empty broker list in a strict environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "team-promotion and team-identity refuse an empty broker list in a strict environment (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-promotion/internal/config` `TestStrictEnvRequiresKafkaBrokers`; `team-identity/internal/config` `TestStrictEnvReportsAllRefusals`. Not producible end to end."
+
+  - id: gitops.dgsv1-team-domain-refuses-default-storage-keys-in-a-strict-environment
+    title: "team-domain refuses default storage keys in a strict environment"
+    persona: admin
+    priority: P2
+    summary: "team-domain refuses default storage keys in a strict environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "team-domain refuses default storage keys in a strict environment (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-domain/internal/config` `TestStrictEnvRefusesUnsafeSettings`, `TestLocalEnvAcceptsDefaultsAndReflection`. Not producible end to end."
+
+  - id: gitops.dgsv1-strict-environment-spellings-match-in-any-case
+    title: "Strict environment spellings match in any case"
+    persona: admin
+    priority: P2
+    summary: "Strict environment spellings match in any case"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Strict environment spellings match in any case (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-domain/internal/config` `TestStrictEnvRefusesUnsafeSettings`; `team-engagement/internal/config` `TestLocalAndTestAllowReflection`. Not producible end to end."
+
+  - id: gitops.dgsv1-env-and-grpc-port-have-no-default
+    title: "ENV and GRPC_PORT have no default"
+    persona: admin
+    priority: P2
+    summary: "ENV and GRPC_PORT have no default"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "ENV and GRPC_PORT have no default (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-gateway/internal/config` `TestLoadRequiresEnv`; `team-audit/internal/config` `TestLoadRequiresGRPCPort`. Not producible end to end."
+
+  - id: gitops.dgsv1-team-analytics-refuses-missing-ga4-credentials-in-a-strict-environment
+    title: "team-analytics refuses missing GA4 credentials in a strict environment"
+    persona: admin
+    priority: P2
+    summary: "team-analytics refuses missing GA4 credentials in a strict environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "team-analytics refuses missing GA4 credentials in a strict environment (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-analytics/internal/config` `TestStrictEnvRequiresGA4Credentials`, `TestStrictEnvRequiresGA4ExportDataset`, `TestStrictEnvRequiresLogKeyFPSecret`, `TestStrictEnvRequiresKafkaBrokers`. Not producible end to end."
+
+  - id: gitops.dgsv1-a-required-upstream-address-is-refused-when-empty-in-every-environment
+    title: "A required upstream address is refused when empty in every environment"
+    persona: admin
+    priority: P2
+    summary: "A required upstream address is refused when empty in every environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A required upstream address is refused when empty in every environment (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-engagement/internal/config` `TestLoadRefusesEmptyOrderAddr`, `TestLoadRefusesEmptyAuditAddr`; `team-verification/internal/app` `TestRunRefusesEmptyAuditAddr`; `team-identity/internal/config` `TestStrictEnvRequiresDependencyAddresses`. Not producible end to end."
+
+  - id: gitops.dgsv1-deployed-manifests-never-enable-reflection-or-mock-data
+    title: "Deployed manifests never enable reflection or mock data"
+    persona: admin
+    priority: P1
+    summary: "Deployed manifests never enable reflection or mock data"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "Deployed manifests never enable reflection or mock data"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: covered by the e2e scenario ops/gitops_render.feature \"No deployed overlay enables reflection or mock data\" (same spec scenario under another title); exempt here."
+
+  - id: gitops.dgsv1-every-go-service-renders-its-strict-environment
+    title: "Every Go service renders its strict environment"
+    persona: admin
+    priority: P1
+    summary: "Every Go service renders its strict environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "Every Go service renders its strict environment"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/gitops_render.feature::Every Go service renders its strict environment"
+    notes: "deploy-go-sdk-v1 deploy-runtime scenario."
+
+  - id: gitops.dgsv1-a-service-without-an-overlay-is-flagged
+    title: "A service without an overlay is flagged"
+    persona: admin
+    priority: P2
+    summary: "A service without an overlay is flagged"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A service without an overlay is flagged (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_every_appset_go_service_has_both_overlays`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-argocd-inline-block-mirrors-the-baseline
+    title: "The argocd inline block mirrors the baseline"
+    persona: admin
+    priority: P2
+    summary: "The argocd inline block mirrors the baseline"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The argocd inline block mirrors the baseline (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_inline_mirror_equals_baseline`. Not producible end to end."
+
+  - id: gitops.dgsv1-a-database-service-renders-one-presync-migrate-job
+    title: "A database service renders one PreSync migrate Job"
+    persona: admin
+    priority: P1
+    summary: "A database service renders one PreSync migrate Job"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "A database service renders one PreSync migrate Job"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: covered by the e2e scenario ops/gitops_render.feature \"A database service renders a PreSync migrate job\" (same spec scenario under another title); exempt here."
+
+  - id: gitops.dgsv1-every-database-service-renders-a-migrate-job-and-no-other-service-does
+    title: "Every database service renders a migrate Job and no other service does"
+    persona: admin
+    priority: P2
+    summary: "Every database service renders a migrate Job and no other service does"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Every database service renders a migrate Job and no other service does (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_migrate_job_only_for_database_services`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-migrate-job-is-absent-when-disabled
+    title: "The migrate Job is absent when disabled"
+    persona: admin
+    priority: P1
+    summary: "The migrate Job is absent when disabled"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "The migrate Job is absent when disabled"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/gitops_render.feature::The migrate Job is absent when disabled"
+    notes: "deploy-go-sdk-v1 deploy-runtime scenario."
+
+  - id: gitops.dgsv1-the-secret-exists-before-the-migrate-job-runs
+    title: "The secret exists before the migrate Job runs"
+    persona: admin
+    priority: P2
+    summary: "The secret exists before the migrate Job runs"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The secret exists before the migrate Job runs (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_secret_resources_precede_migrate_job`. Not producible end to end."
+
+  - id: gitops.dgsv1-a-failing-migrate-job-is-bounded-and-fails-the-sync
+    title: "A failing migrate Job is bounded and fails the sync"
+    persona: admin
+    priority: P2
+    summary: "A failing migrate Job is bounded and fails the sync"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A failing migrate Job is bounded and fails the sync (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_migrate_job_failure_bounds`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-migrate-job-renders-without-an-externalsecret
+    title: "The migrate Job renders without an ExternalSecret"
+    persona: admin
+    priority: P2
+    summary: "The migrate Job renders without an ExternalSecret"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The migrate Job renders without an ExternalSecret (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_migrate_job_without_secrets`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-deployment-never-migrates-at-boot
+    title: "The Deployment never migrates at boot"
+    persona: admin
+    priority: P2
+    summary: "The Deployment never migrates at boot"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The Deployment never migrates at boot (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_deployment_never_runs_migrate`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-job-takes-no-migrations-from-a-mounted-volume
+    title: "The Job takes no migrations from a mounted volume"
+    persona: admin
+    priority: P2
+    summary: "The Job takes no migrations from a mounted volume"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The Job takes no migrations from a mounted volume (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_migrate_job_has_no_volume`. Not producible end to end."
+
+  - id: gitops.dgsv1-a-migrate-service-runs-the-service-image
+    title: "A migrate service runs the service image"
+    persona: admin
+    priority: P2
+    summary: "A migrate service runs the service image"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A migrate service runs the service image (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `scripts/asdlc/tests/test_compose_deploy_go_sdk_v1.py` `test_migrate_services_run_service_image`. Not producible end to end."
+
+  - id: gitops.dgsv1-a-go-service-waits-for-its-migration-and-no-removed-key-remains
+    title: "A Go service waits for its migration and no removed key remains"
+    persona: admin
+    priority: P2
+    summary: "A Go service waits for its migration and no removed key remains"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A Go service waits for its migration and no removed key remains (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `scripts/asdlc/tests/test_compose_deploy_go_sdk_v1.py` `test_go_services_depend_on_migrate_and_carry_no_removed_key`, `test_go_services_enable_reflection_locally`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-relay-block-sets-its-grpc-port-and-environment
+    title: "The relay block sets its gRPC port and environment"
+    persona: admin
+    priority: P2
+    summary: "The relay block sets its gRPC port and environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The relay block sets its gRPC port and environment (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `scripts/asdlc/tests/test_compose_deploy_go_sdk_v1.py` `test_relay_sets_grpc_port_and_env`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-gateway-listens-on-grpc-port
+    title: "The gateway listens on GRPC_PORT"
+    persona: admin
+    priority: P2
+    summary: "The gateway listens on GRPC_PORT"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The gateway listens on GRPC_PORT (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `scripts/asdlc/tests/test_compose_deploy_go_sdk_v1.py` `test_gateway_uses_grpc_port`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-new-dead-letter-topics-are-created-locally
+    title: "The new dead-letter topics are created locally"
+    persona: admin
+    priority: P2
+    summary: "The new dead-letter topics are created locally"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The new dead-letter topics are created locally (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `scripts/asdlc/tests/test_compose_deploy_go_sdk_v1.py` `test_redpanda_init_creates_new_dlq_topics`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-compose-file-parses
+    title: "The compose file parses"
+    persona: admin
+    priority: P2
+    summary: "The compose file parses"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The compose file parses (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `scripts/asdlc/tests/test_compose_deploy_go_sdk_v1.py` `test_compose_config_parses`. Not producible end to end."
+
+  - id: gitops.dgsv1-no-baseline-or-inline-block-carries-a-removed-key
+    title: "No baseline or inline block carries a removed key"
+    persona: admin
+    priority: P2
+    summary: "No baseline or inline block carries a removed key"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "No baseline or inline block carries a removed key (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_no_removed_key_in_gitops`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-promotion-kill-switch-is-live-in-every-cluster
+    title: "The promotion kill-switch is live in every cluster"
+    persona: admin
+    priority: P2
+    summary: "The promotion kill-switch is live in every cluster"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The promotion kill-switch is live in every cluster (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_promotion_kill_switch_live_and_upstreams_set`. Not producible end to end."
+
+  - id: gitops.dgsv1-a-required-upstream-address-is-set-in-every-rendered-environment
+    title: "A required upstream address is set in every rendered environment"
+    persona: admin
+    priority: P2
+    summary: "A required upstream address is set in every rendered environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A required upstream address is set in every rendered environment (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_required_upstream_addresses_set_in_every_env`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-domain-service-gets-its-container-port
+    title: "The domain service gets its container port"
+    persona: admin
+    priority: P2
+    summary: "The domain service gets its container port"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The domain service gets its container port (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_grpc_port_in_container_env`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-analytics-consumer-overlay-renders-its-strict-environment
+    title: "The analytics consumer overlay renders its strict environment"
+    persona: admin
+    priority: P2
+    summary: "The analytics consumer overlay renders its strict environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The analytics consumer overlay renders its strict environment (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_analytics_overlays_render_strict_env`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-raw-manifest-bases-boot-locally-with-env-and-grpc-port
+    title: "The raw manifest bases boot locally with ENV and GRPC_PORT"
+    persona: admin
+    priority: P2
+    summary: "The raw manifest bases boot locally with ENV and GRPC_PORT"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The raw manifest bases boot locally with ENV and GRPC_PORT (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_raw_manifest_bases_set_local_env_and_grpc_port`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-relay-is-probed-over-grpc
+    title: "The relay is probed over gRPC"
+    persona: admin
+    priority: P1
+    summary: "The relay is probed over gRPC"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "The relay is probed over gRPC"
+    tags: [ops]
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::The relay is probed over gRPC"
+    notes: "deploy-go-sdk-v1 deploy-runtime scenario."
+
+  - id: gitops.dgsv1-the-search-indexer-overlay-renders-its-strict-environment
+    title: "The search indexer overlay renders its strict environment"
+    persona: admin
+    priority: P2
+    summary: "The search indexer overlay renders its strict environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The search indexer overlay renders its strict environment (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_indexer_overlays_render_strict_env`. Not producible end to end."
+
+  - id: gitops.dgsv1-an-overlay-that-would-set-reflection-is-rejected
+    title: "An overlay that would set reflection is rejected"
+    persona: admin
+    priority: P1
+    summary: "An overlay that would set reflection is rejected"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "An overlay that would set reflection is rejected"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: covered by the e2e scenario ops/gitops_render.feature \"No deployed overlay enables reflection or mock data\" (same spec scenario under another title); exempt here."
+
+  - id: gitops.dgsv1-the-analytics-consumer-reads-its-secret-through-an-externalsecret
+    title: "The analytics consumer reads its secret through an ExternalSecret"
+    persona: admin
+    priority: P2
+    summary: "The analytics consumer reads its secret through an ExternalSecret"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The analytics consumer reads its secret through an ExternalSecret (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_analytics_consumer_has_external_secret`. Not producible end to end."
+
+  - id: gitops.dgsv1-no-literal-secret-is-committed-for-a-deployed-environment
+    title: "No literal secret is committed for a deployed environment"
+    persona: admin
+    priority: P2
+    summary: "No literal secret is committed for a deployed environment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "No literal secret is committed for a deployed environment (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_no_literal_secret_in_deployed_overlays`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-vault-seed-covers-the-new-key-and-the-analytics-service
+    title: "The Vault seed covers the new key and the analytics service"
+    persona: admin
+    priority: P2
+    summary: "The Vault seed covers the new key and the analytics service"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The Vault seed covers the new key and the analytics service (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_vault_seed_has_log_key_secret`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-strategy-value-renders-a-recreate-deployment
+    title: "The strategy value renders a Recreate Deployment"
+    persona: admin
+    priority: P1
+    summary: "The strategy value renders a Recreate Deployment"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+      data: "None: static render of platform-gitops, no stack."
+    acceptance:
+      - "The strategy value renders a Recreate Deployment"
+    tags: [ops]
+    status: automated
+    covered_by: "ops/gitops_render.feature::The strategy value renders a Recreate Deployment"
+    notes: "deploy-go-sdk-v1 deploy-runtime scenario."
+
+  - id: gitops.dgsv1-recreate-is-never-committed-to-a-deployed-overlay
+    title: "Recreate is never committed to a deployed overlay"
+    persona: admin
+    priority: P2
+    summary: "Recreate is never committed to a deployed overlay"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Recreate is never committed to a deployed overlay (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_no_committed_recreate_strategy`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-migrate-job-precedes-the-new-pods
+    title: "The migrate Job precedes the new pods"
+    persona: admin
+    priority: P2
+    summary: "The migrate Job precedes the new pods"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The migrate Job precedes the new pods (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_migrate_job_is_presync_deployment_is_not`. Not producible end to end."
+
+  - id: gitops.dgsv1-a-failed-migrate-job-in-the-first-rollout-is-recoverable-within-the-bo
+    title: "A failed migrate Job in the first rollout is recoverable within the bound"
+    persona: admin
+    priority: P2
+    summary: "A failed migrate Job in the first rollout is recoverable within the bound"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A failed migrate Job in the first rollout is recoverable within the bound (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_outbox_runbook_covers_autosync_and_failed_job`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-dead-letter-topics-have-a-seven-day-retention-in-staging-and-prod
+    title: "The dead-letter topics have a seven-day retention in staging and prod"
+    persona: admin
+    priority: P2
+    summary: "The dead-letter topics have a seven-day retention in staging and prod"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The dead-letter topics have a seven-day retention in staging and prod (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_dlq_topics_have_seven_day_retention`. Not producible end to end."
+
+  - id: gitops.dgsv1-a-dead-letter-topic-without-retention-is-rejected
+    title: "A dead-letter topic without retention is rejected"
+    persona: admin
+    priority: P2
+    summary: "A dead-letter topic without retention is rejected"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "A dead-letter topic without retention is rejected (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_dlq_topics_have_seven_day_retention`. Not producible end to end."
+
+  - id: gitops.dgsv1-team-sharing-migrate-up-applies-the-embedded-migrations
+    title: "team-sharing migrate up applies the embedded migrations"
+    persona: admin
+    priority: P2
+    summary: "team-sharing migrate up applies the embedded migrations"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "team-sharing migrate up applies the embedded migrations (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-sharing/internal/app` `TestMigrateUpAppliesEmbeddedMigrations`, `TestMigrateUpIsIdempotent`. Not producible end to end."
+
+  - id: gitops.dgsv1-team-referral-migrate-up-applies-the-embedded-migrations
+    title: "team-referral migrate up applies the embedded migrations"
+    persona: admin
+    priority: P2
+    summary: "team-referral migrate up applies the embedded migrations"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "team-referral migrate up applies the embedded migrations (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-referral/internal/app` `TestMigrateUpAppliesEmbeddedMigrations`, `TestMigrateUpIsIdempotent`. Not producible end to end."
+
+  - id: gitops.dgsv1-migrate-up-fails-on-an-unreachable-database-or-an-empty-database-url
+    title: "migrate up fails on an unreachable database or an empty DATABASE_URL"
+    persona: admin
+    priority: P2
+    summary: "migrate up fails on an unreachable database or an empty DATABASE_URL"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "migrate up fails on an unreachable database or an empty DATABASE_URL (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-sharing/internal/app` `TestMigrateUpRefusesEmptyDatabaseURL`, `TestMigrateUpFailsOnUnreachableDatabase`; `team-referral/internal/app` `TestMigrateUpRefusesEmptyDatabaseURL`, `TestMigrateUpFailsOnUnreachableDatabase`. Not producible end to end."
+
+  - id: gitops.dgsv1-server-boot-never-migrates
+    title: "Server boot never migrates"
+    persona: admin
+    priority: P2
+    summary: "Server boot never migrates"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "Server boot never migrates (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `team-sharing/internal/app` `TestServerBootDoesNotMigrate`; `team-referral/internal/app` `TestServerBootDoesNotMigrate`. Not producible end to end."
+
+  - id: gitops.dgsv1-the-migrate-job-and-compose-job-run-the-service-image
+    title: "The migrate Job and compose job run the service image"
+    persona: admin
+    priority: P2
+    summary: "The migrate Job and compose job run the service image"
+    entry_route: /
+    services: [platform-gitops]
+    preconditions:
+      login: admin
+    acceptance:
+      - "The migrate Job and compose job run the service image (unit-verified)"
+    tags: [ops, unit]
+    status: not-testable
+    notes: "deploy-go-sdk-v1: unit-verified: `platform-gitops/tests/test_deploy_go_sdk_v1_manifests.py` `test_migrate_job_only_for_database_services`; `scripts/asdlc/tests/test_compose_deploy_go_sdk_v1.py` `test_migrate_services_run_service_image`. Not producible end to end."
