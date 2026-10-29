@@ -9,6 +9,7 @@ Implement OpenSpec change `analytics-go-sdk-v1` test-first per its tasks.md sect
 ## Write-set (EXCLUSIVE)
 - team-analytics/**
 - openspec/changes/analytics-go-sdk-v1/**
+- openspec/specs/**/spec.md
 
 ## Verify
 - cd team-analytics && make proto && make check && go build ./... && GO_SDK_REQUIRE_DOCKER=1 go test -race ./... -count=1
