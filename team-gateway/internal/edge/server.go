@@ -111,7 +111,7 @@ func NewMux(clients *upstream.Clients, e *Edge, analytics events.AnalyticsPublis
 	auditPath, auditHandler := auditv1connect.NewAuditServiceHandler(NewAuditForwarder(clients.Audit, e), opts)
 	mux.Handle(auditPath, auditHandler)
 
-	// Reflection is a development aid: mounted only on EDGE_REFLECTION_ENABLED
+	// Reflection is a development aid: mounted only when the edge reflection setting is on
 	// (config refuses it in staging/production).
 	if e.reflection {
 		reflector := grpcreflect.NewStaticReflector(

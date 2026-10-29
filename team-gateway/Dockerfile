@@ -10,7 +10,6 @@ RUN go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/${BIN}
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=build /out/app /app
-ENV HTTP_PORT=8080
 EXPOSE 8080
 USER nonroot:nonroot
 ENTRYPOINT ["/app"]
