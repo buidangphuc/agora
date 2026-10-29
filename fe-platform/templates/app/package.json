@@ -12,6 +12,7 @@
   "dependencies": {
     "@fe-platform/config": "*",
     "@fe-platform/tokens": "^0.1.0",
+    "@fe-platform/ui": "^0.1.0",
     "autoprefixer": "^10.6.2",
     "next": "^15.5.27",
     "postcss": "^8.5.32",
