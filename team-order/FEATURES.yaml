@@ -6641,3 +6641,19 @@ features:
     tags: [go-sdk, unit]
     status: not-testable
     notes: "VERIFIED BY platform-e2e `features/order/advertised_price.feature` \"Advertised price: Flash price is visible end to end after add-to-cart\". Not producible end to end through the gateway (unit level)."
+
+  - id: ops.order-boot-guard-database
+    title: "team-order refuses to start without a database in production"
+    persona: admin
+    priority: P0
+    summary: "Boot guard: team-order exits non-zero without DATABASE_URL in a strict ENV; there is no in-memory fallback."
+    entry_route: /
+    services: [team-order]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the team-order image is started with ENV=production and no DATABASE_URL"
+      - "THEN the process exits non-zero and its log names DATABASE_URL"
+    tags: [ops, security]
+    status: automated
+    covered_by: "ops/boot_guard_order.feature::team-order refuses to start without a database in production"

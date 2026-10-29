@@ -2194,3 +2194,19 @@ features:
     tags: [go-sdk, unit]
     status: not-testable
     notes: "VERIFIED BY `team-search/internal/config` `TestTombstoneDefaults` Not producible end to end through the gateway (unit level)."
+
+  - id: ops.search-boot-guard-in-memory-storage
+    title: "team-search refuses in-memory storage in production"
+    persona: admin
+    priority: P0
+    summary: "Boot guard: team-search exits non-zero with an empty DATABASE_URL in a strict ENV; it has no in-memory mode."
+    entry_route: /
+    services: [team-search]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the team-search image is started with ENV=production and DATABASE_URL empty"
+      - "THEN the process exits non-zero and its log names the database setting"
+    tags: [ops, security]
+    status: automated
+    covered_by: "ops/boot_guard_search.feature::team-search refuses in-memory storage in production"

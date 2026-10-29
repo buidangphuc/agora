@@ -8,7 +8,7 @@ image:
 containerPort: 8080
 service:
   port: 8080
-healthPath: /healthz
+grpcPort: 8080          # native gRPC health probes (grpc.health.v1.Health)
 resources:
   requests:
     cpu: 100m
@@ -25,7 +25,8 @@ autoscaling:
   maxReplicas: 5
   targetCPUUtilizationPercentage: 60
 env:
-  HTTP_PORT: "8080"
+  ENV: "local"
+  GRPC_PORT: "8080"
   UPSTREAM_IDENTITY_ADDR: "team-identity:50053"
   UPSTREAM_LISTING_ADDR: "team-domain:50051"
   UPSTREAM_SEARCH_ADDR: "team-search:50052"
@@ -42,7 +43,6 @@ env:
   UPSTREAM_VERIFICATION_ADDR: "team-verification:50064"
   UPSTREAM_SHARING_ADDR: "team-sharing:50065"
   UPSTREAM_AUDIT_ADDR: "team-audit:50066"
-  KAFKA_ENABLED: "true"
   KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
   KAFKA_ANALYTICS_TOPIC: "analytics.events"
   # Session revocation (ADR-0003 addendum): identity.events -> in-memory sid denylist.
@@ -56,6 +56,9 @@ env:
   # Edge verification (ADR-0006): fetch team-identity's public keys from its JWKS
   # and verify RS256 by kid. The gateway holds NO signing secret.
   JWKS_URL: "http://team-identity:50063/.well-known/jwks.json"
+  JWKS_CACHE_TTL: "300"
+probes:
+  livenessService: liveness
 secrets:
   enabled: true
   jwtShared: false     # gateway no longer needs any JWT secret (public keys via JWKS_URL)

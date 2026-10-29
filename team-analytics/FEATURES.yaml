@@ -1909,20 +1909,35 @@ features:
     status: automated
     covered_by: "tracking/ga4_purchase_relay.feature::Unconsented buyer is not sent under another identity"
 
-  - id: ga4-purchase-relay.no-inbound-endpoint-beyond-probes
-    title: "No inbound endpoint beyond probes"
+  - id: ga4-purchase-relay.plain-http-is-not-served
+    title: "Plain HTTP is not served"
     persona: guest
     priority: P2
-    summary: "No inbound endpoint beyond probes"
+    summary: "Plain HTTP is not served"
     entry_route: /
     services: [team-analytics]
     preconditions:
       login: guest
     acceptance:
-      - "No inbound endpoint beyond probes"
+      - "Plain HTTP is not served"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: automated
-    covered_by: "tracking/ga4_purchase_relay.feature::No inbound endpoint beyond probes"
+    status: planned
+    covered_by: "tracking/ga4_purchase_relay.feature::Plain HTTP is not served"
+
+  - id: ga4-purchase-relay.relay-is-probed-over-grpc
+    title: "The relay is probed over gRPC"
+    persona: guest
+    priority: P2
+    summary: "The relay is probed over gRPC"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The relay is probed over gRPC"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+    covered_by: "tracking/ga4_purchase_relay.feature::The relay is probed over gRPC"
 
 
   - id: ga4-purchase-relay.secret-unset

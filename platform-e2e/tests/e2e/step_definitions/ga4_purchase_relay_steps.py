@@ -1,7 +1,7 @@
 """GA4 purchase relay steps (tracking/ga4_purchase_relay.feature, change add-ga4-purchase-relay).
 
 Black box: Kafka in (order.events, analytics.events), a GA4 MP mock out, the relay container's
-logs / env / probe port and the relay DLQ topic. Spec scenario names are echoed by the feature.
+logs / env / gRPC health port and the relay DLQ topic. Spec scenario names are echoed by the feature.
 See support/ga4_relay_support.py for the stack knobs.
 """
 
@@ -48,23 +48,15 @@ def _n(world: World, name: str) -> str:
     return f"{name}-{_rid(world)}"
 
 
-def _ready_path() -> str:
-    return os.getenv("GA4_RELAY_READY_PATH", "/readyz")
-
-
-def _wait_ready(url: str, timeout_s: float = 60.0) -> None:
+def _wait_ready(addr: str, timeout_s: float = 60.0) -> None:
     deadline = time.monotonic() + timeout_s
     last = None
     while time.monotonic() < deadline:
-        try:
-            r = httpx.get(url + _ready_path(), timeout=3)
-            if r.status_code == 200:
-                return
-            last = r.status_code
-        except httpx.HTTPError as exc:
-            last = repr(exc)
+        last = ga.health_check(addr)
+        if last == "SERVING":
+            return
         time.sleep(1)
-    raise AssertionError(f"relay readiness probe {url}{_ready_path()} never returned 200: {last}")
+    raise AssertionError(f"relay grpc.health.v1.Health/Check on {addr} never returned SERVING: {last}")
 
 
 # ── background ───────────────────────────────────────────────────────────
@@ -81,7 +73,7 @@ def mock_and_relay(world: World) -> None:
     assert env.get("GA4_MEASUREMENT_ID"), "relay container has no GA4_MEASUREMENT_ID"
     endpoint = env.get("GA4_ENDPOINT", "")
     assert f":{ga.MOCK_PORT}{ga.MOCK_PATH}" in endpoint, f"relay GA4_ENDPOINT is {endpoint!r}"
-    _wait_ready(ga.relay_url())
+    _wait_ready(ga.relay_grpc_addr())
     _x(world)["ga4_secret"] = env["GA4_API_SECRET"]
     _x(world)["ga4_mock_start"] = len(_MOCK.requests)
 
@@ -256,7 +248,7 @@ def restart_relay(world: World) -> None:
     name = ga.relay_container()
     ga.docker("kill", name)
     ga.docker("start", name)
-    _wait_ready(ga.relay_url(), 90)
+    _wait_ready(ga.relay_grpc_addr(), 90)
 
 
 # ── mock scripting ───────────────────────────────────────────────────────
@@ -501,7 +493,7 @@ def redelivery_sends_nothing(world: World, order: str, buyer: str) -> None:
 # ── inbound surface / forged writer ──────────────────────────────────────
 @when(
     parsers.parse(
-        'an unauthenticated client requests the paths "{paths}" on the relay\'s listening port'
+        'an unauthenticated client sends plain HTTP GET and POST to the paths "{paths}" on the relay\'s gRPC port'
     )
 )
 def probe_paths(world: World, paths: str) -> None:
@@ -511,17 +503,19 @@ def probe_paths(world: World, paths: str) -> None:
     for path in (p.strip() for p in paths.split(",")):
         for method in ("GET", "POST"):
             try:
-                r = httpx.request(method, ga.relay_url() + path, timeout=5)
+                r = httpx.request(method, f"http://{ga.relay_grpc_addr()}{path}", timeout=5)
                 results.append((method, path, r.status_code))
             except httpx.TransportError:
                 results.append((method, path, "refused"))
     x["ga4_probe"] = results
 
 
-@then("every response is 404 or the connection is refused")
+@then("no plain HTTP request is answered 200")
 def probe_results(world: World) -> None:
-    bad = [r for r in _x(world)["ga4_probe"] if r[2] not in (404, "refused")]
-    assert not bad, f"unexpected inbound surface: {bad}"
+    results = _x(world)["ga4_probe"]
+    assert results, "no plain HTTP request was made"
+    bad = [r for r in results if r[2] == 200]
+    assert not bad, f"plain HTTP is served: {bad}"
 
 
 @then("the GA4 mock received 0 requests from those calls")
@@ -543,7 +537,7 @@ def start_disabled(world: World, request) -> None:  # noqa: ANN001
     env = ga.container_env(main)
     env["GA4_API_SECRET"] = ""
     name = f"e2e-ga4-relay-disabled-{_rid(world)}"
-    port = ga.relay_url().rsplit(":", 1)[-1]
+    port = ga.relay_grpc_addr().rsplit(":", 1)[-1]
     network = next(iter(meta["NetworkSettings"]["Networks"]))
     with tempfile.NamedTemporaryFile("w", suffix=".env", delete=False) as f:
         f.write("\n".join(f"{k}={v}" for k, v in env.items()))
@@ -561,7 +555,9 @@ def start_disabled(world: World, request) -> None:  # noqa: ANN001
     ga.docker(*run, meta["Config"]["Image"], *cmd)
     mapped = ga.docker("port", name, port).stdout.strip().splitlines()[0].rsplit(":", 1)[-1]
     before = len(_MOCK.requests)
-    _wait_ready(f"http://127.0.0.1:{mapped}", 60)
+    _wait_ready(f"127.0.0.1:{mapped}", 60)
+    liveness = ga.health_check(f"127.0.0.1:{mapped}", "liveness")
+    assert liveness == "SERVING", f"disabled relay liveness check: {liveness}"
     time.sleep(10)  # a consumer, if it wrongly started, would have joined its group by now
     x["ga4_dis"] = {
         "logs": ga.docker("logs", name, check=False),
@@ -594,6 +590,13 @@ def _relay_logs() -> str:
 def secret_not_logged(world: World) -> None:
     secret = _x(world)["ga4_secret"]
     assert secret not in _relay_logs(), "the GA4 API secret appears in the relay logs"
+
+
+@then("the relay answers grpc.health.v1.Health/Check serving for the empty service and for liveness")
+def relay_probed_over_grpc(world: World) -> None:
+    addr = ga.relay_grpc_addr()
+    assert ga.health_check(addr) == "SERVING", ga.health_check(addr)
+    assert ga.health_check(addr, "liveness") == "SERVING", ga.health_check(addr, "liveness")
 
 
 @then("the relay is configured with the mock endpoint and not a google-analytics.com host")

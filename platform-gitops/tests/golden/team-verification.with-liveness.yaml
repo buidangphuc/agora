@@ -23,6 +23,7 @@ kind: ServiceAccount
 metadata:
   name: team-verification
   namespace: marketplace
+  
 
 ---
 # Source: service/templates/service.yaml
@@ -78,6 +79,10 @@ spec:
             - secretRef:
                 name: team-verification-env
           env:
+            - name: ENV
+              value: "local"
+            - name: GRPC_PORT
+              value: "50064"
             - name: UPSTREAM_AUDIT_ADDR
               value: "team-audit:50066"
           readinessProbe:
@@ -89,6 +94,7 @@ spec:
           livenessProbe:
             grpc:
               port: 50064
+              service: "liveness"
             initialDelaySeconds: 5
             periodSeconds: 5
             failureThreshold: 3
@@ -106,6 +112,7 @@ kind: ExternalSecret
 metadata:
   name: team-verification
   namespace: marketplace
+  
 spec:
   refreshInterval: 1h
   secretStoreRef:
@@ -125,6 +132,7 @@ kind: SecretStore
 metadata:
   name: team-verification
   namespace: marketplace
+  
 spec:
   provider:
     vault:

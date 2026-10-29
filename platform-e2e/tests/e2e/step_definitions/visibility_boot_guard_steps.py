@@ -44,6 +44,13 @@ def start_production(world: World) -> None:
     )
 
 
+@when("it is started with ENV production and an empty DATABASE_URL")
+def start_production_empty_database(world: World) -> None:
+    world.state.extra["boot"] = _run(
+        {"ENV": "production", "GRPC_PORT": "50052", "KAFKA_BROKERS": BROKERS, "DATABASE_URL": ""}
+    )
+
+
 @then("the process exits non-zero")
 def exits_non_zero(world: World) -> None:
     proc: subprocess.CompletedProcess[str] = world.state.extra["boot"]
