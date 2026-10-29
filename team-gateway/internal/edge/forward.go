@@ -11,7 +11,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -20,19 +19,10 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/idempotency"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/reqctx"
 	"github.com/buidangphuc/team-gateway/internal/token"
-)
-
-// Forwarded Principal metadata keys — built fresh from a verified token so a
-// client cannot spoof them.
-const (
-	mdPrincipalID     = "x-principal-id"
-	mdPrincipalType   = "x-principal-type"
-	mdPrincipalScopes = "x-principal-scopes"
-	mdRequestID       = "x-request-id"
-	// mdIdempotencyKey carries the client's Idempotency-Key header to the owning
-	// service (CreateOrder). Built from the validated header only.
-	mdIdempotencyKey = "idempotency-key"
 )
 
 type ctxKey int
@@ -194,10 +184,10 @@ func (e *Edge) outgoing(ctx context.Context, header http.Header) context.Context
 		rid = sanitizeRequestID(header.Get("X-Request-Id"))
 	}
 	md := metadata.MD{}
-	md.Set(mdPrincipalID, p.id)
-	md.Set(mdPrincipalType, p.ptype)
-	md.Set(mdPrincipalScopes, strings.Join(p.scopes, ","))
-	md.Set(mdRequestID, rid)
+	md.Set(auth.MDPrincipalID, p.id)
+	md.Set(auth.MDPrincipalType, p.ptype)
+	md.Set(auth.MDPrincipalScopes, strings.Join(p.scopes, ","))
+	md.Set(reqctx.MetadataRequestID, rid)
 	// Client context is built here from edge-observed values only, never copied
 	// from inbound headers, so a client-supplied x-client-* cannot pass through.
 	ci, ok := clientFrom(ctx)
@@ -296,39 +286,20 @@ func bearerToken(raw string) string {
 	return ""
 }
 
-// requestIDRe is the accepted client request-id shape. The id is forwarded as
-// x-request-id and used as a log/correlation key downstream, so anything else
-// (spaces, control characters, long or unicode values) is replaced.
-var requestIDRe = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+// maxRequestIDLen keeps the edge limit at 64, tighter than the SDK shape check.
+const maxRequestIDLen = 64
 
 // sanitizeRequestID returns the client's id when it is safe, else a fresh one.
 func sanitizeRequestID(raw string) string {
-	if requestIDRe.MatchString(raw) {
+	if len(raw) <= maxRequestIDLen && reqctx.ValidRequestID(raw) {
 		return raw
 	}
 	return newRequestID()
 }
 
-// maxIdempotencyKeyLen bounds an Idempotency-Key header value.
-const maxIdempotencyKeyLen = 255
-
 // errInvalidIdempotencyKey is the fixed client-facing message for an
 // Idempotency-Key header that is not a single printable-ASCII value.
 const errInvalidIdempotencyKey = "invalid Idempotency-Key header: must be a single printable-ASCII value of at most 255 characters"
-
-// validIdempotencyKey reports whether v can travel as gRPC (non "-bin")
-// metadata and is of sane length: printable ASCII (0x20-0x7E), 1..255 bytes.
-func validIdempotencyKey(v string) bool {
-	if v == "" || len(v) > maxIdempotencyKeyLen {
-		return false
-	}
-	for i := 0; i < len(v); i++ {
-		if v[i] < 0x20 || v[i] > 0x7e {
-			return false
-		}
-	}
-	return true
-}
 
 // outgoingWithIdempotencyKey is outgoing plus the Idempotency-Key header
 // forwarded as `idempotency-key` metadata. A missing header adds nothing. A
@@ -341,10 +312,10 @@ func (e *Edge) outgoingWithIdempotencyKey(ctx context.Context, header http.Heade
 	if len(vals) == 0 {
 		return out, nil
 	}
-	if len(vals) > 1 || !validIdempotencyKey(strings.TrimSpace(vals[0])) {
+	if len(vals) > 1 || idempotency.Validate(strings.TrimSpace(vals[0])) != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(errInvalidIdempotencyKey))
 	}
-	return metadata.AppendToOutgoingContext(out, mdIdempotencyKey, strings.TrimSpace(vals[0])), nil
+	return metadata.AppendToOutgoingContext(out, idempotency.MDKey, strings.TrimSpace(vals[0])), nil
 }
 
 func newRequestID() string {
