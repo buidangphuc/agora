@@ -69,6 +69,12 @@ function describe(symbol, checker) {
     client: /^\s*["']use client["']/.test(source),
     props: [],
   };
+  const tag = target.getJsDocTags(checker).find((t) => t.name === "deprecated");
+  if (tag) {
+    entry.deprecated =
+      ts.displayPartsToString(tag.text).replace(/\s+/g, " ").trim() ||
+      "deprecated";
+  }
   const fn = ts.isFunctionDeclaration(decl) ? decl : undefined;
   const param = fn?.parameters[0];
   if (param?.type) propsFrom(param.type, checker, entry);

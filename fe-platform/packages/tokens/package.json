@@ -1,7 +1,6 @@
 {
   "name": "@fe-platform/tokens",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.mjs",
@@ -11,5 +10,10 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit"
+  },
+  "license": "UNLICENSED",
+  "files": ["src", "dist", "!src/**/*.test.mjs"],
+  "publishConfig": {
+    "registry": "http://127.0.0.1:4873"
   }
 }
