@@ -1,5 +1,7 @@
 # Frontend guidelines v0
 
+Components, props and token names: `docs/agents/catalog.json` (generated; `npm run catalog`).
+
 Short on purpose. Revise from what the P5 five-screen experiment shows going wrong.
 
 ## Hierarchy

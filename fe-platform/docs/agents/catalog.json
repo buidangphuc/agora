@@ -1,0 +1,286 @@
+{
+  "components": [
+    {
+      "name": "Button",
+      "kind": "component",
+      "purpose": "Action trigger. One `primary` per view; `ghost` for low-emphasis actions.",
+      "client": false,
+      "props": [
+        {
+          "name": "variant",
+          "required": false,
+          "type": "\"primary\" | \"secondary\" | \"ghost\""
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"sm\" | \"md\" | \"lg\""
+        },
+        {
+          "name": "loading",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "native": "button"
+    },
+    {
+      "name": "Checkbox",
+      "kind": "component",
+      "purpose": "Boolean choice with a visible label and optional error text.",
+      "client": true,
+      "props": [
+        {
+          "name": "label",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "checked",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "defaultChecked",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "onCheckedChange",
+          "required": false,
+          "type": "(checked: boolean) => void"
+        },
+        {
+          "name": "disabled",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "errorText",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Dialog",
+      "kind": "component",
+      "purpose": "Modal for a focused task or confirmation. Title and description are required.",
+      "client": true,
+      "props": [
+        {
+          "name": "triggerLabel",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "children",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "open",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "onOpenChange",
+          "required": false,
+          "type": "(open: boolean) => void"
+        }
+      ]
+    },
+    {
+      "name": "Input",
+      "kind": "component",
+      "purpose": "Text field with a required visible label. Errors are text, never colour alone.",
+      "client": false,
+      "props": [
+        {
+          "name": "label",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "errorText",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "helpText",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "native": "input"
+    },
+    {
+      "name": "Select",
+      "kind": "component",
+      "purpose": "Single choice from a short list; use Input for free text.",
+      "client": true,
+      "props": [
+        {
+          "name": "label",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "options",
+          "required": true,
+          "type": "SelectOption[]"
+        },
+        {
+          "name": "placeholder",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "value",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "defaultValue",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "onValueChange",
+          "required": false,
+          "type": "(value: string) => void"
+        },
+        {
+          "name": "disabled",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "errorText",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Table",
+      "kind": "component",
+      "purpose": "Read-only data table with a required caption and column-scoped headers.",
+      "client": false,
+      "props": [
+        {
+          "name": "caption",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "columns",
+          "required": true,
+          "type": "TableColumn[]"
+        },
+        {
+          "name": "rows",
+          "required": true,
+          "type": "Record<string, ReactNode>[]"
+        },
+        {
+          "name": "emptyText",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ToastProvider",
+      "kind": "component",
+      "purpose": "Wrap the app once; call `useToast().toast(...)` from any client component.",
+      "client": true,
+      "props": [
+        {
+          "name": "children",
+          "required": true,
+          "type": "ReactNode"
+        }
+      ]
+    },
+    {
+      "name": "useToast",
+      "kind": "hook",
+      "purpose": "Returns `toast(message)` for transient feedback; only valid under ToastProvider.",
+      "client": true,
+      "props": []
+    }
+  ],
+  "tokens": {
+    "colors": [
+      "action-primary",
+      "action-primary-hover",
+      "border-danger",
+      "border-strong",
+      "border-subtle",
+      "focus-ring",
+      "surface-card",
+      "surface-muted",
+      "surface-overlay",
+      "surface-page",
+      "text-danger",
+      "text-disabled",
+      "text-inverse",
+      "text-primary",
+      "text-secondary",
+      "text-success",
+      "text-warning"
+    ],
+    "fontSize": [
+      "xs",
+      "sm",
+      "base",
+      "xl",
+      "2xl",
+      "3xl",
+      "4xl"
+    ],
+    "radius": [
+      "none",
+      "xs",
+      "lg",
+      "xl",
+      "2xl",
+      "full"
+    ],
+    "space": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "8",
+      "10",
+      "12",
+      "16",
+      "18"
+    ]
+  }
+}
