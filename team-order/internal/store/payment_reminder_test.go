@@ -40,11 +40,13 @@ func decodeReminderPayloads(t *testing.T, payloads [][]byte) []*orderv1.OrderPay
 	return out
 }
 
-func newUnpaid(t *testing.T, repo store.OrderRepository, method paymentv1.PaymentMethod, due *time.Time) store.Order {
+func newUnpaid(ctx context.Context, t *testing.T, repo store.OrderRepository, method paymentv1.PaymentMethod, due *time.Time) store.Order {
 	t.Helper()
-	o, err := repo.CreateOrder(context.Background(), store.Order{BuyerID: "b", SellerID: "s", TotalAmount: 10,
+	o, err := repo.CreateOrder(ctx, store.Order{
+		BuyerID: "b", SellerID: "s", TotalAmount: 10,
 		Currency: "VND", PaymentMethod: int32(method), PaymentDueAt: due,
-		Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 10}}})
+		Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 10}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +80,7 @@ func runReminderContract(t *testing.T, repo store.OrderRepository, rows reminder
 
 	t.Run("window is inclusive at deadline minus offset and exclusive at the deadline", func(t *testing.T) { // Order expiry: Reminder boundary is inclusive at deadline minus offset
 		d := due
-		o := newUnpaid(t, repo, momo, &d)
+		o := newUnpaid(ctx, t, repo, momo, &d)
 		start := d.Add(-reminderOffset)
 		if find(start.Add(-time.Second))[o.ID] {
 			t.Fatal("one second before the window must not be due")
@@ -100,14 +102,14 @@ func runReminderContract(t *testing.T, repo store.OrderRepository, rows reminder
 	t.Run("paid cod and deadline-less orders are never due", func(t *testing.T) { // Order expiry: A paid order is never reminded; A COD order is never reminded
 		d := due.Add(24 * time.Hour)
 		in := d.Add(-time.Hour)
-		paid := newUnpaid(t, repo, momo, &d)
+		paid := newUnpaid(ctx, t, repo, momo, &d)
 		if _, err := repo.UpdateOrderStatusFrom(ctx, paid.ID, store.OrderStatusPaid,
 			[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 			t.Fatal(err)
 		}
-		cod := newUnpaid(t, repo, paymentv1.PaymentMethod_PAYMENT_METHOD_COD, &d)
-		noDue := newUnpaid(t, repo, momo, nil)
-		live := newUnpaid(t, repo, momo, &d)
+		cod := newUnpaid(ctx, t, repo, paymentv1.PaymentMethod_PAYMENT_METHOD_COD, &d)
+		noDue := newUnpaid(ctx, t, repo, momo, nil)
+		live := newUnpaid(ctx, t, repo, momo, &d)
 		got := find(in)
 		if got[paid.ID] || got[cod.ID] || got[noDue.ID] {
 			t.Fatalf("must not be due: paid=%v cod=%v noDue=%v", got[paid.ID], got[cod.ID], got[noDue.ID])
@@ -119,7 +121,7 @@ func runReminderContract(t *testing.T, repo store.OrderRepository, rows reminder
 
 	t.Run("mark stamps the order and writes exactly one row, once", func(t *testing.T) { // Order expiry: Repeated sweeps never repeat the reminder
 		d := due.Add(48 * time.Hour)
-		o := newUnpaid(t, repo, momo, &d)
+		o := newUnpaid(ctx, t, repo, momo, &d)
 		now := d.Add(-time.Hour)
 		got, err := repo.MarkReminderSent(ctx, o.ID, now)
 		if err != nil || got.PaymentReminderSentAt == nil || got.Status != store.OrderStatusPending {
@@ -147,7 +149,7 @@ func runReminderContract(t *testing.T, repo store.OrderRepository, rows reminder
 
 	t.Run("mark refuses a non-pending order and writes nothing", func(t *testing.T) { // Order expiry: A paid order is never reminded
 		d := due.Add(72 * time.Hour)
-		o := newUnpaid(t, repo, momo, &d)
+		o := newUnpaid(ctx, t, repo, momo, &d)
 		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid,
 			[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 			t.Fatal(err)
@@ -165,7 +167,7 @@ func runReminderContract(t *testing.T, repo store.OrderRepository, rows reminder
 
 	t.Run("concurrent marks produce one winner and one row", func(t *testing.T) { // Order expiry: Repeated sweeps never repeat the reminder
 		d := due.Add(96 * time.Hour)
-		o := newUnpaid(t, repo, momo, &d)
+		o := newUnpaid(ctx, t, repo, momo, &d)
 		var wg sync.WaitGroup
 		var mu sync.Mutex
 		wins := 0
@@ -197,7 +199,7 @@ func runFindReminderDueBatchBound(t *testing.T, repo store.OrderRepository, tota
 	ctx := context.Background()
 	for i := 0; i < total; i++ {
 		d := due
-		newUnpaid(t, repo, momo, &d)
+		newUnpaid(ctx, t, repo, momo, &d)
 	}
 	now := due.Add(-time.Hour)
 	got, err := repo.FindReminderDue(ctx, now, reminderOffset, 100)

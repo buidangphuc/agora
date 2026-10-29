@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,7 +47,8 @@ func runServer(t *testing.T, bin string, env []string, args ...string) result {
 	}
 	code := 0
 	if err != nil {
-		ee, ok := err.(*exec.ExitError)
+		ee := &exec.ExitError{}
+		ok := errors.As(err, &ee)
 		if !ok {
 			t.Fatalf("run: %v", err)
 		}

@@ -36,20 +36,24 @@ type returnFixture struct {
 	rows    returnRowsFn
 }
 
-func newReturnOrder(t *testing.T, f returnFixture, total int64) store.Order {
+func newReturnOrder(ctx context.Context, t *testing.T, f returnFixture, total int64) store.Order {
 	t.Helper()
-	o, err := f.orders.CreateOrder(context.Background(), store.Order{BuyerID: uid("b"), SellerID: uid("s"),
-		TotalAmount: total, Currency: "VND", Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: total}}})
+	o, err := f.orders.CreateOrder(ctx, store.Order{
+		BuyerID: uid("b"), SellerID: uid("s"),
+		TotalAmount: total, Currency: "VND", Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: total}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return o
 }
 
-func newReturn(t *testing.T, f returnFixture, o store.Order, amount int64) store.OrderReturn {
+func newReturn(ctx context.Context, t *testing.T, f returnFixture, o store.Order, amount int64) store.OrderReturn {
 	t.Helper()
-	r, err := f.returns.CreateReturnCapped(context.Background(), store.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID,
-		SellerID: o.SellerID, Reason: "broken", RefundAmount: amount}, o.TotalAmount)
+	r, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{
+		OrderID: o.ID, BuyerID: o.BuyerID,
+		SellerID: o.SellerID, Reason: "broken", RefundAmount: amount,
+	}, o.TotalAmount)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,8 +65,8 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 	P, A, J, R := store.ReturnStatusPending, store.ReturnStatusApproved, store.ReturnStatusRejected, store.ReturnStatusRefunded
 
 	t.Run("won approved to refunded writes one outbox row", func(t *testing.T) {
-		o := newReturnOrder(t, f, 500000)
-		r := newReturn(t, f, o, 200000)
+		o := newReturnOrder(ctx, t, f, 500000)
+		r := newReturn(ctx, t, f, o, 200000)
 		if _, err := f.returns.TransitionReturn(ctx, r.ID, P, A); err != nil {
 			t.Fatal(err)
 		}
@@ -89,8 +93,8 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 	})
 
 	t.Run("lost CAS and other transitions write none", func(t *testing.T) {
-		o := newReturnOrder(t, f, 500000)
-		r := newReturn(t, f, o, 100000)
+		o := newReturnOrder(ctx, t, f, 500000)
+		r := newReturn(ctx, t, f, o, 100000)
 		// Pending -> Refunded via a wrong `from` loses the CAS.
 		if _, err := f.returns.TransitionReturn(ctx, r.ID, A, R); !errors.Is(err, store.ErrReturnStatusConflict) {
 			t.Fatalf("want conflict, got %v", err)
@@ -113,8 +117,8 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 	})
 
 	t.Run("eight concurrent refunds of one return give one winner and one row", func(t *testing.T) {
-		o := newReturnOrder(t, f, 500000)
-		r := newReturn(t, f, o, 200000)
+		o := newReturnOrder(ctx, t, f, 500000)
+		r := newReturn(ctx, t, f, o, 200000)
 		if _, err := f.returns.TransitionReturn(ctx, r.ID, P, A); err != nil {
 			t.Fatal(err)
 		}
@@ -148,7 +152,7 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 	})
 
 	t.Run("eight concurrent return requests of 100000 on 500000 give five inserts", func(t *testing.T) {
-		o := newReturnOrder(t, f, 500000)
+		o := newReturnOrder(ctx, t, f, 500000)
 		var wg sync.WaitGroup
 		var mu sync.Mutex
 		ok, over := 0, 0
@@ -156,8 +160,10 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID,
-					SellerID: o.SellerID, Reason: "r", RefundAmount: 100000}, o.TotalAmount)
+				_, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{
+					OrderID: o.ID, BuyerID: o.BuyerID,
+					SellerID: o.SellerID, Reason: "r", RefundAmount: 100000,
+				}, o.TotalAmount)
 				mu.Lock()
 				defer mu.Unlock()
 				switch {
@@ -188,39 +194,45 @@ func runReturnRepoContract(t *testing.T, f returnFixture) {
 	})
 
 	t.Run("cap rules and a rejected return frees its amount", func(t *testing.T) {
-		o := newReturnOrder(t, f, 500000)
-		first := newReturn(t, f, o, 300000)
-		if _, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
-			Reason: "r", RefundAmount: 300000}, o.TotalAmount); !errors.Is(err, store.ErrReturnExceedsRemainder) {
+		o := newReturnOrder(ctx, t, f, 500000)
+		first := newReturn(ctx, t, f, o, 300000)
+		if _, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{
+			OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
+			Reason: "r", RefundAmount: 300000,
+		}, o.TotalAmount); !errors.Is(err, store.ErrReturnExceedsRemainder) {
 			t.Fatalf("want ErrReturnExceedsRemainder, got %v", err)
 		}
 		// No amount defaults to the remainder.
-		rest := newReturn(t, f, o, 0)
+		rest := newReturn(ctx, t, f, o, 0)
 		if rest.RefundAmount != 200000 {
 			t.Fatalf("default amount: %d", rest.RefundAmount)
 		}
-		if _, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
-			Reason: "r"}, o.TotalAmount); !errors.Is(err, store.ErrNoReturnableRemainder) {
+		if _, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{
+			OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
+			Reason: "r",
+		}, o.TotalAmount); !errors.Is(err, store.ErrNoReturnableRemainder) {
 			t.Fatalf("want ErrNoReturnableRemainder, got %v", err)
 		}
-		if _, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
-			Reason: "r", RefundAmount: 1}, o.TotalAmount); !errors.Is(err, store.ErrReturnExceedsRemainder) {
+		if _, err := f.returns.CreateReturnCapped(ctx, store.OrderReturn{
+			OrderID: o.ID, BuyerID: o.BuyerID, SellerID: o.SellerID,
+			Reason: "r", RefundAmount: 1,
+		}, o.TotalAmount); !errors.Is(err, store.ErrReturnExceedsRemainder) {
 			t.Fatalf("a positive amount with nothing left: want ErrReturnExceedsRemainder, got %v", err)
 		}
 		if _, err := f.returns.TransitionReturn(ctx, first.ID, P, J); err != nil {
 			t.Fatal(err)
 		}
-		again := newReturn(t, f, o, 300000)
+		again := newReturn(ctx, t, f, o, 300000)
 		if again.Status != P {
 			t.Fatalf("new return status %v", again.Status)
 		}
 	})
 
 	t.Run("list by order is newest first", func(t *testing.T) {
-		o := newReturnOrder(t, f, 500000)
-		a := newReturn(t, f, o, 100000)
+		o := newReturnOrder(ctx, t, f, 500000)
+		a := newReturn(ctx, t, f, o, 100000)
 		time.Sleep(2 * time.Millisecond)
-		b := newReturn(t, f, o, 200000)
+		b := newReturn(ctx, t, f, o, 200000)
 		list, err := f.returns.ListReturnsByOrder(ctx, o.ID)
 		if err != nil {
 			t.Fatal(err)
@@ -255,8 +267,8 @@ func TestReturnRepoContract_Postgres(t *testing.T) {
 			return outbox.Row{}, errors.New("boom")
 		}))
 	f := returnFixture{orders: orders, returns: failing, rows: rows}
-	o := newReturnOrder(t, f, 500000)
-	r := newReturn(t, f, o, 200000)
+	o := newReturnOrder(ctx, t, f, 500000)
+	r := newReturn(ctx, t, f, o, 200000)
 	if _, err := failing.TransitionReturn(ctx, r.ID, store.ReturnStatusPending, store.ReturnStatusApproved); err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +283,7 @@ func TestReturnRepoContract_Postgres(t *testing.T) {
 	}
 	// The currency reaches the builder from the order.
 	var payload []byte
-	ok := newReturn(t, returnFixture{orders: orders, returns: returns}, o, 100000)
+	ok := newReturn(ctx, t, returnFixture{orders: orders, returns: returns}, o, 100000)
 	if _, err := returns.TransitionReturn(ctx, ok.ID, store.ReturnStatusPending, store.ReturnStatusApproved); err != nil {
 		t.Fatal(err)
 	}
@@ -294,8 +306,8 @@ func TestReturnRefundedOutbox_Postgres(t *testing.T) {
 	orders := store.NewPostgresOrderRepository(pool, newOutbox(t, pool))
 	returns := store.NewPostgresReturnRepository(pool, newOutbox(t, pool), store.WithReturnOutbox(BuildReturnRefundedOutboxRow))
 	f := returnFixture{orders: orders, returns: returns}
-	o := newReturnOrder(t, f, 500000)
-	r := newReturn(t, f, o, 200000)
+	o := newReturnOrder(ctx, t, f, 500000)
+	r := newReturn(ctx, t, f, o, 200000)
 	if _, err := returns.TransitionReturn(ctx, r.ID, store.ReturnStatusPending, store.ReturnStatusApproved); err != nil {
 		t.Fatal(err)
 	}

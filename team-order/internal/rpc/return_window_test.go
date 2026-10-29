@@ -24,7 +24,7 @@ type windowEnv struct {
 
 func newWindowEnv(t testing.TB) *windowEnv {
 	e := &windowEnv{now: time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)}
-	e.outbox = newPGOutbox(t)
+	e.outbox = newPGOutbox(t.Context(), t)
 	e.orders = e.outbox.orders(store.WithCompletedOutbox(BuildCompletedOutboxRow),
 		store.WithReturnWindow(15*24*time.Hour))
 	returns := e.outbox.returns(store.WithReturnRequestedOutbox(BuildReturnRequestedOutboxRow))

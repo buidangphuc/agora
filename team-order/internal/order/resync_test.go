@@ -50,7 +50,9 @@ func TestResyncCommittedReservations_IdempotentSecondRunChangesNothing(t *testin
 	ctx := context.Background()
 	sagas, domain, ids := preUpgradeState(t, 450) // > one page
 	// One of them was already swept by team-domain before the resync ran.
-	domain.ReleaseStock(ctx, releaseReq(ids[7]))
+	if _, err := domain.ReleaseStock(ctx, releaseReq(ids[7])); err != nil {
+		t.Fatalf("release: %v", err)
+	}
 	stockBefore := domain.Stock("lst_1")
 
 	rep, err := order.ResyncCommittedReservations(ctx, sagas, domain, nil, false)

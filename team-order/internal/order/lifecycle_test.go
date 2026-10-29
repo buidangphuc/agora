@@ -34,7 +34,7 @@ type lifecycleRig struct {
 
 func newLifecycleRig(t *testing.T) *lifecycleRig {
 	t.Helper()
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	orders := outbox.orders(store.WithPaidOutbox(BuildPaidOutboxRow),
 		store.WithCancelledOutbox(BuildCancelledOutboxRow),
 		store.WithReminderOutbox(BuildPaymentReminderOutboxRow))
@@ -60,7 +60,7 @@ func (r *lifecycleRig) place(t *testing.T, method paymentv1.PaymentMethod, due *
 func (r *lifecycleRig) reminders(t *testing.T, orderID string) []*orderv1.OrderPaymentReminder {
 	t.Helper()
 	var out []*orderv1.OrderPaymentReminder
-	for _, row := range r.outbox.EnqueuedRows() {
+	for _, row := range r.outbox.EnqueuedRows(t.Context()) {
 		if row.EventType != OrderPaymentReminderEventType || row.AggregateID != orderID {
 			continue
 		}
@@ -77,9 +77,9 @@ func (r *lifecycleRig) reminders(t *testing.T, orderID string) []*orderv1.OrderP
 	return out
 }
 
-func (r *lifecycleRig) allReminders() int {
+func (r *lifecycleRig) allReminders(ctx context.Context) int {
 	n := 0
-	for _, row := range r.outbox.EnqueuedRows() {
+	for _, row := range r.outbox.EnqueuedRows(ctx) {
 		if row.EventType == OrderPaymentReminderEventType {
 			n++
 		}
@@ -201,7 +201,7 @@ func TestReminderPassBatchBoundPerTick(t *testing.T) {
 	now := due.Add(-time.Hour)
 	for tick, want := range []int{100, 200, 250} {
 		r.svc.SweepLifecycle(context.Background(), now)
-		if got := r.allReminders(); got != want {
+		if got := r.allReminders(t.Context()); got != want {
 			t.Fatalf("after tick %d: want %d reminder rows, got %d", tick+1, want, got)
 		}
 	}
@@ -243,7 +243,7 @@ type expiryRig struct {
 func newExpiryRig(t *testing.T, voucher string) *expiryRig {
 	t.Helper()
 	r := &expiryRig{
-		outbox: newPGOutbox(t),
+		outbox: newPGOutbox(t.Context(), t),
 		promo:  newFakePromotion(500),
 		flash:  &holdFake{sales: map[string]*promotionv1.GetActiveFlashSaleResponse{"lst_1": activeSale("", 350000)}},
 		domain: &pricedDomain{
@@ -475,7 +475,7 @@ func (f *failingExpiryRepo) FindExpired(context.Context, time.Time, int) ([]stor
 
 // Scenario: Order expiry: One failing pass does not stop the next
 func TestSweepLifecyclePassesAreIndependent(t *testing.T) {
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	inner := outbox.orders(store.WithPaidOutbox(BuildPaidOutboxRow),
 		store.WithCancelledOutbox(BuildCancelledOutboxRow),
 		store.WithReminderOutbox(BuildPaymentReminderOutboxRow))
@@ -496,7 +496,7 @@ func TestSweepLifecyclePassesAreIndependent(t *testing.T) {
 		t.Fatal("the tick must run the expiry pass (it is the failing pass under test)")
 	}
 	n := 0
-	for _, row := range outbox.EnqueuedRows() {
+	for _, row := range outbox.EnqueuedRows(t.Context()) {
 		if row.EventType == OrderPaymentReminderEventType && row.AggregateID == o.ID {
 			n++
 		}

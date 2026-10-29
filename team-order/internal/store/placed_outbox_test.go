@@ -56,7 +56,7 @@ func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) 
 	// Scenario: Order expiry: Online-pay order gets a 24-hour deadline
 	t.Run("TestPlaceOrdersSetsPaymentDueAtAndOrderPlaced", func(t *testing.T) {
 		f := fx(t)
-		sagaID, res := newCheckout(t, f.sagas, "la")
+		sagaID, res := newCheckout(ctx, t, f.sagas, "la")
 		id := uid("ord")
 		po := placedOrder(id, "sa", paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, testPaymentDeadline)
 		po.ReservationIDs = res
@@ -97,7 +97,7 @@ func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) 
 	// Scenario: Order expiry: COD order has no deadline
 	t.Run("TestPlaceOrdersCodHasNoPaymentDueAt", func(t *testing.T) {
 		f := fx(t)
-		sagaID, res := newCheckout(t, f.sagas, "la")
+		sagaID, res := newCheckout(ctx, t, f.sagas, "la")
 		id := uid("ord")
 		// The service leaves PaymentDeadline zero for COD; the order must carry none.
 		po := placedOrder(id, "sa", paymentv1.PaymentMethod_PAYMENT_METHOD_COD, 0)
@@ -127,7 +127,7 @@ func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) 
 	// Scenario: Order expiry: Rolled-back placement emits no OrderPlaced
 	t.Run("TestPlaceOrdersRollbackWritesNoOrderPlaced", func(t *testing.T) {
 		f := fx(t)
-		sagaID, res := newCheckout(t, f.sagas, "la", "lb")
+		sagaID, res := newCheckout(ctx, t, f.sagas, "la", "lb")
 		if err := f.sagas.UpdateReservationStatus(ctx, res[1], store.ReservationStatusReleased); err != nil {
 			t.Fatal(err)
 		}
@@ -153,7 +153,7 @@ func runPlacedOutboxContract(t *testing.T, fx func(t *testing.T) placedFixture) 
 	// Scenario: Order expiry: Each seller order of one checkout gets its own OrderPlaced
 	t.Run("one OrderPlaced per order of a multi-order placement", func(t *testing.T) {
 		f := fx(t)
-		sagaID, res := newCheckout(t, f.sagas, "la", "lb")
+		sagaID, res := newCheckout(ctx, t, f.sagas, "la", "lb")
 		oa, ob := uid("ord"), uid("ord")
 		a := placedOrder(oa, "sa", paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO, testPaymentDeadline)
 		a.ReservationIDs = res[:1]

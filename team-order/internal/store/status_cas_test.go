@@ -11,8 +11,10 @@ import (
 )
 
 func paidRow(o store.Order) (outbox.Row, error) {
-	return outbox.Row{EventID: "paid-" + o.ID, AggregateType: "Order", AggregateID: o.ID,
-		EventType: "platform.order.v1.OrderPaidEvent", Payload: []byte("env")}, nil
+	return outbox.Row{
+		EventID: "paid-" + o.ID, AggregateType: "Order", AggregateID: o.ID,
+		EventType: "platform.order.v1.OrderPaidEvent", Payload: []byte("env"),
+	}, nil
 }
 
 var (
@@ -22,8 +24,10 @@ var (
 
 func runStatusCASContract(t *testing.T, repo store.OrderRepository, outboxRows func(orderID string) int) {
 	ctx := context.Background()
-	o, err := repo.CreateOrder(ctx, store.Order{BuyerID: "b", SellerID: "s", TotalAmount: 10,
-		Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 10}}})
+	o, err := repo.CreateOrder(ctx, store.Order{
+		BuyerID: "b", SellerID: "s", TotalAmount: 10,
+		Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 10}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

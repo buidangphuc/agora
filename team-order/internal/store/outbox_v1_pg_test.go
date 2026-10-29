@@ -108,8 +108,10 @@ func eventIDs(recs []testkit.Record) []string {
 func newPaidFixture(t *testing.T, pool *pgxpool.Pool, build store.PaidOutboxBuilder) (store.OrderRepository, store.Order) {
 	t.Helper()
 	repo := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), store.WithPaidOutbox(build))
-	o, err := repo.CreateOrder(t.Context(), store.Order{BuyerID: "b", SellerID: "s", TotalAmount: 10, Currency: "VND",
-		Items: []store.OrderItem{{ListingID: "l1", Quantity: 1, UnitPrice: 10}}})
+	o, err := repo.CreateOrder(t.Context(), store.Order{
+		BuyerID: "b", SellerID: "s", TotalAmount: 10, Currency: "VND",
+		Items: []store.OrderItem{{ListingID: "l1", Quantity: 1, UnitPrice: 10}},
+	})
 	if err != nil {
 		t.Fatalf("create order: %v", err)
 	}
@@ -400,7 +402,7 @@ func TestMigrationsApplyAndReverse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
-	defer conn.Close(context.Background())
+	defer func() { _ = conn.Close(context.Background()) }()
 	for v := lastMigration; v >= 1; v-- {
 		matches := downFiles(t, v)
 		if len(matches) != 1 {

@@ -39,8 +39,10 @@ func TestCreateShipment_OutboxSameTransaction_Postgres(t *testing.T) {
 
 	ok := store.NewPostgresShipmentRepository(pool, newOutbox(t, pool), store.WithShipmentOutbox(
 		func(s store.Shipment) (outbox.Row, error) {
-			return outbox.Row{EventID: "evt-ship-" + s.ID, AggregateType: "Order", AggregateID: s.OrderID,
-				EventType: "platform.order.v1.OrderShipped", Payload: []byte("env")}, nil
+			return outbox.Row{
+				EventID: "evt-ship-" + s.ID, AggregateType: "Order", AggregateID: s.OrderID,
+				EventType: "platform.order.v1.OrderShipped", Payload: []byte("env"),
+			}, nil
 		}))
 	if _, err := ok.CreateShipment(ctx, store.Shipment{OrderID: okOrder.ID, Carrier: "SPX", TrackingCode: "PG-OK-" + okOrder.ID}); err != nil {
 		t.Fatalf("create: %v", err)

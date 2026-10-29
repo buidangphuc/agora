@@ -1,6 +1,7 @@
 package rpc_test
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -20,15 +21,15 @@ type pgOutbox struct {
 	store *outbox.Store
 }
 
-func newPGOutbox(t testing.TB) *pgOutbox {
+func newPGOutbox(ctx context.Context, t testing.TB) *pgOutbox {
 	t.Helper()
 	dsn := testkit.Schema(t, testkit.SharedPostgres(t))
-	pool, err := pgxpool.New(t.Context(), dsn)
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(pool.Close)
-	if err := migrate.Up(t.Context(), dsn, os.DirFS("../../migrations")); err != nil {
+	if err := migrate.Up(ctx, dsn, os.DirFS("../../migrations")); err != nil {
 		t.Fatalf("migrate up: %v", err)
 	}
 	st, err := outbox.NewStore(pool, outboxTable)
@@ -46,17 +47,13 @@ func (p *pgOutbox) returns(opts ...store.ReturnRepoOption) *store.PostgresReturn
 	return store.NewPostgresReturnRepository(p.pool, p.store, opts...)
 }
 
-func (p *pgOutbox) shipments(opts ...store.ShipmentRepoOption) *store.PostgresShipmentRepository {
-	return store.NewPostgresShipmentRepository(p.pool, p.store, opts...)
-}
-
 func (p *pgOutbox) sagas() *store.PostgresSagaRepository {
 	return store.NewPostgresSagaRepository(p.pool)
 }
 
-func (p *pgOutbox) EnqueuedRows() []outbox.Row {
+func (p *pgOutbox) EnqueuedRows(ctx context.Context) []outbox.Row {
 	p.t.Helper()
-	rs, err := p.pool.Query(p.t.Context(),
+	rs, err := p.pool.Query(ctx,
 		`SELECT event_id, aggregate_type, aggregate_id, event_type, payload FROM `+outboxTable+` ORDER BY seq`)
 	if err != nil {
 		p.t.Fatalf("read outbox: %v", err)

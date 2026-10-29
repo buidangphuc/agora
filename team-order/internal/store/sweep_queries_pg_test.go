@@ -14,7 +14,7 @@ func TestSweepQueries_Postgres(t *testing.T) {
 	orders := store.NewPostgresOrderRepository(pool, newOutbox(t, pool))
 	sagas := store.NewPostgresSagaRepository(pool)
 
-	sagaID, res := newCheckout(t, sagas, "la", "lb")
+	sagaID, res := newCheckout(ctx, t, sagas, "la", "lb")
 	live, cancelled := uid("ord"), uid("ord")
 	if _, err := orders.PlaceOrders(ctx, sagaID, []store.PlacedOrder{
 		{Order: order(live, "sa"), ReservationIDs: res[:1]},

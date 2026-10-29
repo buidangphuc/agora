@@ -95,10 +95,10 @@ func TestDisputeNoCommitWhenDLQFails(t *testing.T) {
 	failing.FailOn("d-1")
 	first, _ := newDisputeLoop(t, e, d, failing)
 	testkit.Eventually(t, loopWait, func() bool {
-		_, exited := first.exited()
+		exited, _ := first.exited()
 		return exited
 	})
-	if err, _ := first.exited(); err == nil {
+	if _, err := first.exited(); err == nil {
 		t.Fatal("the consumer must stop with an error when the DLQ write fails")
 	}
 	_ = first.stop(t)

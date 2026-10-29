@@ -244,8 +244,10 @@ func TestUpdateOrderStatusAdminWritesAuditEvent(t *testing.T) {
 	if seen != store.OrderStatusPaid {
 		t.Fatalf("order was %v at audit time, want Paid (audit before change)", seen)
 	}
-	wantAudit(t, w, auditCall{"admin_1", "order.admin_status_update", "order", "ord_p",
-		map[string]string{"seller_id": "sa", "to_status": "ORDER_STATUS_SHIPPED"}})
+	wantAudit(t, w, auditCall{
+		"admin_1", "order.admin_status_update", "order", "ord_p",
+		map[string]string{"seller_id": "sa", "to_status": "ORDER_STATUS_SHIPPED"},
+	})
 }
 
 // Scenario: Order audit: Seller updates their own order unaudited
@@ -337,7 +339,7 @@ type returnRig struct {
 }
 
 func newReturnRig(t testing.TB, w *fakeAudit) returnRig {
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	orders := outbox.orders()
 	returns := outbox.returns(store.WithReturnOutbox(BuildReturnRefundedOutboxRow))
 	svc := newSvc(t, orders, nil, returns, nil, nil, nil, nil)
@@ -361,8 +363,8 @@ func rmaSeller() context.Context { return incomingPrincipalCtx("seller_1", "sell
 // pendingReturn builds a paid+shipped order and a Pending return on it.
 func (r returnRig) pendingReturn(t *testing.T) (orderID, retID string) {
 	t.Helper()
-	o := r.order(t, true)
-	return o.ID, r.createReturn(t, o.ID, 200000)
+	o := r.order(t.Context(), t, true)
+	return o.ID, r.createReturn(t.Context(), t, o.ID, 200000)
 }
 
 // Scenario: Order audit: Admin approves a return
@@ -381,8 +383,10 @@ func TestUpdateReturnStatusAdminWritesAuditEvent(t *testing.T) {
 	if seen != orderv1.ReturnStatus_RETURN_STATUS_PENDING {
 		t.Fatalf("return was %v at audit time, want Pending (audit before change)", seen)
 	}
-	wantAudit(t, w, auditCall{"ops", "return.admin_status_update", "return_request", id,
-		map[string]string{"order_id": orderID, "to_status": "RETURN_STATUS_APPROVED"}})
+	wantAudit(t, w, auditCall{
+		"ops", "return.admin_status_update", "return_request", id,
+		map[string]string{"order_id": orderID, "to_status": "RETURN_STATUS_APPROVED"},
+	})
 }
 
 // Scenario: Order audit: Seller updates their own return unaudited
@@ -413,8 +417,8 @@ func TestUpdateReturnStatusAuditDownUnavailableNoChange(t *testing.T) {
 	if got := r.retStatus(t, id); got != orderv1.ReturnStatus_RETURN_STATUS_APPROVED {
 		t.Fatalf("return = %v, want Approved", got)
 	}
-	if r.refundRows() != 0 {
-		t.Fatalf("ReturnRefunded rows = %d, want 0", r.refundRows())
+	if r.refundRows(t.Context()) != 0 {
+		t.Fatalf("ReturnRefunded rows = %d, want 0", r.refundRows(t.Context()))
 	}
 }
 
@@ -505,8 +509,10 @@ func TestCreateShipmentAuditCarrierTruncated(t *testing.T) {
 			if _, err := r.h.CreateShipment(adminUser(), shipReq("ord_p", strings.Repeat(unit, 100))); err != nil {
 				t.Fatal(err)
 			}
-			wantAudit(t, w, auditCall{"admin_1", "shipment.admin_create", "order", "ord_p",
-				map[string]string{"carrier": strings.Repeat(unit, 64)}})
+			wantAudit(t, w, auditCall{
+				"admin_1", "shipment.admin_create", "order", "ord_p",
+				map[string]string{"carrier": strings.Repeat(unit, 64)},
+			})
 		})
 	}
 }

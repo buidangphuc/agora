@@ -2,7 +2,6 @@ package rpc_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"testing"
 
@@ -24,7 +23,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func discardLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func discardLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func withPrincipal(ctx context.Context, p *commonv1.Principal) context.Context {
 	typ := auth.TypeAnonymous

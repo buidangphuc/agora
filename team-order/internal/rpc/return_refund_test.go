@@ -20,17 +20,16 @@ type rmaEnv struct {
 	outbox *pgOutbox
 }
 
-func newRMAEnv(t testing.TB) rmaEnv {
-	outbox := newPGOutbox(t)
+func newRMAEnv(ctx context.Context, t testing.TB) rmaEnv {
+	outbox := newPGOutbox(ctx, t)
 	orders := outbox.orders()
 	returns := outbox.returns(store.WithReturnOutbox(BuildReturnRefundedOutboxRow))
 	svc := newSvc(t, orders, nil, returns, nil, nil, nil, nil)
 	return rmaEnv{h: newHandler(t, svc, nil, nil, withAudit(&fakeAudit{})), orders: orders, outbox: outbox}
 }
 
-func (e rmaEnv) order(t *testing.T, paidOnline bool) store.Order {
+func (e rmaEnv) order(ctx context.Context, t *testing.T, paidOnline bool) store.Order {
 	t.Helper()
-	ctx := context.Background()
 	o, err := e.orders.CreateOrder(ctx, store.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 500000})
 	if err != nil {
 		t.Fatal(err)
@@ -48,10 +47,11 @@ func (e rmaEnv) order(t *testing.T, paidOnline bool) store.Order {
 	return o
 }
 
-func (e rmaEnv) createReturn(t *testing.T, orderID string, amount int64) string {
+func (e rmaEnv) createReturn(ctx context.Context, t *testing.T, orderID string, amount int64) string {
 	t.Helper()
-	resp, err := e.h.CreateReturnRequest(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateReturnRequestRequest{
-		OrderId: orderID, Reason: "broken", RefundAmount: amount})
+	resp, err := e.h.CreateReturnRequest(incomingPrincipalCtxFrom(ctx, "buyer_1"), &orderv1.CreateReturnRequestRequest{
+		OrderId: orderID, Reason: "broken", RefundAmount: amount,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,9 +63,9 @@ func (e rmaEnv) setStatus(ctx context.Context, id string, st orderv1.ReturnStatu
 	return err
 }
 
-func (e rmaEnv) refundRows() int {
+func (e rmaEnv) refundRows(ctx context.Context) int {
 	n := 0
-	for _, r := range e.outbox.EnqueuedRows() {
+	for _, r := range e.outbox.EnqueuedRows(ctx) {
 		if r.EventType == ReturnRefundedEventType {
 			n++
 		}
@@ -89,11 +89,11 @@ func TestReturnRefund_Handler(t *testing.T) {
 	buyer := incomingPrincipalCtx("buyer_1", "buyer")
 
 	t.Run("the seller refunds an approved return and one fact is written", func(t *testing.T) {
-		e := newRMAEnv(t)
-		o := e.order(t, true)
-		id := e.createReturn(t, o.ID, 200000)
+		e := newRMAEnv(seller, t)
+		o := e.order(seller, t, true)
+		id := e.createReturn(seller, t, o.ID, 200000)
 		wantCode(t, e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REFUNDED), codes.FailedPrecondition) // PENDING -> REFUNDED
-		if e.refundRows() != 0 {
+		if e.refundRows(seller) != 0 {
 			t.Fatal("refused transition wrote a fact")
 		}
 		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED); err != nil {
@@ -102,19 +102,19 @@ func TestReturnRefund_Handler(t *testing.T) {
 		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REFUNDED); err != nil {
 			t.Fatal(err)
 		}
-		if e.refundRows() != 1 {
-			t.Fatalf("want 1 ReturnRefunded row, got %d", e.refundRows())
+		if e.refundRows(seller) != 1 {
+			t.Fatalf("want 1 ReturnRefunded row, got %d", e.refundRows(seller))
 		}
 		wantCode(t, e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REFUNDED), codes.FailedPrecondition)
-		if e.refundRows() != 1 {
+		if e.refundRows(seller) != 1 {
 			t.Fatal("a repeated refund wrote another fact")
 		}
 	})
 
 	t.Run("the buyer cannot refund their own return", func(t *testing.T) {
-		e := newRMAEnv(t)
-		o := e.order(t, true)
-		id := e.createReturn(t, o.ID, 200000)
+		e := newRMAEnv(seller, t)
+		o := e.order(seller, t, true)
+		id := e.createReturn(seller, t, o.ID, 200000)
 		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED); err != nil {
 			t.Fatal(err)
 		}
@@ -123,15 +123,15 @@ func TestReturnRefund_Handler(t *testing.T) {
 		if err != nil || got.GetReturnRequest().GetStatus() != orderv1.ReturnStatus_RETURN_STATUS_APPROVED {
 			t.Fatalf("status: %v %v", got, err)
 		}
-		if e.refundRows() != 0 {
+		if e.refundRows(seller) != 0 {
 			t.Fatal("buyer refund wrote a fact")
 		}
 	})
 
 	t.Run("a COD order's approved return is refused with the spec message", func(t *testing.T) {
-		e := newRMAEnv(t)
-		o := e.order(t, false)
-		id := e.createReturn(t, o.ID, 200000)
+		e := newRMAEnv(seller, t)
+		o := e.order(seller, t, false)
+		id := e.createReturn(seller, t, o.ID, 200000)
 		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED); err != nil {
 			t.Fatalf("approve on COD: %v", err)
 		}
@@ -144,7 +144,7 @@ func TestReturnRefund_Handler(t *testing.T) {
 		if got.GetReturnRequest().GetStatus() != orderv1.ReturnStatus_RETURN_STATUS_APPROVED {
 			t.Fatalf("status %v", got.GetReturnRequest().GetStatus())
 		}
-		if n := len(e.outbox.EnqueuedRows()); n != 0 {
+		if n := len(e.outbox.EnqueuedRows(seller)); n != 0 {
 			t.Fatalf("COD refund wrote %d rows", n)
 		}
 		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REJECTED); err != nil {
@@ -153,12 +153,12 @@ func TestReturnRefund_Handler(t *testing.T) {
 	})
 
 	t.Run("the return cap codes", func(t *testing.T) {
-		e := newRMAEnv(t)
-		o := e.order(t, true)
-		e.createReturn(t, o.ID, 300000)
+		e := newRMAEnv(seller, t)
+		o := e.order(seller, t, true)
+		e.createReturn(seller, t, o.ID, 300000)
 		_, err := e.h.CreateReturnRequest(buyer, &orderv1.CreateReturnRequestRequest{OrderId: o.ID, Reason: "r", RefundAmount: 300000})
 		wantCode(t, err, codes.InvalidArgument)
-		e.createReturn(t, o.ID, 200000)
+		e.createReturn(seller, t, o.ID, 200000)
 		_, err = e.h.CreateReturnRequest(buyer, &orderv1.CreateReturnRequestRequest{OrderId: o.ID, Reason: "r"})
 		wantCode(t, err, codes.FailedPrecondition)
 		_, err = e.h.CreateReturnRequest(buyer, &orderv1.CreateReturnRequestRequest{OrderId: o.ID, Reason: "r", RefundAmount: 100000})
@@ -167,11 +167,11 @@ func TestReturnRefund_Handler(t *testing.T) {
 }
 
 func TestListOrderReturns_Handler(t *testing.T) {
-	e := newRMAEnv(t)
-	o := e.order(t, true)
-	first := e.createReturn(t, o.ID, 200000)
+	e := newRMAEnv(t.Context(), t)
+	o := e.order(t.Context(), t, true)
+	first := e.createReturn(t.Context(), t, o.ID, 200000)
 	time.Sleep(2 * time.Millisecond)
-	second := e.createReturn(t, o.ID, 100000)
+	second := e.createReturn(t.Context(), t, o.ID, 100000)
 
 	for name, ctx := range map[string]context.Context{
 		"buyer":  incomingPrincipalCtx("buyer_1", "buyer"),
@@ -204,9 +204,9 @@ func TestListOrderReturns_Handler(t *testing.T) {
 }
 
 func TestGetOrder_PaidAtOnTheWire(t *testing.T) {
-	e := newRMAEnv(t)
+	e := newRMAEnv(t.Context(), t)
 	buyer := incomingPrincipalCtx("buyer_1", "buyer")
-	paid := e.order(t, true)
+	paid := e.order(t.Context(), t, true)
 	resp, err := e.h.GetOrder(buyer, &orderv1.GetOrderRequest{Id: paid.ID})
 	if err != nil {
 		t.Fatal(err)
@@ -214,7 +214,7 @@ func TestGetOrder_PaidAtOnTheWire(t *testing.T) {
 	if resp.GetOrder().GetPaidAt() == nil || !resp.GetOrder().GetPaidAt().AsTime().Equal(*paid.PaidAt) {
 		t.Fatalf("paid_at %v, want %v", resp.GetOrder().GetPaidAt(), paid.PaidAt)
 	}
-	cod := e.order(t, false)
+	cod := e.order(t.Context(), t, false)
 	resp, err = e.h.GetOrder(buyer, &orderv1.GetOrderRequest{Id: cod.ID})
 	if err != nil {
 		t.Fatal(err)
@@ -229,9 +229,9 @@ func TestUpdateReturnStatusRejectedStaysTerminal(t *testing.T) {
 	callers := map[string]context.Context{"seller": seller, "order.admin": adminCtx()}
 	for name, ctx := range callers {
 		t.Run("Dispute refund: Re-approval is not reachable from the status RPC/"+name, func(t *testing.T) {
-			e := newRMAEnv(t)
-			o := e.order(t, true)
-			id := e.createReturn(t, o.ID, 200000)
+			e := newRMAEnv(ctx, t)
+			o := e.order(ctx, t, true)
+			id := e.createReturn(ctx, t, o.ID, 200000)
 			if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REJECTED); err != nil {
 				t.Fatal(err)
 			}
@@ -240,7 +240,7 @@ func TestUpdateReturnStatusRejectedStaysTerminal(t *testing.T) {
 			if err != nil || got.GetReturnRequest().GetStatus() != orderv1.ReturnStatus_RETURN_STATUS_REJECTED {
 				t.Fatalf("status: %v %v", got, err)
 			}
-			if e.refundRows() != 0 {
+			if e.refundRows(ctx) != 0 {
 				t.Fatal("refused re-approval wrote a fact")
 			}
 		})

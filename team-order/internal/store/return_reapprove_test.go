@@ -22,10 +22,10 @@ func asReapprover(t *testing.T, r store.ReturnRepository) reapprover {
 	return ra
 }
 
-func rejectedReturn(t *testing.T, f returnFixture, o store.Order, amount int64) store.OrderReturn {
+func rejectedReturn(ctx context.Context, t *testing.T, f returnFixture, o store.Order, amount int64) store.OrderReturn {
 	t.Helper()
-	r := newReturn(t, f, o, amount)
-	if _, err := f.returns.TransitionReturn(context.Background(), r.ID, store.ReturnStatusPending, store.ReturnStatusRejected); err != nil {
+	r := newReturn(ctx, t, f, o, amount)
+	if _, err := f.returns.TransitionReturn(ctx, r.ID, store.ReturnStatusPending, store.ReturnStatusRejected); err != nil {
 		t.Fatal(err)
 	}
 	return r
@@ -37,9 +37,9 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 	const total = 1000000
 
 	t.Run("TestReapproveReturnFitsBoundary: Dispute refund: Rejected return that still fits is re-approved", func(t *testing.T) {
-		o := newReturnOrder(t, f, total)
-		target := rejectedReturn(t, f, o, 400000)
-		other := newReturn(t, f, o, 600000)
+		o := newReturnOrder(ctx, t, f, total)
+		target := rejectedReturn(ctx, t, f, o, 400000)
+		other := newReturn(ctx, t, f, o, 600000)
 		got, err := ra.ReapproveReturn(ctx, target.ID, o.TotalAmount)
 		if err != nil {
 			t.Fatalf("want success at the exact boundary, got %v", err)
@@ -59,9 +59,9 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 	})
 
 	t.Run("TestReapproveReturnExceedsRemainderStaysRejected: Dispute refund: Rejected return that no longer fits stays rejected", func(t *testing.T) {
-		o := newReturnOrder(t, f, total)
-		target := rejectedReturn(t, f, o, 400000)
-		newReturn(t, f, o, 700000)
+		o := newReturnOrder(ctx, t, f, total)
+		target := rejectedReturn(ctx, t, f, o, 400000)
+		newReturn(ctx, t, f, o, 700000)
 		if _, err := ra.ReapproveReturn(ctx, target.ID, o.TotalAmount); !errors.Is(err, store.ErrReturnExceedsRemainder) {
 			t.Fatalf("want ErrReturnExceedsRemainder, got %v", err)
 		}
@@ -71,26 +71,26 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 	})
 
 	t.Run("TestReapproveReturnOneOverBoundary: Dispute refund: Rejected return that no longer fits stays rejected", func(t *testing.T) {
-		o := newReturnOrder(t, f, total)
-		target := rejectedReturn(t, f, o, 400000)
-		newReturn(t, f, o, 600001)
+		o := newReturnOrder(ctx, t, f, total)
+		target := rejectedReturn(ctx, t, f, o, 400000)
+		newReturn(ctx, t, f, o, 600001)
 		if _, err := ra.ReapproveReturn(ctx, target.ID, o.TotalAmount); !errors.Is(err, store.ErrReturnExceedsRemainder) {
 			t.Fatalf("want ErrReturnExceedsRemainder, got %v", err)
 		}
 	})
 
 	t.Run("TestReapproveReturnIgnoresOtherRejected: Dispute refund: Rejected return that still fits is re-approved", func(t *testing.T) {
-		o := newReturnOrder(t, f, total)
-		target := rejectedReturn(t, f, o, 400000)
-		rejectedReturn(t, f, o, 900000)
+		o := newReturnOrder(ctx, t, f, total)
+		target := rejectedReturn(ctx, t, f, o, 400000)
+		rejectedReturn(ctx, t, f, o, 900000)
 		if _, err := ra.ReapproveReturn(ctx, target.ID, o.TotalAmount); err != nil {
 			t.Fatalf("other rejected returns must not count, got %v", err)
 		}
 	})
 
 	t.Run("TestReapproveReturnNotRejectedConflicts: Dispute refund: Rejected return that no longer fits stays rejected", func(t *testing.T) {
-		o := newReturnOrder(t, f, total)
-		pending := newReturn(t, f, o, 100000)
+		o := newReturnOrder(ctx, t, f, total)
+		pending := newReturn(ctx, t, f, o, 100000)
 		if _, err := ra.ReapproveReturn(ctx, pending.ID, o.TotalAmount); !errors.Is(err, store.ErrReturnStatusConflict) {
 			t.Fatalf("want ErrReturnStatusConflict, got %v", err)
 		}
@@ -103,10 +103,10 @@ func runReapproveContract(t *testing.T, f returnFixture) {
 	})
 
 	t.Run("TestReapproveReturnConcurrentSerialised: Dispute refund: Two returns cannot both be re-approved past the total", func(t *testing.T) {
-		o := newReturnOrder(t, f, total)
-		a := rejectedReturn(t, f, o, 400000)
-		b := rejectedReturn(t, f, o, 400000)
-		newReturn(t, f, o, 300000)
+		o := newReturnOrder(ctx, t, f, total)
+		a := rejectedReturn(ctx, t, f, o, 400000)
+		b := rejectedReturn(ctx, t, f, o, 400000)
+		newReturn(ctx, t, f, o, 300000)
 		var wg sync.WaitGroup
 		var mu sync.Mutex
 		ok, over := 0, 0

@@ -208,7 +208,7 @@ func TestSagaAccess_BuyerOrAdminOnly(t *testing.T) {
 // ForceFailSaga cancels through the same claim as CancelOrder, so it writes the
 // OrderCancelled fact once, with the status the order was cancelled from.
 func TestForceFailSaga_EmitsCancelledFactThroughTheClaim(t *testing.T) {
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	orders := outbox.orders(store.WithPaidOutbox(BuildPaidOutboxRow),
 		store.WithCancelledOutbox(BuildCancelledOutboxRow))
 	carts := fake.NewInMemoryCartRepository()
@@ -234,7 +234,7 @@ func TestForceFailSaga_EmitsCancelledFactThroughTheClaim(t *testing.T) {
 		t.Fatalf("second force-fail: want FailedPrecondition, got %v", err)
 	}
 	var facts []*orderv1.OrderCancelled
-	for _, row := range outbox.EnqueuedRows() {
+	for _, row := range outbox.EnqueuedRows(ctx) {
 		if row.AggregateID != o.ID || row.EventType != OrderCancelledEventType {
 			continue
 		}

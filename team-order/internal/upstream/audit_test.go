@@ -2,7 +2,6 @@ package upstream
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -122,7 +121,7 @@ func TestAuditWriterUsesServicePrincipal(t *testing.T) {
 func TestAuditWriterTimeoutNoRetry(t *testing.T) {
 	srv := &recordingAuditServer{blocking: true}
 	w := newAuditWriter(t, startAuditServer(t, srv))
-	gate := auditx.NewGate(w, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	gate := auditx.NewGate(w, slog.New(slog.DiscardHandler))
 
 	ran := false
 	start := time.Now()

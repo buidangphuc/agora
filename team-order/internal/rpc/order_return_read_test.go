@@ -11,9 +11,9 @@ import (
 
 func newReturnReadEnv(t *testing.T) (rmaEnv, string) {
 	t.Helper()
-	e := newRMAEnv(t)
-	o := e.order(t, true)
-	return e, e.createReturn(t, o.ID, 200000)
+	e := newRMAEnv(t.Context(), t)
+	o := e.order(t.Context(), t, true)
+	return e, e.createReturn(t.Context(), t, o.ID, 200000)
 }
 
 func (e rmaEnv) getReturn(ctx context.Context, id string) (*orderv1.GetReturnRequestResponse, error) {

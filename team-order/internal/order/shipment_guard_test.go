@@ -11,7 +11,7 @@ import (
 
 func shipmentRig(t *testing.T, st store.OrderStatus) (*order.OrderService, *store.PostgresOrderRepository, *store.PostgresShipmentRepository, *pgOutbox) {
 	t.Helper()
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	orders := outbox.orders()
 	if _, err := orders.CreateOrder(context.Background(), store.Order{ID: "ord_s", BuyerID: "b", SellerID: "s", Status: st}); err != nil {
 		t.Fatal(err)
@@ -32,7 +32,7 @@ func TestCreateShipment_CancelledOrderIsRefused(t *testing.T) {
 		if o, _ := orders.GetOrder(context.Background(), "ord_s"); o.Status != st {
 			t.Fatalf("order must be unchanged: %v -> %v", st, o.Status)
 		}
-		if len(outbox.EnqueuedRows()) != 0 {
+		if len(outbox.EnqueuedRows(t.Context())) != 0 {
 			t.Fatalf("%v: no OrderShipped row may be written", st)
 		}
 	}
@@ -52,7 +52,7 @@ func TestCreateShipment_PaidOrderShips(t *testing.T) {
 		if o.Status != store.OrderStatusShipped || o.TrackingNumber != "TRK-1" {
 			t.Fatalf("%v: order %+v", st, o)
 		}
-		rows := outbox.EnqueuedRows()
+		rows := outbox.EnqueuedRows(t.Context())
 		if len(rows) != 1 || rows[0].AggregateID != "ord_s" || rows[0].EventType != OrderShippedEventType {
 			t.Fatalf("%v: want one OrderShipped row, got %+v", st, rows)
 		}

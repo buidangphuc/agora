@@ -43,7 +43,7 @@ func runExpiryContract(t *testing.T, repo expiryRepo, due time.Time) {
 
 	t.Run("deadline is exclusive", func(t *testing.T) { // Order expiry: Boundary at the deadline keeps the order payable
 		d := due
-		o := newUnpaid(t, repo, momo, &d)
+		o := newUnpaid(ctx, t, repo, momo, &d)
 		if find(d.Add(-time.Second))[o.ID] || find(d)[o.ID] {
 			t.Fatal("before or exactly at the deadline the order must not be expired")
 		}
@@ -55,18 +55,18 @@ func runExpiryContract(t *testing.T, repo expiryRepo, due time.Time) {
 	t.Run("cod paid cancelled and deadline-less orders are never selected", func(t *testing.T) { // Order expiry: A COD order is never expired; An order without a deadline is never expired; A paid order is never expired
 		d := due.Add(24 * time.Hour)
 		now := d.Add(time.Hour)
-		paid := newUnpaid(t, repo, momo, &d)
+		paid := newUnpaid(ctx, t, repo, momo, &d)
 		if _, err := repo.UpdateOrderStatusFrom(ctx, paid.ID, store.OrderStatusPaid,
 			[]store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 			t.Fatal(err)
 		}
-		gone := newUnpaid(t, repo, momo, &d)
+		gone := newUnpaid(ctx, t, repo, momo, &d)
 		if _, err := expire(ctx, repo, gone.ID); err != nil {
 			t.Fatal(err)
 		}
-		cod := newUnpaid(t, repo, paymentv1.PaymentMethod_PAYMENT_METHOD_COD, &d)
-		noDue := newUnpaid(t, repo, momo, nil)
-		live := newUnpaid(t, repo, momo, &d)
+		cod := newUnpaid(ctx, t, repo, paymentv1.PaymentMethod_PAYMENT_METHOD_COD, &d)
+		noDue := newUnpaid(ctx, t, repo, momo, nil)
+		live := newUnpaid(ctx, t, repo, momo, &d)
 		got := find(now)
 		if got[paid.ID] || got[gone.ID] || got[cod.ID] || got[noDue.ID] {
 			t.Fatalf("must not be selected: paid=%v cancelled=%v cod=%v noDue=%v", got[paid.ID], got[gone.ID], got[cod.ID], got[noDue.ID])
@@ -78,7 +78,7 @@ func runExpiryContract(t *testing.T, repo expiryRepo, due time.Time) {
 
 	t.Run("claim stores PAYMENT_EXPIRED and removes the order from the pass", func(t *testing.T) { // Order expiry: Order unpaid past its deadline is cancelled and its stock released
 		d := due.Add(48 * time.Hour)
-		o := newUnpaid(t, repo, momo, &d)
+		o := newUnpaid(ctx, t, repo, momo, &d)
 		got, err := expire(ctx, repo, o.ID)
 		if err != nil || got.Status != store.OrderStatusCancelled ||
 			got.CancelReason != int32(orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED) {
@@ -118,7 +118,7 @@ func runFindExpiredBatchBound(t *testing.T, repo expiryRepo, total int, due time
 	own := map[string]bool{}
 	for i := 0; i < total; i++ {
 		d := due
-		own[newUnpaid(t, repo, momo, &d).ID] = true
+		own[newUnpaid(ctx, t, repo, momo, &d).ID] = true
 	}
 	// The pass looks at every Pending online order in the database, so a shared
 	// Postgres may hold foreign rows (other tests); they only add to a tick and are
@@ -192,7 +192,7 @@ func runExpiryVersusPayment(t *testing.T, repo store.OrderRepository, due time.T
 	ctx := context.Background()
 	for i := 0; i < 20; i++ {
 		d := due.Add(time.Duration(i) * time.Minute)
-		o := newUnpaid(t, repo, momo, &d)
+		o := newUnpaid(ctx, t, repo, momo, &d)
 		var wg sync.WaitGroup
 		start := make(chan struct{})
 		var paidErr, expErr error
@@ -210,8 +210,8 @@ func runExpiryVersusPayment(t *testing.T, repo store.OrderRepository, due time.T
 			t.Fatalf("round %d: exactly one CAS must win, paidErr=%v expiryErr=%v", i, paidErr, expErr)
 		}
 		stored, _ := repo.GetOrder(ctx, o.ID)
-		switch {
-		case paidErr == nil:
+		switch paidErr {
+		case nil:
 			if stored.Status != store.OrderStatusPaid || cancelledRows(o.ID) != 0 || paidRows(o.ID) != 1 {
 				t.Fatalf("round %d paid won: status=%v cancelled=%d paid=%d", i, stored.Status, cancelledRows(o.ID), paidRows(o.ID))
 			}

@@ -17,7 +17,7 @@ type mockOrderServiceRepo struct {
 	orders map[string]store.Order
 }
 
-func (m *mockOrderServiceRepo) CreateOrder(ctx context.Context, o store.Order) (store.Order, error) {
+func (m *mockOrderServiceRepo) CreateOrder(_ context.Context, o store.Order) (store.Order, error) {
 	if m.orders == nil {
 		m.orders = make(map[string]store.Order)
 	}
@@ -25,14 +25,14 @@ func (m *mockOrderServiceRepo) CreateOrder(ctx context.Context, o store.Order) (
 	return o, nil
 }
 
-func (m *mockOrderServiceRepo) GetOrder(ctx context.Context, id string) (store.Order, error) {
+func (m *mockOrderServiceRepo) GetOrder(_ context.Context, id string) (store.Order, error) {
 	if o, ok := m.orders[id]; ok {
 		return o, nil
 	}
 	return store.Order{}, store.ErrOrderNotFound
 }
 
-func (m *mockOrderServiceRepo) ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]store.Order, error) {
+func (m *mockOrderServiceRepo) ListBuyerOrders(_ context.Context, buyerID string, _ int32) ([]store.Order, error) {
 	var list []store.Order
 	for _, o := range m.orders {
 		if o.BuyerID == buyerID {
@@ -42,7 +42,7 @@ func (m *mockOrderServiceRepo) ListBuyerOrders(ctx context.Context, buyerID stri
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]store.Order, error) {
+func (m *mockOrderServiceRepo) ListSellerOrders(_ context.Context, sellerID string, _ int32) ([]store.Order, error) {
 	var list []store.Order
 	for _, o := range m.orders {
 		if o.SellerID == sellerID {
@@ -277,7 +277,7 @@ func TestOrderService_ReturnRequest(t *testing.T) {
 
 	t.Run("Create Return - Unauthorized Buyer", func(t *testing.T) {
 		_, err := s.CreateReturnRequest(ctx, "other_buyer", "ord_delivered", "Reason", 100000)
-		if err != order.ErrUnauthorizedReturn {
+		if !errors.Is(err, order.ErrUnauthorizedReturn) {
 			t.Errorf("expected ErrUnauthorizedReturn, got %v", err)
 		}
 	})
@@ -408,7 +408,7 @@ func TestOrderService_Shipment(t *testing.T) {
 // The shipment outbox builder receives the order's buyer and seller, so the
 // OrderShipped event can name the user to notify.
 func TestOrderService_CreateShipmentCarriesOrderParties(t *testing.T) {
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	orderRepo := outbox.orders()
 	if _, err := orderRepo.CreateOrder(context.Background(), store.Order{ID: "ord_parties", BuyerID: "buyer_9", SellerID: "seller_9", Status: store.OrderStatusPaid}); err != nil {
 		t.Fatal(err)
@@ -428,8 +428,8 @@ func TestOrderService_CreateShipmentCarriesOrderParties(t *testing.T) {
 	if seen.BuyerID != "buyer_9" || seen.SellerID != "seller_9" {
 		t.Errorf("builder saw buyer/seller %q/%q, want buyer_9/seller_9", seen.BuyerID, seen.SellerID)
 	}
-	if len(outbox.EnqueuedRows()) != 1 {
-		t.Errorf("expected 1 outbox row, got %d", len(outbox.EnqueuedRows()))
+	if len(outbox.EnqueuedRows(t.Context())) != 1 {
+		t.Errorf("expected 1 outbox row, got %d", len(outbox.EnqueuedRows(t.Context())))
 	}
 }
 

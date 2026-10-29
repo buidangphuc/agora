@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/buidangphuc/team-order/internal/store"
@@ -71,10 +72,10 @@ func TestInMemoryReturnRepository(t *testing.T) {
 	}
 
 	// 6. Not Found cases
-	if _, err := repo.GetReturn(ctx, "non-existent"); err != store.ErrReturnNotFound {
+	if _, err := repo.GetReturn(ctx, "non-existent"); !errors.Is(err, store.ErrReturnNotFound) {
 		t.Errorf("expected ErrReturnNotFound, got %v", err)
 	}
-	if _, err := repo.GetReturnByOrderID(ctx, "non-existent"); err != store.ErrReturnNotFound {
+	if _, err := repo.GetReturnByOrderID(ctx, "non-existent"); !errors.Is(err, store.ErrReturnNotFound) {
 		t.Errorf("expected ErrReturnNotFound, got %v", err)
 	}
 }

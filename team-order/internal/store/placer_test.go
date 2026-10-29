@@ -21,9 +21,8 @@ type placerFixture struct {
 
 // newCheckout opens a saga with one RESERVED reservation per listing and returns
 // the saga id and the reservation ids.
-func newCheckout(t *testing.T, sagas store.SagaRepository, listings ...string) (string, []string) {
+func newCheckout(ctx context.Context, t *testing.T, sagas store.SagaRepository, listings ...string) (string, []string) {
 	t.Helper()
-	ctx := context.Background()
 	sg, _, err := sagas.CreateSaga(ctx, store.Saga{BuyerID: "buyer_p"})
 	if err != nil {
 		t.Fatalf("create saga: %v", err)
@@ -43,8 +42,10 @@ func newCheckout(t *testing.T, sagas store.SagaRepository, listings ...string) (
 }
 
 func order(id, seller string) store.Order {
-	return store.Order{ID: id, BuyerID: "buyer_p", SellerID: seller, TotalAmount: 10,
-		Items: []store.OrderItem{{ListingID: "l-" + seller, Quantity: 1, UnitPrice: 10}}}
+	return store.Order{
+		ID: id, BuyerID: "buyer_p", SellerID: seller, TotalAmount: 10,
+		Items: []store.OrderItem{{ListingID: "l-" + seller, Quantity: 1, UnitPrice: 10}},
+	}
 }
 
 func runPlacerContract(t *testing.T, fx func(t *testing.T) placerFixture) {
@@ -52,7 +53,7 @@ func runPlacerContract(t *testing.T, fx func(t *testing.T) placerFixture) {
 
 	t.Run("everything commits together", func(t *testing.T) {
 		f := fx(t)
-		sagaID, res := newCheckout(t, f.sagas, "la", "lb")
+		sagaID, res := newCheckout(ctx, t, f.sagas, "la", "lb")
 		oa, ob := uid("ord"), uid("ord")
 		got, err := f.placer.PlaceOrders(ctx, sagaID, []store.PlacedOrder{
 			{Order: order(oa, "sa"), ReservationIDs: res[:1]},
@@ -82,7 +83,7 @@ func runPlacerContract(t *testing.T, fx func(t *testing.T) placerFixture) {
 
 	t.Run("a failed binding leaves zero orders", func(t *testing.T) {
 		f := fx(t)
-		sagaID, res := newCheckout(t, f.sagas, "la")
+		sagaID, res := newCheckout(ctx, t, f.sagas, "la")
 		oa, ob := uid("ord"), uid("ord")
 		_, err := f.placer.PlaceOrders(ctx, sagaID, []store.PlacedOrder{
 			{Order: order(oa, "sa"), ReservationIDs: res},
@@ -101,7 +102,7 @@ func runPlacerContract(t *testing.T, fx func(t *testing.T) placerFixture) {
 
 	t.Run("a released reservation rolls everything back", func(t *testing.T) {
 		f := fx(t)
-		sagaID, res := newCheckout(t, f.sagas, "la", "lb")
+		sagaID, res := newCheckout(ctx, t, f.sagas, "la", "lb")
 		if err := f.sagas.UpdateReservationStatus(ctx, res[1], store.ReservationStatusReleased); err != nil {
 			t.Fatal(err)
 		}
@@ -117,7 +118,7 @@ func runPlacerContract(t *testing.T, fx func(t *testing.T) placerFixture) {
 
 	t.Run("a saga no longer pending refuses placement", func(t *testing.T) {
 		f := fx(t)
-		sagaID, res := newCheckout(t, f.sagas, "la")
+		sagaID, res := newCheckout(ctx, t, f.sagas, "la")
 		if err := f.sagas.UpdateSagaStatus(ctx, sagaID, store.SagaStatusCompensated); err != nil {
 			t.Fatal(err)
 		}
@@ -132,7 +133,7 @@ func runPlacerContract(t *testing.T, fx func(t *testing.T) placerFixture) {
 }
 
 func TestOrderPlacer_InMemory(t *testing.T) {
-	runPlacerContract(t, func(t *testing.T) placerFixture {
+	runPlacerContract(t, func(*testing.T) placerFixture {
 		orders := fake.NewInMemoryOrderRepository()
 		sagas := fake.NewInMemorySagaRepository()
 		return placerFixture{

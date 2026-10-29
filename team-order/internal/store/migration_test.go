@@ -284,8 +284,10 @@ func TestMigrationBackfillsLifecycleDeadlines(t *testing.T) {
 	})
 
 	t.Run("no status changes and no outbox rows", func(t *testing.T) {
-		want := map[string]int{"o-shipped": stShipped, "o-completed": stCompleted, "o-paid": stPaid,
-			"o-paid-unstamped": stPaid, "o-cod-pending": stPending, "o-online-pending": stPending, "o-cancelled": stCancelled}
+		want := map[string]int{
+			"o-shipped": stShipped, "o-completed": stCompleted, "o-paid": stPaid,
+			"o-paid-unstamped": stPaid, "o-cod-pending": stPending, "o-online-pending": stPending, "o-cancelled": stCancelled,
+		}
 		for id, st := range want {
 			if n := m.count(`SELECT count(*) FROM orders WHERE id = '` + id + `' AND status = ` + itoa(st)); n != 1 {
 				t.Fatalf("order %s status changed by the migration", id)
@@ -403,7 +405,7 @@ func TestMigrationDownDropsLifecycleColumns(t *testing.T) {
 		}
 	})
 
-	t.Run("down is re-runnable", func(t *testing.T) {
+	t.Run("down is re-runnable", func(_ *testing.T) {
 		m.applyFile(lifecycleMigration + ".down.sql")
 	})
 }

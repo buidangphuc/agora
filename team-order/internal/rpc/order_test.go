@@ -24,7 +24,7 @@ type mockOrderServiceRepo struct {
 	orders map[string]store.Order
 }
 
-func (m *mockOrderServiceRepo) CreateOrder(ctx context.Context, o store.Order) (store.Order, error) {
+func (m *mockOrderServiceRepo) CreateOrder(_ context.Context, o store.Order) (store.Order, error) {
 	if m.orders == nil {
 		m.orders = make(map[string]store.Order)
 	}
@@ -32,14 +32,14 @@ func (m *mockOrderServiceRepo) CreateOrder(ctx context.Context, o store.Order) (
 	return o, nil
 }
 
-func (m *mockOrderServiceRepo) GetOrder(ctx context.Context, id string) (store.Order, error) {
+func (m *mockOrderServiceRepo) GetOrder(_ context.Context, id string) (store.Order, error) {
 	if o, ok := m.orders[id]; ok {
 		return o, nil
 	}
 	return store.Order{}, store.ErrOrderNotFound
 }
 
-func (m *mockOrderServiceRepo) ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]store.Order, error) {
+func (m *mockOrderServiceRepo) ListBuyerOrders(_ context.Context, buyerID string, _ int32) ([]store.Order, error) {
 	var list []store.Order
 	for _, o := range m.orders {
 		if o.BuyerID == buyerID {
@@ -49,7 +49,7 @@ func (m *mockOrderServiceRepo) ListBuyerOrders(ctx context.Context, buyerID stri
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]store.Order, error) {
+func (m *mockOrderServiceRepo) ListSellerOrders(_ context.Context, sellerID string, _ int32) ([]store.Order, error) {
 	var list []store.Order
 	for _, o := range m.orders {
 		if o.SellerID == sellerID {
@@ -85,13 +85,17 @@ func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id strin
 	return o, nil
 }
 
-func incomingPrincipalCtx(userID, userType string) context.Context {
+func incomingPrincipalCtx(userID, _ string) context.Context {
+	return incomingPrincipalCtxFrom(context.Background(), userID)
+}
+
+func incomingPrincipalCtxFrom(ctx context.Context, userID string) context.Context {
 	p := &commonv1.Principal{
 		Id:     userID,
 		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
 		Scopes: []string{"order.read", "order.write"},
 	}
-	return withPrincipal(context.Background(), p)
+	return withPrincipal(ctx, p)
 }
 
 func serviceCtx(scopes ...string) context.Context {

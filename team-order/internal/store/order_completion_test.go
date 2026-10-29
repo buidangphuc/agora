@@ -86,20 +86,21 @@ func rcCompleted(t *testing.T, envs []*eventsv1.EventEnvelope) []*orderv1.OrderC
 	return out
 }
 
-func rcNewOrder(t *testing.T, repo store.OrderRepository, method paymentv1.PaymentMethod) store.Order {
+func rcNewOrder(ctx context.Context, t *testing.T, repo store.OrderRepository, method paymentv1.PaymentMethod) store.Order {
 	t.Helper()
-	o, err := repo.CreateOrder(context.Background(), store.Order{BuyerID: "b", SellerID: "s", TotalAmount: 120000,
+	o, err := repo.CreateOrder(ctx, store.Order{
+		BuyerID: "b", SellerID: "s", TotalAmount: 120000,
 		Currency: "VND", PaymentMethod: int32(method),
-		Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 120000}}})
+		Items: []store.OrderItem{{ListingID: "l", Quantity: 1, UnitPrice: 120000}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return o
 }
 
-func rcShip(t *testing.T, repo store.OrderRepository, o store.Order) store.Order {
+func rcShip(ctx context.Context, t *testing.T, repo store.OrderRepository, o store.Order) store.Order {
 	t.Helper()
-	ctx := context.Background()
 	if o.PaymentMethod != int32(paymentv1.PaymentMethod_PAYMENT_METHOD_COD) {
 		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, ""); err != nil {
 			t.Fatal(err)
@@ -130,8 +131,8 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	// Scenario: Order receipt: Shipping stamps the auto-complete deadline
 	t.Run("TestShippingStampsAutoCompleteAt", func(t *testing.T) {
 		f := fx(t)
-		o := rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
-		shipped := rcShip(t, f.repo, o)
+		o := rcNewOrder(ctx, t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
+		shipped := rcShip(ctx, t, f.repo, o)
 		if shipped.Status != store.OrderStatusShipped || shipped.ShippedAt == nil || shipped.AutoCompleteAt == nil {
 			t.Fatalf("shipped: %+v", shipped)
 		}
@@ -153,7 +154,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	// Scenario: Order receipt: Seller completion clears the auto-complete deadline
 	t.Run("TestCompletionClearsAutoCompleteAt", func(t *testing.T) {
 		f := fx(t)
-		o := rcShip(t, f.repo, rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
+		o := rcShip(ctx, t, f.repo, rcNewOrder(ctx, t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
 		done, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "", seller)
 		if err != nil {
 			t.Fatal(err)
@@ -171,7 +172,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	// Scenario: Order receipt: Buyer confirm emits OrderCompleted with completed_by BUYER
 	t.Run("TestBuyerCompletionEmitsOrderCompleted", func(t *testing.T) {
 		f := fx(t)
-		o := rcShip(t, f.repo, rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
+		o := rcShip(ctx, t, f.repo, rcNewOrder(ctx, t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
 		done, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "", buyer)
 		if err != nil {
 			t.Fatal(err)
@@ -208,7 +209,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	// Scenario: Order receipt: Seller completion still works and emits OrderCompleted
 	t.Run("TestSellerCompletionEmitsOrderCompleted", func(t *testing.T) {
 		f := fx(t)
-		o := rcShip(t, f.repo, rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
+		o := rcShip(ctx, t, f.repo, rcNewOrder(ctx, t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
 		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "", seller); err != nil {
 			t.Fatal(err)
 		}
@@ -228,7 +229,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	// Scenario: Order receipt: A cash-on-delivery completion is marked not paid online
 	t.Run("TestOrderCompletedPaidOnlineFalseForCOD", func(t *testing.T) {
 		f := fx(t)
-		o := rcShip(t, f.repo, rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_COD))
+		o := rcShip(ctx, t, f.repo, rcNewOrder(ctx, t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_COD))
 		if _, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "", buyer); err != nil {
 			t.Fatal(err)
 		}
@@ -241,7 +242,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	// Scenario: Order receipt: Payment stamps ship_by and the paid event carries it
 	t.Run("TestPaymentStampsShipByAndPaidEventCarriesIt", func(t *testing.T) {
 		f := fx(t)
-		o := rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
+		o := rcNewOrder(ctx, t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
 		if o.ShipBy != nil {
 			t.Fatalf("pending online order must have no ship_by: %v", o.ShipBy)
 		}
@@ -273,7 +274,7 @@ func runCompletionContract(t *testing.T, fx rcFactory) {
 	// (a stamped ship_by survives every later write of the same order).
 	t.Run("TestShipByIsSnapshottedAtPayment", func(t *testing.T) {
 		f := fx(t)
-		o := rcNewOrder(t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
+		o := rcNewOrder(ctx, t, f.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
 		paid, err := f.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, "")
 		if err != nil {
 			t.Fatal(err)
@@ -299,7 +300,7 @@ func runCompletionRollbackContract(t *testing.T, mk func(t *testing.T, opts ...s
 		store.WithCompletedOutbox(func(store.Order) (outbox.Row, error) {
 			return outbox.Row{}, errors.New("boom")
 		}))
-	o := rcShip(t, failing, rcNewOrder(t, failing, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
+	o := rcShip(ctx, t, failing, rcNewOrder(ctx, t, failing, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO))
 	_, err := failing.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCompleted, rcFromShipped, "",
 		store.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_BUYER)))
 	if err == nil {
@@ -325,7 +326,8 @@ func TestOrderCompletion(t *testing.T) {
 	pool := pgPool(t)
 	f := func(t *testing.T, extra ...store.OrderRepoOption) rcFixture {
 		orders := store.NewPostgresOrderRepository(pool, newOutbox(t, pool), append(rcBaseOpts(), extra...)...)
-		return rcFixture{repo: orders, placer: orders, sagas: store.NewPostgresSagaRepository(pool),
+		return rcFixture{
+			repo: orders, placer: orders, sagas: store.NewPostgresSagaRepository(pool),
 			rows: func(t *testing.T, id string) []*eventsv1.EventEnvelope {
 				r, err := pool.Query(context.Background(), `SELECT payload FROM order_outbox_events WHERE aggregate_id = $1 ORDER BY created_at`, id)
 				if err != nil {
@@ -344,7 +346,8 @@ func TestOrderCompletion(t *testing.T) {
 					t.Fatal(err)
 				}
 				return rcDecode(t, payloads)
-			}}
+			},
+		}
 	}
 	runCompletionContract(t, f)
 	runShipByPlacementContract(t, f)
@@ -353,7 +356,7 @@ func TestOrderCompletion(t *testing.T) {
 	t.Run("TestShipByIsSnapshottedAtPayment_ConfigChange", func(t *testing.T) {
 		ctx := context.Background()
 		before := f(t)
-		o := rcNewOrder(t, before.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
+		o := rcNewOrder(ctx, t, before.repo, paymentv1.PaymentMethod_PAYMENT_METHOD_MOCK_MOMO)
 		paid, err := before.repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, "")
 		if err != nil {
 			t.Fatal(err)
@@ -373,7 +376,7 @@ func runShipByPlacementContract(t *testing.T, fx rcFactory) {
 	ctx := context.Background()
 	place := func(t *testing.T, f rcFixture, method paymentv1.PaymentMethod, deadline time.Duration) (store.Order, *orderv1.OrderPlaced) {
 		t.Helper()
-		sagaID, res := newCheckout(t, f.sagas, "la")
+		sagaID, res := newCheckout(ctx, t, f.sagas, "la")
 		po := placedOrder(uid("ord"), "sa", method, deadline)
 		po.ReservationIDs = res
 		if _, err := f.placer.PlaceOrders(ctx, sagaID, []store.PlacedOrder{po}); err != nil {

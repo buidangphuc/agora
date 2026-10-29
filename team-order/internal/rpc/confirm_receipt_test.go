@@ -23,7 +23,7 @@ type receiptEnv struct {
 }
 
 func newReceiptEnv(t testing.TB) receiptEnv {
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	orders := outbox.orders(store.WithCompletedOutbox(BuildCompletedOutboxRow), store.WithReturnWindow(15*24*time.Hour))
 	returns := outbox.returns()
 	svc := newSvc(t, orders, nil, returns, nil, nil, nil, nil)
@@ -54,7 +54,7 @@ func (e receiptEnv) order(t *testing.T, to store.OrderStatus) store.Order {
 
 func (e receiptEnv) completedCount(t *testing.T, orderID string) (n int, by []orderv1.CompletedBy) {
 	t.Helper()
-	for _, row := range e.outbox.EnqueuedRows() {
+	for _, row := range e.outbox.EnqueuedRows(t.Context()) {
 		if row.AggregateID != orderID || row.EventType != OrderCompletedEventType {
 			continue
 		}

@@ -17,7 +17,7 @@ type returnEnv struct {
 }
 
 func newReturnEnv(t *testing.T) returnEnv {
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	orders := outbox.orders()
 	returns := outbox.returns(store.WithReturnOutbox(BuildReturnRefundedOutboxRow))
 	return returnEnv{svc: newSvc(t, orders, nil, returns, nil, nil, nil, nil), orders: orders, outbox: outbox}
@@ -57,9 +57,9 @@ func (e returnEnv) codOrder(t *testing.T, total int64) store.Order {
 	return o
 }
 
-func (e returnEnv) refundRows(returnID string) int {
+func (e returnEnv) refundRows(ctx context.Context, returnID string) int {
 	n := 0
-	for _, r := range e.outbox.EnqueuedRows() {
+	for _, r := range e.outbox.EnqueuedRows(ctx) {
 		if r.EventID == ReturnRefundedEventID(returnID) {
 			n++
 		}
@@ -115,7 +115,7 @@ func TestUpdateReturnStatus_RefundWritesOneFact(t *testing.T) {
 	if _, err := e.svc.UpdateReturnStatus(ctx, r.ID, store.ReturnStatusApproved); err != nil {
 		t.Fatal(err)
 	}
-	if n := e.refundRows(r.ID); n != 0 {
+	if n := e.refundRows(t.Context(), r.ID); n != 0 {
 		t.Fatalf("approve wrote %d rows", n)
 	}
 
@@ -142,7 +142,7 @@ func TestUpdateReturnStatus_RefundWritesOneFact(t *testing.T) {
 	if wins != 1 || refused != 7 {
 		t.Fatalf("wins=%d refused=%d", wins, refused)
 	}
-	if n := e.refundRows(r.ID); n != 1 {
+	if n := e.refundRows(t.Context(), r.ID); n != 1 {
 		t.Fatalf("want 1 ReturnRefunded row, got %d", n)
 	}
 }
@@ -171,7 +171,7 @@ func TestUpdateReturnStatus_CODRefundRefused(t *testing.T) {
 	if got, _ := e.svc.GetReturnRequest(ctx, r.ID); got.Status != store.ReturnStatusApproved {
 		t.Fatalf("status must stay APPROVED: %v", got.Status)
 	}
-	if n := len(e.outbox.EnqueuedRows()); n != 0 {
+	if n := len(e.outbox.EnqueuedRows(ctx)); n != 0 {
 		t.Fatalf("COD refund wrote %d outbox rows", n)
 	}
 	if _, err := e.svc.UpdateReturnStatus(ctx, r.ID, store.ReturnStatusRejected); err != nil {

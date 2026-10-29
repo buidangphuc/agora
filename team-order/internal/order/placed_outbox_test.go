@@ -18,7 +18,7 @@ import (
 func placedFacts(t *testing.T, outbox *pgOutbox) map[string]*orderv1.OrderPlaced {
 	t.Helper()
 	out := map[string]*orderv1.OrderPlaced{}
-	for _, r := range outbox.EnqueuedRows() {
+	for _, r := range outbox.EnqueuedRows(t.Context()) {
 		if r.EventType != OrderPlacedEventType {
 			continue
 		}
@@ -41,7 +41,7 @@ func placedFacts(t *testing.T, outbox *pgOutbox) map[string]*orderv1.OrderPlaced
 // placedRig is the two-seller checkout rig with the OrderPlaced outbox wired.
 func placedRig(t *testing.T, deadline time.Duration) (*checkoutRig, *pgOutbox) {
 	t.Helper()
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	r := &checkoutRig{
 		domain: upstreamtest.NewDomain(map[string]int32{"lst_a": 10, "lst_b": 5}),
 		orders: outbox.orders(store.WithPlacedOutbox(BuildPlacedOutboxRow)),

@@ -27,7 +27,7 @@ type returnRig struct {
 func newReturnRig(t *testing.T) *returnRig {
 	t.Helper()
 	r := &returnRig{now: time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)}
-	r.outbox = newPGOutbox(t)
+	r.outbox = newPGOutbox(t.Context(), t)
 	r.orders = r.outbox.orders(
 		store.WithCompletedOutbox(BuildCompletedOutboxRow),
 		store.WithReturnWindow(15*24*time.Hour))
@@ -73,7 +73,7 @@ func (r *returnRig) order(t *testing.T, to store.OrderStatus) store.Order {
 func (r *returnRig) requested(t *testing.T) []*orderv1.ReturnRequested {
 	t.Helper()
 	var out []*orderv1.ReturnRequested
-	for _, row := range r.outbox.EnqueuedRows() {
+	for _, row := range r.outbox.EnqueuedRows(t.Context()) {
 		if row.EventType != ReturnRequestedEventType {
 			continue
 		}
@@ -119,7 +119,7 @@ func TestCreateReturnOnShippedOrderAcceptedAndAnnounced(t *testing.T) {
 		ev.GetSellerId() != "seller_1" || ev.GetRefundAmount() != 200000 || ev.GetCurrency() != "VND" || ev.GetRequestedAt() == nil {
 		t.Fatalf("unexpected ReturnRequested: %v", ev)
 	}
-	for _, row := range r.outbox.EnqueuedRows() {
+	for _, row := range r.outbox.EnqueuedRows(t.Context()) {
 		if row.EventType == ReturnRequestedEventType && (row.EventID != ReturnRequestedEventID(ret.ID) || row.AggregateID != o.ID) {
 			t.Fatalf("row keyed %q id %q, want order id and return-requested id", row.AggregateID, row.EventID)
 		}

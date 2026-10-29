@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -41,7 +40,7 @@ func (f *flakyReservations) SweepExpiredReservations(_ context.Context, _ time.T
 	return 1, nil
 }
 
-func quietLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func quietLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func TestRunLifecycleSweeper_TicksCallSweepLifecycle_OrderUnpaidPastDeadlineIsCancelled(t *testing.T) {
 	// scenario: Each tick drives one lifecycle sweep

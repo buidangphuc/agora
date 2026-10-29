@@ -28,7 +28,7 @@ type rcRig struct {
 }
 
 func newRCRig(t *testing.T) *rcRig {
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	orders := outbox.orders(
 		store.WithCompletedOutbox(BuildCompletedOutboxRow),
 		store.WithAutoCompleteAfter(rcAutoComplete),
@@ -109,7 +109,7 @@ func (r *rcRig) ret(t *testing.T, id string) store.OrderReturn {
 func (r *rcRig) completedFacts(t *testing.T, orderID string) []*orderv1.OrderCompleted {
 	t.Helper()
 	var out []*orderv1.OrderCompleted
-	for _, row := range r.outbox.EnqueuedRows() {
+	for _, row := range r.outbox.EnqueuedRows(t.Context()) {
 		if row.AggregateID != orderID || row.EventType != OrderCompletedEventType {
 			continue
 		}
@@ -332,12 +332,12 @@ func TestSweepAutoCompleteIdempotent(t *testing.T) {
 	if n := r.sweepComplete(t, now); n != 1 {
 		t.Fatalf("first run completed %d, want 1", n)
 	}
-	rows := len(r.outbox.EnqueuedRows())
+	rows := len(r.outbox.EnqueuedRows(t.Context()))
 	before := r.order(t, o.ID)
 	if n := r.sweepComplete(t, now); n != 0 {
 		t.Fatalf("second run completed %d, want 0", n)
 	}
-	if len(r.outbox.EnqueuedRows()) != rows || !r.order(t, o.ID).UpdatedAt.Equal(before.UpdatedAt) {
+	if len(r.outbox.EnqueuedRows(t.Context())) != rows || !r.order(t, o.ID).UpdatedAt.Equal(before.UpdatedAt) {
 		t.Fatal("the second run must write nothing")
 	}
 }
@@ -353,7 +353,7 @@ func TestAutoApproveUnansweredReturn(t *testing.T) {
 	if r.ret(t, ret.ID).Status != store.ReturnStatusApproved {
 		t.Fatal("return must read APPROVED")
 	}
-	for _, row := range r.outbox.EnqueuedRows() {
+	for _, row := range r.outbox.EnqueuedRows(t.Context()) {
 		if row.EventType == ReturnRefundedEventType {
 			t.Fatal("auto-approve must not write ReturnRefunded")
 		}
@@ -483,11 +483,11 @@ func TestPassedShipByDoesNotChangeOrder(t *testing.T) {
 	if paid.ShipBy == nil {
 		t.Fatal("setup: payment must stamp ship_by")
 	}
-	rows := len(r.outbox.EnqueuedRows())
+	rows := len(r.outbox.EnqueuedRows(ctx))
 	r.svc.SweepLifecycle(ctx, paid.ShipBy.Add(24*time.Hour))
 	got := r.order(t, o.ID)
-	if got.Status != store.OrderStatusPaid || !got.UpdatedAt.Equal(paid.UpdatedAt) || len(r.outbox.EnqueuedRows()) != rows {
-		t.Fatalf("a passed ship_by must change nothing: %+v, outbox %d -> %d", got, rows, len(r.outbox.EnqueuedRows()))
+	if got.Status != store.OrderStatusPaid || !got.UpdatedAt.Equal(paid.UpdatedAt) || len(r.outbox.EnqueuedRows(ctx)) != rows {
+		t.Fatalf("a passed ship_by must change nothing: %+v, outbox %d -> %d", got, rows, len(r.outbox.EnqueuedRows(ctx)))
 	}
 }
 

@@ -90,13 +90,13 @@ func (r *running) stop(t *testing.T) error {
 	}
 }
 
-func (r *running) exited() (error, bool) {
+func (r *running) exited() (bool, error) {
 	select {
 	case err := <-r.done:
 		r.done <- err
-		return err, true
+		return true, err
 	default:
-		return nil, false
+		return false, nil
 	}
 }
 

@@ -22,7 +22,7 @@ func runCancelReasonContract(t *testing.T, repo store.OrderRepository, rows canc
 	ctx := context.Background()
 
 	t.Run("won cancel stores the reason on the row and the event", func(t *testing.T) { // Order expiry: Buyer cancel stores the chosen reason
-		o := newCancelOrder(t, repo)
+		o := newCancelOrder(ctx, t, repo)
 		got, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCancelled, fromPendingPaid, "",
 			store.WithCancelReason(reasonChangedMind))
 		if err != nil || got.CancelReason != reasonChangedMind {
@@ -39,7 +39,7 @@ func runCancelReasonContract(t *testing.T, repo store.OrderRepository, rows canc
 	})
 
 	t.Run("no reason option stores unspecified", func(t *testing.T) { // Order expiry: Cancel without a reason code still succeeds
-		o := newCancelOrder(t, repo)
+		o := newCancelOrder(ctx, t, repo)
 		got, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusCancelled, fromPendingPaid, "")
 		if err != nil || got.CancelReason != 0 {
 			t.Fatalf("claim: %v %+v", err, got)
@@ -51,7 +51,7 @@ func runCancelReasonContract(t *testing.T, repo store.OrderRepository, rows canc
 	})
 
 	t.Run("reason is ignored on moves other than Cancelled", func(t *testing.T) {
-		o := newCancelOrder(t, repo)
+		o := newCancelOrder(ctx, t, repo)
 		got, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, "",
 			store.WithCancelReason(reasonChangedMind))
 		if err != nil || got.CancelReason != 0 {
@@ -63,7 +63,7 @@ func runCancelReasonContract(t *testing.T, repo store.OrderRepository, rows canc
 	})
 
 	t.Run("refused cancel of a shipped order leaves the reason unset", func(t *testing.T) { // Order expiry: Cancel of a shipped order is refused
-		o := newCancelOrder(t, repo)
+		o := newCancelOrder(ctx, t, repo)
 		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped, fromPending, "TRK"); err != nil {
 			t.Fatal(err)
 		}
@@ -81,7 +81,7 @@ func runCancelReasonContract(t *testing.T, repo store.OrderRepository, rows canc
 	})
 
 	t.Run("system actor set cannot cancel a Paid order", func(t *testing.T) { // Order expiry: System may cancel only from Pending
-		o := newCancelOrder(t, repo)
+		o := newCancelOrder(ctx, t, repo)
 		if _, err := repo.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, fromPending, ""); err != nil {
 			t.Fatal(err)
 		}
@@ -97,7 +97,7 @@ func runCancelReasonContract(t *testing.T, repo store.OrderRepository, rows canc
 
 	t.Run("buyer cancel and expiry race: one reason", func(t *testing.T) { // Order expiry: Concurrent buyer cancel and expiry keep one reason
 		for i := 0; i < 10; i++ {
-			o := newCancelOrder(t, repo)
+			o := newCancelOrder(ctx, t, repo)
 			var wg sync.WaitGroup
 			var mu sync.Mutex
 			winners := map[int32]bool{}

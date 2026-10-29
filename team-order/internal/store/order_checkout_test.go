@@ -25,7 +25,7 @@ type checkoutRepo interface {
 
 func checkoutRepoFactories() map[string]func(t *testing.T) checkoutRepo {
 	return map[string]func(t *testing.T) checkoutRepo{
-		"memory": func(t *testing.T) checkoutRepo { return fake.NewInMemoryOrderRepository() },
+		"memory": func(*testing.T) checkoutRepo { return fake.NewInMemoryOrderRepository() },
 		"postgres": func(t *testing.T) checkoutRepo {
 			pool := pgPool(t)
 			return store.NewPostgresOrderRepository(pool, newOutbox(t, pool))

@@ -90,9 +90,8 @@ func TestListAutoCompletableSelectsDueUnblockedShipped(t *testing.T) {
 func TestListAutoCompletableHonoursLimitOldestFirst(t *testing.T) {
 	ctx := context.Background()
 	orders, _ := sweepStores()
-	var ids []string
 	for i := 0; i < 5; i++ {
-		ids = append(ids, shipOrder(t, orders, true).ID)
+		shipOrder(t, orders, true)
 	}
 	got, err := orders.ListAutoCompletable(ctx, time.Now().Add(30*24*time.Hour), 3)
 	if err != nil || len(got) != 3 {
@@ -131,7 +130,7 @@ func TestListAutoApprovableSelectsOnlyDuePending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 2 || !(got[0].ID == pend1.ID && got[1].ID == pend2.ID || got[0].ID == pend2.ID && got[1].ID == pend1.ID) {
+	if len(got) != 2 || ((got[0].ID != pend1.ID || got[1].ID != pend2.ID) && (got[0].ID != pend2.ID || got[1].ID != pend1.ID)) {
 		t.Fatalf("want exactly the two PENDING returns, got %+v", got)
 	}
 	if got, err := returns.ListAutoApprovable(ctx, time.Now(), 100); err != nil || len(got) != 0 {

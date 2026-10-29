@@ -81,12 +81,6 @@ func (f *fakeDomainClient) ReleaseStock(ctx context.Context, req *listingv1.Rele
 	return &listingv1.ReleaseStockResponse{Success: true}, nil
 }
 
-func (f *fakeDomainClient) uniqueDecrements() int {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return len(f.reservedIDs)
-}
-
 func (f *fakeDomainClient) releasedListing(listingID string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -303,10 +297,10 @@ func TestCompensation_RunsOnBackgroundCtx_WhenRequestCancelled(t *testing.T) {
 func (c *fakeCartRepo) UpdateItemPrice(_ context.Context, _, _ string, _ int64) error { return nil }
 
 // Stubs so the fake satisfies store.OrderRepository (order-unpaid-expiry reminder pass).
-func (f *fakeOrderRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]store.Order, error) {
+func (*fakeOrderRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]store.Order, error) {
 	return nil, nil
 }
 
-func (f *fakeOrderRepo) MarkReminderSent(context.Context, string, time.Time) (store.Order, error) {
+func (*fakeOrderRepo) MarkReminderSent(context.Context, string, time.Time) (store.Order, error) {
 	return store.Order{}, nil
 }

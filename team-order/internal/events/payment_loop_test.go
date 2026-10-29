@@ -98,10 +98,10 @@ func TestPaymentNoCommitWhenDLQFails(t *testing.T) {
 	failing.FailOn("order-5")
 	first := newPaymentLoop(t, e, count(events.NewPaymentHandler(r.orders, r.pool, quietLogger()).Handle), failing)
 	testkit.Eventually(t, loopWait, func() bool {
-		_, exited := first.exited()
+		exited, _ := first.exited()
 		return exited
 	})
-	if err, _ := first.exited(); err == nil {
+	if _, err := first.exited(); err == nil {
 		t.Fatal("the consumer must stop with an error when the DLQ write fails")
 	}
 	_ = first.stop(t)

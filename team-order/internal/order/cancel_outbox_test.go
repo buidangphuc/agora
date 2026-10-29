@@ -20,7 +20,7 @@ import (
 func cancelFacts(t *testing.T, outbox *pgOutbox, orderID string) []*orderv1.OrderCancelled {
 	t.Helper()
 	var out []*orderv1.OrderCancelled
-	for _, r := range outbox.EnqueuedRows() {
+	for _, r := range outbox.EnqueuedRows(t.Context()) {
 		if r.AggregateID != orderID || r.EventType != OrderCancelledEventType {
 			continue
 		}
@@ -39,7 +39,7 @@ func cancelFacts(t *testing.T, outbox *pgOutbox, orderID string) []*orderv1.Orde
 
 func newCancelOutboxRig(t *testing.T) (*order.OrderService, *store.PostgresOrderRepository, *pgOutbox, store.Order) {
 	t.Helper()
-	outbox := newPGOutbox(t)
+	outbox := newPGOutbox(t.Context(), t)
 	orders := outbox.orders(store.WithPaidOutbox(BuildPaidOutboxRow),
 		store.WithCancelledOutbox(BuildCancelledOutboxRow))
 	carts := fake.NewInMemoryCartRepository()

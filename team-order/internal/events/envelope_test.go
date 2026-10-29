@@ -325,8 +325,10 @@ func TestPaymentReminderEventIDIsDeterministicPerOrder(t *testing.T) {
 // Scenario: The event envelope contract is unchanged
 func TestBuildReturnRefundedOutboxRow(t *testing.T) {
 	at := time.Date(2026, 10, 8, 9, 30, 0, 0, time.FixedZone("ICT", 7*3600))
-	ret := store.OrderReturn{ID: "ret-1", OrderID: "ord-1", BuyerID: "buyer-1", SellerID: "seller-1",
-		Reason: "broken", RefundAmount: 200000, Status: store.ReturnStatusRefunded, UpdatedAt: at}
+	ret := store.OrderReturn{
+		ID: "ret-1", OrderID: "ord-1", BuyerID: "buyer-1", SellerID: "seller-1",
+		Reason: "broken", RefundAmount: 200000, Status: store.ReturnStatusRefunded, UpdatedAt: at,
+	}
 
 	row, err := events.BuildReturnRefundedOutboxRow(ret, "VND")
 	require.NoError(t, err)
@@ -361,8 +363,10 @@ func TestBuildReturnRefundedOutboxRow(t *testing.T) {
 // Scenario: Order receipt: Return on a shipped order is accepted and announced
 func TestBuildReturnRequestedOutboxRow(t *testing.T) {
 	at := time.Date(2026, 10, 8, 9, 30, 0, 0, time.FixedZone("ICT", 7*3600))
-	ret := store.OrderReturn{ID: "ret-1", OrderID: "ord-1", BuyerID: "buyer-1", SellerID: "seller-1",
-		Reason: "broken", RefundAmount: 200000, Status: store.ReturnStatusPending, CreatedAt: at}
+	ret := store.OrderReturn{
+		ID: "ret-1", OrderID: "ord-1", BuyerID: "buyer-1", SellerID: "seller-1",
+		Reason: "broken", RefundAmount: 200000, Status: store.ReturnStatusPending, CreatedAt: at,
+	}
 
 	row, err := events.BuildReturnRequestedOutboxRow(ret, "VND")
 	require.NoError(t, err)

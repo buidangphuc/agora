@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -105,13 +106,13 @@ func TestInMemoryShipmentRepository(t *testing.T) {
 	}
 
 	// 7. Not Found checks
-	if _, err := repo.GetShipment(ctx, "non-existent"); err != store.ErrShipmentNotFound {
+	if _, err := repo.GetShipment(ctx, "non-existent"); !errors.Is(err, store.ErrShipmentNotFound) {
 		t.Errorf("expected ErrShipmentNotFound, got %v", err)
 	}
-	if _, err := repo.GetShipmentByTrackingCode(ctx, "non-existent"); err != store.ErrShipmentNotFound {
+	if _, err := repo.GetShipmentByTrackingCode(ctx, "non-existent"); !errors.Is(err, store.ErrShipmentNotFound) {
 		t.Errorf("expected ErrShipmentNotFound, got %v", err)
 	}
-	if _, err := repo.GetShipmentByOrderID(ctx, "non-existent"); err != store.ErrShipmentNotFound {
+	if _, err := repo.GetShipmentByOrderID(ctx, "non-existent"); !errors.Is(err, store.ErrShipmentNotFound) {
 		t.Errorf("expected ErrShipmentNotFound, got %v", err)
 	}
 }

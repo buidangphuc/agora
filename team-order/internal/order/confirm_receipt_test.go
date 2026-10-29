@@ -22,8 +22,8 @@ type receiptRig struct {
 	outbox  *pgOutbox
 }
 
-func newReceiptRig(t *testing.T) receiptRig {
-	outbox := newPGOutbox(t)
+func newReceiptRig(ctx context.Context, t *testing.T) receiptRig {
+	outbox := newPGOutbox(ctx, t)
 	orders := outbox.orders(
 		store.WithCompletedOutbox(BuildCompletedOutboxRow),
 		store.WithReturnWindow(15*24*time.Hour))
@@ -32,9 +32,8 @@ func newReceiptRig(t *testing.T) receiptRig {
 }
 
 // shipped creates a buyer_1 order and moves it to SHIPPED (paid online when paid).
-func (r receiptRig) shipped(t *testing.T, paid bool) store.Order {
+func (r receiptRig) shipped(ctx context.Context, t *testing.T, paid bool) store.Order {
 	t.Helper()
-	ctx := context.Background()
 	o, err := r.orders.CreateOrder(ctx, store.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 5000, Currency: "VND"})
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +55,7 @@ func (r receiptRig) shipped(t *testing.T, paid bool) store.Order {
 func (r receiptRig) completedFacts(t *testing.T, orderID string) []*orderv1.OrderCompleted {
 	t.Helper()
 	var out []*orderv1.OrderCompleted
-	for _, row := range r.outbox.EnqueuedRows() {
+	for _, row := range r.outbox.EnqueuedRows(t.Context()) {
 		if row.AggregateID != orderID || row.EventType != OrderCompletedEventType {
 			continue
 		}
@@ -84,8 +83,8 @@ func (r receiptRig) status(t *testing.T, id string) store.OrderStatus {
 
 // Scenario: Order receipt: Buyer confirms a shipped order
 func TestConfirmReceipt_BuyerConfirmsShippedOrder(t *testing.T) {
-	r := newReceiptRig(t)
-	o := r.shipped(t, true)
+	r := newReceiptRig(t.Context(), t)
+	o := r.shipped(t.Context(), t, true)
 	got, err := r.svc.ConfirmReceipt(context.Background(), o.ID)
 	if err != nil {
 		t.Fatalf("confirm: %v", err)
@@ -113,8 +112,8 @@ func TestConfirmReceiptAllowedWithOpenReturn(t *testing.T) {
 		to   store.ReturnStatus
 	}{{"pending", store.ReturnStatusPending}, {"approved", store.ReturnStatusApproved}} {
 		t.Run(tc.name, func(t *testing.T) {
-			r := newReceiptRig(t)
-			o := r.shipped(t, true)
+			r := newReceiptRig(ctx, t)
+			o := r.shipped(ctx, t, true)
 			ret, err := r.returns.CreateReturn(ctx, store.OrderReturn{OrderID: o.ID, BuyerID: "buyer_1", SellerID: "seller_1", Reason: "x", RefundAmount: 1000, Status: store.ReturnStatusPending})
 			if err != nil {
 				t.Fatal(err)
@@ -143,7 +142,7 @@ func TestConfirmReceiptAllowedWithOpenReturn(t *testing.T) {
 // and Scenario: Order receipt: A refused completion emits nothing
 func TestConfirmReceipt_NotShippedIsRefusedAndEmitsNothing(t *testing.T) {
 	ctx := context.Background()
-	r := newReceiptRig(t)
+	r := newReceiptRig(ctx, t)
 	pending, err := r.orders.CreateOrder(ctx, store.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 1})
 	if err != nil {
 		t.Fatal(err)
@@ -170,7 +169,7 @@ func TestConfirmReceipt_NotShippedIsRefusedAndEmitsNothing(t *testing.T) {
 
 // Scenario: Order receipt: Confirming an unknown order is not found
 func TestConfirmReceipt_UnknownOrderNotFound(t *testing.T) {
-	r := newReceiptRig(t)
+	r := newReceiptRig(t.Context(), t)
 	if _, err := r.svc.ConfirmReceipt(context.Background(), "ord_missing"); !errors.Is(err, store.ErrOrderNotFound) {
 		t.Fatalf("want ErrOrderNotFound, got %v", err)
 	}
@@ -178,8 +177,8 @@ func TestConfirmReceipt_UnknownOrderNotFound(t *testing.T) {
 
 // Scenario: Order receipt: Concurrent confirms emit one OrderCompleted
 func TestConfirmReceipt_ConcurrentConfirmsEmitOneOrderCompleted(t *testing.T) {
-	r := newReceiptRig(t)
-	o := r.shipped(t, true)
+	r := newReceiptRig(t.Context(), t)
+	o := r.shipped(t.Context(), t, true)
 	const n = 8
 	errs := make([]error, n)
 	var wg sync.WaitGroup
@@ -214,8 +213,8 @@ func TestConfirmReceipt_ConcurrentConfirmsEmitOneOrderCompleted(t *testing.T) {
 // Scenario: Order receipt: A cash-on-delivery completion is marked not paid online
 // (service level: confirm of a COD order).
 func TestConfirmReceipt_CODMarkedNotPaidOnline(t *testing.T) {
-	r := newReceiptRig(t)
-	o := r.shipped(t, false)
+	r := newReceiptRig(t.Context(), t)
+	o := r.shipped(t.Context(), t, false)
 	if _, err := r.svc.ConfirmReceipt(context.Background(), o.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -227,8 +226,8 @@ func TestConfirmReceipt_CODMarkedNotPaidOnline(t *testing.T) {
 
 // Scenario: Order receipt: Seller completion still works and emits OrderCompleted
 func TestUpdateOrderStatus_SellerCompletionEmitsSellerOrderCompleted(t *testing.T) {
-	r := newReceiptRig(t)
-	o := r.shipped(t, true)
+	r := newReceiptRig(t.Context(), t)
+	o := r.shipped(t.Context(), t, true)
 	if _, err := r.svc.UpdateOrderStatus(context.Background(), o.ID, order.ActorSeller, store.OrderStatusCompleted, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +241,7 @@ func TestUpdateOrderStatus_SellerCompletionEmitsSellerOrderCompleted(t *testing.
 // (seller move of a PAID order to COMPLETED).
 func TestUpdateOrderStatus_RefusedSellerCompletionEmitsNothing(t *testing.T) {
 	ctx := context.Background()
-	r := newReceiptRig(t)
+	r := newReceiptRig(ctx, t)
 	o, err := r.orders.CreateOrder(ctx, store.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 1})
 	if err != nil {
 		t.Fatal(err)
@@ -261,8 +260,8 @@ func TestUpdateOrderStatus_RefusedSellerCompletionEmitsNothing(t *testing.T) {
 // Scenario: Order receipt: A completed order cannot be reopened or cancelled
 func TestConfirmReceipt_CompletedOrderCannotBeReopenedOrCancelled(t *testing.T) {
 	ctx := context.Background()
-	r := newReceiptRig(t)
-	o := r.shipped(t, true)
+	r := newReceiptRig(ctx, t)
+	o := r.shipped(ctx, t, true)
 	if _, err := r.svc.ConfirmReceipt(ctx, o.ID); err != nil {
 		t.Fatal(err)
 	}
