@@ -175,7 +175,7 @@ def default_matches_golden(gitops):
     "--set probes.livenessService=liveness"
 )
 def render_gateway_liveness(gitops):
-    gitops["raw"] = _render_raw("team-gateway", None, (LIVENESS,))
+    gitops["raw"] = _render_raw("team-gateway", None, ("healthPath=/healthz", "grpcPort=0", LIVENESS))
     gitops["probes"] = _probes([d for d in yaml.safe_load_all(gitops["raw"]) if d], "Deployment")
 
 
