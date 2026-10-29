@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 
@@ -36,7 +37,7 @@ type kgoHeader struct {
 // scenario: A beacon becomes a keyed record with trace headers
 func TestKafkaPublisherProducesKeyedRecordWithHeaders(t *testing.T) {
 	brokers := testkit.Redpanda(t)
-	producer, err := kafkax.NewProducer(config.Kafka{Brokers: brokers})
+	producer, err := kafkax.NewProducer(config.Kafka{Brokers: brokers}, kgo.AllowAutoTopicCreation())
 	if err != nil {
 		t.Fatalf("NewProducer: %v", err)
 	}
@@ -102,7 +103,7 @@ func TestKafkaPublisherProducesKeyedRecordWithHeaders(t *testing.T) {
 // scenario: A beacon becomes a keyed record with trace headers
 func TestKafkaPublisherKeyFallsBackToAnonymousThenListing(t *testing.T) {
 	brokers := testkit.Redpanda(t)
-	producer, err := kafkax.NewProducer(config.Kafka{Brokers: brokers})
+	producer, err := kafkax.NewProducer(config.Kafka{Brokers: brokers}, kgo.AllowAutoTopicCreation())
 	if err != nil {
 		t.Fatalf("NewProducer: %v", err)
 	}
