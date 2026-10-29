@@ -1,18 +1,22 @@
-package query
+package rpc
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
-	commonv1 "github.com/buidangphuc/team-analytics/generated/platform/common/v1"
-	"github.com/buidangphuc/team-analytics/internal/interceptor"
+	"github.com/buidangphuc/team-analytics/internal/query"
 )
 
 const (
@@ -33,12 +37,14 @@ const defaultTopSKULimit = 10
 // window); year 9999 comfortably covers any real occurred_at.
 var farFuture = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
 
-// Service implements analyticsv1.AnalyticsQueryServiceServer over a Repository.
-// It is the handler layer: it validates input, maps proto⇄domain, and delegates
-// aggregation to the repository. It never writes.
-type Service struct {
+// Handler implements analyticsv1.AnalyticsQueryServiceServer over a Repository.
+// It validates input, maps proto and domain, and delegates aggregation to the
+// repository. It never writes.
+type Handler struct {
 	analyticsv1.UnimplementedAnalyticsQueryServiceServer
-	repo       Repository
+	repo       query.Repository
+	logger     *slog.Logger
+	errs       grpcx.ErrorTable
 	thresholds TrackingThresholds
 	// attributionHours is RECS_ATTRIBUTION_WINDOW_HOURS.
 	attributionHours int
@@ -68,31 +74,46 @@ var DefaultTrackingThresholds = TrackingThresholds{
 const DefaultAttributionWindowHours = 24
 
 // Option customises a Service.
-type Option func(*Service)
+type Option func(*Handler)
 
 // WithTrackingThresholds overrides the tracking quality thresholds.
 func WithTrackingThresholds(t TrackingThresholds) Option {
-	return func(s *Service) { s.thresholds = t }
+	return func(s *Handler) { s.thresholds = t }
 }
 
 // WithAttributionWindowHours sets how long after a click an add-to-cart or
 // purchase is still credited to it (RECS_ATTRIBUTION_WINDOW_HOURS).
 func WithAttributionWindowHours(h int) Option {
-	return func(s *Service) { s.attributionHours = h }
+	return func(s *Handler) { s.attributionHours = h }
 }
 
 // WithClock overrides the clock the report window is measured from (tests).
 func WithClock(now func() time.Time) Option {
-	return func(s *Service) { s.now = now }
+	return func(s *Handler) { s.now = now }
 }
 
-// NewService builds the query servicer over repo.
-func NewService(repo Repository, opts ...Option) *Service {
-	s := &Service{repo: repo, thresholds: DefaultTrackingThresholds, attributionHours: DefaultAttributionWindowHours, now: time.Now}
-	for _, o := range opts {
-		o(s)
+// NewHandler builds the query handler over repo.
+func NewHandler(repo query.Repository, logger *slog.Logger, opts ...Option) (*Handler, error) {
+	if repo == nil {
+		return nil, errors.New("rpc: repository is required")
 	}
-	return s
+	errs, err := newErrorTable()
+	if err != nil {
+		return nil, err
+	}
+	if logger == nil {
+		logger = slog.Default()
+	}
+	h := &Handler{repo: repo, logger: logger, errs: errs, thresholds: DefaultTrackingThresholds, attributionHours: DefaultAttributionWindowHours, now: time.Now}
+	for _, o := range opts {
+		o(h)
+	}
+	return h, nil
+}
+
+// Register adds the handler to srv.
+func Register(srv grpc.ServiceRegistrar, h *Handler) {
+	analyticsv1.RegisterAnalyticsQueryServiceServer(srv, h)
 }
 
 // requireSellerAccess gates the per-seller RPCs. It runs before any other work so
@@ -100,28 +121,30 @@ func NewService(repo Repository, opts ...Option) *Service {
 // Anonymous or absent principal -> Unauthenticated; the admin scope -> allowed;
 // a user principal whose id equals sellerID -> allowed; anything else (another
 // user, a service principal without admin) -> PermissionDenied.
+func requireAdmin(ctx context.Context) error {
+	_, err := auth.RequireScopes(ctx, scopeAdmin)
+	return err
+}
+
 func requireSellerAccess(ctx context.Context, sellerID string) error {
-	p, ok := interceptor.PrincipalFromContext(ctx)
-	if !ok || p.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS || p.GetId() == "" {
-		return status.Error(codes.Unauthenticated, "authentication required")
+	p, err := auth.RequirePrincipal(ctx)
+	if err != nil {
+		return err
 	}
-	if err := interceptor.RequireScopes(ctx, scopeAdmin); err == nil {
+	if p.HasScope(scopeAdmin) {
 		return nil
 	}
 	sellerID = strings.TrimSpace(sellerID)
-	if p.GetType() == commonv1.PrincipalType_PRINCIPAL_TYPE_USER && sellerID != "" && p.GetId() == sellerID {
+	if p.Type == auth.TypeUser && sellerID != "" && p.ID == sellerID {
 		return nil
 	}
 	return status.Error(codes.PermissionDenied, "not allowed to read this seller's analytics")
 }
 
 // GetSellerFunnel returns impression→view→add→order counts for a seller.
-func (s *Service) GetSellerFunnel(ctx context.Context, req *analyticsv1.GetSellerFunnelRequest) (*analyticsv1.GetSellerFunnelResponse, error) {
+func (s *Handler) GetSellerFunnel(ctx context.Context, req *analyticsv1.GetSellerFunnelRequest) (*analyticsv1.GetSellerFunnelResponse, error) {
 	if err := requireSellerAccess(ctx, req.GetSellerId()); err != nil {
 		return nil, err
-	}
-	if s.repo == nil {
-		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
 	}
 	sellerID := strings.TrimSpace(req.GetSellerId())
 	if sellerID == "" {
@@ -131,7 +154,7 @@ func (s *Service) GetSellerFunnel(ctx context.Context, req *analyticsv1.GetSelle
 
 	f, err := s.repo.SellerFunnel(ctx, sellerID, from, to)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "seller funnel: %v", err)
+		return nil, s.fail(ctx, err)
 	}
 	return &analyticsv1.GetSellerFunnelResponse{
 		Impressions:    f.Impressions,
@@ -144,12 +167,9 @@ func (s *Service) GetSellerFunnel(ctx context.Context, req *analyticsv1.GetSelle
 }
 
 // GetRevenueBreakdown returns per-day revenue and the top SKUs for a seller.
-func (s *Service) GetRevenueBreakdown(ctx context.Context, req *analyticsv1.GetRevenueBreakdownRequest) (*analyticsv1.GetRevenueBreakdownResponse, error) {
+func (s *Handler) GetRevenueBreakdown(ctx context.Context, req *analyticsv1.GetRevenueBreakdownRequest) (*analyticsv1.GetRevenueBreakdownResponse, error) {
 	if err := requireSellerAccess(ctx, req.GetSellerId()); err != nil {
 		return nil, err
-	}
-	if s.repo == nil {
-		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
 	}
 	sellerID := strings.TrimSpace(req.GetSellerId())
 	if sellerID == "" {
@@ -159,7 +179,7 @@ func (s *Service) GetRevenueBreakdown(ctx context.Context, req *analyticsv1.GetR
 
 	b, err := s.repo.RevenueBreakdown(ctx, sellerID, from, to, defaultTopSKULimit)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "revenue breakdown: %v", err)
+		return nil, s.fail(ctx, err)
 	}
 
 	resp := &analyticsv1.GetRevenueBreakdownResponse{
@@ -185,12 +205,9 @@ func (s *Service) GetRevenueBreakdown(ctx context.Context, req *analyticsv1.GetR
 }
 
 // GetDemandForecast serves probabilistic daily demand forecasts and restock points.
-func (s *Service) GetDemandForecast(ctx context.Context, req *analyticsv1.GetDemandForecastRequest) (*analyticsv1.GetDemandForecastResponse, error) {
+func (s *Handler) GetDemandForecast(ctx context.Context, req *analyticsv1.GetDemandForecastRequest) (*analyticsv1.GetDemandForecastResponse, error) {
 	if err := requireSellerAccess(ctx, req.GetSellerId()); err != nil {
 		return nil, err
-	}
-	if s.repo == nil {
-		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
 	}
 	sellerID := strings.TrimSpace(req.GetSellerId())
 	if sellerID == "" {
@@ -207,7 +224,7 @@ func (s *Service) GetDemandForecast(ctx context.Context, req *analyticsv1.GetDem
 
 	res, err := s.repo.DemandForecast(ctx, sellerID, listingID, horizon)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "demand forecast: %v", err)
+		return nil, s.fail(ctx, err)
 	}
 
 	leadTime := int(req.GetLeadTimeDays())
@@ -267,12 +284,9 @@ func (s *Service) GetDemandForecast(ctx context.Context, req *analyticsv1.GetDem
 
 // GetPlatformOrderSummary returns the platform-wide distinct paid-order count and
 // GMV over the trailing window (default 24h). Admin only.
-func (s *Service) GetPlatformOrderSummary(ctx context.Context, req *analyticsv1.GetPlatformOrderSummaryRequest) (*analyticsv1.GetPlatformOrderSummaryResponse, error) {
-	if err := interceptor.RequireScopes(ctx, scopeAdmin); err != nil {
+func (s *Handler) GetPlatformOrderSummary(ctx context.Context, req *analyticsv1.GetPlatformOrderSummaryRequest) (*analyticsv1.GetPlatformOrderSummaryResponse, error) {
+	if err := requireAdmin(ctx); err != nil {
 		return nil, err
-	}
-	if s.repo == nil {
-		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
 	}
 	win := defaultOrderWindow
 	if d := req.GetWindow(); d != nil && d.AsDuration() > 0 {
@@ -280,19 +294,16 @@ func (s *Service) GetPlatformOrderSummary(ctx context.Context, req *analyticsv1.
 	}
 	sum, err := s.repo.PlatformOrderSummary(ctx, time.Now().UTC().Add(-win))
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "platform order summary: %v", err)
+		return nil, s.fail(ctx, err)
 	}
 	return &analyticsv1.GetPlatformOrderSummaryResponse{OrderCount: sum.OrderCount, Gmv: sum.GMV}, nil
 }
 
 // ListRecentOrders returns the latest paid orders, newest first. Admin only; no
 // buyer PII is read or returned.
-func (s *Service) ListRecentOrders(ctx context.Context, req *analyticsv1.ListRecentOrdersRequest) (*analyticsv1.ListRecentOrdersResponse, error) {
-	if err := interceptor.RequireScopes(ctx, scopeAdmin); err != nil {
+func (s *Handler) ListRecentOrders(ctx context.Context, req *analyticsv1.ListRecentOrdersRequest) (*analyticsv1.ListRecentOrdersResponse, error) {
+	if err := requireAdmin(ctx); err != nil {
 		return nil, err
-	}
-	if s.repo == nil {
-		return nil, status.Error(codes.Unavailable, "analytics query repository not configured")
 	}
 	limit := int(req.GetLimit())
 	if limit <= 0 || limit > maxRecentOrders {
@@ -300,7 +311,7 @@ func (s *Service) ListRecentOrders(ctx context.Context, req *analyticsv1.ListRec
 	}
 	orders, err := s.repo.RecentOrders(ctx, limit)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "recent orders: %v", err)
+		return nil, s.fail(ctx, err)
 	}
 	resp := &analyticsv1.ListRecentOrdersResponse{Orders: make([]*analyticsv1.RecentOrder, 0, len(orders))}
 	for _, o := range orders {
@@ -327,8 +338,8 @@ const (
 // GetTrackingQualityReport measures the tracking stream over a trailing window
 // (1 to 168 hours, default 24) and derives OK or DEGRADED with sorted reasons
 // stale, lagging and incomplete. Admin only.
-func (s *Service) GetTrackingQualityReport(ctx context.Context, req *analyticsv1.GetTrackingQualityReportRequest) (*analyticsv1.GetTrackingQualityReportResponse, error) {
-	if err := interceptor.RequireScopes(ctx, scopeAdmin); err != nil {
+func (s *Handler) GetTrackingQualityReport(ctx context.Context, req *analyticsv1.GetTrackingQualityReportRequest) (*analyticsv1.GetTrackingQualityReportResponse, error) {
+	if err := requireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	hours := req.GetWindowHours()
@@ -338,14 +349,14 @@ func (s *Service) GetTrackingQualityReport(ctx context.Context, req *analyticsv1
 	if hours > maxQualityWindowHours {
 		return nil, status.Errorf(codes.InvalidArgument, "window_hours must be between 1 and %d", maxQualityWindowHours)
 	}
-	qr, ok := s.repo.(QualityRepository)
+	qr, ok := s.repo.(query.QualityRepository)
 	if !ok {
-		return nil, status.Error(codes.Unavailable, "tracking quality is not available on this warehouse")
+		return nil, s.fail(ctx, query.ErrUnsupported)
 	}
 	now := s.now().UTC()
 	data, err := qr.TrackingQuality(ctx, now.Add(-time.Duration(hours)*time.Hour), now)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "tracking quality: %v", err)
+		return nil, s.fail(ctx, err)
 	}
 
 	resp := &analyticsv1.GetTrackingQualityReportResponse{
@@ -414,14 +425,14 @@ func window(from, to *timestamppb.Timestamp) (time.Time, time.Time) {
 }
 
 // compile-time assertion that the servicer satisfies the generated interface.
-var _ analyticsv1.AnalyticsQueryServiceServer = (*Service)(nil)
+var _ analyticsv1.AnalyticsQueryServiceServer = (*Handler)(nil)
 
 // GetRecommendationPerformance reports clicks and attributed conversions per
 // (placement, model_version) over a trailing window (1 to 168 hours, default
 // 24), plus each placement's share of impressions served by the fallback.
 // Admin only (recsys-online-evaluation).
-func (s *Service) GetRecommendationPerformance(ctx context.Context, req *analyticsv1.GetRecommendationPerformanceRequest) (*analyticsv1.GetRecommendationPerformanceResponse, error) {
-	if err := interceptor.RequireScopes(ctx, scopeAdmin); err != nil {
+func (s *Handler) GetRecommendationPerformance(ctx context.Context, req *analyticsv1.GetRecommendationPerformanceRequest) (*analyticsv1.GetRecommendationPerformanceResponse, error) {
+	if err := requireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	hours := req.GetWindowHours()
@@ -433,14 +444,14 @@ func (s *Service) GetRecommendationPerformance(ctx context.Context, req *analyti
 	if hours > maxQualityWindowHours {
 		return nil, status.Errorf(codes.InvalidArgument, "window_hours must be between 1 and %d", maxQualityWindowHours)
 	}
-	pr, ok := s.repo.(PerformanceRepository)
+	pr, ok := s.repo.(query.PerformanceRepository)
 	if !ok {
-		return nil, status.Error(codes.Unavailable, "recommendation performance is not available on this warehouse")
+		return nil, s.fail(ctx, query.ErrUnsupported)
 	}
 	now := s.now().UTC()
 	data, err := pr.RecommendationPerformance(ctx, now.Add(-time.Duration(hours)*time.Hour), now, s.attributionHours)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "recommendation performance: %v", err)
+		return nil, s.fail(ctx, err)
 	}
 
 	resp := &analyticsv1.GetRecommendationPerformanceResponse{
@@ -474,7 +485,7 @@ func (s *Service) GetRecommendationPerformance(ctx context.Context, req *analyti
 			order = append(order, d.PlacementID)
 		}
 		total[d.PlacementID] += d.Impressions
-		if d.ModelVersion == FallbackModelVersion {
+		if d.ModelVersion == query.FallbackModelVersion {
 			fallback[d.PlacementID] += d.Impressions
 		}
 	}
@@ -491,21 +502,21 @@ func (s *Service) GetRecommendationPerformance(ctx context.Context, req *analyti
 
 // GetChannelFunnel splits the funnel by acquisition channel (source, medium,
 // campaign) over [from, to]. Admin only; seller_id optionally narrows it.
-func (s *Service) GetChannelFunnel(ctx context.Context, req *analyticsv1.GetChannelFunnelRequest) (*analyticsv1.GetChannelFunnelResponse, error) {
-	if err := interceptor.RequireScopes(ctx, scopeAdmin); err != nil {
+func (s *Handler) GetChannelFunnel(ctx context.Context, req *analyticsv1.GetChannelFunnelRequest) (*analyticsv1.GetChannelFunnelResponse, error) {
+	if err := requireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	if req.GetFrom() != nil && req.GetTo() != nil && req.GetFrom().AsTime().After(req.GetTo().AsTime()) {
 		return nil, status.Error(codes.InvalidArgument, "from must not be after to")
 	}
-	cr, ok := s.repo.(ChannelFunnelRepository)
+	cr, ok := s.repo.(query.ChannelFunnelRepository)
 	if !ok {
-		return nil, status.Error(codes.Unavailable, "channel funnel is not available on this warehouse")
+		return nil, s.fail(ctx, query.ErrUnsupported)
 	}
 	from, to := window(req.GetFrom(), req.GetTo())
 	data, err := cr.ChannelFunnel(ctx, strings.TrimSpace(req.GetSellerId()), from, to)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "channel funnel: %v", err)
+		return nil, s.fail(ctx, err)
 	}
 	resp := &analyticsv1.GetChannelFunnelResponse{Rows: make([]*analyticsv1.ChannelFunnelRow, 0, len(data))}
 	for _, d := range data {
