@@ -337,6 +337,27 @@ class MigrateJob(unittest.TestCase):
                 self.assertEqual(container(migrating[0])["args"], ["migrate", "up"])
 
 
+class GatewayAndPorts(unittest.TestCase):
+    def test_scenario_the_gateway_renders_no_http_probe(self):
+        c = container(workload(helm("team-gateway")))
+        for probe in ("readinessProbe", "livenessProbe", "startupProbe"):
+            with self.subTest(probe=probe):
+                self.assertNotIn("httpGet", c[probe])
+                self.assertEqual(c[probe]["grpc"]["port"], 8080)
+        self.assertNotIn("healthPath", baseline("team-gateway"))
+        self.assertNotIn("healthPath", argo_inline("team-gateway"))
+
+    def test_scenario_the_domain_service_gets_its_container_port(self):
+        c = container(workload(helm("team-domain")))
+        self.assertIn(50051, [p["containerPort"] for p in c["ports"]])
+        self.assertEqual(env_of(c).get("GRPC_PORT"), "50051")
+
+    def test_scenario_design_d1_additions_present(self):
+        self.assertEqual(baseline("team-search").get("grpcPort"), 50052)
+        self.assertEqual(env_of(container(workload(helm("team-order")))).get("OUTBOX_CLAIM_LOCK"), "60s")
+        self.assertEqual(env_of(container(workload(helm("team-engagement")))).get("OUTBOX_POLL_INTERVAL"), "500ms")
+
+
 class Strategy(unittest.TestCase):
     def test_strategy_value_renders_recreate_deployment(self):
         dep = workload(helm("team-order", sets=["strategy.type=Recreate"]))
