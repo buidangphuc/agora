@@ -2,7 +2,6 @@ package edge_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net/http/httptest"
 	"strings"
@@ -35,7 +34,7 @@ func newHeaderFixture(t *testing.T) (orderv1connect.OrderServiceClient, *mdOrder
 	t.Helper()
 	up := &mdOrder{}
 	e := edge.NewEdge(nil, []string{"listing.read"}, time.Second, 0, 1000, 1000)
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Order: up}, e, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Order: up}, e, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	t.Cleanup(srv.Close)
 	return orderv1connect.NewOrderServiceClient(srv.Client(), srv.URL), up
 }
