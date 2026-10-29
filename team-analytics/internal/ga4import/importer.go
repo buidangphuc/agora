@@ -52,7 +52,7 @@ func (g *Importer) ImportDay(ctx context.Context, day time.Time) (int64, error) 
 		if err != nil {
 			return 0, fmt.Errorf("ga4 export %s: bigquery source: %w", day.Format(dateLayout), err)
 		}
-		defer bq.Close()
+		defer func() { _ = bq.Close() }()
 		src = bq
 	}
 	res, err := Run(ctx, g.w, src, day)
@@ -111,7 +111,7 @@ func (g *Importer) RunScheduler(ctx context.Context, logger *slog.Logger) {
 	for {
 		next, err := NextRun(time.Now(), g.cfg.ImportAt)
 		if err != nil {
-			logger.Error("ga4 import scheduler disabled", "err", err)
+			logger.ErrorContext(ctx, "ga4 import scheduler disabled", "err", err)
 			return
 		}
 		select {
@@ -122,9 +122,9 @@ func (g *Importer) RunScheduler(ctx context.Context, logger *slog.Logger) {
 		day := ImportDate(time.Now())
 		rows, err := g.ImportDay(ctx, day)
 		if err != nil {
-			logger.Error("ga4 import failed", "date", day.Format(dateLayout), "err", err)
+			logger.ErrorContext(ctx, "ga4 import failed", "date", day.Format(dateLayout), "err", err)
 			continue
 		}
-		logger.Info("ga4 import done", "date", day.Format(dateLayout), "rows", rows)
+		logger.InfoContext(ctx, "ga4 import done", "date", day.Format(dateLayout), "rows", rows)
 	}
 }

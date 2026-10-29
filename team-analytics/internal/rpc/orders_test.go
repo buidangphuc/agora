@@ -132,8 +132,10 @@ func TestDuckDBRepository_PlatformOrders(t *testing.T) {
 
 	now := time.Now().UTC()
 	fact := func(id, order, seller string, qty int32, price int64, at time.Time) *warehouse.OrderFactRecord {
-		return &warehouse.OrderFactRecord{EventID: id, OrderID: order, ListingID: "l", SellerID: seller,
-			Quantity: qty, UnitPrice: price, Currency: "VND", OccurredAt: at, Status: "PAID"}
+		return &warehouse.OrderFactRecord{
+			EventID: id, OrderID: order, ListingID: "l", SellerID: seller,
+			Quantity: qty, UnitPrice: price, Currency: "VND", OccurredAt: at, Status: "PAID",
+		}
 	}
 	if err := w.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{
 		fact("e1", "o-1", "s-1", 2, 150000, now.Add(-time.Hour)),

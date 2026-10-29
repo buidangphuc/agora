@@ -10,14 +10,15 @@ import (
 	"testing"
 	"time"
 
-	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	engagementv1 "github.com/buidangphuc/team-analytics/generated/platform/engagement/v1"

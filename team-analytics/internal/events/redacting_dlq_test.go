@@ -5,11 +5,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	commonv1 "github.com/buidangphuc/team-analytics/generated/platform/common/v1"

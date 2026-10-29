@@ -4,10 +4,11 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	eventsv1 "github.com/buidangphuc/team-analytics/generated/platform/events/v1"

@@ -8,12 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/buidangphuc/team-analytics/internal/query"
 	"github.com/buidangphuc/team-analytics/internal/rpc"

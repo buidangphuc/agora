@@ -80,15 +80,15 @@ func NewBatchHandler(w warehouse.WarehouseWriter, fp *kafkax.Fingerprinter, logg
 			}
 			if errTr != nil || errOf != nil {
 				failures++
-				logger.Warn("decode record failed; skipping", "key_fp", fp.Of(rec.Key), "tracking_err", errTr, "order_err", errOf)
+				logger.WarnContext(ctx, "decode record failed; skipping", "key_fp", fp.Of(rec.Key), "tracking_err", errTr, "order_err", errOf)
 				continue
 			}
-			logger.Debug("skipping unknown envelope", "key_fp", fp.Of(rec.Key))
+			logger.DebugContext(ctx, "skipping unknown envelope", "key_fp", fp.Of(rec.Key))
 		}
 		if failures > 0 {
 			if cw, ok := w.(warehouse.IngestCounterWriter); ok {
 				if err := cw.RecordDecodeFailures(ctx, time.Now(), failures); err != nil {
-					logger.Warn("decode failure counter not updated", "err", err)
+					logger.WarnContext(ctx, "decode failure counter not updated", "err", err)
 				}
 			}
 		}
@@ -112,7 +112,7 @@ func NewListingHandler(w warehouse.ListingSellerWriter, fp *kafkax.Fingerprinter
 		for _, rec := range records {
 			m, ok, err := ListingSellerFromEnvelope(rec.Value)
 			if err != nil {
-				logger.Warn("decode listing record failed; skipping", "key_fp", fp.Of(rec.Key), "err", err)
+				logger.WarnContext(ctx, "decode listing record failed; skipping", "key_fp", fp.Of(rec.Key), "err", err)
 				continue
 			}
 			if ok {
@@ -133,7 +133,7 @@ func NewEngagementHandler(w warehouse.EngagementFactWriter, fp *kafkax.Fingerpri
 	return func(ctx context.Context, rec consume.Record) error {
 		row, err := EngagementFactFromEnvelope(rec.Value)
 		if err != nil {
-			logger.Warn("engagement record dead-lettered", "key_fp", fp.Of(rec.Key), "err", err)
+			logger.WarnContext(ctx, "engagement record dead-lettered", "key_fp", fp.Of(rec.Key), "err", err)
 			return consume.Permanent(fmt.Errorf("%w: %w", ErrDeadLetter, err))
 		}
 		if err := w.WriteEngagementFacts(ctx, []*warehouse.EngagementFactRecord{row}); err != nil {

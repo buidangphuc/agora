@@ -22,7 +22,7 @@ func RunCLI(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	settings, err := config.Load()
 	if err != nil {
-		fmt.Fprintf(stderr, "load settings: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "load settings: %v\n", err)
 		return 1
 	}
 	day := *date
@@ -32,7 +32,7 @@ func RunCLI(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	base := strings.TrimSpace(settings.GA4.ImportTriggerURL)
 	u, err := url.Parse(base)
 	if err != nil {
-		fmt.Fprintf(stderr, "invalid GA4_IMPORT_TRIGGER_URL %q: %v\n", base, err)
+		_, _ = fmt.Fprintf(stderr, "invalid GA4_IMPORT_TRIGGER_URL %q: %v\n", base, err)
 		return 1
 	}
 	q := u.Query()
@@ -41,20 +41,20 @@ func RunCLI(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), nil)
 	if err != nil {
-		fmt.Fprintf(stderr, "ga4import %s: %v\n", day, err)
+		_, _ = fmt.Fprintf(stderr, "ga4import %s: %v\n", day, err)
 		return 1
 	}
 	resp, err := (&http.Client{Timeout: 30 * time.Minute}).Do(req)
 	if err != nil {
-		fmt.Fprintf(stderr, "ga4import %s: trigger unreachable: %v\n", day, err)
+		_, _ = fmt.Fprintf(stderr, "ga4import %s: trigger unreachable: %v\n", day, err)
 		return 1
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(stderr, "ga4import %s failed: %s: %s\n", day, resp.Status, strings.TrimSpace(string(body)))
+		_, _ = fmt.Fprintf(stderr, "ga4import %s failed: %s: %s\n", day, resp.Status, strings.TrimSpace(string(body)))
 		return 1
 	}
-	fmt.Fprintf(stdout, "ga4import %s: %s\n", day, strings.TrimSpace(string(body)))
+	_, _ = fmt.Fprintf(stdout, "ga4import %s: %s\n", day, strings.TrimSpace(string(body)))
 	return 0
 }

@@ -34,8 +34,10 @@ func perfRepo(t *testing.T, recs []*warehouse.TrackingRecord, orders ...*warehou
 
 // paid is one PAID order line of buyer for listing at at.
 func paid(id, buyer, listing string, at time.Time) *warehouse.OrderFactRecord {
-	return &warehouse.OrderFactRecord{EventID: id, OrderID: "o-" + id, ListingID: listing, SellerID: "s", Quantity: 1,
-		UnitPrice: 1, Currency: "VND", OccurredAt: at, Status: "PAID", BuyerID: buyer}
+	return &warehouse.OrderFactRecord{
+		EventID: id, OrderID: "o-" + id, ListingID: listing, SellerID: "s", Quantity: 1,
+		UnitPrice: 1, Currency: "VND", OccurredAt: at, Status: "PAID", BuyerID: buyer,
+	}
 }
 
 func TestDuckDBRecommendationPerformance(t *testing.T) {
@@ -132,8 +134,10 @@ func TestDuckDBRecommendationPerformance(t *testing.T) {
 func TestDuckDBRecommendationPerformance_OutsideAttributionWindow(t *testing.T) {
 	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 	ev := func(id, typ, imp, placement, model string, ago time.Duration) *warehouse.TrackingRecord {
-		return &warehouse.TrackingRecord{EventID: id, EventType: typ, ListingID: "l1", AnonymousID: "a", PrincipalID: "u", PrincipalType: "user",
-			ImpressionID: imp, PlacementID: placement, ModelVersion: model, OccurredAt: now.Add(-ago)}
+		return &warehouse.TrackingRecord{
+			EventID: id, EventType: typ, ListingID: "l1", AnonymousID: "a", PrincipalID: "u", PrincipalType: "user",
+			ImpressionID: imp, PlacementID: placement, ModelVersion: model, OccurredAt: now.Add(-ago),
+		}
 	}
 	repo := perfRepo(t, []*warehouse.TrackingRecord{
 		ev("i", "impression", "I", "p", "M", 30*time.Hour),
@@ -154,8 +158,10 @@ func TestDuckDBRecommendationPerformance_OutsideAttributionWindow(t *testing.T) 
 func TestDuckDBRecommendationPerformance_NoCrossCreditOnEmptyAnonymousID(t *testing.T) {
 	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 	anon := func(id, typ, imp, placement, model string, ago time.Duration) *warehouse.TrackingRecord {
-		return &warehouse.TrackingRecord{EventID: id, EventType: typ, ListingID: "l1", PrincipalType: "anonymous",
-			ImpressionID: imp, PlacementID: placement, ModelVersion: model, OccurredAt: now.Add(-ago)}
+		return &warehouse.TrackingRecord{
+			EventID: id, EventType: typ, ListingID: "l1", PrincipalType: "anonymous",
+			ImpressionID: imp, PlacementID: placement, ModelVersion: model, OccurredAt: now.Add(-ago),
+		}
 	}
 	repo := perfRepo(t, []*warehouse.TrackingRecord{
 		anon("i", "impression", "I", "p", "M", 3*time.Hour),
@@ -263,8 +269,10 @@ func perfRow(t *testing.T, repo *query.DuckDBRepository, now time.Time) map[stri
 }
 
 func tr(id, typ, listing, imp, placement, model string, at time.Time) *warehouse.TrackingRecord {
-	return &warehouse.TrackingRecord{EventID: id, EventType: typ, ListingID: listing, AnonymousID: "a", PrincipalID: "u",
-		PrincipalType: "user", ImpressionID: imp, PlacementID: placement, ModelVersion: model, OccurredAt: at}
+	return &warehouse.TrackingRecord{
+		EventID: id, EventType: typ, ListingID: listing, AnonymousID: "a", PrincipalID: "u",
+		PrincipalType: "user", ImpressionID: imp, PlacementID: placement, ModelVersion: model, OccurredAt: at,
+	}
 }
 
 // recs-attribution-hardening (b): a click on a listing the impression did not show is not counted,

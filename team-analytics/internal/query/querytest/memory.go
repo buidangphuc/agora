@@ -2,9 +2,10 @@ package querytest
 
 import (
 	"context"
-	"github.com/buidangphuc/team-analytics/internal/query"
 	"sort"
 	"time"
+
+	"github.com/buidangphuc/team-analytics/internal/query"
 )
 
 // Event is a single flattened warehouse row as the in-memory repository sees it.

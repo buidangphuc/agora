@@ -149,17 +149,21 @@ func TestGetTrackingQualityReport_Status(t *testing.T) {
 		{"lagging", query.TrackingQualityData{Types: good, HasLag: true, LagP95Seconds: 300.5, LastIngestedAt: fresh}, "DEGRADED", []string{"lagging"}},
 		{"incomplete", query.TrackingQualityData{
 			Types:          []query.TypeQuality{{EventType: "view", Events: 10, MissingListingRatio: 0.06, ListingScoped: true}},
-			LastIngestedAt: fresh}, "DEGRADED", []string{"incomplete"}},
+			LastIngestedAt: fresh,
+		}, "DEGRADED", []string{"incomplete"}},
 		{"ratio at the threshold is not incomplete", query.TrackingQualityData{
 			Types:          []query.TypeQuality{{EventType: "view", Events: 10, MissingListingRatio: 0.05, ListingScoped: true}},
-			LastIngestedAt: fresh}, "OK", nil},
+			LastIngestedAt: fresh,
+		}, "OK", nil},
 		{"unscoped ratio is ignored", query.TrackingQualityData{
 			Types:          []query.TypeQuality{{EventType: "purchase", Events: 10, MissingListingRatio: 1}},
-			LastIngestedAt: fresh}, "OK", nil},
+			LastIngestedAt: fresh,
+		}, "OK", nil},
 		{"all reasons are sorted", query.TrackingQualityData{
 			Types:         []query.TypeQuality{{EventType: "view", Events: 10, MissingListingRatio: 0.5, ListingScoped: true}},
 			HasLag:        true,
-			LagP95Seconds: 999, LastIngestedAt: now.Add(-time.Hour)}, "DEGRADED", []string{"incomplete", "lagging", "stale"}},
+			LagP95Seconds: 999, LastIngestedAt: now.Add(-time.Hour),
+		}, "DEGRADED", []string{"incomplete", "lagging", "stale"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

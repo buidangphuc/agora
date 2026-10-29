@@ -17,12 +17,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	"github.com/buidangphuc/team-analytics/internal/app"
@@ -98,7 +99,7 @@ func TestBootFailsWhenWarehouseCannotOpen(t *testing.T) {
 	err := p.result(t, 10*time.Second)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "open warehouse")
-	notListening(t, s.GRPC.Addr())
+	notListening(t, s.Addr())
 }
 
 func TestUnknownMockAdapterRefused(t *testing.T) {
@@ -109,7 +110,7 @@ func TestUnknownMockAdapterRefused(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "bigquery")
 	assert.Contains(t, err.Error(), "ga4export")
-	notListening(t, s.GRPC.Addr())
+	notListening(t, s.Addr())
 }
 
 func TestEmptyLogKeyFPSecretRefusesBoot(t *testing.T) {
@@ -117,7 +118,7 @@ func TestEmptyLogKeyFPSecretRefusesBoot(t *testing.T) {
 	s.LogKeyFP.Secret = ""
 	p := startProc(t, app.RunConsumer, s)
 	require.Error(t, p.result(t, 10*time.Second))
-	notListening(t, s.GRPC.Addr())
+	notListening(t, s.Addr())
 }
 
 func TestWarehouseOutageFlipsReadinessNotLiveness(t *testing.T) {

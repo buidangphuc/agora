@@ -18,12 +18,13 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	eventsv1 "github.com/buidangphuc/team-analytics/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-analytics/generated/platform/order/v1"
@@ -84,8 +85,10 @@ func newRig(t *testing.T) *rig {
 	if err != nil {
 		t.Fatal(err)
 	}
-	g := &rig{snd: &fakeSender{}, clk: clk, logs: &bytes.Buffer{}, fp: fp,
-		maps: NewMemoryMappingStore(clk.Now), ledger: NewMemoryLedger(clk.Now)}
+	g := &rig{
+		snd: &fakeSender{}, clk: clk, logs: &bytes.Buffer{}, fp: fp,
+		maps: NewMemoryMappingStore(clk.Now), ledger: NewMemoryLedger(clk.Now),
+	}
 	g.rebuild()
 	return g
 }
@@ -320,8 +323,10 @@ func TestHandle4xxIsPermanent(t *testing.T) { // Scenario: A permanent 4xx is de
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusBadRequest) }))
 	defer srv.Close()
 	g := newRig(t)
-	g.r = NewRelay(RelayConfig{Mappings: g.maps, Ledger: g.ledger, Now: g.clk.Now, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), KeyFP: g.fp,
-		Sender: NewClient(ClientConfig{Endpoint: srv.URL, MeasurementID: "G-T", APISecret: "s3cret"})})
+	g.r = NewRelay(RelayConfig{
+		Mappings: g.maps, Ledger: g.ledger, Now: g.clk.Now, Logger: slog.New(slog.DiscardHandler), KeyFP: g.fp,
+		Sender: NewClient(ClientConfig{Endpoint: srv.URL, MeasurementID: "G-T", APISecret: "s3cret"}),
+	})
 	g.mapBuyer(t, "b1", "222.2")
 	err := g.r.Handle(context.Background(), paidMsg(t, paid("o2", "b1", 100, nil, item("l1", "", 1, 100)), 1))
 	if !errors.Is(err, ErrDeadLetter) {
@@ -348,8 +353,10 @@ func TestHandleExhaustedRetriesIsPermanent(t *testing.T) { // Scenario: Exhauste
 	defer srv.Close()
 	g := newRig(t)
 	noSleep := func(context.Context, time.Duration) error { return nil }
-	g.r = NewRelay(RelayConfig{Mappings: g.maps, Ledger: g.ledger, Now: g.clk.Now, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), KeyFP: g.fp,
-		Sender: NewClient(ClientConfig{Endpoint: srv.URL, MeasurementID: "G-T", APISecret: "s3cret", Sleep: noSleep})})
+	g.r = NewRelay(RelayConfig{
+		Mappings: g.maps, Ledger: g.ledger, Now: g.clk.Now, Logger: slog.New(slog.DiscardHandler), KeyFP: g.fp,
+		Sender: NewClient(ClientConfig{Endpoint: srv.URL, MeasurementID: "G-T", APISecret: "s3cret", Sleep: noSleep}),
+	})
 	g.mapBuyer(t, "b1", "222.2")
 	err := g.r.Handle(context.Background(), paidMsg(t, paid("o5", "b1", 100, nil, item("l1", "", 1, 100)), 1))
 	if !errors.Is(err, ErrDeadLetter) {
@@ -382,8 +389,10 @@ func TestRelay_PayloadCarriesNoPersonalData(t *testing.T) { // Scenario: Payload
 	}))
 	defer srv.Close()
 	g := newRig(t)
-	g.r = NewRelay(RelayConfig{Mappings: g.maps, Ledger: g.ledger, Now: g.clk.Now, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), KeyFP: g.fp,
-		Sender: NewClient(ClientConfig{Endpoint: srv.URL + "/mp/collect", MeasurementID: "G-TEST", APISecret: "s3cret"})})
+	g.r = NewRelay(RelayConfig{
+		Mappings: g.maps, Ledger: g.ledger, Now: g.clk.Now, Logger: slog.New(slog.DiscardHandler), KeyFP: g.fp,
+		Sender: NewClient(ClientConfig{Endpoint: srv.URL + "/mp/collect", MeasurementID: "G-TEST", APISecret: "s3cret"}),
+	})
 	g.mapBuyer(t, "b1", "222.2")
 	g.handle(t, paidMsg(t, paid("o1", "b1", 100, nil, item("l1", "", 1, 100)), 1))
 	for _, bad := range []string{"buyer_id", "user_id", "email", "phone", "b1"} {
@@ -491,7 +500,7 @@ func TestRelay_RestartAfterSend(t *testing.T) { // Scenario: Restart after send 
 	if err != nil {
 		t.Fatal(err)
 	}
-	r1 := NewRelay(RelayConfig{Mappings: maps, Ledger: l1, Sender: snd, Now: clk.Now, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), KeyFP: testFP(t)})
+	r1 := NewRelay(RelayConfig{Mappings: maps, Ledger: l1, Sender: snd, Now: clk.Now, Logger: slog.New(slog.DiscardHandler), KeyFP: testFP(t)})
 	if err := r1.Handle(ctx, m); err != nil {
 		t.Fatal(err)
 	}
@@ -509,7 +518,7 @@ func TestRelay_RestartAfterSend(t *testing.T) { // Scenario: Restart after send 
 	if err != nil {
 		t.Fatal(err)
 	}
-	r2 := NewRelay(RelayConfig{Mappings: maps, Ledger: l2, Sender: snd, Now: clk.Now, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), KeyFP: testFP(t)})
+	r2 := NewRelay(RelayConfig{Mappings: maps, Ledger: l2, Sender: snd, Now: clk.Now, Logger: slog.New(slog.DiscardHandler), KeyFP: testFP(t)})
 	if err := r2.Handle(ctx, m); err != nil {
 		t.Fatal(err)
 	}

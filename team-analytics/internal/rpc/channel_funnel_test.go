@@ -48,8 +48,10 @@ func cfEvents(client, typ string, n int, tx string) []*warehouse.TrackingRecord 
 	var out []*warehouse.TrackingRecord
 	for i := 0; i < n; i++ {
 		id := fmt.Sprintf("%s-%s-%d", client, typ, i)
-		r := &warehouse.TrackingRecord{EventID: id, EventType: typ, ListingID: "l1", AnonymousID: "a-" + client,
-			GaClientID: client, OccurredAt: cfDay.Add(10*time.Hour + time.Duration(i)*time.Minute)}
+		r := &warehouse.TrackingRecord{
+			EventID: id, EventType: typ, ListingID: "l1", AnonymousID: "a-" + client,
+			GaClientID: client, OccurredAt: cfDay.Add(10*time.Hour + time.Duration(i)*time.Minute),
+		}
 		if tx != "" {
 			r.TransactionID = tx
 		}
@@ -165,8 +167,10 @@ func TestChannelFunnel_OnlyAdminsCanReadTheChannelFunnel(t *testing.T) {
 		want codes.Code
 	}{
 		{"buyer", cfReq(cfDay, cfDay.Add(24*time.Hour)), asPrincipal("buyer-1", "user", "buyer"), codes.PermissionDenied},
-		{"seller owner even with seller_id set", &analyticsv1.GetChannelFunnelRequest{SellerId: "seller-1", From: timestamppb.New(cfDay), To: timestamppb.New(cfDay.Add(24 * time.Hour))},
-			asPrincipal("seller-1", "user", "seller"), codes.PermissionDenied},
+		{
+			"seller owner even with seller_id set", &analyticsv1.GetChannelFunnelRequest{SellerId: "seller-1", From: timestamppb.New(cfDay), To: timestamppb.New(cfDay.Add(24 * time.Hour))},
+			asPrincipal("seller-1", "user", "seller"), codes.PermissionDenied,
+		},
 		{"service without admin", cfReq(cfDay, cfDay.Add(24*time.Hour)), asPrincipal("svc-x", "service", "order.read"), codes.PermissionDenied},
 	}
 	for _, c := range cases {
@@ -208,8 +212,10 @@ func TestChannelFunnel_RevenueIsNeverReadFromGA4Data(t *testing.T) {
 	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{{ListingID: "lst-a", SellerID: "seller-1", UpdatedAt: cfDay}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{{EventID: "e1", OrderID: "o-1", ListingID: "lst-a", VariantID: "sku-a", SellerID: "seller-1",
-		Quantity: 1, UnitPrice: orderTotal, Currency: "VND", OccurredAt: cfDay.Add(10 * time.Hour), Status: "PAID"}}); err != nil {
+	if err := w.WriteOrderFacts(ctx, []*warehouse.OrderFactRecord{{
+		EventID: "e1", OrderID: "o-1", ListingID: "lst-a", VariantID: "sku-a", SellerID: "seller-1",
+		Quantity: 1, UnitPrice: orderTotal, Currency: "VND", OccurredAt: cfDay.Add(10 * time.Hour), Status: "PAID",
+	}}); err != nil {
 		t.Fatal(err)
 	}
 	repo := query.NewDuckDBRepository(w.DB())
@@ -293,7 +299,8 @@ func TestChannelFunnel_ASellerFilterNarrowsTheFunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := w.UpsertListingSellers(ctx, []*warehouse.ListingSellerRecord{
-		{ListingID: "l-S", SellerID: "S", UpdatedAt: cfDay}, {ListingID: "l-T", SellerID: "T", UpdatedAt: cfDay}}); err != nil {
+		{ListingID: "l-S", SellerID: "S", UpdatedAt: cfDay}, {ListingID: "l-T", SellerID: "T", UpdatedAt: cfDay},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	svc := mustHandler(query.NewDuckDBRepository(w.DB()))

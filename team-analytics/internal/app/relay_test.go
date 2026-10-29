@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 	_ "github.com/marcboeker/go-duckdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,6 +24,8 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	orderv1 "github.com/buidangphuc/team-analytics/generated/platform/order/v1"
@@ -149,7 +150,7 @@ func TestRelayDoesNotServeHTTPProbes(t *testing.T) {
 	p := startProc(t, app.RunGA4Relay, s)
 	waitUp(t, p)
 
-	c, err := net.DialTimeout("tcp", s.GRPC.Addr(), 2*time.Second)
+	c, err := net.DialTimeout("tcp", s.Addr(), 2*time.Second)
 	require.NoError(t, err)
 	defer func() { _ = c.Close() }()
 	_, err = c.Write([]byte("GET /healthz HTTP/1.1\r\nHost: relay\r\n\r\n"))

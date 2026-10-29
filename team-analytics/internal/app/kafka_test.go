@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	engagementv1 "github.com/buidangphuc/team-analytics/generated/platform/engagement/v1"
@@ -167,7 +168,7 @@ func TestWorkersStopAfterServerAndBeforeWarehouseClose(t *testing.T) {
 
 	p.cancel()
 	testkit.Eventually(t, 10*time.Second, func() bool {
-		return dialErr(s.GRPC.Addr()) != nil
+		return dialErr(s.Addr()) != nil
 	})
 	assert.Empty(t, w.eventLog(), "warehouse closed or written before the held batch was released")
 	select {

@@ -458,7 +458,7 @@ func (s *Handler) GetRecommendationPerformance(ctx context.Context, req *analyti
 		Rows:                   make([]*analyticsv1.RecommendationPerformanceRow, 0, len(data)),
 		Fallback:               []*analyticsv1.PlacementFallbackShare{},
 		WindowHours:            hours,
-		AttributionWindowHours: uint32(s.attributionHours),
+		AttributionWindowHours: uint32(s.attributionHours), //nolint:gosec // bounded config value
 	}
 	var order []string
 	total, fallback := map[string]int64{}, map[string]int64{}

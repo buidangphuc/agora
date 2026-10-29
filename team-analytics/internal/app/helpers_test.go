@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"google.golang.org/grpc"
@@ -19,6 +18,8 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	commonv1 "github.com/buidangphuc/team-analytics/generated/platform/common/v1"
@@ -76,7 +77,7 @@ type proc struct {
 func startProc(t *testing.T, run func(context.Context, config.Settings) error, s config.Settings) *proc {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	p := &proc{cancel: cancel, finished: make(chan struct{}), addr: s.GRPC.Addr()}
+	p := &proc{cancel: cancel, finished: make(chan struct{}), addr: s.Addr()}
 	go func() {
 		p.err = run(ctx, s)
 		close(p.finished)

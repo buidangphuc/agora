@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
-	"google.golang.org/protobuf/proto"
 
 	eventsv1 "github.com/buidangphuc/team-analytics/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-analytics/generated/platform/order/v1"

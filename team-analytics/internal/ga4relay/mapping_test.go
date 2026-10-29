@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	commonv1 "github.com/buidangphuc/team-analytics/generated/platform/common/v1"
