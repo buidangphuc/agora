@@ -1,4 +1,4 @@
-package service
+package order
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 	"github.com/buidangphuc/team-order/internal/upstream"
 )
 
@@ -38,7 +38,7 @@ func (r ResyncReport) NeedsAttention() bool { return r.Released+r.NotFound+r.Fai
 // Cross-database backfill is not allowed (Rule 3), so it goes over gRPC, as the
 // service-team-order principal. It writes nothing locally and CommitReservation is
 // idempotent: a second run changes nothing. dryRun only counts the rows.
-func ResyncCommittedReservations(ctx context.Context, repo repository.SagaRepository, domain upstream.DomainClient, logger *slog.Logger, dryRun bool) (ResyncReport, error) {
+func ResyncCommittedReservations(ctx context.Context, repo store.SagaRepository, domain upstream.DomainClient, logger *slog.Logger, dryRun bool) (ResyncReport, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}

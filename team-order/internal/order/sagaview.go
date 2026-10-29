@@ -1,11 +1,11 @@
-package service
+package order
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 // Saga step statuses. The wire field is a free string; SKIPPED renders neutrally
@@ -62,7 +62,7 @@ const (
 //	Confirmation    (not cancelled) Pending -> PENDING, otherwise SUCCESS
 //	Compensation    (cancelled) every reservation RELEASED -> COMPENSATED and
 //	                is_compensated; any still held -> PENDING; none recorded -> SKIPPED
-func (s *OrderService) SagaView(ctx context.Context, order repository.Order) (SagaView, error) {
+func (s *OrderService) SagaView(ctx context.Context, order store.Order) (SagaView, error) {
 	reservations, err := s.sagaRepo.ListReservationsByOrder(ctx, order.ID)
 	if err != nil {
 		return SagaView{}, fmt.Errorf("load reservations of order %s: %w", order.ID, err)
@@ -89,17 +89,17 @@ func (s *OrderService) SagaView(ctx context.Context, order repository.Order) (Sa
 	}
 	view.Steps = append(view.Steps, reserved)
 
-	cancelled := order.Status == repository.OrderStatusCancelled
+	cancelled := order.Status == store.OrderStatusCancelled
 	payment := SagaStepView{Name: stepNamePayment}
 	switch {
 	case order.PaidAt != nil:
 		paidAt := *order.PaidAt
 		payment.Status, payment.At, payment.Detail = SagaStepSuccess, &paidAt, "Thanh toán đã được xác nhận"
-	case order.Status == repository.OrderStatusPending:
+	case order.Status == store.OrderStatusPending:
 		payment.Status, payment.Detail = SagaStepPending, "Đang chờ thanh toán"
 	case cancelled:
 		payment.Status, payment.Detail = SagaStepSkipped, "Đơn bị hủy trước khi có thanh toán"
-	case order.Status == repository.OrderStatusShipped && order.PaymentMethod == paymentMethodCOD:
+	case order.Status == store.OrderStatusShipped && order.PaymentMethod == paymentMethodCOD:
 		payment.Status, payment.Detail = SagaStepPending, "Thu tiền khi giao hàng (COD)"
 	default:
 		payment.Status, payment.Detail = SagaStepSuccess, "Thanh toán đã hoàn tất (không ghi nhận thời điểm)"
@@ -108,7 +108,7 @@ func (s *OrderService) SagaView(ctx context.Context, order repository.Order) (Sa
 
 	if !cancelled {
 		confirmation := SagaStepView{Name: stepNameConfirmed, Status: SagaStepSuccess, Detail: "Đơn hàng đã được xác nhận"}
-		if order.Status == repository.OrderStatusPending {
+		if order.Status == store.OrderStatusPending {
 			confirmation.Status, confirmation.Detail = SagaStepPending, "Chờ xác nhận"
 		}
 		view.Steps = append(view.Steps, confirmation)
@@ -128,7 +128,7 @@ func (s *OrderService) SagaView(ctx context.Context, order repository.Order) (Sa
 	var lastRelease time.Time
 	allReleased := true
 	for _, r := range reservations {
-		if r.Status != repository.ReservationStatusReleased {
+		if r.Status != store.ReservationStatusReleased {
 			allReleased = false
 			continue
 		}
@@ -152,15 +152,15 @@ func (s *OrderService) SagaView(ctx context.Context, order repository.Order) (Sa
 	return view, nil
 }
 
-func currentStepFor(st repository.OrderStatus) string {
+func currentStepFor(st store.OrderStatus) string {
 	switch st {
-	case repository.OrderStatusPending:
+	case store.OrderStatusPending:
 		return "3. Chờ Thanh Toán (Awaiting Payment)"
-	case repository.OrderStatusPaid:
+	case store.OrderStatusPaid:
 		return "4. Đã Thanh Toán (Paid)"
-	case repository.OrderStatusShipped:
+	case store.OrderStatusShipped:
 		return "4. Đang Giao Hàng (Shipped)"
-	case repository.OrderStatusCompleted:
+	case store.OrderStatusCompleted:
 		return "4. Đơn Hàng Hoàn Tất (Completed)"
 	}
 	return ""

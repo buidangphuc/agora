@@ -1,9 +1,9 @@
-package service
+package order
 
 import (
 	"errors"
 
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 // ErrActorForbidden: the caller's class may never request this target status.
@@ -37,7 +37,7 @@ func (a Actor) String() string {
 }
 
 type transition struct {
-	from, to repository.OrderStatus
+	from, to store.OrderStatus
 	actors   []Actor
 }
 
@@ -51,20 +51,20 @@ type transition struct {
 //	Pending, Paid -> Cancelled  buyer (CancelOrder; ForceFailSaga for admin)
 //	Pending -> Cancelled        system (payment-window expiry)
 var orderTransitions = []transition{
-	{repository.OrderStatusPending, repository.OrderStatusPaid, []Actor{ActorSystem}},
-	{repository.OrderStatusPending, repository.OrderStatusShipped, []Actor{ActorSeller}},
-	{repository.OrderStatusPaid, repository.OrderStatusShipped, []Actor{ActorSeller}},
-	{repository.OrderStatusShipped, repository.OrderStatusCompleted, []Actor{ActorSeller, ActorBuyer, ActorSystem}},
-	{repository.OrderStatusPending, repository.OrderStatusCancelled, []Actor{ActorBuyer}},
-	{repository.OrderStatusPaid, repository.OrderStatusCancelled, []Actor{ActorBuyer}},
-	{repository.OrderStatusPending, repository.OrderStatusCancelled, []Actor{ActorSystem}},
+	{store.OrderStatusPending, store.OrderStatusPaid, []Actor{ActorSystem}},
+	{store.OrderStatusPending, store.OrderStatusShipped, []Actor{ActorSeller}},
+	{store.OrderStatusPaid, store.OrderStatusShipped, []Actor{ActorSeller}},
+	{store.OrderStatusShipped, store.OrderStatusCompleted, []Actor{ActorSeller, ActorBuyer, ActorSystem}},
+	{store.OrderStatusPending, store.OrderStatusCancelled, []Actor{ActorBuyer}},
+	{store.OrderStatusPaid, store.OrderStatusCancelled, []Actor{ActorBuyer}},
+	{store.OrderStatusPending, store.OrderStatusCancelled, []Actor{ActorSystem}},
 }
 
 // AllowedFrom returns the statuses from which actor may move an order to `to`:
 // the allowedFrom set of the compare-and-set write, so the database enforces the
 // table. Empty means the actor may never request `to`.
-func AllowedFrom(to repository.OrderStatus, actor Actor) []repository.OrderStatus {
-	var out []repository.OrderStatus
+func AllowedFrom(to store.OrderStatus, actor Actor) []store.OrderStatus {
+	var out []store.OrderStatus
 	for _, t := range orderTransitions {
 		if t.to != to {
 			continue
@@ -80,7 +80,7 @@ func AllowedFrom(to repository.OrderStatus, actor Actor) []repository.OrderStatu
 }
 
 // cancelFrom is where a cancel may start (Pending or Paid).
-var cancelFrom = AllowedFrom(repository.OrderStatusCancelled, ActorBuyer)
+var cancelFrom = AllowedFrom(store.OrderStatusCancelled, ActorBuyer)
 
 // systemCancelFrom is where the system may cancel (Pending only).
-var systemCancelFrom = AllowedFrom(repository.OrderStatusCancelled, ActorSystem)
+var systemCancelFrom = AllowedFrom(store.OrderStatusCancelled, ActorSystem)

@@ -1,4 +1,4 @@
-package service
+package order
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 // Saga tuning defaults. Compensation runs on a fresh background context with its
@@ -34,7 +34,7 @@ const (
 // ErrReservationLost: a reservation can no longer back an order — team-domain
 // refused the commit because it was already released (TTL sweep) or is unknown, or
 // placement found it no longer RESERVED. No order is placed. -> FAILED_PRECONDITION.
-var ErrReservationLost = repository.ErrReservationLost
+var ErrReservationLost = store.ErrReservationLost
 
 // ErrPlacementUnknown: placement failed and it could not be established whether
 // the orders exist (only some do, or the lookup failed). Nothing is released. ->
@@ -73,9 +73,8 @@ func (c releaseRetryConfig) withDefaults() releaseRetryConfig {
 // constructor signature (so cmd/server/main.go keeps compiling).
 type OrderServiceOption func(*OrderService)
 
-// WithSagaRepository wires the durable saga/reservation store (AD3). When unset,
-// the service falls back to an in-memory store.
-func WithSagaRepository(repo repository.SagaRepository) OrderServiceOption {
+// WithSagaRepository wires the durable saga/reservation store (AD3). Required.
+func WithSagaRepository(repo store.SagaRepository) OrderServiceOption {
 	return func(s *OrderService) {
 		if repo != nil {
 			s.sagaRepo = repo
@@ -84,7 +83,7 @@ func WithSagaRepository(repo repository.SagaRepository) OrderServiceOption {
 }
 
 // WithOrderPlacer injects the OrderPlacer (tests wrap the real one with faults).
-func WithOrderPlacer(p repository.OrderPlacer) OrderServiceOption {
+func WithOrderPlacer(p store.OrderPlacer) OrderServiceOption {
 	return func(s *OrderService) {
 		if p != nil {
 			s.placer = p
@@ -93,17 +92,11 @@ func WithOrderPlacer(p repository.OrderPlacer) OrderServiceOption {
 }
 
 // defaultPlacer picks the atomic placer of the wired stores: the Postgres order
-// repository places in one transaction; the in-memory stores place under their
-// locks. Any other order store (a test double) gets the non-atomic sequential
-// fallback.
-func defaultPlacer(orders repository.OrderRepository, sagas repository.SagaRepository) repository.OrderPlacer {
-	if p, ok := orders.(repository.OrderPlacer); ok {
+// repository places in one transaction. Any other order store (a test double)
+// gets the non-atomic sequential fallback.
+func defaultPlacer(orders store.OrderRepository, sagas store.SagaRepository) store.OrderPlacer {
+	if p, ok := orders.(store.OrderPlacer); ok {
 		return p
-	}
-	mo, okO := orders.(*repository.InMemoryOrderRepository)
-	ms, okS := sagas.(*repository.InMemorySagaRepository)
-	if okO && okS {
-		return repository.NewInMemoryOrderPlacer(mo, ms)
 	}
 	return sequentialPlacer{orders: orders, sagas: sagas}
 }
@@ -111,12 +104,12 @@ func defaultPlacer(orders repository.OrderRepository, sagas repository.SagaRepos
 // sequentialPlacer is NOT atomic: CreateOrder per order, then bind and complete.
 // It exists only so order-store test doubles keep working.
 type sequentialPlacer struct {
-	orders repository.OrderRepository
-	sagas  repository.SagaRepository
+	orders store.OrderRepository
+	sagas  store.SagaRepository
 }
 
-func (p sequentialPlacer) PlaceOrders(ctx context.Context, sagaID string, placed []repository.PlacedOrder) ([]repository.Order, error) {
-	out := make([]repository.Order, 0, len(placed))
+func (p sequentialPlacer) PlaceOrders(ctx context.Context, sagaID string, placed []store.PlacedOrder) ([]store.Order, error) {
+	out := make([]store.Order, 0, len(placed))
 	for _, po := range placed {
 		saved, err := p.orders.CreateOrder(ctx, po.Order)
 		if err != nil {
@@ -129,7 +122,7 @@ func (p sequentialPlacer) PlaceOrders(ctx context.Context, sagaID string, placed
 		}
 		out = append(out, saved)
 	}
-	if err := p.sagas.UpdateSagaStatus(ctx, sagaID, repository.SagaStatusCompleted); err != nil {
+	if err := p.sagas.UpdateSagaStatus(ctx, sagaID, store.SagaStatusCompleted); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -160,7 +153,7 @@ func WithReleaseRetry(timeout time.Duration, maxAttempts int, backoff time.Durat
 // not part of the seed: a keyed replay never reserves (it returns the first
 // attempt's orders) and concurrent same-key requests collapse on the saga's unique
 // index before reserving (design D7).
-func ReservationID(sagaID string, item repository.CartItem) string {
+func ReservationID(sagaID string, item store.CartItem) string {
 	seed := strings.Join([]string{
 		"attempt", sagaID, item.ID, item.ListingID, item.VariantID, fmt.Sprintf("q%d", item.Quantity),
 	}, "|")
@@ -176,7 +169,7 @@ func ReservationID(sagaID string, item repository.CartItem) string {
 //	                                 it, so compensation releases it by id (a no-op
 //	                                 when nothing was held), ErrInsufficientStock
 //	any other error               -> FAILED, ErrInsufficientStock
-func (s *OrderService) reserveStock(ctx context.Context, res repository.Reservation, title string) error {
+func (s *OrderService) reserveStock(ctx context.Context, res store.Reservation, title string) error {
 	resp, rerr := s.domainClient.ReserveStock(ctx, &listingv1.ReserveStockRequest{
 		ListingId:     res.ListingID,
 		VariantId:     res.VariantID,
@@ -184,7 +177,7 @@ func (s *OrderService) reserveStock(ctx context.Context, res repository.Reservat
 		ReservationId: res.ID,
 	})
 	if rerr == nil && resp.GetSuccess() {
-		if uerr := s.sagaRepo.UpdateReservationStatus(ctx, res.ID, repository.ReservationStatusReserved); uerr != nil {
+		if uerr := s.sagaRepo.UpdateReservationStatus(ctx, res.ID, store.ReservationStatusReserved); uerr != nil {
 			// Not fatal: placement requires RESERVED, so a lost write fails the
 			// checkout definitively and compensation releases by id.
 			s.logger.WarnContext(ctx, "failed to mark reservation reserved",
@@ -195,9 +188,9 @@ func (s *OrderService) reserveStock(ctx context.Context, res repository.Reservat
 	if rerr == nil {
 		rerr = fmt.Errorf("reserve stock declined: %s", resp.GetMessage())
 	}
-	next := repository.ReservationStatusFailed
+	next := store.ReservationStatusFailed
 	if isTransportError(rerr) {
-		next = repository.ReservationStatusReleaseFailed
+		next = store.ReservationStatusReleaseFailed
 	}
 	s.logger.WarnContext(ctx, "stock reservation failed",
 		slog.String("listing_id", res.ListingID),
@@ -233,7 +226,7 @@ func isTransportError(err error) bool {
 // gone (swept or unknown): ErrReservationLost, no order is placed. Any other error,
 // UNIMPLEMENTED included, fails the checkout too: the commit is not confirmed, so
 // placing the order could let team-domain's sweep give its stock away.
-func (s *OrderService) commitDomainReservations(ctx context.Context, reservations []repository.Reservation) error {
+func (s *OrderService) commitDomainReservations(ctx context.Context, reservations []store.Reservation) error {
 	for _, res := range reservations {
 		_, err := s.domainClient.CommitReservation(ctx, &listingv1.CommitReservationRequest{ReservationId: res.ID})
 		if err == nil {
@@ -267,7 +260,7 @@ func (s *OrderService) failAndCompensate(sagaID string, voucherReservationIDs ..
 	for _, id := range voucherReservationIDs {
 		s.releaseVoucher(bg, id)
 	}
-	if uerr := s.sagaRepo.UpdateSagaStatus(bg, sagaID, repository.SagaStatusCompensated); uerr != nil {
+	if uerr := s.sagaRepo.UpdateSagaStatus(bg, sagaID, store.SagaStatusCompensated); uerr != nil {
 		s.logger.ErrorContext(bg, "failed to mark saga compensated",
 			slog.String("saga_id", sagaID), slog.Any("err", uerr))
 	}
@@ -283,16 +276,16 @@ const (
 )
 
 // reconcilePlacement looks every pre-generated order id up on a fresh context.
-func (s *OrderService) reconcilePlacement(placed []repository.PlacedOrder) ([]repository.Order, placementState) {
+func (s *OrderService) reconcilePlacement(placed []store.PlacedOrder) ([]store.Order, placementState) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
 	defer cancel()
-	var found []repository.Order
+	var found []store.Order
 	for _, p := range placed {
 		o, err := s.orderRepo.GetOrder(ctx, p.Order.ID)
 		switch {
 		case err == nil:
 			found = append(found, o)
-		case errors.Is(err, repository.ErrOrderNotFound):
+		case errors.Is(err, store.ErrOrderNotFound):
 		default:
 			s.logger.ErrorContext(ctx, "cannot reconcile order placement: lookup failed; not compensating",
 				slog.String("order_id", p.Order.ID), slog.Any("err", err))
@@ -313,17 +306,17 @@ func (s *OrderService) reconcilePlacement(placed []repository.PlacedOrder) ([]re
 // compensate releases the stock held by reservations no order owns (RESERVED, or
 // parked RELEASE_FAILED) on a fresh background context with its own deadline
 // (AD3). A release that keeps failing is parked RELEASE_FAILED for the sweep.
-func (s *OrderService) compensate(reservations []repository.Reservation) {
-	s.releaseAll(reservations, repository.ReservationStatusReserved, repository.ReservationStatusReleaseFailed)
+func (s *OrderService) compensate(reservations []store.Reservation) {
+	s.releaseAll(reservations, store.ReservationStatusReserved, store.ReservationStatusReleaseFailed)
 }
 
 // releaseHeld releases reservations of Cancelled orders (COMMITTED, or parked
 // RELEASE_FAILED) by their original id.
-func (s *OrderService) releaseHeld(reservations []repository.Reservation) {
-	s.releaseAll(reservations, repository.ReservationStatusCommitted, repository.ReservationStatusReleaseFailed)
+func (s *OrderService) releaseHeld(reservations []store.Reservation) {
+	s.releaseAll(reservations, store.ReservationStatusCommitted, store.ReservationStatusReleaseFailed)
 }
 
-func (s *OrderService) releaseAll(reservations []repository.Reservation, statuses ...repository.ReservationStatus) {
+func (s *OrderService) releaseAll(reservations []store.Reservation, statuses ...store.ReservationStatus) {
 	if len(reservations) == 0 {
 		return
 	}
@@ -346,21 +339,21 @@ func (s *OrderService) releaseAll(reservations []repository.Reservation, statuse
 // RELEASED, or parks it RELEASE_FAILED when the release keeps failing. released
 // reports whether the stock is back; err is non-nil only when a failed release
 // could not even be parked.
-func (s *OrderService) releaseOrPark(ctx context.Context, res repository.Reservation) (released bool, err error) {
+func (s *OrderService) releaseOrPark(ctx context.Context, res store.Reservation) (released bool, err error) {
 	if rerr := s.releaseReservationWithRetry(ctx, res); rerr != nil {
 		s.logger.ErrorContext(ctx, "release failed; parking for the sweep",
 			slog.String("reservation_id", res.ID),
 			slog.String("listing_id", res.ListingID),
 			slog.Any("err", rerr),
 		)
-		if uerr := s.sagaRepo.UpdateReservationStatus(ctx, res.ID, repository.ReservationStatusReleaseFailed); uerr != nil {
+		if uerr := s.sagaRepo.UpdateReservationStatus(ctx, res.ID, store.ReservationStatusReleaseFailed); uerr != nil {
 			s.logger.ErrorContext(ctx, "failed to park reservation as release-failed",
 				slog.String("reservation_id", res.ID), slog.Any("err", uerr))
 			return false, fmt.Errorf("park reservation %s: %w", res.ID, uerr)
 		}
 		return false, nil
 	}
-	if uerr := s.sagaRepo.UpdateReservationStatus(ctx, res.ID, repository.ReservationStatusReleased); uerr != nil {
+	if uerr := s.sagaRepo.UpdateReservationStatus(ctx, res.ID, store.ReservationStatusReleased); uerr != nil {
 		// The stock is back; re-releasing a stale row is a no-op in team-domain.
 		s.logger.ErrorContext(ctx, "failed to mark reservation released",
 			slog.String("reservation_id", res.ID), slog.Any("err", uerr))
@@ -371,7 +364,7 @@ func (s *OrderService) releaseOrPark(ctx context.Context, res repository.Reserva
 // releaseReservationWithRetry calls ReleaseStock up to maxAttempts with backoff,
 // keyed by the reservation's original id (team-domain restores the stored
 // quantity once; the quantity sent is ignored).
-func (s *OrderService) releaseReservationWithRetry(ctx context.Context, res repository.Reservation) error {
+func (s *OrderService) releaseReservationWithRetry(ctx context.Context, res store.Reservation) error {
 	var lastErr error
 	for attempt := 1; attempt <= s.releaseCfg.maxAttempts; attempt++ {
 		_, err := s.domainClient.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{
@@ -384,6 +377,9 @@ func (s *OrderService) releaseReservationWithRetry(ctx context.Context, res repo
 			return nil
 		}
 		lastErr = err
+		if !isRetryableRelease(err) {
+			return fmt.Errorf("release stock: %w", err)
+		}
 		if attempt < s.releaseCfg.maxAttempts {
 			select {
 			case <-ctx.Done():
@@ -422,13 +418,13 @@ func (s *OrderService) SweepExpiredReservations(ctx context.Context, now time.Ti
 	for _, r := range stale {
 		seen[r.ID] = true
 	}
-	var heldOnly []repository.Reservation
+	var heldOnly []store.Reservation
 	for _, r := range cancelled {
 		if !seen[r.ID] {
 			heldOnly = append(heldOnly, r)
 		}
 	}
-	all := append(append([]repository.Reservation{}, stale...), heldOnly...)
+	all := append(append([]store.Reservation{}, stale...), heldOnly...)
 	before := s.countReleased(ctx, all)
 	s.compensate(stale)
 	s.releaseHeld(heldOnly)
@@ -456,23 +452,23 @@ func (s *OrderService) settleStalePendingSagas(ctx context.Context, now time.Tim
 			continue
 		}
 		placed := false
-		var holding []repository.Reservation
+		var holding []store.Reservation
 		for _, res := range reservations {
 			switch {
 			case res.OrderID != "":
 				placed = true
-			case res.Status == repository.ReservationStatusReserved || res.Status == repository.ReservationStatusReleaseFailed:
+			case res.Status == store.ReservationStatusReserved || res.Status == store.ReservationStatusReleaseFailed:
 				holding = append(holding, res)
 			}
 		}
-		next := repository.SagaStatusCompensated
+		next := store.SagaStatusCompensated
 		if placed {
-			next = repository.SagaStatusCompleted
+			next = store.SagaStatusCompleted
 		} else {
 			s.compensate(holding)
 			settled := true
 			for _, res := range holding {
-				if got, gerr := s.sagaRepo.GetReservation(ctx, res.ID); gerr != nil || got.Status != repository.ReservationStatusReleased {
+				if got, gerr := s.sagaRepo.GetReservation(ctx, res.ID); gerr != nil || got.Status != store.ReservationStatusReleased {
 					settled = false
 				}
 			}
@@ -489,13 +485,21 @@ func (s *OrderService) settleStalePendingSagas(ctx context.Context, now time.Tim
 	}
 }
 
-func (s *OrderService) countReleased(ctx context.Context, reservations []repository.Reservation) int {
+func (s *OrderService) countReleased(ctx context.Context, reservations []store.Reservation) int {
 	n := 0
 	for _, r := range reservations {
 		got, err := s.sagaRepo.GetReservation(ctx, r.ID)
-		if err == nil && got.Status == repository.ReservationStatusReleased {
+		if err == nil && got.Status == store.ReservationStatusReleased {
 			n++
 		}
 	}
 	return n
+}
+
+func isRetryableRelease(err error) bool {
+	st, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	return st.Code() == codes.Unavailable || st.Code() == codes.DeadlineExceeded
 }

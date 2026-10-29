@@ -1,4 +1,4 @@
-package service
+package order
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 	"github.com/buidangphuc/team-order/internal/upstream"
 )
 
@@ -21,8 +21,8 @@ import (
 var ErrReorderNotOwner = errors.New("cannot reorder another user's order")
 
 type CartService struct {
-	repo         repository.CartRepository
-	orderRepo    repository.OrderRepository
+	repo         store.CartRepository
+	orderRepo    store.OrderRepository
 	domainClient upstream.DomainClient
 	logger       *slog.Logger
 	flash        FlashSaleClient
@@ -44,14 +44,14 @@ func WithFlashSaleClient(c FlashSaleClient) CartOption {
 		if c == nil {
 			return
 		}
-		if v := reflect.ValueOf(c); v.Kind() == reflect.Ptr && v.IsNil() {
+		if v := reflect.ValueOf(c); v.Kind() == reflect.Pointer && v.IsNil() {
 			return
 		}
 		s.flash = c
 	}
 }
 
-func NewCartService(repo repository.CartRepository, orderRepo repository.OrderRepository, domainClient upstream.DomainClient, logger *slog.Logger, opts ...CartOption) *CartService {
+func NewCartService(repo store.CartRepository, orderRepo store.OrderRepository, domainClient upstream.DomainClient, logger *slog.Logger, opts ...CartOption) (*CartService, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -64,10 +64,13 @@ func NewCartService(repo repository.CartRepository, orderRepo repository.OrderRe
 	for _, opt := range opts {
 		opt(s)
 	}
-	return s
+	if s.flash == nil {
+		return nil, errors.New("cart service: flash sale client is required")
+	}
+	return s, nil
 }
 
-func (s *CartService) GetCart(ctx context.Context, userID string) ([]repository.CartItem, int64, error) {
+func (s *CartService) GetCart(ctx context.Context, userID string) ([]store.CartItem, int64, error) {
 	items, err := s.repo.GetCart(ctx, userID)
 	if err != nil {
 		return nil, 0, err
@@ -79,7 +82,7 @@ func (s *CartService) GetCart(ctx context.Context, userID string) ([]repository.
 	return items, subtotal, nil
 }
 
-func (s *CartService) AddToCart(ctx context.Context, userID, listingID, variantID string, quantity int32) ([]repository.CartItem, int64, error) {
+func (s *CartService) AddToCart(ctx context.Context, userID, listingID, variantID string, quantity int32) ([]store.CartItem, int64, error) {
 	if quantity <= 0 {
 		quantity = 1
 	}
@@ -121,7 +124,7 @@ func (s *CartService) AddToCart(ctx context.Context, userID, listingID, variantI
 
 	sellerID := listing.GetSellerId()
 
-	item := repository.CartItem{
+	item := store.CartItem{
 		UserID:      userID,
 		ListingID:   listingID,
 		VariantID:   variantID,
@@ -140,14 +143,14 @@ func (s *CartService) AddToCart(ctx context.Context, userID, listingID, variantI
 	return s.GetCart(ctx, userID)
 }
 
-func (s *CartService) UpdateCartItem(ctx context.Context, userID, itemID string, quantity int32) ([]repository.CartItem, int64, error) {
+func (s *CartService) UpdateCartItem(ctx context.Context, userID, itemID string, quantity int32) ([]store.CartItem, int64, error) {
 	if _, err := s.repo.UpdateItem(ctx, userID, itemID, quantity); err != nil {
 		return nil, 0, err
 	}
 	return s.GetCart(ctx, userID)
 }
 
-func (s *CartService) RemoveFromCart(ctx context.Context, userID, itemID string) ([]repository.CartItem, int64, error) {
+func (s *CartService) RemoveFromCart(ctx context.Context, userID, itemID string) ([]store.CartItem, int64, error) {
 	if _, err := s.repo.RemoveItem(ctx, userID, itemID); err != nil {
 		return nil, 0, err
 	}
@@ -163,10 +166,10 @@ func (s *CartService) ClearCart(ctx context.Context, userID string) error {
 // the updated cart. It is owner-scoped: only the buyer who placed the order may
 // reorder it. Re-adding through AddToCart re-prices every line at the current
 // listing price (mirrors AddToCart) rather than trusting the historical snapshot.
-func (s *CartService) Reorder(ctx context.Context, userID, orderID string) ([]repository.CartItem, int64, error) {
+func (s *CartService) Reorder(ctx context.Context, userID, orderID string) ([]store.CartItem, int64, error) {
 	if orderID == "" {
 		// Treat an empty id as "no such order" so anonymous/empty input never panics.
-		return nil, 0, repository.ErrOrderNotFound
+		return nil, 0, store.ErrOrderNotFound
 	}
 	if s.orderRepo == nil {
 		return nil, 0, fmt.Errorf("reorder: order repository not configured")

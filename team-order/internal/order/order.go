@@ -1,10 +1,11 @@
-package service
+package order
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -16,7 +17,7 @@ import (
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	paymentv1 "github.com/buidangphuc/team-order/generated/platform/payment/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 	"github.com/buidangphuc/team-order/internal/upstream"
 )
 
@@ -43,11 +44,11 @@ var (
 )
 
 type OrderService struct {
-	orderRepo    repository.OrderRepository
-	cartRepo     repository.CartRepository
-	returnRepo   repository.ReturnRepository
-	shipmentRepo repository.ShipmentRepository
-	sagaRepo     repository.SagaRepository
+	orderRepo    store.OrderRepository
+	cartRepo     store.CartRepository
+	returnRepo   store.ReturnRepository
+	shipmentRepo store.ShipmentRepository
+	sagaRepo     store.SagaRepository
 	domainClient upstream.DomainClient
 	addrClient   identityv1.AddressServiceClient
 	promo        PromotionClient
@@ -59,7 +60,7 @@ type OrderService struct {
 
 	// placer places a checkout's orders and binds their reservations atomically
 	// (design D6). Resolved in NewOrderService.
-	placer repository.OrderPlacer
+	placer store.OrderPlacer
 
 	// paymentDeadline is how long an online-pay order may stay unpaid; snapshotted
 	// into each order at placement. Zero disables the deadline.
@@ -84,30 +85,23 @@ func WithPaymentDeadline(d time.Duration) OrderServiceOption {
 }
 
 func NewOrderService(
-	orderRepo repository.OrderRepository,
-	cartRepo repository.CartRepository,
-	returnRepo repository.ReturnRepository,
-	shipmentRepo repository.ShipmentRepository,
+	orderRepo store.OrderRepository,
+	cartRepo store.CartRepository,
+	returnRepo store.ReturnRepository,
+	shipmentRepo store.ShipmentRepository,
 	domainClient upstream.DomainClient,
 	addrClient identityv1.AddressServiceClient,
 	logger *slog.Logger,
 	opts ...OrderServiceOption,
-) *OrderService {
+) (*OrderService, error) {
 	if logger == nil {
 		logger = slog.Default()
-	}
-	if returnRepo == nil {
-		returnRepo = repository.NewInMemoryReturnRepository()
-	}
-	if shipmentRepo == nil {
-		shipmentRepo = repository.NewInMemoryShipmentRepository()
 	}
 	s := &OrderService{
 		orderRepo:      orderRepo,
 		cartRepo:       cartRepo,
 		returnRepo:     returnRepo,
 		shipmentRepo:   shipmentRepo,
-		sagaRepo:       repository.NewInMemorySagaRepository(),
 		domainClient:   domainClient,
 		addrClient:     addrClient,
 		logger:         logger,
@@ -118,15 +112,39 @@ func NewOrderService(
 	for _, opt := range opts {
 		opt(s)
 	}
+	for _, dep := range []struct {
+		name  string
+		isNil bool
+	}{
+		{"saga repository", s.sagaRepo == nil},
+		{"promotion client", s.promo == nil},
+		{"flash sale client", s.orderFlash == nil},
+		{"listing client", isNilClient(domainClient)},
+		{"address client", isNilClient(addrClient)},
+		{"return repository", isNilClient(returnRepo)},
+		{"shipment repository", isNilClient(shipmentRepo)},
+	} {
+		if dep.isNil {
+			return nil, fmt.Errorf("order service: %s is required", dep.name)
+		}
+	}
 	if s.placer == nil {
 		s.placer = defaultPlacer(orderRepo, s.sagaRepo)
 	}
 	// The in-memory saga store answers "reservations of Cancelled orders" through
 	// the order store (Postgres joins); bind it for local/test wiring.
-	if b, ok := s.sagaRepo.(interface{ BindOrders(repository.OrderReader) }); ok && orderRepo != nil {
+	if b, ok := s.sagaRepo.(interface{ BindOrders(store.OrderReader) }); ok && orderRepo != nil {
 		b.BindOrders(orderRepo)
 	}
-	return s
+	return s, nil
+}
+
+func isNilClient(c any) bool {
+	if c == nil {
+		return true
+	}
+	v := reflect.ValueOf(c)
+	return v.Kind() == reflect.Pointer && v.IsNil()
 }
 
 func isMajorCity(city string) bool {
@@ -152,12 +170,12 @@ func (s *OrderService) CalculateShippingFee(city string, itemsSubtotal int64) (i
 func (s *OrderService) CreateOrdersFromCart(
 	ctx context.Context,
 	buyerID string,
-	shippingAddr repository.Address,
+	shippingAddr store.Address,
 	targetItemIDs []string,
 	paymentMethod int32,
 	voucherCode string,
 	checkoutOpts ...CheckoutOption,
-) ([]repository.Order, error) {
+) ([]store.Order, error) {
 	var cfg checkoutConfig
 	for _, opt := range checkoutOpts {
 		opt(&cfg)
@@ -166,10 +184,10 @@ func (s *OrderService) CreateOrdersFromCart(
 	// With a client key the saga header is the dedupe record (design D8), taken
 	// BEFORE the cart is read: a replay must work after the first attempt emptied
 	// the cart, and concurrent same-key requests collapse here, before reserving.
-	var saga repository.Saga
+	var saga store.Saga
 	keyed := cfg.idempotencyKey != ""
 	if keyed {
-		sg, created, err := s.sagaRepo.CreateSaga(ctx, repository.Saga{BuyerID: buyerID, IdempotencyKey: cfg.idempotencyKey})
+		sg, created, err := s.sagaRepo.CreateSaga(ctx, store.Saga{BuyerID: buyerID, IdempotencyKey: cfg.idempotencyKey})
 		if err != nil {
 			return nil, fmt.Errorf("create saga: %w", err)
 		}
@@ -179,11 +197,11 @@ func (s *OrderService) CreateOrdersFromCart(
 		saga = sg
 	}
 	// abandon frees the key of a keyed saga whose checkout never reserved anything.
-	abandon := func(cause error) ([]repository.Order, error) {
+	abandon := func(cause error) ([]store.Order, error) {
 		if keyed {
 			bg, cancel := context.WithTimeout(context.Background(), s.releaseCfg.timeout)
 			defer cancel()
-			if err := s.sagaRepo.UpdateSagaStatus(bg, saga.ID, repository.SagaStatusFailed); err != nil {
+			if err := s.sagaRepo.UpdateSagaStatus(bg, saga.ID, store.SagaStatusFailed); err != nil {
 				s.logger.ErrorContext(ctx, "failed to free the idempotency key of an abandoned checkout",
 					slog.String("saga_id", saga.ID), slog.Any("err", err))
 			}
@@ -216,7 +234,7 @@ func (s *OrderService) CreateOrdersFromCart(
 
 	if !keyed {
 		// One durable saga header per checkout attempt (AD3).
-		sg, _, err := s.sagaRepo.CreateSaga(ctx, repository.Saga{BuyerID: buyerID})
+		sg, _, err := s.sagaRepo.CreateSaga(ctx, store.Saga{BuyerID: buyerID})
 		if err != nil {
 			return nil, fmt.Errorf("create saga: %w", err)
 		}
@@ -238,7 +256,7 @@ func WithVouchers(shop []*orderv1.ShopVoucher, platformCode string) CheckoutOpti
 
 // selectItems returns the cart items to check out: all of them, or only those
 // whose id is in targetItemIDs.
-func selectItems(cartItems []repository.CartItem, targetItemIDs []string) []repository.CartItem {
+func selectItems(cartItems []store.CartItem, targetItemIDs []string) []store.CartItem {
 	if len(targetItemIDs) == 0 {
 		return cartItems
 	}
@@ -246,7 +264,7 @@ func selectItems(cartItems []repository.CartItem, targetItemIDs []string) []repo
 	for _, id := range targetItemIDs {
 		idMap[id] = struct{}{}
 	}
-	var out []repository.CartItem
+	var out []store.CartItem
 	for _, it := range cartItems {
 		if _, ok := idMap[it.ID]; ok {
 			out = append(out, it)
@@ -260,11 +278,11 @@ func selectItems(cartItems []repository.CartItem, targetItemIDs []string) []repo
 type sellerGroup struct {
 	sellerID string
 	orderID  string
-	items    []repository.CartItem
+	items    []store.CartItem
 
-	reservations   []repository.Reservation
+	reservations   []store.Reservation
 	flashHolds     []flashHold
-	orderItems     []repository.OrderItem
+	orderItems     []store.OrderItem
 	itemsSubtotal  int64
 	discountAmount int64
 	voucherCode    string
@@ -272,7 +290,7 @@ type sellerGroup struct {
 
 // groupBySeller splits items by seller (multi-vendor), sorted by seller id so a
 // checkout is deterministic, with one pre-generated order id per group.
-func groupBySeller(items []repository.CartItem) []*sellerGroup {
+func groupBySeller(items []store.CartItem) []*sellerGroup {
 	bySeller := map[string]*sellerGroup{}
 	var ids []string
 	for _, it := range items {
@@ -311,15 +329,15 @@ func groupBySeller(items []repository.CartItem) []*sellerGroup {
 // ids up before anything is released.
 func (s *OrderService) runCheckout(
 	ctx context.Context,
-	saga repository.Saga,
+	saga store.Saga,
 	buyerID string,
-	shippingAddr repository.Address,
-	items []repository.CartItem,
+	shippingAddr store.Address,
+	items []store.CartItem,
 	paymentMethod int32,
 	voucherCode string,
 	slots *voucherSlots,
 	flash map[string]flashLine,
-) ([]repository.Order, error) {
+) ([]store.Order, error) {
 	groups := groupBySeller(items)
 	expiresAt := time.Now().Add(s.reservationTTL)
 	if paymentMethod <= 0 {
@@ -330,7 +348,7 @@ func (s *OrderService) runCheckout(
 	// one is placed). It equals the order id it discounts, so compensation, cancel
 	// and the settle-time commit address the same hold with only the order id.
 	var voucherReservationIDs []string
-	fail := func(cause error) ([]repository.Order, error) {
+	fail := func(cause error) ([]store.Order, error) {
 		s.releaseFlashHolds(groups)
 		s.failAndCompensate(saga.ID, voucherReservationIDs...)
 		return nil, cause
@@ -432,7 +450,7 @@ func (s *OrderService) runCheckout(
 	if err := s.commitFlashHolds(ctx, groups); err != nil {
 		return fail(err)
 	}
-	var all []repository.Reservation
+	var all []store.Reservation
 	for _, g := range groups {
 		all = append(all, g.reservations...)
 	}
@@ -441,7 +459,7 @@ func (s *OrderService) runCheckout(
 	}
 
 	// Phase C — place every order and bind its reservations in one transaction.
-	placed := make([]repository.PlacedOrder, 0, len(groups))
+	placed := make([]store.PlacedOrder, 0, len(groups))
 	var checkedOut []string
 	for _, g := range groups {
 		qg := quoted[g.sellerID]
@@ -453,13 +471,13 @@ func (s *OrderService) runCheckout(
 		if paymentMethod != int32(paymentv1.PaymentMethod_PAYMENT_METHOD_COD) {
 			deadline = s.paymentDeadline
 		}
-		placed = append(placed, repository.PlacedOrder{
+		placed = append(placed, store.PlacedOrder{
 			PaymentDeadline: deadline,
-			Order: repository.Order{
+			Order: store.Order{
 				ID:              g.orderID,
 				BuyerID:         buyerID,
 				SellerID:        g.sellerID,
-				Status:          repository.OrderStatusPending,
+				Status:          store.OrderStatusPending,
 				TotalAmount:     qg.totalAmount,
 				ItemsSubtotal:   g.itemsSubtotal,
 				ShippingFee:     qg.shippingFee,
@@ -483,7 +501,7 @@ func (s *OrderService) runCheckout(
 
 	created, perr := s.placer.PlaceOrders(ctx, saga.ID, placed)
 	if perr != nil {
-		if errors.Is(perr, repository.ErrReservationLost) {
+		if errors.Is(perr, store.ErrReservationLost) {
 			// Definite: the transaction rolled back because a reservation (or the
 			// attempt) is gone. Nothing was placed.
 			return fail(fmt.Errorf("place orders: %w", perr))
@@ -531,7 +549,7 @@ func (s *OrderService) clearCart(buyerID string, itemIDs []string) {
 // team-domain to hold its stock (AD3), recording the order items and subtotal.
 func (s *OrderService) reserveGroup(ctx context.Context, g *sellerGroup, buyerID, sagaID string, expiresAt time.Time) error {
 	for _, it := range g.items {
-		res := repository.Reservation{
+		res := store.Reservation{
 			ID:        ReservationID(sagaID, it), // attempt-scoped (D7)
 			SagaID:    sagaID,
 			SellerID:  g.sellerID,
@@ -539,7 +557,7 @@ func (s *OrderService) reserveGroup(ctx context.Context, g *sellerGroup, buyerID
 			ListingID: it.ListingID,
 			VariantID: it.VariantID,
 			Quantity:  it.Quantity,
-			Status:    repository.ReservationStatusPending,
+			Status:    store.ReservationStatusPending,
 			ExpiresAt: expiresAt,
 		}
 		if _, err := s.sagaRepo.CreateReservation(ctx, res); err != nil {
@@ -548,9 +566,9 @@ func (s *OrderService) reserveGroup(ctx context.Context, g *sellerGroup, buyerID
 		if err := s.reserveStock(ctx, res, it.Title); err != nil {
 			return err
 		}
-		res.Status = repository.ReservationStatusReserved
+		res.Status = store.ReservationStatusReserved
 		g.reservations = append(g.reservations, res)
-		g.orderItems = append(g.orderItems, repository.OrderItem{
+		g.orderItems = append(g.orderItems, store.OrderItem{
 			ListingID:   it.ListingID,
 			VariantID:   it.VariantID,
 			Title:       it.Title,
@@ -564,15 +582,15 @@ func (s *OrderService) reserveGroup(ctx context.Context, g *sellerGroup, buyerID
 	return nil
 }
 
-func (s *OrderService) GetOrder(ctx context.Context, id string) (repository.Order, error) {
+func (s *OrderService) GetOrder(ctx context.Context, id string) (store.Order, error) {
 	return s.orderRepo.GetOrder(ctx, id)
 }
 
-func (s *OrderService) ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]repository.Order, error) {
+func (s *OrderService) ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]store.Order, error) {
 	return s.orderRepo.ListBuyerOrders(ctx, buyerID, statusFilter)
 }
 
-func (s *OrderService) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]repository.Order, error) {
+func (s *OrderService) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]store.Order, error) {
 	return s.orderRepo.ListSellerOrders(ctx, sellerID, statusFilter)
 }
 
@@ -582,26 +600,26 @@ func (s *OrderService) ListSellerOrders(ctx context.Context, sellerID string, st
 // goes through CancelOrder so stock is released). A target the class may never
 // request is ErrActorForbidden; a permitted target from the wrong status is
 // ErrInvalidStatus, decided by the compare-and-set write itself.
-func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, actor Actor, to repository.OrderStatus, trackingNumber string) (repository.Order, error) {
-	if to == repository.OrderStatusCancelled {
-		return repository.Order{}, ErrActorForbidden
+func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, actor Actor, to store.OrderStatus, trackingNumber string) (store.Order, error) {
+	if to == store.OrderStatusCancelled {
+		return store.Order{}, ErrActorForbidden
 	}
 	// Buyer and system rows exist for ConfirmReceipt and the sweep; this RPC
 	// resolves only the seller and admin classes.
 	if actor == ActorBuyer || actor == ActorSystem {
-		return repository.Order{}, ErrActorForbidden
+		return store.Order{}, ErrActorForbidden
 	}
 	from := AllowedFrom(to, actor)
 	if len(from) == 0 {
-		return repository.Order{}, ErrActorForbidden
+		return store.Order{}, ErrActorForbidden
 	}
-	var opts []repository.StatusOption
-	if to == repository.OrderStatusCompleted {
-		opts = append(opts, repository.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_SELLER)))
+	var opts []store.StatusOption
+	if to == store.OrderStatusCompleted {
+		opts = append(opts, store.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_SELLER)))
 	}
 	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, to, from, trackingNumber, opts...)
-	if errors.Is(err, repository.ErrStatusConflict) {
-		return repository.Order{}, fmt.Errorf("%w: order cannot move to %v from its current status", ErrInvalidStatus, to)
+	if errors.Is(err, store.ErrStatusConflict) {
+		return store.Order{}, fmt.Errorf("%w: order cannot move to %v from its current status", ErrInvalidStatus, to)
 	}
 	return updated, err
 }
@@ -611,12 +629,12 @@ func (s *OrderService) UpdateOrderStatus(ctx context.Context, id string, actor A
 // compare-and-set from Shipped is the single winner, so concurrent confirms emit
 // one OrderCompleted; every loser gets ErrInvalidStatus. An open return does not
 // block completion.
-func (s *OrderService) ConfirmReceipt(ctx context.Context, id string) (repository.Order, error) {
-	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCompleted,
-		AllowedFrom(repository.OrderStatusCompleted, ActorBuyer), "",
-		repository.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_BUYER)))
-	if errors.Is(err, repository.ErrStatusConflict) {
-		return repository.Order{}, fmt.Errorf("%w: order is not shipped", ErrInvalidStatus)
+func (s *OrderService) ConfirmReceipt(ctx context.Context, id string) (store.Order, error) {
+	updated, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, store.OrderStatusCompleted,
+		AllowedFrom(store.OrderStatusCompleted, ActorBuyer), "",
+		store.WithCompletedBy(int32(orderv1.CompletedBy_COMPLETED_BY_BUYER)))
+	if errors.Is(err, store.ErrStatusConflict) {
+		return store.Order{}, fmt.Errorf("%w: order is not shipped", ErrInvalidStatus)
 	}
 	return updated, err
 }
@@ -625,7 +643,7 @@ func (s *OrderService) ConfirmReceipt(ctx context.Context, id string) (repositor
 // is still outstanding (parked RELEASE_FAILED for the sweep). The order IS
 // Cancelled either way; ReleasePending only says the stock is not back yet.
 type CancelResult struct {
-	repository.Order
+	store.Order
 	ReleasePending bool
 }
 
@@ -649,10 +667,10 @@ func (s *OrderService) CancelOrderWithReason(ctx context.Context, id string, rea
 	if reason == orderv1.CancelReason_CANCEL_REASON_PAYMENT_EXPIRED {
 		from = systemCancelFrom
 	}
-	claimed, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, repository.OrderStatusCancelled, from, "",
-		repository.WithCancelReason(int32(reason)))
+	claimed, err := s.orderRepo.UpdateOrderStatusFrom(ctx, id, store.OrderStatusCancelled, from, "",
+		store.WithCancelReason(int32(reason)))
 	if err != nil {
-		if errors.Is(err, repository.ErrStatusConflict) {
+		if errors.Is(err, store.ErrStatusConflict) {
 			msg := "order is not in a cancellable status"
 			if cur, gerr := s.orderRepo.GetOrder(ctx, id); gerr == nil {
 				msg = fmt.Sprintf("cannot cancel order in status %v", cur.Status)
@@ -685,12 +703,12 @@ func (s *OrderService) CancelOrderWithReason(ctx context.Context, id string, rea
 	return CancelResult{Order: claimed, ReleasePending: pending}, nil
 }
 
-func (s *OrderService) releasePlatformVoucherIfCheckoutCancelled(ctx context.Context, claimed repository.Order) {
+func (s *OrderService) releasePlatformVoucherIfCheckoutCancelled(ctx context.Context, claimed store.Order) {
 	if claimed.PlatformVoucherCode == "" || claimed.CheckoutID == "" {
 		return
 	}
 	lister, ok := s.orderRepo.(interface {
-		ListOrdersByCheckout(ctx context.Context, checkoutID string) ([]repository.Order, error)
+		ListOrdersByCheckout(ctx context.Context, checkoutID string) ([]store.Order, error)
 	})
 	if !ok {
 		return
@@ -702,7 +720,7 @@ func (s *OrderService) releasePlatformVoucherIfCheckoutCancelled(ctx context.Con
 		return
 	}
 	for _, o := range siblings {
-		if o.Status != repository.OrderStatusCancelled || o.PaidAt != nil {
+		if o.Status != store.OrderStatusCancelled || o.PaidAt != nil {
 			return
 		}
 	}
@@ -712,7 +730,7 @@ func (s *OrderService) releasePlatformVoucherIfCheckoutCancelled(ctx context.Con
 // releaseOrderReservations releases every reservation of the order that still
 // holds stock (COMMITTED, or parked RELEASE_FAILED) by its original id. pending is
 // true when any release was parked for the sweep.
-func (s *OrderService) releaseOrderReservations(ctx context.Context, order repository.Order) (pending bool, err error) {
+func (s *OrderService) releaseOrderReservations(ctx context.Context, order store.Order) (pending bool, err error) {
 	reservations, err := s.sagaRepo.ListReservationsByOrder(ctx, order.ID)
 	if err != nil {
 		return true, fmt.Errorf("load reservations of order %s: %w", order.ID, err)
@@ -722,7 +740,7 @@ func (s *OrderService) releaseOrderReservations(ctx context.Context, order repos
 			slog.String("order_id", order.ID))
 	}
 	for _, res := range reservations {
-		if res.Status != repository.ReservationStatusCommitted && res.Status != repository.ReservationStatusReleaseFailed {
+		if res.Status != store.ReservationStatusCommitted && res.Status != store.ReservationStatusReleaseFailed {
 			continue
 		}
 		released, perr := s.releaseOrPark(ctx, res)
@@ -738,38 +756,38 @@ func (s *OrderService) releaseOrderReservations(ctx context.Context, order repos
 
 // ── RMA / Return Management ──
 
-func (s *OrderService) CreateReturnRequest(ctx context.Context, buyerID, orderID, reason string, refundAmount int64) (repository.OrderReturn, error) {
+func (s *OrderService) CreateReturnRequest(ctx context.Context, buyerID, orderID, reason string, refundAmount int64) (store.OrderReturn, error) {
 	if strings.TrimSpace(reason) == "" {
-		return repository.OrderReturn{}, ErrInvalidReturnReason
+		return store.OrderReturn{}, ErrInvalidReturnReason
 	}
 	if orderID == "" {
-		return repository.OrderReturn{}, repository.ErrOrderNotFound
+		return store.OrderReturn{}, store.ErrOrderNotFound
 	}
 
 	order, err := s.orderRepo.GetOrder(ctx, orderID)
 	if err != nil {
-		return repository.OrderReturn{}, err
+		return store.OrderReturn{}, err
 	}
 
 	if order.BuyerID != buyerID {
-		return repository.OrderReturn{}, ErrUnauthorizedReturn
+		return store.OrderReturn{}, ErrUnauthorizedReturn
 	}
 
-	if order.Status != repository.OrderStatusShipped && order.Status != repository.OrderStatusCompleted {
-		return repository.OrderReturn{}, fmt.Errorf("%w: status %v", ErrOrderCannotBeReturned, order.Status)
+	if order.Status != store.OrderStatusShipped && order.Status != store.OrderStatusCompleted {
+		return store.OrderReturn{}, fmt.Errorf("%w: status %v", ErrOrderCannotBeReturned, order.Status)
 	}
-	if order.Status == repository.OrderStatusCompleted && order.ReturnWindowEndsAt != nil &&
+	if order.Status == store.OrderStatusCompleted && order.ReturnWindowEndsAt != nil &&
 		!s.now().Before(*order.ReturnWindowEndsAt) {
-		return repository.OrderReturn{}, ErrReturnWindowClosed
+		return store.OrderReturn{}, ErrReturnWindowClosed
 	}
 
-	req := repository.OrderReturn{
+	req := store.OrderReturn{
 		OrderID:      orderID,
 		BuyerID:      buyerID,
 		SellerID:     order.SellerID,
 		Reason:       reason,
 		RefundAmount: refundAmount, // <= 0 means "the remainder"
-		Status:       repository.ReturnStatusPending,
+		Status:       store.ReturnStatusPending,
 	}
 
 	// The cap (order total minus the order's non-rejected returns) is checked and
@@ -778,14 +796,14 @@ func (s *OrderService) CreateReturnRequest(ctx context.Context, buyerID, orderID
 	created, err := s.returnRepo.CreateReturnCapped(ctx, req, order.TotalAmount)
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrReturnExceedsRemainder):
-			return repository.OrderReturn{}, fmt.Errorf("%w: %v", ErrInvalidRefundAmount, err)
-		case errors.Is(err, repository.ErrNoReturnableRemainder):
-			return repository.OrderReturn{}, ErrNothingToReturn
-		case errors.Is(err, repository.ErrOrderNotFound):
-			return repository.OrderReturn{}, err
+		case errors.Is(err, store.ErrReturnExceedsRemainder):
+			return store.OrderReturn{}, fmt.Errorf("%w: %v", ErrInvalidRefundAmount, err)
+		case errors.Is(err, store.ErrNoReturnableRemainder):
+			return store.OrderReturn{}, ErrNothingToReturn
+		case errors.Is(err, store.ErrOrderNotFound):
+			return store.OrderReturn{}, err
 		}
-		return repository.OrderReturn{}, fmt.Errorf("create return in repo: %w", err)
+		return store.OrderReturn{}, fmt.Errorf("create return in repo: %w", err)
 	}
 	s.logger.InfoContext(ctx, "created return request",
 		slog.String("return_id", created.ID),
@@ -798,46 +816,46 @@ func (s *OrderService) CreateReturnRequest(ctx context.Context, buyerID, orderID
 
 // ListOrderReturns lists an order's returns, newest first. Authorisation (the
 // order's buyer, seller or an admin) is the caller's job.
-func (s *OrderService) ListOrderReturns(ctx context.Context, orderID string) ([]repository.OrderReturn, error) {
+func (s *OrderService) ListOrderReturns(ctx context.Context, orderID string) ([]store.OrderReturn, error) {
 	return s.returnRepo.ListReturnsByOrder(ctx, orderID)
 }
 
-func (s *OrderService) GetReturnRequest(ctx context.Context, id string) (repository.OrderReturn, error) {
+func (s *OrderService) GetReturnRequest(ctx context.Context, id string) (store.OrderReturn, error) {
 	return s.returnRepo.GetReturn(ctx, id)
 }
 
-func (s *OrderService) UpdateReturnStatus(ctx context.Context, id string, newStatus repository.ReturnStatus) (repository.OrderReturn, error) {
+func (s *OrderService) UpdateReturnStatus(ctx context.Context, id string, newStatus store.ReturnStatus) (store.OrderReturn, error) {
 	existing, err := s.returnRepo.GetReturn(ctx, id)
 	if err != nil {
-		return repository.OrderReturn{}, err
+		return store.OrderReturn{}, err
 	}
 
 	// Validate status transitions
 	switch existing.Status {
-	case repository.ReturnStatusPending:
-		if newStatus != repository.ReturnStatusApproved && newStatus != repository.ReturnStatusRejected {
-			return repository.OrderReturn{}, fmt.Errorf("%w: pending can only transition to approved or rejected", ErrInvalidReturnStatus)
+	case store.ReturnStatusPending:
+		if newStatus != store.ReturnStatusApproved && newStatus != store.ReturnStatusRejected {
+			return store.OrderReturn{}, fmt.Errorf("%w: pending can only transition to approved or rejected", ErrInvalidReturnStatus)
 		}
-	case repository.ReturnStatusApproved:
-		if newStatus != repository.ReturnStatusRefunded && newStatus != repository.ReturnStatusRejected {
-			return repository.OrderReturn{}, fmt.Errorf("%w: approved can only transition to refunded or rejected", ErrInvalidReturnStatus)
+	case store.ReturnStatusApproved:
+		if newStatus != store.ReturnStatusRefunded && newStatus != store.ReturnStatusRejected {
+			return store.OrderReturn{}, fmt.Errorf("%w: approved can only transition to refunded or rejected", ErrInvalidReturnStatus)
 		}
-	case repository.ReturnStatusRejected, repository.ReturnStatusRefunded:
-		return repository.OrderReturn{}, fmt.Errorf("%w: return is already in terminal state %v", ErrInvalidReturnStatus, existing.Status)
+	case store.ReturnStatusRejected, store.ReturnStatusRefunded:
+		return store.OrderReturn{}, fmt.Errorf("%w: return is already in terminal state %v", ErrInvalidReturnStatus, existing.Status)
 	default:
-		return repository.OrderReturn{}, fmt.Errorf("%w: unknown return status %v", ErrInvalidReturnStatus, existing.Status)
+		return store.OrderReturn{}, fmt.Errorf("%w: unknown return status %v", ErrInvalidReturnStatus, existing.Status)
 	}
 
 	// Only an order paid through team-payment can have its return refunded in the
 	// system (design D5). paid_at is written only by the Pending -> Paid CAS and
 	// never cleared, so checking it outside the transition cannot be raced.
-	if newStatus == repository.ReturnStatusRefunded {
+	if newStatus == store.ReturnStatusRefunded {
 		order, err := s.orderRepo.GetOrder(ctx, existing.OrderID)
 		if err != nil {
-			return repository.OrderReturn{}, fmt.Errorf("get order %s of return %s: %w", existing.OrderID, id, err)
+			return store.OrderReturn{}, fmt.Errorf("get order %s of return %s: %w", existing.OrderID, id, err)
 		}
 		if order.PaidAt == nil {
-			return repository.OrderReturn{}, ErrNotPaidOnline
+			return store.OrderReturn{}, ErrNotPaidOnline
 		}
 	}
 
@@ -845,10 +863,10 @@ func (s *OrderService) UpdateReturnStatus(ctx context.Context, id string, newSta
 	// got there first makes this one lose (ErrInvalidReturnStatus).
 	updated, err := s.returnRepo.TransitionReturn(ctx, id, existing.Status, newStatus)
 	if err != nil {
-		if errors.Is(err, repository.ErrReturnStatusConflict) {
-			return repository.OrderReturn{}, fmt.Errorf("%w: return status changed concurrently", ErrInvalidReturnStatus)
+		if errors.Is(err, store.ErrReturnStatusConflict) {
+			return store.OrderReturn{}, fmt.Errorf("%w: return status changed concurrently", ErrInvalidReturnStatus)
 		}
-		return repository.OrderReturn{}, err
+		return store.OrderReturn{}, err
 	}
 
 	s.logger.InfoContext(ctx, "updated return request status",
@@ -868,9 +886,9 @@ func (s *OrderService) UpdateReturnStatus(ctx context.Context, id string, newSta
 // other status is ErrInvalidStatus and gets no shipment. A shipment insert that
 // fails after a won claim is returned (INTERNAL) and logged for a manual fix; a
 // retry then conflicts because the order is already Shipped.
-func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, trackingCode string) (repository.Shipment, error) {
+func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, trackingCode string) (store.Shipment, error) {
 	if orderID == "" {
-		return repository.Shipment{}, repository.ErrOrderNotFound
+		return store.Shipment{}, store.ErrOrderNotFound
 	}
 	if carrier == "" {
 		carrier = "SPX"
@@ -883,26 +901,26 @@ func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, tra
 		trackingCode = fmt.Sprintf("%s-VN-%s-%d", strings.ToUpper(carrier), strings.ToUpper(orderShort), time.Now().Unix()%1000000)
 	}
 
-	order, err := s.orderRepo.UpdateOrderStatusFrom(ctx, orderID, repository.OrderStatusShipped,
-		AllowedFrom(repository.OrderStatusShipped, ActorSeller), trackingCode)
+	order, err := s.orderRepo.UpdateOrderStatusFrom(ctx, orderID, store.OrderStatusShipped,
+		AllowedFrom(store.OrderStatusShipped, ActorSeller), trackingCode)
 	if err != nil {
-		if errors.Is(err, repository.ErrStatusConflict) {
+		if errors.Is(err, store.ErrStatusConflict) {
 			msg := "order cannot be shipped in its current status"
 			if cur, gerr := s.orderRepo.GetOrder(ctx, orderID); gerr == nil {
 				msg = fmt.Sprintf("order in status %v cannot be shipped", cur.Status)
 			}
-			return repository.Shipment{}, fmt.Errorf("%w: %s", ErrInvalidStatus, msg)
+			return store.Shipment{}, fmt.Errorf("%w: %s", ErrInvalidStatus, msg)
 		}
-		return repository.Shipment{}, err
+		return store.Shipment{}, err
 	}
 
 	now := time.Now()
-	shipment := repository.Shipment{
+	shipment := store.Shipment{
 		OrderID:      orderID,
 		Carrier:      carrier,
 		TrackingCode: trackingCode,
-		Status:       repository.ShipmentStatusPending,
-		Checkpoints: []repository.ShipmentCheckpoint{{
+		Status:       store.ShipmentStatusPending,
+		Checkpoints: []store.ShipmentCheckpoint{{
 			Timestamp:   now,
 			Location:    "Trung tâm phân loại & Bưu cục tiếp nhận",
 			Description: fmt.Sprintf("Người bán đã bàn giao kiện hàng cho đơn vị vận chuyển %s", carrier),
@@ -915,7 +933,7 @@ func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, tra
 	if err != nil {
 		s.logger.ErrorContext(ctx, "order marked Shipped but its shipment could not be created; fix by hand",
 			slog.String("order_id", orderID), slog.String("tracking_code", trackingCode), slog.Any("err", err))
-		return repository.Shipment{}, fmt.Errorf("create shipment: %w", err)
+		return store.Shipment{}, fmt.Errorf("create shipment: %w", err)
 	}
 
 	s.logger.InfoContext(ctx, "created shipment tracking",
@@ -927,7 +945,7 @@ func (s *OrderService) CreateShipment(ctx context.Context, orderID, carrier, tra
 	return created, nil
 }
 
-func (s *OrderService) GetShipmentTracking(ctx context.Context, trackingCode, orderID, shipmentID string) (repository.Shipment, error) {
+func (s *OrderService) GetShipmentTracking(ctx context.Context, trackingCode, orderID, shipmentID string) (store.Shipment, error) {
 	if trackingCode != "" {
 		return s.shipmentRepo.GetShipmentByTrackingCode(ctx, trackingCode)
 	}
@@ -937,11 +955,11 @@ func (s *OrderService) GetShipmentTracking(ctx context.Context, trackingCode, or
 	if orderID != "" {
 		return s.shipmentRepo.GetShipmentByOrderID(ctx, orderID)
 	}
-	return repository.Shipment{}, errors.New("tracking_code, order_id, or shipment_id must be provided")
+	return store.Shipment{}, errors.New("tracking_code, order_id, or shipment_id must be provided")
 }
 
-func (s *OrderService) AddShipmentCheckpoint(ctx context.Context, shipmentID, location, description string) (repository.ShipmentCheckpoint, error) {
-	cp := repository.ShipmentCheckpoint{
+func (s *OrderService) AddShipmentCheckpoint(ctx context.Context, shipmentID, location, description string) (store.ShipmentCheckpoint, error) {
+	cp := store.ShipmentCheckpoint{
 		ShipmentID:  shipmentID,
 		Timestamp:   time.Now(),
 		Location:    location,
@@ -953,21 +971,21 @@ func (s *OrderService) AddShipmentCheckpoint(ctx context.Context, shipmentID, lo
 
 // CanEscalate reports whether a return can be escalated: it was rejected and its
 // order is either shipped, or completed with the return window still open.
-func CanEscalate(ret repository.OrderReturn, o repository.Order, now time.Time) bool {
-	if ret.Status != repository.ReturnStatusRejected {
+func CanEscalate(ret store.OrderReturn, o store.Order, now time.Time) bool {
+	if ret.Status != store.ReturnStatusRejected {
 		return false
 	}
 	switch o.Status {
-	case repository.OrderStatusShipped:
+	case store.OrderStatusShipped:
 		return true
-	case repository.OrderStatusCompleted:
+	case store.OrderStatusCompleted:
 		return o.ReturnWindowEndsAt != nil && now.Before(*o.ReturnWindowEndsAt)
 	}
 	return false
 }
 
 // CanEscalate evaluates CanEscalate against the service clock.
-func (s *OrderService) CanEscalate(ret repository.OrderReturn, o repository.Order) bool {
+func (s *OrderService) CanEscalate(ret store.OrderReturn, o store.Order) bool {
 	return CanEscalate(ret, o, s.now())
 }
 

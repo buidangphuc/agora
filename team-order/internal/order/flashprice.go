@@ -1,4 +1,4 @@
-package service
+package order
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 var (
@@ -41,7 +41,7 @@ func WithOrderFlashSaleClient(c OrderFlashClient) OrderServiceOption {
 		if c == nil {
 			return
 		}
-		if v := reflect.ValueOf(c); v.Kind() == reflect.Ptr && v.IsNil() {
+		if v := reflect.ValueOf(c); v.Kind() == reflect.Pointer && v.IsNil() {
 			return
 		}
 		s.orderFlash = c
@@ -106,7 +106,7 @@ func advertisedPrice(resp *promotionv1.GetActiveFlashSaleResponse, variantID str
 //
 // A regular price <= 0 means the listing price is unknown: there is nothing to
 // compare against, so the line proceeds at its cart price with no flash handling.
-func (s *OrderService) precheckPrices(ctx context.Context, buyerID string, items []repository.CartItem) (map[string]flashLine, error) {
+func (s *OrderService) precheckPrices(ctx context.Context, buyerID string, items []store.CartItem) (map[string]flashLine, error) {
 	listings := map[string]*listingv1.Listing{}
 	lookups := map[string]flashLookup{}
 	for _, it := range items {
@@ -180,7 +180,7 @@ func (s *OrderService) precheckPrices(ctx context.Context, buyerID string, items
 
 // regularPriceKnown reports whether any selected line of the listing has a known
 // regular price (otherwise no flash lookup is needed).
-func regularPriceKnown(l *listingv1.Listing, items []repository.CartItem, listingID string) bool {
+func regularPriceKnown(l *listingv1.Listing, items []store.CartItem, listingID string) bool {
 	for _, it := range items {
 		if it.ListingID == listingID && regularPrice(l, it.VariantID) > 0 {
 			return true
@@ -192,7 +192,7 @@ func regularPriceKnown(l *listingv1.Listing, items []repository.CartItem, listin
 // holdFlashLine reserves the flash stock of one line (Phase A). A refusal re-prices
 // the line to its regular price (ErrPriceChanged); a transport error is
 // ErrPromotionUnavailable. The hold is recorded whenever it may exist.
-func (s *OrderService) holdFlashLine(ctx context.Context, buyerID string, g *sellerGroup, it repository.CartItem, fl flashLine) error {
+func (s *OrderService) holdFlashLine(ctx context.Context, buyerID string, g *sellerGroup, it store.CartItem, fl flashLine) error {
 	id := FlashReservationID(g.orderID, it.ListingID, it.VariantID)
 	resp, err := s.orderFlash.ReserveFlashSaleStock(ctx, &promotionv1.ReserveFlashSaleStockRequest{
 		ReservationId:     id,
@@ -257,7 +257,7 @@ func (s *OrderService) releaseFlashHolds(groups []*sellerGroup) {
 // releaseOrderFlashHolds releases the flash hold of every item of a cancelled
 // order (best effort: a failure is logged and never fails the cancel; releasing a
 // hold that never existed is a no-op in team-promotion).
-func (s *OrderService) releaseOrderFlashHolds(order repository.Order) {
+func (s *OrderService) releaseOrderFlashHolds(order store.Order) {
 	if s.orderFlash == nil {
 		return
 	}

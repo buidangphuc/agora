@@ -1,4 +1,4 @@
-package service
+package order
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 // IdempotencyKeyMetadata is the gRPC metadata key carrying the client's
@@ -65,8 +65,8 @@ func WithIdempotencyKey(key string) CheckoutOption {
 // and re-attempts the cart clear; anything else is still running (or crashed and
 // awaits the sweep): ErrCheckoutInProgress. A compensated saga never matches,
 // because compensation frees the key.
-func (s *OrderService) replayCheckout(ctx context.Context, buyerID string, sg repository.Saga) ([]repository.Order, error) {
-	if sg.Status != repository.SagaStatusCompleted {
+func (s *OrderService) replayCheckout(ctx context.Context, buyerID string, sg store.Saga) ([]store.Order, error) {
+	if sg.Status != store.SagaStatusCompleted {
 		s.logger.InfoContext(ctx, "checkout with this idempotency key has not finished; asking the client to retry",
 			slog.String("saga_id", sg.ID), slog.Int("saga_status", int(sg.Status)))
 		return nil, ErrCheckoutInProgress
@@ -77,7 +77,7 @@ func (s *OrderService) replayCheckout(ctx context.Context, buyerID string, sg re
 	}
 	seen := map[string]bool{}
 	bound := map[string]bool{} // reservation ids that belong to a placed order
-	var orders []repository.Order
+	var orders []store.Order
 	for _, res := range reservations {
 		if res.OrderID == "" {
 			continue
