@@ -407,3 +407,54 @@ func TestFacetsForIDs_RestrictsToIDsAndFilters(t *testing.T) {
 		}
 	}
 }
+
+func pingTarget(t *testing.T, status int) (*index.OpenSearchIndex, *httptest.Server) {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, _ = io.WriteString(w, `{"version":{"number":"2.11.0","distribution":"opensearch"},"status":"green"}`)
+	}))
+	t.Cleanup(srv.Close)
+	idx, err := index.New(srv.URL, "listings")
+	if err != nil {
+		t.Fatalf("index.New: %v", err)
+	}
+	return idx, srv
+}
+
+// Scenario "Readiness follows Postgres and OpenSearch": a healthy cluster pings clean,
+// through the Index port the health checker is registered against.
+func TestOpenSearchPingOK(t *testing.T) {
+	idx, _ := pingTarget(t, 200)
+	var port index.Index = idx
+	if err := port.Ping(context.Background()); err != nil {
+		t.Fatalf("Ping: %v", err)
+	}
+}
+
+// Scenarios "An unreachable OpenSearch fails boot" and "A failing dependency turns
+// readiness off": a closed server, an unhealthy answer and a cancelled context all fail.
+func TestOpenSearchPingFailsWhenDown(t *testing.T) {
+	t.Run("unreachable", func(t *testing.T) {
+		idx, srv := pingTarget(t, 200)
+		srv.Close()
+		if err := idx.Ping(context.Background()); err == nil {
+			t.Fatal("Ping against a closed server must fail")
+		}
+	})
+	t.Run("server error", func(t *testing.T) {
+		idx, _ := pingTarget(t, 503)
+		if err := idx.Ping(context.Background()); err == nil {
+			t.Fatal("Ping against a 503 must fail")
+		}
+	})
+	t.Run("cancelled context", func(t *testing.T) {
+		idx, _ := pingTarget(t, 200)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if err := idx.Ping(ctx); err == nil {
+			t.Fatal("Ping with a cancelled context must fail")
+		}
+	})
+}
