@@ -1,6 +1,6 @@
 # team-analytics GA4 purchase relay (cmd/ga4-relay) — a Kafka-consumer WORKER that reads
 # order.events and relays paid orders to GA4 as server-side purchase events. No inbound
-# endpoint beyond the 8085 probe port: no Ingress, no Service. Retries-exhausted records park
+# endpoint beyond the gRPC health probe: no Ingress, no Service. Retries-exhausted records park
 # on analytics.ga4-relay.dlq (created by platform/infra/redpanda.yaml, owner team-analytics).
 # GA4_API_SECRET / GA4_MEASUREMENT_ID come from the ExternalSecret below, never from git.
 apiVersion: v1
@@ -91,13 +91,14 @@ spec:
             - { name: GA4_RELAY_DLQ_TOPIC, value: "analytics.ga4-relay.dlq" }
             - { name: WAREHOUSE_DRIVER, value: "duckdb" }
             - { name: DUCKDB_PATH, value: "/data/ga4-relay.duckdb" }
-            - { name: GA4_RELAY_PROBE_PORT, value: "8085" }
+            - { name: ENV, value: "local" }
+            - { name: GRPC_PORT, value: "50059" }
+            - name: LOG_KEY_FP_SECRET
+              valueFrom: { secretKeyRef: { name: ga4-relay-env, key: LOG_KEY_FP_SECRET } }
             - name: GA4_API_SECRET
               valueFrom: { secretKeyRef: { name: ga4-relay-env, key: GA4_API_SECRET } }
             - name: GA4_MEASUREMENT_ID
               valueFrom: { secretKeyRef: { name: ga4-relay-env, key: GA4_MEASUREMENT_ID } }
-          ports:
-            - { name: health, containerPort: 8085 }
           resources:
             requests:
               cpu: 50m
@@ -106,11 +107,11 @@ spec:
               cpu: 250m
               memory: 256Mi
           livenessProbe:
-            httpGet: { path: /healthz, port: 8085 }
+            grpc: { port: 50059, service: liveness }
             initialDelaySeconds: 5
             periodSeconds: 10
           readinessProbe:
-            httpGet: { path: /readyz, port: 8085 }
+            grpc: { port: 50059 }
             initialDelaySeconds: 5
             periodSeconds: 5
           volumeMounts:
