@@ -12,7 +12,7 @@ The engagement consumer SHALL map an `engagement.events` envelope of type `platf
 #### Scenario: Analytics review hidden: a ReviewHidden envelope maps to a review_hidden fact
 - **WHEN** an envelope of type `platform.engagement.v1.ReviewHidden` with review id "r-1", listing id "l-1" and `hidden_at` 2026-10-18T10:00:00Z is mapped
 - **THEN** the record has `Fact` "review_hidden", `ReviewID` "r-1", `ListingID` "l-1", empty `UserID` and `SellerID`, `Rating` 0 and `OccurredAt` 2026-10-18T10:00:00Z, and no error is returned
-- **VERIFIED BY**: team-analytics `internal/consumer` `TestEngagementFactFromEnvelope`
+- **VERIFIED BY**: team-analytics `internal/events` `TestEngagementFactFromEnvelope`
 
 #### Scenario: Analytics review hidden: a produced ReviewHidden reaches the warehouse
 - **WHEN** a ReviewCreated and then a ReviewHidden envelope for the same review, each with a unique event id, are produced to engagement.events
@@ -27,7 +27,7 @@ The engagement consumer SHALL map an `engagement.events` envelope of type `platf
 #### Scenario: Analytics review hidden: hidden_at missing falls back to the envelope time
 - **WHEN** a ReviewHidden envelope with no `hidden_at` and envelope `occurred_at` 2026-10-18T09:00:00Z is mapped
 - **THEN** the record `OccurredAt` equals 2026-10-18T09:00:00Z
-- **VERIFIED BY**: team-analytics `internal/consumer` `TestReviewHiddenOccurredAtFallback`
+- **VERIFIED BY**: team-analytics `internal/events` `TestReviewHiddenOccurredAtFallback`
 
 #### Scenario: Analytics review hidden: a replayed event is stored once
 - **WHEN** the same ReviewHidden envelope (same event id) is delivered twice
@@ -37,14 +37,14 @@ The engagement consumer SHALL map an `engagement.events` envelope of type `platf
 #### Scenario: Analytics review hidden: a corrupt payload is dead-lettered
 - **WHEN** a ReviewHidden envelope whose payload bytes are not valid protobuf, or which has no event id, is processed in a batch with good records
 - **THEN** the mapping returns an error, the record is published to the DLQ with an `error` header, and the other records of the batch are still written
-- **VERIFIED BY**: team-analytics `internal/consumer` `TestEngagementFactFromEnvelopeRejects`
-- **VERIFIED BY**: team-analytics `internal/consumer` `TestProcessEngagementRecordsDeadLettersAndContinues`
+- **VERIFIED BY**: team-analytics `internal/events` `TestEngagementFactFromEnvelopeRejects`
+- **VERIFIED BY**: team-analytics `internal/events` `TestProcessEngagementRecordsDeadLettersAndContinues`
 
 #### Scenario: Analytics review hidden: existing engagement types are unchanged
 - **WHEN** envelopes of the five existing engagement types and an unknown type "platform.engagement.v1.Nope" are mapped
 - **THEN** the five map to the same facts as before this change and the unknown type still returns `ErrUnknownEngagementType`
-- **VERIFIED BY**: team-analytics `internal/consumer` `TestEngagementFactFromEnvelope`
-- **VERIFIED BY**: team-analytics `internal/consumer` `TestEngagementFactFromEnvelopeRejects`
+- **VERIFIED BY**: team-analytics `internal/events` `TestEngagementFactFromEnvelope`
+- **VERIFIED BY**: team-analytics `internal/events` `TestEngagementFactFromEnvelopeRejects`
 
 ### Requirement: review_created rows persist review_id
 
@@ -53,7 +53,7 @@ The engagement consumer SHALL store `ReviewCreated.review_id` in `engagement_fac
 #### Scenario: Analytics review hidden: a review_created row stores its review id
 - **WHEN** a ReviewCreated envelope with review id "r-1", listing id "l-1" and rating 4 is mapped and written
 - **THEN** the record has `ReviewID` "r-1" and the stored row has `review_id` "r-1", rating 4 and the same listing id as the later `review_hidden` row for "r-1"
-- **VERIFIED BY**: team-analytics `internal/consumer` `TestEngagementFactFromEnvelope`
+- **VERIFIED BY**: team-analytics `internal/events` `TestEngagementFactFromEnvelope`
 - **VERIFIED BY**: team-analytics `internal/warehouse/duckdb` `TestReviewIDStoredForCreatedAndHidden`
 
 #### Scenario: Analytics review hidden: a legacy review_created row is not given a review id without a backfill
