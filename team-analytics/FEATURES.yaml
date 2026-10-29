@@ -1921,8 +1921,23 @@ features:
     acceptance:
       - "Plain HTTP is not served"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: automated
+    status: planned
     covered_by: "tracking/ga4_purchase_relay.feature::Plain HTTP is not served"
+
+  - id: ga4-purchase-relay.relay-is-probed-over-grpc
+    title: "The relay is probed over gRPC"
+    persona: guest
+    priority: P2
+    summary: "The relay is probed over gRPC"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The relay is probed over gRPC"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: planned
+    covered_by: "tracking/ga4_purchase_relay.feature::The relay is probed over gRPC"
 
 
   - id: ga4-purchase-relay.secret-unset
