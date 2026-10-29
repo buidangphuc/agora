@@ -17,10 +17,8 @@ import (
 	"github.com/buidangphuc/team-identity/internal/store"
 )
 
-var (
-	// ErrStatusPrecondition: self target or admin target.
-	ErrStatusPrecondition = errors.New("status precondition failed")
-)
+// ErrStatusPrecondition: self target or admin target.
+var ErrStatusPrecondition = errors.New("status precondition failed")
 
 // statusWriter is the optional repository surface for enforcement.
 type statusWriter interface {

@@ -193,8 +193,10 @@ func (s *AuthService) issue(ctx context.Context, u store.User) (AuthResult, erro
 	if err != nil {
 		return AuthResult{}, err
 	}
-	return AuthResult{Token: signed, UserID: u.ID, Username: u.Username, Type: "user", Scopes: scopes,
-		RefreshToken: refreshToken, RefreshExpiresAt: refreshExp}, nil
+	return AuthResult{
+		Token: signed, UserID: u.ID, Username: u.Username, Type: "user", Scopes: scopes,
+		RefreshToken: refreshToken, RefreshExpiresAt: refreshExp,
+	}, nil
 }
 
 // ChangePassword verifies old password and updates user's password with new hash.
