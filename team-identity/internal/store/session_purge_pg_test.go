@@ -1,16 +1,17 @@
-package repository
+package store_test
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/team-identity/internal/store"
 )
 
 // Postgres tests for PurgeSessions / PurgeLoginHistory (change identity-session-retention, task 2).
-// They run only when TEST_DATABASE_URL points at a disposable Postgres.
+// They run against a Postgres container from testkit.
 
 const (
 	purgeRetention = 720 * time.Hour
@@ -18,27 +19,10 @@ const (
 	day            = 24 * time.Hour
 )
 
-func purgePG(t *testing.T) (*pgxpool.Pool, *PostgresSessionRepository) {
+func purgePG(t *testing.T) (*pgxpool.Pool, *store.PostgresSessionRepository) {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("no TEST_DATABASE_URL set; skipping Postgres purge test")
-	}
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Skipf("cannot connect to Postgres (%v); skipping", err)
-	}
-	t.Cleanup(pool.Close)
-	if err := pool.Ping(ctx); err != nil {
-		t.Skipf("Postgres unreachable (%v); skipping", err)
-	}
-	for _, f := range []string{"0001_users.up.sql", "0004_sessions.up.sql", "0005_identity_outbox_events.up.sql",
-		"0006_session_refresh.up.sql", "0007_user_status.up.sql", "0008_session_revoked_at.up.sql"} {
-		if _, err := pool.Exec(ctx, migrationSQL(t, f)); err != nil {
-			t.Fatalf("apply %s: %v", f, err)
-		}
-	}
+	pool := latestPool(t)
 	for _, q := range []string{`DELETE FROM identity_outbox_events`, `DELETE FROM sessions`, `DELETE FROM login_history`,
 		`DELETE FROM users WHERE id LIKE 'u-sp%'`,
 		`INSERT INTO users (id, username, password_hash) VALUES ('u-sp1','u-sp1','x')`} {
@@ -46,7 +30,7 @@ func purgePG(t *testing.T) (*pgxpool.Pool, *PostgresSessionRepository) {
 			t.Fatalf("reset (%s): %v", q, err)
 		}
 	}
-	return pool, NewPostgresSessionRepository(pool)
+	return pool, store.NewPostgresSessionRepository(pool)
 }
 
 // sessRow is the raw column set to insert; nil pointers insert NULL.

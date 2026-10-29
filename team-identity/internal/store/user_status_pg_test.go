@@ -1,37 +1,18 @@
-package repository
+package store_test
 
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Postgres tests for migration 0007_user_status. Run only when TEST_DATABASE_URL
-// points at a disposable Postgres. Reuses migrationSQL from session_refresh_pg_test.go.
+// Postgres tests for migration 0007_user_status. Run against a
+// Postgres container from testkit; migrationSQL comes from helpers_test.go.
 
 var statusColumns = []string{"status", "status_reason", "status_until", "status_changed_at"}
-
-func statusPool(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("no TEST_DATABASE_URL set; skipping Postgres user-status test")
-	}
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Skipf("cannot connect to Postgres (%v); skipping", err)
-	}
-	t.Cleanup(pool.Close)
-	if err := pool.Ping(ctx); err != nil {
-		t.Skipf("Postgres unreachable (%v); skipping", err)
-	}
-	return pool
-}
 
 func statusColumnCount(t *testing.T, pool *pgxpool.Pool) int {
 	t.Helper()
@@ -56,34 +37,21 @@ func statusIndexCount(t *testing.T, pool *pgxpool.Pool) int {
 	return n
 }
 
-// resetToPre0007 applies 0001..0006 and returns the users table to its
-// pre-0007 shape (down applied when present), then seeds legacy users.
-func resetToPre0007(t *testing.T, pool *pgxpool.Pool) {
+// preStatusPool returns a database migrated to version 6 (before 0007), seeded with legacy users.
+func preStatusPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
+	pool := poolAt(t, 6)
 	ctx := context.Background()
-	for _, f := range []string{"0001_users.up.sql", "0004_sessions.up.sql", "0005_identity_outbox_events.up.sql", "0006_session_refresh.up.sql"} {
-		if _, err := pool.Exec(ctx, migrationSQL(t, f)); err != nil {
-			t.Fatalf("apply %s: %v", f, err)
-		}
+	if _, err := pool.Exec(ctx, `INSERT INTO users (id, username, password_hash) VALUES ('u-st1','u-st1','x'), ('u-st2','u-st2','x')`); err != nil {
+		t.Fatalf("seed legacy users: %v", err)
 	}
-	if statusColumnCount(t, pool) != 0 {
-		if _, err := pool.Exec(ctx, migrationSQL(t, "0007_user_status.down.sql")); err != nil {
-			t.Fatalf("reset via 0007 down: %v", err)
-		}
-	}
-	for _, q := range []string{`DELETE FROM users WHERE id LIKE 'u-st%'`,
-		`INSERT INTO users (id, username, password_hash) VALUES ('u-st1','u-st1','x'), ('u-st2','u-st2','x')`} {
-		if _, err := pool.Exec(ctx, q); err != nil {
-			t.Fatalf("reset (%s): %v", q, err)
-		}
-	}
+	return pool
 }
 
 // Scenario: User enforcement: Existing rows read as active after migration
 func TestMigration0007UserStatusUpDown(t *testing.T) {
-	pool := statusPool(t)
+	pool := preStatusPool(t)
 	ctx := context.Background()
-	resetToPre0007(t, pool)
 
 	if _, err := pool.Exec(ctx, migrationSQL(t, "0007_user_status.up.sql")); err != nil {
 		t.Fatalf("apply 0007 up: %v", err)
@@ -144,9 +112,8 @@ func TestMigration0007UserStatusUpDown(t *testing.T) {
 
 // Scenario: User enforcement: Unknown status value is refused by the schema
 func TestUserStatusCheckConstraint(t *testing.T) {
-	pool := statusPool(t)
+	pool := preStatusPool(t)
 	ctx := context.Background()
-	resetToPre0007(t, pool)
 	if _, err := pool.Exec(ctx, migrationSQL(t, "0007_user_status.up.sql")); err != nil {
 		t.Fatalf("apply 0007 up: %v", err)
 	}

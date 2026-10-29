@@ -1,8 +1,8 @@
-package repository
+package store_test
 
 // Task 2 of identity-user-enforcement: user status fields, ListUsers, SetStatus,
 // LiftExpiredSuspension and the CreateSession status gate. Every test runs
-// against the in-memory twins and, when TEST_DATABASE_URL is set, against
+// against the in-memory twins and against
 // Postgres through the same assertions.
 //
 // Contract pinned by these tests (the implementer adds exactly this):
@@ -24,12 +24,16 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 const (
@@ -38,61 +42,56 @@ const (
 )
 
 type enfUsers interface {
-	UserRepository
-	ListUsers(ctx context.Context, query, status, cursor string, limit int) ([]User, string, error)
-	SetStatus(ctx context.Context, userID, status, reason string, until, now time.Time, revoke EnqueueFn, changed StatusEnqueueFn) (StatusResult, error)
-	LiftExpiredSuspension(ctx context.Context, userID string, now time.Time, changed StatusEnqueueFn) (bool, error)
+	store.UserRepository
+	ListUsers(ctx context.Context, query, status, cursor string, limit int) ([]store.User, string, error)
+	SetStatus(ctx context.Context, userID, status, reason string, until, now time.Time, revoke store.EnqueueFn, changed store.StatusEnqueueFn) (store.StatusResult, error)
+	LiftExpiredSuspension(ctx context.Context, userID string, now time.Time, changed store.StatusEnqueueFn) (bool, error)
 }
 
 var (
-	_ enfUsers = (*InMemoryUserRepository)(nil)
-	_ enfUsers = (*PostgresUserRepository)(nil)
+	_ enfUsers = (*storetest.InMemoryUserRepository)(nil)
+	_ enfUsers = (*store.PostgresUserRepository)(nil)
 )
 
 type enfEnv struct {
 	name     string
 	users    enfUsers
-	sessions SessionRepository
+	sessions store.SessionRepository
 	pool     *pgxpool.Pool // nil for the in-memory twin
-	outbox   func(t *testing.T) []OutboxRow
+	outbox   func(t *testing.T) []store.OutboxRow
 	ordered  bool // outbox() preserves insertion order
 }
 
 func memEnv(t *testing.T) enfEnv {
 	t.Helper()
-	u := NewInMemoryUserRepository()
-	s := NewInMemorySessionRepository()
+	u := storetest.NewInMemoryUserRepository()
+	s := storetest.NewInMemorySessionRepository()
 	u.AttachSessions(s)
 	return enfEnv{name: "memory", users: u, sessions: s, ordered: true,
-		outbox: func(*testing.T) []OutboxRow { return s.OutboxRows() }}
+		outbox: func(*testing.T) []store.OutboxRow { return s.OutboxRows() }}
 }
 
 func pgEnv(t *testing.T) enfEnv {
 	t.Helper()
-	pool := statusPool(t) // skips without TEST_DATABASE_URL
+	pool := latestPool(t)
 	ctx := context.Background()
-	for _, f := range []string{"0001_users.up.sql", "0004_sessions.up.sql", "0005_identity_outbox_events.up.sql", "0006_session_refresh.up.sql", "0007_user_status.up.sql"} {
-		if _, err := pool.Exec(ctx, migrationSQL(t, f)); err != nil {
-			t.Fatalf("apply %s: %v", f, err)
-		}
-	}
 	for _, q := range []string{`DELETE FROM identity_outbox_events`, `DELETE FROM users WHERE id LIKE 'ue-%'`} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("reset (%s): %v", q, err)
 		}
 	}
-	return enfEnv{name: "postgres", users: NewPostgresUserRepository(pool), sessions: NewPostgresSessionRepository(pool), pool: pool,
-		outbox: func(t *testing.T) []OutboxRow {
+	return enfEnv{name: "postgres", users: store.NewPostgresUserRepository(pool), sessions: store.NewPostgresSessionRepository(pool), pool: pool, ordered: true,
+		outbox: func(t *testing.T) []store.OutboxRow {
 			t.Helper()
 			rows, err := pool.Query(ctx, `SELECT event_id, aggregate_type, aggregate_id, event_type, payload
-				FROM identity_outbox_events ORDER BY created_at, event_id`)
+				FROM identity_outbox_events ORDER BY seq`)
 			if err != nil {
 				t.Fatalf("read outbox: %v", err)
 			}
 			defer rows.Close()
-			var out []OutboxRow
+			var out []store.OutboxRow
 			for rows.Next() {
-				var r OutboxRow
+				var r store.OutboxRow
 				if err := rows.Scan(&r.EventID, &r.AggregateType, &r.AggregateID, &r.EventType, &r.Payload); err != nil {
 					t.Fatalf("scan outbox: %v", err)
 				}
@@ -110,23 +109,23 @@ func forEachEnv(t *testing.T, fn func(t *testing.T, e enfEnv)) {
 
 var enfNow = time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
 
-func (e enfEnv) seedUser(t *testing.T, id, username string, roles ...string) User {
+func (e enfEnv) seedUser(t *testing.T, id, username string, roles ...string) store.User {
 	t.Helper()
 	if roles == nil {
 		roles = []string{"buyer"}
 	}
-	u, err := e.users.Create(context.Background(), User{ID: id, Username: username, PasswordHash: "x", Roles: roles})
+	u, err := e.users.Create(context.Background(), store.User{ID: id, Username: username, PasswordHash: "x", Roles: roles})
 	if err != nil {
 		t.Fatalf("seed user %s: %v", id, err)
 	}
 	return u
 }
 
-func (e enfEnv) seedSessions(t *testing.T, userID string, n int) []Session {
+func (e enfEnv) seedSessions(t *testing.T, userID string, n int) []store.Session {
 	t.Helper()
-	var out []Session
+	var out []store.Session
 	for i := 0; i < n; i++ {
-		s, err := e.sessions.CreateSession(context.Background(), Session{
+		s, err := e.sessions.CreateSession(context.Background(), store.Session{
 			UserID: userID, Device: "d", IP: "1.1.1.1",
 			RefreshHash: fmt.Sprintf("h-%s-%d", userID, i), RefreshExpiresAt: enfNow.Add(time.Hour),
 		})
@@ -138,22 +137,22 @@ func (e enfEnv) seedSessions(t *testing.T, userID string, n int) []Session {
 	return out
 }
 
-func revokeBuilder(rows *[]Session) EnqueueFn {
-	return func(s Session) (OutboxRow, error) {
+func revokeBuilder(rows *[]store.Session) store.EnqueueFn {
+	return func(s store.Session) (store.OutboxRow, error) {
 		*rows = append(*rows, s)
-		return OutboxRow{EventID: uuid.NewString(), AggregateType: "Session", AggregateID: s.UserID, EventType: evRevoked, Payload: []byte(s.ID)}, nil
+		return store.OutboxRow{EventID: uuid.NewString(), AggregateType: "Session", AggregateID: s.UserID, EventType: evRevoked, Payload: []byte(s.ID)}, nil
 	}
 }
 
-func statusBuilder(changes *[]StatusChange) StatusEnqueueFn {
-	return func(c StatusChange) (OutboxRow, error) {
+func statusBuilder(changes *[]store.StatusChange) store.StatusEnqueueFn {
+	return func(c store.StatusChange) (store.OutboxRow, error) {
 		*changes = append(*changes, c)
-		return OutboxRow{EventID: uuid.NewString(), AggregateType: "User", AggregateID: c.UserID, EventType: evStatus,
+		return store.OutboxRow{EventID: uuid.NewString(), AggregateType: "User", AggregateID: c.UserID, EventType: evStatus,
 			Payload: []byte(c.PreviousStatus + ">" + c.Status)}, nil
 	}
 }
 
-func countType(rows []OutboxRow, typ string) int {
+func countType(rows []store.OutboxRow, typ string) int {
 	n := 0
 	for _, r := range rows {
 		if r.EventType == typ {
@@ -178,7 +177,7 @@ func activeSessionCount(t *testing.T, e enfEnv, userID string) int {
 	return n
 }
 
-func mustGet(t *testing.T, e enfEnv, id string) User {
+func mustGet(t *testing.T, e enfEnv, id string) store.User {
 	t.Helper()
 	u, err := e.users.GetByID(context.Background(), id)
 	if err != nil {
@@ -191,8 +190,8 @@ func mustGet(t *testing.T, e enfEnv, id string) User {
 func TestCreateUserDefaultsToActive(t *testing.T) {
 	forEachEnv(t, func(t *testing.T, e enfEnv) {
 		created := e.seedUser(t, "ue-new", "ue-new-user")
-		for label, u := range map[string]User{"create result": created, "reloaded": mustGet(t, e, "ue-new")} {
-			if u.Status != StatusActive {
+		for label, u := range map[string]store.User{"create result": created, "reloaded": mustGet(t, e, "ue-new")} {
+			if u.Status != store.StatusActive {
 				t.Errorf("%s: status = %q, want active", label, u.Status)
 			}
 			if u.StatusReason != "" {
@@ -213,20 +212,20 @@ func TestSetUserStatusOutboxRows(t *testing.T) {
 		sess := e.seedSessions(t, "ue-o1", 3)
 		until := enfNow.Add(48 * time.Hour)
 
-		var revoked []Session
-		var changes []StatusChange
-		res, err := e.users.SetStatus(ctx, "ue-o1", StatusSuspended, "scam", until, enfNow, revokeBuilder(&revoked), statusBuilder(&changes))
+		var revoked []store.Session
+		var changes []store.StatusChange
+		res, err := e.users.SetStatus(ctx, "ue-o1", store.StatusSuspended, "scam", until, enfNow, revokeBuilder(&revoked), statusBuilder(&changes))
 		if err != nil {
 			t.Fatalf("SetStatus: %v", err)
 		}
 		if res.SessionsRevoked != 3 {
 			t.Errorf("SessionsRevoked = %d, want 3", res.SessionsRevoked)
 		}
-		if res.User.Status != StatusSuspended || res.User.StatusReason != "scam" || !res.User.StatusUntil.Equal(until) || !res.User.StatusChangedAt.Equal(enfNow) {
+		if res.User.Status != store.StatusSuspended || res.User.StatusReason != "scam" || !res.User.StatusUntil.Equal(until) || !res.User.StatusChangedAt.Equal(enfNow) {
 			t.Errorf("result user = %+v, want suspended/scam/until/changed_at=now", res.User)
 		}
 		got := mustGet(t, e, "ue-o1")
-		if got.Status != StatusSuspended || got.StatusReason != "scam" || !got.StatusUntil.Equal(until) || !got.StatusChangedAt.Equal(enfNow) {
+		if got.Status != store.StatusSuspended || got.StatusReason != "scam" || !got.StatusUntil.Equal(until) || !got.StatusChangedAt.Equal(enfNow) {
 			t.Errorf("stored user = %+v", got)
 		}
 
@@ -249,7 +248,7 @@ func TestSetUserStatusOutboxRows(t *testing.T) {
 			t.Fatalf("status builder calls = %d, want 1", len(changes))
 		}
 		c := changes[0]
-		if c.UserID != "ue-o1" || c.PreviousStatus != StatusActive || c.Status != StatusSuspended || c.Reason != "scam" || !c.Until.Equal(until) || !c.ChangedAt.Equal(enfNow) {
+		if c.UserID != "ue-o1" || c.PreviousStatus != store.StatusActive || c.Status != store.StatusSuspended || c.Reason != "scam" || !c.Until.Equal(until) || !c.ChangedAt.Equal(enfNow) {
 			t.Errorf("StatusChange = %+v", c)
 		}
 
@@ -279,10 +278,12 @@ func TestSetUserStatusOutboxRows(t *testing.T) {
 }
 
 // Scenario: User enforcement: Events keep per-user order
-// The outbox relayer claims by (available_at, created_at, event_id). Every row of
-// one SetStatus shares a transaction, so a plain now() would tie them and the
-// random event ids would decide the publish order. The status event has the
-// smallest id and the revokes the largest, so a tie surfaces as a wrong order.
+// Scenario: Both event types share one aggregate and keep order
+// The revoke builder labels its rows "Session" and the status builder "User":
+// the store must still put all four rows on the user aggregate, and the SDK
+// relayer must publish the three revokes before the status record. The status
+// event has the smallest id and the revokes the largest, so ordering by id
+// instead of by insertion surfaces as a wrong order.
 func TestSetUserStatusOutboxOrderPG(t *testing.T) {
 	e := pgEnv(t)
 	ctx := context.Background()
@@ -290,34 +291,29 @@ func TestSetUserStatusOutboxOrderPG(t *testing.T) {
 	e.seedSessions(t, "ue-ord", 3)
 
 	n := 0
-	revoke := func(s Session) (OutboxRow, error) {
+	revoke := func(s store.Session) (store.OutboxRow, error) {
 		n++
-		return OutboxRow{EventID: fmt.Sprintf("ffffffff-%d", n), AggregateType: "Session", AggregateID: s.UserID, EventType: evRevoked, Payload: []byte(s.ID)}, nil
+		return store.OutboxRow{EventID: fmt.Sprintf("ffffffff-%d", n), AggregateType: "Session", AggregateID: s.UserID, EventType: evRevoked, Payload: []byte(fmt.Sprintf("revoked-%d", n))}, nil
 	}
-	changed := func(c StatusChange) (OutboxRow, error) {
-		return OutboxRow{EventID: "00000000-status", AggregateType: "User", AggregateID: c.UserID, EventType: evStatus, Payload: []byte("x")}, nil
+	changed := func(c store.StatusChange) (store.OutboxRow, error) {
+		return store.OutboxRow{EventID: "00000000-status", AggregateType: "User", AggregateID: c.UserID, EventType: evStatus, Payload: []byte("status")}, nil
 	}
-	if _, err := e.users.SetStatus(ctx, "ue-ord", StatusBanned, "scam", time.Time{}, enfNow, revoke, changed); err != nil {
+	if _, err := e.users.SetStatus(ctx, "ue-ord", store.StatusBanned, "scam", time.Time{}, enfNow, revoke, changed); err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}
-	got, err := NewOutboxStore(e.pool).ClaimPending(ctx, 10, 30)
-	if err != nil {
-		t.Fatalf("claim: %v", err)
+
+	var rows, users int
+	if err := e.pool.QueryRow(ctx, `SELECT count(*), count(*) FILTER (WHERE aggregate_type = 'User' AND aggregate_id = 'ue-ord') FROM identity_outbox_events`).Scan(&rows, &users); err != nil {
+		t.Fatalf("count rows: %v", err)
 	}
-	if len(got) != 4 {
-		t.Fatalf("claimed %d rows, want 4", len(got))
+	if rows != 4 || users != 4 {
+		t.Fatalf("rows = %d, of which on aggregate User/ue-ord = %d, want 4 and 4", rows, users)
 	}
-	for i, p := range got {
-		if p.AggregateID != "ue-ord" {
-			t.Errorf("row %d key = %q, want the user id", i, p.AggregateID)
-		}
-	}
-	if got[3].EventID != "00000000-status" {
-		ids := make([]string, len(got))
-		for i, p := range got {
-			ids[i] = p.EventID
-		}
-		t.Fatalf("claim order = %v, want the status event last", ids)
+
+	got := relayValues(t, e.pool, 4)
+	want := []string{"revoked-1", "revoked-2", "revoked-3", "status"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("relay order = %v, want %v", got, want)
 	}
 }
 
@@ -325,9 +321,9 @@ func TestSetUserStatusOutboxOrderPG(t *testing.T) {
 func TestSetUserStatusNoSessions(t *testing.T) {
 	forEachEnv(t, func(t *testing.T, e enfEnv) {
 		e.seedUser(t, "ue-ns", "ue-ns")
-		var revoked []Session
-		var changes []StatusChange
-		res, err := e.users.SetStatus(context.Background(), "ue-ns", StatusBanned, "scam", time.Time{}, enfNow, revokeBuilder(&revoked), statusBuilder(&changes))
+		var revoked []store.Session
+		var changes []store.StatusChange
+		res, err := e.users.SetStatus(context.Background(), "ue-ns", store.StatusBanned, "scam", time.Time{}, enfNow, revokeBuilder(&revoked), statusBuilder(&changes))
 		if err != nil {
 			t.Fatalf("SetStatus: %v", err)
 		}
@@ -338,7 +334,7 @@ func TestSetUserStatusNoSessions(t *testing.T) {
 		if countType(rows, evStatus) != 1 || len(rows) != 1 {
 			t.Errorf("outbox = %d rows (%d status), want exactly 1 status row", len(rows), countType(rows, evStatus))
 		}
-		if got := mustGet(t, e, "ue-ns"); got.Status != StatusBanned {
+		if got := mustGet(t, e, "ue-ns"); got.Status != store.StatusBanned {
 			t.Errorf("status = %q, want banned", got.Status)
 		}
 	})
@@ -355,9 +351,9 @@ func TestSetUserStatusSkipsRevokedSessions(t *testing.T) {
 				t.Fatalf("pre-revoke: %v", err)
 			}
 		}
-		var revoked []Session
-		var changes []StatusChange
-		res, err := e.users.SetStatus(ctx, "ue-sk", StatusBanned, "scam", time.Time{}, enfNow, revokeBuilder(&revoked), statusBuilder(&changes))
+		var revoked []store.Session
+		var changes []store.StatusChange
+		res, err := e.users.SetStatus(ctx, "ue-sk", store.StatusBanned, "scam", time.Time{}, enfNow, revokeBuilder(&revoked), statusBuilder(&changes))
 		if err != nil {
 			t.Fatalf("SetStatus: %v", err)
 		}
@@ -373,20 +369,20 @@ func TestSetUserStatusRollsBackOnOutboxFailure(t *testing.T) {
 	boom := errors.New("boom")
 	cases := []struct {
 		name   string
-		revoke func(calls *int) EnqueueFn
-		fail   func() StatusEnqueueFn
+		revoke func(calls *int) store.EnqueueFn
+		fail   func() store.StatusEnqueueFn
 	}{
-		{"second revoke event fails", func(calls *int) EnqueueFn {
-			return func(s Session) (OutboxRow, error) {
+		{"second revoke event fails", func(calls *int) store.EnqueueFn {
+			return func(s store.Session) (store.OutboxRow, error) {
 				*calls++
 				if *calls == 2 {
-					return OutboxRow{}, boom
+					return store.OutboxRow{}, boom
 				}
-				return OutboxRow{EventID: uuid.NewString(), AggregateType: "Session", AggregateID: s.UserID, EventType: evRevoked, Payload: []byte(s.ID)}, nil
+				return store.OutboxRow{EventID: uuid.NewString(), AggregateType: "Session", AggregateID: s.UserID, EventType: evRevoked, Payload: []byte(s.ID)}, nil
 			}
 		}, nil},
-		{"status event fails", nil, func() StatusEnqueueFn {
-			return func(StatusChange) (OutboxRow, error) { return OutboxRow{}, boom }
+		{"status event fails", nil, func() store.StatusEnqueueFn {
+			return func(store.StatusChange) (store.OutboxRow, error) { return store.OutboxRow{}, boom }
 		}},
 	}
 	for _, tc := range cases {
@@ -395,22 +391,22 @@ func TestSetUserStatusRollsBackOnOutboxFailure(t *testing.T) {
 				e.seedUser(t, "ue-rb", "ue-rb")
 				e.seedSessions(t, "ue-rb", 3)
 				calls := 0
-				var revoke EnqueueFn = func(s Session) (OutboxRow, error) {
-					return OutboxRow{EventID: uuid.NewString(), AggregateType: "Session", AggregateID: s.UserID, EventType: evRevoked, Payload: []byte(s.ID)}, nil
+				var revoke store.EnqueueFn = func(s store.Session) (store.OutboxRow, error) {
+					return store.OutboxRow{EventID: uuid.NewString(), AggregateType: "Session", AggregateID: s.UserID, EventType: evRevoked, Payload: []byte(s.ID)}, nil
 				}
 				if tc.revoke != nil {
 					revoke = tc.revoke(&calls)
 				}
-				var changes []StatusChange
+				var changes []store.StatusChange
 				changed := statusBuilder(&changes)
 				if tc.fail != nil {
 					changed = tc.fail()
 				}
-				_, err := e.users.SetStatus(context.Background(), "ue-rb", StatusSuspended, "scam", enfNow.Add(time.Hour), enfNow, revoke, changed)
+				_, err := e.users.SetStatus(context.Background(), "ue-rb", store.StatusSuspended, "scam", enfNow.Add(time.Hour), enfNow, revoke, changed)
 				if !errors.Is(err, boom) {
 					t.Fatalf("err = %v, want the builder error", err)
 				}
-				if got := mustGet(t, e, "ue-rb"); got.Status != StatusActive || got.StatusReason != "" || !got.StatusUntil.IsZero() {
+				if got := mustGet(t, e, "ue-rb"); got.Status != store.StatusActive || got.StatusReason != "" || !got.StatusUntil.IsZero() {
 					t.Errorf("user changed despite failure: %+v", got)
 				}
 				if n := activeSessionCount(t, e, "ue-rb"); n != 3 {
@@ -434,15 +430,15 @@ func TestSetUserStatusRollsBackOnOutboxFailure(t *testing.T) {
 // (repository half: restricted, suspended and banned all revoke; the user row is
 // not the thing that blocks a restricted login)
 func TestSetUserStatusRevokingTargets(t *testing.T) {
-	for _, target := range []string{StatusRestricted, StatusSuspended, StatusBanned} {
+	for _, target := range []string{store.StatusRestricted, store.StatusSuspended, store.StatusBanned} {
 		t.Run(target, func(t *testing.T) {
 			forEachEnv(t, func(t *testing.T, e enfEnv) {
 				e.seedUser(t, "ue-rt", "ue-rt")
 				e.seedSessions(t, "ue-rt", 2)
-				var revoked []Session
-				var changes []StatusChange
+				var revoked []store.Session
+				var changes []store.StatusChange
 				var until time.Time
-				if target == StatusSuspended {
+				if target == store.StatusSuspended {
 					until = enfNow.Add(time.Hour)
 				}
 				res, err := e.users.SetStatus(context.Background(), "ue-rt", target, "abuse", until, enfNow, revokeBuilder(&revoked), statusBuilder(&changes))
@@ -465,18 +461,18 @@ func TestSetUserStatusActiveRevokesNothing(t *testing.T) {
 	forEachEnv(t, func(t *testing.T, e enfEnv) {
 		ctx := context.Background()
 		e.seedUser(t, "ue-ac", "ue-ac")
-		var pre []Session
-		var preChanges []StatusChange
-		if _, err := e.users.SetStatus(ctx, "ue-ac", StatusSuspended, "scam", enfNow.Add(time.Hour), enfNow.Add(-time.Hour), revokeBuilder(&pre), statusBuilder(&preChanges)); err != nil {
+		var pre []store.Session
+		var preChanges []store.StatusChange
+		if _, err := e.users.SetStatus(ctx, "ue-ac", store.StatusSuspended, "scam", enfNow.Add(time.Hour), enfNow.Add(-time.Hour), revokeBuilder(&pre), statusBuilder(&preChanges)); err != nil {
 			t.Fatalf("suspend: %v", err)
 		}
 		// A session that survived somehow (created after the suspension in this fixture).
 		sess := e.seedSessionsRaw(t, "ue-ac")
 
-		var revoked []Session
-		var changes []StatusChange
+		var revoked []store.Session
+		var changes []store.StatusChange
 		later := enfNow
-		res, err := e.users.SetStatus(ctx, "ue-ac", StatusActive, "appeal_accepted", time.Time{}, later, revokeBuilder(&revoked), statusBuilder(&changes))
+		res, err := e.users.SetStatus(ctx, "ue-ac", store.StatusActive, "appeal_accepted", time.Time{}, later, revokeBuilder(&revoked), statusBuilder(&changes))
 		if err != nil {
 			t.Fatalf("reinstate: %v", err)
 		}
@@ -484,7 +480,7 @@ func TestSetUserStatusActiveRevokesNothing(t *testing.T) {
 			t.Errorf("SessionsRevoked=%d builder=%d, want 0", res.SessionsRevoked, len(revoked))
 		}
 		got := mustGet(t, e, "ue-ac")
-		if got.Status != StatusActive || got.StatusReason != "appeal_accepted" || !got.StatusUntil.IsZero() || !got.StatusChangedAt.Equal(later) {
+		if got.Status != store.StatusActive || got.StatusReason != "appeal_accepted" || !got.StatusUntil.IsZero() || !got.StatusChangedAt.Equal(later) {
 			t.Errorf("stored user = %+v, want active/appeal_accepted/no until/changed_at=now", got)
 		}
 		if n := activeSessionCount(t, e, "ue-ac"); n != 1 {
@@ -495,7 +491,7 @@ func TestSetUserStatusActiveRevokesNothing(t *testing.T) {
 		if countType(rows, evRevoked) != 0 || countType(rows, evStatus) != 2 { // suspend + reinstate
 			t.Errorf("outbox: %d revoked, %d status; want 0 revoked and the 2 status rows", countType(rows, evRevoked), countType(rows, evStatus))
 		}
-		if len(changes) != 1 || changes[0].PreviousStatus != StatusSuspended || changes[0].Status != StatusActive || changes[0].Reason != "appeal_accepted" || !changes[0].Until.IsZero() {
+		if len(changes) != 1 || changes[0].PreviousStatus != store.StatusSuspended || changes[0].Status != store.StatusActive || changes[0].Reason != "appeal_accepted" || !changes[0].Until.IsZero() {
 			t.Errorf("StatusChange = %+v", changes)
 		}
 	})
@@ -503,7 +499,7 @@ func TestSetUserStatusActiveRevokesNothing(t *testing.T) {
 
 // seedSessionsRaw inserts one active session bypassing the status gate, as a
 // session that predates the restriction would look.
-func (e enfEnv) seedSessionsRaw(t *testing.T, userID string) Session {
+func (e enfEnv) seedSessionsRaw(t *testing.T, userID string) store.Session {
 	t.Helper()
 	ctx := context.Background()
 	if e.pool != nil {
@@ -511,17 +507,10 @@ func (e enfEnv) seedSessionsRaw(t *testing.T, userID string) Session {
 		if _, err := e.pool.Exec(ctx, `INSERT INTO sessions (id, user_id, device, ip) VALUES ($1, $2, 'd', '1.1.1.1')`, id, userID); err != nil {
 			t.Fatalf("raw session: %v", err)
 		}
-		return Session{ID: id, UserID: userID}
+		return store.Session{ID: id, UserID: userID}
 	}
-	// In-memory twin: temporarily seed while the user is not yet gated by
-	// creating through a detached session repository would lose the link, so
-	// reinstate-first is not possible; use the unlinked path.
-	s := e.sessions.(*InMemorySessionRepository)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	id := uuid.NewString()
-	s.sessions[id] = Session{ID: id, UserID: userID, CreatedAt: enfNow, LastSeen: enfNow}
-	return s.sessions[id]
+	// In-memory twin: SeedRaw stores the session as given, bypassing the status gate.
+	return e.sessions.(*storetest.InMemorySessionRepository).SeedRaw(store.Session{ID: uuid.NewString(), UserID: userID, CreatedAt: enfNow, LastSeen: enfNow})
 }
 
 // Scenario: User enforcement: Setting the same status updates reason and until
@@ -529,18 +518,18 @@ func TestSetUserStatusSameStatusRevokesAgain(t *testing.T) {
 	forEachEnv(t, func(t *testing.T, e enfEnv) {
 		ctx := context.Background()
 		e.seedUser(t, "ue-sm", "ue-sm")
-		var r1 []Session
-		var c1 []StatusChange
+		var r1 []store.Session
+		var c1 []store.StatusChange
 		first := enfNow.Add(24 * time.Hour)
-		if _, err := e.users.SetStatus(ctx, "ue-sm", StatusSuspended, "spam", first, enfNow, revokeBuilder(&r1), statusBuilder(&c1)); err != nil {
+		if _, err := e.users.SetStatus(ctx, "ue-sm", store.StatusSuspended, "spam", first, enfNow, revokeBuilder(&r1), statusBuilder(&c1)); err != nil {
 			t.Fatalf("first: %v", err)
 		}
 		e.seedSessionsRaw(t, "ue-sm")
 
-		var r2 []Session
-		var c2 []StatusChange
+		var r2 []store.Session
+		var c2 []store.StatusChange
 		second := enfNow.Add(72 * time.Hour)
-		res, err := e.users.SetStatus(ctx, "ue-sm", StatusSuspended, "scam", second, enfNow.Add(time.Minute), revokeBuilder(&r2), statusBuilder(&c2))
+		res, err := e.users.SetStatus(ctx, "ue-sm", store.StatusSuspended, "scam", second, enfNow.Add(time.Minute), revokeBuilder(&r2), statusBuilder(&c2))
 		if err != nil {
 			t.Fatalf("second: %v", err)
 		}
@@ -548,10 +537,10 @@ func TestSetUserStatusSameStatusRevokesAgain(t *testing.T) {
 			t.Errorf("SessionsRevoked=%d builder=%d, want 1", res.SessionsRevoked, len(r2))
 		}
 		got := mustGet(t, e, "ue-sm")
-		if got.Status != StatusSuspended || got.StatusReason != "scam" || !got.StatusUntil.Equal(second) {
+		if got.Status != store.StatusSuspended || got.StatusReason != "scam" || !got.StatusUntil.Equal(second) {
 			t.Errorf("stored user = %+v, want suspended/scam/until=second", got)
 		}
-		if len(c2) != 1 || c2[0].PreviousStatus != StatusSuspended || c2[0].Status != StatusSuspended {
+		if len(c2) != 1 || c2[0].PreviousStatus != store.StatusSuspended || c2[0].Status != store.StatusSuspended {
 			t.Errorf("StatusChange = %+v, want previous suspended", c2)
 		}
 		if rows := e.outbox(t); countType(rows, evRevoked) != 1 || countType(rows, evStatus) != 2 {
@@ -563,10 +552,10 @@ func TestSetUserStatusSameStatusRevokesAgain(t *testing.T) {
 // Scenario: User enforcement: Unknown user is NotFound without audit
 func TestSetUserStatusUnknownUser(t *testing.T) {
 	forEachEnv(t, func(t *testing.T, e enfEnv) {
-		var revoked []Session
-		var changes []StatusChange
-		_, err := e.users.SetStatus(context.Background(), "ue-missing", StatusBanned, "scam", time.Time{}, enfNow, revokeBuilder(&revoked), statusBuilder(&changes))
-		if !errors.Is(err, ErrNotFound) {
+		var revoked []store.Session
+		var changes []store.StatusChange
+		_, err := e.users.SetStatus(context.Background(), "ue-missing", store.StatusBanned, "scam", time.Time{}, enfNow, revokeBuilder(&revoked), statusBuilder(&changes))
+		if !errors.Is(err, store.ErrNotFound) {
 			t.Fatalf("err = %v, want ErrNotFound", err)
 		}
 		if len(changes) != 0 || len(e.outbox(t)) != 0 {
@@ -582,7 +571,7 @@ func seedNamed(t *testing.T, e enfEnv, prefix string, names ...string) {
 	}
 }
 
-func usernames(us []User) []string {
+func usernames(us []store.User) []string {
 	out := make([]string, len(us))
 	for i, u := range us {
 		out[i] = u.Username
@@ -642,13 +631,13 @@ func TestListUsersStatusFilter(t *testing.T) {
 		}
 		until := enfNow.Add(24 * time.Hour)
 		for _, id := range []string{"ue-sf-03", "ue-sf-07"} {
-			var r []Session
-			var c []StatusChange
-			if _, err := e.users.SetStatus(ctx, id, StatusSuspended, "scam", until, enfNow, revokeBuilder(&r), statusBuilder(&c)); err != nil {
+			var r []store.Session
+			var c []store.StatusChange
+			if _, err := e.users.SetStatus(ctx, id, store.StatusSuspended, "scam", until, enfNow, revokeBuilder(&r), statusBuilder(&c)); err != nil {
 				t.Fatalf("suspend %s: %v", id, err)
 			}
 		}
-		got, _, err := e.users.ListUsers(ctx, "sf-", StatusSuspended, "", 20)
+		got, _, err := e.users.ListUsers(ctx, "sf-", store.StatusSuspended, "", 20)
 		if err != nil {
 			t.Fatalf("ListUsers: %v", err)
 		}
@@ -656,7 +645,7 @@ func TestListUsersStatusFilter(t *testing.T) {
 			t.Fatalf("users = %v, want %v", usernames(got), want)
 		}
 		for _, u := range got {
-			if u.Status != StatusSuspended || u.StatusReason != "scam" || !u.StatusUntil.Equal(until) {
+			if u.Status != store.StatusSuspended || u.StatusReason != "scam" || !u.StatusUntil.Equal(until) {
 				t.Errorf("user %s = %+v, want suspended/scam/until", u.Username, u)
 			}
 		}
@@ -725,9 +714,9 @@ func TestLiftExpiredSuspension(t *testing.T) {
 	suspend := func(t *testing.T, e enfEnv, id string, until time.Time) {
 		t.Helper()
 		e.seedUser(t, id, id)
-		var r []Session
-		var c []StatusChange
-		if _, err := e.users.SetStatus(context.Background(), id, StatusSuspended, "scam", until, enfNow.Add(-48*time.Hour), revokeBuilder(&r), statusBuilder(&c)); err != nil {
+		var r []store.Session
+		var c []store.StatusChange
+		if _, err := e.users.SetStatus(context.Background(), id, store.StatusSuspended, "scam", until, enfNow.Add(-48*time.Hour), revokeBuilder(&r), statusBuilder(&c)); err != nil {
 			t.Fatalf("suspend: %v", err)
 		}
 	}
@@ -744,7 +733,7 @@ func TestLiftExpiredSuspension(t *testing.T) {
 			forEachEnv(t, func(t *testing.T, e enfEnv) {
 				suspend(t, e, "ue-lf", tc.until)
 				base := len(e.outbox(t))
-				var changes []StatusChange
+				var changes []store.StatusChange
 				lifted, err := e.users.LiftExpiredSuspension(context.Background(), "ue-lf", enfNow, statusBuilder(&changes))
 				if err != nil {
 					t.Fatalf("Lift: %v", err)
@@ -755,17 +744,17 @@ func TestLiftExpiredSuspension(t *testing.T) {
 				got := mustGet(t, e, "ue-lf")
 				rows := e.outbox(t)
 				if tc.lifted {
-					if got.Status != StatusActive || got.StatusReason != "" || !got.StatusUntil.IsZero() {
+					if got.Status != store.StatusActive || got.StatusReason != "" || !got.StatusUntil.IsZero() {
 						t.Errorf("user after lift = %+v, want active with reason and until cleared", got)
 					}
-					if len(changes) != 1 || changes[0].PreviousStatus != StatusSuspended || changes[0].Status != StatusActive || changes[0].UserID != "ue-lf" || !changes[0].ChangedAt.Equal(enfNow) {
+					if len(changes) != 1 || changes[0].PreviousStatus != store.StatusSuspended || changes[0].Status != store.StatusActive || changes[0].UserID != "ue-lf" || !changes[0].ChangedAt.Equal(enfNow) {
 						t.Errorf("StatusChange = %+v", changes)
 					}
 					if len(rows) != base+1 {
 						t.Errorf("outbox rows = %d, want %d (one UserStatusChanged)", len(rows), base+1)
 					}
 				} else {
-					if got.Status != StatusSuspended || got.StatusReason != "scam" || got.StatusUntil.IsZero() {
+					if got.Status != store.StatusSuspended || got.StatusReason != "scam" || got.StatusUntil.IsZero() {
 						t.Errorf("user changed on a miss: %+v", got)
 					}
 					if len(changes) != 0 || len(rows) != base {
@@ -779,19 +768,19 @@ func TestLiftExpiredSuspension(t *testing.T) {
 
 // Scenario: Login enforcement: A banned user is never lifted by time
 func TestLiftExpiredSuspensionOnlyTouchesSuspended(t *testing.T) {
-	for _, st := range []string{StatusBanned, StatusRestricted, StatusActive} {
+	for _, st := range []string{store.StatusBanned, store.StatusRestricted, store.StatusActive} {
 		t.Run(st, func(t *testing.T) {
 			forEachEnv(t, func(t *testing.T, e enfEnv) {
 				e.seedUser(t, "ue-lo", "ue-lo")
-				if st != StatusActive {
-					var r []Session
-					var c []StatusChange
+				if st != store.StatusActive {
+					var r []store.Session
+					var c []store.StatusChange
 					if _, err := e.users.SetStatus(context.Background(), "ue-lo", st, "scam", time.Time{}, enfNow.Add(-72*time.Hour), revokeBuilder(&r), statusBuilder(&c)); err != nil {
 						t.Fatalf("set %s: %v", st, err)
 					}
 				}
 				base := len(e.outbox(t))
-				var changes []StatusChange
+				var changes []store.StatusChange
 				lifted, err := e.users.LiftExpiredSuspension(context.Background(), "ue-lo", enfNow, statusBuilder(&changes))
 				if err != nil || lifted {
 					t.Fatalf("lifted=%v err=%v, want false,nil", lifted, err)
@@ -811,18 +800,18 @@ func TestLiftExpiredSuspensionOnlyTouchesSuspended(t *testing.T) {
 func TestLiftExpiredSuspensionRollsBackOnEventFailure(t *testing.T) {
 	forEachEnv(t, func(t *testing.T, e enfEnv) {
 		e.seedUser(t, "ue-lr", "ue-lr")
-		var r []Session
-		var c []StatusChange
-		if _, err := e.users.SetStatus(context.Background(), "ue-lr", StatusSuspended, "scam", enfNow.Add(-time.Hour), enfNow.Add(-48*time.Hour), revokeBuilder(&r), statusBuilder(&c)); err != nil {
+		var r []store.Session
+		var c []store.StatusChange
+		if _, err := e.users.SetStatus(context.Background(), "ue-lr", store.StatusSuspended, "scam", enfNow.Add(-time.Hour), enfNow.Add(-48*time.Hour), revokeBuilder(&r), statusBuilder(&c)); err != nil {
 			t.Fatalf("suspend: %v", err)
 		}
 		base := len(e.outbox(t))
 		boom := errors.New("boom")
-		lifted, err := e.users.LiftExpiredSuspension(context.Background(), "ue-lr", enfNow, func(StatusChange) (OutboxRow, error) { return OutboxRow{}, boom })
+		lifted, err := e.users.LiftExpiredSuspension(context.Background(), "ue-lr", enfNow, func(store.StatusChange) (store.OutboxRow, error) { return store.OutboxRow{}, boom })
 		if !errors.Is(err, boom) || lifted {
 			t.Fatalf("lifted=%v err=%v, want false and the builder error", lifted, err)
 		}
-		if got := mustGet(t, e, "ue-lr"); got.Status != StatusSuspended {
+		if got := mustGet(t, e, "ue-lr"); got.Status != store.StatusSuspended {
 			t.Errorf("status = %q, want suspended after the failed lift", got.Status)
 		}
 		if len(e.outbox(t)) != base {
@@ -845,9 +834,9 @@ func liftOnceConcurrently(t *testing.T, e enfEnv) {
 	t.Helper()
 	ctx := context.Background()
 	e.seedUser(t, "ue-cc", "ue-cc")
-	var r []Session
-	var c []StatusChange
-	if _, err := e.users.SetStatus(ctx, "ue-cc", StatusSuspended, "scam", enfNow.Add(-time.Second), enfNow.Add(-48*time.Hour), revokeBuilder(&r), statusBuilder(&c)); err != nil {
+	var r []store.Session
+	var c []store.StatusChange
+	if _, err := e.users.SetStatus(ctx, "ue-cc", store.StatusSuspended, "scam", enfNow.Add(-time.Second), enfNow.Add(-48*time.Hour), revokeBuilder(&r), statusBuilder(&c)); err != nil {
 		t.Fatalf("suspend: %v", err)
 	}
 	base := countType(e.outbox(t), evStatus)
@@ -856,14 +845,14 @@ func liftOnceConcurrently(t *testing.T, e enfEnv) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var winners, failures int
-	var changes []StatusChange
+	var changes []store.StatusChange
 	start := make(chan struct{})
 	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			<-start
-			var local []StatusChange
+			var local []store.StatusChange
 			lifted, err := e.users.LiftExpiredSuspension(ctx, "ue-cc", enfNow, statusBuilder(&local))
 			mu.Lock()
 			defer mu.Unlock()
@@ -884,7 +873,7 @@ func liftOnceConcurrently(t *testing.T, e enfEnv) {
 	if got := countType(e.outbox(t), evStatus) - base; got != 1 || len(changes) != 1 {
 		t.Errorf("UserStatusChanged rows = %d, builder calls = %d, want 1 and 1", got, len(changes))
 	}
-	if got := mustGet(t, e, "ue-cc"); got.Status != StatusActive {
+	if got := mustGet(t, e, "ue-cc"); got.Status != store.StatusActive {
 		t.Errorf("status = %q, want active", got.Status)
 	}
 }
@@ -896,23 +885,23 @@ func TestCreateSessionStatusGate(t *testing.T) {
 		for _, tc := range []struct {
 			status string
 			locked bool
-		}{{StatusActive, false}, {StatusRestricted, false}, {StatusSuspended, true}, {StatusBanned, true}} {
+		}{{store.StatusActive, false}, {store.StatusRestricted, false}, {store.StatusSuspended, true}, {store.StatusBanned, true}} {
 			id := "ue-g-" + tc.status
 			e.seedUser(t, id, id)
-			if tc.status != StatusActive {
-				var r []Session
-				var c []StatusChange
+			if tc.status != store.StatusActive {
+				var r []store.Session
+				var c []store.StatusChange
 				var until time.Time
-				if tc.status == StatusSuspended {
+				if tc.status == store.StatusSuspended {
 					until = enfNow.Add(time.Hour)
 				}
 				if _, err := e.users.SetStatus(ctx, id, tc.status, "scam", until, enfNow, revokeBuilder(&r), statusBuilder(&c)); err != nil {
 					t.Fatalf("set %s: %v", tc.status, err)
 				}
 			}
-			s, err := e.sessions.CreateSession(ctx, Session{UserID: id, Device: "d", IP: "1.1.1.1", RefreshHash: "gate-" + tc.status, RefreshExpiresAt: enfNow.Add(time.Hour)})
+			s, err := e.sessions.CreateSession(ctx, store.Session{UserID: id, Device: "d", IP: "1.1.1.1", RefreshHash: "gate-" + tc.status, RefreshExpiresAt: enfNow.Add(time.Hour)})
 			if tc.locked {
-				if !errors.Is(err, ErrAccountLocked) {
+				if !errors.Is(err, store.ErrAccountLocked) {
 					t.Errorf("%s: err = %v, want ErrAccountLocked", tc.status, err)
 				}
 				if ss, _ := e.sessions.ListSessions(ctx, id); len(ss) != 0 {
@@ -925,7 +914,7 @@ func TestCreateSessionStatusGate(t *testing.T) {
 				continue
 			}
 			if s.UserStatus != tc.status {
-				t.Errorf("%s: Session.UserStatus = %q, want the status read at creation", tc.status, s.UserStatus)
+				t.Errorf("%s: store.Session.UserStatus = %q, want the status read at creation", tc.status, s.UserStatus)
 			}
 		}
 	})
@@ -952,7 +941,7 @@ func TestCreateSessionRechecksStatusUnderLockPG(t *testing.T) {
 
 		done := make(chan error, 1)
 		go func() {
-			_, err := e.sessions.CreateSession(ctx, Session{UserID: "ue-race1", Device: "d", IP: "1.1.1.1", RefreshHash: "race-1", RefreshExpiresAt: enfNow.Add(time.Hour)})
+			_, err := e.sessions.CreateSession(ctx, store.Session{UserID: "ue-race1", Device: "d", IP: "1.1.1.1", RefreshHash: "race-1", RefreshExpiresAt: enfNow.Add(time.Hour)})
 			done <- err
 		}()
 
@@ -978,7 +967,7 @@ func TestCreateSessionRechecksStatusUnderLockPG(t *testing.T) {
 		if err := banTx.Commit(ctx); err != nil {
 			t.Fatalf("commit ban: %v", err)
 		}
-		if err := <-done; !errors.Is(err, ErrAccountLocked) {
+		if err := <-done; !errors.Is(err, store.ErrAccountLocked) {
 			t.Fatalf("CreateSession err = %v, want ErrAccountLocked", err)
 		}
 		if ss, _ := e.sessions.ListSessions(ctx, "ue-race1"); len(ss) != 0 {
@@ -988,12 +977,12 @@ func TestCreateSessionRechecksStatusUnderLockPG(t *testing.T) {
 
 	t.Run("session commits before the ban", func(t *testing.T) {
 		e.seedUser(t, "ue-race2", "ue-race2")
-		if _, err := e.sessions.CreateSession(ctx, Session{UserID: "ue-race2", Device: "d", IP: "1.1.1.1", RefreshHash: "race-2", RefreshExpiresAt: enfNow.Add(time.Hour)}); err != nil {
+		if _, err := e.sessions.CreateSession(ctx, store.Session{UserID: "ue-race2", Device: "d", IP: "1.1.1.1", RefreshHash: "race-2", RefreshExpiresAt: enfNow.Add(time.Hour)}); err != nil {
 			t.Fatalf("CreateSession: %v", err)
 		}
-		var r []Session
-		var c []StatusChange
-		res, err := e.users.SetStatus(ctx, "ue-race2", StatusBanned, "scam", time.Time{}, enfNow, revokeBuilder(&r), statusBuilder(&c))
+		var r []store.Session
+		var c []store.StatusChange
+		res, err := e.users.SetStatus(ctx, "ue-race2", store.StatusBanned, "scam", time.Time{}, enfNow, revokeBuilder(&r), statusBuilder(&c))
 		if err != nil {
 			t.Fatalf("ban: %v", err)
 		}

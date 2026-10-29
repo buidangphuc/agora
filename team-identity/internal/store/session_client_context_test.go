@@ -1,4 +1,4 @@
-package repository
+package store_test
 
 // Tests for change frontend-session-client-context, task 1.1.
 // Contract: RotateRefresh(ctx, presented, new, now, grace, maxAge, ip, device string, ev EnqueueFn).
@@ -8,6 +8,9 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 const (
@@ -17,9 +20,9 @@ const (
 	ccNewDev = "AgoraTest/2"
 )
 
-func ccSeed(t *testing.T, r SessionRepository, user, hash string, created time.Time) Session {
+func ccSeed(t *testing.T, r store.SessionRepository, user, hash string, created time.Time) store.Session {
 	t.Helper()
-	s, err := r.CreateSession(context.Background(), Session{
+	s, err := r.CreateSession(context.Background(), store.Session{
 		UserID: user, IP: ccOldIP, Device: ccOldDev, RefreshHash: hash,
 		RefreshExpiresAt: refreshT0.Add(30 * 24 * time.Hour), CreatedAt: created, LastSeen: created,
 	})
@@ -29,7 +32,7 @@ func ccSeed(t *testing.T, r SessionRepository, user, hash string, created time.T
 	return s
 }
 
-func ccRotate(t *testing.T, r SessionRepository, p, n string, now time.Time, ip, dev string) RotateResult {
+func ccRotate(t *testing.T, r store.SessionRepository, p, n string, now time.Time, ip, dev string) store.RotateResult {
 	t.Helper()
 	res, err := r.RotateRefresh(context.Background(), p, n, now, refreshGrace, refreshMaxAge, ip, dev, okEv("cc-ev-"+p))
 	if err != nil {
@@ -38,9 +41,9 @@ func ccRotate(t *testing.T, r SessionRepository, p, n string, now time.Time, ip,
 	return res
 }
 
-func ccRotationRecordsClient(t *testing.T, r SessionRepository, user string) {
+func ccRotationRecordsClient(t *testing.T, r store.SessionRepository, user string) {
 	s := ccSeed(t, r, user, "cc-h1", refreshT0.Add(-time.Hour))
-	if res := ccRotate(t, r, "cc-h1", "cc-h2", refreshT0, ccNewIP, ccNewDev); res.Outcome != RotateRotated {
+	if res := ccRotate(t, r, "cc-h1", "cc-h2", refreshT0, ccNewIP, ccNewDev); res.Outcome != store.RotateRotated {
 		t.Fatalf("outcome = %v", res.Outcome)
 	}
 	got := getSession(t, r, user, s.ID)
@@ -49,7 +52,7 @@ func ccRotationRecordsClient(t *testing.T, r SessionRepository, user string) {
 	}
 }
 
-func ccEmptyKeepsStored(t *testing.T, r SessionRepository, user string) {
+func ccEmptyKeepsStored(t *testing.T, r store.SessionRepository, user string) {
 	s := ccSeed(t, r, user, "cc-h1", refreshT0.Add(-time.Hour))
 	ccRotate(t, r, "cc-h1", "cc-h2", refreshT0, "", "")
 	got := getSession(t, r, user, s.ID)
@@ -64,12 +67,12 @@ func ccEmptyKeepsStored(t *testing.T, r SessionRepository, user string) {
 	}
 }
 
-func ccGraceReplayNoUpdate(t *testing.T, r SessionRepository, user string) {
+func ccGraceReplayNoUpdate(t *testing.T, r store.SessionRepository, user string) {
 	s := ccSeed(t, r, user, "cc-h1", refreshT0.Add(-time.Hour))
 	ccRotate(t, r, "cc-h1", "cc-h2", refreshT0, ccNewIP, ccNewDev)
 	before := getSession(t, r, user, s.ID)
 	res := ccRotate(t, r, "cc-h1", "cc-h3", refreshT0.Add(5*time.Second), "203.0.113.9", "Other/9")
-	if res.Outcome != RotateReplayedInGrace {
+	if res.Outcome != store.RotateReplayedInGrace {
 		t.Fatalf("outcome = %v", res.Outcome)
 	}
 	if after := getSession(t, r, user, s.ID); after != before {
@@ -77,24 +80,24 @@ func ccGraceReplayNoUpdate(t *testing.T, r SessionRepository, user string) {
 	}
 }
 
-func ccRejectedUpdatesNothing(t *testing.T, r SessionRepository, user string) {
+func ccRejectedUpdatesNothing(t *testing.T, r store.SessionRepository, user string) {
 	// stale (unknown hash)
 	live := ccSeed(t, r, user, "cc-live", refreshT0.Add(-time.Hour))
 	before := getSession(t, r, user, live.ID)
-	if res := ccRotate(t, r, "cc-unknown", "cc-x", refreshT0, ccNewIP, ccNewDev); res.Outcome != RotateStale {
+	if res := ccRotate(t, r, "cc-unknown", "cc-x", refreshT0, ccNewIP, ccNewDev); res.Outcome != store.RotateStale {
 		t.Fatalf("stale outcome = %v", res.Outcome)
 	}
 	if after := getSession(t, r, user, live.ID); after != before {
 		t.Fatalf("stale changed row: %+v", after)
 	}
 	// expired
-	exp, err := r.CreateSession(context.Background(), Session{UserID: user, IP: ccOldIP, Device: ccOldDev, RefreshHash: "cc-exp",
+	exp, err := r.CreateSession(context.Background(), store.Session{UserID: user, IP: ccOldIP, Device: ccOldDev, RefreshHash: "cc-exp",
 		RefreshExpiresAt: refreshT0.Add(-time.Minute), CreatedAt: refreshT0.Add(-time.Hour), LastSeen: refreshT0.Add(-time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	beforeExp := getSession(t, r, user, exp.ID)
-	if res := ccRotate(t, r, "cc-exp", "cc-y", refreshT0, ccNewIP, ccNewDev); res.Outcome != RotateExpired {
+	if res := ccRotate(t, r, "cc-exp", "cc-y", refreshT0, ccNewIP, ccNewDev); res.Outcome != store.RotateExpired {
 		t.Fatalf("expired outcome = %v", res.Outcome)
 	}
 	if after := getSession(t, r, user, exp.ID); after != beforeExp {
@@ -103,14 +106,14 @@ func ccRejectedUpdatesNothing(t *testing.T, r SessionRepository, user string) {
 	// reuse after grace: revoked, ip/device untouched
 	reu := ccSeed(t, r, user, "cc-r1", refreshT0.Add(-time.Hour))
 	ccRotate(t, r, "cc-r1", "cc-r2", refreshT0, ccOldIP, ccOldDev)
-	if res := ccRotate(t, r, "cc-r1", "cc-r3", refreshT0.Add(time.Minute), ccNewIP, ccNewDev); res.Outcome != RotateReuse {
+	if res := ccRotate(t, r, "cc-r1", "cc-r3", refreshT0.Add(time.Minute), ccNewIP, ccNewDev); res.Outcome != store.RotateReuse {
 		t.Fatalf("reuse outcome = %v", res.Outcome)
 	}
 	if got := getSession(t, r, user, reu.ID); got.IP != ccOldIP || got.Device != ccOldDev || !got.Revoked {
 		t.Fatalf("reuse must revoke without updating client: %+v", got)
 	}
 	// revoked session's token is stale
-	if res := ccRotate(t, r, "cc-r2", "cc-r4", refreshT0.Add(2*time.Minute), ccNewIP, ccNewDev); res.Outcome != RotateStale {
+	if res := ccRotate(t, r, "cc-r2", "cc-r4", refreshT0.Add(2*time.Minute), ccNewIP, ccNewDev); res.Outcome != store.RotateStale {
 		t.Fatalf("revoked outcome = %v", res.Outcome)
 	}
 	if got := getSession(t, r, user, reu.ID); got.IP != ccOldIP || got.Device != ccOldDev {
@@ -118,7 +121,7 @@ func ccRejectedUpdatesNothing(t *testing.T, r SessionRepository, user string) {
 	}
 	// absolute lifetime exceeded
 	old := ccSeed(t, r, user, "cc-l1", refreshT0.Add(-refreshMaxAge-time.Second))
-	if res := ccRotate(t, r, "cc-l1", "cc-l2", refreshT0, ccNewIP, ccNewDev); res.Outcome != RotateLifetimeExceeded {
+	if res := ccRotate(t, r, "cc-l1", "cc-l2", refreshT0, ccNewIP, ccNewDev); res.Outcome != store.RotateLifetimeExceeded {
 		t.Fatalf("lifetime outcome = %v", res.Outcome)
 	}
 	if got := getSession(t, r, user, old.ID); got.IP != ccOldIP || got.Device != ccOldDev {
@@ -127,19 +130,19 @@ func ccRejectedUpdatesNothing(t *testing.T, r SessionRepository, user string) {
 }
 
 func TestSessionClientContext_RotationRecordsIPViaRepository_InMemory(t *testing.T) {
-	ccRotationRecordsClient(t, NewInMemorySessionRepository(), "u1")
+	ccRotationRecordsClient(t, storetest.NewInMemorySessionRepository(), "u1")
 }
 
 func TestSessionClientContext_EmptyClientKeepsStoredValues_Boundary_InMemory(t *testing.T) {
-	ccEmptyKeepsStored(t, NewInMemorySessionRepository(), "u1")
+	ccEmptyKeepsStored(t, storetest.NewInMemorySessionRepository(), "u1")
 }
 
 func TestSessionClientContext_GraceReplayDoesNotUpdate_Boundary_InMemory(t *testing.T) {
-	ccGraceReplayNoUpdate(t, NewInMemorySessionRepository(), "u1")
+	ccGraceReplayNoUpdate(t, storetest.NewInMemorySessionRepository(), "u1")
 }
 
 func TestSessionClientContext_RejectedRefreshUpdatesNothing_Error_InMemory(t *testing.T) {
-	ccRejectedUpdatesNothing(t, NewInMemorySessionRepository(), "u1")
+	ccRejectedUpdatesNothing(t, storetest.NewInMemorySessionRepository(), "u1")
 }
 
 func TestSessionClientContext_RotationRecordsIPViaRepository_Postgres(t *testing.T) {

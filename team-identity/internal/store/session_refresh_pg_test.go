@@ -1,10 +1,8 @@
-package repository
+package store_test
 
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -12,20 +10,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/buidangphuc/team-identity/internal/store"
 )
 
 // Postgres tests for migration 0006_session_refresh and RotateRefresh. They run
-// only when TEST_DATABASE_URL points at a disposable Postgres. Shares the
+// against a Postgres container from testkit. Shares the
 // expectations documented in session_refresh_test.go.
-
-func migrationSQL(t *testing.T, name string) string {
-	t.Helper()
-	b, err := os.ReadFile(filepath.Join("..", "..", "migrations", name))
-	if err != nil {
-		t.Fatalf("read %s: %v", name, err)
-	}
-	return string(b)
-}
 
 func refreshColumnCount(t *testing.T, pool *pgxpool.Pool) int {
 	t.Helper()
@@ -49,49 +40,22 @@ func refreshIndexCount(t *testing.T, pool *pgxpool.Pool) int {
 	return n
 }
 
-func refreshPG(t *testing.T) (*pgxpool.Pool, *PostgresSessionRepository) {
+func refreshPG(t *testing.T) (*pgxpool.Pool, *store.PostgresSessionRepository) {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("no TEST_DATABASE_URL set; skipping Postgres refresh test")
-	}
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		t.Skipf("cannot connect to Postgres (%v); skipping", err)
-	}
-	t.Cleanup(pool.Close)
-	if err := pool.Ping(ctx); err != nil {
-		t.Skipf("Postgres unreachable (%v); skipping", err)
-	}
-	for _, f := range []string{"0001_users.up.sql", "0004_sessions.up.sql", "0005_identity_outbox_events.up.sql"} {
-		if _, err := pool.Exec(ctx, migrationSQL(t, f)); err != nil {
-			t.Fatalf("apply %s: %v", f, err)
-		}
-	}
-	if refreshColumnCount(t, pool) != 4 {
-		if _, err := pool.Exec(ctx, migrationSQL(t, "0006_session_refresh.up.sql")); err != nil {
-			t.Fatalf("apply 0006 up: %v", err)
-		}
-	}
-	if _, err := pool.Exec(ctx, migrationSQL(t, "0007_user_status.up.sql")); err != nil {
-		t.Fatalf("apply 0007 up: %v", err)
-	}
-	if _, err := pool.Exec(ctx, migrationSQL(t, "0008_session_revoked_at.up.sql")); err != nil {
-		t.Fatalf("apply 0008 up: %v", err)
-	}
+	pool := latestPool(t)
 	for _, q := range []string{`DELETE FROM identity_outbox_events`, `DELETE FROM sessions`, `DELETE FROM users WHERE id LIKE 'u-rf%'`,
 		`INSERT INTO users (id, username, password_hash) VALUES ('u-rf1','u-rf1','x'), ('u-rf2','u-rf2','x')`} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("reset (%s): %v", q, err)
 		}
 	}
-	return pool, NewPostgresSessionRepository(pool)
+	return pool, store.NewPostgresSessionRepository(pool)
 }
 
-func newPGSession(t *testing.T, repo *PostgresSessionRepository, user, hash string) Session {
+func newPGSession(t *testing.T, repo *store.PostgresSessionRepository, user, hash string) store.Session {
 	t.Helper()
-	s, err := repo.CreateSession(context.Background(), Session{
+	s, err := repo.CreateSession(context.Background(), store.Session{
 		UserID: user, RefreshHash: hash, RefreshExpiresAt: refreshT0.Add(30 * 24 * time.Hour), CreatedAt: refreshT0.Add(-time.Hour),
 	})
 	if err != nil {
@@ -100,7 +64,7 @@ func newPGSession(t *testing.T, repo *PostgresSessionRepository, user, hash stri
 	return s
 }
 
-func TestRefreshHashOnlyStored_Postgres(t *testing.T) {
+func TestRefreshHashOnlyStored(t *testing.T) {
 	pool, repo := refreshPG(t)
 	const rawToken = "RAW-TOKEN-SHOULD-NEVER-BE-STORED-0123456789"
 	const hexHash = "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b"
@@ -117,7 +81,7 @@ func TestRefreshHashOnlyStored_Postgres(t *testing.T) {
 func TestRefreshHashUnique_DuplicateHashIsRefused_Postgres(t *testing.T) {
 	_, repo := refreshPG(t)
 	newPGSession(t, repo, "u-rf1", "dup")
-	_, err := repo.CreateSession(context.Background(), Session{UserID: "u-rf2", RefreshHash: "dup"})
+	_, err := repo.CreateSession(context.Background(), store.Session{UserID: "u-rf2", RefreshHash: "dup"})
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
 		t.Fatalf("want unique violation 23505, got %v", err)
@@ -133,7 +97,7 @@ func TestLegacySessionUnaffectedByRefreshColumns_Postgres(t *testing.T) {
 	}
 	// Sessions without a hash must not collide on the unique index (stored as NULL).
 	for i := 0; i < 2; i++ {
-		if _, err := repo.CreateSession(ctx, Session{UserID: "u-rf1"}); err != nil {
+		if _, err := repo.CreateSession(ctx, store.Session{UserID: "u-rf1"}); err != nil {
 			t.Fatalf("hashless create #%d: %v", i, err)
 		}
 	}
@@ -143,7 +107,7 @@ func TestLegacySessionUnaffectedByRefreshColumns_Postgres(t *testing.T) {
 	}
 	for _, p := range []string{"", "anything"} {
 		res, err := repo.RotateRefresh(ctx, p, "n", refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("e"))
-		if err != nil || res.Outcome != RotateStale {
+		if err != nil || res.Outcome != store.RotateStale {
 			t.Fatalf("presented %q: %v %v", p, res.Outcome, err)
 		}
 	}
@@ -182,7 +146,7 @@ func TestRotateRefresh_Lifecycle_Postgres(t *testing.T) {
 	other := newPGSession(t, repo, "u-rf2", "o1")
 
 	res, err := repo.RotateRefresh(ctx, "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("unused"))
-	if err != nil || res.Outcome != RotateRotated || res.Session.ID != s.ID {
+	if err != nil || res.Outcome != store.RotateRotated || res.Session.ID != s.ID {
 		t.Fatalf("rotate: %+v %v", res, err)
 	}
 	var h, p string
@@ -202,7 +166,7 @@ func TestRotateRefresh_Lifecycle_Postgres(t *testing.T) {
 	}
 
 	// Grace boundary, inclusive.
-	if res, err = repo.RotateRefresh(ctx, "h1", "hx", refreshT0.Add(10*time.Second), refreshGrace, refreshMaxAge, "", "", okEv("unused")); err != nil || res.Outcome != RotateReplayedInGrace {
+	if res, err = repo.RotateRefresh(ctx, "h1", "hx", refreshT0.Add(10*time.Second), refreshGrace, refreshMaxAge, "", "", okEv("unused")); err != nil || res.Outcome != store.RotateReplayedInGrace {
 		t.Fatalf("grace: %+v %v", res, err)
 	}
 	q()
@@ -211,10 +175,10 @@ func TestRotateRefresh_Lifecycle_Postgres(t *testing.T) {
 	}
 
 	// Stale after a second rotation.
-	if res, err = repo.RotateRefresh(ctx, "h2", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, "", "", okEv("n")); err != nil || res.Outcome != RotateRotated {
+	if res, err = repo.RotateRefresh(ctx, "h2", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, "", "", okEv("n")); err != nil || res.Outcome != store.RotateRotated {
 		t.Fatalf("rotate2: %+v %v", res, err)
 	}
-	if res, err = repo.RotateRefresh(ctx, "h1", "hy", refreshT0.Add(time.Minute+time.Second), refreshGrace, refreshMaxAge, "", "", okEv("unused")); err != nil || res.Outcome != RotateStale {
+	if res, err = repo.RotateRefresh(ctx, "h1", "hy", refreshT0.Add(time.Minute+time.Second), refreshGrace, refreshMaxAge, "", "", okEv("unused")); err != nil || res.Outcome != store.RotateStale {
 		t.Fatalf("stale: %+v %v", res, err)
 	}
 	var revoked bool
@@ -227,7 +191,7 @@ func TestRotateRefresh_Lifecycle_Postgres(t *testing.T) {
 	}
 }
 
-func TestReuseWritesSessionRevokedOutbox_Postgres(t *testing.T) {
+func TestReuseWritesSessionRevokedOutbox(t *testing.T) {
 	pool, repo := refreshPG(t)
 	ctx := context.Background()
 	s := newPGSession(t, repo, "u-rf1", "h1")
@@ -235,7 +199,7 @@ func TestReuseWritesSessionRevokedOutbox_Postgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	res, err := repo.RotateRefresh(ctx, "h1", "h3", refreshT0.Add(11*time.Second), refreshGrace, refreshMaxAge, "", "", okEv("evt-reuse-1"))
-	if err != nil || res.Outcome != RotateReuse {
+	if err != nil || res.Outcome != store.RotateReuse {
 		t.Fatalf("reuse: %+v %v", res, err)
 	}
 	var revoked bool
@@ -252,7 +216,7 @@ func TestReuseWritesSessionRevokedOutbox_Postgres(t *testing.T) {
 	}
 	// R2 and replayed R1 are now unknown.
 	for _, p := range []string{"h2", "h1"} {
-		if r, err := repo.RotateRefresh(ctx, p, "z", refreshT0.Add(12*time.Second), refreshGrace, refreshMaxAge, "", "", okEv("evt-x")); err != nil || r.Outcome != RotateStale {
+		if r, err := repo.RotateRefresh(ctx, p, "z", refreshT0.Add(12*time.Second), refreshGrace, refreshMaxAge, "", "", okEv("evt-x")); err != nil || r.Outcome != store.RotateStale {
 			t.Fatalf("%s after reuse: %+v %v", p, r, err)
 		}
 	}
@@ -261,26 +225,23 @@ func TestReuseWritesSessionRevokedOutbox_Postgres(t *testing.T) {
 	}
 }
 
-func TestReuseOutboxFailureRollsBack_Postgres(t *testing.T) {
+func TestReuseOutboxFailureRollsBack(t *testing.T) {
 	pool, repo := refreshPG(t)
 	ctx := context.Background()
 	s := newPGSession(t, repo, "u-rf1", "h1")
 	if _, err := repo.RotateRefresh(ctx, "h1", "h2", refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("n")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO identity_outbox_events (event_id, aggregate_type, aggregate_id, event_type, payload) VALUES ('dup','Session','u-rf1','T','\x00')`); err != nil {
-		t.Fatal(err)
-	}
-	dup := func(Session) (OutboxRow, error) {
-		return OutboxRow{EventID: "dup", AggregateType: "Session", AggregateID: "u-rf1", EventType: "T", Payload: []byte{0}}, nil
+	dup := func(store.Session) (store.OutboxRow, error) {
+		return store.OutboxRow{EventID: "", AggregateType: "Session", AggregateID: "u-rf1", EventType: "T", Payload: []byte{0}}, nil
 	}
 	boom := errors.New("boom")
-	for _, ev := range []EnqueueFn{dup, func(Session) (OutboxRow, error) { return OutboxRow{}, boom }} {
+	for _, ev := range []store.EnqueueFn{dup, func(store.Session) (store.OutboxRow, error) { return store.OutboxRow{}, boom }} {
 		res, err := repo.RotateRefresh(ctx, "h1", "h3", refreshT0.Add(time.Minute), refreshGrace, refreshMaxAge, "", "", ev)
-		if err == nil || res.Outcome == RotateReuse && err == nil {
+		if err == nil || res.Outcome == store.RotateReuse && err == nil {
 			t.Fatalf("want an error, got %+v %v", res, err)
 		}
-		if !errors.Is(err, ErrRotateFault) {
+		if !errors.Is(err, store.ErrRotateFault) {
 			t.Fatalf("want errors.Is ErrRotateFault, got %v", err)
 		}
 		var revoked bool
@@ -300,7 +261,7 @@ func TestRefreshConcurrentSameToken_Postgres(t *testing.T) {
 	s := newPGSession(t, repo, "u-rf1", "h1")
 	const workers = 8
 	var wg sync.WaitGroup
-	results := make([]RotateResult, workers)
+	results := make([]store.RotateResult, workers)
 	errs := make([]error, workers)
 	start := make(chan struct{})
 	for i := 0; i < workers; i++ {
@@ -319,9 +280,9 @@ func TestRefreshConcurrentSameToken_Postgres(t *testing.T) {
 			t.Fatalf("worker %d: %v", i, errs[i])
 		}
 		switch results[i].Outcome {
-		case RotateRotated:
+		case store.RotateRotated:
 			rotated++
-		case RotateReplayedInGrace:
+		case store.RotateReplayedInGrace:
 			grace++
 		default:
 			t.Fatalf("worker %d outcome %v", i, results[i].Outcome)
@@ -339,7 +300,7 @@ func TestRefreshConcurrentSameToken_Postgres(t *testing.T) {
 func TestRevokeSessionClearsHashes_EveryPath_Postgres(t *testing.T) {
 	pool, repo := refreshPG(t)
 	ctx := context.Background()
-	for i, ev := range []EnqueueFn{nil, okEv("evt-rv")} {
+	for i, ev := range []store.EnqueueFn{nil, okEv("evt-rv")} {
 		s := newPGSession(t, repo, "u-rf1", "rv-"+string(rune('a'+i)))
 		if _, err := repo.RotateRefresh(ctx, "rv-"+string(rune('a'+i)), "rv2-"+string(rune('a'+i)), refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("n")); err != nil {
 			t.Fatal(err)
@@ -402,7 +363,7 @@ func TestRotateRefresh_ExpiredLiveToken_NoChange_RefreshTokenExpired_Postgres(t 
 		before := pgRowOf(t, pool, s.ID)
 		p := &evProbe{}
 		res, err := repo.RotateRefresh(ctx, h, "new-"+h, refreshT0, refreshGrace, refreshMaxAge, "", "", p.fn("e"))
-		if err != nil || res.Outcome != RotateExpired {
+		if err != nil || res.Outcome != store.RotateExpired {
 			t.Fatalf("%s: %+v %v", h, res, err)
 		}
 		if after := pgRowOf(t, pool, s.ID); after != before {
@@ -418,14 +379,14 @@ func TestRotateRefresh_ExpiredSessionGraceReplay_NoChange_RefreshTokenExpired_Po
 	pool, repo := refreshPG(t)
 	ctx := context.Background()
 	s := newPGSession(t, repo, "u-rf1", "g1")
-	if res, err := repo.RotateRefresh(ctx, "g1", "g2", refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("x")); err != nil || res.Outcome != RotateRotated {
+	if res, err := repo.RotateRefresh(ctx, "g1", "g2", refreshT0, refreshGrace, refreshMaxAge, "", "", okEv("x")); err != nil || res.Outcome != store.RotateRotated {
 		t.Fatalf("rotate: %+v %v", res, err)
 	}
 	pgSetTimes(t, pool, s.ID, refreshT0.Add(-time.Hour), refreshT0.Add(5*time.Second))
 	before := pgRowOf(t, pool, s.ID)
 	p := &evProbe{}
 	res, err := repo.RotateRefresh(ctx, "g1", "g3", refreshT0.Add(6*time.Second), refreshGrace, refreshMaxAge, "", "", p.fn("e"))
-	if err != nil || res.Outcome != RotateExpired {
+	if err != nil || res.Outcome != store.RotateExpired {
 		t.Fatalf("grace replay on expired: %+v %v", res, err)
 	}
 	if after := pgRowOf(t, pool, s.ID); after != before || p.calls != 0 || outboxCount(t, pool) != 0 {
@@ -440,7 +401,7 @@ func TestRotateRefresh_AbsoluteLifetimeExceeded_RevokesWithOneOutboxRow_Postgres
 	pgSetTimes(t, pool, s.ID, refreshT0.Add(-refreshMaxAge-time.Millisecond), refreshT0.Add(time.Hour))
 	p := &evProbe{}
 	res, err := repo.RotateRefresh(ctx, "l1", "l2", refreshT0, refreshGrace, refreshMaxAge, "", "", p.fn("evt-life-pg"))
-	if err != nil || res.Outcome != RotateLifetimeExceeded {
+	if err != nil || res.Outcome != store.RotateLifetimeExceeded {
 		t.Fatalf("outcome: %+v %v", res, err)
 	}
 	if got := pgRowOf(t, pool, s.ID); !got.Revoked || got.RH != "" || got.PH != "" {
@@ -450,7 +411,7 @@ func TestRotateRefresh_AbsoluteLifetimeExceeded_RevokesWithOneOutboxRow_Postgres
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM identity_outbox_events WHERE event_id='evt-life-pg' AND event_type='platform.identity.v1.SessionRevoked' AND aggregate_id='u-rf1'`).Scan(&n); err != nil || n != 1 || p.calls != 1 {
 		t.Fatalf("outbox=%d calls=%d err=%v", n, p.calls, err)
 	}
-	if r, err := repo.RotateRefresh(ctx, "l1", "l3", refreshT0.Add(time.Second), refreshGrace, refreshMaxAge, "", "", okEv("again")); err != nil || r.Outcome != RotateStale {
+	if r, err := repo.RotateRefresh(ctx, "l1", "l3", refreshT0.Add(time.Second), refreshGrace, refreshMaxAge, "", "", okEv("again")); err != nil || r.Outcome != store.RotateStale {
 		t.Fatalf("after revoke: %+v %v", r, err)
 	}
 	if outboxCount(t, pool) != 1 {
@@ -464,7 +425,7 @@ func TestRotateRefresh_ExactlyMaxAge_StillRotates_AbsoluteLifetimeBoundary_Postg
 	pgSetTimes(t, pool, s.ID, refreshT0.Add(-refreshMaxAge), refreshT0.Add(time.Hour))
 	p := &evProbe{}
 	res, err := repo.RotateRefresh(context.Background(), "b1", "b2", refreshT0, refreshGrace, refreshMaxAge, "", "", p.fn("e"))
-	if err != nil || res.Outcome != RotateRotated || p.calls != 0 {
+	if err != nil || res.Outcome != store.RotateRotated || p.calls != 0 {
 		t.Fatalf("%+v %v calls=%d", res, err, p.calls)
 	}
 	if got := pgRowOf(t, pool, s.ID); got.Revoked || got.RH != "b2" {
@@ -477,15 +438,12 @@ func TestRotateRefresh_LifetimeExceededOutboxFailureRollsBack_Postgres(t *testin
 	ctx := context.Background()
 	s := newPGSession(t, repo, "u-rf1", "r1")
 	pgSetTimes(t, pool, s.ID, refreshT0.Add(-refreshMaxAge-time.Second), refreshT0.Add(time.Hour))
-	if _, err := pool.Exec(ctx, `INSERT INTO identity_outbox_events (event_id, aggregate_type, aggregate_id, event_type, payload) VALUES ('dup','Session','u-rf1','T','\x00')`); err != nil {
-		t.Fatal(err)
-	}
 	before := pgRowOf(t, pool, s.ID)
-	dup := func(Session) (OutboxRow, error) {
-		return OutboxRow{EventID: "dup", AggregateType: "Session", AggregateID: "u-rf1", EventType: "T", Payload: []byte{0}}, nil
+	dup := func(store.Session) (store.OutboxRow, error) {
+		return store.OutboxRow{EventID: "", AggregateType: "Session", AggregateID: "u-rf1", EventType: "T", Payload: []byte{0}}, nil
 	}
 	boom := errors.New("boom")
-	for _, ev := range []EnqueueFn{dup, func(Session) (OutboxRow, error) { return OutboxRow{}, boom }} {
+	for _, ev := range []store.EnqueueFn{dup, func(store.Session) (store.OutboxRow, error) { return store.OutboxRow{}, boom }} {
 		if _, err := repo.RotateRefresh(ctx, "r1", "r2", refreshT0, refreshGrace, refreshMaxAge, "", "", ev); err == nil {
 			t.Fatal("want error")
 		}
@@ -523,7 +481,7 @@ func TestRotateRefresh_UniqueViolationErrorDoesNotLeakHash_Postgres(t *testing.T
 	if strings.Contains(err.Error(), secretHash) {
 		t.Fatalf("error leaks the hash: %v", err)
 	}
-	if !errors.Is(err, ErrRotateFault) {
+	if !errors.Is(err, store.ErrRotateFault) {
 		t.Fatalf("hash conflict must wrap ErrRotateFault, got %v", err)
 	}
 	if after := pgRowOf(t, pool, s1.ID); after != before {

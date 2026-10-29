@@ -1,17 +1,18 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 func TestInMemoryAddressRepository(t *testing.T) {
-	repo := repository.NewInMemoryAddressRepository()
+	repo := storetest.NewInMemoryAddressRepository()
 	ctx := context.Background()
 
-	addr, err := repo.Create(ctx, repository.Address{
+	addr, err := repo.Create(ctx, store.Address{
 		UserID:        "user_1",
 		RecipientName: "Test User",
 		Phone:         "0901234567",

@@ -1,19 +1,20 @@
-package repository_test
+package store_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-identity/internal/repository"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 func TestInMemoryUserRepository(t *testing.T) {
-	repo := repository.NewInMemoryUserRepository()
+	repo := storetest.NewInMemoryUserRepository()
 	ctx := context.Background()
 
 	// 1. Create user
-	u := repository.User{
+	u := store.User{
 		ID:           "u123",
 		Username:     "test_repo_user",
 		PasswordHash: "oldhash",
@@ -62,7 +63,7 @@ func TestInMemoryUserRepository(t *testing.T) {
 	}
 
 	// 6. Reset tokens
-	token := repository.PasswordResetToken{
+	token := store.PasswordResetToken{
 		TokenHash: "hash123",
 		UserID:    "u123",
 		ExpiresAt: time.Now().Add(15 * time.Minute),
