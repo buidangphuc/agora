@@ -8,19 +8,14 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/idempotency"
 	"github.com/buidangphuc/team-order/internal/store"
 )
 
-// IdempotencyKeyMetadata is the gRPC metadata key carrying the client's
-// Idempotency-Key for CreateOrder. The gateway validates the HTTP header and
-// forwards it under this key; team-order re-validates it (defence in depth).
-const IdempotencyKeyMetadata = "idempotency-key"
+// IdempotencyKeyMetadata aliases idempotency.MDKey until the handler moves to it.
+const IdempotencyKeyMetadata = idempotency.MDKey
 
-// MaxIdempotencyKeyLen is the longest accepted key, in bytes (same rule as the
-// gateway).
-const MaxIdempotencyKeyLen = 255
-
-// ErrInvalidIdempotencyKey: the key is empty, longer than MaxIdempotencyKeyLen or
+// ErrInvalidIdempotencyKey: the key is empty, longer than idempotency.MaxLen or
 // not printable ASCII. -> INVALID_ARGUMENT.
 var ErrInvalidIdempotencyKey = errors.New("invalid idempotency key")
 
@@ -32,16 +27,8 @@ var ErrCheckoutInProgress = errors.New("checkout with this idempotency key is in
 // printable ASCII bytes (0x20-0x7E).
 func NormalizeIdempotencyKey(raw string) (string, error) {
 	key := strings.TrimSpace(raw)
-	if key == "" {
-		return "", fmt.Errorf("%w: empty", ErrInvalidIdempotencyKey)
-	}
-	if len(key) > MaxIdempotencyKeyLen {
-		return "", fmt.Errorf("%w: longer than %d bytes", ErrInvalidIdempotencyKey, MaxIdempotencyKeyLen)
-	}
-	for i := 0; i < len(key); i++ {
-		if c := key[i]; c < 0x20 || c > 0x7e {
-			return "", fmt.Errorf("%w: must be printable ASCII", ErrInvalidIdempotencyKey)
-		}
+	if err := idempotency.Validate(key); err != nil {
+		return "", fmt.Errorf("%w: %w", ErrInvalidIdempotencyKey, err)
 	}
 	return key, nil
 }

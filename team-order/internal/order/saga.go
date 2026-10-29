@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/resilience"
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	"github.com/buidangphuc/team-order/internal/store"
 )
@@ -365,30 +366,27 @@ func (s *OrderService) releaseOrPark(ctx context.Context, res store.Reservation)
 // keyed by the reservation's original id (team-domain restores the stored
 // quantity once; the quantity sent is ignored).
 func (s *OrderService) releaseReservationWithRetry(ctx context.Context, res store.Reservation) error {
-	var lastErr error
-	for attempt := 1; attempt <= s.releaseCfg.maxAttempts; attempt++ {
-		_, err := s.domainClient.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{
+	policy, err := resilience.Retry(resilience.RetryOptions{
+		MaxAttempts: s.releaseCfg.maxAttempts,
+		BaseDelay:   s.releaseCfg.backoff,
+		RetryIf:     isRetryableRelease,
+	})
+	if err != nil {
+		return fmt.Errorf("release retry policy: %w", err)
+	}
+	err = resilience.Do(ctx, func(ctx context.Context) error {
+		_, rerr := s.domainClient.ReleaseStock(ctx, &listingv1.ReleaseStockRequest{
 			ListingId:     res.ListingID,
 			VariantId:     res.VariantID,
 			Quantity:      res.Quantity,
 			ReservationId: res.ID,
 		})
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-		if !isRetryableRelease(err) {
-			return fmt.Errorf("release stock: %w", err)
-		}
-		if attempt < s.releaseCfg.maxAttempts {
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("release cancelled: %w", ctx.Err())
-			case <-time.After(s.releaseCfg.backoff * time.Duration(attempt)):
-			}
-		}
+		return rerr
+	}, policy)
+	if err != nil {
+		return fmt.Errorf("release stock: %w", err)
 	}
-	return fmt.Errorf("release stock after %d attempts: %w", s.releaseCfg.maxAttempts, lastErr)
+	return nil
 }
 
 // SweepExpiredReservations is the team-order sweep. Each tick it:

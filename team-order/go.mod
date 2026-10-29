@@ -23,6 +23,11 @@ require (
 require github.com/stretchr/testify v1.12.1
 
 require (
+	github.com/bits-and-blooms/bitset v1.24.6 // indirect
+	github.com/failsafe-go/failsafe-go v0.9.8 // indirect
+)
+
+require (
 	4d63.com/gocheckcompilerdirectives v1.4.0 // indirect
 	4d63.com/gochecknoglobals v0.2.2 // indirect
 	charm.land/lipgloss/v2 v2.0.6 // indirect
@@ -63,7 +68,7 @@ require (
 	github.com/bombsimon/wsl/v5 v5.9.0 // indirect
 	github.com/breml/bidichk v0.3.4 // indirect
 	github.com/breml/errchkjson v0.4.1 // indirect
-	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2 // indirect
+	github.com/buidangphuc/agora/platform-core/packages/go-sdk v1.0.2
 	github.com/butuzov/ireturn v0.4.1 // indirect
 	github.com/butuzov/mirror v1.3.3 // indirect
 	github.com/caarlos0/env/v11 v11.4.1 // indirect
