@@ -25,6 +25,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+require github.com/caarlos0/env/v11 v11.4.1 // indirect
+
 require (
 	4d63.com/gocheckcompilerdirectives v1.4.0 // indirect
 	4d63.com/gochecknoglobals v0.2.2 // indirect
