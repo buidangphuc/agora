@@ -385,7 +385,7 @@ func TestDisputeRefundWritesAuditBeforeChange(t *testing.T) {
 	var statusAtAudit store.ReturnStatus
 	var rowsAtAudit int
 	e.audit.during = func() {
-		r, _ := e.returns.PostgresReturnRepository.GetReturn(context.Background(), "r-1")
+		r, _ := e.returns.GetReturn(context.Background(), "r-1")
 		statusAtAudit = r.Status
 		rowsAtAudit = e.outboxTotal()
 	}
