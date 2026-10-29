@@ -133,12 +133,12 @@ if `.env.example` and the config structs drift in either direction.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | `prod`/`production` counts as prod |
+| `ENV` | `local` | required; `prod`/`production` counts as prod |
 | `LOG_LEVEL` | `info` | |
 | `LOG_JSON` | `true` | |
 | `GRPC_HOST` | `0.0.0.0` | |
-| `GRPC_PORT` | `50052` | |
-| `GRPC_REFLECTION_ENABLED` | `true` | |
+| `GRPC_PORT` | `50052` | required |
+| `GRPC_REFLECTION_ENABLED` | `false` | refused in staging and prod |
 | `SHUTDOWN_GRACE` | `10s` | |
 | `OPENSEARCH_URL` | `http://localhost:9200` | required non-empty |
 | `OPENSEARCH_INDEX` | `listings` | |
@@ -154,9 +154,9 @@ if `.env.example` and the config structs drift in either direction.
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | |
-| `UPSTREAM_AI_ADDR` | `""` | indexer only; team-ai gRPC address for tag classification (`team-ai-svc:50060` in compose). Empty means no classification |
-| `TOMBSTONE_TTL` | `336h` | indexer only; tombstone retention from when the indexer applied the delete; invalid or non-positive falls back to the default with a WARN |
-| `TOMBSTONE_PURGE_INTERVAL` | `1h` | indexer only; how often expired tombstones are purged; same fallback |
+| `UPSTREAM_AI_ADDR` | `""` | required by the indexer; team-ai gRPC address for tag classification (`team-ai-svc:50060` in compose) |
+| `TOMBSTONE_TTL` | `336h` | indexer only; tombstone retention from when the indexer applied the delete; must be a positive duration; invalid values fail startup |
+| `TOMBSTONE_PURGE_INTERVAL` | `1h` | indexer only; how often expired tombstones are purged; must be a positive duration; invalid values fail startup |
 | `DATABASE_URL` | `""` | required by the server; `.env.example` supplies a local value |
 | `LOG_KEY_FP_SECRET` | `""` | secret for log key fingerprints; `.env.example` supplies a local value |
 | `OTEL_ENABLED` | `false` | |
@@ -181,7 +181,7 @@ docker compose -f docker-compose.local.yaml up -d   # OpenSearch 2.15 on :9200 o
 cp .env.example .env
 make proto                                          # generated/ is gitignored
 make indexer                     # Kafka -> OpenSearch
-make server                                         # gRPC on :50052
+make run                                            # gRPC on :50052
 ```
 
 Smoke test (scopes are trusted metadata, so send them yourself):
@@ -197,10 +197,13 @@ grpcurl -plaintext localhost:50052 grpc.health.v1.Health/Check
 | Command | What it does |
 |---|---|
 | `make proto` | `buf generate` into `generated/` (needs `buf`); then `go mod tidy` |
-| `make server` / `make indexer` | `go run` the binaries |
-| `make test` | `go test ./...` |
+| `make run` | `go run ./cmd/server` (first binary in `BINARIES`) |
+| `make indexer` | `go run ./cmd/indexer` |
+| `make build` | `go build ./...` |
+| `make lint` | golangci-lint with the shared config |
+| `make test` | tests with the race detector |
 | `make check-env` | `.env.example` vs config drift gate |
-| `make check` | merge gate: `check-env`, `gofmt -l .`, `go vet ./...`, `go test ./...` |
+| `make check` | merge gate: `go vet`, `make lint`, `make test` (Docker tests must run), `make check-env` |
 
 `go.mod` is Go 1.26; `franz-go` is pinned at v1.18.0; do not bump without running the tests. The
 Docker build uses `golang:1.26`.
