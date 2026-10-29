@@ -49,16 +49,16 @@ func rcHealthy() stubQuality {
 	}}
 }
 
-func rcService(stub *stubReconcile, g rpc.RatioGauge, max float64) *rpc.Handler {
+func rcService(stub *stubReconcile, g rpc.RatioGauge, maxRatio float64) *rpc.Handler {
 	return mustHandler(stub,
 		rpc.WithTrackingThresholds(rpc.TrackingThresholds{StaleAfter: 900 * time.Second, LagP95Max: 300 * time.Second, MissingListingMaxRatio: 0.05}),
-		rpc.WithGA4Reconcile(max, g),
+		rpc.WithGA4Reconcile(maxRatio, g),
 		rpc.WithClock(func() time.Time { return rcNow }))
 }
 
-func rcReport(t *testing.T, stub *stubReconcile, g rpc.RatioGauge, max float64) *analyticsv1.GetTrackingQualityReportResponse {
+func rcReport(t *testing.T, stub *stubReconcile, g rpc.RatioGauge, maxRatio float64) *analyticsv1.GetTrackingQualityReportResponse {
 	t.Helper()
-	resp, err := rcService(stub, g, max).GetTrackingQualityReport(asPrincipal("admin-1", "user", "admin"), &analyticsv1.GetTrackingQualityReportRequest{})
+	resp, err := rcService(stub, g, maxRatio).GetTrackingQualityReport(asPrincipal("admin-1", "user", "admin"), &analyticsv1.GetTrackingQualityReportRequest{})
 	if err != nil {
 		t.Fatalf("GetTrackingQualityReport: %v", err)
 	}

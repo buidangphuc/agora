@@ -60,7 +60,7 @@ func TestCLICallsTriggerAndExitsZeroOn200_TheImportRunsInsideTheConsumer(t *test
 
 func TestCLIDefaultsDateToYesterdayUTC_TheImportRunsInsideTheConsumer(t *testing.T) {
 	var gotDate string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		gotDate = r.URL.Query().Get("date")
 	}))
 	defer srv.Close()
@@ -77,7 +77,7 @@ func TestCLIDefaultsDateToYesterdayUTC_TheImportRunsInsideTheConsumer(t *testing
 }
 
 func TestCLIExitsNonZeroWithErrorTextOn5xx_AFailedImportReturns5xxWithTheDate(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "ga4 export 2024-03-06: events_20240306 not found", http.StatusInternalServerError)
 	}))
 	defer srv.Close()
@@ -92,7 +92,7 @@ func TestCLIExitsNonZeroWithErrorTextOn5xx_AFailedImportReturns5xxWithTheDate(t 
 }
 
 func TestCLIExitsNonZeroOn4xx_AnInvalidDateIsRejectedByTheTrigger(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "invalid date \"x\"", http.StatusBadRequest)
 	}))
 	defer srv.Close()
@@ -118,7 +118,7 @@ func TestCLIExitsNonZeroWhenTriggerUnreachable_AFailedImportReturns5xxWithTheDat
 }
 
 func TestCLIExitsZeroWhenTriggerReportsNoOp_TheJobIsANoOpWhenUnconfigured(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"rows":0}`))
 	}))
 	defer srv.Close()
@@ -131,7 +131,7 @@ func TestCLIExitsZeroWhenTriggerReportsNoOp_TheJobIsANoOpWhenUnconfigured(t *tes
 
 func TestCLIReadsTriggerAddressFromSettings_TheCLIReadsTheTriggerAddressFromSettings(t *testing.T) {
 	var calls atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1) }))
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { calls.Add(1) }))
 	defer srv.Close()
 	cliEnv(t, srv.URL+"/custom/path")
 	code, _, stderr := runCLI("--date", "2024-03-05")
@@ -142,7 +142,7 @@ func TestCLIReadsTriggerAddressFromSettings_TheCLIReadsTheTriggerAddressFromSett
 
 func TestInvalidThresholdIsRejectedAtStartup(t *testing.T) {
 	var calls atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1) }))
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { calls.Add(1) }))
 	defer srv.Close()
 	cliEnv(t, srv.URL)
 	t.Setenv("GA4_RECONCILE_MAX_DIFF_RATIO", "-1")

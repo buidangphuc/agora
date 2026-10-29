@@ -16,7 +16,7 @@ import (
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
 
-func adminCtx(t *testing.T) context.Context { return asPrincipal("u-1", "user", "admin,listing.read") }
+func adminCtx(_ *testing.T) context.Context { return asPrincipal("u-1", "user", "admin,listing.read") }
 
 func ordersRepo(now time.Time) *querytest.MemoryRepository {
 	return querytest.NewMemoryRepository(

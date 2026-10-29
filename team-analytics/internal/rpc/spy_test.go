@@ -56,7 +56,7 @@ func (c *capRepo) TrackingQuality(ctx context.Context, _, _ time.Time) (query.Tr
 	return query.TrackingQualityData{}, c.enter(ctx, "")
 }
 
-func (c *capRepo) ChannelFunnel(ctx context.Context, _ string, _, _ time.Time) ([]query.ChannelFunnelRow, error) {
+func (c *capRepo) ChannelFunnel(_ context.Context, _ string, _, _ time.Time) ([]query.ChannelFunnelRow, error) {
 	c.calls++
 	return nil, c.channelErr
 }
