@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
 
 	"github.com/buidangphuc/team-analytics/internal/config"
 	"github.com/buidangphuc/team-analytics/internal/ga4relay"
@@ -23,12 +24,16 @@ type testHooks struct {
 
 var hooks testHooks
 
-func RunConsumer(ctx context.Context, _ config.Settings) error {
-	<-ctx.Done()
-	return nil
+func healthInterval() time.Duration {
+	if hooks.HealthInterval > 0 {
+		return hooks.HealthInterval
+	}
+	return healthx.DefaultInterval
 }
 
-func RunGA4Relay(ctx context.Context, _ config.Settings) error {
-	<-ctx.Done()
-	return nil
+func pingDuckDB(ctx context.Context, db *sql.DB) error {
+	if hooks.PingDuckDB != nil {
+		return hooks.PingDuckDB(ctx, db)
+	}
+	return db.PingContext(ctx)
 }
