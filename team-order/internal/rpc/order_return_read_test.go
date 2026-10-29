@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 func newReturnReadEnv(t *testing.T) (rmaEnv, string) {
 	t.Helper()
-	e := newRMAEnv()
+	e := newRMAEnv(t)
 	o := e.order(t, true)
 	return e, e.createReturn(t, o.ID, 200000)
 }

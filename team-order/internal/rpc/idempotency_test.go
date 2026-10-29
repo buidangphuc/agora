@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -12,26 +12,26 @@ import (
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
-func checkoutHandler(t *testing.T) (*handler.OrderHandler, *upstreamtest.Domain, *repository.InMemoryOrderRepository) {
+func checkoutHandler(t *testing.T) (*rpc.OrderHandler, *upstreamtest.Domain, *fake.InMemoryOrderRepository) {
 	t.Helper()
 	domain := upstreamtest.NewDomain(map[string]int32{"lst_1": 10})
-	orders := repository.NewInMemoryOrderRepository()
-	carts := repository.NewInMemoryCartRepository()
+	orders := fake.NewInMemoryOrderRepository()
+	carts := fake.NewInMemoryCartRepository()
 	for _, buyer := range []string{"buyer_1", "buyer_2"} {
-		if _, err := carts.AddItem(context.Background(), repository.CartItem{
+		if _, err := carts.AddItem(context.Background(), store.CartItem{
 			UserID: buyer, ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "s1", Title: "item",
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	svc := service.NewOrderService(orders, carts, nil, nil, domain, nil, nil)
-	return handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil), domain, orders
+	svc := newSvc(t, orders, carts, nil, nil, domain, nil, nil)
+	return newHandler(t, svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil), domain, orders
 }
 
 func withKey(ctx context.Context, keys ...string) context.Context {

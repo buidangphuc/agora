@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -9,25 +9,23 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-order/generated/platform/common/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/interceptor"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 // authz-residuals-2: admin order operations need the order.admin scope.
 
 func scopedUser(id string, scopes ...string) context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+	return withPrincipal(context.Background(), &commonv1.Principal{
 		Id: id, Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: scopes,
 	})
 }
 
-func newAdminScopeHandler() (*handler.OrderHandler, *mockOrderServiceRepo) {
-	repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
-		"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1", Status: repository.OrderStatusPending},
+func newAdminScopeHandler(t testing.TB) (*rpc.OrderHandler, *mockOrderServiceRepo) {
+	repo := &mockOrderServiceRepo{orders: map[string]store.Order{
+		"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1", Status: store.OrderStatusPending},
 	}}
-	return handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil, handler.WithAuditWriter(&fakeAudit{})), repo
+	return newHandler(t, newSvc(t, repo, nil, nil, nil, nil, nil, nil), nil, nil, withAudit(&fakeAudit{})), repo
 }
 
 func TestForceFailSaga_NeedsAdminAndOrderAdmin(t *testing.T) {
@@ -44,12 +42,12 @@ func TestForceFailSaga_NeedsAdminAndOrderAdmin(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			h, repo := newAdminScopeHandler()
+			h, repo := newAdminScopeHandler(t)
 			_, err := h.ForceFailSaga(tc.ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_1"})
 			if status.Code(err) != tc.want {
 				t.Fatalf("want %v, got %v", tc.want, err)
 			}
-			if tc.want != codes.OK && repo.orders["ord_1"].Status != repository.OrderStatusPending {
+			if tc.want != codes.OK && repo.orders["ord_1"].Status != store.OrderStatusPending {
 				t.Fatalf("order must be unchanged, got %v", repo.orders["ord_1"].Status)
 			}
 		})
@@ -61,25 +59,25 @@ func TestBareAdminDoesNotOpenOrders(t *testing.T) {
 	full := scopedUser("admin_1", "admin", "order.admin")
 
 	t.Run("GetSagaState bare admin denied", func(t *testing.T) {
-		h, _ := newAdminScopeHandler()
+		h, _ := newAdminScopeHandler(t)
 		if _, err := h.GetSagaState(bare, &orderv1.GetSagaStateRequest{OrderId: "ord_1"}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("want PermissionDenied, got %v", err)
 		}
 	})
 	t.Run("GetSagaState order.admin allowed", func(t *testing.T) {
-		h, _ := newAdminScopeHandler()
+		h, _ := newAdminScopeHandler(t)
 		if _, err := h.GetSagaState(full, &orderv1.GetSagaStateRequest{OrderId: "ord_1"}); err != nil {
 			t.Fatalf("unexpected: %v", err)
 		}
 	})
 	t.Run("GetOrder bare admin denied", func(t *testing.T) {
-		h, _ := newAdminScopeHandler()
+		h, _ := newAdminScopeHandler(t)
 		if _, err := h.GetOrder(bare, &orderv1.GetOrderRequest{Id: "ord_1"}); status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("want PermissionDenied, got %v", err)
 		}
 	})
 	t.Run("UpdateOrderStatus bare admin denied", func(t *testing.T) {
-		h, _ := newAdminScopeHandler()
+		h, _ := newAdminScopeHandler(t)
 		_, err := h.UpdateOrderStatus(bare, &orderv1.UpdateOrderStatusRequest{Id: "ord_1", Status: orderv1.OrderStatus_ORDER_STATUS_SHIPPED})
 		if status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("want PermissionDenied, got %v", err)

@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"bytes"
@@ -14,9 +14,9 @@ import (
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
@@ -43,21 +43,21 @@ func addrB() *identityv1.Address {
 	return &identityv1.Address{Id: "addr_B", UserId: "buyer_1", RecipientName: "Binh", Phone: "0900000002", Street: "2 B St", Ward: "W2", District: "D2", City: "Đà Nẵng"}
 }
 
-func addressCheckout(t *testing.T, ac identityv1.AddressServiceClient) (*handler.OrderHandler, *upstreamtest.Domain, repository.CartRepository, *repository.InMemoryOrderRepository) {
+func addressCheckout(t *testing.T, ac identityv1.AddressServiceClient) (*rpc.OrderHandler, *upstreamtest.Domain, store.CartRepository, *fake.InMemoryOrderRepository) {
 	t.Helper()
 	domain := upstreamtest.NewDomain(map[string]int32{"lst_1": 10})
-	orders := repository.NewInMemoryOrderRepository()
-	carts := repository.NewInMemoryCartRepository()
-	if _, err := carts.AddItem(context.Background(), repository.CartItem{
+	orders := fake.NewInMemoryOrderRepository()
+	carts := fake.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), store.CartItem{
 		UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "s1", Title: "item",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	svc := service.NewOrderService(orders, carts, nil, nil, domain, nil, nil)
-	return handler.NewOrderHandler(svc, ac, nil), domain, carts, orders
+	svc := newSvc(t, orders, carts, nil, nil, domain, nil, nil)
+	return newHandler(t, svc, ac, nil), domain, carts, orders
 }
 
-func assertRefusedNothingReserved(t *testing.T, err error, want codes.Code, msg string, domain *upstreamtest.Domain, carts repository.CartRepository, orders *repository.InMemoryOrderRepository) {
+func assertRefusedNothingReserved(t *testing.T, err error, want codes.Code, msg string, domain *upstreamtest.Domain, carts store.CartRepository, orders *fake.InMemoryOrderRepository) {
 	t.Helper()
 	if status.Code(err) != want {
 		t.Fatalf("want %v, got %v", want, err)
@@ -142,13 +142,6 @@ func TestCreateOrderEmptyCityAddressRefused(t *testing.T) {
 func TestCreateOrderIdentityUnavailableRefused(t *testing.T) {
 	// Scenario: Address and ETA: An identity outage never places an order
 	h, domain, carts, orders := addressCheckout(t, &fakeAddrClient{err: errors.New("identity down")})
-	_, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{})
-	assertRefusedNothingReserved(t, err, codes.Unavailable, "", domain, carts, orders)
-}
-
-func TestCreateOrderNilAddressClientRefused(t *testing.T) {
-	// Scenario: Address and ETA: A missing address client refuses the order
-	h, domain, carts, orders := addressCheckout(t, nil)
 	_, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{})
 	assertRefusedNothingReserved(t, err, codes.Unavailable, "", domain, carts, orders)
 }
@@ -240,13 +233,13 @@ func TestCreateOrderAddressRefusalLogsIDOnly(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	domain := upstreamtest.NewDomain(map[string]int32{"lst_1": 10})
-	orders := repository.NewInMemoryOrderRepository()
-	carts := repository.NewInMemoryCartRepository()
-	if _, err := carts.AddItem(context.Background(), repository.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "s1", Title: "item"}); err != nil {
+	orders := fake.NewInMemoryOrderRepository()
+	carts := fake.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), store.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "s1", Title: "item"}); err != nil {
 		t.Fatal(err)
 	}
-	svc := service.NewOrderService(orders, carts, nil, nil, domain, nil, nil)
-	h := handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA(), addrB()}}, logger)
+	svc := newSvc(t, orders, carts, nil, nil, domain, nil, nil)
+	h := newHandler(t, svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA(), addrB()}}, logger)
 	c := confirmedOf(addrB())
 	c.City = "Hà Nội"
 	_, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{AddressId: "addr_B", ConfirmedAddress: c})

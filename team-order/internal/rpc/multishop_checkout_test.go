@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -12,9 +12,10 @@ import (
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
@@ -51,24 +52,24 @@ func (c *countingPromotion) total() int {
 	return c.calls
 }
 
-func voucherCheckout(t *testing.T) (*handler.OrderHandler, *countingPromotion, *repository.InMemoryOrderRepository) {
+func voucherCheckout(t *testing.T) (*rpc.OrderHandler, *countingPromotion, *fake.InMemoryOrderRepository) {
 	t.Helper()
 	domain := upstreamtest.NewDomain(map[string]int32{"lst_1": 10})
-	orders := repository.NewInMemoryOrderRepository()
-	carts := repository.NewInMemoryCartRepository()
-	if _, err := carts.AddItem(context.Background(), repository.CartItem{
+	orders := fake.NewInMemoryOrderRepository()
+	carts := fake.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), store.CartItem{
 		UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "s1", Title: "item",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	promo := &countingPromotion{}
-	svc := service.NewOrderService(orders, carts, nil, nil, domain, nil, nil,
-		service.WithSagaRepository(repository.NewInMemorySagaRepository()), service.WithPromotionClient(promo))
+	svc := newSvc(t, orders, carts, nil, nil, domain, nil, nil,
+		order.WithSagaRepository(fake.NewInMemorySagaRepository()), order.WithPromotionClient(promo))
 	ac := &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}
-	return handler.NewOrderHandler(svc, ac, nil), promo, orders
+	return newHandler(t, svc, ac, nil), promo, orders
 }
 
-func assertNoOrderNoPromotion(t *testing.T, promo *countingPromotion, orders *repository.InMemoryOrderRepository) {
+func assertNoOrderNoPromotion(t *testing.T, promo *countingPromotion, orders *fake.InMemoryOrderRepository) {
 	t.Helper()
 	if n := promo.total(); n != 0 {
 		t.Fatalf("no promotion call allowed, got %d", n)

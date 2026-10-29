@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -10,43 +10,39 @@ import (
 
 	commonv1 "github.com/buidangphuc/team-order/generated/platform/common/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/interceptor"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 type rmaEnv struct {
-	h      *handler.OrderHandler
-	orders *repository.InMemoryOrderRepository
-	outbox *repository.InMemoryOutboxRepository
+	h      *rpc.OrderHandler
+	orders *store.PostgresOrderRepository
+	outbox *pgOutbox
 }
 
-func newRMAEnv() rmaEnv {
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository()
-	returns := repository.NewInMemoryReturnRepository(repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow),
-		repository.WithInMemoryReturnOutbox(outbox, orders))
-	svc := service.NewOrderService(orders, nil, returns, nil, nil, nil, nil)
-	return rmaEnv{h: handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{})), orders: orders, outbox: outbox}
+func newRMAEnv(t testing.TB) rmaEnv {
+	outbox := newPGOutbox(t)
+	orders := outbox.orders()
+	returns := outbox.returns(store.WithReturnOutbox(BuildReturnRefundedOutboxRow))
+	svc := newSvc(t, orders, nil, returns, nil, nil, nil, nil)
+	return rmaEnv{h: newHandler(t, svc, nil, nil, withAudit(&fakeAudit{})), orders: orders, outbox: outbox}
 }
 
-func (e rmaEnv) order(t *testing.T, paidOnline bool) repository.Order {
+func (e rmaEnv) order(t *testing.T, paidOnline bool) store.Order {
 	t.Helper()
 	ctx := context.Background()
-	o, err := e.orders.CreateOrder(ctx, repository.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 500000})
+	o, err := e.orders.CreateOrder(ctx, store.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 500000})
 	if err != nil {
 		t.Fatal(err)
 	}
-	from := repository.OrderStatusPending
+	from := store.OrderStatusPending
 	if paidOnline {
-		if _, err := e.orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, []repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+		if _, err := e.orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, []store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 			t.Fatal(err)
 		}
-		from = repository.OrderStatusPaid
+		from = store.OrderStatusPaid
 	}
-	if o, err = e.orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusShipped, []repository.OrderStatus{from}, "T"); err != nil {
+	if o, err = e.orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped, []store.OrderStatus{from}, "T"); err != nil {
 		t.Fatal(err)
 	}
 	return o
@@ -70,7 +66,7 @@ func (e rmaEnv) setStatus(ctx context.Context, id string, st orderv1.ReturnStatu
 func (e rmaEnv) refundRows() int {
 	n := 0
 	for _, r := range e.outbox.EnqueuedRows() {
-		if r.EventType == events.ReturnRefundedEventType {
+		if r.EventType == ReturnRefundedEventType {
 			n++
 		}
 	}
@@ -85,7 +81,7 @@ func wantCode(t *testing.T, err error, code codes.Code) {
 }
 
 func adminCtx() context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: "ops", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "order.admin"}})
+	return withPrincipal(context.Background(), &commonv1.Principal{Id: "ops", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "order.admin"}})
 }
 
 func TestReturnRefund_Handler(t *testing.T) {
@@ -93,7 +89,7 @@ func TestReturnRefund_Handler(t *testing.T) {
 	buyer := incomingPrincipalCtx("buyer_1", "buyer")
 
 	t.Run("the seller refunds an approved return and one fact is written", func(t *testing.T) {
-		e := newRMAEnv()
+		e := newRMAEnv(t)
 		o := e.order(t, true)
 		id := e.createReturn(t, o.ID, 200000)
 		wantCode(t, e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REFUNDED), codes.FailedPrecondition) // PENDING -> REFUNDED
@@ -116,7 +112,7 @@ func TestReturnRefund_Handler(t *testing.T) {
 	})
 
 	t.Run("the buyer cannot refund their own return", func(t *testing.T) {
-		e := newRMAEnv()
+		e := newRMAEnv(t)
 		o := e.order(t, true)
 		id := e.createReturn(t, o.ID, 200000)
 		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED); err != nil {
@@ -133,7 +129,7 @@ func TestReturnRefund_Handler(t *testing.T) {
 	})
 
 	t.Run("a COD order's approved return is refused with the spec message", func(t *testing.T) {
-		e := newRMAEnv()
+		e := newRMAEnv(t)
 		o := e.order(t, false)
 		id := e.createReturn(t, o.ID, 200000)
 		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED); err != nil {
@@ -157,7 +153,7 @@ func TestReturnRefund_Handler(t *testing.T) {
 	})
 
 	t.Run("the return cap codes", func(t *testing.T) {
-		e := newRMAEnv()
+		e := newRMAEnv(t)
 		o := e.order(t, true)
 		e.createReturn(t, o.ID, 300000)
 		_, err := e.h.CreateReturnRequest(buyer, &orderv1.CreateReturnRequestRequest{OrderId: o.ID, Reason: "r", RefundAmount: 300000})
@@ -171,7 +167,7 @@ func TestReturnRefund_Handler(t *testing.T) {
 }
 
 func TestListOrderReturns_Handler(t *testing.T) {
-	e := newRMAEnv()
+	e := newRMAEnv(t)
 	o := e.order(t, true)
 	first := e.createReturn(t, o.ID, 200000)
 	time.Sleep(2 * time.Millisecond)
@@ -208,7 +204,7 @@ func TestListOrderReturns_Handler(t *testing.T) {
 }
 
 func TestGetOrder_PaidAtOnTheWire(t *testing.T) {
-	e := newRMAEnv()
+	e := newRMAEnv(t)
 	buyer := incomingPrincipalCtx("buyer_1", "buyer")
 	paid := e.order(t, true)
 	resp, err := e.h.GetOrder(buyer, &orderv1.GetOrderRequest{Id: paid.ID})
@@ -233,7 +229,7 @@ func TestUpdateReturnStatusRejectedStaysTerminal(t *testing.T) {
 	callers := map[string]context.Context{"seller": seller, "order.admin": adminCtx()}
 	for name, ctx := range callers {
 		t.Run("Dispute refund: Re-approval is not reachable from the status RPC/"+name, func(t *testing.T) {
-			e := newRMAEnv()
+			e := newRMAEnv(t)
 			o := e.order(t, true)
 			id := e.createReturn(t, o.ID, 200000)
 			if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REJECTED); err != nil {

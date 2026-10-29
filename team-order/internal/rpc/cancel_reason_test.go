@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -11,36 +11,36 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
 type reasonRig struct {
 	domain *upstreamtest.Domain
-	orders *repository.InMemoryOrderRepository
-	outbox *repository.InMemoryOutboxRepository
-	h      *handler.OrderHandler
-	order  repository.Order
+	orders *store.PostgresOrderRepository
+	outbox *pgOutbox
+	h      *rpc.OrderHandler
+	order  store.Order
 }
 
 // newReasonRig places a real order (quantity 2 of lst_1, stock 10 -> 8) with the
 // OrderCancelled outbox on, so stock, row and event can all be observed.
 func newReasonRig(t *testing.T) *reasonRig {
 	t.Helper()
-	r := &reasonRig{domain: upstreamtest.NewDomain(map[string]int32{"lst_1": 10}), outbox: repository.NewInMemoryOutboxRepository()}
-	r.orders = repository.NewInMemoryOrderRepository(repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow), repository.WithInMemoryOutbox(r.outbox))
-	carts := repository.NewInMemoryCartRepository()
-	if _, err := carts.AddItem(context.Background(), repository.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "seller_1"}); err != nil {
+	r := &reasonRig{domain: upstreamtest.NewDomain(map[string]int32{"lst_1": 10}), outbox: newPGOutbox(t)}
+	r.orders = r.outbox.orders(store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithCancelledOutbox(BuildCancelledOutboxRow))
+	carts := fake.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), store.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "seller_1"}); err != nil {
 		t.Fatal(err)
 	}
-	svc := service.NewOrderService(r.orders, carts, nil, nil, r.domain, nil, nil,
-		service.WithReleaseRetry(time.Second, 1, time.Millisecond))
-	r.h = handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
-	placed, err := svc.CreateOrdersFromCart(context.Background(), "buyer_1", repository.Address{}, nil, 2, "")
+	svc := newSvc(t, r.orders, carts, nil, nil, r.domain, nil, nil,
+		order.WithSagaRepository(r.outbox.sagas()), order.WithReleaseRetry(time.Second, 1, time.Millisecond))
+	r.h = newHandler(t, svc, nil, nil, withAudit(&fakeAudit{}))
+	placed, err := svc.CreateOrdersFromCart(context.Background(), "buyer_1", store.Address{}, nil, 2, "")
 	if err != nil || len(placed) != 1 {
 		t.Fatalf("checkout: %v", err)
 	}
@@ -55,7 +55,7 @@ func (r *reasonRig) facts(t *testing.T) []*orderv1.OrderCancelled {
 	t.Helper()
 	var out []*orderv1.OrderCancelled
 	for _, row := range r.outbox.EnqueuedRows() {
-		if row.AggregateID != r.order.ID || row.EventType != events.OrderCancelledEventType {
+		if row.AggregateID != r.order.ID || row.EventType != OrderCancelledEventType {
 			continue
 		}
 		var env eventsv1.EventEnvelope
@@ -160,8 +160,8 @@ func TestCancelOrderOtherUserWithReasonDenied(t *testing.T) {
 // Scenario "Order expiry: Cancel of a shipped order is refused" (handler half).
 func TestCancelOrderShippedWithReasonRefused(t *testing.T) {
 	r := newReasonRig(t)
-	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), r.order.ID, repository.OrderStatusShipped,
-		[]repository.OrderStatus{repository.OrderStatusPending}, "TRK"); err != nil {
+	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), r.order.ID, store.OrderStatusShipped,
+		[]store.OrderStatus{store.OrderStatusPending}, "TRK"); err != nil {
 		t.Fatal(err)
 	}
 	_, err := r.h.CancelOrder(incomingPrincipalCtx("buyer_1", "buyer"),

@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -14,34 +14,33 @@ import (
 	commonv1 "github.com/buidangphuc/team-order/generated/platform/common/v1"
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/interceptor"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
 type sagaRig struct {
 	domain *upstreamtest.Domain
-	orders *repository.InMemoryOrderRepository
-	svc    *service.OrderService
-	h      *handler.OrderHandler
-	order  repository.Order
+	orders *fake.InMemoryOrderRepository
+	svc    *order.OrderService
+	h      *rpc.OrderHandler
+	order  store.Order
 }
 
 // newSagaRig places a real order (quantity 2 of lst_1, stock 10 -> 8).
 func newSagaRig(t *testing.T) *sagaRig {
 	t.Helper()
-	r := &sagaRig{domain: upstreamtest.NewDomain(map[string]int32{"lst_1": 10}), orders: repository.NewInMemoryOrderRepository()}
-	carts := repository.NewInMemoryCartRepository()
-	if _, err := carts.AddItem(context.Background(), repository.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "seller_1"}); err != nil {
+	r := &sagaRig{domain: upstreamtest.NewDomain(map[string]int32{"lst_1": 10}), orders: fake.NewInMemoryOrderRepository()}
+	carts := fake.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), store.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "seller_1"}); err != nil {
 		t.Fatal(err)
 	}
-	r.svc = service.NewOrderService(r.orders, carts, nil, nil, r.domain, nil, nil,
-		service.WithReleaseRetry(time.Second, 1, time.Millisecond))
-	r.h = handler.NewOrderHandler(r.svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
-	placed, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", repository.Address{}, nil, 2, "")
+	r.svc = newSvc(t, r.orders, carts, nil, nil, r.domain, nil, nil,
+		order.WithReleaseRetry(time.Second, 1, time.Millisecond))
+	r.h = newHandler(t, r.svc, nil, nil, withAudit(&fakeAudit{}))
+	placed, err := r.svc.CreateOrdersFromCart(context.Background(), "buyer_1", store.Address{}, nil, 2, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +94,7 @@ func TestSagaView_PendingOrder(t *testing.T) {
 
 func TestSagaView_PaidOrderShowsPaymentTime(t *testing.T) {
 	r := newSagaRig(t)
-	paid, err := r.orders.UpdateOrderStatusFrom(context.Background(), r.order.ID, repository.OrderStatusPaid, []repository.OrderStatus{repository.OrderStatusPending}, "")
+	paid, err := r.orders.UpdateOrderStatusFrom(context.Background(), r.order.ID, store.OrderStatusPaid, []store.OrderStatus{store.OrderStatusPending}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +141,7 @@ func TestForceFailSaga_UnknownStepRejectedBeforeAnyWrite(t *testing.T) {
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("want InvalidArgument, got %v", err)
 	}
-	if o, _ := r.orders.GetOrder(context.Background(), r.order.ID); o.Status != repository.OrderStatusPending || r.domain.Stock("lst_1") != 8 {
+	if o, _ := r.orders.GetOrder(context.Background(), r.order.ID); o.Status != store.OrderStatusPending || r.domain.Stock("lst_1") != 8 {
 		t.Fatalf("order must be untouched: %v stock %d", o.Status, r.domain.Stock("lst_1"))
 	}
 }
@@ -156,7 +155,7 @@ func TestForceFailSaga_CleanFailReportsSuccess(t *testing.T) {
 	if !res.GetSuccess() || !res.GetSagaState().GetIsCompensated() || r.domain.Stock("lst_1") != 10 {
 		t.Fatalf("clean force-fail: %v stock %d", res, r.domain.Stock("lst_1"))
 	}
-	if o, _ := r.orders.GetOrder(context.Background(), r.order.ID); o.Status != repository.OrderStatusCancelled {
+	if o, _ := r.orders.GetOrder(context.Background(), r.order.ID); o.Status != store.OrderStatusCancelled {
 		t.Fatalf("order %v", o.Status)
 	}
 }
@@ -171,28 +170,28 @@ func TestForceFailSaga_ParkedReleaseReportsFailure(t *testing.T) {
 	if res.GetSuccess() || !strings.Contains(res.GetMessage(), "pending retry") {
 		t.Fatalf("want success=false naming the pending release: %v", res)
 	}
-	if o, _ := r.orders.GetOrder(context.Background(), r.order.ID); o.Status != repository.OrderStatusCancelled {
+	if o, _ := r.orders.GetOrder(context.Background(), r.order.ID); o.Status != store.OrderStatusCancelled {
 		t.Fatalf("order %v", o.Status)
 	}
 }
 
 func TestForceFailSaga_ShippedOrderRefused(t *testing.T) {
 	r := newSagaRig(t)
-	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), r.order.ID, repository.OrderStatusShipped, []repository.OrderStatus{repository.OrderStatusPending}, "T"); err != nil {
+	if _, err := r.orders.UpdateOrderStatusFrom(context.Background(), r.order.ID, store.OrderStatusShipped, []store.OrderStatus{store.OrderStatusPending}, "T"); err != nil {
 		t.Fatal(err)
 	}
 	_, err := r.h.ForceFailSaga(adminCtx(), &orderv1.ForceFailSagaRequest{OrderId: r.order.ID, FailStep: "shipping"})
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("want FailedPrecondition, got %v", err)
 	}
-	if o, _ := r.orders.GetOrder(context.Background(), r.order.ID); o.Status != repository.OrderStatusShipped {
+	if o, _ := r.orders.GetOrder(context.Background(), r.order.ID); o.Status != store.OrderStatusShipped {
 		t.Fatalf("order %v", o.Status)
 	}
 }
 
 func TestSagaAccess_BuyerOrAdminOnly(t *testing.T) {
 	r := newSagaRig(t)
-	admin := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: "admin_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "order.admin"}})
+	admin := withPrincipal(context.Background(), &commonv1.Principal{Id: "admin_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "order.admin"}})
 	if _, err := r.h.GetSagaState(admin, &orderv1.GetSagaStateRequest{OrderId: r.order.ID}); err != nil {
 		t.Fatalf("admin: %v", err)
 	}
@@ -209,22 +208,22 @@ func TestSagaAccess_BuyerOrAdminOnly(t *testing.T) {
 // ForceFailSaga cancels through the same claim as CancelOrder, so it writes the
 // OrderCancelled fact once, with the status the order was cancelled from.
 func TestForceFailSaga_EmitsCancelledFactThroughTheClaim(t *testing.T) {
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository(repository.WithPaidOutbox(events.BuildPaidOutboxRow),
-		repository.WithCancelledOutbox(events.BuildCancelledOutboxRow), repository.WithInMemoryOutbox(outbox))
-	carts := repository.NewInMemoryCartRepository()
-	if _, err := carts.AddItem(context.Background(), repository.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "seller_1"}); err != nil {
+	outbox := newPGOutbox(t)
+	orders := outbox.orders(store.WithPaidOutbox(BuildPaidOutboxRow),
+		store.WithCancelledOutbox(BuildCancelledOutboxRow))
+	carts := fake.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), store.CartItem{UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "seller_1"}); err != nil {
 		t.Fatal(err)
 	}
-	svc := service.NewOrderService(orders, carts, nil, nil, upstreamtest.NewDomain(map[string]int32{"lst_1": 10}), nil, nil,
-		service.WithReleaseRetry(time.Second, 1, time.Millisecond))
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
-	placed, err := svc.CreateOrdersFromCart(context.Background(), "buyer_1", repository.Address{}, nil, 2, "")
+	svc := newSvc(t, orders, carts, nil, nil, upstreamtest.NewDomain(map[string]int32{"lst_1": 10}), nil, nil,
+		order.WithSagaRepository(outbox.sagas()), order.WithReleaseRetry(time.Second, 1, time.Millisecond))
+	h := newHandler(t, svc, nil, nil, withAudit(&fakeAudit{}))
+	placed, err := svc.CreateOrdersFromCart(context.Background(), "buyer_1", store.Address{}, nil, 2, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	o := placed[0]
-	if _, err := orders.UpdateOrderStatusFrom(context.Background(), o.ID, repository.OrderStatusPaid, []repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+	if _, err := orders.UpdateOrderStatusFrom(context.Background(), o.ID, store.OrderStatusPaid, []store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 		t.Fatal(err)
 	}
 	ctx := adminCtx()
@@ -236,7 +235,7 @@ func TestForceFailSaga_EmitsCancelledFactThroughTheClaim(t *testing.T) {
 	}
 	var facts []*orderv1.OrderCancelled
 	for _, row := range outbox.EnqueuedRows() {
-		if row.AggregateID != o.ID || row.EventType != events.OrderCancelledEventType {
+		if row.AggregateID != o.ID || row.EventType != OrderCancelledEventType {
 			continue
 		}
 		var env eventsv1.EventEnvelope

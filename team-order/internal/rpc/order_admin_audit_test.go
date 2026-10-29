@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -7,14 +7,17 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
 
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 // order-admin-audit: every admin-path mutation writes one audit event before the
@@ -32,14 +35,19 @@ type fakeAudit struct {
 	calls  []auditCall
 	err    error
 	during func()
+	block  bool
 }
 
-func (f *fakeAudit) WriteAdminEvent(_ context.Context, actorID, action, targetType, targetID string, metadata map[string]string) error {
+func (f *fakeAudit) WriteAuditEvent(ctx context.Context, ev auditx.Event) error {
 	f.mu.Lock()
-	f.calls = append(f.calls, auditCall{actorID, action, targetType, targetID, metadata})
+	f.calls = append(f.calls, auditCall{ev.ActorID, ev.Action, ev.TargetType, ev.TargetID, ev.Metadata})
 	f.mu.Unlock()
 	if f.during != nil {
 		f.during()
+	}
+	if f.block {
+		<-ctx.Done()
+		return ctx.Err()
 	}
 	return f.err
 }
@@ -52,12 +60,7 @@ func (f *fakeAudit) n() int {
 
 var errAuditDown = errors.New("team-audit unreachable")
 
-func opts(w *fakeAudit) []handler.Option {
-	if w == nil {
-		return nil // no audit client configured
-	}
-	return []handler.Option{handler.WithAuditWriter(w)}
-}
+func opts(w *fakeAudit) []hopt { return []hopt{withAudit(w)} }
 
 func adminUser() context.Context  { return scopedUser("admin_1", "admin", "order.admin") }
 func sellerUser() context.Context { return scopedUser("sa", "order.write") }
@@ -75,26 +78,26 @@ func wantAudit(t *testing.T, w *fakeAudit, want auditCall) {
 
 // ---------- ForceFailSaga ----------
 
-func forceFailRig(w *fakeAudit, st repository.OrderStatus) (*handler.OrderHandler, *mockOrderServiceRepo) {
-	repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
+func forceFailRig(t testing.TB, w *fakeAudit, st store.OrderStatus) (*rpc.OrderHandler, *mockOrderServiceRepo) {
+	repo := &mockOrderServiceRepo{orders: map[string]store.Order{
 		"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "sa", Status: st},
 	}}
-	return handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil, opts(w)...), repo
+	return newHandler(t, newSvc(t, repo, nil, nil, nil, nil, nil, nil), nil, nil, opts(w)...), repo
 }
 
 // Scenario: Order audit: Admin force-fails an order
 func TestForceFailSagaWritesAuditEvent(t *testing.T) {
 	w := &fakeAudit{}
-	h, repo := forceFailRig(w, repository.OrderStatusPending)
-	var seen repository.OrderStatus
+	h, repo := forceFailRig(t, w, store.OrderStatusPending)
+	var seen store.OrderStatus
 	w.during = func() { seen = repo.orders["ord_1"].Status }
 	if _, err := h.ForceFailSaga(adminUser(), &orderv1.ForceFailSagaRequest{OrderId: "ord_1", FailStep: "payment"}); err != nil {
 		t.Fatal(err)
 	}
-	if repo.orders["ord_1"].Status != repository.OrderStatusCancelled {
+	if repo.orders["ord_1"].Status != store.OrderStatusCancelled {
 		t.Fatalf("order = %v, want Cancelled", repo.orders["ord_1"].Status)
 	}
-	if seen != repository.OrderStatusPending {
+	if seen != store.OrderStatusPending {
 		t.Fatalf("order was %v when the audit was written, want Pending (audit before change)", seen)
 	}
 	wantAudit(t, w, auditCall{"admin_1", "order.force_fail", "order", "ord_1", map[string]string{"fail_step": "payment"}})
@@ -103,7 +106,7 @@ func TestForceFailSagaWritesAuditEvent(t *testing.T) {
 // Scenario: Order audit: Empty fail step is recorded as unspecified
 func TestForceFailSagaAuditEmptyStepUnspecified(t *testing.T) {
 	w := &fakeAudit{}
-	h, _ := forceFailRig(w, repository.OrderStatusPending)
+	h, _ := forceFailRig(t, w, store.OrderStatusPending)
 	if _, err := h.ForceFailSaga(adminUser(), &orderv1.ForceFailSagaRequest{OrderId: "ord_1"}); err != nil {
 		t.Fatal(err)
 	}
@@ -113,23 +116,16 @@ func TestForceFailSagaAuditEmptyStepUnspecified(t *testing.T) {
 // Scenario: Order audit: Force-fail refused while audit is down
 func TestForceFailSagaAuditDownUnavailableNoChange(t *testing.T) {
 	w := &fakeAudit{err: errAuditDown}
-	h, repo := forceFailRig(w, repository.OrderStatusPending)
+	h, repo := forceFailRig(t, w, store.OrderStatusPending)
 	_, err := h.ForceFailSaga(adminUser(), &orderv1.ForceFailSagaRequest{OrderId: "ord_1", FailStep: "payment"})
 	wantCode(t, err, codes.Unavailable)
+	if got := status.Convert(err).Message(); got != "audit trail unavailable" {
+		t.Fatalf("message = %q, want %q", got, "audit trail unavailable")
+	}
 	if strings.Contains(err.Error(), errAuditDown.Error()) {
 		t.Fatalf("cause must not leak to the caller: %v", err)
 	}
-	if repo.orders["ord_1"].Status != repository.OrderStatusPending {
-		t.Fatalf("order = %v, want Pending", repo.orders["ord_1"].Status)
-	}
-}
-
-// Scenario: Order audit: Force-fail refused without an audit client
-func TestForceFailSagaNilAuditWriterUnavailable(t *testing.T) {
-	h, repo := forceFailRig(nil, repository.OrderStatusPending)
-	_, err := h.ForceFailSaga(adminUser(), &orderv1.ForceFailSagaRequest{OrderId: "ord_1"})
-	wantCode(t, err, codes.Unavailable)
-	if repo.orders["ord_1"].Status != repository.OrderStatusPending {
+	if repo.orders["ord_1"].Status != store.OrderStatusPending {
 		t.Fatalf("order = %v, want Pending", repo.orders["ord_1"].Status)
 	}
 }
@@ -142,17 +138,18 @@ func TestForceFailSagaDeniedWritesNoAudit(t *testing.T) {
 	}{
 		"admin without order.admin": {scopedUser("admin_1", "admin"), codes.PermissionDenied},
 		"seller":                    {sellerUser(), codes.PermissionDenied},
+		"buyer on own order":        {buyerUser(), codes.PermissionDenied},
 		"unauthenticated":           {context.Background(), codes.Unauthenticated},
 	} {
 		t.Run(name, func(t *testing.T) {
 			w := &fakeAudit{}
-			h, repo := forceFailRig(w, repository.OrderStatusPending)
+			h, repo := forceFailRig(t, w, store.OrderStatusPending)
 			_, err := h.ForceFailSaga(tc.ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_1"})
 			wantCode(t, err, tc.want)
 			if w.n() != 0 {
 				t.Fatalf("audit calls = %d, want 0", w.n())
 			}
-			if repo.orders["ord_1"].Status != repository.OrderStatusPending {
+			if repo.orders["ord_1"].Status != store.OrderStatusPending {
 				t.Fatal("order must be unchanged")
 			}
 		})
@@ -171,7 +168,7 @@ func TestForceFailSagaInvalidInputWritesNoAudit(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			w := &fakeAudit{}
-			h, _ := forceFailRig(w, repository.OrderStatusPending)
+			h, _ := forceFailRig(t, w, store.OrderStatusPending)
 			_, err := h.ForceFailSaga(adminUser(), tc.req)
 			wantCode(t, err, tc.want)
 			if w.n() != 0 {
@@ -184,13 +181,13 @@ func TestForceFailSagaInvalidInputWritesNoAudit(t *testing.T) {
 // Scenario: Order audit: Invalid transition keeps the audit row
 func TestForceFailSagaInvalidStatusAfterAudit(t *testing.T) {
 	w := &fakeAudit{}
-	h, repo := forceFailRig(w, repository.OrderStatusCompleted)
+	h, repo := forceFailRig(t, w, store.OrderStatusCompleted)
 	_, err := h.ForceFailSaga(adminUser(), &orderv1.ForceFailSagaRequest{OrderId: "ord_1"})
 	wantCode(t, err, codes.FailedPrecondition)
 	if w.n() != 1 {
 		t.Fatalf("audit calls = %d, want 1", w.n())
 	}
-	if repo.orders["ord_1"].Status != repository.OrderStatusCompleted {
+	if repo.orders["ord_1"].Status != store.OrderStatusCompleted {
 		t.Fatalf("order = %v, want Completed", repo.orders["ord_1"].Status)
 	}
 }
@@ -198,28 +195,28 @@ func TestForceFailSagaInvalidStatusAfterAudit(t *testing.T) {
 // ---------- UpdateOrderStatus ----------
 
 type orderRig struct {
-	h      *handler.OrderHandler
-	orders *repository.InMemoryOrderRepository
-	ships  *repository.InMemoryShipmentRepository
+	h      *rpc.OrderHandler
+	orders *fake.InMemoryOrderRepository
+	ships  *fake.InMemoryShipmentRepository
 }
 
 func newOrderRig(t *testing.T, w *fakeAudit) orderRig {
 	t.Helper()
-	orders := repository.NewInMemoryOrderRepository()
-	ships := repository.NewInMemoryShipmentRepository()
-	for _, o := range []repository.Order{
-		{ID: "ord_p", BuyerID: "buyer_1", SellerID: "sa", Status: repository.OrderStatusPaid},
-		{ID: "ord_pending", BuyerID: "buyer_1", SellerID: "sa", Status: repository.OrderStatusCancelled},
+	orders := fake.NewInMemoryOrderRepository()
+	ships := fake.NewInMemoryShipmentRepository()
+	for _, o := range []store.Order{
+		{ID: "ord_p", BuyerID: "buyer_1", SellerID: "sa", Status: store.OrderStatusPaid},
+		{ID: "ord_pending", BuyerID: "buyer_1", SellerID: "sa", Status: store.OrderStatusCancelled},
 	} {
 		if _, err := orders.CreateOrder(context.Background(), o); err != nil {
 			t.Fatal(err)
 		}
 	}
-	svc := service.NewOrderService(orders, nil, nil, ships, nil, nil, nil)
-	return orderRig{h: handler.NewOrderHandler(svc, nil, nil, opts(w)...), orders: orders, ships: ships}
+	svc := newSvc(t, orders, nil, nil, ships, nil, nil, nil)
+	return orderRig{h: newHandler(t, svc, nil, nil, opts(w)...), orders: orders, ships: ships}
 }
 
-func (r orderRig) status(t *testing.T, id string) repository.OrderStatus {
+func (r orderRig) status(t *testing.T, id string) store.OrderStatus {
 	t.Helper()
 	o, err := r.orders.GetOrder(context.Background(), id)
 	if err != nil {
@@ -236,15 +233,15 @@ func ship(id string) *orderv1.UpdateOrderStatusRequest {
 func TestUpdateOrderStatusAdminWritesAuditEvent(t *testing.T) {
 	w := &fakeAudit{}
 	r := newOrderRig(t, w)
-	var seen repository.OrderStatus
+	var seen store.OrderStatus
 	w.during = func() { seen = r.status(t, "ord_p") }
 	if _, err := r.h.UpdateOrderStatus(adminUser(), ship("ord_p")); err != nil {
 		t.Fatal(err)
 	}
-	if got := r.status(t, "ord_p"); got != repository.OrderStatusShipped {
+	if got := r.status(t, "ord_p"); got != store.OrderStatusShipped {
 		t.Fatalf("order = %v, want Shipped", got)
 	}
-	if seen != repository.OrderStatusPaid {
+	if seen != store.OrderStatusPaid {
 		t.Fatalf("order was %v at audit time, want Paid (audit before change)", seen)
 	}
 	wantAudit(t, w, auditCall{"admin_1", "order.admin_status_update", "order", "ord_p",
@@ -253,16 +250,16 @@ func TestUpdateOrderStatusAdminWritesAuditEvent(t *testing.T) {
 
 // Scenario: Order audit: Seller updates their own order unaudited
 func TestUpdateOrderStatusSellerNotAudited(t *testing.T) {
-	for name, w := range map[string]*fakeAudit{"audit down": {err: errAuditDown}, "no audit client": nil} {
+	for name, w := range map[string]*fakeAudit{"audit down": {err: errAuditDown}} {
 		t.Run(name, func(t *testing.T) {
 			r := newOrderRig(t, w)
 			if _, err := r.h.UpdateOrderStatus(sellerUser(), ship("ord_p")); err != nil {
 				t.Fatal(err)
 			}
-			if got := r.status(t, "ord_p"); got != repository.OrderStatusShipped {
+			if got := r.status(t, "ord_p"); got != store.OrderStatusShipped {
 				t.Fatalf("order = %v, want Shipped", got)
 			}
-			if w != nil && w.n() != 0 {
+			if w.n() != 0 {
 				t.Fatalf("audit calls = %d, want 0", w.n())
 			}
 		})
@@ -287,17 +284,7 @@ func TestUpdateOrderStatusAuditDownUnavailableNoChange(t *testing.T) {
 	r := newOrderRig(t, w)
 	_, err := r.h.UpdateOrderStatus(adminUser(), ship("ord_p"))
 	wantCode(t, err, codes.Unavailable)
-	if got := r.status(t, "ord_p"); got != repository.OrderStatusPaid {
-		t.Fatalf("order = %v, want Paid", got)
-	}
-}
-
-// Scenario: Order audit: Status update refused without an audit client
-func TestUpdateOrderStatusNilAuditWriterUnavailable(t *testing.T) {
-	r := newOrderRig(t, nil)
-	_, err := r.h.UpdateOrderStatus(adminUser(), ship("ord_p"))
-	wantCode(t, err, codes.Unavailable)
-	if got := r.status(t, "ord_p"); got != repository.OrderStatusPaid {
+	if got := r.status(t, "ord_p"); got != store.OrderStatusPaid {
 		t.Fatalf("order = %v, want Paid", got)
 	}
 }
@@ -337,7 +324,7 @@ func TestUpdateOrderStatusAdminInvalidTransitionAfterAudit(t *testing.T) {
 	if w.n() != 1 {
 		t.Fatalf("audit calls = %d, want 1", w.n())
 	}
-	if got := r.status(t, "ord_p"); got != repository.OrderStatusPaid {
+	if got := r.status(t, "ord_p"); got != store.OrderStatusPaid {
 		t.Fatalf("order = %v, want Paid", got)
 	}
 }
@@ -346,16 +333,15 @@ func TestUpdateOrderStatusAdminInvalidTransitionAfterAudit(t *testing.T) {
 
 type returnRig struct {
 	rmaEnv
-	h *handler.OrderHandler
+	h *rpc.OrderHandler
 }
 
-func newReturnRig(w *fakeAudit) returnRig {
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository()
-	returns := repository.NewInMemoryReturnRepository(repository.WithReturnOutbox(events.BuildReturnRefundedOutboxRow),
-		repository.WithInMemoryReturnOutbox(outbox, orders))
-	svc := service.NewOrderService(orders, nil, returns, nil, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil, opts(w)...)
+func newReturnRig(t testing.TB, w *fakeAudit) returnRig {
+	outbox := newPGOutbox(t)
+	orders := outbox.orders()
+	returns := outbox.returns(store.WithReturnOutbox(BuildReturnRefundedOutboxRow))
+	svc := newSvc(t, orders, nil, returns, nil, nil, nil, nil)
+	h := newHandler(t, svc, nil, nil, opts(w)...)
 	return returnRig{rmaEnv: rmaEnv{h: h, orders: orders, outbox: outbox}, h: h}
 }
 
@@ -382,7 +368,7 @@ func (r returnRig) pendingReturn(t *testing.T) (orderID, retID string) {
 // Scenario: Order audit: Admin approves a return
 func TestUpdateReturnStatusAdminWritesAuditEvent(t *testing.T) {
 	w := &fakeAudit{}
-	r := newReturnRig(w)
+	r := newReturnRig(t, w)
 	orderID, id := r.pendingReturn(t)
 	var seen orderv1.ReturnStatus
 	w.during = func() { seen = r.retStatus(t, id) }
@@ -401,14 +387,14 @@ func TestUpdateReturnStatusAdminWritesAuditEvent(t *testing.T) {
 
 // Scenario: Order audit: Seller updates their own return unaudited
 func TestUpdateReturnStatusSellerNotAudited(t *testing.T) {
-	for name, w := range map[string]*fakeAudit{"audit down": {err: errAuditDown}, "no audit client": nil} {
+	for name, w := range map[string]*fakeAudit{"audit down": {err: errAuditDown}} {
 		t.Run(name, func(t *testing.T) {
-			r := newReturnRig(w)
+			r := newReturnRig(t, w)
 			_, id := r.pendingReturn(t)
 			if err := r.setStatus(rmaSeller(), id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED); err != nil {
 				t.Fatal(err)
 			}
-			if w != nil && w.n() != 0 {
+			if w.n() != 0 {
 				t.Fatalf("audit calls = %d, want 0", w.n())
 			}
 		})
@@ -418,7 +404,7 @@ func TestUpdateReturnStatusSellerNotAudited(t *testing.T) {
 // Scenario: Order audit: Return update refused while audit is down
 func TestUpdateReturnStatusAuditDownUnavailableNoChange(t *testing.T) {
 	w := &fakeAudit{err: errAuditDown}
-	r := newReturnRig(w)
+	r := newReturnRig(t, w)
 	_, id := r.pendingReturn(t)
 	if err := r.setStatus(rmaSeller(), id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED); err != nil {
 		t.Fatal(err)
@@ -429,16 +415,6 @@ func TestUpdateReturnStatusAuditDownUnavailableNoChange(t *testing.T) {
 	}
 	if r.refundRows() != 0 {
 		t.Fatalf("ReturnRefunded rows = %d, want 0", r.refundRows())
-	}
-}
-
-// Scenario: Order audit: Return update refused without an audit client
-func TestUpdateReturnStatusNilAuditWriterUnavailable(t *testing.T) {
-	r := newReturnRig(nil)
-	_, id := r.pendingReturn(t)
-	wantCode(t, r.setStatus(adminCtx(), id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED), codes.Unavailable)
-	if got := r.retStatus(t, id); got != orderv1.ReturnStatus_RETURN_STATUS_PENDING {
-		t.Fatalf("return = %v, want Pending", got)
 	}
 }
 
@@ -459,7 +435,7 @@ func TestUpdateReturnStatusRefusedWritesNoAudit(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			w := &fakeAudit{}
-			r := newReturnRig(w)
+			r := newReturnRig(t, w)
 			_, id := r.pendingReturn(t)
 			wantCode(t, r.setStatus(tc.ctx(), tc.id(id), tc.st), tc.want)
 			if w.n() != 0 {
@@ -472,7 +448,7 @@ func TestUpdateReturnStatusRefusedWritesNoAudit(t *testing.T) {
 // Scenario: Order audit: Invalid return transition by an admin keeps the audit row
 func TestUpdateReturnStatusAdminInvalidTransitionAfterAudit(t *testing.T) {
 	w := &fakeAudit{}
-	r := newReturnRig(w)
+	r := newReturnRig(t, w)
 	_, id := r.pendingReturn(t)
 	wantCode(t, r.setStatus(adminCtx(), id, orderv1.ReturnStatus_RETURN_STATUS_REFUNDED), codes.FailedPrecondition)
 	if w.n() != 1 {
@@ -537,17 +513,31 @@ func TestCreateShipmentAuditCarrierTruncated(t *testing.T) {
 
 // Scenario: Order audit: Seller creates a shipment unaudited
 func TestCreateShipmentSellerNotAudited(t *testing.T) {
-	for name, w := range map[string]*fakeAudit{"audit down": {err: errAuditDown}, "no audit client": nil} {
+	for name, w := range map[string]*fakeAudit{"audit down": {err: errAuditDown}} {
 		t.Run(name, func(t *testing.T) {
 			r := newOrderRig(t, w)
 			if _, err := r.h.CreateShipment(sellerUser(), shipReq("ord_p", "SPX")); err != nil {
 				t.Fatal(err)
 			}
-			if w != nil && w.n() != 0 {
+			if w.n() != 0 {
 				t.Fatalf("audit calls = %d, want 0", w.n())
 			}
 		})
 	}
+}
+
+// Scenario: An audit write that hangs is bounded
+func TestCreateShipmentAuditTimeoutBounded(t *testing.T) {
+	w := &fakeAudit{block: true}
+	r := newOrderRig(t, w)
+	ctx, cancel := context.WithTimeout(adminUser(), 3*time.Second)
+	defer cancel()
+	_, err := r.h.CreateShipment(ctx, shipReq("ord_p", "SPX"))
+	wantCode(t, err, codes.Unavailable)
+	if ctx.Err() != nil {
+		t.Fatalf("the audit write outlived the 3s budget: %v", ctx.Err())
+	}
+	r.noShipment(t, "ord_p")
 }
 
 // Scenario: Order audit: Shipment refused while audit is down
@@ -557,17 +547,9 @@ func TestCreateShipmentAuditDownUnavailableNoChange(t *testing.T) {
 	_, err := r.h.CreateShipment(adminUser(), shipReq("ord_p", "SPX"))
 	wantCode(t, err, codes.Unavailable)
 	r.noShipment(t, "ord_p")
-	if got := r.status(t, "ord_p"); got != repository.OrderStatusPaid {
+	if got := r.status(t, "ord_p"); got != store.OrderStatusPaid {
 		t.Fatalf("order = %v, want Paid", got)
 	}
-}
-
-// Scenario: Order audit: Shipment refused without an audit client
-func TestCreateShipmentNilAuditWriterUnavailable(t *testing.T) {
-	r := newOrderRig(t, nil)
-	_, err := r.h.CreateShipment(adminUser(), shipReq("ord_p", "SPX"))
-	wantCode(t, err, codes.Unavailable)
-	r.noShipment(t, "ord_p")
 }
 
 // Scenario: Order audit: Refused shipment calls write no event
@@ -605,7 +587,7 @@ func TestCreateShipmentAdminInvalidStatusAfterAudit(t *testing.T) {
 		t.Fatalf("audit calls = %d, want 1", w.n())
 	}
 	r.noShipment(t, "ord_pending")
-	if got := r.status(t, "ord_pending"); got != repository.OrderStatusCancelled {
+	if got := r.status(t, "ord_pending"); got != store.OrderStatusCancelled {
 		t.Fatalf("order = %v, want Cancelled", got)
 	}
 }

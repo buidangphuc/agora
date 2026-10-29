@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 // ---- order-advertised-price task 9: checkout error mapping ----
 //
@@ -20,9 +20,10 @@ import (
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
 	promotionv1 "github.com/buidangphuc/team-order/generated/platform/promotion/v1"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
@@ -45,17 +46,17 @@ func (downFlash) GetActiveFlashSale(context.Context, *promotionv1.GetActiveFlash
 
 // flashLineHandler builds a handler over a real service whose buyer cart holds one
 // line priced 350000 against a regular price of 500000.
-func flashLineHandler(t *testing.T, opts ...service.OrderServiceOption) *handler.OrderHandler {
+func flashLineHandler(t *testing.T, opts ...order.OrderServiceOption) *rpc.OrderHandler {
 	t.Helper()
 	domain := &pricedDomain{Domain: upstreamtest.NewDomain(map[string]int32{"lst_1": 10})}
-	carts := repository.NewInMemoryCartRepository()
-	if _, err := carts.AddItem(context.Background(), repository.CartItem{
+	carts := fake.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), store.CartItem{
 		UserID: "buyer_1", ListingID: "lst_1", Quantity: 1, UnitPrice: 350000, SellerID: "s1", Title: "item",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	svc := service.NewOrderService(repository.NewInMemoryOrderRepository(), carts, nil, nil, domain, nil, nil, opts...)
-	return handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil)
+	svc := newSvc(t, fake.NewInMemoryOrderRepository(), carts, nil, nil, domain, nil, nil, opts...)
+	return newHandler(t, svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil)
 }
 
 func TestCreateOrderPriceChangedFailedPrecondition(t *testing.T) {
@@ -72,7 +73,7 @@ func TestCreateOrderPriceChangedFailedPrecondition(t *testing.T) {
 }
 
 func TestCreateOrderPromotionUnavailableUnavailable(t *testing.T) {
-	h := flashLineHandler(t, service.WithOrderFlashSaleClient(downFlash{}))
+	h := flashLineHandler(t, order.WithOrderFlashSaleClient(downFlash{}))
 	_, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{})
 	if status.Code(err) != codes.Unavailable {
 		t.Fatalf("code = %v (%v), want Unavailable", status.Code(err), err)

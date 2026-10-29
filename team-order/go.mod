@@ -25,6 +25,10 @@ require github.com/stretchr/testify v1.12.1
 require (
 	github.com/bits-and-blooms/bitset v1.24.6 // indirect
 	github.com/failsafe-go/failsafe-go v0.9.8 // indirect
+	github.com/google/gnostic-models v0.6.9 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.4 // indirect
+	github.com/open-feature/go-sdk-contrib/providers/flipt v0.1.5 // indirect
+	go.uber.org/mock v0.6.0 // indirect
 )
 
 require (

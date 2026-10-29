@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -12,43 +12,41 @@ import (
 
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/events"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 type receiptEnv struct {
-	h      *handler.OrderHandler
-	orders *repository.InMemoryOrderRepository
-	outbox *repository.InMemoryOutboxRepository
+	h      *rpc.OrderHandler
+	orders *store.PostgresOrderRepository
+	outbox *pgOutbox
 }
 
-func newReceiptEnv() receiptEnv {
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository(repository.WithCompletedOutbox(events.BuildCompletedOutboxRow), repository.WithInMemoryOutbox(outbox), repository.WithReturnWindow(15*24*time.Hour))
-	returns := repository.NewInMemoryReturnRepository()
-	svc := service.NewOrderService(orders, nil, returns, nil, nil, nil, nil)
-	return receiptEnv{h: handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{})), orders: orders, outbox: outbox}
+func newReceiptEnv(t testing.TB) receiptEnv {
+	outbox := newPGOutbox(t)
+	orders := outbox.orders(store.WithCompletedOutbox(BuildCompletedOutboxRow), store.WithReturnWindow(15*24*time.Hour))
+	returns := outbox.returns()
+	svc := newSvc(t, orders, nil, returns, nil, nil, nil, nil)
+	return receiptEnv{h: newHandler(t, svc, nil, nil, withAudit(&fakeAudit{})), orders: orders, outbox: outbox}
 }
 
-func (e receiptEnv) order(t *testing.T, to repository.OrderStatus) repository.Order {
+func (e receiptEnv) order(t *testing.T, to store.OrderStatus) store.Order {
 	t.Helper()
 	ctx := context.Background()
-	o, err := e.orders.CreateOrder(ctx, repository.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 5000, Currency: "VND"})
+	o, err := e.orders.CreateOrder(ctx, store.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 5000, Currency: "VND"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if to == repository.OrderStatusPending {
+	if to == store.OrderStatusPending {
 		return o
 	}
-	if o, err = e.orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusPaid, []repository.OrderStatus{repository.OrderStatusPending}, ""); err != nil {
+	if o, err = e.orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, []store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
 		t.Fatal(err)
 	}
-	if to == repository.OrderStatusPaid {
+	if to == store.OrderStatusPaid {
 		return o
 	}
-	if o, err = e.orders.UpdateOrderStatusFrom(ctx, o.ID, repository.OrderStatusShipped, []repository.OrderStatus{repository.OrderStatusPaid}, "T"); err != nil {
+	if o, err = e.orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped, []store.OrderStatus{store.OrderStatusPaid}, "T"); err != nil {
 		t.Fatal(err)
 	}
 	return o
@@ -57,7 +55,7 @@ func (e receiptEnv) order(t *testing.T, to repository.OrderStatus) repository.Or
 func (e receiptEnv) completedCount(t *testing.T, orderID string) (n int, by []orderv1.CompletedBy) {
 	t.Helper()
 	for _, row := range e.outbox.EnqueuedRows() {
-		if row.AggregateID != orderID || row.EventType != events.OrderCompletedEventType {
+		if row.AggregateID != orderID || row.EventType != OrderCompletedEventType {
 			continue
 		}
 		var env eventsv1.EventEnvelope
@@ -74,7 +72,7 @@ func (e receiptEnv) completedCount(t *testing.T, orderID string) (n int, by []or
 	return n, by
 }
 
-func (e receiptEnv) statusOf(t *testing.T, id string) repository.OrderStatus {
+func (e receiptEnv) statusOf(t *testing.T, id string) store.OrderStatus {
 	t.Helper()
 	o, err := e.orders.GetOrder(context.Background(), id)
 	if err != nil {
@@ -92,8 +90,8 @@ func wantReceiptCode(t *testing.T, err error, want codes.Code) {
 
 // Scenario: Order receipt: Buyer confirms a shipped order
 func TestConfirmReceiptBuyerConfirmsShippedOrder(t *testing.T) {
-	e := newReceiptEnv()
-	o := e.order(t, repository.OrderStatusShipped)
+	e := newReceiptEnv(t)
+	o := e.order(t, store.OrderStatusShipped)
 	res, err := e.h.ConfirmReceipt(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.ConfirmReceiptRequest{Id: o.ID})
 	if err != nil {
 		t.Fatalf("confirm: %v", err)
@@ -115,17 +113,17 @@ func TestConfirmReceiptBuyerConfirmsShippedOrder(t *testing.T) {
 func TestConfirmReceiptNonBuyerIsPermissionDenied(t *testing.T) {
 	for _, tc := range []struct {
 		name string
-		to   repository.OrderStatus
+		to   store.OrderStatus
 		ctx  context.Context
 	}{
-		{"seller", repository.OrderStatusShipped, incomingPrincipalCtx("seller_1", "seller")},
-		{"other buyer", repository.OrderStatusShipped, incomingPrincipalCtx("buyer_2", "buyer")},
-		{"service", repository.OrderStatusShipped, serviceCtx("order.write")},
+		{"seller", store.OrderStatusShipped, incomingPrincipalCtx("seller_1", "seller")},
+		{"other buyer", store.OrderStatusShipped, incomingPrincipalCtx("buyer_2", "buyer")},
+		{"service", store.OrderStatusShipped, serviceCtx("order.write")},
 		// permission is decided before the status is revealed
-		{"other buyer on a paid order", repository.OrderStatusPaid, incomingPrincipalCtx("buyer_2", "buyer")},
+		{"other buyer on a paid order", store.OrderStatusPaid, incomingPrincipalCtx("buyer_2", "buyer")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			e := newReceiptEnv()
+			e := newReceiptEnv(t)
 			o := e.order(t, tc.to)
 			_, err := e.h.ConfirmReceipt(tc.ctx, &orderv1.ConfirmReceiptRequest{Id: o.ID})
 			wantReceiptCode(t, err, codes.PermissionDenied)
@@ -142,9 +140,9 @@ func TestConfirmReceiptNonBuyerIsPermissionDenied(t *testing.T) {
 // Scenario: Order receipt: Confirming an order that is not shipped is refused
 // and Scenario: Order receipt: A refused completion emits nothing
 func TestConfirmReceiptNotShippedIsFailedPrecondition(t *testing.T) {
-	for name, to := range map[string]repository.OrderStatus{"pending": repository.OrderStatusPending, "paid": repository.OrderStatusPaid} {
+	for name, to := range map[string]store.OrderStatus{"pending": store.OrderStatusPending, "paid": store.OrderStatusPaid} {
 		t.Run(name, func(t *testing.T) {
-			e := newReceiptEnv()
+			e := newReceiptEnv(t)
 			o := e.order(t, to)
 			_, err := e.h.ConfirmReceipt(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.ConfirmReceiptRequest{Id: o.ID})
 			wantReceiptCode(t, err, codes.FailedPrecondition)
@@ -160,7 +158,7 @@ func TestConfirmReceiptNotShippedIsFailedPrecondition(t *testing.T) {
 
 // Scenario: Order receipt: Confirming an unknown order is not found
 func TestConfirmReceiptUnknownOrderNotFound(t *testing.T) {
-	e := newReceiptEnv()
+	e := newReceiptEnv(t)
 	_, err := e.h.ConfirmReceipt(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.ConfirmReceiptRequest{Id: "ord_missing"})
 	wantReceiptCode(t, err, codes.NotFound)
 }
@@ -168,21 +166,21 @@ func TestConfirmReceiptUnknownOrderNotFound(t *testing.T) {
 // Scenario: Order receipt: Confirming an order that is not shipped is refused
 // (empty id is a client error; no principal is unauthenticated).
 func TestConfirmReceiptRejectsEmptyIDAndNoPrincipal(t *testing.T) {
-	e := newReceiptEnv()
+	e := newReceiptEnv(t)
 	_, err := e.h.ConfirmReceipt(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.ConfirmReceiptRequest{})
 	wantReceiptCode(t, err, codes.InvalidArgument)
-	o := e.order(t, repository.OrderStatusShipped)
+	o := e.order(t, store.OrderStatusShipped)
 	_, err = e.h.ConfirmReceipt(context.Background(), &orderv1.ConfirmReceiptRequest{Id: o.ID})
 	wantReceiptCode(t, err, codes.Unauthenticated)
-	if e.statusOf(t, o.ID) != repository.OrderStatusShipped {
+	if e.statusOf(t, o.ID) != store.OrderStatusShipped {
 		t.Fatal("order must be unchanged")
 	}
 }
 
 // Scenario: Order receipt: Concurrent confirms emit one OrderCompleted
 func TestConfirmReceiptConcurrentConfirmsEmitOneOrderCompleted(t *testing.T) {
-	e := newReceiptEnv()
-	o := e.order(t, repository.OrderStatusShipped)
+	e := newReceiptEnv(t)
+	o := e.order(t, store.OrderStatusShipped)
 	const n = 8
 	errs := make([]error, n)
 	var wg sync.WaitGroup
@@ -218,8 +216,8 @@ func TestConfirmReceiptConcurrentConfirmsEmitOneOrderCompleted(t *testing.T) {
 
 // Scenario: Order receipt: A completed order cannot be reopened or cancelled
 func TestConfirmReceiptCompletedOrderCannotBeReopenedOrCancelled(t *testing.T) {
-	e := newReceiptEnv()
-	o := e.order(t, repository.OrderStatusShipped)
+	e := newReceiptEnv(t)
+	o := e.order(t, store.OrderStatusShipped)
 	buyer := incomingPrincipalCtx("buyer_1", "buyer")
 	if _, err := e.h.ConfirmReceipt(buyer, &orderv1.ConfirmReceiptRequest{Id: o.ID}); err != nil {
 		t.Fatal(err)
@@ -230,7 +228,7 @@ func TestConfirmReceiptCompletedOrderCannotBeReopenedOrCancelled(t *testing.T) {
 	if err == nil {
 		t.Fatal("reopening a completed order must fail")
 	}
-	if e.statusOf(t, o.ID) != repository.OrderStatusCompleted {
+	if e.statusOf(t, o.ID) != store.OrderStatusCompleted {
 		t.Fatal("order must stay COMPLETED")
 	}
 }
@@ -239,8 +237,8 @@ func TestConfirmReceiptCompletedOrderCannotBeReopenedOrCancelled(t *testing.T) {
 // is task 5 / e2e; the handler keeps seller completion working and emitting.
 // Scenario: Order receipt: Seller completion still works and emits OrderCompleted
 func TestUpdateOrderStatusSellerCompletionEmitsSellerOrderCompleted(t *testing.T) {
-	e := newReceiptEnv()
-	o := e.order(t, repository.OrderStatusShipped)
+	e := newReceiptEnv(t)
+	o := e.order(t, store.OrderStatusShipped)
 	if _, err := e.h.UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), &orderv1.UpdateOrderStatusRequest{Id: o.ID, Status: orderv1.OrderStatus_ORDER_STATUS_COMPLETED}); err != nil {
 		t.Fatal(err)
 	}

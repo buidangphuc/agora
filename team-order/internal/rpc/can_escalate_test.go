@@ -1,11 +1,11 @@
-package handler_test
+package rpc_test
 
 import (
 	"testing"
 	"time"
 
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
 func (e *windowEnv) newReturn(t *testing.T, orderID string) string {
@@ -38,8 +38,8 @@ func (e *windowEnv) get(t *testing.T, id string) *orderv1.OrderReturn {
 
 // Scenario: Order receipt: A rejected return on a shipped order can escalate
 func TestCanEscalateRejectedOnShipped(t *testing.T) {
-	e := newWindowEnv()
-	o := e.order(t, repository.OrderStatusShipped)
+	e := newWindowEnv(t)
+	o := e.order(t, store.OrderStatusShipped)
 	id := e.newReturn(t, o.ID)
 	e.setTo(t, id, orderv1.ReturnStatus_RETURN_STATUS_REJECTED)
 	r := e.get(t, id)
@@ -50,8 +50,8 @@ func TestCanEscalateRejectedOnShipped(t *testing.T) {
 
 // Scenario: Order receipt: A rejected return on a shipped order can escalate (UpdateReturnStatus response)
 func TestCanEscalateOnUpdateReturnStatusResponse(t *testing.T) {
-	e := newWindowEnv()
-	o := e.order(t, repository.OrderStatusShipped)
+	e := newWindowEnv(t)
+	o := e.order(t, store.OrderStatusShipped)
 	id := e.newReturn(t, o.ID)
 	resp, err := e.h.UpdateReturnStatus(incomingPrincipalCtx("seller_1", "seller"),
 		&orderv1.UpdateReturnStatusRequest{Id: id, Status: orderv1.ReturnStatus_RETURN_STATUS_REJECTED})
@@ -65,8 +65,8 @@ func TestCanEscalateOnUpdateReturnStatusResponse(t *testing.T) {
 
 // Scenario: Order receipt: A rejected return inside the window after completion can escalate
 func TestCanEscalateRejectedInsideWindow(t *testing.T) {
-	e := newWindowEnv()
-	o := e.order(t, repository.OrderStatusCompleted)
+	e := newWindowEnv(t)
+	o := e.order(t, store.OrderStatusCompleted)
 	e.now = o.ReturnWindowEndsAt.Add(-time.Second)
 	id := e.newReturn(t, o.ID)
 	e.setTo(t, id, orderv1.ReturnStatus_RETURN_STATUS_REJECTED)
@@ -77,8 +77,8 @@ func TestCanEscalateRejectedInsideWindow(t *testing.T) {
 
 // Scenario: Order receipt: A rejected return cannot escalate after the window closes
 func TestCanEscalateFalseAfterWindowCloses(t *testing.T) {
-	e := newWindowEnv()
-	o := e.order(t, repository.OrderStatusCompleted)
+	e := newWindowEnv(t)
+	o := e.order(t, store.OrderStatusCompleted)
 	e.now = o.ReturnWindowEndsAt.Add(-time.Second)
 	id := e.newReturn(t, o.ID)
 	e.setTo(t, id, orderv1.ReturnStatus_RETURN_STATUS_REJECTED)
@@ -94,8 +94,8 @@ func TestCanEscalateFalseAfterWindowCloses(t *testing.T) {
 
 // Scenario: Order receipt: A return that is not rejected cannot escalate
 func TestCanEscalateFalseUnlessRejected(t *testing.T) {
-	e := newWindowEnv()
-	o := e.order(t, repository.OrderStatusShipped)
+	e := newWindowEnv(t)
+	o := e.order(t, store.OrderStatusShipped)
 	pending := e.newReturn(t, o.ID)
 	approved := e.newReturn(t, o.ID)
 	e.setTo(t, approved, orderv1.ReturnStatus_RETURN_STATUS_APPROVED)
@@ -116,8 +116,8 @@ func TestCanEscalateFalseUnlessRejected(t *testing.T) {
 
 // Scenario: Order receipt: ListOrderReturns computes can_escalate per return
 func TestListOrderReturnsCanEscalatePerReturn(t *testing.T) {
-	e := newWindowEnv()
-	o := e.order(t, repository.OrderStatusShipped)
+	e := newWindowEnv(t)
+	o := e.order(t, store.OrderStatusShipped)
 	pending := e.newReturn(t, o.ID)
 	rejected := e.newReturn(t, o.ID)
 	e.setTo(t, rejected, orderv1.ReturnStatus_RETURN_STATUS_REJECTED)
@@ -138,8 +138,8 @@ func TestListOrderReturnsCanEscalatePerReturn(t *testing.T) {
 // CreateReturnRequestRequest has no can_escalate field, so the wire cannot carry it;
 // the created PENDING return must read false, and a REJECTED one must be server computed.
 func TestCreateReturnIgnoresClientCanEscalate(t *testing.T) {
-	e := newWindowEnv()
-	o := e.order(t, repository.OrderStatusShipped)
+	e := newWindowEnv(t)
+	o := e.order(t, store.OrderStatusShipped)
 	resp, err := e.h.CreateReturnRequest(incomingPrincipalCtx("buyer_1", "buyer"),
 		&orderv1.CreateReturnRequestRequest{OrderId: o.ID, Reason: "broken", RefundAmount: 100000})
 	if err != nil {

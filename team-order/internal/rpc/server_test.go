@@ -1,9 +1,7 @@
-package grpcserver_test
+package rpc_test
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"net"
 	"testing"
 	"time"
@@ -11,15 +9,18 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/test/bufconn"
+
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
 
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/config"
-	"github.com/buidangphuc/team-order/internal/grpcserver"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store/fake"
 )
 
 type mockDomainClient struct {
@@ -42,7 +43,7 @@ func (m *mockDomainClient) ReserveStock(_ context.Context, req *listingv1.Reserv
 	}
 	cur := m.stocks[key]
 	if cur < req.GetQuantity() {
-		return nil, service.ErrInsufficientStock
+		return nil, order.ErrInsufficientStock
 	}
 	m.stocks[key] -= req.GetQuantity()
 	return &listingv1.ReserveStockResponse{Success: true}, nil
@@ -98,13 +99,10 @@ func principalCtx(t *testing.T, userID string) (context.Context, context.CancelF
 
 func setupServer(t *testing.T) (orderv1.CartServiceClient, orderv1.OrderServiceClient, *mockDomainClient) {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	cfg := &config.Settings{
-		Server: config.Server{Host: "localhost", Port: 0},
-	}
+	logger := discardLogger()
 
-	cartRepo := repository.NewInMemoryCartRepository()
-	orderRepo := repository.NewInMemoryOrderRepository()
+	cartRepo := fake.NewInMemoryCartRepository()
+	orderRepo := fake.NewInMemoryOrderRepository()
 
 	domain := &mockDomainClient{
 		listings: map[string]*listingv1.Listing{
@@ -145,28 +143,29 @@ func setupServer(t *testing.T) (orderv1.CartServiceClient, orderv1.OrderServiceC
 		},
 	}
 
-	returnRepo := repository.NewInMemoryReturnRepository()
-	shipmentRepo := repository.NewInMemoryShipmentRepository()
+	returnRepo := fake.NewInMemoryReturnRepository()
+	shipmentRepo := fake.NewInMemoryShipmentRepository()
 
-	cartSvc := service.NewCartService(cartRepo, orderRepo, domain, logger)
-	orderSvc := service.NewOrderService(orderRepo, cartRepo, returnRepo, shipmentRepo, domain, addrClient, logger)
+	cartSvc := newCart(t, cartRepo, orderRepo, domain, logger)
+	orderSvc := newSvc(t, orderRepo, cartRepo, returnRepo, shipmentRepo, domain, addrClient, logger)
 
-	cartHandler := handler.NewCartHandler(cartSvc, logger)
-	orderHandler := handler.NewOrderHandler(orderSvc, addrClient, logger)
+	cartHandler := rpc.NewCartHandler(cartSvc, logger)
+	orderHandler := newHandler(t, orderSvc, addrClient, logger)
 
-	srv := grpcserver.Build(cfg, cartHandler, orderHandler, nil, logger)
-
-	lis, err := net.Listen("tcp", "localhost:0")
+	hl, err := healthx.New(healthx.DefaultInterval, logger)
 	if err != nil {
-		t.Fatalf("listen: %v", err)
+		t.Fatalf("health: %v", err)
 	}
-	t.Cleanup(srv.GracefulStop)
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: sdkconfig.GRPC{}, Logger: logger, Health: hl})
+	rpc.Register(srv, cartHandler, orderHandler)
 
-	go func() {
-		_ = srv.Serve(lis)
-	}()
+	lis := bufconn.Listen(1 << 20)
+	t.Cleanup(srv.Stop)
+	go func() { _ = srv.Serve(lis) }()
 
-	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("passthrough:///bufnet",
+		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return lis.Dial() }),
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}

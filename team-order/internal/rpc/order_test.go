@@ -1,49 +1,46 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/open-feature/go-sdk/openfeature"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/flags"
 	commonv1 "github.com/buidangphuc/team-order/generated/platform/common/v1"
 	identityv1 "github.com/buidangphuc/team-order/generated/platform/identity/v1"
 	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/handler"
-	"github.com/buidangphuc/team-order/internal/interceptor"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
+	"github.com/buidangphuc/team-order/internal/upstream/upstreamtest"
 )
 
-// fakeFlags is a hand-rolled Evaluator for the checkout kill-switch tests.
-type fakeFlags struct{ enabled bool }
-
-func (f fakeFlags) BooleanEnabled(_ context.Context, _ string, _ bool) bool { return f.enabled }
-
 type mockOrderServiceRepo struct {
-	orders map[string]repository.Order
+	orders map[string]store.Order
 }
 
-func (m *mockOrderServiceRepo) CreateOrder(ctx context.Context, o repository.Order) (repository.Order, error) {
+func (m *mockOrderServiceRepo) CreateOrder(ctx context.Context, o store.Order) (store.Order, error) {
 	if m.orders == nil {
-		m.orders = make(map[string]repository.Order)
+		m.orders = make(map[string]store.Order)
 	}
 	m.orders[o.ID] = o
 	return o, nil
 }
 
-func (m *mockOrderServiceRepo) GetOrder(ctx context.Context, id string) (repository.Order, error) {
+func (m *mockOrderServiceRepo) GetOrder(ctx context.Context, id string) (store.Order, error) {
 	if o, ok := m.orders[id]; ok {
 		return o, nil
 	}
-	return repository.Order{}, repository.ErrOrderNotFound
+	return store.Order{}, store.ErrOrderNotFound
 }
 
-func (m *mockOrderServiceRepo) ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]repository.Order, error) {
-	var list []repository.Order
+func (m *mockOrderServiceRepo) ListBuyerOrders(ctx context.Context, buyerID string, statusFilter int32) ([]store.Order, error) {
+	var list []store.Order
 	for _, o := range m.orders {
 		if o.BuyerID == buyerID {
 			list = append(list, o)
@@ -52,8 +49,8 @@ func (m *mockOrderServiceRepo) ListBuyerOrders(ctx context.Context, buyerID stri
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]repository.Order, error) {
-	var list []repository.Order
+func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID string, statusFilter int32) ([]store.Order, error) {
+	var list []store.Order
 	for _, o := range m.orders {
 		if o.SellerID == sellerID {
 			list = append(list, o)
@@ -62,10 +59,10 @@ func (m *mockOrderServiceRepo) ListSellerOrders(ctx context.Context, sellerID st
 	return list, nil
 }
 
-func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to repository.OrderStatus, from []repository.OrderStatus, trackingNumber string, _ ...repository.StatusOption) (repository.Order, error) {
+func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id string, to store.OrderStatus, from []store.OrderStatus, trackingNumber string, _ ...store.StatusOption) (store.Order, error) {
 	o, ok := m.orders[id]
 	if !ok {
-		return repository.Order{}, repository.ErrOrderNotFound
+		return store.Order{}, store.ErrOrderNotFound
 	}
 	allowed := false
 	for _, st := range from {
@@ -74,13 +71,13 @@ func (m *mockOrderServiceRepo) UpdateOrderStatusFrom(_ context.Context, id strin
 		}
 	}
 	if !allowed {
-		return repository.Order{}, repository.ErrStatusConflict
+		return store.Order{}, store.ErrStatusConflict
 	}
 	o.Status = to
 	if trackingNumber != "" {
 		o.TrackingNumber = trackingNumber
 	}
-	if to == repository.OrderStatusPaid {
+	if to == store.OrderStatusPaid {
 		now := time.Now()
 		o.PaidAt = &now
 	}
@@ -94,18 +91,18 @@ func incomingPrincipalCtx(userID, userType string) context.Context {
 		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
 		Scopes: []string{"order.read", "order.write"},
 	}
-	return interceptor.ContextWithPrincipal(context.Background(), p)
+	return withPrincipal(context.Background(), p)
 }
 
 func serviceCtx(scopes ...string) context.Context {
-	return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+	return withPrincipal(context.Background(), &commonv1.Principal{
 		Id: "svc_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE, Scopes: scopes,
 	})
 }
 
 func TestOrderHandler_CalculateShippingFee(t *testing.T) {
-	svc := service.NewOrderService(nil, nil, nil, nil, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+	svc := newSvc(t, nil, nil, nil, nil, nil, nil, nil)
+	h := newHandler(t, svc, nil, nil, withAudit(&fakeAudit{}))
 	ctx := context.Background()
 
 	t.Run("Free Shipping Over 500k", func(t *testing.T) {
@@ -141,70 +138,99 @@ func TestOrderHandler_CalculateShippingFee(t *testing.T) {
 	})
 }
 
-func TestOrderHandler_CreateOrder_KillSwitchOff(t *testing.T) {
-	// Flag OFF → checkout rejected before the saga runs.
-	svc := service.NewOrderService(nil, nil, nil, nil, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithFeatureFlags(fakeFlags{enabled: false}))
-	ctx := incomingPrincipalCtx("buyer_1", "buyer")
+func killSwitchRig(t *testing.T, ev flagsEvaluator) (*rpc.OrderHandler, *upstreamtest.Domain, *fake.InMemoryOrderRepository) {
+	t.Helper()
+	domain := upstreamtest.NewDomain(map[string]int32{"lst_1": 10})
+	orders := fake.NewInMemoryOrderRepository()
+	carts := fake.NewInMemoryCartRepository()
+	if _, err := carts.AddItem(context.Background(), store.CartItem{
+		UserID: "buyer_1", ListingID: "lst_1", Quantity: 2, UnitPrice: 1000, SellerID: "s1", Title: "item",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	svc := newSvc(t, orders, carts, nil, nil, domain, nil, nil)
+	return newHandler(t, svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil, withFlags(ev)), domain, orders
+}
 
-	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
+func ordersOf(t *testing.T, orders *fake.InMemoryOrderRepository, buyer string) int {
+	t.Helper()
+	list, err := orders.ListBuyerOrders(context.Background(), buyer, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(list)
+}
+
+// Scenario: Kill-switch off blocks CreateOrder
+func TestOrderHandler_CreateOrder_KillSwitchOff(t *testing.T) {
+	h, domain, orders := killSwitchRig(t, fakeFlags{enabled: false})
+	_, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{})
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("expected FailedPrecondition, got %v", err)
 	}
-	if msg := status.Convert(err).Message(); !strings.Contains(msg, "unavailable") {
-		t.Fatalf("expected checkout-unavailable message, got %q", msg)
+	if msg := status.Convert(err).Message(); msg != "checkout is temporarily unavailable" {
+		t.Fatalf("message = %q, want %q", msg, "checkout is temporarily unavailable")
+	}
+	if domain.Calls.Reserve != 0 || domain.Stock("lst_1") != 10 {
+		t.Fatalf("no reservation may exist: reserve calls %d, stock %d", domain.Calls.Reserve, domain.Stock("lst_1"))
+	}
+	if n := ordersOf(t, orders, "buyer_1"); n != 0 {
+		t.Fatalf("orders = %d, want 0", n)
 	}
 }
 
+// Scenario: Kill-switch on allows CreateOrder
 func TestOrderHandler_CreateOrder_KillSwitchOn(t *testing.T) {
-	// Flag ON → gate passes, request reaches the service. With an empty cart the
-	// service returns ErrEmptyCart, proving the kill-switch let it through (a
-	// distinct precondition message from the kill-switch one).
-	cartRepo := repository.NewInMemoryCartRepository()
-	svc := service.NewOrderService(
-		repository.NewInMemoryOrderRepository(), cartRepo, nil, nil, nil, nil, nil,
-	)
-	h := handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil, handler.WithFeatureFlags(fakeFlags{enabled: true}))
-	ctx := incomingPrincipalCtx("buyer_1", "buyer")
-
-	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
-	if status.Code(err) != codes.FailedPrecondition {
-		t.Fatalf("expected FailedPrecondition (empty cart), got %v", err)
+	h, _, orders := killSwitchRig(t, fakeFlags{enabled: true})
+	res, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{})
+	if err != nil {
+		t.Fatalf("CreateOrder: %v", err)
 	}
-	if msg := status.Convert(err).Message(); !strings.Contains(msg, "cart is empty") {
-		t.Fatalf("expected empty-cart message (gate passed), got %q", msg)
+	if len(res.GetOrders()) != 1 {
+		t.Fatalf("response orders = %d, want 1", len(res.GetOrders()))
+	}
+	if n := ordersOf(t, orders, "buyer_1"); n != 1 {
+		t.Fatalf("orders = %d, want 1", n)
 	}
 }
 
-func TestOrderHandler_CreateOrder_NoFlagsFailsOpen(t *testing.T) {
-	// No evaluator wired → treated as enabled (fail-open); request reaches the
-	// service and hits the empty-cart precondition, not the kill-switch.
-	cartRepo := repository.NewInMemoryCartRepository()
-	svc := service.NewOrderService(
-		repository.NewInMemoryOrderRepository(), cartRepo, nil, nil, nil, nil, nil,
-	)
-	h := handler.NewOrderHandler(svc, &fakeAddrClient{addrs: []*identityv1.Address{addrA()}}, nil, handler.WithAuditWriter(&fakeAudit{}))
-	ctx := incomingPrincipalCtx("buyer_1", "buyer")
+type erroringFlagProvider struct{ openfeature.NoopProvider }
 
-	_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
-	if msg := status.Convert(err).Message(); !strings.Contains(msg, "cart is empty") {
-		t.Fatalf("expected empty-cart message (fail-open), got %q", msg)
+func (erroringFlagProvider) BooleanEvaluation(_ context.Context, _ string, def bool, _ openfeature.FlattenedContext) openfeature.BoolResolutionDetail {
+	d := openfeature.BoolResolutionDetail{Value: def}
+	d.ResolutionError = openfeature.NewGeneralResolutionError("flipt unreachable")
+	d.Reason = openfeature.ErrorReason
+	return d
+}
+
+// Scenario: A flag outage fails open
+func TestOrderHandler_CreateOrder_FlagProviderErrorFailsOpen(t *testing.T) {
+	client, err := flags.NewWithProvider(context.Background(), erroringFlagProvider{}, time.Second, discardLogger())
+	if err != nil {
+		t.Fatalf("flags.NewWithProvider: %v", err)
+	}
+	h, _, orders := killSwitchRig(t, client)
+	if _, err := h.CreateOrder(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.CreateOrderRequest{}); err != nil {
+		t.Fatalf("CreateOrder must proceed when the flag provider errors: %v", err)
+	}
+	if n := ordersOf(t, orders, "buyer_1"); n != 1 {
+		t.Fatalf("orders = %d, want 1", n)
 	}
 }
 
 func TestOrderHandler_GetSagaState(t *testing.T) {
 	repo := &mockOrderServiceRepo{
-		orders: map[string]repository.Order{
+		orders: map[string]store.Order{
 			"ord_123": {
 				ID:          "ord_123",
 				BuyerID:     "buyer_1",
 				TotalAmount: 100000,
-				Status:      repository.OrderStatusPending,
+				Status:      store.OrderStatusPending,
 			},
 		},
 	}
-	svc := service.NewOrderService(repo, nil, nil, nil, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+	svc := newSvc(t, repo, nil, nil, nil, nil, nil, nil)
+	h := newHandler(t, svc, nil, nil, withAudit(&fakeAudit{}))
 	ctx := incomingPrincipalCtx("buyer_1", "buyer")
 
 	res, err := h.GetSagaState(ctx, &orderv1.GetSagaStateRequest{OrderId: "ord_123"})
@@ -218,17 +244,17 @@ func TestOrderHandler_GetSagaState(t *testing.T) {
 
 func TestOrderHandler_ForceFailSaga(t *testing.T) {
 	repo := &mockOrderServiceRepo{
-		orders: map[string]repository.Order{
+		orders: map[string]store.Order{
 			"ord_123": {
 				ID:          "ord_123",
 				BuyerID:     "buyer_1",
 				TotalAmount: 100000,
-				Status:      repository.OrderStatusPending,
+				Status:      store.OrderStatusPending,
 			},
 		},
 	}
-	svc := service.NewOrderService(repo, nil, nil, nil, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+	svc := newSvc(t, repo, nil, nil, nil, nil, nil, nil)
+	h := newHandler(t, svc, nil, nil, withAudit(&fakeAudit{}))
 	ctx := adminCtx()
 
 	res, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_123"})
@@ -242,19 +268,19 @@ func TestOrderHandler_ForceFailSaga(t *testing.T) {
 
 func TestOrderHandler_RMA(t *testing.T) {
 	orderRepo := &mockOrderServiceRepo{
-		orders: map[string]repository.Order{
+		orders: map[string]store.Order{
 			"ord_comp": {
 				ID:          "ord_comp",
 				BuyerID:     "buyer_1",
 				SellerID:    "seller_1",
 				TotalAmount: 300000,
-				Status:      repository.OrderStatusCompleted,
+				Status:      store.OrderStatusCompleted,
 			},
 		},
 	}
-	returnRepo := repository.NewInMemoryReturnRepository()
-	svc := service.NewOrderService(orderRepo, nil, returnRepo, nil, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+	returnRepo := fake.NewInMemoryReturnRepository()
+	svc := newSvc(t, orderRepo, nil, returnRepo, nil, nil, nil, nil)
+	h := newHandler(t, svc, nil, nil, withAudit(&fakeAudit{}))
 
 	buyerCtx := incomingPrincipalCtx("buyer_1", "buyer")
 	sellerCtx := incomingPrincipalCtx("seller_1", "seller")
@@ -301,19 +327,19 @@ func TestOrderHandler_RMA(t *testing.T) {
 
 func TestOrderHandler_Shipment(t *testing.T) {
 	orderRepo := &mockOrderServiceRepo{
-		orders: map[string]repository.Order{
+		orders: map[string]store.Order{
 			"ord_ship": {
 				ID:          "ord_ship",
 				BuyerID:     "buyer_1",
 				SellerID:    "seller_1",
 				TotalAmount: 250000,
-				Status:      repository.OrderStatusPaid,
+				Status:      store.OrderStatusPaid,
 			},
 		},
 	}
-	shipmentRepo := repository.NewInMemoryShipmentRepository()
-	svc := service.NewOrderService(orderRepo, nil, nil, shipmentRepo, nil, nil, nil)
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+	shipmentRepo := fake.NewInMemoryShipmentRepository()
+	svc := newSvc(t, orderRepo, nil, nil, shipmentRepo, nil, nil, nil)
+	h := newHandler(t, svc, nil, nil, withAudit(&fakeAudit{}))
 
 	sellerCtx := incomingPrincipalCtx("seller_1", "seller")
 
@@ -346,48 +372,48 @@ func TestOrderHandler_Shipment(t *testing.T) {
 }
 
 func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
-	newHandler := func(st repository.OrderStatus) *handler.OrderHandler {
-		repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
+	newHandler := func(st store.OrderStatus) *rpc.OrderHandler {
+		repo := &mockOrderServiceRepo{orders: map[string]store.Order{
 			"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1", Status: st},
 		}}
-		return handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+		return newHandler(t, newSvc(t, repo, nil, nil, nil, nil, nil, nil), nil, nil, withAudit(&fakeAudit{}))
 	}
 	req := func(to orderv1.OrderStatus) *orderv1.UpdateOrderStatusRequest {
 		return &orderv1.UpdateOrderStatusRequest{Id: "ord_1", Status: to}
 	}
-	adminCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+	adminCtx := withPrincipal(context.Background(), &commonv1.Principal{
 		Id: "admin_1", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "order.admin"},
 	})
-	anonCtx := interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{
+	anonCtx := withPrincipal(context.Background(), &commonv1.Principal{
 		Id: "anonymous", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS,
 	})
 
 	t.Run("no principal denied", func(t *testing.T) {
-		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(context.Background(), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		_, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(context.Background(), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
 		if status.Code(err) != codes.Unauthenticated {
 			t.Fatalf("want Unauthenticated, got %v", err)
 		}
 	})
 	t.Run("anonymous principal denied", func(t *testing.T) {
-		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(anonCtx, req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		_, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(anonCtx, req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
 		if status.Code(err) != codes.Unauthenticated {
 			t.Fatalf("want Unauthenticated, got %v", err)
 		}
 	})
 	t.Run("buyer denied", func(t *testing.T) {
-		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("buyer_1", "buyer"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		_, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("buyer_1", "buyer"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
 		if status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("want PermissionDenied, got %v", err)
 		}
 	})
 	t.Run("other user denied", func(t *testing.T) {
-		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_2", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		_, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_2", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
 		if status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("want PermissionDenied, got %v", err)
 		}
 	})
 	t.Run("seller ships paid order", func(t *testing.T) {
-		res, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
+		res, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -396,47 +422,47 @@ func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
 		}
 	})
 	t.Run("admin completes shipped order", func(t *testing.T) {
-		if _, err := newHandler(repository.OrderStatusShipped).UpdateOrderStatus(adminCtx, req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED)); err != nil {
+		if _, err := newHandler(store.OrderStatusShipped).UpdateOrderStatus(adminCtx, req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED)); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 	t.Run("seller cannot set PAID", func(t *testing.T) {
-		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_PAID))
+		_, err := newHandler(store.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_PAID))
 		if status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("want PermissionDenied (spec: a seller cannot mark an order paid), got %v", err)
 		}
 	})
 	t.Run("admin cannot set PAID", func(t *testing.T) {
-		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(adminCtx, req(orderv1.OrderStatus_ORDER_STATUS_PAID))
+		_, err := newHandler(store.OrderStatusPending).UpdateOrderStatus(adminCtx, req(orderv1.OrderStatus_ORDER_STATUS_PAID))
 		if status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("want PermissionDenied (spec: a seller cannot mark an order paid), got %v", err)
 		}
 	})
 	t.Run("completed order cannot be reopened", func(t *testing.T) {
-		h := newHandler(repository.OrderStatusCompleted)
+		h := newHandler(store.OrderStatusCompleted)
 		if _, err := h.UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_PENDING)); err == nil {
 			t.Fatal("reopening a completed order must fail")
 		}
 	})
 	t.Run("paid straight to completed is refused", func(t *testing.T) {
-		_, err := newHandler(repository.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED))
+		_, err := newHandler(store.OrderStatusPaid).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED))
 		if status.Code(err) != codes.FailedPrecondition {
 			t.Fatalf("want FailedPrecondition, got %v", err)
 		}
 	})
 	t.Run("seller cannot cancel through UpdateOrderStatus", func(t *testing.T) {
-		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_CANCELLED))
+		_, err := newHandler(store.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_CANCELLED))
 		if status.Code(err) != codes.PermissionDenied {
 			t.Fatalf("want PermissionDenied, got %v", err)
 		}
 	})
 	t.Run("seller ships a pending (COD) order", func(t *testing.T) {
-		if _, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED)); err != nil {
+		if _, err := newHandler(store.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_SHIPPED)); err != nil {
 			t.Fatalf("COD hand-over must be allowed: %v", err)
 		}
 	})
 	t.Run("invalid transition rejected", func(t *testing.T) {
-		_, err := newHandler(repository.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED))
+		_, err := newHandler(store.OrderStatusPending).UpdateOrderStatus(incomingPrincipalCtx("seller_1", "seller"), req(orderv1.OrderStatus_ORDER_STATUS_COMPLETED))
 		if status.Code(err) != codes.FailedPrecondition {
 			t.Fatalf("want FailedPrecondition, got %v", err)
 		}
@@ -444,12 +470,12 @@ func TestOrderHandler_UpdateOrderStatus_Authz(t *testing.T) {
 }
 
 func TestOrderHandler_GetOrder_Authz(t *testing.T) {
-	repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
+	repo := &mockOrderServiceRepo{orders: map[string]store.Order{
 		"ord_1": {ID: "ord_1", BuyerID: "buyer_1", SellerID: "seller_1"},
 	}}
-	h := handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+	h := newHandler(t, newSvc(t, repo, nil, nil, nil, nil, nil, nil), nil, nil, withAudit(&fakeAudit{}))
 	principal := func(id string, typ commonv1.PrincipalType, scopes ...string) context.Context {
-		return interceptor.ContextWithPrincipal(context.Background(), &commonv1.Principal{Id: id, Type: typ, Scopes: scopes})
+		return withPrincipal(context.Background(), &commonv1.Principal{Id: id, Type: typ, Scopes: scopes})
 	}
 	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
 	svc := commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
@@ -489,10 +515,10 @@ func TestOrderHandler_ForceFailSaga_AdminOnly(t *testing.T) {
 		"anonymous":   context.Background(),
 	} {
 		t.Run(name, func(t *testing.T) {
-			repo := &mockOrderServiceRepo{orders: map[string]repository.Order{
-				"ord_123": {ID: "ord_123", BuyerID: "buyer_1", Status: repository.OrderStatusPending},
+			repo := &mockOrderServiceRepo{orders: map[string]store.Order{
+				"ord_123": {ID: "ord_123", BuyerID: "buyer_1", Status: store.OrderStatusPending},
 			}}
-			h := handler.NewOrderHandler(service.NewOrderService(repo, nil, nil, nil, nil, nil, nil), nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+			h := newHandler(t, newSvc(t, repo, nil, nil, nil, nil, nil, nil), nil, nil, withAudit(&fakeAudit{}))
 			_, err := h.ForceFailSaga(ctx, &orderv1.ForceFailSagaRequest{OrderId: "ord_123"})
 			want := codes.PermissionDenied
 			if name == "anonymous" {
@@ -504,7 +530,7 @@ func TestOrderHandler_ForceFailSaga_AdminOnly(t *testing.T) {
 			if status.Code(err) != want {
 				t.Fatalf("want %v, got %v", want, err)
 			}
-			if repo.orders["ord_123"].Status != repository.OrderStatusPending {
+			if repo.orders["ord_123"].Status != store.OrderStatusPending {
 				t.Fatalf("order must be unchanged, got %v", repo.orders["ord_123"].Status)
 			}
 		})
@@ -518,8 +544,8 @@ func TestOrderHandler_CreateOrder_UserOnly(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			// Kill-switch is OFF: a refusal on PermissionDenied proves the type check runs first.
-			h := handler.NewOrderHandler(service.NewOrderService(nil, nil, nil, nil, nil, nil, nil), nil, nil,
-				handler.WithFeatureFlags(fakeFlags{enabled: false}))
+			h := newHandler(t, newSvc(t, nil, nil, nil, nil, nil, nil, nil), nil, nil,
+				withFlags(fakeFlags{enabled: false}))
 			_, err := h.CreateOrder(ctx, &orderv1.CreateOrderRequest{})
 			if status.Code(err) != codes.PermissionDenied {
 				t.Fatalf("want PermissionDenied, got %v", err)
@@ -538,19 +564,19 @@ func TestOrderHandler_CreateOrder_UserOnly(t *testing.T) {
 	}
 }
 
-// Stubs so the fake satisfies repository.OrderRepository (order-unpaid-expiry reminder pass).
-func (m *mockOrderServiceRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]repository.Order, error) {
+// Stubs so the fake satisfies store.OrderRepository (order-unpaid-expiry reminder pass).
+func (m *mockOrderServiceRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]store.Order, error) {
 	return nil, nil
 }
 
-func (m *mockOrderServiceRepo) MarkReminderSent(context.Context, string, time.Time) (repository.Order, error) {
-	return repository.Order{}, nil
+func (m *mockOrderServiceRepo) MarkReminderSent(context.Context, string, time.Time) (store.Order, error) {
+	return store.Order{}, nil
 }
 
 func TestCalculateShippingFeeEmptyCityNoETA(t *testing.T) {
 	now := time.Date(2026, 10, 22, 3, 0, 0, 0, time.UTC)
-	svc := service.NewOrderService(nil, nil, nil, nil, nil, nil, nil, service.WithClock(func() time.Time { return now }))
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+	svc := newSvc(t, nil, nil, nil, nil, nil, nil, nil, order.WithClock(func() time.Time { return now }))
+	h := newHandler(t, svc, nil, nil, withAudit(&fakeAudit{}))
 
 	res, err := h.CalculateShippingFee(context.Background(), &orderv1.CalculateShippingFeeRequest{City: "", ItemsSubtotal: 200000})
 	if err != nil {
@@ -569,8 +595,8 @@ func TestCalculateShippingFeeEmptyCityNoETA(t *testing.T) {
 
 func TestCalculateShippingFeeETAOnTheWire(t *testing.T) {
 	now := time.Date(2026, 10, 22, 3, 0, 0, 0, time.UTC)
-	svc := service.NewOrderService(nil, nil, nil, nil, nil, nil, nil, service.WithClock(func() time.Time { return now }))
-	h := handler.NewOrderHandler(svc, nil, nil, handler.WithAuditWriter(&fakeAudit{}))
+	svc := newSvc(t, nil, nil, nil, nil, nil, nil, nil, order.WithClock(func() time.Time { return now }))
+	h := newHandler(t, svc, nil, nil, withAudit(&fakeAudit{}))
 
 	for _, c := range []struct {
 		city string
