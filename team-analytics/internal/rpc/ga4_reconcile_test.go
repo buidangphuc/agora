@@ -1,4 +1,4 @@
-package query_test
+package rpc_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	"github.com/buidangphuc/team-analytics/internal/observability"
 	"github.com/buidangphuc/team-analytics/internal/query"
+	"github.com/buidangphuc/team-analytics/internal/rpc"
 	"github.com/buidangphuc/team-analytics/internal/warehouse"
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
@@ -21,8 +22,8 @@ import (
 //   query.GA4ReconcileRepository (optional interface on the repository):
 //     GA4Reconcile(ctx, day time.Time) (query.GA4Reconcile, error)
 //   query.GA4Reconcile{ImportRun bool; Types []query.GA4TypeCount{EventType string; GA4, FirstParty int64}}
-//   query.WithGA4Reconcile(maxDiffRatio float64, gauge query.RatioGauge) service option;
-//   query.RatioGauge = interface{ Set(eventType string, ratio float64) }
+//   rpc.WithGA4Reconcile(maxDiffRatio float64, gauge rpc.RatioGauge) service option;
+//   rpc.RatioGauge = interface{ Set(eventType string, ratio float64) }
 //   observability.NewReconcileGauge(): Set / Get / WritePrometheus (metric ga4_reconcile_diff_ratio{event_type}).
 // The reconciled day is yesterday (UTC) relative to the service clock.
 
@@ -48,14 +49,14 @@ func rcHealthy() stubQuality {
 	}}
 }
 
-func rcService(stub *stubReconcile, g query.RatioGauge, max float64) *query.Service {
-	return query.NewService(stub,
-		query.WithTrackingThresholds(query.TrackingThresholds{StaleAfter: 900 * time.Second, LagP95Max: 300 * time.Second, MissingListingMaxRatio: 0.05}),
-		query.WithGA4Reconcile(max, g),
-		query.WithClock(func() time.Time { return rcNow }))
+func rcService(stub *stubReconcile, g rpc.RatioGauge, max float64) *rpc.Handler {
+	return mustHandler(stub,
+		rpc.WithTrackingThresholds(rpc.TrackingThresholds{StaleAfter: 900 * time.Second, LagP95Max: 300 * time.Second, MissingListingMaxRatio: 0.05}),
+		rpc.WithGA4Reconcile(max, g),
+		rpc.WithClock(func() time.Time { return rcNow }))
 }
 
-func rcReport(t *testing.T, stub *stubReconcile, g query.RatioGauge, max float64) *analyticsv1.GetTrackingQualityReportResponse {
+func rcReport(t *testing.T, stub *stubReconcile, g rpc.RatioGauge, max float64) *analyticsv1.GetTrackingQualityReportResponse {
 	t.Helper()
 	resp, err := rcService(stub, g, max).GetTrackingQualityReport(asPrincipal("admin-1", "user", "admin"), &analyticsv1.GetTrackingQualityReportRequest{})
 	if err != nil {
@@ -155,10 +156,14 @@ func TestReconcile_OnlyAdminsSeeReconciliationReasons(t *testing.T) {
 		"anonymous": asPrincipal("anonymous", "anonymous", "catalog.read"),
 		"buyer":     asPrincipal("u-1", "user", "catalog.read"),
 	} {
+		want := codes.PermissionDenied
+		if name == "anonymous" {
+			want = codes.Unauthenticated
+		}
 		stub := &stubReconcile{stubQuality: rcHealthy(), rec: rcOne("view", 50, 100)}
 		_, err := rcService(stub, observability.NewReconcileGauge(), 0.35).GetTrackingQualityReport(ctx, &analyticsv1.GetTrackingQualityReportRequest{})
-		if status.Code(err) != codes.PermissionDenied {
-			t.Errorf("%s: code = %v, want PermissionDenied", name, status.Code(err))
+		if status.Code(err) != want {
+			t.Errorf("%s: code = %v, want %v", name, status.Code(err), want)
 		}
 		if stub.called {
 			t.Errorf("%s: GA4 data was read before the admin gate", name)

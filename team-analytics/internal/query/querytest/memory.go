@@ -1,7 +1,8 @@
-package query
+package querytest
 
 import (
 	"context"
+	"github.com/buidangphuc/team-analytics/internal/query"
 	"sort"
 	"time"
 )
@@ -46,8 +47,8 @@ func (e Event) inWindow(sellerID string, from, to time.Time) bool {
 
 // SellerFunnel counts impressions/views/adds by event type and orders as the
 // distinct set of non-empty order_ids.
-func (m *MemoryRepository) SellerFunnel(_ context.Context, sellerID string, from, to time.Time) (Funnel, error) {
-	var f Funnel
+func (m *MemoryRepository) SellerFunnel(_ context.Context, sellerID string, from, to time.Time) (query.Funnel, error) {
+	var f query.Funnel
 	orders := map[string]struct{}{}
 	checkoutTx, purchaseTx := map[string]struct{}{}, map[string]struct{}{}
 	for _, e := range m.events {
@@ -76,7 +77,7 @@ func (m *MemoryRepository) SellerFunnel(_ context.Context, sellerID string, from
 
 // RevenueBreakdown aggregates revenue by UTC day (over order rows) and the
 // top-N SKUs by revenue.
-func (m *MemoryRepository) RevenueBreakdown(_ context.Context, sellerID string, from, to time.Time, topN int) (Breakdown, error) {
+func (m *MemoryRepository) RevenueBreakdown(_ context.Context, sellerID string, from, to time.Time, topN int) (query.Breakdown, error) {
 	type dayAgg struct {
 		revenue int64
 		orders  map[string]struct{}
@@ -115,9 +116,9 @@ func (m *MemoryRepository) RevenueBreakdown(_ context.Context, sellerID string, 
 		}
 	}
 
-	var b Breakdown
+	var b query.Breakdown
 	for day, agg := range days {
-		b.Days = append(b.Days, DayRevenue{
+		b.Days = append(b.Days, query.DayRevenue{
 			Day:        day,
 			Revenue:    agg.revenue,
 			OrderCount: int64(len(agg.orders)),
@@ -126,7 +127,7 @@ func (m *MemoryRepository) RevenueBreakdown(_ context.Context, sellerID string, 
 	sort.Slice(b.Days, func(i, j int) bool { return b.Days[i].Day < b.Days[j].Day })
 
 	for sku, agg := range skus {
-		b.TopSkus = append(b.TopSkus, TopSku{
+		b.TopSkus = append(b.TopSkus, query.TopSku{
 			SKU:       sku,
 			ListingID: agg.listingID,
 			Revenue:   agg.revenue,
@@ -147,7 +148,7 @@ func (m *MemoryRepository) RevenueBreakdown(_ context.Context, sellerID string, 
 }
 
 // DemandForecast generates seasonal baseline quantile predictions over memory events.
-func (m *MemoryRepository) DemandForecast(_ context.Context, sellerID, listingID string, horizonDays int) (ForecastResult, error) {
+func (m *MemoryRepository) DemandForecast(_ context.Context, sellerID, listingID string, horizonDays int) (query.ForecastResult, error) {
 	if horizonDays <= 0 {
 		horizonDays = 28
 	}
@@ -162,7 +163,7 @@ func (m *MemoryRepository) DemandForecast(_ context.Context, sellerID, listingID
 		baseDaily = 2.0
 	}
 
-	points := make([]DailyPoint, horizonDays)
+	points := make([]query.DailyPoint, horizonDays)
 	now := time.Now().UTC()
 	for i := 0; i < horizonDays; i++ {
 		dt := now.AddDate(0, 0, i+1).Format("2006-01-02")
@@ -172,7 +173,7 @@ func (m *MemoryRepository) DemandForecast(_ context.Context, sellerID, listingID
 		if p10 < 0 {
 			p10 = 0
 		}
-		points[i] = DailyPoint{
+		points[i] = query.DailyPoint{
 			Date: dt,
 			P10:  float64(int(p10*10)) / 10.0,
 			P50:  float64(int(p50*10)) / 10.0,
@@ -180,7 +181,7 @@ func (m *MemoryRepository) DemandForecast(_ context.Context, sellerID, listingID
 		}
 	}
 
-	return ForecastResult{
+	return query.ForecastResult{
 		SellerID:      sellerID,
 		ListingID:     listingID,
 		ModelVersion:  "memory_baseline_v1",
@@ -190,8 +191,8 @@ func (m *MemoryRepository) DemandForecast(_ context.Context, sellerID, listingID
 }
 
 // PlatformOrderSummary sums every order row with OccurredAt >= since.
-func (m *MemoryRepository) PlatformOrderSummary(_ context.Context, since time.Time) (OrderSummary, error) {
-	var s OrderSummary
+func (m *MemoryRepository) PlatformOrderSummary(_ context.Context, since time.Time) (query.OrderSummary, error) {
+	var s query.OrderSummary
 	orders := map[string]struct{}{}
 	for _, e := range m.events {
 		if e.OrderID == "" || e.OccurredAt.UTC().Before(since) {
@@ -205,15 +206,15 @@ func (m *MemoryRepository) PlatformOrderSummary(_ context.Context, since time.Ti
 }
 
 // RecentOrders groups order rows by order id, newest first.
-func (m *MemoryRepository) RecentOrders(_ context.Context, limit int) ([]RecentOrder, error) {
-	byID := map[string]*RecentOrder{}
+func (m *MemoryRepository) RecentOrders(_ context.Context, limit int) ([]query.RecentOrder, error) {
+	byID := map[string]*query.RecentOrder{}
 	for _, e := range m.events {
 		if e.OrderID == "" {
 			continue
 		}
 		o := byID[e.OrderID]
 		if o == nil {
-			o = &RecentOrder{OrderID: e.OrderID, SellerID: e.SellerID, PaidAt: e.OccurredAt.UTC()}
+			o = &query.RecentOrder{OrderID: e.OrderID, SellerID: e.SellerID, PaidAt: e.OccurredAt.UTC()}
 			byID[e.OrderID] = o
 		}
 		o.Total += e.Revenue
@@ -224,7 +225,7 @@ func (m *MemoryRepository) RecentOrders(_ context.Context, limit int) ([]RecentO
 			o.PaidAt = t
 		}
 	}
-	out := make([]RecentOrder, 0, len(byID))
+	out := make([]query.RecentOrder, 0, len(byID))
 	for _, o := range byID {
 		out = append(out, *o)
 	}
@@ -241,7 +242,7 @@ func (m *MemoryRepository) RecentOrders(_ context.Context, limit int) ([]RecentO
 }
 
 // compile-time assertion that the fake satisfies the seam.
-var _ Repository = (*MemoryRepository)(nil)
+var _ query.Repository = (*MemoryRepository)(nil)
 
 // countDistinct counts a row once per non-empty transaction id, and every row
 // with an empty id.

@@ -1,4 +1,4 @@
-package query_test
+package rpc_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	"github.com/buidangphuc/team-analytics/internal/query"
+	"github.com/buidangphuc/team-analytics/internal/rpc"
 	"github.com/buidangphuc/team-analytics/internal/warehouse"
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
@@ -189,7 +190,7 @@ func TestGetRecommendationPerformance(t *testing.T) {
 		{PlacementID: "cart", ModelVersion: "serving-fallback", Impressions: 1, ItemImpressions: 4},
 		{PlacementID: "home", ModelVersion: "M", Impressions: 2, ItemImpressions: 2},
 	}}
-	svc := query.NewService(stub, query.WithClock(func() time.Time { return now }), query.WithAttributionWindowHours(12))
+	svc := mustHandler(stub, rpc.WithClock(func() time.Time { return now }), rpc.WithAttributionWindowHours(12))
 	resp, err := svc.GetRecommendationPerformance(admin, &analyticsv1.GetRecommendationPerformanceRequest{})
 	if err != nil {
 		t.Fatal(err)
@@ -212,7 +213,7 @@ func TestGetRecommendationPerformance(t *testing.T) {
 
 func TestGetRecommendationPerformance_Bounds(t *testing.T) {
 	admin := asPrincipal("admin-1", "user", "admin")
-	svc := query.NewService(&stubPerf{})
+	svc := mustHandler(&stubPerf{})
 	for hours, want := range map[uint32]codes.Code{0: codes.OK, 1: codes.OK, 168: codes.OK, 169: codes.InvalidArgument, 100000: codes.InvalidArgument} {
 		_, err := svc.GetRecommendationPerformance(admin, &analyticsv1.GetRecommendationPerformanceRequest{WindowHours: hours})
 		if status.Code(err) != want {
@@ -223,13 +224,13 @@ func TestGetRecommendationPerformance_Bounds(t *testing.T) {
 
 func TestGetRecommendationPerformance_AccessAndErrors(t *testing.T) {
 	req := &analyticsv1.GetRecommendationPerformanceRequest{}
-	svc := query.NewService(&stubPerf{})
+	svc := mustHandler(&stubPerf{})
 	for name, c := range map[string]struct {
 		ctx  context.Context
 		want codes.Code
 	}{
 		"no principal":          {context.Background(), codes.Unauthenticated},
-		"anonymous":             {asPrincipal("anonymous", "anonymous", "catalog.read"), codes.PermissionDenied},
+		"anonymous":             {asPrincipal("anonymous", "anonymous", "catalog.read"), codes.Unauthenticated},
 		"buyer":                 {asPrincipal("b-1", "user", "buyer"), codes.PermissionDenied},
 		"service without admin": {asPrincipal("svc-x", "service", "order.read"), codes.PermissionDenied},
 		"admin":                 {asPrincipal("admin-1", "user", "admin"), codes.OK},
@@ -239,11 +240,11 @@ func TestGetRecommendationPerformance_AccessAndErrors(t *testing.T) {
 		}
 	}
 	admin := asPrincipal("admin-1", "user", "admin")
-	if _, err := query.NewService(&stubPerf{err: errors.New("boom")}).GetRecommendationPerformance(admin, req); status.Code(err) != codes.Internal {
+	if _, err := mustHandler(&stubPerf{err: errors.New("boom")}).GetRecommendationPerformance(admin, req); status.Code(err) != codes.Internal {
 		t.Errorf("repo error: code = %v, want Internal", status.Code(err))
 	}
 	// A repository without the optional interface is Unavailable.
-	if _, err := query.NewService(newRepo()).GetRecommendationPerformance(admin, req); status.Code(err) != codes.Unavailable {
+	if _, err := mustHandler(newRepo()).GetRecommendationPerformance(admin, req); status.Code(err) != codes.Unavailable {
 		t.Errorf("no interface: code = %v, want Unavailable", status.Code(err))
 	}
 }

@@ -1,4 +1,4 @@
-package query_test
+package rpc_test
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 // Seam under test (add-ga4-export-import / channel-funnel):
 //   query.ChannelFunnelRepository (optional interface on the repository, implemented by
 //   *DuckDBRepository over the tracking_events_attributed view) and
-//   (*query.Service).GetChannelFunnel (admin scope required; from > to -> InvalidArgument).
+//   (*rpc.Handler).GetChannelFunnel (admin scope required; from > to -> InvalidArgument).
 
 var cfDay = time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 
@@ -93,7 +93,7 @@ func cfReq(from, to time.Time) *analyticsv1.GetChannelFunnelRequest {
 
 // Scenario: Counts are split by channel
 func TestChannelFunnel_CountsAreSplitByChannel(t *testing.T) {
-	svc := query.NewService(cfSeed(t))
+	svc := mustHandler(cfSeed(t))
 	resp, err := svc.GetChannelFunnel(asPrincipal("admin-1", "user", "admin"), cfReq(cfDay, cfDay.Add(24*time.Hour)))
 	if err != nil {
 		t.Fatalf("GetChannelFunnel: %v", err)
@@ -122,7 +122,7 @@ func TestChannelFunnel_CountsAreSplitByChannel(t *testing.T) {
 
 // Scenario: Counts are split by channel (window bound excludes events outside it)
 func TestChannelFunnel_CountsAreSplitByChannel_WindowBoundsApply(t *testing.T) {
-	svc := query.NewService(cfSeed(t))
+	svc := mustHandler(cfSeed(t))
 	resp, err := svc.GetChannelFunnel(asPrincipal("admin-1", "user", "admin"), cfReq(cfDay, cfDay.Add(10*time.Hour+1*time.Minute)))
 	if err != nil {
 		t.Fatalf("GetChannelFunnel: %v", err)
@@ -135,7 +135,7 @@ func TestChannelFunnel_CountsAreSplitByChannel_WindowBoundsApply(t *testing.T) {
 
 // Scenario: A window with no events returns no rows
 func TestChannelFunnel_AWindowWithNoEventsReturnsNoRows(t *testing.T) {
-	svc := query.NewService(cfSeed(t))
+	svc := mustHandler(cfSeed(t))
 	resp, err := svc.GetChannelFunnel(asPrincipal("admin-1", "user", "admin"),
 		cfReq(cfDay.AddDate(0, 0, 40), cfDay.AddDate(0, 0, 41)))
 	if err != nil {
@@ -148,7 +148,7 @@ func TestChannelFunnel_AWindowWithNoEventsReturnsNoRows(t *testing.T) {
 
 // Scenario: An invalid window is rejected
 func TestChannelFunnel_AnInvalidWindowIsRejected(t *testing.T) {
-	svc := query.NewService(cfSeed(t))
+	svc := mustHandler(cfSeed(t))
 	_, err := svc.GetChannelFunnel(asPrincipal("admin-1", "user", "admin"), cfReq(cfDay.Add(time.Hour), cfDay))
 	if status.Code(err) != codes.InvalidArgument {
 		t.Errorf("code = %v, want InvalidArgument for from > to", status.Code(err))
@@ -157,7 +157,7 @@ func TestChannelFunnel_AnInvalidWindowIsRejected(t *testing.T) {
 
 // Scenario: Only admins can read the channel funnel
 func TestChannelFunnel_OnlyAdminsCanReadTheChannelFunnel(t *testing.T) {
-	svc := query.NewService(cfSeed(t))
+	svc := mustHandler(cfSeed(t))
 	cases := []struct {
 		name string
 		req  *analyticsv1.GetChannelFunnelRequest
@@ -182,8 +182,12 @@ func TestChannelFunnel_OnlyAdminsCanReadTheChannelFunnel(t *testing.T) {
 		t.Errorf("no principal: call succeeded, want an auth error")
 	}
 	// the scope check runs before anything else, even with no repository wired
-	if _, err := query.NewService(nil).GetChannelFunnel(asPrincipal("buyer-1", "user", "buyer"), cfReq(cfDay, cfDay.Add(time.Hour))); status.Code(err) != codes.PermissionDenied {
-		t.Errorf("nil repo: code = %v, want PermissionDenied before repo check", status.Code(err))
+	repo := &spyRepo{}
+	if _, err := mustHandler(repo).GetChannelFunnel(asPrincipal("buyer-1", "user", "buyer"), cfReq(cfDay, cfDay.Add(time.Hour))); status.Code(err) != codes.PermissionDenied {
+		t.Errorf("code = %v, want PermissionDenied before repo check", status.Code(err))
+	}
+	if repo.calls != 0 {
+		t.Errorf("repository called %d times, want 0", repo.calls)
 	}
 }
 
@@ -255,7 +259,7 @@ FROM range(1000000) t(i)`); err != nil {
 		// range() columns and the 30-day spread (2,592,000 s) follow the spec scenario.
 		t.Fatalf("seed 1M events: %v", err)
 	}
-	svc := query.NewService(query.NewDuckDBRepository(w.DB()))
+	svc := mustHandler(query.NewDuckDBRepository(w.DB()))
 	admin := asPrincipal("admin-1", "user", "admin")
 	req := cfReq(cfDay, cfDay.AddDate(0, 0, 30))
 	var lat []time.Duration
@@ -292,7 +296,7 @@ func TestChannelFunnel_ASellerFilterNarrowsTheFunnel(t *testing.T) {
 		{ListingID: "l-S", SellerID: "S", UpdatedAt: cfDay}, {ListingID: "l-T", SellerID: "T", UpdatedAt: cfDay}}); err != nil {
 		t.Fatal(err)
 	}
-	svc := query.NewService(query.NewDuckDBRepository(w.DB()))
+	svc := mustHandler(query.NewDuckDBRepository(w.DB()))
 	admin := asPrincipal("admin-1", "user", "admin")
 	req := cfReq(cfDay, cfDay.Add(24*time.Hour))
 	req.SellerId = "S"

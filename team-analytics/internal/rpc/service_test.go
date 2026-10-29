@@ -1,4 +1,4 @@
-package query_test
+package rpc_test
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	"github.com/buidangphuc/team-analytics/internal/query"
+	"github.com/buidangphuc/team-analytics/internal/query/querytest"
 	"github.com/buidangphuc/team-analytics/internal/warehouse"
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
@@ -20,29 +21,29 @@ import (
 func ts(t time.Time) *timestamppb.Timestamp { return timestamppb.New(t) }
 
 // fixtures: two sellers, three days, so tests can assert scoping + aggregation.
-func newRepo() *query.MemoryRepository {
+func newRepo() *querytest.MemoryRepository {
 	d1 := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
 	d2 := time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)
-	return query.NewMemoryRepository(
+	return querytest.NewMemoryRepository(
 		// seller-1, day 1: funnel signals + one order (sku-a).
-		query.Event{SellerID: "seller-1", EventType: "impression", OccurredAt: d1},
-		query.Event{SellerID: "seller-1", EventType: "impression", OccurredAt: d1},
-		query.Event{SellerID: "seller-1", EventType: "view", OccurredAt: d1},
-		query.Event{SellerID: "seller-1", EventType: "add_to_cart", OccurredAt: d1},
-		query.Event{SellerID: "seller-1", OrderID: "o-1", Revenue: 1000, SKU: "sku-a", ListingID: "lst-a", Units: 2, OccurredAt: d1},
+		querytest.Event{SellerID: "seller-1", EventType: "impression", OccurredAt: d1},
+		querytest.Event{SellerID: "seller-1", EventType: "impression", OccurredAt: d1},
+		querytest.Event{SellerID: "seller-1", EventType: "view", OccurredAt: d1},
+		querytest.Event{SellerID: "seller-1", EventType: "add_to_cart", OccurredAt: d1},
+		querytest.Event{SellerID: "seller-1", OrderID: "o-1", Revenue: 1000, SKU: "sku-a", ListingID: "lst-a", Units: 2, OccurredAt: d1},
 		// seller-1, day 2: two orders, one repeats sku-a (higher revenue), one sku-b.
-		query.Event{SellerID: "seller-1", EventType: "view", OccurredAt: d2},
-		query.Event{SellerID: "seller-1", OrderID: "o-2", Revenue: 3000, SKU: "sku-a", ListingID: "lst-a", Units: 1, OccurredAt: d2},
-		query.Event{SellerID: "seller-1", OrderID: "o-3", Revenue: 500, SKU: "sku-b", ListingID: "lst-b", Units: 5, OccurredAt: d2},
+		querytest.Event{SellerID: "seller-1", EventType: "view", OccurredAt: d2},
+		querytest.Event{SellerID: "seller-1", OrderID: "o-2", Revenue: 3000, SKU: "sku-a", ListingID: "lst-a", Units: 1, OccurredAt: d2},
+		querytest.Event{SellerID: "seller-1", OrderID: "o-3", Revenue: 500, SKU: "sku-b", ListingID: "lst-b", Units: 5, OccurredAt: d2},
 		// seller-2 noise on the same days — must never leak into seller-1 results.
-		query.Event{SellerID: "seller-2", EventType: "impression", OccurredAt: d1},
-		query.Event{SellerID: "seller-2", OrderID: "o-9", Revenue: 99999, SKU: "sku-z", ListingID: "lst-z", Units: 9, OccurredAt: d2},
+		querytest.Event{SellerID: "seller-2", EventType: "impression", OccurredAt: d1},
+		querytest.Event{SellerID: "seller-2", OrderID: "o-9", Revenue: 99999, SKU: "sku-z", ListingID: "lst-z", Units: 9, OccurredAt: d2},
 	)
 }
 
 // Happy-path funnel: impressions/views/adds by event type + distinct orders.
 func TestGetSellerFunnel_HappyPath(t *testing.T) {
-	svc := query.NewService(newRepo())
+	svc := mustHandler(newRepo())
 	from := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
 
@@ -68,7 +69,7 @@ func TestGetSellerFunnel_HappyPath(t *testing.T) {
 
 // Happy-path revenue breakdown: per-day totals + top SKUs ordered by revenue.
 func TestGetRevenueBreakdown_HappyPath(t *testing.T) {
-	svc := query.NewService(newRepo())
+	svc := mustHandler(newRepo())
 	from := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
 
@@ -105,7 +106,7 @@ func TestGetRevenueBreakdown_HappyPath(t *testing.T) {
 // Empty range: a window with no events yields zeroed funnel + empty breakdown,
 // no panics. Uses a window that predates all fixtures.
 func TestEmptyRange(t *testing.T) {
-	svc := query.NewService(newRepo())
+	svc := mustHandler(newRepo())
 	from := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC)
 
@@ -133,7 +134,7 @@ func TestEmptyRange(t *testing.T) {
 // Cross-seller isolation: seller-2's high-revenue order/impression must not
 // appear in seller-1's results.
 func TestSellerIsolation(t *testing.T) {
-	svc := query.NewService(newRepo())
+	svc := mustHandler(newRepo())
 
 	f, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{SellerId: "seller-2"})
 	if err != nil {
@@ -161,7 +162,7 @@ func TestSellerIsolation(t *testing.T) {
 // Missing seller_id is rejected with InvalidArgument (anonymous/empty input
 // handled without a panic or a wrong-owner leak).
 func TestMissingSellerID(t *testing.T) {
-	svc := query.NewService(newRepo())
+	svc := mustHandler(newRepo())
 
 	if _, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{SellerId: "  "}); status.Code(err) != codes.InvalidArgument {
 		t.Errorf("GetSellerFunnel empty seller: err = %v, want InvalidArgument", err)
@@ -171,16 +172,8 @@ func TestMissingSellerID(t *testing.T) {
 	}
 }
 
-// A nil repository must be reported as Unavailable, not panic.
-func TestNilRepository(t *testing.T) {
-	svc := query.NewService(nil)
-	if _, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{SellerId: "seller-1"}); status.Code(err) != codes.Unavailable {
-		t.Errorf("nil repo funnel: err = %v, want Unavailable", err)
-	}
-}
-
 func TestGetDemandForecast_HappyPath(t *testing.T) {
-	svc := query.NewService(newRepo())
+	svc := mustHandler(newRepo())
 	resp, err := svc.GetDemandForecast(adminCtx(t), &analyticsv1.GetDemandForecastRequest{
 		SellerId:     "seller-1",
 		ListingId:    "lst-a",
@@ -216,19 +209,19 @@ type funnelEv struct {
 func memFunnelRepo(t *testing.T, evs []funnelEv) query.Repository {
 	t.Helper()
 	d := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	var out []query.Event
+	var out []querytest.Event
 	for _, e := range evs {
-		ev := query.Event{SellerID: "seller-1", EventType: e.typ, OccurredAt: d}
+		ev := querytest.Event{SellerID: "seller-1", EventType: e.typ, OccurredAt: d}
 		if e.txn != "" {
 			f := reflect.ValueOf(&ev).Elem().FieldByName("TransactionID")
 			if !f.IsValid() {
-				t.Fatalf("query.Event has no TransactionID field")
+				t.Fatalf("querytest.Event has no TransactionID field")
 			}
 			f.SetString(e.txn)
 		}
 		out = append(out, ev)
 	}
-	return query.NewMemoryRepository(out...)
+	return querytest.NewMemoryRepository(out...)
 }
 
 func duckFunnelRepo(t *testing.T, evs []funnelEv) query.Repository {
@@ -282,7 +275,7 @@ func TestGetSellerFunnel_CheckoutPurchase(t *testing.T) {
 	for rn, mk := range repos {
 		for _, c := range cases {
 			t.Run(rn+"/"+c.name, func(t *testing.T) {
-				svc := query.NewService(mk(t, c.evs))
+				svc := mustHandler(mk(t, c.evs))
 				resp, err := svc.GetSellerFunnel(adminCtx(t), &analyticsv1.GetSellerFunnelRequest{
 					SellerId: "seller-1", From: ts(from), To: ts(to),
 				})

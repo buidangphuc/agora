@@ -1,4 +1,4 @@
-package query_test
+package rpc_test
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
 	"github.com/buidangphuc/team-analytics/internal/query"
+	"github.com/buidangphuc/team-analytics/internal/query/querytest"
+	"github.com/buidangphuc/team-analytics/internal/rpc"
 	"github.com/buidangphuc/team-analytics/internal/warehouse"
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
@@ -124,10 +126,10 @@ func (s *stubQuality) TrackingQuality(_ context.Context, since, until time.Time)
 	return s.data, s.err
 }
 
-func serviceAt(now time.Time, stub *stubQuality) *query.Service {
-	return query.NewService(stub, query.WithTrackingThresholds(query.TrackingThresholds{
+func serviceAt(now time.Time, stub *stubQuality) *rpc.Handler {
+	return mustHandler(stub, rpc.WithTrackingThresholds(rpc.TrackingThresholds{
 		StaleAfter: 900 * time.Second, LagP95Max: 300 * time.Second, MissingListingMaxRatio: 0.05,
-	}), query.WithClock(func() time.Time { return now }))
+	}), rpc.WithClock(func() time.Time { return now }))
 }
 
 func TestGetTrackingQualityReport_Status(t *testing.T) {
@@ -219,7 +221,7 @@ func TestGetTrackingQualityReport_Access(t *testing.T) {
 		want codes.Code
 	}{
 		{"no principal", context.Background(), codes.Unauthenticated},
-		{"anonymous principal (no admin scope)", asPrincipal("anonymous", "anonymous", "catalog.read"), codes.PermissionDenied},
+		{"anonymous principal (no admin scope)", asPrincipal("anonymous", "anonymous", "catalog.read"), codes.Unauthenticated},
 		{"buyer", asPrincipal("buyer-1", "user", "catalog.read"), codes.PermissionDenied},
 		{"service without admin", asPrincipal("svc-x", "service", "order.read"), codes.PermissionDenied},
 		{"admin", asPrincipal("admin-1", "user", "admin"), codes.OK},
@@ -238,7 +240,7 @@ func TestGetTrackingQualityReport_Errors(t *testing.T) {
 		t.Errorf("repo error: code = %v, want Internal", status.Code(err))
 	}
 	// A repository that cannot measure quality (e.g. the in-memory one).
-	if _, err := query.NewService(query.NewMemoryRepository()).GetTrackingQualityReport(admin, req); status.Code(err) != codes.Unavailable {
+	if _, err := mustHandler(querytest.NewMemoryRepository()).GetTrackingQualityReport(admin, req); status.Code(err) != codes.Unavailable {
 		t.Errorf("unsupported repo: code = %v, want Unavailable", status.Code(err))
 	}
 }

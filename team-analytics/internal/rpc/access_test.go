@@ -1,31 +1,17 @@
-package query_test
+package rpc_test
 
 import (
 	"context"
 	"testing"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
-	"github.com/buidangphuc/team-analytics/internal/interceptor"
-	"github.com/buidangphuc/team-analytics/internal/query"
 )
 
-// asPrincipal runs the real principal interceptor over gateway-style metadata.
-func asPrincipal(id, ptype, scopes string) context.Context {
-	md := metadata.Pairs("x-principal-id", id, "x-principal-type", ptype, "x-principal-scopes", scopes)
-	in := metadata.NewIncomingContext(context.Background(), md)
-	var out context.Context
-	_, _ = interceptor.UnaryServerInterceptor()(in, nil, &grpc.UnaryServerInfo{},
-		func(c context.Context, _ any) (any, error) { out = c; return nil, nil })
-	return out
-}
-
 func TestSellerRPCAccess(t *testing.T) {
-	svc := query.NewService(newRepo())
+	svc := mustHandler(newRepo())
 	calls := map[string]func(ctx context.Context, seller string) error{
 		"funnel": func(ctx context.Context, s string) error {
 			_, err := svc.GetSellerFunnel(ctx, &analyticsv1.GetSellerFunnelRequest{SellerId: s})
@@ -63,9 +49,13 @@ func TestSellerRPCAccess(t *testing.T) {
 }
 
 func TestSellerRPCAccess_DeniedBeforeValidation(t *testing.T) {
-	svc := query.NewService(nil)
-	_, err := svc.GetSellerFunnel(asPrincipal("seller-2", "user", ""), &analyticsv1.GetSellerFunnelRequest{SellerId: "seller-1"})
+	repo := &spyRepo{}
+	svc := mustHandler(repo)
+	_, err := svc.GetSellerFunnel(asPrincipal("seller-2", "user", ""), &analyticsv1.GetSellerFunnelRequest{})
 	if status.Code(err) != codes.PermissionDenied {
-		t.Errorf("code = %v, want PermissionDenied before repo check", status.Code(err))
+		t.Errorf("code = %v, want PermissionDenied before validation", status.Code(err))
+	}
+	if repo.calls != 0 {
+		t.Errorf("repository called %d times, want 0", repo.calls)
 	}
 }

@@ -1,4 +1,4 @@
-package query_test
+package rpc_test
 
 import (
 	"context"
@@ -6,54 +6,36 @@ import (
 	"time"
 
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
-	"github.com/buidangphuc/team-analytics/internal/interceptor"
 	"github.com/buidangphuc/team-analytics/internal/query"
+	"github.com/buidangphuc/team-analytics/internal/query/querytest"
 	"github.com/buidangphuc/team-analytics/internal/warehouse"
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
 
-// principalCtx runs the real unary interceptor so the test exercises the same
-// metadata → Principal → RequireScopes path the gateway-forwarded call takes.
-func principalCtx(t *testing.T, scopes string) context.Context {
-	t.Helper()
-	in := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
-		"x-principal-id", "u-1", "x-principal-type", "user", "x-principal-scopes", scopes))
-	var out context.Context
-	_, err := interceptor.UnaryServerInterceptor()(in, nil, nil, func(c context.Context, _ any) (any, error) {
-		out = c
-		return nil, nil
-	})
-	if err != nil {
-		t.Fatalf("interceptor: %v", err)
-	}
-	return out
-}
+func adminCtx(t *testing.T) context.Context { return asPrincipal("u-1", "user", "admin,listing.read") }
 
-func adminCtx(t *testing.T) context.Context { return principalCtx(t, "admin,listing.read") }
-
-func ordersRepo(now time.Time) *query.MemoryRepository {
-	return query.NewMemoryRepository(
+func ordersRepo(now time.Time) *querytest.MemoryRepository {
+	return querytest.NewMemoryRepository(
 		// o-1: two lines, 2*150000 + 1*50000 = 350000, paid 1h ago.
-		query.Event{SellerID: "s-1", OrderID: "o-1", Revenue: 300000, OccurredAt: now.Add(-time.Hour)},
-		query.Event{SellerID: "s-1", OrderID: "o-1", Revenue: 50000, OccurredAt: now.Add(-time.Hour)},
+		querytest.Event{SellerID: "s-1", OrderID: "o-1", Revenue: 300000, OccurredAt: now.Add(-time.Hour)},
+		querytest.Event{SellerID: "s-1", OrderID: "o-1", Revenue: 50000, OccurredAt: now.Add(-time.Hour)},
 		// o-2: newer, another seller.
-		query.Event{SellerID: "s-2", OrderID: "o-2", Revenue: 1000, OccurredAt: now.Add(-time.Minute)},
+		querytest.Event{SellerID: "s-2", OrderID: "o-2", Revenue: 1000, OccurredAt: now.Add(-time.Minute)},
 		// o-3: just inside the 24h edge.
-		query.Event{SellerID: "s-1", OrderID: "o-3", Revenue: 200, OccurredAt: now.Add(-23*time.Hour - 59*time.Minute)},
+		querytest.Event{SellerID: "s-1", OrderID: "o-3", Revenue: 200, OccurredAt: now.Add(-23*time.Hour - 59*time.Minute)},
 		// o-4: just outside the 24h edge.
-		query.Event{SellerID: "s-1", OrderID: "o-4", Revenue: 9999, OccurredAt: now.Add(-24*time.Hour - time.Minute)},
+		querytest.Event{SellerID: "s-1", OrderID: "o-4", Revenue: 9999, OccurredAt: now.Add(-24*time.Hour - time.Minute)},
 		// behavioural row, not an order.
-		query.Event{SellerID: "s-1", EventType: "view", OccurredAt: now},
+		querytest.Event{SellerID: "s-1", EventType: "view", OccurredAt: now},
 	)
 }
 
 func TestGetPlatformOrderSummary_CountsGMVAndWindowEdge(t *testing.T) {
-	svc := query.NewService(ordersRepo(time.Now()))
+	svc := mustHandler(ordersRepo(time.Now()))
 	resp, err := svc.GetPlatformOrderSummary(adminCtx(t), &analyticsv1.GetPlatformOrderSummaryRequest{})
 	if err != nil {
 		t.Fatalf("GetPlatformOrderSummary: %v", err)
@@ -67,7 +49,7 @@ func TestGetPlatformOrderSummary_CountsGMVAndWindowEdge(t *testing.T) {
 }
 
 func TestGetPlatformOrderSummary_ExplicitWindow(t *testing.T) {
-	svc := query.NewService(ordersRepo(time.Now()))
+	svc := mustHandler(ordersRepo(time.Now()))
 	resp, err := svc.GetPlatformOrderSummary(adminCtx(t), &analyticsv1.GetPlatformOrderSummaryRequest{Window: durationpb.New(2 * time.Hour)})
 	if err != nil {
 		t.Fatalf("GetPlatformOrderSummary: %v", err)
@@ -78,7 +60,7 @@ func TestGetPlatformOrderSummary_ExplicitWindow(t *testing.T) {
 }
 
 func TestGetPlatformOrderSummary_EmptyTable(t *testing.T) {
-	svc := query.NewService(query.NewMemoryRepository())
+	svc := mustHandler(querytest.NewMemoryRepository())
 	resp, err := svc.GetPlatformOrderSummary(adminCtx(t), &analyticsv1.GetPlatformOrderSummaryRequest{})
 	if err != nil {
 		t.Fatalf("GetPlatformOrderSummary: %v", err)
@@ -89,7 +71,7 @@ func TestGetPlatformOrderSummary_EmptyTable(t *testing.T) {
 }
 
 func TestListRecentOrders_NewestFirstAndLimit(t *testing.T) {
-	svc := query.NewService(ordersRepo(time.Now()))
+	svc := mustHandler(ordersRepo(time.Now()))
 	resp, err := svc.ListRecentOrders(adminCtx(t), &analyticsv1.ListRecentOrdersRequest{Limit: 2})
 	if err != nil {
 		t.Fatalf("ListRecentOrders: %v", err)
@@ -110,7 +92,7 @@ func TestListRecentOrders_NewestFirstAndLimit(t *testing.T) {
 }
 
 func TestListRecentOrders_EmptyTable(t *testing.T) {
-	svc := query.NewService(query.NewMemoryRepository())
+	svc := mustHandler(querytest.NewMemoryRepository())
 	resp, err := svc.ListRecentOrders(adminCtx(t), &analyticsv1.ListRecentOrdersRequest{})
 	if err != nil {
 		t.Fatalf("ListRecentOrders: %v", err)
@@ -121,9 +103,9 @@ func TestListRecentOrders_EmptyTable(t *testing.T) {
 }
 
 func TestPlatformOrderRPCs_NonAdminDenied(t *testing.T) {
-	svc := query.NewService(ordersRepo(time.Now()))
+	svc := mustHandler(ordersRepo(time.Now()))
 	cases := map[string]context.Context{
-		"buyer":     principalCtx(t, "listing.read,order.read"),
+		"buyer":     asPrincipal("u-1", "user", "listing.read,order.read"),
 		"anonymous": context.Background(),
 	}
 	want := map[string]codes.Code{"buyer": codes.PermissionDenied, "anonymous": codes.Unauthenticated}
