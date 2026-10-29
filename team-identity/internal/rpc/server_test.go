@@ -1,0 +1,385 @@
+package rpc_test
+
+import (
+	"context"
+	"log/slog"
+	"net"
+	"testing"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/grpcx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/healthx"
+	identityv1 "github.com/buidangphuc/team-identity/generated/platform/identity/v1"
+	"github.com/buidangphuc/team-identity/internal/rpc"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
+)
+
+func startWire(t *testing.T, h rpc.Handlers, logger *slog.Logger) *grpc.ClientConn {
+	t.Helper()
+	health, err := healthx.New(healthx.DefaultInterval, logger)
+	if err != nil {
+		t.Fatalf("health: %v", err)
+	}
+	srv := grpcx.NewServer(grpcx.ServerOptions{Config: sdkconfig.GRPC{}, Logger: logger, Health: health})
+	rpc.Register(srv, h)
+	lis, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	go func() { _ = srv.Serve(lis) }()
+	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = conn.Close()
+		srv.Stop()
+	})
+	return conn
+}
+
+func discardLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
+
+func startServer(t *testing.T, userRepo store.UserRepository, addrRepo store.AddressRepository) (identityv1.AuthServiceClient, identityv1.AddressServiceClient) {
+	authClient, addrClient, _ := startServerWithSessions(t, userRepo, addrRepo, storetest.NewInMemorySessionRepository())
+	return authClient, addrClient
+}
+
+func startServerWithSessions(
+	t *testing.T,
+	userRepo store.UserRepository,
+	addrRepo store.AddressRepository,
+	sessionRepo store.SessionRepository,
+) (identityv1.AuthServiceClient, identityv1.AddressServiceClient, identityv1.SessionServiceClient) {
+	t.Helper()
+	logger := discardLogger()
+	authSvc := newSvc(t, userRepo, sessionRepo)
+	conn := startWire(t, rpc.Handlers{
+		Auth:    rpc.NewAuthHandler(authSvc).WithExposeResetToken(true),
+		Address: rpc.NewAddressHandler(addrRepo, logger),
+		Session: rpc.NewSessionHandler(sessionRepo, logger),
+	}, logger)
+	return identityv1.NewAuthServiceClient(conn),
+		identityv1.NewAddressServiceClient(conn),
+		identityv1.NewSessionServiceClient(conn)
+}
+
+func principalCtx(t *testing.T, userID string) (context.Context, context.CancelFunc) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	md := metadata.Pairs(
+		"x-principal-id", userID,
+		"x-principal-type", "user",
+		"x-principal-scopes", "identity.read,identity.write",
+	)
+	return metadata.NewOutgoingContext(ctx, md), cancel
+}
+
+func TestAddressService_CRUD_And_Default(t *testing.T) {
+	userRepo := storetest.NewInMemoryUserRepository()
+	addrRepo := storetest.NewInMemoryAddressRepository()
+	_, addrClient := startServer(t, userRepo, addrRepo)
+
+	ctx, cancel := principalCtx(t, "user-buyer-1")
+	defer cancel()
+
+	// 1. Create first address
+	resp1, err := addrClient.CreateAddress(ctx, &identityv1.CreateAddressRequest{
+		RecipientName: "Nguyen Van A",
+		Phone:         "0901234567",
+		Street:        "123 Nguyen Hue",
+		District:      "Quan 1",
+		City:          "TP Ho Chi Minh",
+		IsDefault:     false,
+	})
+	if err != nil {
+		t.Fatalf("CreateAddress 1: %v", err)
+	}
+	if resp1.GetAddress().GetId() == "" {
+		t.Fatal("expected non-empty address id")
+	}
+
+	// 2. Create second address as default
+	resp2, err := addrClient.CreateAddress(ctx, &identityv1.CreateAddressRequest{
+		RecipientName: "Nguyen Van A (VP)",
+		Phone:         "0909888777",
+		Street:        "456 Le Loi",
+		District:      "Quan 1",
+		City:          "TP Ho Chi Minh",
+		IsDefault:     true,
+	})
+	if err != nil {
+		t.Fatalf("CreateAddress 2: %v", err)
+	}
+	if !resp2.GetAddress().GetIsDefault() {
+		t.Fatal("expected address 2 to be default")
+	}
+
+	// 3. List addresses
+	listResp, err := addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
+	if err != nil {
+		t.Fatalf("ListAddresses: %v", err)
+	}
+	if len(listResp.GetAddresses()) != 2 {
+		t.Fatalf("want 2 addresses, got %d", len(listResp.GetAddresses()))
+	}
+
+	// 4. Set first address as default
+	setDefaultResp, err := addrClient.SetDefaultAddress(ctx, &identityv1.SetDefaultAddressRequest{
+		Id: resp1.GetAddress().GetId(),
+	})
+	if err != nil {
+		t.Fatalf("SetDefaultAddress: %v", err)
+	}
+	if !setDefaultResp.GetAddress().GetIsDefault() {
+		t.Fatal("expected address 1 to be marked default")
+	}
+
+	// 5. Delete second address
+	_, err = addrClient.DeleteAddress(ctx, &identityv1.DeleteAddressRequest{
+		Id: resp2.GetAddress().GetId(),
+	})
+	if err != nil {
+		t.Fatalf("DeleteAddress: %v", err)
+	}
+
+	// Verify count is 1
+	listRespAfter, err := addrClient.ListAddresses(ctx, &identityv1.ListAddressesRequest{})
+	if err != nil {
+		t.Fatalf("ListAddresses after delete: %v", err)
+	}
+	if len(listRespAfter.GetAddresses()) != 1 {
+		t.Fatalf("want 1 address, got %d", len(listRespAfter.GetAddresses()))
+	}
+}
+
+func TestPasswordManagement_E2E(t *testing.T) {
+	userRepo := storetest.NewInMemoryUserRepository()
+	addrRepo := storetest.NewInMemoryAddressRepository()
+	authClient, _ := startServer(t, userRepo, addrRepo)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 1. Register a user
+	regResp, err := authClient.Register(ctx, &identityv1.RegisterRequest{
+		Username: "pwd_user",
+		Password: "oldpassword123",
+		Role:     "buyer",
+	})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	userID := regResp.GetResult().GetPrincipal().GetId()
+
+	// 2. Change password
+	pctx, pcancel := principalCtx(t, userID)
+	defer pcancel()
+	cpResp, err := authClient.ChangePassword(pctx, &identityv1.ChangePasswordRequest{
+		OldPassword: "oldpassword123",
+		NewPassword: "newpassword456",
+	})
+	if err != nil {
+		t.Fatalf("ChangePassword: %v", err)
+	}
+	if !cpResp.GetSuccess() {
+		t.Fatal("expected ChangePassword success=true")
+	}
+
+	// 3. Login with new password
+	loginResp, err := authClient.Login(ctx, &identityv1.LoginRequest{
+		Username: "pwd_user",
+		Password: "newpassword456",
+	})
+	if err != nil {
+		t.Fatalf("Login with new password: %v", err)
+	}
+	if loginResp.GetResult().GetUsername() != "pwd_user" {
+		t.Fatalf("want pwd_user, got %s", loginResp.GetResult().GetUsername())
+	}
+
+	// 4. Request password reset
+	reqResetResp, err := authClient.RequestPasswordReset(ctx, &identityv1.RequestPasswordResetRequest{
+		Username: "pwd_user",
+	})
+	if err != nil {
+		t.Fatalf("RequestPasswordReset: %v", err)
+	}
+	if reqResetResp.GetResetToken() == "" {
+		t.Fatal("expected non-empty reset token")
+	}
+
+	// 5. Reset password
+	resetResp, err := authClient.ResetPassword(ctx, &identityv1.ResetPasswordRequest{
+		Token:       reqResetResp.GetResetToken(),
+		NewPassword: "resetpassword789",
+	})
+	if err != nil {
+		t.Fatalf("ResetPassword: %v", err)
+	}
+	if !resetResp.GetSuccess() {
+		t.Fatal("expected ResetPassword success=true")
+	}
+
+	// 6. Login with reset password
+	loginResetResp, err := authClient.Login(ctx, &identityv1.LoginRequest{
+		Username: "pwd_user",
+		Password: "resetpassword789",
+	})
+	if err != nil {
+		t.Fatalf("Login with reset password: %v", err)
+	}
+	if loginResetResp.GetResult().GetUsername() != "pwd_user" {
+		t.Fatalf("want pwd_user, got %s", loginResetResp.GetResult().GetUsername())
+	}
+}
+
+func TestSessionService_GRPC_SelfScoped(t *testing.T) {
+	userRepo := storetest.NewInMemoryUserRepository()
+	addrRepo := storetest.NewInMemoryAddressRepository()
+	sessionRepo := storetest.NewInMemorySessionRepository()
+
+	// Seed sessions + login history for two distinct users.
+	ctxBg := context.Background()
+	sA, err := sessionRepo.CreateSession(ctxBg, store.Session{UserID: "user-A", Device: "iPhone", IP: "10.0.0.1"})
+	if err != nil {
+		t.Fatalf("seed session A: %v", err)
+	}
+	sB, err := sessionRepo.CreateSession(ctxBg, store.Session{UserID: "user-B", Device: "Pixel", IP: "10.0.0.2"})
+	if err != nil {
+		t.Fatalf("seed session B: %v", err)
+	}
+	if _, err := sessionRepo.RecordLogin(ctxBg, store.LoginEvent{UserID: "user-A", IP: "10.0.0.1", UserAgent: "curl", Success: true}); err != nil {
+		t.Fatalf("seed login A: %v", err)
+	}
+
+	_, _, sessionClient := startServerWithSessions(t, userRepo, addrRepo, sessionRepo)
+
+	ctxA, cancelA := principalCtx(t, "user-A")
+	defer cancelA()
+
+	// user-A sees only their own session.
+	listA, err := sessionClient.ListSessions(ctxA, &identityv1.ListSessionsRequest{})
+	if err != nil {
+		t.Fatalf("ListSessions A: %v", err)
+	}
+	if len(listA.GetSessions()) != 1 || listA.GetSessions()[0].GetId() != sA.ID {
+		t.Fatalf("want 1 session (%s) for user-A, got %+v", sA.ID, listA.GetSessions())
+	}
+
+	// user-A cannot revoke user-B's session (cross-user isolation).
+	if _, err := sessionClient.RevokeSession(ctxA, &identityv1.RevokeSessionRequest{SessionId: sB.ID}); status.Code(err) != codes.NotFound {
+		t.Fatalf("want NotFound revoking cross-user session, got %v", err)
+	}
+
+	// user-A revokes their own session.
+	if _, err := sessionClient.RevokeSession(ctxA, &identityv1.RevokeSessionRequest{SessionId: sA.ID}); err != nil {
+		t.Fatalf("RevokeSession own: %v", err)
+	}
+
+	// Login history is self-scoped: user-B has none.
+	ctxB, cancelB := principalCtx(t, "user-B")
+	defer cancelB()
+	histB, err := sessionClient.ListLoginHistory(ctxB, &identityv1.ListLoginHistoryRequest{})
+	if err != nil {
+		t.Fatalf("ListLoginHistory B: %v", err)
+	}
+	if len(histB.GetEvents()) != 0 || histB.GetPage().GetTotal() != 0 {
+		t.Fatalf("want empty login history for user-B, got %+v", histB)
+	}
+
+	// Anonymous (no principal) is rejected, not panicked.
+	anonCtx, cancelAnon := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancelAnon()
+	if _, err := sessionClient.ListSessions(anonCtx, &identityv1.ListSessionsRequest{}); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("want Unauthenticated for anonymous, got %v", err)
+	}
+}
+
+// Regression: login/register never recorded a session, so ListSessions was
+// always empty and nothing could be revoked.
+func TestLoginRecordsSession_ListAndRevoke(t *testing.T) {
+	sessionRepo := storetest.NewInMemorySessionRepository()
+	authClient, _, sessionClient := startServerWithSessions(t,
+		storetest.NewInMemoryUserRepository(), storetest.NewInMemoryAddressRepository(), sessionRepo)
+
+	bg, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	clientCtx := metadata.AppendToOutgoingContext(bg, "x-client-ip", "203.0.113.7", "x-client-user-agent", "Mozilla/5.0 test")
+
+	reg, err := authClient.Register(clientCtx, &identityv1.RegisterRequest{Username: "sess_user", Password: "password123", Role: "buyer"})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	login, err := authClient.Login(clientCtx, &identityv1.LoginRequest{Username: "sess_user", Password: "password123"})
+	if err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+	uid := login.GetResult().GetPrincipal().GetId()
+
+	claims := jwt.MapClaims{}
+	if _, _, err := jwt.NewParser().ParseUnverified(login.GetResult().GetToken(), claims); err != nil {
+		t.Fatalf("parse token: %v", err)
+	}
+	sid, _ := claims["sid"].(string)
+	if sid == "" {
+		t.Fatal("token has no sid claim")
+	}
+	if rsid, _ := parseSID(t, reg.GetResult().GetToken()), 0; rsid == "" || rsid == sid {
+		t.Fatalf("register token sid %q must be set and differ from login sid %q", rsid, sid)
+	}
+
+	ctx, cancel2 := principalCtx(t, uid)
+	defer cancel2()
+	list, err := sessionClient.ListSessions(ctx, &identityv1.ListSessionsRequest{})
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(list.GetSessions()) != 2 {
+		t.Fatalf("want 2 sessions (register + login), got %d", len(list.GetSessions()))
+	}
+	var found *identityv1.Session
+	for _, s := range list.GetSessions() {
+		if s.GetId() == sid {
+			found = s
+		}
+	}
+	if found == nil || found.GetIp() != "203.0.113.7" || found.GetDevice() != "Mozilla/5.0 test" || found.GetRevoked() {
+		t.Fatalf("login session not recorded as expected: %+v", found)
+	}
+
+	// Another user's principal cannot revoke it; the owner can.
+	other, cancel3 := principalCtx(t, "someone-else")
+	defer cancel3()
+	if _, err := sessionClient.RevokeSession(other, &identityv1.RevokeSessionRequest{SessionId: sid}); status.Code(err) != codes.NotFound {
+		t.Fatalf("want NotFound for non-owner, got %v", err)
+	}
+	if _, err := sessionClient.RevokeSession(ctx, &identityv1.RevokeSessionRequest{SessionId: sid}); err != nil {
+		t.Fatalf("RevokeSession: %v", err)
+	}
+	after, _ := sessionClient.ListSessions(ctx, &identityv1.ListSessionsRequest{})
+	for _, s := range after.GetSessions() {
+		if s.GetId() == sid && !s.GetRevoked() {
+			t.Fatal("session not marked revoked")
+		}
+	}
+}
+
+func parseSID(t *testing.T, tok string) string {
+	t.Helper()
+	claims := jwt.MapClaims{}
+	if _, _, err := jwt.NewParser().ParseUnverified(tok, claims); err != nil {
+		t.Fatalf("parse token: %v", err)
+	}
+	sid, _ := claims["sid"].(string)
+	return sid
+}
