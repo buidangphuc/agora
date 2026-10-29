@@ -1,6 +1,6 @@
 # Starting token values (P0)
 
-Authority moves to `packages/tokens` in P2. Until then these values are copied, with no sync, from `team-frontend`.
+Authority is `packages/tokens` since P2. This page records where the starting values came from; it is not kept in sync, and the package wins on any difference.
 
 Source files: `team-frontend/tailwind.config.ts` (Tier 1 primitives) and `team-frontend/src/app/globals.css` (Tier 2 aliases).
 
@@ -26,6 +26,9 @@ Semantic aliases (light): action-primary = primary 500, action-primary-hover = p
 
 Spacing: Tailwind 4 px base step, plus 18 (72 px). Radius: xs 2 px (hairline chips), lg 8 px (controls), xl 12 px (cards), 2xl 16 px (modal, hero). Source: `spacing`, `borderRadius`.
 
-## Known issue for the P2 contrast gate
+## Changes made in P2
 
-Text-inverse (white) on action-primary (`#ee4d2d`) computes to about 3.66:1, below the 4.5:1 AA threshold for normal text; it passes only as large text (3:1). P2 must either darken the action token for text use (primary 600 `#d73211` is darker) or declare that pairing as large-text only.
+- White on `#ee4d2d` computes to about 3.66:1, below the 4.5:1 AA threshold. `action-primary` is primary 600 `#d73211` (about 4.8:1 with white); `action-primary-hover` is primary 700. Primary 500 stays a primitive and is not exposed as a utility.
+- Focus ring primary 300 was about 1.7:1 on white, below the 3:1 non-text threshold. `focus-ring` is primary 600 in light and primary 400 in dark.
+- New primitive `danger-light` (`#ff8a98`) for danger text in dark; new semantic names `text-danger`, `text-success`, `text-warning`.
+- Dark theme is defined in `packages/tokens/src/tokens.mjs`; every declared pair is checked in both themes.

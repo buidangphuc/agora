@@ -1,0 +1,10 @@
+{
+  "extends": "../config/tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "jsx": "preserve"
+  },
+  "include": ["src/**/*.mjs", "scripts/**/*.mjs"],
+  "exclude": ["src/**/*.test.mjs"]
+}

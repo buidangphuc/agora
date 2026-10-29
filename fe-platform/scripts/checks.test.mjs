@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { scanImports } from "./check-boundaries.mjs";
 import { scanDisables } from "./check-disables.mjs";
+import { scanTokens } from "./check-tokens.mjs";
 
 describe("scanImports", () => {
   it("flags a public route importing internal code", () => {
@@ -54,5 +55,35 @@ describe("scanDisables", () => {
 
   it("counts nothing in clean code", () => {
     expect(scanDisables("const a = 1;")).toEqual({ count: 0, violations: [] });
+  });
+});
+
+describe("scanTokens", () => {
+  it("flags raw colours and arbitrary values", () => {
+    const text = [
+      'const a = "#fff";',
+      'const b = "w-[13px]";',
+      'const c = "rgb(0 0 0)";',
+    ].join("\n");
+    expect(scanTokens(text).map((v) => v.rule)).toEqual([
+      "raw-colour-literal",
+      "arbitrary-value",
+      "raw-colour-function",
+    ]);
+  });
+
+  it("allows a literal that states a reason", () => {
+    const text = [
+      "// tokens-allow: brand asset colour from vendor spec",
+      'const a = "#fff";',
+      'const b = "bg-[#000]"; // tokens-allow: third-party embed',
+    ].join("\n");
+    expect(scanTokens(text)).toEqual([]);
+  });
+
+  it("passes token-backed utilities", () => {
+    expect(scanTokens('const a = "bg-surface-card p-4 rounded-lg";')).toEqual(
+      [],
+    );
   });
 });

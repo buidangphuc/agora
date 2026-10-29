@@ -1,8 +1,8 @@
 export default function PublicHome() {
   return (
-    <main>
-      <h1>FE Platform</h1>
-      <p>Public route group.</p>
+    <main className="p-6">
+      <h1 className="text-2xl">FE Platform</h1>
+      <p className="text-text-secondary">Public route group.</p>
     </main>
   );
 }

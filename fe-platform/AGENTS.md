@@ -4,6 +4,7 @@ AI-ready frontend platform template: shared packages plus a Next.js app shell, w
 
 - Read `docs/agents/frontend.md` (guidelines) before writing UI.
 - Run `npm run check` before reporting done; facts in `docs/agents/project.md`.
-- Decisions: `docs/ADR/`. Starting token values: `docs/tokens-starting-values.md`.
+- Decisions: `docs/ADR/`. Token authority: `packages/tokens/src/tokens.mjs`; origin of the starting values: `docs/tokens-starting-values.md`.
+- Style only with token-backed Tailwind utilities (`bg-surface-card`, `text-text-primary`, `p-4`, `rounded-lg`); no hex, no `[...]` values. New colour pairs go in `packages/tokens/src/pairs.mjs`.
 - Dependency direction: app, then features, then `packages/ui`, then `packages/tokens`; packages never import from an app; public routes never import internal code.
 - No disable comments without a reason; no hand edits to generated code.
