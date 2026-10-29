@@ -1,4 +1,4 @@
-package service_test
+package identity_test
 
 // G2 (identity-session-refresh task 3): refresh-token minting in issue() and
 // AuthService.RefreshSession.
@@ -26,8 +26,9 @@ import (
 	"time"
 
 	"github.com/buidangphuc/team-identity/internal/authz"
-	"github.com/buidangphuc/team-identity/internal/repository"
-	"github.com/buidangphuc/team-identity/internal/service"
+	"github.com/buidangphuc/team-identity/internal/identity"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 var t0 = time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
@@ -39,18 +40,18 @@ func (c *fakeClock) Advance(d time.Duration) { c.t = c.t.Add(d) }
 
 // fakeUsers wraps the in-memory repo to simulate deletion, role changes and DB errors.
 type fakeUsers struct {
-	*repository.InMemoryUserRepository
+	*storetest.InMemoryUserRepository
 	deleted bool
 	roles   []string
 	getErr  error
 }
 
-func (f *fakeUsers) GetByID(ctx context.Context, id string) (repository.User, error) {
+func (f *fakeUsers) GetByID(ctx context.Context, id string) (store.User, error) {
 	if f.getErr != nil {
-		return repository.User{}, f.getErr
+		return store.User{}, f.getErr
 	}
 	if f.deleted {
-		return repository.User{}, repository.ErrNotFound
+		return store.User{}, store.ErrNotFound
 	}
 	u, err := f.InMemoryUserRepository.GetByID(ctx, id)
 	if err == nil && f.roles != nil {
@@ -61,7 +62,7 @@ func (f *fakeUsers) GetByID(ctx context.Context, id string) (repository.User, er
 
 // spySessions records RotateRefresh arguments and can inject a DB error.
 type spySessions struct {
-	*repository.InMemorySessionRepository
+	*storetest.InMemorySessionRepository
 	rotateErr error
 	calls     int
 	grace     time.Duration
@@ -69,32 +70,32 @@ type spySessions struct {
 	lastNew   string
 }
 
-func (s *spySessions) RotateRefresh(ctx context.Context, presented, newHash string, now time.Time, grace, maxAge time.Duration, ip, device string, ev repository.EnqueueFn) (repository.RotateResult, error) {
+func (s *spySessions) RotateRefresh(ctx context.Context, presented, newHash string, now time.Time, grace, maxAge time.Duration, ip, device string, ev store.EnqueueFn) (store.RotateResult, error) {
 	s.calls++
 	s.grace, s.maxAge, s.lastNew = grace, maxAge, newHash
 	if s.rotateErr != nil {
-		return repository.RotateResult{}, s.rotateErr
+		return store.RotateResult{}, s.rotateErr
 	}
 	return s.InMemorySessionRepository.RotateRefresh(ctx, presented, newHash, now, grace, maxAge, ip, device, ev)
 }
 
 type refreshEnv struct {
-	svc   *service.AuthService
+	svc   *identity.AuthService
 	users *fakeUsers
 	sess  *spySessions
 	clock *fakeClock
 	uid   string
-	first service.AuthResult // result of Register
+	first identity.AuthResult // result of Register
 }
 
 func newRefreshEnv(t *testing.T) *refreshEnv {
 	t.Helper()
 	e := &refreshEnv{
-		users: &fakeUsers{InMemoryUserRepository: repository.NewInMemoryUserRepository()},
-		sess:  &spySessions{InMemorySessionRepository: repository.NewInMemorySessionRepository()},
+		users: &fakeUsers{InMemoryUserRepository: storetest.NewInMemoryUserRepository()},
+		sess:  &spySessions{InMemorySessionRepository: storetest.NewInMemorySessionRepository()},
 		clock: &fakeClock{t: t0},
 	}
-	e.svc = service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(e.sess).WithClock(e.clock.Now)
+	e.svc = newSvc(t, e.users, e.sess).WithClock(e.clock.Now)
 	res, err := e.svc.Register(context.Background(), "alice", "password123", "buyer")
 	if err != nil {
 		t.Fatalf("register: %v", err)
@@ -125,7 +126,7 @@ func jwtClaims(t *testing.T, tok string) (sid string, scopes []string) {
 	return c.Sid, c.Scopes
 }
 
-func (e *refreshEnv) sessionRow(t *testing.T, uid string) repository.Session {
+func (e *refreshEnv) sessionRow(t *testing.T, uid string) store.Session {
 	t.Helper()
 	items, err := e.sess.ListSessions(context.Background(), uid)
 	if err != nil || len(items) != 1 {
@@ -134,11 +135,11 @@ func (e *refreshEnv) sessionRow(t *testing.T, uid string) repository.Session {
 	return items[0]
 }
 
-func (e *refreshEnv) refresh(tok string) (service.AuthResult, error) {
+func (e *refreshEnv) refresh(tok string) (identity.AuthResult, error) {
 	return e.svc.RefreshSession(context.Background(), tok)
 }
 
-func (e *refreshEnv) mustRefresh(t *testing.T, tok string) service.AuthResult {
+func (e *refreshEnv) mustRefresh(t *testing.T, tok string) identity.AuthResult {
 	t.Helper()
 	res, err := e.refresh(tok)
 	if err != nil {
@@ -150,7 +151,7 @@ func (e *refreshEnv) mustRefresh(t *testing.T, tok string) service.AuthResult {
 func (e *refreshEnv) wantInvalid(t *testing.T, tok string) {
 	t.Helper()
 	res, err := e.refresh(tok)
-	if !errors.Is(err, service.ErrInvalidRefreshToken) {
+	if !errors.Is(err, identity.ErrInvalidRefreshToken) {
 		t.Fatalf("want ErrInvalidRefreshToken, got %v", err)
 	}
 	if res.Token != "" || res.RefreshToken != "" {
@@ -180,9 +181,9 @@ func (e *refreshEnv) wantNotRevoked(t *testing.T) {
 }
 
 // seed inserts a session with a known token, bypassing the service (for old created_at etc).
-func (e *refreshEnv) seed(t *testing.T, uid, tok string, created, expires time.Time) repository.Session {
+func (e *refreshEnv) seed(t *testing.T, uid, tok string, created, expires time.Time) store.Session {
 	t.Helper()
-	s, err := e.sess.CreateSession(context.Background(), repository.Session{
+	s, err := e.sess.CreateSession(context.Background(), store.Session{
 		UserID: uid, CreatedAt: created, RefreshHash: sha(tok), RefreshExpiresAt: expires,
 	})
 	if err != nil {
@@ -247,26 +248,9 @@ func TestRegisterIssuesRefreshToken(t *testing.T) { // scenario: Register return
 	}
 }
 
-func TestLoginWithoutSessionsHasNoRefresh(t *testing.T) { // scenario: Sessions disabled yields no refresh token
-	svc := service.NewAuthService(repository.NewInMemoryUserRepository(), testSigner(t), time.Hour)
-	if _, err := svc.Register(context.Background(), "bob", "password123", "buyer"); err != nil {
-		t.Fatalf("register: %v", err)
-	}
-	res, err := svc.Login(context.Background(), "bob", "password123")
-	if err != nil {
-		t.Fatalf("login: %v", err)
-	}
-	if res.RefreshToken != "" || !res.RefreshExpiresAt.IsZero() {
-		t.Fatalf("no refresh expected without sessions: %+v", res)
-	}
-	if _, err := svc.RefreshSession(context.Background(), "whatever"); !errors.Is(err, service.ErrInvalidRefreshToken) {
-		t.Fatalf("refresh without sessions must be ErrInvalidRefreshToken, got %v", err)
-	}
-}
-
 func TestFailedLoginCreatesNoSession(t *testing.T) { // scenario: Failed login issues nothing
 	e := newRefreshEnv(t)
-	if _, err := e.svc.Login(context.Background(), "alice", "wrong-password"); !errors.Is(err, service.ErrInvalidCredentials) {
+	if _, err := e.svc.Login(context.Background(), "alice", "wrong-password"); !errors.Is(err, identity.ErrInvalidCredentials) {
 		t.Fatalf("want ErrInvalidCredentials, got %v", err)
 	}
 	items, _ := e.sess.ListSessions(context.Background(), e.uid)
@@ -318,7 +302,7 @@ func TestRefreshExtendsExpiry(t *testing.T) { // scenario: Expiry slides on use
 	}
 }
 
-func mustList(t *testing.T, e *refreshEnv) []repository.Session {
+func mustList(t *testing.T, e *refreshEnv) []store.Session {
 	t.Helper()
 	items, err := e.sess.ListSessions(context.Background(), e.uid)
 	if err != nil {
@@ -409,8 +393,8 @@ func TestRefreshRevokedSession(t *testing.T) { // scenario: Revoked session
 
 func revokeAsLogout(t *testing.T, e *refreshEnv, sid string) {
 	t.Helper()
-	ev := func(s repository.Session) (repository.OutboxRow, error) {
-		return repository.OutboxRow{EventID: "logout-" + s.ID, AggregateType: "Session", AggregateID: s.UserID,
+	ev := func(s store.Session) (store.OutboxRow, error) {
+		return store.OutboxRow{EventID: "logout-" + s.ID, AggregateType: "Session", AggregateID: s.UserID,
 			EventType: "platform.identity.v1.SessionRevoked", Payload: []byte("x")}, nil
 	}
 	if err := e.sess.RevokeSession(context.Background(), sid, e.uid, ev); err != nil {
@@ -454,8 +438,8 @@ func TestRefreshAbsoluteLifetimeRevokes(t *testing.T) { // scenario: Absolute li
 	tok := "seeded-token-old-session"
 	old := e.clock.Now().Add(-(90*24*time.Hour + time.Second))
 	// Drop the Register session so the seeded one is the only row.
-	e.sess = &spySessions{InMemorySessionRepository: repository.NewInMemorySessionRepository()}
-	e.svc = service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(e.sess).WithClock(e.clock.Now)
+	e.sess = &spySessions{InMemorySessionRepository: storetest.NewInMemorySessionRepository()}
+	e.svc = newSvc(t, e.users, e.sess).WithClock(e.clock.Now)
 	e.seed(t, e.uid, tok, old, e.clock.Now().Add(24*time.Hour))
 	e.wantInvalid(t, tok)
 	e.wantRevokedOnce(t)
@@ -464,8 +448,8 @@ func TestRefreshAbsoluteLifetimeRevokes(t *testing.T) { // scenario: Absolute li
 func TestRefreshAbsoluteLifetimeBoundary(t *testing.T) { // scenario: Absolute lifetime boundary
 	e := newRefreshEnv(t)
 	tok := "seeded-token-boundary"
-	e.sess = &spySessions{InMemorySessionRepository: repository.NewInMemorySessionRepository()}
-	e.svc = service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(e.sess).WithClock(e.clock.Now)
+	e.sess = &spySessions{InMemorySessionRepository: storetest.NewInMemorySessionRepository()}
+	e.svc = newSvc(t, e.users, e.sess).WithClock(e.clock.Now)
 	e.seed(t, e.uid, tok, e.clock.Now().Add(-90*24*time.Hour), e.clock.Now().Add(24*time.Hour))
 	res := e.mustRefresh(t, tok)
 	assertRefreshTokenShape(t, res.RefreshToken)
@@ -585,7 +569,7 @@ func TestRefreshDBDownIsUnavailableNotRevoked(t *testing.T) { // scenario: Ident
 	e := newRefreshEnv(t)
 	e.sess.rotateErr = errors.New("connection refused")
 	res, err := e.refresh(e.first.RefreshToken)
-	if !errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrInvalidRefreshToken) {
+	if !errors.Is(err, identity.ErrRefreshUnavailable) || errors.Is(err, identity.ErrInvalidRefreshToken) {
 		t.Fatalf("want ErrRefreshUnavailable, got %v", err)
 	}
 	if res.Token != "" || res.RefreshToken != "" {
@@ -602,7 +586,7 @@ func TestRefreshUserLookupDBErrorIsUnavailableNotRevoked(t *testing.T) { // scen
 	e := newRefreshEnv(t)
 	e.users.getErr = errors.New("connection refused")
 	_, err := e.refresh(e.first.RefreshToken)
-	if !errors.Is(err, service.ErrRefreshUnavailable) {
+	if !errors.Is(err, identity.ErrRefreshUnavailable) {
 		t.Fatalf("want ErrRefreshUnavailable, got %v", err)
 	}
 	if s := e.sessionRow(t, e.uid); s.Revoked {
@@ -616,7 +600,7 @@ func TestRefreshUserLookupDBErrorIsUnavailableNotRevoked(t *testing.T) { // scen
 func TestRefreshErrorsAreGenericAndLeakNothing(t *testing.T) { // scenario: Failure messages do not leak the cause (service level)
 	var msgs []string
 	collect := func(err error) {
-		if !errors.Is(err, service.ErrInvalidRefreshToken) {
+		if !errors.Is(err, identity.ErrInvalidRefreshToken) {
 			t.Fatalf("want ErrInvalidRefreshToken, got %v", err)
 		}
 		msgs = append(msgs, err.Error())
@@ -658,13 +642,13 @@ func TestRefreshErrorsAreGenericAndLeakNothing(t *testing.T) { // scenario: Fail
 // conflictSessions makes RotateRefresh fail with a hash-conflict-like error.
 type conflictSessions struct{ *spySessions }
 
-func (c conflictSessions) RotateRefresh(context.Context, string, string, time.Time, time.Duration, time.Duration, string, string, repository.EnqueueFn) (repository.RotateResult, error) {
-	return repository.RotateResult{}, errors.New("refresh hash conflict")
+func (c conflictSessions) RotateRefresh(context.Context, string, string, time.Time, time.Duration, time.Duration, string, string, store.EnqueueFn) (store.RotateResult, error) {
+	return store.RotateResult{}, errors.New("refresh hash conflict")
 }
 
 func TestRefreshHashConflictNotSurfacedVerbatim(t *testing.T) { // reviewer carry-over: errRefreshHashConflict not surfaced
 	e := newRefreshEnv(t)
-	svc := service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(conflictSessions{e.sess}).WithClock(e.clock.Now)
+	svc := newSvc(t, e.users, conflictSessions{e.sess}).WithClock(e.clock.Now)
 	_, err := svc.RefreshSession(context.Background(), e.first.RefreshToken)
 	if err == nil {
 		t.Fatalf("want an error")
@@ -672,7 +656,7 @@ func TestRefreshHashConflictNotSurfacedVerbatim(t *testing.T) { // reviewer carr
 	if strings.Contains(err.Error(), "refresh hash conflict") {
 		t.Fatalf("raw repository error leaked: %v", err)
 	}
-	if errors.Is(err, service.ErrInvalidRefreshToken) {
+	if errors.Is(err, identity.ErrInvalidRefreshToken) {
 		t.Fatalf("a repository fault must not look like an invalid token (no logout on infra errors)")
 	}
 }
@@ -684,10 +668,10 @@ func TestRefreshOutboxFailureIsInternal(t *testing.T) { // scenario: Revoke and 
 	e.clock.Advance(time.Minute)
 	e.sess.FailOutbox = true
 	res, err := e.refresh(r1)
-	if !errors.Is(err, service.ErrRefreshInternal) {
+	if !errors.Is(err, identity.ErrRefreshInternal) {
 		t.Fatalf("want ErrRefreshInternal, got %v", err)
 	}
-	if errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrInvalidRefreshToken) {
+	if errors.Is(err, identity.ErrRefreshUnavailable) || errors.Is(err, identity.ErrInvalidRefreshToken) {
 		t.Fatalf("outbox failure must be neither Unavailable nor Invalid: %v", err)
 	}
 	if res.Token != "" || res.RefreshToken != "" {
@@ -704,19 +688,19 @@ type faultSessions struct {
 	err error
 }
 
-func (c faultSessions) RotateRefresh(context.Context, string, string, time.Time, time.Duration, time.Duration, string, string, repository.EnqueueFn) (repository.RotateResult, error) {
-	return repository.RotateResult{}, c.err
+func (c faultSessions) RotateRefresh(context.Context, string, string, time.Time, time.Duration, time.Duration, string, string, store.EnqueueFn) (store.RotateResult, error) {
+	return store.RotateResult{}, c.err
 }
 
 func TestRefreshWrappedRotateFaultIsInternal(t *testing.T) { // scenario: Revoke and event are atomic (hash conflict / ev fault -> Internal)
 	e := newRefreshEnv(t)
-	fault := fmt.Errorf("refresh hash conflict: %w", repository.ErrRotateFault)
-	svc := service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(faultSessions{e.sess, fault}).WithClock(e.clock.Now)
+	fault := fmt.Errorf("refresh hash conflict: %w", store.ErrRotateFault)
+	svc := newSvc(t, e.users, faultSessions{e.sess, fault}).WithClock(e.clock.Now)
 	_, err := svc.RefreshSession(context.Background(), e.first.RefreshToken)
-	if !errors.Is(err, service.ErrRefreshInternal) {
+	if !errors.Is(err, identity.ErrRefreshInternal) {
 		t.Fatalf("want ErrRefreshInternal, got %v", err)
 	}
-	if errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrInvalidRefreshToken) {
+	if errors.Is(err, identity.ErrRefreshUnavailable) || errors.Is(err, identity.ErrInvalidRefreshToken) {
 		t.Fatalf("rotate fault must be neither Unavailable nor Invalid: %v", err)
 	}
 	if strings.Contains(err.Error(), "refresh hash conflict") {
@@ -728,7 +712,7 @@ func TestRefreshPlainRotateErrorIsUnavailableNotInternal(t *testing.T) { // scen
 	e := newRefreshEnv(t)
 	e.sess.rotateErr = errors.New("connection refused")
 	_, err := e.refresh(e.first.RefreshToken)
-	if !errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrRefreshInternal) {
+	if !errors.Is(err, identity.ErrRefreshUnavailable) || errors.Is(err, identity.ErrRefreshInternal) {
 		t.Fatalf("want Unavailable and not Internal, got %v", err)
 	}
 }
@@ -739,7 +723,7 @@ type revokeFailSessions struct {
 	err error
 }
 
-func (c revokeFailSessions) RevokeSession(context.Context, string, string, repository.EnqueueFn) error {
+func (c revokeFailSessions) RevokeSession(context.Context, string, string, store.EnqueueFn) error {
 	return c.err
 }
 
@@ -748,10 +732,10 @@ func TestRefreshDeletedUserRevokeOutboxFailureIsInternal(t *testing.T) { // scen
 	e.users.deleted = true
 	e.sess.FailOutbox = true
 	_, err := e.refresh(e.first.RefreshToken)
-	if !errors.Is(err, service.ErrRefreshInternal) {
+	if !errors.Is(err, identity.ErrRefreshInternal) {
 		t.Fatalf("want ErrRefreshInternal, got %v", err)
 	}
-	if errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrInvalidRefreshToken) {
+	if errors.Is(err, identity.ErrRefreshUnavailable) || errors.Is(err, identity.ErrInvalidRefreshToken) {
 		t.Fatalf("must be neither Unavailable nor Invalid: %v", err)
 	}
 	if s := e.sessionRow(t, e.uid); s.Revoked {
@@ -762,9 +746,9 @@ func TestRefreshDeletedUserRevokeOutboxFailureIsInternal(t *testing.T) { // scen
 func TestRefreshDeletedUserRevokeDBErrorIsUnavailable(t *testing.T) { // scenario: Identity database down is not a logout (deleted-user revoke)
 	e := newRefreshEnv(t)
 	e.users.deleted = true
-	svc := service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(revokeFailSessions{e.sess, errors.New("connection refused")}).WithClock(e.clock.Now)
+	svc := newSvc(t, e.users, revokeFailSessions{e.sess, errors.New("connection refused")}).WithClock(e.clock.Now)
 	_, err := svc.RefreshSession(context.Background(), e.first.RefreshToken)
-	if !errors.Is(err, service.ErrRefreshUnavailable) || errors.Is(err, service.ErrRefreshInternal) || errors.Is(err, service.ErrInvalidRefreshToken) {
+	if !errors.Is(err, identity.ErrRefreshUnavailable) || errors.Is(err, identity.ErrRefreshInternal) || errors.Is(err, identity.ErrInvalidRefreshToken) {
 		t.Fatalf("want Unavailable only, got %v", err)
 	}
 }
@@ -772,10 +756,10 @@ func TestRefreshDeletedUserRevokeDBErrorIsUnavailable(t *testing.T) { // scenari
 func TestRefreshDeletedUserRevokeFaultIsInternal(t *testing.T) { // scenario: Revoke and event are atomic (RevokeSession wraps ErrRotateFault)
 	e := newRefreshEnv(t)
 	e.users.deleted = true
-	fault := fmt.Errorf("enqueue: %w", repository.ErrRotateFault)
-	svc := service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(revokeFailSessions{e.sess, fault}).WithClock(e.clock.Now)
+	fault := fmt.Errorf("enqueue: %w", store.ErrRotateFault)
+	svc := newSvc(t, e.users, revokeFailSessions{e.sess, fault}).WithClock(e.clock.Now)
 	_, err := svc.RefreshSession(context.Background(), e.first.RefreshToken)
-	if !errors.Is(err, service.ErrRefreshInternal) {
+	if !errors.Is(err, identity.ErrRefreshInternal) {
 		t.Fatalf("want ErrRefreshInternal, got %v", err)
 	}
 }

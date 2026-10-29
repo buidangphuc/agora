@@ -1,4 +1,4 @@
-package service_test
+package identity_test
 
 // Task 1.2 (frontend-session-client-context): RefreshSession passes the ctx ClientInfo
 // (clipped ip 64 / UA 256) to SessionRepository.RotateRefresh.
@@ -9,20 +9,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-identity/internal/repository"
-	"github.com/buidangphuc/team-identity/internal/service"
+	"github.com/buidangphuc/team-identity/internal/identity"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 // clientEnv registers alice from a known first client, so the stored ip/device are non-empty.
 func clientEnv(t *testing.T) *refreshEnv {
 	t.Helper()
 	e := &refreshEnv{
-		users: &fakeUsers{InMemoryUserRepository: repository.NewInMemoryUserRepository()},
-		sess:  &spySessions{InMemorySessionRepository: repository.NewInMemorySessionRepository()},
+		users: &fakeUsers{InMemoryUserRepository: storetest.NewInMemoryUserRepository()},
+		sess:  &spySessions{InMemorySessionRepository: storetest.NewInMemorySessionRepository()},
 		clock: &fakeClock{t: t0},
 	}
-	e.svc = service.NewAuthService(e.users, testSigner(t), time.Hour).WithSessions(e.sess).WithClock(e.clock.Now)
-	ctx := service.WithClient(context.Background(), service.ClientInfo{IP: "203.0.113.1", UserAgent: "AgoraTest/1"})
+	e.svc = newSvc(t, e.users, e.sess).WithClock(e.clock.Now)
+	ctx := identity.WithClient(context.Background(), identity.ClientInfo{IP: "203.0.113.1", UserAgent: "AgoraTest/1"})
 	res, err := e.svc.Register(ctx, "alice", "password123", "buyer")
 	if err != nil {
 		t.Fatalf("register: %v", err)
@@ -31,15 +31,15 @@ func clientEnv(t *testing.T) *refreshEnv {
 	return e
 }
 
-func (e *refreshEnv) refreshWith(t *testing.T, tok string, c service.ClientInfo) (service.AuthResult, error) {
+func (e *refreshEnv) refreshWith(t *testing.T, tok string, c identity.ClientInfo) (identity.AuthResult, error) {
 	t.Helper()
-	return e.svc.RefreshSession(service.WithClient(context.Background(), c), tok)
+	return e.svc.RefreshSession(identity.WithClient(context.Background(), c), tok)
 }
 
 func TestSessionClientContext_RotationRecordsIPViaRepository(t *testing.T) {
 	e := clientEnv(t)
 	e.clock.Advance(time.Minute)
-	if _, err := e.refreshWith(t, e.first.RefreshToken, service.ClientInfo{IP: "198.51.100.4", UserAgent: "AgoraTest/2"}); err != nil {
+	if _, err := e.refreshWith(t, e.first.RefreshToken, identity.ClientInfo{IP: "198.51.100.4", UserAgent: "AgoraTest/2"}); err != nil {
 		t.Fatalf("refresh: %v", err)
 	}
 	s := e.sessionRow(t, e.uid)
@@ -57,7 +57,7 @@ func TestSessionClientContext_RotationRecordsIPViaRepository(t *testing.T) {
 func TestSessionClientContext_EmptyClientKeepsStoredValues_Boundary(t *testing.T) {
 	cases := map[string]context.Context{
 		"no ClientInfo":    context.Background(),
-		"empty ClientInfo": service.WithClient(context.Background(), service.ClientInfo{}),
+		"empty ClientInfo": identity.WithClient(context.Background(), identity.ClientInfo{}),
 	}
 	for name, ctx := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -85,7 +85,7 @@ func TestSessionClientContext_OversizeValuesClipped_Boundary(t *testing.T) {
 	e := clientEnv(t)
 	e.clock.Advance(time.Minute)
 	ip, ua := strings.Repeat("1", 100), strings.Repeat("u", 400)
-	if _, err := e.refreshWith(t, e.first.RefreshToken, service.ClientInfo{IP: ip, UserAgent: ua}); err != nil {
+	if _, err := e.refreshWith(t, e.first.RefreshToken, identity.ClientInfo{IP: ip, UserAgent: ua}); err != nil {
 		t.Fatalf("refresh: %v", err)
 	}
 	s := e.sessionRow(t, e.uid)
@@ -98,7 +98,7 @@ func TestSessionClientContext_ExactLimitNotClipped_Boundary(t *testing.T) {
 	e := clientEnv(t)
 	e.clock.Advance(time.Minute)
 	ip, ua := strings.Repeat("1", 64), strings.Repeat("u", 256)
-	if _, err := e.refreshWith(t, e.first.RefreshToken, service.ClientInfo{IP: ip, UserAgent: ua}); err != nil {
+	if _, err := e.refreshWith(t, e.first.RefreshToken, identity.ClientInfo{IP: ip, UserAgent: ua}); err != nil {
 		t.Fatalf("refresh: %v", err)
 	}
 	s := e.sessionRow(t, e.uid)
@@ -110,12 +110,12 @@ func TestSessionClientContext_ExactLimitNotClipped_Boundary(t *testing.T) {
 func TestSessionClientContext_GraceReplayDoesNotUpdate_Boundary(t *testing.T) {
 	e := clientEnv(t)
 	e.clock.Advance(time.Minute)
-	if _, err := e.refreshWith(t, e.first.RefreshToken, service.ClientInfo{IP: "198.51.100.4", UserAgent: "AgoraTest/2"}); err != nil {
+	if _, err := e.refreshWith(t, e.first.RefreshToken, identity.ClientInfo{IP: "198.51.100.4", UserAgent: "AgoraTest/2"}); err != nil {
 		t.Fatalf("refresh: %v", err)
 	}
 	before := e.sessionRow(t, e.uid)
 	e.clock.Advance(2 * time.Second)
-	res, err := e.refreshWith(t, e.first.RefreshToken, service.ClientInfo{IP: "192.0.2.77", UserAgent: "AgoraTest/3"})
+	res, err := e.refreshWith(t, e.first.RefreshToken, identity.ClientInfo{IP: "192.0.2.77", UserAgent: "AgoraTest/3"})
 	if err != nil || res.RefreshToken != "" {
 		t.Fatalf("grace replay: want success without new refresh token, got %+v err=%v", res, err)
 	}
@@ -129,7 +129,7 @@ func TestSessionClientContext_RejectedRefreshUpdatesNothing_Error(t *testing.T) 
 	e := clientEnv(t)
 	before := e.sessionRow(t, e.uid)
 	e.clock.Advance(time.Minute)
-	c := service.ClientInfo{IP: "192.0.2.77", UserAgent: "Evil/9"}
+	c := identity.ClientInfo{IP: "192.0.2.77", UserAgent: "Evil/9"}
 	if _, err := e.refreshWith(t, "unknown-token-unknown-token-unknown-token0", c); err == nil {
 		t.Fatalf("unknown token must be rejected")
 	}

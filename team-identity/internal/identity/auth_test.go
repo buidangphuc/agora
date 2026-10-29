@@ -1,4 +1,4 @@
-package service_test
+package identity_test
 
 import (
 	"context"
@@ -9,8 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-identity/internal/repository"
-	"github.com/buidangphuc/team-identity/internal/service"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 	"github.com/buidangphuc/team-identity/internal/token"
 )
 
@@ -30,8 +29,8 @@ func testSigner(t *testing.T) *token.Signer {
 }
 
 func TestAuthService(t *testing.T) {
-	repo := repository.NewInMemoryUserRepository()
-	svc := service.NewAuthService(repo, testSigner(t), time.Hour)
+	repo := storetest.NewInMemoryUserRepository()
+	svc := newSvc(t, repo, storetest.NewInMemorySessionRepository())
 	ctx := context.Background()
 
 	t.Run("Register success", func(t *testing.T) {

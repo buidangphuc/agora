@@ -1,4 +1,4 @@
-package service_test
+package identity_test
 
 import (
 	"bytes"
@@ -11,8 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/buidangphuc/team-identity/internal/repository"
-	"github.com/buidangphuc/team-identity/internal/service"
+	"github.com/buidangphuc/team-identity/internal/identity"
+	"github.com/buidangphuc/team-identity/internal/store"
+	"github.com/buidangphuc/team-identity/internal/store/storetest"
 )
 
 var sweepNow = time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
@@ -24,15 +25,14 @@ const (
 
 // recordingRepo wraps a real in-memory repository and records every purge call.
 type recordingRepo struct {
-	repository.SessionRepository
+	store.SessionRepository
 
 	mu           sync.Mutex
 	limits       []int
 	returned     []int
-	failSessions int           // fail this many initial PurgeSessions calls
-	failHistory  bool          // every PurgeLoginHistory call fails
-	calls        int           // PurgeSessions call count
-	called       chan struct{} // signalled after each PurgeSessions call completes
+	failSessions int  // fail this many initial PurgeSessions calls
+	failHistory  bool // every PurgeLoginHistory call fails
+	calls        int  // PurgeSessions call count
 }
 
 func (r *recordingRepo) PurgeSessions(ctx context.Context, now time.Time, retention time.Duration, limit int) (int, error) {
@@ -51,12 +51,6 @@ func (r *recordingRepo) PurgeSessions(ctx context.Context, now time.Time, retent
 	r.mu.Lock()
 	r.returned = append(r.returned, n)
 	r.mu.Unlock()
-	if r.called != nil {
-		select {
-		case r.called <- struct{}{}:
-		default:
-		}
-	}
 	return n, err
 }
 
@@ -67,11 +61,16 @@ func (r *recordingRepo) PurgeLoginHistory(ctx context.Context, before time.Time,
 	return r.SessionRepository.PurgeLoginHistory(ctx, before, limit)
 }
 
-func seedDeadSessions(t *testing.T, repo repository.SessionRepository, n int, userID, ip, device string) {
+func seedDeadSessions(t *testing.T, repo store.SessionRepository, n int, userID, ip, device string) {
 	t.Helper()
-	old := sweepNow.Add(-sweepSessionRetention - 24*time.Hour)
+	seedDeadSessionsAt(t, repo, n, userID, ip, device, sweepNow)
+}
+
+func seedDeadSessionsAt(t *testing.T, repo store.SessionRepository, n int, userID, ip, device string, ref time.Time) {
+	t.Helper()
+	old := ref.Add(-sweepSessionRetention - 24*time.Hour)
 	for i := 0; i < n; i++ {
-		_, err := repo.CreateSession(context.Background(), repository.Session{
+		_, err := repo.CreateSession(context.Background(), store.Session{
 			UserID: userID, IP: ip, Device: device,
 			CreatedAt: old, LastSeen: old, Revoked: true,
 		})
@@ -81,7 +80,7 @@ func seedDeadSessions(t *testing.T, repo repository.SessionRepository, n int, us
 	}
 }
 
-func liveSessionCount(t *testing.T, repo repository.SessionRepository, userID string) int {
+func liveSessionCount(t *testing.T, repo store.SessionRepository, userID string) int {
 	t.Helper()
 	items, err := repo.ListSessions(context.Background(), userID)
 	if err != nil {
@@ -90,11 +89,10 @@ func liveSessionCount(t *testing.T, repo repository.SessionRepository, userID st
 	return len(items)
 }
 
-func newSweeper(repo repository.SessionRepository, logger *slog.Logger) *service.SessionSweeper {
-	return service.NewSessionSweeper(repo, service.SessionSweeperConfig{
+func newSweeper(repo store.SessionRepository, logger *slog.Logger) *identity.SessionSweeper {
+	return identity.NewSessionSweeper(repo, identity.SessionSweeperConfig{
 		SessionRetention:      sweepSessionRetention,
 		LoginHistoryRetention: sweepHistoryRetention,
-		Interval:              time.Millisecond,
 		BatchSize:             500,
 	}, logger)
 }
@@ -122,7 +120,7 @@ func jsonLogger(buf *syncBuf) *slog.Logger {
 
 // Scenario: Session retention: batches of 500.
 func TestSweepOnceBatches(t *testing.T) {
-	mem := repository.NewInMemorySessionRepository()
+	mem := storetest.NewInMemorySessionRepository()
 	rec := &recordingRepo{SessionRepository: mem}
 	seedDeadSessions(t, mem, 1200, "user-batch", "10.0.0.1", "dev")
 
@@ -152,7 +150,7 @@ func TestSweepOnceBatches(t *testing.T) {
 
 // Scenario: Session retention: batches of 500 (boundary: an exact multiple needs one empty probe batch).
 func TestSweepOnceBatchesExactMultiple(t *testing.T) {
-	mem := repository.NewInMemorySessionRepository()
+	mem := storetest.NewInMemorySessionRepository()
 	rec := &recordingRepo{SessionRepository: mem}
 	seedDeadSessions(t, mem, 1000, "user-exact", "10.0.0.1", "dev")
 
@@ -173,9 +171,9 @@ func TestSweepOnceBatchesExactMultiple(t *testing.T) {
 
 // Scenario: Session retention: batches of 500 (nothing eligible: a single empty batch, active rows untouched).
 func TestSweepOnceNothingEligibleKeepsActive(t *testing.T) {
-	mem := repository.NewInMemorySessionRepository()
+	mem := storetest.NewInMemorySessionRepository()
 	rec := &recordingRepo{SessionRepository: mem}
-	if _, err := mem.CreateSession(context.Background(), repository.Session{
+	if _, err := mem.CreateSession(context.Background(), store.Session{
 		UserID: "user-live", CreatedAt: sweepNow.Add(-time.Hour), LastSeen: sweepNow,
 		RefreshExpiresAt: sweepNow.Add(24 * time.Hour),
 	}); err != nil {
@@ -201,15 +199,15 @@ func TestSweepOnceNothingEligibleKeepsActive(t *testing.T) {
 
 // Scenario: Session retention: batches of 500 (login history is purged in batches too).
 func TestSweepOnceLoginHistoryBatches(t *testing.T) {
-	mem := repository.NewInMemorySessionRepository()
+	mem := storetest.NewInMemorySessionRepository()
 	old := sweepNow.Add(-sweepHistoryRetention - time.Hour)
 	for i := 0; i < 600; i++ {
-		if _, err := mem.RecordLogin(context.Background(), repository.LoginEvent{UserID: "user-h", CreatedAt: old, Success: true}); err != nil {
+		if _, err := mem.RecordLogin(context.Background(), store.LoginEvent{UserID: "user-h", CreatedAt: old, Success: true}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	recent := sweepNow.Add(-time.Hour)
-	if _, err := mem.RecordLogin(context.Background(), repository.LoginEvent{UserID: "user-h", CreatedAt: recent, Success: true}); err != nil {
+	if _, err := mem.RecordLogin(context.Background(), store.LoginEvent{UserID: "user-h", CreatedAt: recent, Success: true}); err != nil {
 		t.Fatal(err)
 	}
 	res, err := newSweeper(mem, jsonLogger(&syncBuf{})).SweepOnce(context.Background(), sweepNow)
@@ -230,7 +228,7 @@ func TestSweepOnceLoginHistoryBatches(t *testing.T) {
 
 // Scenario: Session retention: sweep error is logged and retried (SweepOnce surfaces the error, next call recovers).
 func TestSweeperSurvivesErrorSweepOnce(t *testing.T) {
-	mem := repository.NewInMemorySessionRepository()
+	mem := storetest.NewInMemorySessionRepository()
 	rec := &recordingRepo{SessionRepository: mem, failSessions: 1}
 	seedDeadSessions(t, mem, 3, "user-err", "10.0.0.1", "dev")
 	sw := newSweeper(rec, jsonLogger(&syncBuf{}))
@@ -250,37 +248,31 @@ func TestSweeperSurvivesErrorSweepOnce(t *testing.T) {
 	}
 }
 
-// runUntilSweeps starts Run and stops it after n PurgeSessions calls completed.
-func runUntilSweeps(t *testing.T, sw *service.SessionSweeper, rec *recordingRepo, n int) {
+func tickN(t *testing.T, sw *identity.SessionSweeper, n int) {
 	t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() { sw.Run(ctx); close(done) }()
-	timeout := time.After(10 * time.Second)
 	for i := 0; i < n; i++ {
-		select {
-		case <-rec.called:
-		case <-timeout:
-			cancel()
-			t.Fatalf("timed out waiting for sweep %d", i+1)
+		if err := sw.Tick(context.Background()); err != nil {
+			t.Fatalf("Tick %d returned %v, want nil", i+1, err)
 		}
-	}
-	cancel()
-	select {
-	case <-done:
-	case <-timeout:
-		t.Fatal("Run did not return after context cancel")
 	}
 }
 
 // Scenario: Session retention: sweep error is logged and retried.
 func TestSweeperSurvivesError(t *testing.T) {
-	mem := repository.NewInMemorySessionRepository()
-	rec := &recordingRepo{SessionRepository: mem, failSessions: 1, called: make(chan struct{}, 64)}
-	seedDeadSessions(t, mem, 4, "user-run", "10.0.0.1", "dev")
+	mem := storetest.NewInMemorySessionRepository()
+	rec := &recordingRepo{SessionRepository: mem, failSessions: 1}
+	seedDeadSessionsAt(t, mem, 4, "user-run", "10.0.0.1", "dev", time.Now())
 	buf := &syncBuf{}
+	sw := newSweeper(rec, jsonLogger(buf))
 
-	runUntilSweeps(t, newSweeper(rec, jsonLogger(buf)), rec, 2)
+	tickN(t, sw, 1)
+	if n := liveSessionCount(t, mem, "user-run"); n != 4 {
+		t.Fatalf("rows after failed tick = %d, want 4 untouched", n)
+	}
+	if logs := buf.String(); !strings.Contains(logs, `"level":"WARN"`) {
+		t.Fatalf("no warning logged for the failed tick:\n%s", logs)
+	}
+	tickN(t, sw, 1)
 
 	if n := liveSessionCount(t, mem, "user-run"); n != 0 {
 		t.Fatalf("rows after retry = %d, want 0 (next tick purges normally)", n)
@@ -296,37 +288,40 @@ func TestSweeperSurvivesError(t *testing.T) {
 
 // Scenario: Session retention: purge does not log personal data.
 func TestSweeperLogsCountsOnly(t *testing.T) {
-	mem := repository.NewInMemorySessionRepository()
-	rec := &recordingRepo{SessionRepository: mem, failSessions: 1, called: make(chan struct{}, 64)}
+	mem := storetest.NewInMemorySessionRepository()
+	rec := &recordingRepo{SessionRepository: mem, failSessions: 1}
 	const (
 		userID = "9f1c2d3e-aaaa-bbbb-cccc-userid000001"
 		ip     = "203.0.113.77"
 		device = "Pixel-9-SECRETDEVICE"
 		hash   = "deadbeefcafebabe0123456789"
 	)
-	old := sweepNow.Add(-sweepSessionRetention - 24*time.Hour)
+	tickNow := time.Now()
+	old := tickNow.Add(-sweepSessionRetention - 24*time.Hour)
 	for i := 0; i < 3; i++ {
-		if _, err := mem.CreateSession(context.Background(), repository.Session{
+		if _, err := mem.CreateSession(context.Background(), store.Session{
 			UserID: userID, IP: ip, Device: device, Revoked: true,
 			CreatedAt: old, LastSeen: old, RefreshHash: hash, PrevRefreshHash: hash,
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := mem.RecordLogin(context.Background(), repository.LoginEvent{
-		UserID: userID, IP: ip, UserAgent: device, CreatedAt: sweepNow.Add(-sweepHistoryRetention - time.Hour),
+	if _, err := mem.RecordLogin(context.Background(), store.LoginEvent{
+		UserID: userID, IP: ip, UserAgent: device, CreatedAt: tickNow.Add(-sweepHistoryRetention - time.Hour),
 	}); err != nil {
 		t.Fatal(err)
 	}
 	buf := &syncBuf{}
 	sw := newSweeper(rec, jsonLogger(buf))
 
-	// Deterministic direct pass (includes the failed-then-recovered path) plus a Run pass.
-	_, _ = sw.SweepOnce(context.Background(), sweepNow)
-	_, _ = sw.SweepOnce(context.Background(), sweepNow)
-	runUntilSweeps(t, sw, rec, 1)
+	tickN(t, sw, 3)
 
 	logs := buf.String()
+	for _, key := range []string{"sessions_purged", "login_events_purged"} {
+		if !strings.Contains(logs, key) {
+			t.Fatalf("log lacks count key %q:\n%s", key, logs)
+		}
+	}
 	for _, secret := range []string{userID, ip, device, hash, "SECRETDEVICE", "203.0.113"} {
 		if strings.Contains(logs, secret) {
 			t.Fatalf("log output leaks personal data %q:\n%s", secret, logs)
@@ -337,7 +332,7 @@ func TestSweeperLogsCountsOnly(t *testing.T) {
 // Scenario: Session retention: login history without rows or with a failed purge.
 func TestSweepOnceLoginHistoryErrorIsolated(t *testing.T) {
 	// Empty login history table: nothing purged, no error.
-	empty := repository.NewInMemorySessionRepository()
+	empty := storetest.NewInMemorySessionRepository()
 	res, err := newSweeper(empty, jsonLogger(&syncBuf{})).SweepOnce(context.Background(), sweepNow)
 	if err != nil {
 		t.Fatalf("empty table SweepOnce: %v", err)
@@ -347,7 +342,7 @@ func TestSweepOnceLoginHistoryErrorIsolated(t *testing.T) {
 	}
 
 	// Failing login history purge: the session purge of the same pass already ran.
-	mem := repository.NewInMemorySessionRepository()
+	mem := storetest.NewInMemorySessionRepository()
 	rec := &recordingRepo{SessionRepository: mem, failHistory: true}
 	seedDeadSessions(t, mem, 3, "user-hist-err", "10.0.0.1", "dev")
 	res, err = newSweeper(rec, jsonLogger(&syncBuf{})).SweepOnce(context.Background(), sweepNow)
