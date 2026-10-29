@@ -16,7 +16,7 @@ import (
 	"github.com/buidangphuc/team-gateway/internal/token"
 )
 
-func countingJWKS(t *testing.T, kid string, hits *atomic.Int64, doc jwtx.JWKS) *httptest.Server {
+func countingJWKS(t *testing.T, _ string, hits *atomic.Int64, doc jwtx.JWKS) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hits.Add(1)

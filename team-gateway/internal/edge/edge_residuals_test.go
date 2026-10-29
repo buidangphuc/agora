@@ -133,7 +133,7 @@ func newResFixture(t *testing.T, rps float64, burst int, trackRPS float64, track
 	return f
 }
 
-func (f *resFixture) streamChat(auth, rid, msg string) (*http.Response, error, connect.Code) {
+func (f *resFixture) streamChat(auth, rid, msg string) (*http.Response, connect.Code, error) {
 	c := chatv1connect.NewChatServiceClient(f.srv.Client(), f.srv.URL)
 	req := connect.NewRequest(&chatv1.StreamChatRequest{SessionId: "s", Message: msg})
 	if auth != "" {
@@ -144,19 +144,19 @@ func (f *resFixture) streamChat(auth, rid, msg string) (*http.Response, error, c
 	}
 	st, err := c.StreamChat(context.Background(), req)
 	if err != nil {
-		return nil, err, connect.CodeOf(err)
+		return nil, connect.CodeOf(err), err
 	}
 	defer st.Close()
 	for st.Receive() {
 	}
-	return nil, st.Err(), connect.CodeOf(st.Err())
+	return nil, connect.CodeOf(st.Err()), st.Err()
 }
 
 // ── streams ────────────────────────────────────────────────────────────────
 
 func TestStreamInvalidTokenIsUnauthenticatedWithNoUpstreamCall(t *testing.T) {
 	f := newResFixture(t, 1000, 1000, 100, 100)
-	_, err, code := f.streamChat("Bearer not-a-jwt", "", "hi")
+	_, code, err := f.streamChat("Bearer not-a-jwt", "", "hi")
 	if err == nil || code != connect.CodeUnauthenticated {
 		t.Fatalf("got %v (%v), want unauthenticated", err, code)
 	}
@@ -198,7 +198,7 @@ func TestStreamPastBurstIsResourceExhausted(t *testing.T) {
 	tok := "Bearer " + mint(t, f.key, "kid-1", time.Now().Add(time.Hour))
 	var exhausted int
 	for i := 0; i < 6; i++ {
-		if _, _, code := f.streamChat(tok, "", "hi"); code == connect.CodeResourceExhausted {
+		if _, code, _ := f.streamChat(tok, "", "hi"); code == connect.CodeResourceExhausted {
 			exhausted++
 		}
 	}
@@ -212,7 +212,7 @@ func TestStreamPastBurstIsResourceExhausted(t *testing.T) {
 
 func TestStreamOversizedRequestIsResourceExhausted(t *testing.T) {
 	f := newResFixture(t, 1000, 1000, 100, 100)
-	_, err, code := f.streamChat("", "", strings.Repeat("a", 2000))
+	_, code, err := f.streamChat("", "", strings.Repeat("a", 2000))
 	if err == nil || code != connect.CodeResourceExhausted {
 		t.Fatalf("got %v (%v), want resource_exhausted", err, code)
 	}

@@ -95,7 +95,7 @@ func (f *retryFixture) edgeRequestLine(t *testing.T, rid string) map[string]any 
 	return nil
 }
 
-func searchCall(f *retryFixture, ctx context.Context, rid string) error {
+func searchCall(ctx context.Context, f *retryFixture, rid string) error {
 	c := searchv1connect.NewSearchServiceClient(f.srv.Client(), f.srv.URL)
 	req := connect.NewRequest(&searchv1.SearchListingsRequest{})
 	req.Header().Set("X-Request-Id", rid)
@@ -109,7 +109,7 @@ func unavailable() error { return status.Error(codes.Unavailable, "down") }
 func TestCallReadRetriesUnavailableUpToRetryMax(t *testing.T) {
 	up := &scriptedSearch{script: []error{unavailable(), unavailable(), nil}}
 	f := newRetryFixture(t, 2, &upstream.Clients{Search: up})
-	if err := searchCall(f, context.Background(), "rt-1"); err != nil {
+	if err := searchCall(context.Background(), f, "rt-1"); err != nil {
 		t.Fatalf("call: %v", err)
 	}
 	if n := up.calls.Load(); n != 3 {
@@ -124,7 +124,7 @@ func TestCallReadRetriesUnavailableUpToRetryMax(t *testing.T) {
 func TestCallReadStopsAfterRetryMaxPlusOne(t *testing.T) {
 	up := &scriptedSearch{script: []error{unavailable(), unavailable(), unavailable(), unavailable(), unavailable()}}
 	f := newRetryFixture(t, 2, &upstream.Clients{Search: up})
-	err := searchCall(f, context.Background(), "rt-2")
+	err := searchCall(context.Background(), f, "rt-2")
 	if connect.CodeOf(err) != connect.CodeUnavailable {
 		t.Fatalf("code = %v (%v), want unavailable", connect.CodeOf(err), err)
 	}
@@ -146,7 +146,7 @@ func TestCallReadRetriesOnlyUnavailable(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			up := &scriptedSearch{script: []error{status.Error(tc.code, "x"), status.Error(tc.code, "x"), status.Error(tc.code, "x")}}
 			f := newRetryFixture(t, 2, &upstream.Clients{Search: up})
-			err := searchCall(f, context.Background(), "rt-3")
+			err := searchCall(context.Background(), f, "rt-3")
 			if connect.CodeOf(err) != tc.want {
 				t.Fatalf("code = %v (%v), want %v", connect.CodeOf(err), err, tc.want)
 			}
@@ -164,7 +164,7 @@ func TestCallerDeadlineAndCancelAreNotRetried(t *testing.T) {
 		f := newRetryFixture(t, 2, &upstream.Clients{Search: up})
 		ctx, cancel := context.WithCancel(context.Background())
 		done := make(chan error, 1)
-		go func() { done <- searchCall(f, ctx, "rt-4") }()
+		go func() { done <- searchCall(ctx, f, "rt-4") }()
 		<-up.started
 		at := time.Now()
 		cancel()
@@ -185,7 +185,7 @@ func TestCallerDeadlineAndCancelAreNotRetried(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 		defer cancel()
 		at := time.Now()
-		if err := searchCall(f, ctx, "rt-5"); err == nil {
+		if err := searchCall(ctx, f, "rt-5"); err == nil {
 			t.Fatal("call past its deadline succeeded")
 		}
 		if d := time.Since(at); d > time.Second {
@@ -208,7 +208,7 @@ func TestNoBreakerEveryReadReachesUpstream(t *testing.T) {
 	f := newRetryFixture(t, 0, &upstream.Clients{Search: up})
 	const reads = 20
 	for i := 0; i < reads; i++ {
-		if connect.CodeOf(searchCall(f, context.Background(), "rt-6")) != connect.CodeUnavailable {
+		if connect.CodeOf(searchCall(context.Background(), f, "rt-6")) != connect.CodeUnavailable {
 			t.Fatalf("read %d: want unavailable", i)
 		}
 	}

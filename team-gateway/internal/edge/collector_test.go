@@ -29,10 +29,10 @@ type mockAnalyticsPublisher struct {
 }
 
 func (m *mockAnalyticsPublisher) PublishTrackingEvent(
-	ctx context.Context,
+	_ context.Context,
 	ev *analyticsv1.TrackingEvent,
-	principal *commonv1.Principal,
-	requestID string,
+	_ *commonv1.Principal,
+	_ string,
 	eventID string,
 ) error {
 	m.ids = append(m.ids, eventID)
