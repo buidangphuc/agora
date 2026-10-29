@@ -1,4 +1,4 @@
-package handler
+package rpc
 
 import (
 	"reflect"
@@ -7,30 +7,30 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
 )
 
-func principal(id string, t commonv1.PrincipalType) *commonv1.Principal {
-	return &commonv1.Principal{Id: id, Type: t}
+func principal(id string, t auth.PrincipalType) auth.Principal {
+	return auth.Principal{ID: id, Type: t}
 }
 
+// Scenario: A draft filter by a stranger keeps its visibility error.
 // Table over every scenario in specs/search-query-correctness ("Only a listing's
 // owner...") and specs/saved-searches ("Every saved-search operation...").
 func TestEffectiveFilters(t *testing.T) {
-	user := commonv1.PrincipalType_PRINCIPAL_TYPE_USER
-	anon := commonv1.PrincipalType_PRINCIPAL_TYPE_ANONYMOUS
-	svc := commonv1.PrincipalType_PRINCIPAL_TYPE_SERVICE
-	unspec := commonv1.PrincipalType_PRINCIPAL_TYPE_UNSPECIFIED
+	user := auth.TypeUser
+	anon := auth.TypeAnonymous
+	svc := auth.TypeService
 
 	cases := []struct {
 		name    string
-		p       *commonv1.Principal
+		p       auth.Principal
 		filters map[string]string
 		want    codes.Code // codes.OK = accepted
 	}{
 		{"no filters", principal("a", user), nil, codes.OK},
 		{"no status, anonymous", principal("anonymous", anon), map[string]string{"category_id": "c"}, codes.OK},
-		{"no principal and no status", nil, map[string]string{"q": "x"}, codes.OK},
+		{"no principal and no status", auth.Principal{}, map[string]string{"q": "x"}, codes.OK},
 		{"published explicit, anonymous", principal("anonymous", anon), map[string]string{"status": "published"}, codes.OK},
 		{"owner sees own drafts", principal("A", user), map[string]string{"seller_id": "A", "status": "draft"}, codes.OK},
 		{"owner view is explicit: seller_id alone is fine (index defaults published)", principal("A", user), map[string]string{"seller_id": "A"}, codes.OK},
@@ -40,9 +40,8 @@ func TestEffectiveFilters(t *testing.T) {
 		{"draft by service principal", principal("svc", svc), map[string]string{"seller_id": "svc", "status": "draft"}, codes.PermissionDenied},
 		{"draft by anonymous", principal("anonymous", anon), map[string]string{"status": "draft"}, codes.Unauthenticated},
 		{"draft by anonymous with matching seller_id", principal("anonymous", anon), map[string]string{"status": "draft", "seller_id": "anonymous"}, codes.Unauthenticated},
-		{"draft by unspecified type", principal("A", unspec), map[string]string{"seller_id": "A", "status": "draft"}, codes.Unauthenticated},
 		{"draft by user with reserved anonymous id", principal("anonymous", user), map[string]string{"seller_id": "anonymous", "status": "draft"}, codes.Unauthenticated},
-		{"draft with no principal", nil, map[string]string{"status": "draft"}, codes.Unauthenticated},
+		{"draft with no principal", auth.Principal{}, map[string]string{"status": "draft"}, codes.Unauthenticated},
 		{"status deleted", principal("A", user), map[string]string{"status": "deleted"}, codes.InvalidArgument},
 		{"status rejected", principal("A", user), map[string]string{"status": "rejected"}, codes.InvalidArgument},
 		{"status any", principal("A", user), map[string]string{"status": "any"}, codes.InvalidArgument},

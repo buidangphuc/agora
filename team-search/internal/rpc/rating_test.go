@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"testing"
@@ -8,8 +8,6 @@ import (
 
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 	"github.com/buidangphuc/team-search/internal/config"
-	"github.com/buidangphuc/team-search/internal/handler"
-	"github.com/buidangphuc/team-search/internal/repository"
 	"github.com/buidangphuc/team-search/internal/retrieval"
 )
 
@@ -25,10 +23,10 @@ func TestSearchListings_RejectsMinRatingInEveryMode(t *testing.T) {
 		for _, mode := range modes {
 			for _, rating := range []int32{4, 1, -1} {
 				mi := &mockIndex{}
-				h := handler.NewSearchHandler(mi, repository.NewInMemorySavedSearchRepository())
+				h := newHandler(t, mi, newFakeSaved())
 				if withEngine {
 					eng := retrieval.NewEngine(mi, &retrieval.MockEmbedClient{Dim: 4}, nil, config.Retrieval{EnableHybridSearch: true})
-					h = handler.NewSearchHandlerWithEngine(mi, eng, repository.NewInMemorySavedSearchRepository())
+					h = newHandlerEngine(t, mi, eng, newFakeSaved())
 				}
 				_, err := h.SearchListings(ctx, &searchv1.SearchListingsRequest{Query: "x", MinRating: rating, SearchMode: mode})
 				if status.Code(err) != codes.InvalidArgument {
@@ -39,7 +37,7 @@ func TestSearchListings_RejectsMinRatingInEveryMode(t *testing.T) {
 				}
 			}
 			mi := &mockIndex{}
-			h := handler.NewSearchHandler(mi, repository.NewInMemorySavedSearchRepository())
+			h := newHandler(t, mi, newFakeSaved())
 			if _, err := h.SearchListings(ctx, &searchv1.SearchListingsRequest{Query: "x", SearchMode: mode}); err != nil {
 				t.Fatalf("min_rating 0 must be accepted: %v", err)
 			}
@@ -53,7 +51,7 @@ func TestSearchListings_RejectsMinRatingInEveryMode(t *testing.T) {
 // D9: the ratings facet is an empty, non-nil list on SearchListings and
 // RunSavedSearch, even when the index reports buckets.
 func TestRatingsFacetIsEmpty(t *testing.T) {
-	h := handler.NewSearchHandler(&mockIndex{}, repository.NewInMemorySavedSearchRepository())
+	h := newHandler(t, &mockIndex{}, newFakeSaved())
 	ctx := principalCtx("B", "user", "search:read", "search:write")
 	res, err := h.SearchListings(ctx, &searchv1.SearchListingsRequest{Query: "x"})
 	if err != nil {

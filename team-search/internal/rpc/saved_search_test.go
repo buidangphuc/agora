@@ -1,4 +1,4 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
@@ -7,29 +7,13 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
-	"github.com/buidangphuc/team-search/internal/handler"
-	"github.com/buidangphuc/team-search/internal/repository"
 )
-
-// userCtx builds a gateway-style principal context with the given id + scopes.
-func userCtx(id string, scopes ...string) context.Context {
-	return contextWithPrincipal(context.Background(), &commonv1.Principal{
-		Id:     id,
-		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: scopes,
-	})
-}
-
-func newSavedHandler() *handler.SearchHandler {
-	return handler.NewSearchHandler(&mockIndex{}, repository.NewInMemorySavedSearchRepository())
-}
 
 // TestSaveThenList covers the happy path: a save is persisted and shows up in
 // the owner's list with the same query/filters.
 func TestSaveThenList(t *testing.T) {
-	h := newSavedHandler()
+	h := newSavedHandler(t)
 	ctx := userCtx("buyer_1", "search:read", "search:write")
 
 	saved, err := h.SaveSearch(ctx, &searchv1.SaveSearchRequest{
@@ -60,7 +44,7 @@ func TestSaveThenList(t *testing.T) {
 
 // TestDeleteSavedSearch verifies delete removes the row and a second delete 404s.
 func TestDeleteSavedSearch(t *testing.T) {
-	h := newSavedHandler()
+	h := newSavedHandler(t)
 	ctx := userCtx("buyer_1", "search:read", "search:write")
 
 	saved, err := h.SaveSearch(ctx, &searchv1.SaveSearchRequest{Query: "sofa"})
@@ -89,7 +73,7 @@ func TestDeleteSavedSearch(t *testing.T) {
 // TestRunSavedSearch runs a saved search back through the index path and expects
 // the SearchListings-shaped results (the mock index returns two hits + facets).
 func TestRunSavedSearch(t *testing.T) {
-	h := newSavedHandler()
+	h := newSavedHandler(t)
 	ctx := userCtx("buyer_1", "search:read", "search:write")
 
 	saved, err := h.SaveSearch(ctx, &searchv1.SaveSearchRequest{
@@ -118,7 +102,7 @@ func TestRunSavedSearch(t *testing.T) {
 // TestCrossUserIsolation proves one user can neither list, run, nor delete
 // another user's saved search.
 func TestCrossUserIsolation(t *testing.T) {
-	h := newSavedHandler()
+	h := newSavedHandler(t)
 	alice := userCtx("alice", "search:read", "search:write")
 	bob := userCtx("bob", "search:read", "search:write")
 
@@ -157,7 +141,7 @@ func TestCrossUserIsolation(t *testing.T) {
 
 // TestSavedSearchAuth covers anonymous/insufficient-scope and empty-input edges.
 func TestSavedSearchAuth(t *testing.T) {
-	h := newSavedHandler()
+	h := newSavedHandler(t)
 
 	// No principal at all (anonymous, bypassing the gateway) → Unauthenticated.
 	if _, err := h.ListSavedSearches(context.Background(), &searchv1.ListSavedSearchesRequest{}); status.Code(err) != codes.Unauthenticated {

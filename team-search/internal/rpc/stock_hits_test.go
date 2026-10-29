@@ -1,13 +1,11 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
 	"testing"
 
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
-	"github.com/buidangphuc/team-search/internal/handler"
 	"github.com/buidangphuc/team-search/internal/index"
-	"github.com/buidangphuc/team-search/internal/repository"
 )
 
 // stockIndex returns hits with present, zero and absent stock.
@@ -38,7 +36,7 @@ func checkWireStock(t *testing.T, rpc string, hits []*searchv1.SearchHit) {
 
 // D3: SearchHit.stock keeps presence on SearchListings and RunSavedSearch.
 func TestSearchHitStock_PresentZeroAbsent(t *testing.T) {
-	h := handler.NewSearchHandler(&stockIndex{}, repository.NewInMemorySavedSearchRepository())
+	h := newHandler(t, &stockIndex{}, newFakeSaved())
 	ctx := principalCtx("B", "user", "search:read", "search:write")
 	res, err := h.SearchListings(ctx, &searchv1.SearchListingsRequest{Query: "x"})
 	if err != nil {

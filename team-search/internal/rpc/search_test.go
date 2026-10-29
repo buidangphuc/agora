@@ -1,21 +1,13 @@
-package handler_test
+package rpc_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-
-	commonv1 "github.com/buidangphuc/team-search/generated/platform/common/v1"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
 	"github.com/buidangphuc/team-search/internal/config"
-	"github.com/buidangphuc/team-search/internal/handler"
 	"github.com/buidangphuc/team-search/internal/index"
-	"github.com/buidangphuc/team-search/internal/interceptor"
-	"github.com/buidangphuc/team-search/internal/repository"
 	"github.com/buidangphuc/team-search/internal/retrieval"
 )
 
@@ -69,33 +61,9 @@ func (m *mockIndex) Suggest(ctx context.Context, prefix string, limit int) ([]st
 	return []string{"iPhone 15", "iPhone 15 Pro", "iPhone 15 Pro Max"}, nil
 }
 
-// contextWithPrincipal injects a resolved Principal the way the gateway does:
-// as x-principal-* metadata run through the service's unary interceptor. The
-// interceptor's context setter is unexported, so tests reach it via this path.
-func contextWithPrincipal(ctx context.Context, p *commonv1.Principal) context.Context {
-	md := metadata.Pairs(
-		"x-principal-id", p.GetId(),
-		"x-principal-type", "user",
-		"x-principal-scopes", strings.Join(p.GetScopes(), ","),
-	)
-	ctx = metadata.NewIncomingContext(ctx, md)
-	var out context.Context
-	_, _ = interceptor.UnaryServerInterceptor()(ctx, nil, &grpc.UnaryServerInfo{},
-		func(c context.Context, _ any) (any, error) {
-			out = c
-			return nil, nil
-		})
-	return out
-}
-
 func TestSearchHandler(t *testing.T) {
-	h := handler.NewSearchHandler(&mockIndex{}, repository.NewInMemorySavedSearchRepository())
-	principal := &commonv1.Principal{
-		Id:     "buyer_1",
-		Type:   commonv1.PrincipalType_PRINCIPAL_TYPE_USER,
-		Scopes: []string{"search:read"},
-	}
-	ctx := contextWithPrincipal(context.Background(), principal)
+	h := newHandler(t, &mockIndex{}, newFakeSaved())
+	ctx := userCtx("buyer_1", "search:read")
 
 	t.Run("SearchListings", func(t *testing.T) {
 		res, err := h.SearchListings(ctx, &searchv1.SearchListingsRequest{
@@ -161,7 +129,7 @@ func TestSearchHandler(t *testing.T) {
 			HybridRRFK:         60,
 			HybridFusionWindow: 200,
 		})
-		hEngine := handler.NewSearchHandlerWithEngine(&mockIndex{}, eng, repository.NewInMemorySavedSearchRepository())
+		hEngine := newHandlerEngine(t, &mockIndex{}, eng, newFakeSaved())
 
 		res, err := hEngine.SearchListings(ctx, &searchv1.SearchListingsRequest{
 			Query:      "iPhone",

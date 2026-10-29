@@ -1,52 +1,86 @@
-package handler_test
+package rpc_test
 
 import (
-	"database/sql"
-	"os"
 	"testing"
 
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/migrate"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 	searchv1 "github.com/buidangphuc/team-search/generated/platform/search/v1"
-	"github.com/buidangphuc/team-search/internal/handler"
-	"github.com/buidangphuc/team-search/internal/repository"
+	"github.com/buidangphuc/team-search/internal/rpc"
+	"github.com/buidangphuc/team-search/internal/store"
+	"github.com/buidangphuc/team-search/migrations"
 )
 
-// Owner isolation through the handler, against the in-memory repository always
-// and a real Postgres when SEARCH_TEST_DATABASE_URL is set (the schema is applied
-// by `make test-integration` or by the repository test; the statement below is
-// the same idempotent migration).
-func isolationRepos(t *testing.T) map[string]repository.SavedSearchRepository {
+func migratedPool(t *testing.T) (string, *pgxpool.Pool) {
 	t.Helper()
-	out := map[string]repository.SavedSearchRepository{"memory": repository.NewInMemorySavedSearchRepository()}
-	if url := os.Getenv("SEARCH_TEST_DATABASE_URL"); url != "" {
-		db, err := sql.Open("pgx", url)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { db.Close() })
-		mig, err := os.ReadFile("../../migrations/0001_saved_searches.up.sql")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := db.Exec(string(mig)); err != nil {
-			t.Fatalf("apply migration: %v", err)
-		}
-		out["postgres"] = repository.NewPostgresSavedSearchRepository(db)
+	dsn := testkit.Schema(t, testkit.SharedPostgres(t))
+	if err := migrate.Up(t.Context(), dsn, migrations.FS); err != nil {
+		t.Fatalf("migrate up: %v", err)
 	}
-	return out
+	pool, err := pgxpool.New(t.Context(), dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	return dsn, pool
 }
 
+func isolationRepos(t *testing.T) map[string]rpc.SavedSearches {
+	t.Helper()
+	_, pool := migratedPool(t)
+	return map[string]rpc.SavedSearches{
+		"fake":     newFakeSaved(),
+		"postgres": store.NewPostgresSavedSearchRepository(pool),
+	}
+}
+
+// Scenario: A saved search survives a restart (handler level): a new pool, store
+// and handler over the same database still list and run what the old one saved.
+func TestSavedSearchSurvivesRestart_ASavedSearchSurvivesARestart(t *testing.T) {
+	dsn, pool := migratedPool(t)
+	ctx := userCtx("buyer_1", "search:read", "search:write")
+	first := newHandler(t, &mockIndex{}, store.NewPostgresSavedSearchRepository(pool))
+	saved, err := first.SaveSearch(ctx, &searchv1.SaveSearchRequest{Query: "red bike", FiltersJson: `{"city":"hanoi"}`})
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	pool.Close()
+
+	pool2, err := pgxpool.New(t.Context(), dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool2.Close)
+	mi := &mockIndex{}
+	second := newHandler(t, mi, store.NewPostgresSavedSearchRepository(pool2))
+	list, err := second.ListSavedSearches(ctx, &searchv1.ListSavedSearchesRequest{})
+	if err != nil || list.GetPage().GetTotal() != 1 || list.GetSavedSearches()[0].GetId() != saved.GetSavedSearch().GetId() {
+		t.Fatalf("list after restart = %+v err=%v", list, err)
+	}
+	if list.GetSavedSearches()[0].GetQuery() != "red bike" {
+		t.Errorf("query lost: %q", list.GetSavedSearches()[0].GetQuery())
+	}
+	if _, err := second.RunSavedSearch(ctx, &searchv1.RunSavedSearchRequest{Id: saved.GetSavedSearch().GetId()}); err != nil {
+		t.Fatalf("run after restart: %v", err)
+	}
+	if mi.searchCalls != 1 {
+		t.Errorf("run executed %d queries, want 1", mi.searchCalls)
+	}
+}
+
+// Scenario: Another user's saved search is not found.
 func TestSavedSearchOwnerIsolation(t *testing.T) {
 	rw := []string{"search:read", "search:write"}
 	for name, repo := range isolationRepos(t) {
 		repo := repo
 		t.Run(name, func(t *testing.T) {
 			mi := &mockIndex{}
-			h := handler.NewSearchHandler(mi, repo)
+			h := newHandler(t, mi, repo)
 			// Unique ids so a shared database never mixes rows across runs.
 			aID, bID := "A-"+uuid.NewString(), "B-"+uuid.NewString()
 			a := principalCtx(aID, "user", rw...)
