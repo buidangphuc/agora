@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@fe-platform/api-client": "^0.1.0",
     "@fe-platform/config": "*",
     "@fe-platform/tokens": "^0.1.0",
     "@fe-platform/ui": "^0.1.0",

@@ -1,5 +1,7 @@
 "use client";
 
+import { ErrorPanel } from "../components/ErrorPanel";
+
 export default function ErrorBoundary({
   error,
   reset,
@@ -8,12 +10,10 @@ export default function ErrorBoundary({
   reset: () => void;
 }) {
   return (
-    <main>
-      <h1>Something went wrong</h1>
-      {error.digest ? <p>Reference: {error.digest}</p> : null}
-      <button type="button" onClick={reset}>
-        Try again
-      </button>
-    </main>
+    <ErrorPanel
+      title="Something went wrong"
+      reference={error.digest}
+      reset={reset}
+    />
   );
 }

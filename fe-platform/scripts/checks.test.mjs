@@ -20,6 +20,36 @@ describe("scanImports", () => {
     expect(hits.map((h) => h.rule)).toEqual(["package-imports-app"]);
   });
 
+  it("flags an app importing generated code or the transport directly", () => {
+    const text = [
+      'import a from "@connectrpc/connect";',
+      'import b from "@fe-platform/api-client/src/generated/x";',
+      'import c from "@bufbuild/protobuf";',
+    ].join("\n");
+    const hits = scanImports("templates/app/app/x.ts", text);
+    expect(hits.map((h) => h.rule)).toEqual([
+      "app-imports-transport",
+      "app-imports-transport",
+      "app-imports-transport",
+    ]);
+    expect(scanImports("packages/api-client/src/client.ts", text)).toEqual([]);
+  });
+
+  it("flags a client component importing server-only code", () => {
+    const text = [
+      '"use client";',
+      'import { createGatewayClients } from "@fe-platform/api-client";',
+      'import { getToken } from "../lib/session";',
+    ].join("\n");
+    const hits = scanImports("templates/app/app/x.tsx", text);
+    expect(hits.map((h) => h.rule)).toEqual([
+      "client-imports-server-only",
+      "client-imports-server-only",
+    ]);
+    const server = text.replace('"use client";\n', "");
+    expect(scanImports("templates/app/app/x.tsx", server)).toEqual([]);
+  });
+
   it("allows ordinary imports", () => {
     expect(
       scanImports(

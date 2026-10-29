@@ -13,8 +13,9 @@
     "boundaries": "node scripts/check-boundaries.mjs",
     "disables": "node scripts/check-disables.mjs",
     "test": "vitest run",
-    "check": "npm run lint && npm run typecheck && npm run boundaries && npm run disables && npm run tokens && npm run test",
-    "tokens": "node scripts/check-tokens.mjs"
+    "check": "npm run lint && npm run typecheck && npm run boundaries && npm run disables && npm run tokens && npm run proto:check && npm run test",
+    "tokens": "node scripts/check-tokens.mjs",
+    "proto:check": "node scripts/proto-check.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
