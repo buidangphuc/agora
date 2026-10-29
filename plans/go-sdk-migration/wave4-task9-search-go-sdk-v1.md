@@ -11,6 +11,7 @@ Implement OpenSpec change `search-go-sdk-v1` test-first per its tasks.md: migrat
 - openspec/changes/search-go-sdk-v1/**
 - platform-e2e/tests/e2e/features/ops/boot_guard_search.feature
 - platform-e2e/tests/e2e/step_definitions/visibility_boot_guard_steps.py
+- team-search/go.sum (widened at build: task 1.2)
 
 ## Verify
 - cd team-search && make proto && make check && go build ./... && GO_SDK_REQUIRE_DOCKER=1 go test -race ./... -count=1
