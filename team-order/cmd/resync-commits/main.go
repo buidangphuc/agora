@@ -14,18 +14,18 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/buidangphuc/team-order/internal/bootstrap"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/logx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/postgres"
+
 	"github.com/buidangphuc/team-order/internal/config"
-	"github.com/buidangphuc/team-order/internal/repository"
-	"github.com/buidangphuc/team-order/internal/service"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
 	"github.com/buidangphuc/team-order/internal/upstream"
 )
 
@@ -41,36 +41,33 @@ func run() (int, error) {
 	dryRun := flag.Bool("dry-run", false, "count COMMITTED reservations without calling team-domain")
 	flag.Parse()
 
-	settings, err := config.LoadSettings()
+	settings, err := config.Load()
 	if err != nil {
 		return 1, fmt.Errorf("load config: %w", err)
 	}
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil)).With(slog.String("cmd", "resync-commits"))
+	logger := logx.New(settings.Runtime, "resync-commits")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	res, err := bootstrap.InitResources(ctx, settings, logger)
+	pool, err := postgres.Open(ctx, settings.Postgres)
 	if err != nil {
-		return 1, fmt.Errorf("init resources: %w", err)
+		return 1, fmt.Errorf("postgres: %w", err)
 	}
-	defer func() { _ = bootstrap.CloseResources(context.Background(), res) }()
-	if res.Pool == nil {
-		return 1, errors.New("database is disabled; there is no durable order_reservations table to re-sync")
-	}
+	defer pool.Close()
 
-	clients, err := upstream.Dial(settings.Upstream.DomainAddr, settings.Upstream.IdentityAddr)
+	clients, err := upstream.DialAll(settings)
 	if err != nil {
 		return 1, fmt.Errorf("dial upstream: %w", err)
 	}
 	defer clients.Close()
 
-	rep, err := service.ResyncCommittedReservations(ctx, repository.NewPostgresSagaRepository(res.Pool), clients.Listing, logger, *dryRun)
-	logger.Info("resync finished",
-		slog.Bool("dry_run", *dryRun),
-		slog.Int("scanned", rep.Scanned), slog.Int("committed", rep.Committed),
-		slog.Int("released_in_domain", rep.Released), slog.Int("not_found_in_domain", rep.NotFound),
-		slog.Int("failed", rep.Failed))
+	rep, err := order.ResyncCommittedReservations(ctx, store.NewPostgresSagaRepository(pool), clients.Listing, logger, *dryRun)
+	logger.InfoContext(ctx, "resync finished",
+		"dry_run", *dryRun,
+		"scanned", rep.Scanned, "committed", rep.Committed,
+		"released_in_domain", rep.Released, "not_found_in_domain", rep.NotFound,
+		"failed", rep.Failed)
 	if err != nil {
 		return 1, err
 	}
