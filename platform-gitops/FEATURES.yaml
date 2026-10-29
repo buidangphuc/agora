@@ -1490,7 +1490,7 @@ features:
       - "Server boot never migrates (unit-verified)"
     tags: [ops, unit]
     status: not-testable
-    notes: "deploy-go-sdk-v1: unit-verified: `team-sharing/internal/app` `TestServerBootDoesNotMigrate`; `team-referral/internal/app` `TestServerBootDoesNotMigrate`. Not producible end to end."
+    notes: "deploy-go-sdk-v1: unit-verified: `team-sharing/internal/app` `TestBootBinaryNeverMigrates`; `team-referral/internal/app` `TestBootBinaryNeverMigrates`. Not producible end to end."
 
   - id: gitops.dgsv1-the-migrate-job-and-compose-job-run-the-service-image
     title: "The migrate Job and compose job run the service image"
