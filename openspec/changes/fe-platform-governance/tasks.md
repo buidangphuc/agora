@@ -32,5 +32,5 @@
 
 - [x] 7.1 Add the PR-only `release:status` step to `.github/workflows/fe-platform-ci.yml` with full-history checkout; verify the YAML parses and the command matches the script
 - [x] 7.2 Update `docs/agents/project.md`, `AGENTS.md` and the `fe-platform` skill to mention changesets and the registry; verify the check order in project.md still matches `npm run check`
-- [ ] 7.3 Done-condition: consumer upgraded across one breaking token change following the written policy (6.2), `npm run check` exits 0 after a fresh `npm ci`, no new disable comments, `npm audit` clean, registry stopped, `openspec validate fe-platform-governance --strict` passes
+- [x] 7.3 Done-condition: consumer upgraded across one breaking token change following the written policy (6.2), `npm run check` exits 0 after a fresh `npm ci`, no new disable comments, `npm audit` clean, registry stopped, `openspec validate fe-platform-governance --strict` passes
 - [ ] 7.4 e2e track: none (no user-facing capability, no FEATURES.yaml entry); confirm `repo-doctor` reports no new drift
