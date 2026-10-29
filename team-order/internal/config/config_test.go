@@ -248,7 +248,7 @@ func TestUpstreamAuditConfig(t *testing.T) {
 
 func readExampleValue(t *testing.T, key string) string {
 	t.Helper()
-	f, err := os.Open(exampleePath(t))
+	f, err := os.Open(examplePath(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func readExampleValue(t *testing.T, key string) string {
 	return ""
 }
 
-func exampleePath(t *testing.T) string {
+func examplePath(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -549,7 +549,7 @@ var exampleKey = regexp.MustCompile(`^#?\s*([A-Z][A-Z0-9_]*)=`)
 
 func TestEnvExampleInSync(t *testing.T) {
 	// scenario: .env.example documents every key
-	f, err := os.Open(exampleePath(t))
+	f, err := os.Open(examplePath(t))
 	if err != nil {
 		t.Fatal(err)
 	}
