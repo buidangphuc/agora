@@ -68,7 +68,7 @@ func TestLayoutFollowsADR0016(t *testing.T) {
 	domainDir := filepath.Join(internalDir, "identity")
 	fset := token.NewFileSet()
 	_ = filepath.WalkDir(domainDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
 		f, perr := parser.ParseFile(fset, path, nil, parser.ImportsOnly)

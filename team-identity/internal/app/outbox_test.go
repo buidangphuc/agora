@@ -120,6 +120,16 @@ func TestOutboxPurgeSurvivesError(t *testing.T) {
 	if err := b.purgeTick(ctx); err != nil {
 		t.Fatalf("failing purge tick = %v, want nil so the next tick retries", err)
 	}
+	countWarns := func() int {
+		n := 0
+		for _, l := range logs.Lines()[before:] {
+			if lvl, _ := l["level"].(string); strings.EqualFold(lvl, "WARN") {
+				n++
+			}
+		}
+		return n
+	}
+	testkit.Eventually(t, 10*time.Second, func() bool { return countWarns() >= 1 })
 	warns := 0
 	for _, l := range logs.Lines()[before:] {
 		if lvl, _ := l["level"].(string); strings.EqualFold(lvl, "WARN") {
@@ -142,11 +152,14 @@ func TestOutboxPurgeSurvivesError(t *testing.T) {
 		t.Errorf("rows after the retry = %q, want none", got)
 	}
 	found := false
-	for _, l := range logs.Lines()[before:] {
-		if v, ok := l["rows_purged"].(float64); ok && v == 2 {
-			found = true
+	testkit.Eventually(t, 10*time.Second, func() bool {
+		for _, l := range logs.Lines()[before:] {
+			if v, ok := l["rows_purged"].(float64); ok && v == 2 {
+				found = true
+			}
 		}
-	}
+		return found
+	})
 	if !found {
 		t.Errorf("the second tick did not log rows_purged=2:\n%s", logs.String())
 	}

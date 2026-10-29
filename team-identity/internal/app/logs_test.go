@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
 
@@ -165,6 +166,7 @@ func TestSecretsNeverReachLogsOrSpans(t *testing.T) {
 
 	if _, err := identityv1.NewAccountAdminServiceClient(r.conn).SetUserStatus(asUser(ctx, "admin-1", "admin"), &identityv1.SetUserStatusRequest{
 		UserId: userID, Status: identityv1.UserStatus_USER_STATUS_SUSPENDED, ReasonCode: "abuse", Note: noteMarker,
+		Until: timestamppb.New(time.Now().Add(time.Hour)),
 	}); err != nil {
 		t.Fatalf("SetUserStatus: %v", err)
 	}
