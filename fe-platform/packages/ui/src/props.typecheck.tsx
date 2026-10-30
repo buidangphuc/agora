@@ -1,4 +1,5 @@
 import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -6,10 +7,12 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  ClosableTag,
   Dialog,
   Input,
   Select,
   Table,
+  Tag,
 } from "./index";
 
 // @ts-expect-error className would bypass tokens
@@ -41,3 +44,11 @@ export const cardContent = <CardContent className="x" />;
 export const cardFooter = <CardFooter className="x" />;
 // @ts-expect-error unknown variant
 export const buttonVariant = <Button variant="outline" />;
+// @ts-expect-error className would bypass tokens
+export const tag = <Tag className="x" />;
+// @ts-expect-error className would bypass tokens
+export const closableTag = <ClosableTag closeLabel="a" className="x" />;
+// @ts-expect-error className would bypass tokens
+export const badge = <Badge className="x" />;
+// @ts-expect-error unknown tone
+export const badgeTone = <Badge tone="info" />;

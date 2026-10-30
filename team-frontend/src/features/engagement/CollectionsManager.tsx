@@ -102,9 +102,7 @@ export function CollectionsManager({
                   >
                     {c.name}
                   </Link>
-                  <Badge variant="neutral" className="shrink-0">
-                    {c.itemCount} sản phẩm
-                  </Badge>
+                  <Badge variant="neutral">{c.itemCount} sản phẩm</Badge>
                 </li>
               ))}
             </ul>

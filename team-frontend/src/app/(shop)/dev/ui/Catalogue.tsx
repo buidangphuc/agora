@@ -503,13 +503,13 @@ export function Catalogue({
         <Demo label="Result statuses">
           {(["success", "error", "info", "warning", "404"] as const).map(
             (s) => (
-              <Result
-                key={s}
-                status={s}
-                title={`Trạng thái ${s}`}
-                subTitle="Mô tả ngắn"
-                className="w-72"
-              />
+              <div key={s} className="w-72">
+                <Result
+                  status={s}
+                  title={`Trạng thái ${s}`}
+                  subTitle="Mô tả ngắn"
+                />
+              </div>
             ),
           )}
         </Demo>

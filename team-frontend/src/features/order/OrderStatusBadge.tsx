@@ -27,7 +27,6 @@ export type OrderStatusBadgeProps = (
 ) & {
   /** The status text from the view model (`statusText`). */
   label: string;
-  className?: string;
   "data-testid"?: string;
 };
 
@@ -48,16 +47,11 @@ export function orderStatusTone(
  */
 export function OrderStatusBadge({
   label,
-  className,
   "data-testid": testId,
   ...status
 }: OrderStatusBadgeProps) {
   return (
-    <Tag
-      color={orderStatusTone(status)}
-      className={className}
-      data-testid={testId}
-    >
+    <Tag color={orderStatusTone(status)} data-testid={testId}>
       {label}
     </Tag>
   );

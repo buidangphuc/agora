@@ -39,7 +39,7 @@ export function RevokeSessionButton({
     });
   }
 
-  if (revoked) return <Tag className="whitespace-nowrap">Đã thu hồi</Tag>;
+  if (revoked) return <Tag>Đã thu hồi</Tag>;
 
   return (
     <>

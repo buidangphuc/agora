@@ -63,7 +63,7 @@ const sessionColumns: TableColumn<ViewSession>[] = [
     align: "right",
     render: (s) =>
       s.revoked ? (
-        <Tag className="whitespace-nowrap">Đã thu hồi</Tag>
+        <Tag>Đã thu hồi</Tag>
       ) : (
         <RevokeSessionButton sessionId={s.id} device={s.device} />
       ),
@@ -96,13 +96,9 @@ const historyColumns: TableColumn<ViewLoginEvent>[] = [
     align: "right",
     render: (e) =>
       e.success ? (
-        <Tag color="success" className="whitespace-nowrap">
-          Thành công
-        </Tag>
+        <Tag color="success">Thành công</Tag>
       ) : (
-        <Tag color="danger" className="whitespace-nowrap">
-          Thất bại
-        </Tag>
+        <Tag color="danger">Thất bại</Tag>
       ),
   },
 ];

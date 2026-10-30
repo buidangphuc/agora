@@ -236,4 +236,45 @@ export const components = {
     footer:
       "flex items-center justify-between gap-3 border-t border-border-subtle bg-surface-muted px-6 py-3 text-sm text-text-secondary",
   },
+  tone: {
+    neutral: "bg-surface-muted text-text-secondary border-border-subtle",
+    primary: "bg-surface-card text-text-link border-current",
+    info: "bg-surface-muted text-text-primary border-border-strong",
+    success: "bg-surface-card text-text-success border-current",
+    warning: "bg-surface-card text-text-warning border-current",
+    danger: "bg-surface-card text-text-danger border-current",
+  },
+  tag: {
+    base: "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border px-2 text-xs font-medium",
+    close:
+      "-my-3 -mr-2 inline-flex min-h-touch items-center rounded-lg px-2 hover:text-text-primary focus-visible:ring-2 focus-visible:ring-focus-ring",
+  },
+  badge: {
+    base: "inline-flex shrink-0 items-center justify-center whitespace-nowrap border text-xs font-semibold select-none",
+    shape: { square: "rounded-lg", pill: "rounded-full" },
+    size: { sm: "px-2", md: "px-3 py-1" },
+    solid: {
+      neutral: "bg-text-secondary text-text-inverse border-transparent",
+      primary: "bg-action-primary text-text-inverse border-transparent",
+      success: "bg-text-success text-text-inverse border-transparent",
+      warning: "bg-text-warning text-text-inverse border-transparent",
+      danger: "bg-action-danger text-text-inverse border-transparent",
+    },
+  },
+  empty: {
+    root: "flex flex-col items-center justify-center gap-3 px-6 py-10 text-center",
+    image: "h-12 w-16 text-text-disabled",
+    description: "text-sm text-text-secondary",
+    action: "mt-1",
+  },
+  result: {
+    root: "mx-auto max-w-xl px-6 py-12 text-center",
+    iconRow: "mb-5 flex justify-center",
+    icon: "flex h-18 w-18 items-center justify-center rounded-full border text-2xl font-bold",
+    title: "text-xl font-bold text-text-primary sm:text-2xl",
+    subTitle: "mx-auto mt-2 max-w-md text-sm text-text-secondary",
+    details:
+      "mt-6 rounded-xl border border-border-subtle bg-surface-muted p-5 text-left",
+    extra: "mt-8 flex flex-wrap justify-center gap-3",
+  },
 };

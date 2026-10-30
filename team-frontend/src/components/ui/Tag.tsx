@@ -1,11 +1,14 @@
-import React from "react";
+import {
+  Tag as PlatformTag,
+  type TagProps as PlatformTagProps,
+  type Tone,
+} from "@fe-platform/ui";
 import { TagClient } from "./TagClient";
-import { TagView, type TagViewProps } from "./tagView";
 
-export type { TagColor } from "./tagView";
+export type TagColor = Tone;
 
-export interface TagProps extends Omit<TagViewProps, "closeButton"> {
-  /** Adds a close button (turns the tag into a client island). */
+export interface TagProps extends Omit<PlatformTagProps, "tone"> {
+  color?: TagColor;
   closable?: boolean;
   onClose?: () => void;
   closeLabel?: string;
@@ -16,13 +19,21 @@ export interface TagProps extends Omit<TagViewProps, "closeButton"> {
  * Server-compatible unless `closable`.
  */
 export function Tag({
+  color,
   closable = false,
   onClose,
   closeLabel,
-  ...view
+  ...props
 }: TagProps) {
   if (closable) {
-    return <TagClient {...view} onClose={onClose} closeLabel={closeLabel} />;
+    return (
+      <TagClient
+        {...props}
+        color={color}
+        onClose={onClose}
+        closeLabel={closeLabel}
+      />
+    );
   }
-  return <TagView {...view} />;
+  return <PlatformTag {...props} tone={color} />;
 }
