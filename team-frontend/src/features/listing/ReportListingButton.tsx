@@ -97,18 +97,14 @@ export function ReportListingButton({
       >
         <div className="space-y-3">
           {error && <Alert type="error" description={error} />}
-          <div className="space-y-1">
-            <label htmlFor={`${id}-reason`} className="text-sm font-medium">
-              Lý do
-            </label>
-            <Select
-              id={`${id}-reason`}
-              placeholder="Chọn lý do"
-              options={REASONS}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
+          <Select
+            id={`${id}-reason`}
+            label="Lý do"
+            placeholder="Chọn lý do"
+            options={REASONS}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
           <div className="space-y-1">
             <label htmlFor={`${id}-note`} className="text-sm font-medium">
               Chi tiết (không bắt buộc)

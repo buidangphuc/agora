@@ -87,17 +87,15 @@ export function NotificationPrefsForm({
             ))}
           </fieldset>
 
-          <FormItem label="Tần suất tổng hợp">
-            <Select
-              className="min-h-10"
-              name="digest"
-              value={String(digest)}
-              onChange={(e) =>
-                setDigest(Number(e.target.value) as DigestFrequency)
-              }
-              options={DIGEST_OPTIONS}
-            />
-          </FormItem>
+          <Select
+            label="Tần suất tổng hợp"
+            name="digest"
+            value={String(digest)}
+            onChange={(e) =>
+              setDigest(Number(e.target.value) as DigestFrequency)
+            }
+            options={DIGEST_OPTIONS}
+          />
 
           <Button type="submit" isLoading={pending} fullWidth="mobile">
             Lưu tùy chọn

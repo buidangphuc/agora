@@ -85,15 +85,13 @@ export function RegisterForm({ returnUrl }: { returnUrl?: string }) {
                 onBlur={() => form.onBlur("password")}
               />
 
-              <FormItem label="Loại tài khoản">
-                <Select
-                  className="min-h-10"
-                  id="role"
-                  name="role"
-                  defaultValue="buyer"
-                  options={ROLE_OPTIONS}
-                />
-              </FormItem>
+              <Select
+                label="Loại tài khoản"
+                id="role"
+                name="role"
+                defaultValue="buyer"
+                options={ROLE_OPTIONS}
+              />
 
               {state.error && !form.hasFieldErrors && (
                 <Alert type="error" description={state.error} />

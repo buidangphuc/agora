@@ -95,34 +95,32 @@ export function VoucherManager({
             placeholder="VD: SALE50"
           />
 
-          <FormItem label="Phạm vi">
-            <Select
-              name="scope"
-              value={String(scope)}
-              onChange={(e) => setScope(Number(e.target.value) as VoucherScope)}
-              options={[
-                { value: String(VoucherScope.SHOP), label: "Shop" },
-                { value: String(VoucherScope.PLATFORM), label: "Toàn sàn" },
-              ]}
-            />
-          </FormItem>
+          <Select
+            label="Phạm vi"
+            name="scope"
+            value={String(scope)}
+            onChange={(e) => setScope(Number(e.target.value) as VoucherScope)}
+            options={[
+              { value: String(VoucherScope.SHOP), label: "Shop" },
+              { value: String(VoucherScope.PLATFORM), label: "Toàn sàn" },
+            ]}
+          />
 
-          <FormItem label="Loại giảm giá">
-            <Select
-              name="discount_type"
-              value={String(discountType)}
-              onChange={(e) =>
-                setDiscountType(Number(e.target.value) as DiscountType)
-              }
-              options={[
-                {
-                  value: String(DiscountType.PERCENT),
-                  label: "Giảm % (1-100)",
-                },
-                { value: String(DiscountType.FIXED), label: "Giảm tiền (VND)" },
-              ]}
-            />
-          </FormItem>
+          <Select
+            label="Loại giảm giá"
+            name="discount_type"
+            value={String(discountType)}
+            onChange={(e) =>
+              setDiscountType(Number(e.target.value) as DiscountType)
+            }
+            options={[
+              {
+                value: String(DiscountType.PERCENT),
+                label: "Giảm % (1-100)",
+              },
+              { value: String(DiscountType.FIXED), label: "Giảm tiền (VND)" },
+            ]}
+          />
 
           <Input
             label="Giá trị giảm"

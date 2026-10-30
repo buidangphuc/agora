@@ -76,14 +76,9 @@ export function SellerFilterBar({
         </div>
         {statusOptions && (
           <div className="w-full space-y-1.5 sm:w-48">
-            <label
-              htmlFor="seller-status-filter"
-              className="block text-xs font-medium text-text-primary"
-            >
-              Trạng thái
-            </label>
             <Select
               id="seller-status-filter"
+              label="Trạng thái"
               options={statusOptions}
               value={status ?? "all"}
               onChange={(e) => {

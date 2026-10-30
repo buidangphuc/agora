@@ -193,6 +193,9 @@ export const components = {
     content:
       "rounded-2xl border border-border-subtle bg-surface-card text-text-primary p-2 shadow-pop",
     item: "flex items-center rounded-lg px-4 py-3 min-h-touch text-base text-text-primary",
+    native:
+      "w-full appearance-none rounded-xl border border-border-strong bg-surface-card text-text-primary text-base pl-4 pr-10 py-3 min-h-touch focus-visible:ring-2 focus-visible:ring-focus-ring",
+    icon: "pointer-events-none absolute inset-y-0 right-4 flex items-center text-text-secondary",
   },
   checkbox: {
     row: "flex items-center gap-3 min-h-touch",
