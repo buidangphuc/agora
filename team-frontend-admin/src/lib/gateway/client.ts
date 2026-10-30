@@ -24,6 +24,7 @@ import {
   OrderService,
 } from "@/generated/platform/order/v1/order_connect.js";
 import { PaymentService } from "@/generated/platform/payment/v1/payment_connect.js";
+import { VoucherService } from "@/generated/platform/promotion/v1/promotion_connect.js";
 import { RecommendationService } from "@/generated/platform/recommendation/v1/recommendation_connect.js";
 import { SearchService } from "@/generated/platform/search/v1/search_connect.js";
 
@@ -65,5 +66,6 @@ export function makeClients(
     ai: createPromiseClient(AIService, transport),
     recommendation: createPromiseClient(RecommendationService, transport),
     audit: createPromiseClient(AuditService, transport),
+    voucher: createPromiseClient(VoucherService, transport),
   };
 }
