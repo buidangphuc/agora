@@ -2,10 +2,11 @@
 
 import { type FormEvent, useState } from "react";
 
-import { LinkButton } from "@/components/LinkButton";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Link } from "@/components/ui/Link";
 import { Modal } from "@/components/ui/Modal";
 import type {
   CreatePlatformVoucherInput,
@@ -31,7 +32,7 @@ import {
 } from "./voucherFormat";
 
 const selectClass =
-  "w-full rounded-md border border-border-strong bg-surface-card px-3 py-2 text-sm text-text-primary";
+  "min-h-touch w-full rounded-xl border border-border-strong bg-surface-card px-4 py-3 text-base text-text-primary";
 
 function Summary({ input }: { input: CreatePlatformVoucherInput }) {
   const rows: [string, string][] = [
@@ -46,7 +47,7 @@ function Summary({ input }: { input: CreatePlatformVoucherInput }) {
   return (
     <dl
       data-testid="voucher-confirm-summary"
-      className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-2"
+      className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2"
     >
       {rows.map(([label, value]) => (
         <div key={label} className="flex flex-col">
@@ -116,19 +117,33 @@ export function CreateVoucherForm() {
 
   if (created) {
     return (
-      <div className="flex flex-col gap-4" data-testid="voucher-created">
+      <div className="flex flex-col gap-6" data-testid="voucher-created">
         <Alert
           type="success"
           title={`Đã tạo voucher sàn ${created.code}`}
           description="Thông tin dưới đây là dữ liệu dịch vụ khuyến mãi trả về sau khi tạo."
         />
-        <VoucherDetails voucher={created} now={createdAt} />
-        <div className="flex flex-wrap gap-3">
-          <LinkButton href={voucherHref(created.code)} variant="primary">
+        <Card padded>
+          <VoucherDetails voucher={created} now={createdAt} />
+        </Card>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <Link
+            href={voucherHref(created.code)}
+            variant="primary"
+            size="md"
+            fullWidth="mobile"
+          >
             Xem chi tiết
-          </LinkButton>
-          <LinkButton href="/admin/vouchers">Về danh sách</LinkButton>
-          <Button variant="secondary" onClick={startOver}>
+          </Link>
+          <Link
+            href="/admin/vouchers"
+            variant="outline"
+            size="md"
+            fullWidth="mobile"
+          >
+            Về danh sách
+          </Link>
+          <Button variant="secondary" fullWidth="mobile" onClick={startOver}>
             Tạo voucher khác
           </Button>
         </div>
@@ -141,105 +156,116 @@ export function CreateVoucherForm() {
 
   return (
     <>
-      <form
-        noValidate
-        data-testid="voucher-create-form"
-        onSubmit={onReview}
-        className="grid max-w-3xl grid-cols-1 gap-4 md:grid-cols-2"
-      >
-        <Input
-          label="Mã voucher"
-          name="code"
-          required
-          autoComplete="off"
-          value={values.code}
-          onChange={(e) => set("code")(e.target.value.toUpperCase())}
-          helperText="3 đến 32 ký tự: chữ cái không dấu, số, gạch ngang hoặc gạch dưới."
-          error={errors.code}
-        />
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="voucher-discount-type"
-            className="text-sm font-medium text-text-primary"
-          >
-            Loại giảm giá
-          </label>
-          <select
-            id="voucher-discount-type"
-            name="discountType"
-            value={values.discountType}
-            onChange={(e) => set("discountType")(e.target.value)}
-            className={selectClass}
-            aria-invalid={errors.discountType ? true : undefined}
-          >
-            <option value="percent">Theo phần trăm</option>
-            <option value="fixed">Số tiền cố định</option>
-          </select>
-          {errors.discountType ? (
-            <p className="text-sm text-danger">{errors.discountType}</p>
-          ) : null}
-        </div>
-        <Input
-          label={percent ? "Phần trăm giảm" : "Số tiền giảm (đồng)"}
-          name="discountValue"
-          required
-          inputMode="numeric"
-          value={values.discountValue}
-          onChange={(e) => set("discountValue")(e.target.value)}
-          error={errors.discountValue}
-        />
-        {percent ? (
+      <Card padded>
+        <form
+          noValidate
+          data-testid="voucher-create-form"
+          onSubmit={onReview}
+          className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6"
+        >
           <Input
-            label="Giảm tối đa (đồng)"
-            name="maxDiscount"
-            inputMode="numeric"
-            value={values.maxDiscount}
-            onChange={(e) => set("maxDiscount")(e.target.value)}
-            helperText="0 là không giới hạn mức giảm."
-            error={errors.maxDiscount}
+            label="Mã voucher"
+            name="code"
+            required
+            autoComplete="off"
+            value={values.code}
+            onChange={(e) => set("code")(e.target.value.toUpperCase())}
+            helperText="3 đến 32 ký tự: chữ cái không dấu, số, gạch ngang hoặc gạch dưới."
+            error={errors.code}
           />
-        ) : null}
-        <Input
-          label="Đơn tối thiểu (đồng)"
-          name="minSpend"
-          inputMode="numeric"
-          value={values.minSpend}
-          onChange={(e) => set("minSpend")(e.target.value)}
-          helperText="0 là không yêu cầu."
-          error={errors.minSpend}
-        />
-        <Input
-          label="Lượt dùng tối đa"
-          name="quota"
-          inputMode="numeric"
-          value={values.quota}
-          onChange={(e) => set("quota")(e.target.value)}
-          helperText="0 là không giới hạn."
-          error={errors.quota}
-        />
-        <Input
-          label="Bắt đầu (giờ Việt Nam)"
-          name="startsAt"
-          type="datetime-local"
-          required
-          value={values.startsAt}
-          onChange={(e) => set("startsAt")(e.target.value)}
-          error={errors.startsAt}
-        />
-        <Input
-          label="Kết thúc (giờ Việt Nam)"
-          name="endsAt"
-          type="datetime-local"
-          required
-          value={values.endsAt}
-          onChange={(e) => set("endsAt")(e.target.value)}
-          error={errors.endsAt}
-        />
-        <div className="flex flex-wrap gap-3 md:col-span-2">
-          <Button type="submit">Xem lại trước khi tạo</Button>
-          <LinkButton href="/admin/vouchers">Huỷ</LinkButton>
-        </div>
-      </form>
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="voucher-discount-type"
+              className="text-sm font-semibold text-text-primary"
+            >
+              Loại giảm giá
+            </label>
+            <select
+              id="voucher-discount-type"
+              name="discountType"
+              value={values.discountType}
+              onChange={(e) => set("discountType")(e.target.value)}
+              className={selectClass}
+              aria-invalid={errors.discountType ? true : undefined}
+            >
+              <option value="percent">Theo phần trăm</option>
+              <option value="fixed">Số tiền cố định</option>
+            </select>
+            {errors.discountType ? (
+              <p className="text-sm text-danger">{errors.discountType}</p>
+            ) : null}
+          </div>
+          <Input
+            label={percent ? "Phần trăm giảm" : "Số tiền giảm (đồng)"}
+            name="discountValue"
+            required
+            inputMode="numeric"
+            value={values.discountValue}
+            onChange={(e) => set("discountValue")(e.target.value)}
+            error={errors.discountValue}
+          />
+          {percent ? (
+            <Input
+              label="Giảm tối đa (đồng)"
+              name="maxDiscount"
+              inputMode="numeric"
+              value={values.maxDiscount}
+              onChange={(e) => set("maxDiscount")(e.target.value)}
+              helperText="0 là không giới hạn mức giảm."
+              error={errors.maxDiscount}
+            />
+          ) : null}
+          <Input
+            label="Đơn tối thiểu (đồng)"
+            name="minSpend"
+            inputMode="numeric"
+            value={values.minSpend}
+            onChange={(e) => set("minSpend")(e.target.value)}
+            helperText="0 là không yêu cầu."
+            error={errors.minSpend}
+          />
+          <Input
+            label="Lượt dùng tối đa"
+            name="quota"
+            inputMode="numeric"
+            value={values.quota}
+            onChange={(e) => set("quota")(e.target.value)}
+            helperText="0 là không giới hạn."
+            error={errors.quota}
+          />
+          <Input
+            label="Bắt đầu (giờ Việt Nam)"
+            name="startsAt"
+            type="datetime-local"
+            required
+            value={values.startsAt}
+            onChange={(e) => set("startsAt")(e.target.value)}
+            error={errors.startsAt}
+          />
+          <Input
+            label="Kết thúc (giờ Việt Nam)"
+            name="endsAt"
+            type="datetime-local"
+            required
+            value={values.endsAt}
+            onChange={(e) => set("endsAt")(e.target.value)}
+            error={errors.endsAt}
+          />
+          <div className="flex flex-col gap-3 border-t border-border-subtle pt-6 sm:flex-row md:col-span-2">
+            <Button type="submit" fullWidth="mobile">
+              Xem lại trước khi tạo
+            </Button>
+            <Link
+              href="/admin/vouchers"
+              variant="outline"
+              size="md"
+              fullWidth="mobile"
+            >
+              Huỷ
+            </Link>
+          </div>
+        </form>
+      </Card>
 
       <Modal
         isOpen={reviewOpen}
@@ -265,9 +291,9 @@ export function CreateVoucherForm() {
           </>
         }
       >
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {review ? <Summary input={review} /> : null}
-          <label className="flex min-h-11 items-center gap-2 text-sm text-text-primary">
+          <label className="flex min-h-touch items-center gap-3 text-sm text-text-primary">
             <input
               type="checkbox"
               data-testid="voucher-confirm-ack"

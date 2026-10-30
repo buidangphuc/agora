@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { LinkButton } from "@/components/LinkButton";
 import { Alert } from "@/components/ui/Alert";
+import { Card } from "@/components/ui/Card";
 import { Link } from "@/components/ui/Link";
 import { Result } from "@/components/ui/Result";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
@@ -77,15 +78,21 @@ export default async function VoucherDetailPage({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <Link href="/admin/vouchers" variant="subtle">
-        Về danh sách voucher sàn
-      </Link>
-      <h1 className="text-2xl font-bold text-text-primary">
-        Voucher {result.status === "ok" ? result.voucher.code : code}
-      </h1>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 md:gap-8">
+      <header className="flex flex-col items-start gap-3">
+        <div className="-ml-4">
+          <Link href="/admin/vouchers" variant="ghost" size="sm">
+            Về danh sách voucher sàn
+          </Link>
+        </div>
+        <h1 className="break-all text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
+          Voucher {result.status === "ok" ? result.voucher.code : code}
+        </h1>
+      </header>
       {result.status === "ok" ? (
-        <VoucherDetails voucher={result.voucher} now={new Date()} />
+        <Card padded>
+          <VoucherDetails voucher={result.voucher} now={new Date()} />
+        </Card>
       ) : (
         <Alert
           type="error"

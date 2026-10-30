@@ -33,11 +33,20 @@ export default async function NewCampaignPage() {
     );
   }
   return (
-    <div className="space-y-6">
-      <Link href="/admin/campaigns" variant="subtle">
-        Chiến dịch đang chạy
-      </Link>
-      <h1 className="text-2xl font-bold text-text-primary">Tạo flash sale</h1>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 md:gap-8">
+      <header className="flex flex-col items-start gap-3">
+        <div className="-ml-4">
+          <Link href="/admin/campaigns" variant="ghost" size="sm">
+            Chiến dịch đang chạy
+          </Link>
+        </div>
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
+          Tạo flash sale
+        </h1>
+        <p className="text-base text-text-secondary">
+          Đặt giá flash sale cho một tin đăng trong một khoảng thời gian.
+        </p>
+      </header>
       <CreateCampaignForm />
     </div>
   );
