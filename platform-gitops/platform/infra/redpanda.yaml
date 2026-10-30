@@ -114,4 +114,8 @@ spec:
               # DLQ records carry buyer_id (PII): short explicit retention, 7 days.
               rpk topic create analytics.ga4-relay.dlq -X brokers="$BROKERS" -p 1 -r 1 -c retention.ms=604800000 || true
               rpk topic alter-config analytics.ga4-relay.dlq --set retention.ms=604800000 -X brokers="$BROKERS"
+              for t in analytics.events.dlq listing.events.analytics.dlq identity.events.dlq; do
+                rpk topic create "$t" -X brokers="$BROKERS" -p 1 -r 1 -c retention.ms=604800000 || true
+                rpk topic alter-config "$t" --set retention.ms=604800000 -X brokers="$BROKERS"
+              done
               rpk topic list -X brokers="$BROKERS"

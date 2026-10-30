@@ -3,7 +3,6 @@ package edge
 import (
 	"bytes"
 	"context"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -52,7 +51,7 @@ func TestBoundaryExactly100BatchAccepted(t *testing.T) {
 // Scenario: Anonymous caller allowed.
 func TestBoundaryAnonymousCallerAllowed(t *testing.T) {
 	pub := &principalCapturingPublisher{}
-	h := HandleTrack(&Edge{}, pub, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := HandleTrack(&Edge{}, pub, slog.New(slog.DiscardHandler))
 	req := httptest.NewRequest(http.MethodPost, "/api/track", strings.NewReader(`{"type":"view","listingId":"l1"}`))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -89,7 +88,7 @@ func TestBoundaryOversizedBodyRejectedWithoutPublishing(t *testing.T) {
 func TestBoundaryHandlerP99UnderBudget(t *testing.T) {
 	const reqs = 1000
 	pub := &mockAnalyticsPublisher{}
-	h := HandleTrack(&Edge{}, pub, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := HandleTrack(&Edge{}, pub, slog.New(slog.DiscardHandler))
 	body := []byte(batchBody(100))
 	lat := make([]time.Duration, reqs)
 	for i := range lat {
@@ -113,7 +112,7 @@ func TestBoundaryHandlerP99UnderBudget(t *testing.T) {
 }
 
 func BenchmarkBoundaryTrack100Events(b *testing.B) {
-	h := HandleTrack(&Edge{}, &mockAnalyticsPublisher{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := HandleTrack(&Edge{}, &mockAnalyticsPublisher{}, slog.New(slog.DiscardHandler))
 	body := []byte(batchBody(100))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -127,7 +126,7 @@ func BenchmarkBoundaryTrack100Events(b *testing.B) {
 func TestConsentStamp_StampingAddsNoLatencyBeyondBudget(t *testing.T) {
 	const reqs = 1000
 	pub := &mockAnalyticsPublisher{}
-	h := HandleTrack(&Edge{}, pub, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := HandleTrack(&Edge{}, pub, slog.New(slog.DiscardHandler))
 	body := []byte(batchBody(100))
 	lat := make([]time.Duration, reqs)
 	for i := range lat {

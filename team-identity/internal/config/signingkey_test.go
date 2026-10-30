@@ -52,7 +52,7 @@ func freshKey(t *testing.T, kid string) keyed {
 
 func settingsFor(env string) *config.Settings {
 	s := &config.Settings{}
-	s.Runtime.Env = env
+	s.Env = env
 	return s
 }
 

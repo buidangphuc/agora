@@ -92,7 +92,7 @@ func (m *moderationUpstream) ListModerationQueue(context.Context, *listingv1.Lis
 func callModeration(t *testing.T, up *moderationUpstream, path func(f *cockpitFixture) string, auth func(f *cockpitFixture) string) (int, string) {
 	t.Helper()
 	f := newCockpitFixture(t)
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Listing: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Listing: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	t.Cleanup(srv.Close)
 	req, _ := http.NewRequest(http.MethodPost, srv.URL+path(f), strings.NewReader(`{"listing_id":"l-1","decision":"MODERATION_DECISION_APPROVE"}`))
 	req.Header.Set("Content-Type", "application/json")

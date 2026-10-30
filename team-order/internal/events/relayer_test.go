@@ -1,10 +1,7 @@
-package events
+package events_test
 
 import (
 	"context"
-	"errors"
-	"log/slog"
-	"sync"
 	"testing"
 	"time"
 
@@ -12,211 +9,151 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/outbox"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/testkit"
+
 	eventsv1 "github.com/buidangphuc/team-order/generated/platform/events/v1"
-	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
-	"github.com/buidangphuc/team-order/internal/repository"
+	"github.com/buidangphuc/team-order/internal/config"
+	"github.com/buidangphuc/team-order/internal/events"
+	"github.com/buidangphuc/team-order/internal/store"
 )
 
-type published struct {
-	topic   string
-	key     string
-	payload []byte
-}
-
-type mockPublisher struct {
-	mu        sync.Mutex
-	published []published
-	err       error
-}
-
-func (m *mockPublisher) Publish(_ context.Context, topic, key string, payload []byte) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.err != nil {
-		return m.err
-	}
-	m.published = append(m.published, published{topic, key, payload})
-	return nil
-}
-
-func sampleOrder() repository.Order {
-	return repository.Order{
-		ID:          "order-123",
-		BuyerID:     "buyer-1",
-		SellerID:    "seller-1",
-		Status:      repository.OrderStatusPending,
-		TotalAmount: 250000,
-		Currency:    "VND",
-		Items: []repository.OrderItem{
-			{ID: "item-1", ListingID: "listing-1", VariantID: "var-1", Quantity: 2, UnitPrice: 100000},
-			{ID: "item-2", ListingID: "listing-2", Quantity: 1, UnitPrice: 50000},
-		},
+func relayerSettings(poll time.Duration) config.Settings {
+	return config.Settings{
+		Events: config.Events{OrderTopic: "order.events"},
+		Outbox: sdkconfig.Outbox{PollInterval: poll, BatchSize: 100, ClaimLock: time.Minute},
 	}
 }
 
-func newRepos() (*repository.InMemoryOrderRepository, *repository.InMemoryOutboxRepository) {
-	outbox := repository.NewInMemoryOutboxRepository()
-	orders := repository.NewInMemoryOrderRepository(
-		repository.WithPaidOutbox(BuildPaidOutboxRow),
-		repository.WithInMemoryOutbox(outbox),
-	)
-	return orders, outbox
+func enqueueRow(t *testing.T, r *rig, row outbox.Row) {
+	t.Helper()
+	tx, err := r.pool.Begin(context.Background())
+	require.NoError(t, err)
+	require.NoError(t, r.ob.EnqueueTx(context.Background(), tx, row))
+	require.NoError(t, tx.Commit(context.Background()))
 }
 
-// The outbox row is written together with the PAID transition, only for the
-// first transition to PAID, and not for other states.
-func TestPaidTransitionWritesOutboxRow(t *testing.T) {
+// Scenario: The relayer publishes keyed by order id
+func TestRelayerPublishesKeyedByOrderID(t *testing.T) {
 	ctx := context.Background()
-	orders, outbox := newRepos()
-	created, err := orders.CreateOrder(ctx, sampleOrder())
+	r := newRig(t)
+	o := r.createOrder(sampleOrder())
+	r.pay(o.ID)
+	rec := testkit.NewRecorder()
+	relayer, err := events.NewRelayer(r.ob, rec, relayerSettings(time.Second), quietLogger())
 	require.NoError(t, err)
-	assert.Empty(t, outbox.EnqueuedRows(), "PENDING must not emit")
 
-	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
+	report, err := relayer.RelayOnce(ctx)
 	require.NoError(t, err)
-	rows := outbox.EnqueuedRows()
-	require.Len(t, rows, 1)
-	assert.Equal(t, created.ID, rows[0].AggregateID)
-	assert.Equal(t, OrderPaidEventType, rows[0].EventType)
-	assert.Equal(t, "Order", rows[0].AggregateType)
+	assert.Equal(t, 1, report.Published)
 
-	// Re-applying PAID conflicts (no longer Pending) and later states do not emit
-	// another PAID fact.
-	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
-	require.ErrorIs(t, err, repository.ErrStatusConflict)
-	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusShipped, []repository.OrderStatus{repository.OrderStatusPaid}, "TRK1")
+	got := rec.Records()
+	require.Len(t, got, 1)
+	assert.Equal(t, "order.events", got[0].Topic)
+	assert.Equal(t, o.ID, string(got[0].Key))
+	var stored []byte
+	require.NoError(t, r.pool.QueryRow(ctx, `SELECT payload FROM order_outbox_events WHERE aggregate_id = $1`, o.ID).Scan(&stored))
+	assert.Equal(t, stored, got[0].Value, "the stored envelope is published verbatim")
+	var status string
+	require.NoError(t, r.pool.QueryRow(ctx, `SELECT status FROM order_outbox_events WHERE aggregate_id = $1`, o.ID).Scan(&status))
+	assert.Equal(t, "published", status)
+
+	report, err = relayer.RelayOnce(ctx)
 	require.NoError(t, err)
-	assert.Len(t, outbox.EnqueuedRows(), 1)
+	assert.Equal(t, 0, report.Published, "a published row is not sent twice")
+	assert.Len(t, rec.Records(), 1)
 }
 
-var pendingOnly = []repository.OrderStatus{repository.OrderStatusPending}
+// Scenario: A pending row is claimed within one poll interval
+func TestRelayerPublishesWithinPollInterval(t *testing.T) {
+	r := newRig(t)
+	rec := testkit.NewRecorder()
+	relayer, err := events.NewRelayer(r.ob, rec, relayerSettings(time.Second), quietLogger())
+	require.NoError(t, err)
 
-type failingOutbox struct{ repository.OutboxRepository }
-
-func (failingOutbox) Enqueue(context.Context, repository.OutboxRow) error {
-	return errors.New("outbox write failed")
-}
-
-// If the outbox row cannot be written the status change does not happen either
-// (the in-memory analogue of the transaction rolling back).
-func TestPaidTransitionRollsBackWhenOutboxFails(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("enqueue error", func(t *testing.T) {
-		orders := repository.NewInMemoryOrderRepository(
-			repository.WithPaidOutbox(BuildPaidOutboxRow),
-			repository.WithInMemoryOutbox(failingOutbox{repository.NewInMemoryOutboxRepository()}),
-		)
-		created, err := orders.CreateOrder(ctx, sampleOrder())
-		require.NoError(t, err)
-		_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
-		require.Error(t, err)
-		got, err := orders.GetOrder(ctx, created.ID)
-		require.NoError(t, err)
-		assert.Equal(t, repository.OrderStatusPending, got.Status)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = relayer.Run(ctx)
+	}()
+	t.Cleanup(func() {
+		cancel()
+		<-done
 	})
 
-	t.Run("build error", func(t *testing.T) {
-		outbox := repository.NewInMemoryOutboxRepository()
-		orders := repository.NewInMemoryOrderRepository(
-			repository.WithPaidOutbox(func(repository.Order) (repository.OutboxRow, error) {
-				return repository.OutboxRow{}, errors.New("boom")
-			}),
-			repository.WithInMemoryOutbox(outbox),
-		)
-		created, err := orders.CreateOrder(ctx, sampleOrder())
-		require.NoError(t, err)
-		_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
-		require.Error(t, err)
-		got, _ := orders.GetOrder(ctx, created.ID)
-		assert.Equal(t, repository.OrderStatusPending, got.Status)
-		assert.Empty(t, outbox.EnqueuedRows())
-	})
+	o := r.createOrder(sampleOrder())
+	r.pay(o.ID)
+
+	testkit.Eventually(t, 2*time.Second, func() bool { return len(rec.Records()) == 1 })
+	assert.Equal(t, o.ID, string(rec.Records()[0].Key))
 }
 
-// The relayer publishes the stored envelope verbatim to the topic keyed by
-// order_id, then marks the row published so it is not sent twice.
-func TestRelayerPublishesAndMarksPublished(t *testing.T) {
+// Scenario: Events of one order are published in seq order
+func TestRelayerKeepsPerOrderSequence(t *testing.T) {
 	ctx := context.Background()
-	orders, outbox := newRepos()
-	pub := &mockPublisher{}
-	relayer := NewRelayer(outbox, pub, RelayerConfig{BatchSize: 10}, slog.Default())
+	r := newRig(t)
+	o := r.createOrder(sampleOrder())
 
-	created, err := orders.CreateOrder(ctx, sampleOrder())
+	placed, err := events.BuildPlacedOutboxRow(o)
 	require.NoError(t, err)
-	_, err = orders.UpdateOrderStatusFrom(ctx, created.ID, repository.OrderStatusPaid, pendingOnly, "")
+	paid, err := events.BuildPaidOutboxRow(o)
 	require.NoError(t, err)
-
-	n, err := relayer.SweepClaims(ctx)
+	shipped, err := events.BuildShippedOutboxRow(store.Shipment{ID: "shp-1", OrderID: o.ID, Carrier: "GHN", TrackingCode: "T-1", BuyerID: o.BuyerID, SellerID: o.SellerID})
 	require.NoError(t, err)
-	assert.Equal(t, 1, n)
-	require.Len(t, pub.published, 1)
-	assert.Equal(t, OrderEventsTopic, pub.published[0].topic)
-	assert.Equal(t, "order-123", pub.published[0].key)
-	assert.Equal(t, outbox.EnqueuedRows()[0].Payload, pub.published[0].payload)
-
-	n, err = relayer.SweepClaims(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, 0, n, "published rows are not re-sent")
-	assert.Len(t, pub.published, 1)
-}
-
-func TestRelayerRetriesThenParks(t *testing.T) {
-	ctx := context.Background()
-	outbox := repository.NewInMemoryOutboxRepository()
-	require.NoError(t, outbox.Enqueue(ctx, repository.OutboxRow{EventID: "e1", AggregateID: "o1", Payload: []byte("x")}))
-	pub := &mockPublisher{err: errors.New("broker down")}
-	relayer := NewRelayer(outbox, pub, RelayerConfig{MaxAttempts: 3}, slog.Default())
-
-	for i := 0; i < 3; i++ {
-		n, err := relayer.SweepClaims(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, 0, n)
+	for _, row := range []outbox.Row{placed, paid, shipped} {
+		enqueueRow(t, r, row)
 	}
-	// Parked after MaxAttempts: no longer claimed.
-	pending, err := outbox.ClaimPending(ctx, 10, time.Second)
-	require.NoError(t, err)
-	assert.Empty(t, pending)
 
-	// Backoff doubles and is capped.
-	cfg := RelayerConfig{}.withDefaults()
-	assert.Equal(t, time.Second, cfg.backoff(1))
-	assert.Equal(t, 4*time.Second, cfg.backoff(3))
-	assert.Equal(t, cfg.MaxBackoff, cfg.backoff(30))
+	rec := testkit.NewRecorder()
+	relayer, err := events.NewRelayer(r.ob, rec, relayerSettings(time.Second), quietLogger())
+	require.NoError(t, err)
+	for i := 0; i < 20 && len(rec.Records()) < 3; i++ {
+		_, err := relayer.RelayOnce(ctx)
+		require.NoError(t, err)
+	}
+
+	var types []string
+	for _, p := range rec.Records() {
+		assert.Equal(t, o.ID, string(p.Key))
+		var env eventsv1.EventEnvelope
+		require.NoError(t, proto.Unmarshal(p.Value, &env))
+		types = append(types, env.GetType())
+	}
+	assert.Equal(t, []string{events.OrderPlacedEventType, events.OrderPaidEventType, events.OrderShippedEventType}, types)
 }
 
-// The payload matches the ADR-0013 / order.proto contract: an EventEnvelope of
-// type platform.order.v1.OrderPaidEvent carrying order_id and one line-item fact
-// per order line.
-func TestPaidEnvelopeMatchesContract(t *testing.T) {
-	order := sampleOrder()
-	order.Status = repository.OrderStatusPaid
-	order.UpdatedAt = time.Date(2026, 10, 5, 9, 30, 0, 0, time.UTC)
-
-	row, err := BuildPaidOutboxRow(order)
+// Scenario: Published rows older than 7 days are purged
+func TestOutboxPurgeDeletesOnlyOldPublishedRows(t *testing.T) {
+	ctx := context.Background()
+	r := newRig(t)
+	for _, id := range []string{"old-published", "recent-published", "old-pending"} {
+		enqueueRow(t, r, outbox.Row{EventID: id, AggregateType: "Order", AggregateID: id, EventType: "t", Payload: []byte(id)})
+	}
+	_, err := r.pool.Exec(ctx, `UPDATE order_outbox_events SET status = 'published', published_at = now() - interval '8 days' WHERE event_id = 'old-published'`)
 	require.NoError(t, err)
-	assert.Equal(t, "order-123", row.AggregateID)
+	_, err = r.pool.Exec(ctx, `UPDATE order_outbox_events SET status = 'published', published_at = now() - interval '6 days' WHERE event_id = 'recent-published'`)
+	require.NoError(t, err)
+	_, err = r.pool.Exec(ctx, `UPDATE order_outbox_events SET created_at = now() - interval '8 days' WHERE event_id = 'old-pending'`)
+	require.NoError(t, err)
 
-	var env eventsv1.EventEnvelope
-	require.NoError(t, proto.Unmarshal(row.Payload, &env))
-	assert.Equal(t, "platform.order.v1.OrderPaidEvent", env.GetType())
-	assert.Equal(t, row.EventID, env.GetEventId())
-	assert.Equal(t, OrderPaidEventID("order-123"), env.GetEventId(), "event id is stable per order")
-	assert.True(t, order.UpdatedAt.Equal(env.GetOccurredAt().AsTime()))
+	purger, err := events.NewOutboxPurger(r.ob, quietLogger())
+	require.NoError(t, err)
+	runCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = purger.Run(runCtx)
+	}()
+	t.Cleanup(func() {
+		cancel()
+		<-done
+	})
 
-	var ev orderv1.OrderPaidEvent
-	require.NoError(t, proto.Unmarshal(env.GetPayload(), &ev))
-	assert.Equal(t, "order-123", ev.GetOrderId())
-	assert.Equal(t, "buyer-1", ev.GetBuyerId())
-	assert.Equal(t, int64(250000), ev.GetTotalAmount())
-	assert.Equal(t, "VND", ev.GetCurrency())
-	assert.True(t, order.UpdatedAt.Equal(ev.GetPaidAt().AsTime()))
-	require.Len(t, ev.GetItems(), 2)
-	first := ev.GetItems()[0]
-	assert.Equal(t, "listing-1", first.GetListingId())
-	assert.Equal(t, "var-1", first.GetVariantId())
-	assert.Equal(t, "seller-1", first.GetSellerId())
-	assert.Equal(t, int32(2), first.GetQuantity())
-	assert.Equal(t, int64(100000), first.GetUnitPrice())
-	assert.Equal(t, "VND", first.GetCurrency())
+	testkit.Eventually(t, 10*time.Second, func() bool {
+		return r.count(`SELECT count(*) FROM order_outbox_events WHERE event_id = 'old-published'`) == 0
+	})
+	assert.Equal(t, 1, r.count(`SELECT count(*) FROM order_outbox_events WHERE event_id = 'recent-published'`), "a 6-day-old published row stays")
+	assert.Equal(t, 1, r.count(`SELECT count(*) FROM order_outbox_events WHERE event_id = 'old-pending'`), "a pending row is never purged")
 }

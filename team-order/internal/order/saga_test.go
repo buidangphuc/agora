@@ -1,0 +1,306 @@
+package order_test
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"testing"
+	"time"
+
+	"google.golang.org/grpc"
+
+	listingv1 "github.com/buidangphuc/team-order/generated/platform/listing/v1"
+	"github.com/buidangphuc/team-order/internal/order"
+	"github.com/buidangphuc/team-order/internal/store"
+	"github.com/buidangphuc/team-order/internal/store/fake"
+)
+
+// ── test doubles ──
+
+// fakeDomainClient models team-domain's stock order. ReserveStock is idempotent
+// on reservation_id (mirrors the W1-T2 contract): repeated reserves with the same
+// id decrement only once. It records the context each ReleaseStock ran under so a
+// test can assert compensation used a live (background) context.
+type fakeDomainClient struct {
+	mu sync.Mutex
+
+	reservedIDs  map[string]int // reservation_id -> effective decrement count
+	failReserve  map[string]bool
+	declineStock map[string]bool // listing ids team-domain declines with Success=false and no error
+	releasedIDs  []string
+	releasedLIDs []string
+	releaseCtxOK bool // true if every ReleaseStock ran under a non-cancelled ctx
+	releaseSeen  bool
+	releaseErr   error
+	prices       map[string]int64
+}
+
+func (f *fakeDomainClient) withPrices(p map[string]int64) *fakeDomainClient {
+	f.prices = p
+	return f
+}
+
+func newFakeDomain() *fakeDomainClient {
+	return &fakeDomainClient{reservedIDs: map[string]int{}, failReserve: map[string]bool{}, declineStock: map[string]bool{}, releaseCtxOK: true}
+}
+
+func (f *fakeDomainClient) GetListing(_ context.Context, req *listingv1.GetListingRequest, _ ...grpc.CallOption) (*listingv1.GetListingResponse, error) {
+	return &listingv1.GetListingResponse{Listing: &listingv1.Listing{Id: req.GetId(), Price: f.prices[req.GetId()], SellerId: "s1", Stock: 100}}, nil
+}
+
+func (f *fakeDomainClient) ReserveStock(_ context.Context, req *listingv1.ReserveStockRequest, _ ...grpc.CallOption) (*listingv1.ReserveStockResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.failReserve[req.GetListingId()] {
+		return &listingv1.ReserveStockResponse{Success: false, Message: "out of stock"}, errors.New("insufficient stock")
+	}
+	if f.declineStock[req.GetListingId()] {
+		// What team-domain really returns when stock is short: a normal response, no error.
+		return &listingv1.ReserveStockResponse{Success: false, Message: "insufficient stock"}, nil
+	}
+	f.reservedIDs[req.GetReservationId()]++ // idempotent: unique ids == effective decrements
+	return &listingv1.ReserveStockResponse{Success: true}, nil
+}
+
+func (f *fakeDomainClient) CommitReservation(_ context.Context, _ *listingv1.CommitReservationRequest, _ ...grpc.CallOption) (*listingv1.CommitReservationResponse, error) {
+	return &listingv1.CommitReservationResponse{}, nil
+}
+
+func (f *fakeDomainClient) ReleaseStock(ctx context.Context, req *listingv1.ReleaseStockRequest, _ ...grpc.CallOption) (*listingv1.ReleaseStockResponse, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.releaseSeen = true
+	if ctx.Err() != nil {
+		f.releaseCtxOK = false
+	}
+	if f.releaseErr != nil {
+		return nil, f.releaseErr
+	}
+	f.releasedIDs = append(f.releasedIDs, req.GetReservationId())
+	f.releasedLIDs = append(f.releasedLIDs, req.GetListingId())
+	return &listingv1.ReleaseStockResponse{Success: true}, nil
+}
+
+func (f *fakeDomainClient) releasedListing(listingID string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, l := range f.releasedLIDs {
+		if l == listingID {
+			return true
+		}
+	}
+	return false
+}
+
+// fakeOrderRepo is an in-memory order repo whose CreateOrder can be made to fail.
+type fakeOrderRepo struct {
+	mu       sync.Mutex
+	orders   map[string]store.Order
+	calls    int
+	failCall int    // fail the Nth CreateOrder call (0 = never)
+	failFor  string // fail CreateOrder when SellerID == failFor ("" = ignore)
+}
+
+func newFakeOrderRepo() *fakeOrderRepo {
+	return &fakeOrderRepo{orders: map[string]store.Order{}}
+}
+
+func (r *fakeOrderRepo) CreateOrder(_ context.Context, o store.Order) (store.Order, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls++
+	if (r.failCall != 0 && r.calls == r.failCall) || (r.failFor != "" && o.SellerID == r.failFor) {
+		return store.Order{}, errors.New("simulated persist failure")
+	}
+	if o.ID == "" {
+		o.ID = "ord_" + o.SellerID + "_" + time.Now().Format("150405.000000000")
+	}
+	o.Status = store.OrderStatusPending
+	r.orders[o.ID] = o
+	return o, nil
+}
+
+func (r *fakeOrderRepo) GetOrder(_ context.Context, id string) (store.Order, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	o, ok := r.orders[id]
+	if !ok {
+		return store.Order{}, store.ErrOrderNotFound
+	}
+	return o, nil
+}
+
+func (r *fakeOrderRepo) ListBuyerOrders(_ context.Context, _ string, _ int32) ([]store.Order, error) {
+	return nil, nil
+}
+
+func (r *fakeOrderRepo) ListSellerOrders(_ context.Context, _ string, _ int32) ([]store.Order, error) {
+	return nil, nil
+}
+
+func (r *fakeOrderRepo) UpdateOrderStatusFrom(_ context.Context, id string, to store.OrderStatus, from []store.OrderStatus, trackingNumber string, _ ...store.StatusOption) (store.Order, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	o, ok := r.orders[id]
+	if !ok {
+		return store.Order{}, store.ErrOrderNotFound
+	}
+	allowed := false
+	for _, st := range from {
+		if o.Status == st {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return store.Order{}, store.ErrStatusConflict
+	}
+	o.Status = to
+	if trackingNumber != "" {
+		o.TrackingNumber = trackingNumber
+	}
+	if to == store.OrderStatusPaid {
+		now := time.Now()
+		o.PaidAt = &now
+	}
+	r.orders[id] = o
+	return o, nil
+}
+
+func (r *fakeOrderRepo) count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.orders)
+}
+
+// fakeCartRepo lets a test seed items and optionally fail RemoveItems.
+type fakeCartRepo struct {
+	items         []store.CartItem
+	removeErr     error
+	removeCalled  bool
+	removedItemID []string
+}
+
+func (c *fakeCartRepo) GetCart(_ context.Context, _ string) ([]store.CartItem, error) {
+	return c.items, nil
+}
+
+func (c *fakeCartRepo) AddItem(_ context.Context, _ store.CartItem) ([]store.CartItem, error) {
+	return c.items, nil
+}
+
+func (c *fakeCartRepo) UpdateItem(_ context.Context, _, _ string, _ int32) ([]store.CartItem, error) {
+	return c.items, nil
+}
+
+func (c *fakeCartRepo) RemoveItem(_ context.Context, _, _ string) ([]store.CartItem, error) {
+	return c.items, nil
+}
+func (c *fakeCartRepo) ClearCart(_ context.Context, _ string) error { return nil }
+func (c *fakeCartRepo) RemoveItems(_ context.Context, _ string, ids []string) error {
+	c.removeCalled = true
+	c.removedItemID = ids
+	return c.removeErr
+}
+
+func addr() store.Address { return store.Address{City: "Hà Nội"} }
+
+// team-domain reports insufficient stock as Success=false with no transport error; checkout
+// must treat that as a failed hold, not create an order that oversells the listing.
+func TestCreateOrders_DeclinedReserveFailsCheckoutWithoutOrder(t *testing.T) {
+	ctx := context.Background()
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 1000})
+	domain.declineStock["lst_1"] = true
+	orderRepo := newFakeOrderRepo()
+	saga := fake.NewInMemorySagaRepository()
+	cart := &fakeCartRepo{items: []store.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 1000}}}
+	svc := newSvc(t, orderRepo, cart, nil, nil, domain, nil, nil, order.WithSagaRepository(saga))
+
+	_, err := svc.CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, "")
+	if !errors.Is(err, order.ErrInsufficientStock) {
+		t.Fatalf("expected ErrInsufficientStock, got %v", err)
+	}
+	if orderRepo.count() != 0 {
+		t.Fatalf("expected no order, got %d", orderRepo.count())
+	}
+}
+
+// ── SA-C2: crash between ReserveStock and persist → TTL sweep releases stock ──
+
+func TestSweepExpiredReservations_ReleasesLeakedStock(t *testing.T) {
+	ctx := context.Background()
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 1000})
+	orderRepo := newFakeOrderRepo()
+	saga := fake.NewInMemorySagaRepository()
+
+	// Simulate a crashed checkout: stock was reserved but the process died before
+	// the order persisted, leaving a RESERVED reservation whose TTL has elapsed.
+	_, _ = saga.CreateReservation(ctx, store.Reservation{
+		ID:        "res_leaked",
+		SagaID:    "saga_dead",
+		ListingID: "lst_1",
+		Quantity:  3,
+		Status:    store.ReservationStatusReserved,
+		ExpiresAt: time.Now().Add(-time.Minute),
+	})
+
+	svc := newSvc(t, orderRepo, &fakeCartRepo{}, nil, nil, domain, nil, nil, order.WithSagaRepository(saga))
+
+	n, err := svc.SweepExpiredReservations(ctx, time.Now())
+	if err != nil {
+		t.Fatalf("sweep failed: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("expected 1 reservation released by sweep, got %d", n)
+	}
+	if !domain.releasedListing("lst_1") {
+		t.Fatal("expected ReleaseStock called for the leaked listing")
+	}
+	got, _ := saga.GetReservation(ctx, "res_leaked")
+	if got.Status != store.ReservationStatusReleased {
+		t.Fatalf("expected reservation RELEASED, got status %d", got.Status)
+	}
+	if orderRepo.count() != 0 {
+		t.Fatal("no orphan order should exist after sweep")
+	}
+}
+
+// ── AD3: compensation runs on a background ctx even when the request ctx is dead ──
+
+func TestCompensation_RunsOnBackgroundCtx_WhenRequestCancelled(t *testing.T) {
+	domain := newFakeDomain().withPrices(map[string]int64{"lst_1": 1000})
+	orderRepo := newFakeOrderRepo()
+	orderRepo.failFor = "s1" // force compensation after a successful reserve
+	saga := fake.NewInMemorySagaRepository()
+	cart := &fakeCartRepo{items: []store.CartItem{{ID: "ci_1", ListingID: "lst_1", Quantity: 1, SellerID: "s1", UnitPrice: 1000}}}
+
+	svc := newSvc(t, orderRepo, cart, nil, nil, domain, nil, nil, order.WithSagaRepository(saga))
+
+	// The request context is already cancelled when checkout runs.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := svc.CreateOrdersFromCart(ctx, "buyer_1", addr(), nil, 1, "")
+	if err == nil {
+		t.Fatal("expected checkout to fail")
+	}
+	if !domain.releaseSeen {
+		t.Fatal("expected compensation to release reserved stock")
+	}
+	if !domain.releaseCtxOK {
+		t.Fatal("compensation must run on a live background ctx, not the cancelled request ctx")
+	}
+	if !domain.releasedListing("lst_1") {
+		t.Fatal("expected the reserved listing to be released")
+	}
+}
+
+func (c *fakeCartRepo) UpdateItemPrice(_ context.Context, _, _ string, _ int64) error { return nil }
+
+// Stubs so the fake satisfies store.OrderRepository (order-unpaid-expiry reminder pass).
+func (*fakeOrderRepo) FindReminderDue(context.Context, time.Time, time.Duration, int) ([]store.Order, error) {
+	return nil, nil
+}
+
+func (*fakeOrderRepo) MarkReminderSent(context.Context, string, time.Time) (store.Order, error) {
+	return store.Order{}, nil
+}
