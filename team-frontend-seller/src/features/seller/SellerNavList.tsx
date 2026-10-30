@@ -17,7 +17,7 @@ export function SellerNavList({
   const pathname = usePathname() ?? "";
   return (
     <nav aria-label="Kênh người bán">
-      <ul className="space-y-1">
+      <ul className="space-y-1.5">
         {SELLER_NAV.map((item) => {
           const active = isNavActive(item.href, pathname);
           return (
@@ -27,12 +27,12 @@ export function SellerNavList({
                 title={collapsed ? item.label : undefined}
                 aria-current={active ? "page" : undefined}
                 onClick={onNavigate}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring ${
+                className={`flex min-h-touch items-center gap-3 rounded-xl px-3 text-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring ${
                   collapsed ? "justify-center" : ""
                 } ${
                   active
-                    ? "bg-primary-50 text-action-primary"
-                    : "text-text-secondary hover:bg-surface-page hover:text-text-primary"
+                    ? "bg-primary-50 font-semibold text-action-primary"
+                    : "font-medium text-text-secondary hover:bg-surface-muted hover:text-text-primary"
                 }`}
               >
                 <NavIcon name={item.icon} />

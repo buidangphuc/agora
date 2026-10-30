@@ -6,7 +6,7 @@ import {
 /** /seller/orders skeleton: header, tabs + filter bar and table rows. */
 export default function SellerOrdersLoading() {
   return (
-    <div className="space-y-6" aria-busy="true" data-testid="seller-skeleton">
+    <div className="space-y-8" aria-busy="true" data-testid="seller-skeleton">
       <HeaderSkeleton />
       <TableCardSkeleton rows={8} />
     </div>
