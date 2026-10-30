@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { Image } from "@/components/ui/Image";
+import { Link } from "@/components/ui/Link";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { Table, type TableColumn } from "@/components/ui/Table";
 import { DeleteListingModal } from "@/features/listing/DeleteListingModal";
@@ -32,12 +31,11 @@ export function ProductTable({ items }: { items: ViewListing[] }) {
           </div>
           <div className="min-w-0">
             {/* Plain link: same target as before (tracking untouched). */}
-            <Link
-              href={`/listing/${l.id}`}
-              className="line-clamp-1 font-medium text-text-primary transition hover:text-action-primary"
-            >
-              {l.title}
-            </Link>
+            <span className="line-clamp-1 font-medium text-text-primary">
+              <Link href={`/listing/${l.id}`} variant="subtle">
+                {l.title}
+              </Link>
+            </span>
             <p className="mt-0.5 text-xs text-text-disabled">
               Mã: {l.id.slice(0, 8)}
             </p>
@@ -62,16 +60,10 @@ export function ProductTable({ items }: { items: ViewListing[] }) {
       align: "right",
       render: (l) => (
         <div className="flex items-center justify-end gap-1">
-          <Link
-            href={`/listing/${l.id}`}
-            className="rounded-lg px-2 py-1 text-xs font-medium text-text-secondary transition hover:bg-surface-page hover:text-text-primary"
-          >
+          <Link href={`/listing/${l.id}`} variant="ghost" size="xs">
             Xem
           </Link>
-          <Link
-            href={`/seller/${l.id}/edit`}
-            className="rounded-lg px-2 py-1 text-xs font-medium text-action-primary transition hover:bg-primary-50"
-          >
+          <Link href={`/seller/${l.id}/edit`} variant="ghost" size="xs">
             Sửa
           </Link>
           <DeleteListingModal id={l.id} title={l.title} />

@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Link } from "@/components/ui/Link";
 import { AuthSubmitButton } from "./AuthSubmitButton";
 import { type AuthState, loginAction } from "./actions";
 import { registerPath } from "./returnUrlShared";
@@ -76,12 +76,9 @@ export function LoginForm({ returnUrl }: { returnUrl?: string }) {
 
               <p className="text-center text-sm text-text-secondary">
                 Chưa có tài khoản?{" "}
-                <Link
-                  href={registerPath(returnUrl)}
-                  className="font-medium text-action-primary hover:underline"
-                >
-                  Đăng ký ngay
-                </Link>
+                <span className="font-medium">
+                  <Link href={registerPath(returnUrl)}>Đăng ký ngay</Link>
+                </span>
               </p>
             </form>
           </div>

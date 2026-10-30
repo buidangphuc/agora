@@ -1,7 +1,5 @@
-import Link from "next/link";
-
+import { Link } from "@/components/ui/Link";
 import { Result } from "@/components/ui/Result";
-import { linkButtonPrimary } from "@/features/cart/linkButton";
 
 export default function PaymentNotFound() {
   return (
@@ -10,7 +8,7 @@ export default function PaymentNotFound() {
       title="Không tìm thấy giao dịch"
       subTitle="Đơn hàng hoặc giao dịch thanh toán này không tồn tại."
       extra={
-        <Link href="/account/orders" className={linkButtonPrimary}>
+        <Link href="/account/orders" variant="primary">
           Xem đơn hàng
         </Link>
       }

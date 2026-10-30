@@ -1,13 +1,11 @@
-import Link from "next/link";
-
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Empty } from "@/components/ui/Empty";
+import { Link } from "@/components/ui/Link";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
 import { CartGroups } from "@/features/cart/CartGroups";
 import { CartSelection } from "@/features/cart/CartSelection";
 import { ClearCartButton } from "@/features/cart/ClearCartButton";
 import { groupByShop } from "@/features/cart/groupByShop";
-import { linkButtonPrimary } from "@/features/cart/linkButton";
 import { VoucherModal } from "@/features/voucher/VoucherModal";
 import { isCheckoutEnabled } from "@/lib/flags";
 import { getCartWithShopNames } from "@/lib/gateway/cart";
@@ -36,7 +34,7 @@ export default async function CartPage(props: {
         <Empty
           description="Giỏ hàng của bạn đang trống"
           action={
-            <Link href="/" className={linkButtonPrimary}>
+            <Link href="/" variant="primary">
               Tiếp tục mua sắm
             </Link>
           }

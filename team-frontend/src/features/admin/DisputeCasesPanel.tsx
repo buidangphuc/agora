@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
+import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { Link } from "@/components/ui/Link";
 import { resolveDisputeAction } from "@/features/dispute/actions";
 import {
   type DisputeAction,
@@ -241,14 +242,14 @@ export function DisputeCasesPanel({
       <div className="flex gap-3 text-sm">
         <span className="text-text-secondary">Trạng thái</span>
         {FILTERS.map(([s, label]) => (
-          <Link
+          <NextLink
             key={s}
             href={`/admin/cases?tab=disputes&status=${s}`}
             aria-current={s === status ? "true" : undefined}
             className={s === status ? "font-semibold" : "text-text-secondary"}
           >
             {label}
-          </Link>
+          </NextLink>
         ))}
       </div>
       {detail ? (
@@ -278,12 +279,14 @@ export function DisputeCasesPanel({
         </ul>
       )}
       {nextCursor ? (
-        <Link
-          href={`/admin/cases?tab=disputes&status=${status}&cursor=${encodeURIComponent(nextCursor)}`}
-          className="mt-4 inline-block text-sm text-text-secondary"
-        >
-          Trang sau
-        </Link>
+        <span className="mt-4 inline-block text-sm text-text-secondary">
+          <Link
+            href={`/admin/cases?tab=disputes&status=${status}&cursor=${encodeURIComponent(nextCursor)}`}
+            variant="subtle"
+          >
+            Trang sau
+          </Link>
+        </span>
       ) : null}
     </div>
   );

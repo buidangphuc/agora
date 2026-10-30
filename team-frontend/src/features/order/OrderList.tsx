@@ -1,8 +1,8 @@
-import Link from "next/link";
 import React from "react";
 
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
+import { Link } from "@/components/ui/Link";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
@@ -14,7 +14,6 @@ import { OrderItemThumb } from "./OrderItemThumb";
 import { OrderStatusBadge } from "./OrderStatusBadge";
 import { ordersHref } from "./OrderStatusTabs";
 import { canPayAgain } from "./lifecycle";
-import { linkButton } from "./linkStyles";
 import type { OrderStatusKey } from "./paginateOrders";
 
 function formatInstant(iso: string): string {
@@ -79,12 +78,11 @@ function OrderRow({
               eager={first}
             />
             <div className="min-w-0 flex-1">
-              <Link
-                href={`/listing/${it.listingId}`}
-                className="line-clamp-2 text-sm font-medium text-text-primary hover:text-action-primary"
-              >
-                {it.title}
-              </Link>
+              <span className="line-clamp-2 text-sm font-medium text-text-primary">
+                <Link href={`/listing/${it.listingId}`} variant="subtle">
+                  {it.title}
+                </Link>
+              </span>
               {it.variantName && (
                 <p className="text-xs text-text-secondary">
                   Phân loại: {it.variantName}
@@ -143,14 +141,18 @@ function OrderRow({
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
           <Link
             href={`/account/orders/${order.id}`}
-            className={`${linkButton.outline} w-full sm:w-auto`}
+            variant="outline"
+            size="xs"
+            fullWidth="mobile"
           >
             Xem chi tiết
           </Link>
           {payable && (
             <Link
               href={`/checkout/pay/${order.id}`}
-              className={`${linkButton.primary} w-full sm:w-auto`}
+              variant="primary"
+              size="xs"
+              fullWidth="mobile"
             >
               Thanh toán lại
             </Link>
@@ -177,7 +179,7 @@ export function OrdersEmpty({ status }: { status: OrderStatusKey }) {
       <Empty
         description="Bạn chưa có đơn hàng nào"
         action={
-          <Link href="/" className={linkButton.primary}>
+          <Link href="/" variant="primary" size="xs">
             Mua sắm ngay
           </Link>
         }
@@ -188,7 +190,7 @@ export function OrdersEmpty({ status }: { status: OrderStatusKey }) {
     <Empty
       description="Chưa có đơn hàng nào ở trạng thái này"
       action={
-        <Link href={ordersHref("all")} className={linkButton.outline}>
+        <Link href={ordersHref("all")} variant="outline" size="xs">
           Xem tất cả đơn hàng
         </Link>
       }

@@ -2,6 +2,7 @@
 export * from "./Button";
 // Navigation
 export * from "./Breadcrumb";
+export * from "./Link";
 export * from "./Pagination";
 export * from "./Stepper";
 export * from "./Tabs";

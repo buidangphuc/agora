@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Link } from "@/components/ui/Link";
 import { useToast } from "@/components/ui/ToastProvider";
 import { focusRing } from "@/components/ui/focus";
 import type { ViewSavedSearch } from "@/lib/gateway/search";
@@ -100,12 +100,11 @@ export function SavedSearches({
                 key={s.id}
                 className="flex items-center justify-between gap-2"
               >
-                <Link
-                  href={`/search?q=${encodeURIComponent(s.query)}`}
-                  className={`truncate rounded-xs text-action-primary hover:underline ${focusRing}`}
-                >
-                  {s.query || "(tất cả)"}
-                </Link>
+                <span className="block truncate">
+                  <Link href={`/search?q=${encodeURIComponent(s.query)}`}>
+                    {s.query || "(tất cả)"}
+                  </Link>
+                </span>
                 <Button
                   size="xs"
                   variant="ghost"

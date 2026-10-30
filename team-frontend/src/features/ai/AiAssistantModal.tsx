@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
+import { Link } from "@/components/ui/Link";
 import { formatPrice } from "@/components/ui/format";
 import type { ViewListing } from "@/lib/gateway/listings";
 import { getImageUrl } from "@/lib/media";
@@ -284,13 +284,17 @@ export function AiAssistantModal({
                             💡 <strong>Lý do chọn:</strong> {reason}
                           </div>
 
-                          <Link
-                            href={`/listing/${product.id}`}
-                            onClick={() => setIsOpen(false)}
-                            className="mt-2.5 block text-center rounded-xl bg-action-primary py-1.5 text-xs font-bold text-text-inverse shadow-2xs hover:bg-action-primary-hover transition"
-                          >
-                            Xem Chi Tiết & Mua Ngay
-                          </Link>
+                          <span className="mt-2.5 block">
+                            <Link
+                              href={`/listing/${product.id}`}
+                              onClick={() => setIsOpen(false)}
+                              variant="primary"
+                              size="xs"
+                              fullWidth
+                            >
+                              Xem Chi Tiết & Mua Ngay
+                            </Link>
+                          </span>
                         </div>
                       );
                     })}

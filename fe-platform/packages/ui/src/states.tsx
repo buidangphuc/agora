@@ -24,6 +24,16 @@ const options = [
 export const stateMatrix: Record<string, Record<string, ReactNode>> = {
   Link: {
     default: <Link href="/shop">Back to shop</Link>,
+    subtle: (
+      <Link href="/help" variant="subtle">
+        Help centre
+      </Link>
+    ),
+    button: (
+      <Link href="/checkout" variant="primary">
+        Continue
+      </Link>
+    ),
   },
   Card: {
     default: <Card>Desk lamp</Card>,

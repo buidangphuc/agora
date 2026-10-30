@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
+import { Link } from "@/components/ui/Link";
 import { Tag } from "@/components/ui/Tag";
 import { useToast } from "@/components/ui/ToastProvider";
 import { usePendingAction } from "@/features/account/usePendingAction";
@@ -94,12 +94,11 @@ export function AlertSubscriptions({
                   className="flex items-center justify-between gap-3 py-3"
                 >
                   <div className="min-w-0 space-y-1">
-                    <Link
-                      href={`/listing/${r.listingId}`}
-                      className="block truncate text-sm font-medium text-text-primary hover:text-action-primary"
-                    >
-                      {r.title}
-                    </Link>
+                    <span className="block truncate text-sm font-medium text-text-primary">
+                      <Link href={`/listing/${r.listingId}`} variant="subtle">
+                        {r.title}
+                      </Link>
+                    </span>
                     <Tag>{typeLabel(r.type)}</Tag>
                   </div>
                   <Button

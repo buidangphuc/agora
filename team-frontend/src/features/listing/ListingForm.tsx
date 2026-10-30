@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
@@ -9,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { FormItem } from "@/components/ui/FormItem";
 import { Image } from "@/components/ui/Image";
 import { Input } from "@/components/ui/Input";
+import { Link } from "@/components/ui/Link";
 import { RadioGroup } from "@/components/ui/Radio";
 import { Result } from "@/components/ui/Result";
 import { Select } from "@/components/ui/Select";
@@ -560,10 +560,7 @@ export function ListingForm({
 
       {/* Sticky on mobile so Save stays reachable; inline from md up. */}
       <div className="sticky bottom-0 z-20 -mx-4 flex items-center justify-end gap-3 border-t border-border-subtle bg-surface-card px-4 py-3 md:static md:mx-0 md:rounded-xl md:border">
-        <Link
-          href="/seller"
-          className="rounded-lg border border-border-strong bg-surface-card px-4 py-2 text-sm font-medium text-text-primary shadow-sm transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-        >
+        <Link href="/seller" variant="outline" size="sm">
           Huỷ
         </Link>
         {!readOnly && (

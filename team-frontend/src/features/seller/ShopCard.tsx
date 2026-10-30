@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { Avatar } from "@/components/ui/Avatar";
+import { Link } from "@/components/ui/Link";
 import { Tag } from "@/components/ui/Tag";
 
 export interface SellerShopInfo {
@@ -38,12 +37,11 @@ export function ShopCard({
         </div>
       </div>
       {shop.sellerId && (
-        <Link
-          href={`/shop/${shop.sellerId}`}
-          className="block text-xs font-medium text-text-secondary transition hover:text-action-primary"
-        >
-          Xem gian hàng công khai
-        </Link>
+        <span className="block text-xs font-medium text-text-secondary">
+          <Link href={`/shop/${shop.sellerId}`} variant="subtle">
+            Xem gian hàng công khai
+          </Link>
+        </span>
       )}
     </div>
   );

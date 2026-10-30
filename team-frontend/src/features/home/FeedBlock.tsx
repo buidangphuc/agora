@@ -1,9 +1,7 @@
-import Link from "next/link";
-
 import { Alert } from "@/components/ui/Alert";
+import { Link } from "@/components/ui/Link";
 import { ListingGrid } from "@/features/listing/ListingGrid";
 import { loadFeed } from "./data";
-import { linkButtonClass } from "./linkButton";
 
 /** "Gợi ý hôm nay": the published-listings feed with its own failure state. */
 export async function FeedBlock() {
@@ -24,12 +22,9 @@ export async function FeedBlock() {
           title="Không tải được danh sách sản phẩm"
           description="Vui lòng thử lại sau ít phút."
           action={
-            <Link
-              href="/"
-              className="text-sm font-medium text-action-primary underline"
-            >
-              Thử lại
-            </Link>
+            <span className="text-sm font-medium">
+              <Link href="/">Thử lại</Link>
+            </span>
           }
         />
       ) : (
@@ -41,7 +36,7 @@ export async function FeedBlock() {
           />
           {items.length > 0 && (
             <div className="pt-2 text-center">
-              <Link href="/search" className={linkButtonClass("outline")}>
+              <Link href="/search" variant="outline" size="sm">
                 Xem thêm gợi ý
               </Link>
             </div>
