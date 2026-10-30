@@ -65,12 +65,14 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
     help: <Input label="Name" helpText="As on your ID" />,
     error: <Input label="Name" errorText="Name is required" />,
     disabled: <Input label="Name" disabled />,
+    required: <Input label="Name" required />,
   },
   Checkbox: {
     default: <Checkbox label="Accept" />,
     checked: <Checkbox label="Accept" defaultChecked />,
     error: <Checkbox label="Accept" errorText="Required" />,
     disabled: <Checkbox label="Accept" disabled />,
+    indeterminate: <Checkbox label="Accept all" checked="indeterminate" />,
   },
   Select: {
     default: <Select label="Letter" options={options} />,

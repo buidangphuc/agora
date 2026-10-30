@@ -180,6 +180,7 @@ export const components = {
     label: "block text-sm font-semibold text-text-primary",
     help: "text-sm text-text-secondary",
     error: "text-sm text-text-danger",
+    required: "ml-1 text-text-danger",
   },
   input: {
     base: "w-full rounded-xl border border-border-strong bg-surface-card text-text-primary text-base px-4 py-3 min-h-touch focus-visible:ring-2 focus-visible:ring-focus-ring",
@@ -197,6 +198,7 @@ export const components = {
     row: "flex items-center gap-3 min-h-touch",
     root: "h-6 w-6 rounded-lg border border-border-strong bg-surface-card text-text-inverse focus-visible:ring-2 focus-visible:ring-focus-ring",
     checked: "aria-checked:bg-action-primary",
+    mixed: "bg-action-primary",
   },
   dialog: {
     overlay: "fixed inset-0 bg-surface-overlay",

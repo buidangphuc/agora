@@ -134,7 +134,7 @@
     {
       "name": "Checkbox",
       "kind": "component",
-      "purpose": "Boolean choice with a visible label and optional error text.",
+      "purpose": "Boolean choice with a label (visible unless `labelHidden`), optional mixed state and error text.",
       "client": true,
       "platforms": [
         "web",
@@ -147,6 +147,16 @@
           "type": "string"
         },
         {
+          "name": "labelHidden",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "id",
+          "required": false,
+          "type": "string"
+        },
+        {
           "name": "name",
           "required": false,
           "type": "string"
@@ -154,7 +164,7 @@
         {
           "name": "checked",
           "required": false,
-          "type": "boolean"
+          "type": "boolean | \"indeterminate\""
         },
         {
           "name": "defaultChecked",
@@ -173,6 +183,11 @@
         },
         {
           "name": "errorText",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "\"data-testid\"",
           "required": false,
           "type": "string"
         }
@@ -223,7 +238,7 @@
     {
       "name": "Input",
       "kind": "component",
-      "purpose": "Text field with a required visible label. Errors are text, never colour alone.",
+      "purpose": "Text field with a required visible label; `required` adds a hidden-from-AT mark. Errors are text, never colour alone.",
       "client": false,
       "platforms": [
         "web",
