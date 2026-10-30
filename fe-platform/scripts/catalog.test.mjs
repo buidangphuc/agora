@@ -12,6 +12,7 @@ describe("catalog", () => {
   it("lists every exported ui component and hook", () => {
     expect(Object.keys(byName).sort()).toEqual([
       "Alert",
+      "Avatar",
       "Badge",
       "Breadcrumb",
       "Button",
@@ -25,12 +26,15 @@ describe("catalog", () => {
       "ClosableTag",
       "Descriptions",
       "Dialog",
+      "Drawer",
       "Empty",
+      "Image",
       "Input",
       "Link",
       "NativeSelect",
       "PageSkeleton",
       "Pagination",
+      "PriceTag",
       "Progress",
       "Result",
       "Select",
@@ -42,6 +46,8 @@ describe("catalog", () => {
       "Tag",
       "Timeline",
       "ToastProvider",
+      "formatPrice",
+      "initials",
       "useToast",
     ]);
   });
@@ -68,6 +74,15 @@ describe("catalog", () => {
       '"secondary"',
     ]);
     expect(members(props.size.type)).toEqual(['"lg"', '"md"', '"sm"', '"xs"']);
+    expect(props.variant.type).toBe(
+      '"primary" | "secondary" | "ghost" | "danger"',
+    );
+    expect(props.size.type.split(" | ").sort()).toEqual([
+      '"lg"',
+      '"md"',
+      '"sm"',
+      '"xs"',
+    ]);
     expect(byName.Button.native).toBe("button");
   });
 
@@ -83,6 +98,13 @@ describe("catalog", () => {
       "Checkbox",
       "ClosableTag",
       "Dialog",
+    expect(byName.Image.client).toBe(false);
+    expect(byName.formatPrice.kind).toBe("function");
+    for (const n of [
+      "Select",
+      "Checkbox",
+      "Dialog",
+      "Drawer",
       "ToastProvider",
     ]) {
       expect(byName[n].client).toBe(true);

@@ -3,6 +3,7 @@ import {
   Alert,
   Badge,
   Breadcrumb,
+  Avatar,
   Button,
   Card,
   CardContent,
@@ -22,6 +23,11 @@ import {
   Pagination,
   Progress,
   Result,
+  Drawer,
+  Image,
+  Input,
+  Link,
+  PriceTag,
   Select,
   Skeleton,
   Statistic,
@@ -151,6 +157,45 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
           },
         ]}
       />
+    ),
+  },
+  PriceTag: {
+    default: <PriceTag price={29990000} />,
+    discounted: (
+      <PriceTag price={29990000} originalPrice={34990000} size="xl" />
+    ),
+    noSymbol: <PriceTag price={1000} size="sm" showCurrencySymbol={false} />,
+  },
+  Image: {
+    default: <Image src="/lamp.jpg" alt="Desk lamp" aspect="square" />,
+    empty: <Image src="" alt="Desk lamp" aspect="4/3" radius="none" />,
+  },
+  Avatar: {
+    initials: <Avatar name="Ada Lovelace" />,
+    anonymous: <Avatar size="xl" shape="square" />,
+    picture: <Avatar name="Ada Lovelace" src="/ada.jpg" size="lg" />,
+  },
+  Drawer: {
+    closed: (
+      <Drawer open={false} onClose={() => {}} title="Filters">
+        Body
+      </Drawer>
+    ),
+    open: (
+      <Drawer
+        open
+        onClose={() => {}}
+        title="Filters"
+        description="Narrow the results"
+        footer={<Button>Apply</Button>}
+      >
+        Body
+      </Drawer>
+    ),
+    untitled: (
+      <Drawer open onClose={() => {}} placement="left" size="sm">
+        Body
+      </Drawer>
     ),
   },
   Link: {

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -73,22 +73,35 @@ describe("Drawer", () => {
         b
       </Drawer>,
     );
-    const [backdrop, close] = screen.getAllByRole("button", { name: "Đóng" });
-    await user.click(close);
-    await user.click(backdrop);
+    await user.click(screen.getByRole("button", { name: "Đóng" }));
+    const backdrop = document.querySelector(
+      '[data-state="open"]:not([role="dialog"])',
+    );
+    expect(backdrop).not.toBeNull();
+    fireEvent.pointerDown(backdrop as Element);
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
+  it("names an untitled drawer", () => {
+    render(
+      <Drawer isOpen onClose={() => {}}>
+        b
+      </Drawer>,
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Ngăn kéo" }),
+    ).toBeInTheDocument();
+  });
+
   it("supports placement and locks scroll while open", () => {
-    document.body.style.overflow = "";
     const { unmount } = render(
       <Drawer isOpen onClose={() => {}} title="T" placement="left">
         b
       </Drawer>,
     );
     expect(screen.getByRole("dialog")).toHaveClass("left-0");
-    expect(document.body.style.overflow).toBe("hidden");
+    expect(document.body).toHaveAttribute("data-scroll-locked");
     unmount();
-    expect(document.body.style.overflow).toBe("");
+    expect(document.body).not.toHaveAttribute("data-scroll-locked");
   });
 });

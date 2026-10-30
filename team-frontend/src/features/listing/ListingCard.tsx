@@ -104,7 +104,7 @@ export function ListingCard({
                     alt={listing.title}
                     aspect="square"
                     loading={eager ? "eager" : "lazy"}
-                    className="rounded-b-none"
+                    radius="none"
                   />
                 ) : (
                   <NoImage />
@@ -142,7 +142,9 @@ export function ListingCard({
                 )}
               </div>
 
-              <PriceTag price={listing.price} size="md" className="mt-auto" />
+              <div className="mt-auto">
+                <PriceTag price={listing.price} size="md" />
+              </div>
             </div>
           </div>
         </Card>

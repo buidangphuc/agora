@@ -2,6 +2,7 @@ import {
   Alert,
   Badge,
   Breadcrumb,
+  Avatar,
   Button,
   Card,
   CardContent,
@@ -11,9 +12,12 @@ import {
   Checkbox,
   ClosableTag,
   Dialog,
+  Drawer,
+  Image,
   Input,
   NativeSelect,
   Pagination,
+  PriceTag,
   Select,
   Stepper,
   Table,
@@ -81,3 +85,11 @@ export const breadcrumb = <Breadcrumb items={[]} className="x" />;
 export const stepper = <Stepper steps={[]} className="x" />;
 // @ts-expect-error className would bypass tokens
 export const timeline = <Timeline items={[]} className="x" />;
+// @ts-expect-error className would bypass tokens
+export const priceTag = <PriceTag price={1} className="x" />;
+// @ts-expect-error className would bypass tokens
+export const image = <Image src="" alt="" aspect="square" className="x" />;
+// @ts-expect-error className would bypass tokens
+export const avatar = <Avatar className="x" />;
+// @ts-expect-error className would bypass tokens
+export const drawer = <Drawer open onClose={() => {}} className="x" />;

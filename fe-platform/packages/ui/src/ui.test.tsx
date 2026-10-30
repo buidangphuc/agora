@@ -11,11 +11,12 @@ import {
 import axe from "axe-core";
 import { useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   Alert,
   Badge,
   Breadcrumb,
+  Avatar,
   Button,
   Card,
   CardContent,
@@ -32,6 +33,10 @@ import {
   Pagination,
   Progress,
   Result,
+  Drawer,
+  Image,
+  Input,
+  PriceTag,
   Select,
   Skeleton,
   Statistic,
@@ -41,6 +46,8 @@ import {
   Tag,
   Timeline,
   ToastProvider,
+  formatPrice,
+  initials,
   useToast,
 } from "./index";
 import { stateMatrix } from "./states";
@@ -612,6 +619,147 @@ describe("Statistic", () => {
     expect(screen.getByText("3").parentElement?.className).toContain(
       "text-text-danger",
     );
+  });
+});
+
+describe("PriceTag", () => {
+  it("formats dong with a leading symbol", () => {
+    expect(formatPrice(29990000)).toBe("₫29.990.000");
+  });
+
+  it("shows the struck original price and the rounded discount", () => {
+    render(<PriceTag price={75000} originalPrice={100000} />);
+    expect(screen.getByText("₫100.000").className).toContain("line-through");
+    expect(screen.getByText("-25%")).toBeTruthy();
+  });
+
+  it("hides the discount when the original is not higher", () => {
+    render(<PriceTag price={100000} originalPrice={100000} />);
+    expect(screen.queryByText(/^-\d+%$/)).toBeNull();
+  });
+});
+
+describe("Image", () => {
+  it("reserves the aspect box, lazy-loads and falls back on error", () => {
+    const { container } = render(
+      <Image src="/a.jpg" alt="Lamp" aspect="square" />,
+    );
+    const box = container.firstElementChild as HTMLElement;
+    expect(box.className).toContain("aspect-square");
+    const img = screen.getByAltText("Lamp");
+    expect(img.getAttribute("loading")).toBe("lazy");
+    fireEvent.error(img);
+    expect(screen.queryByAltText("Lamp")).toBeNull();
+    expect(screen.getByRole("img", { name: "No image" })).toBeTruthy();
+    expect(box.className).toContain("aspect-square");
+  });
+
+  it("renders the fallback in the server markup for an empty src", () => {
+    const html = renderToStaticMarkup(
+      <Image src="" alt="Lamp" aspect="2/1" fallbackLabel="Không có ảnh" />,
+    );
+    expect(html).not.toContain("<img");
+    expect(html).toContain("Không có ảnh");
+    expect(html).toContain("aspect-2/1");
+  });
+
+  it("drops the placeholder once loaded", () => {
+    const { container } = render(
+      <Image src="/a.jpg" alt="Lamp" aspect="4/3" radius="none" />,
+    );
+    expect(container.querySelector(".animate-pulse")).not.toBeNull();
+    fireEvent.load(screen.getByAltText("Lamp"));
+    expect(container.querySelector(".animate-pulse")).toBeNull();
+  });
+});
+
+describe("Avatar", () => {
+  it("derives up to two initials", () => {
+    expect(initials("Nguyễn Văn A")).toBe("NA");
+    expect(initials("")).toBe("?");
+  });
+
+  it("is a named image with initials when there is no src", () => {
+    render(<Avatar name="Ada Lovelace" />);
+    expect(screen.getByRole("img", { name: "Ada Lovelace" }).textContent).toBe(
+      "AL",
+    );
+  });
+
+  it("uses the anonymous label without a name", () => {
+    render(<Avatar anonymousLabel="Người dùng" />);
+    expect(screen.getByRole("img", { name: "Người dùng" })).toBeTruthy();
+  });
+
+  it("falls back to initials when the picture fails", () => {
+    render(<Avatar name="Ada Lovelace" src="/ada.jpg" />);
+    fireEvent.error(screen.getByAltText("Ada Lovelace"));
+    expect(screen.getByText("AL")).toBeTruthy();
+  });
+});
+
+describe("Drawer", () => {
+  it("is a labelled modal side panel that closes on Escape and the close button", () => {
+    const onClose = vi.fn();
+    render(
+      <Drawer
+        open
+        onClose={onClose}
+        title="Filters"
+        description="Narrow the results"
+        placement="left"
+      >
+        Body
+      </Drawer>,
+    );
+    const panel = screen.getByRole("dialog", { name: "Filters" });
+    expect(panel.getAttribute("aria-modal")).toBe("true");
+    expect(panel.className).toContain("left-0");
+    const describedBy = panel.getAttribute("aria-describedby") ?? "";
+    expect(document.getElementById(describedBy)?.textContent).toBe(
+      "Narrow the results",
+    );
+    fireEvent.keyDown(panel, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns focus to the element that opened it", async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Filters
+          </button>
+          <Drawer open={open} onClose={() => setOpen(false)} title="Filters">
+            Body
+          </Drawer>
+        </>
+      );
+    }
+    render(<Harness />);
+    const opener = screen.getByRole("button", { name: "Filters" });
+    opener.focus();
+    fireEvent.click(opener);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it("names an untitled panel from its label and renders nothing while closed", () => {
+    const { rerender } = render(
+      <Drawer open onClose={() => {}} label="Menu">
+        Body
+      </Drawer>,
+    );
+    expect(screen.getByRole("dialog", { name: "Menu" })).toBeTruthy();
+    rerender(
+      <Drawer open={false} onClose={() => {}} label="Menu">
+        Body
+      </Drawer>,
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 

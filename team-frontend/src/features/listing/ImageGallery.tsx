@@ -88,7 +88,7 @@ export function ImageGallery({
           alt={alt}
           aspect="square"
           loading="eager"
-          className="rounded-none"
+          radius="none"
         />
         {overlay && <div className="absolute bottom-2 right-2">{overlay}</div>}
       </div>
@@ -118,12 +118,7 @@ export function ImageGallery({
                         : "border-transparent hover:border-border-strong"
                     }`}
                   >
-                    <Image
-                      src={src}
-                      alt=""
-                      aspect="square"
-                      className="rounded-none"
-                    />
+                    <Image src={src} alt="" aspect="square" radius="none" />
                   </button>
                 </li>
               );
