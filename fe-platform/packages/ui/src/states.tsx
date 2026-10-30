@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  Alert,
   Button,
   Card,
   CardContent,
@@ -118,5 +119,26 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
         <p>App</p>
       </ToastProvider>
     ),
+    top: (
+      <ToastProvider position="top" label="Thông báo" dismissLabel="Đóng">
+        <p>App</p>
+      </ToastProvider>
+    ),
+  },
+  Alert: {
+    info: <Alert tone="info" title="Heads up" />,
+    success: <Alert tone="success" description="Saved" />,
+    warning: (
+      <Alert tone="warning" title="Low stock" description="2 items left" />
+    ),
+    danger: <Alert tone="danger" title="Payment failed" />,
+    action: (
+      <Alert
+        tone="danger"
+        title="Payment failed"
+        action={<Button size="sm">Retry</Button>}
+      />
+    ),
+    closable: <Alert tone="success" title="Saved" closable />,
   },
 };

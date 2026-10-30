@@ -208,9 +208,41 @@ export const components = {
     description: "text-base text-text-secondary",
   },
   toast: {
-    root: "rounded-2xl border border-border-subtle bg-surface-card text-text-primary p-4 shadow-pop",
+    viewport: {
+      top: "fixed top-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2 px-4",
+      bottom: "fixed bottom-4 right-4 flex w-full max-w-lg flex-col gap-2",
+    },
+    root: "flex items-start justify-between gap-3 rounded-2xl border bg-surface-card text-text-primary p-4 shadow-pop",
+    tone: {
+      info: "border-border-subtle",
+      success: "border-text-success",
+      warning: "border-text-warning",
+      danger: "border-border-danger",
+    },
+    body: "min-w-0 flex-1",
     title: "text-base font-semibold text-text-primary",
     description: "text-sm text-text-secondary",
+  },
+  alert: {
+    root: "flex items-start gap-3 rounded-2xl border bg-surface-card p-4 text-base text-text-primary",
+    tone: {
+      info: "border-border-strong",
+      success: "border-text-success",
+      warning: "border-text-warning",
+      danger: "border-border-danger",
+    },
+    icon: "mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-current text-sm font-semibold",
+    iconTone: {
+      info: "text-text-secondary",
+      success: "text-text-success",
+      warning: "text-text-warning",
+      danger: "text-text-danger",
+    },
+    body: "min-w-0 flex-1",
+    title: "font-semibold text-text-primary",
+    description: "text-sm text-text-secondary",
+    message: "text-sm text-text-primary",
+    action: "shrink-0",
   },
   table: {
     root: "w-full text-base text-text-primary",

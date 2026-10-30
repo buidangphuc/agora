@@ -1,22 +1,19 @@
 "use client";
 
 import {
+  ToastProvider as PlatformToastProvider,
+  useToast as usePlatformToast,
+} from "@fe-platform/ui";
+import {
   type ReactNode,
   createContext,
   useCallback,
   useContext,
   useEffect,
-  useState,
+  useMemo,
 } from "react";
 
 export type ToastType = "success" | "error" | "info";
-
-export interface ToastItem {
-  id: string;
-  type: ToastType;
-  message: string;
-  duration?: number;
-}
 
 interface ToastContextType {
   showToast: (message: string, type?: ToastType, duration?: number) => void;
@@ -25,9 +22,16 @@ interface ToastContextType {
   info: (message: string, duration?: number) => void;
 }
 
+const DEFAULT_DURATION = 3500;
+
+const toneFor = {
+  success: "success",
+  error: "danger",
+  info: "info",
+} as const;
+
 const ToastContext = createContext<ToastContextType | null>(null);
 
-// Global event-based helper for non-react or outside-tree calls
 export const toast = {
   show: (message: string, type: ToastType = "info", duration = 3500) => {
     if (typeof window !== "undefined") {
@@ -49,61 +53,32 @@ export const toast = {
   },
 };
 
-export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+function ToastBridge({ children }: { children: ReactNode }) {
+  const { toast: push } = usePlatformToast();
 
   const showToast = useCallback(
-    (message: string, type: ToastType = "info", duration = 3500) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      setToasts((prev) => [...prev, { id, type, message, duration }]);
-
-      if (duration > 0) {
-        setTimeout(() => {
-          removeToast(id);
-        }, duration);
-      }
+    (
+      message: string,
+      type: ToastType = "info",
+      duration = DEFAULT_DURATION,
+    ) => {
+      push({ title: message, tone: toneFor[type], duration });
     },
-    [removeToast],
+    [push],
   );
 
-  const success = useCallback(
-    (message: string, duration = 3500) => {
-      showToast(message, "success", duration);
-    },
-    [showToast],
-  );
-
-  const error = useCallback(
-    (message: string, duration = 3500) => {
-      showToast(message, "error", duration);
-    },
-    [showToast],
-  );
-
-  const info = useCallback(
-    (message: string, duration = 3500) => {
-      showToast(message, "info", duration);
-    },
-    [showToast],
-  );
-
-  // Listen to custom window events
   useEffect(() => {
     function handleCustomToast(event: Event) {
-      const customEvt = event as CustomEvent<{
+      const { detail } = event as CustomEvent<{
         message: string;
         type?: ToastType;
         duration?: number;
       }>;
-      if (customEvt.detail?.message) {
+      if (detail?.message) {
         showToast(
-          customEvt.detail.message,
-          customEvt.detail.type || "info",
-          customEvt.detail.duration || 3500,
+          detail.message,
+          detail.type || "info",
+          detail.duration || DEFAULT_DURATION,
         );
       }
     }
@@ -112,58 +87,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("app:toast", handleCustomToast);
   }, [showToast]);
 
+  const value = useMemo<ToastContextType>(
+    () => ({
+      showToast,
+      success: (message, duration) => showToast(message, "success", duration),
+      error: (message, duration) => showToast(message, "error", duration),
+      info: (message, duration) => showToast(message, "info", duration),
+    }),
+    [showToast],
+  );
+
   return (
-    <ToastContext.Provider value={{ showToast, success, error, info }}>
-      {children}
-
-      {/* Floating Toast Notification Container */}
-      <div
-        aria-live="polite"
-        className="pointer-events-none fixed top-4 right-4 z-50 flex max-w-sm w-full flex-col gap-2.5 px-4 sm:px-0"
-      >
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            // an error interrupts assistive tech; other toasts are polite status updates
-            role={t.type === "error" ? "alert" : "status"}
-            className={`pointer-events-auto flex items-center justify-between gap-3 rounded-xl border p-3.5 shadow-lg backdrop-blur-md transition-all duration-300 ${
-              t.type === "success"
-                ? "border-emerald-500/30 bg-emerald-900/90 text-text-inverse shadow-emerald-950/20"
-                : t.type === "error"
-                  ? "border-red-500/30 bg-red-900/90 text-text-inverse shadow-red-950/20"
-                  : "border-neutral-700/40 bg-neutral-900/90 text-text-inverse shadow-black/20"
-            }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="shrink-0 text-base">
-                {t.type === "success" && "✅"}
-                {t.type === "error" && "❌"}
-                {t.type === "info" && "ℹ️"}
-              </span>
-              <p className="text-xs font-medium leading-snug break-words">
-                {t.message}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => removeToast(t.id)}
-              className="shrink-0 rounded-lg p-1 text-white/70 hover:bg-white/20 hover:text-text-inverse transition text-xs"
-              aria-label="Đóng thông báo"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-      </div>
-    </ToastContext.Provider>
+    <ToastContext.Provider value={value}>{children}</ToastContext.Provider>
   );
 }
 
-export function useToast() {
+export function ToastProvider({ children }: { children: ReactNode }) {
+  return (
+    <PlatformToastProvider position="top" label="Thông báo" dismissLabel="Đóng">
+      <ToastBridge>{children}</ToastBridge>
+    </PlatformToastProvider>
+  );
+}
+
+export function useToast(): ToastContextType {
   const ctx = useContext(ToastContext);
   if (!ctx) {
-    // Fallback to global toast methods if called outside provider
     return {
       showToast: toast.show,
       success: toast.success,

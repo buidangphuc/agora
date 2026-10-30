@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   Card,
   CardContent,
@@ -41,3 +42,7 @@ export const cardContent = <CardContent className="x" />;
 export const cardFooter = <CardFooter className="x" />;
 // @ts-expect-error unknown variant
 export const buttonVariant = <Button variant="outline" />;
+// @ts-expect-error className would bypass tokens
+export const alert = <Alert tone="info" className="x" />;
+// @ts-expect-error style would bypass tokens
+export const alertStyle = <Alert tone="info" style={{ color: "red" }} />;

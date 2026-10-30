@@ -11,6 +11,7 @@ import {
 import axe from "axe-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  Alert,
   Button,
   Card,
   CardContent,
@@ -267,6 +268,91 @@ describe("Toast", () => {
       expect(live.some((el) => el.textContent?.includes("Saved"))).toBe(true);
     });
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("Saved")).toBeNull();
+  });
+});
+
+function FireTone({ tone }: { tone: "success" | "danger" }) {
+  const { toast } = useToast();
+  return (
+    <button
+      type="button"
+      onClick={() => toast({ title: `${tone} message`, tone, duration: 0 })}
+    >
+      Go
+    </button>
+  );
+}
+
+describe("Toast tones", () => {
+  it("announces a danger toast as an alert", async () => {
+    render(
+      <ToastProvider dismissLabel="Close">
+        <FireTone tone="danger" />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("danger message");
+    expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+  });
+
+  it("keeps other toasts as status and out of the alert role", async () => {
+    render(
+      <ToastProvider>
+        <FireTone tone="success" />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    await screen.findByText("success message", { selector: "li *" });
+    const matches = screen
+      .getAllByRole("status")
+      .filter((el) => el.textContent?.includes("success message"));
+    expect(matches).toHaveLength(1);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+describe("Alert", () => {
+  it("uses role=alert for danger and role=status for the other tones", () => {
+    const { rerender } = render(<Alert tone="danger" title="Failed" />);
+    expect(screen.getByRole("alert").textContent).toContain("Failed");
+    for (const tone of ["info", "success", "warning"] as const) {
+      rerender(<Alert tone={tone} title={tone} />);
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.getByRole("status").textContent).toContain(tone);
+    }
+  });
+
+  it("renders description and action and has no close button by default", () => {
+    render(
+      <Alert
+        tone="warning"
+        title="Low stock"
+        description="2 left"
+        action={<a href="/x">View</a>}
+      />,
+    );
+    expect(screen.getByText("2 left")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "View" })).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("closes itself and reports it when closable", () => {
+    let closed = 0;
+    render(
+      <Alert
+        tone="success"
+        title="Saved"
+        closable
+        closeLabel="Close"
+        onClose={() => {
+          closed += 1;
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(closed).toBe(1);
     expect(screen.queryByText("Saved")).toBeNull();
   });
 });

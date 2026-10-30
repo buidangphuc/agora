@@ -112,16 +112,17 @@ export function OrderTimeline({
       </div>
 
       {failure && (
-        <Alert
-          type="error"
-          className="mt-4"
-          title="Đơn hàng không hoàn tất"
-          description={
-            failure.detail ||
-            "Thanh toán hoặc giữ hàng thất bại, đơn đã được hoàn tác."
-          }
-          action={orderId ? <ReorderButton orderId={orderId} /> : undefined}
-        />
+        <div className="mt-4">
+          <Alert
+            type="error"
+            title="Đơn hàng không hoàn tất"
+            description={
+              failure.detail ||
+              "Thanh toán hoặc giữ hàng thất bại, đơn đã được hoàn tác."
+            }
+            action={orderId ? <ReorderButton orderId={orderId} /> : undefined}
+          />
+        </div>
       )}
 
       <div className="mt-5">
