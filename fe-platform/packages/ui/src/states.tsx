@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import {
   Alert,
+  Avatar,
+  Badge,
+  Breadcrumb,
   Button,
   Card,
   CardContent,
@@ -9,21 +12,190 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  ClosableTag,
+  Descriptions,
   Dialog,
+  Drawer,
+  Empty,
+  Image,
   Input,
   Link,
   NativeSelect,
+  PageSkeleton,
+  Pagination,
+  PriceTag,
+  Progress,
+  Result,
   Select,
+  Skeleton,
+  Statistic,
+  Stepper,
   Table,
+  Tabs,
+  Tag,
+  Timeline,
   ToastProvider,
 } from "./index";
+
+const tabItems = [
+  { id: "all", label: "All", content: <p>All orders</p> },
+  { id: "open", label: "Open", badge: 3, content: <p>Open orders</p> },
+  { id: "done", label: "Done", disabled: true },
+];
+
+const steps = [
+  { id: 1, title: "Cart", status: "complete" as const, href: "/cart" },
+  { id: 2, title: "Payment", status: "current" as const },
+  { id: 3, title: "Done", status: "upcoming" as const },
+];
 
 const options = [
   { value: "a", label: "Alpha" },
   { value: "b", label: "Beta" },
 ];
 
+const details = [
+  { key: "name", label: "Name", children: "Desk lamp" },
+  { key: "qty", label: "Qty", children: "2" },
+];
+
 export const stateMatrix: Record<string, Record<string, ReactNode>> = {
+  Skeleton: {
+    text: <Skeleton lines={2} />,
+    avatar: <Skeleton variant="avatar" size="lg" />,
+    image: <Skeleton variant="image" aspect="4/3" />,
+    card: <Skeleton variant="card" />,
+  },
+  PageSkeleton: {
+    default: <PageSkeleton />,
+  },
+  Progress: {
+    default: <Progress label="Upload" percent={40} />,
+    success: <Progress label="Upload" percent={100} status="success" />,
+    danger: <Progress label="Upload" percent={60} status="danger" size="sm" />,
+    hiddenInfo: <Progress label="Upload" percent={20} showInfo={false} />,
+  },
+  Descriptions: {
+    default: <Descriptions title="Order" items={details} />,
+    oneColumn: <Descriptions items={details} column={1} bordered={false} />,
+    loading: <Descriptions items={details} loading />,
+    empty: <Descriptions items={[]} emptyText="No details" />,
+    fallback: <Descriptions items={details} fallback={<p>Failed</p>} />,
+  },
+  Statistic: {
+    default: <Statistic title="Revenue" value="1,200" prefix="$" />,
+    trend: (
+      <Statistic
+        title="Orders"
+        value="12"
+        trend={{ value: "5%", isUp: true, label: "vs last week" }}
+      />
+    ),
+    danger: <Statistic title="Overdue" value="3" tone="danger" />,
+    loading: (
+      <Statistic title="Orders" value="12" trend={{ value: "5%" }} loading />
+    ),
+    fallback: <Statistic title="Orders" value="12" fallback={<p>Failed</p>} />,
+  },
+  Tabs: {
+    underline: <Tabs items={tabItems} />,
+    pills: <Tabs items={tabItems} variant="pills" activeId="open" />,
+    links: (
+      <Tabs
+        items={tabItems}
+        activeId="open"
+        hrefFor={(id) => `/orders/${id}`}
+      />
+    ),
+  },
+  Pagination: {
+    first: <Pagination current={1} total={50} hrefFor={(p) => `/?page=${p}`} />,
+    middle: (
+      <Pagination current={10} total={200} hrefFor={(p) => `/?page=${p}`} />
+    ),
+    last: <Pagination current={5} total={50} hrefFor={(p) => `/?page=${p}`} />,
+  },
+  Breadcrumb: {
+    default: (
+      <Breadcrumb
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Phones", href: "/phones" },
+          { label: "Pixel" },
+        ]}
+      />
+    ),
+  },
+  Stepper: {
+    horizontal: <Stepper steps={steps} />,
+    vertical: (
+      <Stepper
+        orientation="vertical"
+        steps={[
+          ...steps.slice(0, 2),
+          { id: 3, title: "Failed", status: "failed", description: "Retry" },
+        ]}
+      />
+    ),
+    inert: (
+      <Stepper steps={[{ ...steps[0], disabled: true }, ...steps.slice(1)]} />
+    ),
+  },
+  Timeline: {
+    default: (
+      <Timeline
+        items={[
+          { key: "1", title: "Ordered", time: "10:00", tone: "success" },
+          {
+            key: "2",
+            title: "Shipping",
+            description: "With the carrier",
+            tone: "primary",
+            current: true,
+          },
+        ]}
+      />
+    ),
+  },
+  PriceTag: {
+    default: <PriceTag price={29990000} />,
+    discounted: (
+      <PriceTag price={29990000} originalPrice={34990000} size="xl" />
+    ),
+    noSymbol: <PriceTag price={1000} size="sm" showCurrencySymbol={false} />,
+  },
+  Image: {
+    default: <Image src="/lamp.jpg" alt="Desk lamp" aspect="square" />,
+    empty: <Image src="" alt="Desk lamp" aspect="4/3" radius="none" />,
+  },
+  Avatar: {
+    initials: <Avatar name="Ada Lovelace" />,
+    anonymous: <Avatar size="xl" shape="square" />,
+    picture: <Avatar name="Ada Lovelace" src="/ada.jpg" size="lg" />,
+  },
+  Drawer: {
+    closed: (
+      <Drawer open={false} onClose={() => {}} title="Filters">
+        Body
+      </Drawer>
+    ),
+    open: (
+      <Drawer
+        open
+        onClose={() => {}}
+        title="Filters"
+        description="Narrow the results"
+        footer={<Button>Apply</Button>}
+      >
+        Body
+      </Drawer>
+    ),
+    untitled: (
+      <Drawer open onClose={() => {}} placement="left" size="sm">
+        Body
+      </Drawer>
+    ),
+  },
   Link: {
     default: <Link href="/shop">Back to shop</Link>,
     subtle: (
@@ -164,6 +336,54 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
         error="Could not load items"
         onRetry={() => undefined}
       />
+    ),
+  },
+  Tag: {
+    default: <Tag>New</Tag>,
+    success: <Tag tone="success">Paid</Tag>,
+    danger: <Tag tone="danger">Cancelled</Tag>,
+    closable: (
+      <ClosableTag tone="primary" closeLabel="Remove filter Price">
+        Price
+      </ClosableTag>
+    ),
+  },
+  Badge: {
+    default: <Badge>3</Badge>,
+    neutral: <Badge tone="neutral">12</Badge>,
+    solid: (
+      <Badge tone="danger" solid>
+        Mall
+      </Badge>
+    ),
+    pill: (
+      <Badge pill size="md">
+        2
+      </Badge>
+    ),
+  },
+  Empty: {
+    default: <Empty description="No orders yet" />,
+    action: (
+      <Empty
+        description="Your cart is empty"
+        action={<Link href="/shop">Start shopping</Link>}
+      />
+    ),
+  },
+  Result: {
+    success: (
+      <Result status="success" title="Order placed" subTitle="Order 123" />
+    ),
+    error: <Result status="error" title="Payment failed" />,
+    notFound: (
+      <Result
+        status="404"
+        title="Page not found"
+        extra={<Link href="/">Home</Link>}
+      >
+        <p>Check the address</p>
+      </Result>
     ),
   },
   Toast: {

@@ -28,6 +28,98 @@
       ]
     },
     {
+      "name": "Avatar",
+      "kind": "component",
+      "purpose": "Person or shop picture that falls back to initials when the src is missing or fails.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "src",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"sm\" | \"md\" | \"lg\" | \"xl\""
+        },
+        {
+          "name": "shape",
+          "required": false,
+          "type": "\"circle\" | \"square\""
+        },
+        {
+          "name": "anonymousLabel",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Badge",
+      "kind": "component",
+      "purpose": "Compact count or marker such as a filter count or a promotion flag; use Tag for labels.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "tone",
+          "required": false,
+          "type": "\"neutral\" | \"primary\" | \"success\" | \"warning\" | \"danger\""
+        },
+        {
+          "name": "solid",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"sm\" | \"md\""
+        },
+        {
+          "name": "pill",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "native": "span"
+    },
+    {
+      "name": "Breadcrumb",
+      "kind": "component",
+      "purpose": "Trail of ancestor pages; ancestors with an `href` are links and the last item is the current page (`aria-current=\"page\"`, never a link).",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "items",
+          "required": true,
+          "type": "BreadcrumbItem[]"
+        },
+        {
+          "name": "label",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "Button",
       "kind": "component",
       "purpose": "Action trigger. One `primary` per view; `ghost` for low-emphasis actions; `danger` for destructive ones; `fullWidth=\"mobile\"` is full width below the sm breakpoint only.",
@@ -40,12 +132,12 @@
         {
           "name": "variant",
           "required": false,
-          "type": "\"primary\" | \"secondary\" | \"ghost\" | \"danger\""
+          "type": "\"primary\" | \"danger\" | \"secondary\" | \"ghost\""
         },
         {
           "name": "size",
           "required": false,
-          "type": "\"xs\" | \"sm\" | \"md\" | \"lg\""
+          "type": "\"sm\" | \"md\" | \"lg\" | \"xs\""
         },
         {
           "name": "loading",
@@ -221,6 +313,92 @@
       ]
     },
     {
+      "name": "ClosableTag",
+      "kind": "component",
+      "purpose": "Tag with a labelled close button that hides it and reports the dismissal, such as an active filter.",
+      "client": true,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "tone",
+          "required": false,
+          "type": "\"neutral\" | \"primary\" | \"success\" | \"warning\" | \"danger\" | \"info\""
+        },
+        {
+          "name": "closeLabel",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "onClose",
+          "required": false,
+          "type": "() => void"
+        }
+      ],
+      "native": "span"
+    },
+    {
+      "name": "Descriptions",
+      "kind": "component",
+      "purpose": "Label and value pairs rendered as a description list, with loading, empty and fallback states.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "items",
+          "required": true,
+          "type": "DescriptionItem[]"
+        },
+        {
+          "name": "title",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "extra",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "column",
+          "required": false,
+          "type": "1 | 2 | 3"
+        },
+        {
+          "name": "bordered",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "loading",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "fallback",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "emptyText",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "loadingLabel",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "native": "div"
+    },
+    {
       "name": "Dialog",
       "kind": "component",
       "purpose": "Modal for a focused task or confirmation: required title, optional description and footer actions; without `triggerLabel` it is controlled by `open` and returns focus to the opener.",
@@ -276,6 +454,174 @@
           "type": "(open: boolean) => void"
         }
       ]
+    },
+    {
+      "name": "Drawer",
+      "kind": "component",
+      "purpose": "Side panel for filters, navigation or details, with modal focus trap, Escape and overlay close.",
+      "client": true,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "open",
+          "required": true,
+          "type": "boolean"
+        },
+        {
+          "name": "onClose",
+          "required": true,
+          "type": "() => void"
+        },
+        {
+          "name": "title",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "label",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "children",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "footer",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "placement",
+          "required": false,
+          "type": "\"left\" | \"right\""
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"sm\" | \"md\" | \"lg\""
+        },
+        {
+          "name": "closeLabel",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Empty",
+      "kind": "component",
+      "purpose": "Placeholder for a list or page with no data: illustration, description and an optional action.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "description",
+          "required": true,
+          "type": "ReactNode"
+        },
+        {
+          "name": "image",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "action",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "\"data-testid\"",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "formatPrice",
+      "kind": "function",
+      "purpose": "Formats a price in Vietnamese dong with a leading ₫ symbol, for example ₫29.990.000.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": []
+    },
+    {
+      "name": "Image",
+      "kind": "component",
+      "purpose": "Picture in a fixed-aspect box that is reserved before load, lazy by default, with a fallback on error.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "src",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "alt",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "aspect",
+          "required": true,
+          "type": "\"square\" | \"video\" | \"4/3\" | \"3/4\" | \"2/1\""
+        },
+        {
+          "name": "fit",
+          "required": false,
+          "type": "\"cover\" | \"contain\""
+        },
+        {
+          "name": "loading",
+          "required": false,
+          "type": "\"lazy\" | \"eager\""
+        },
+        {
+          "name": "fallback",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "fallbackLabel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "radius",
+          "required": false,
+          "type": "\"lg\" | \"xl\" | \"none\""
+        }
+      ]
+    },
+    {
+      "name": "initials",
+      "kind": "function",
+      "purpose": "Up to two initials of a name, for example \"Nguyễn Văn A\" gives \"NA\"; \"?\" when empty.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": []
     },
     {
       "name": "Input",
@@ -338,12 +684,12 @@
         {
           "name": "variant",
           "required": false,
-          "type": "\"primary\" | \"secondary\" | \"ghost\" | \"danger\" | \"inline\" | \"subtle\""
+          "type": "\"primary\" | \"danger\" | \"secondary\" | \"ghost\" | \"inline\" | \"subtle\""
         },
         {
           "name": "size",
           "required": false,
-          "type": "\"xs\" | \"sm\" | \"md\" | \"lg\""
+          "type": "\"sm\" | \"md\" | \"lg\" | \"xs\""
         },
         {
           "name": "fullWidth",
@@ -390,6 +736,193 @@
         },
         {
           "name": "helpText",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "PageSkeleton",
+      "kind": "component",
+      "purpose": "Generic page placeholder (heading, hero and tile grid) for routes without a bespoke loading state.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "label",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "native": "div"
+    },
+    {
+      "name": "Pagination",
+      "kind": "component",
+      "purpose": "Page links driven by the URL: `hrefFor(page)` builds each link, the current page carries `aria-current=\"page\"`, long ranges collapse around it, and a single page renders nothing.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "current",
+          "required": true,
+          "type": "number"
+        },
+        {
+          "name": "total",
+          "required": true,
+          "type": "number"
+        },
+        {
+          "name": "pageSize",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "name": "hrefFor",
+          "required": true,
+          "type": "(page: number) => string"
+        },
+        {
+          "name": "label",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "previousLabel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "nextLabel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "pageLabel",
+          "required": false,
+          "type": "(page: number) => string"
+        }
+      ]
+    },
+    {
+      "name": "PriceTag",
+      "kind": "component",
+      "purpose": "Price in dong with an optional struck-through original price and discount badge.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "price",
+          "required": true,
+          "type": "number"
+        },
+        {
+          "name": "originalPrice",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"sm\" | \"md\" | \"lg\" | \"xl\""
+        },
+        {
+          "name": "showCurrencySymbol",
+          "required": false,
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "Progress",
+      "kind": "component",
+      "purpose": "Line progress bar backed by a native progress element, with an optional percentage.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "label",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "percent",
+          "required": true,
+          "type": "number"
+        },
+        {
+          "name": "status",
+          "required": false,
+          "type": "\"success\" | \"danger\" | \"normal\""
+        },
+        {
+          "name": "showInfo",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"sm\" | \"md\""
+        }
+      ],
+      "native": "div"
+    },
+    {
+      "name": "Result",
+      "kind": "component",
+      "purpose": "Outcome screen after an action or for a missing page: status icon, title, details and next actions.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "status",
+          "required": true,
+          "type": "ResultStatus"
+        },
+        {
+          "name": "title",
+          "required": true,
+          "type": "ReactNode"
+        },
+        {
+          "name": "statusLabel",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "subTitle",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "extra",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "children",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "\"data-testid\"",
           "required": false,
           "type": "string"
         }
@@ -447,6 +980,129 @@
         },
         {
           "name": "errorText",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Skeleton",
+      "kind": "component",
+      "purpose": "Busy placeholder that keeps the footprint of the text, avatar, image or card it stands in for.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "variant",
+          "required": false,
+          "type": "SkeletonVariant"
+        },
+        {
+          "name": "lines",
+          "required": false,
+          "type": "number"
+        },
+        {
+          "name": "aspect",
+          "required": false,
+          "type": "\"square\" | \"video\" | \"4/3\" | \"3/4\" | \"2/1\""
+        },
+        {
+          "name": "size",
+          "required": false,
+          "type": "\"sm\" | \"md\" | \"lg\""
+        },
+        {
+          "name": "label",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "native": "div"
+    },
+    {
+      "name": "Statistic",
+      "kind": "component",
+      "purpose": "Metric card with a title, a fixed-height value row and an optional trend, so loading never shifts layout.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "title",
+          "required": true,
+          "type": "ReactNode"
+        },
+        {
+          "name": "value",
+          "required": true,
+          "type": "ReactNode"
+        },
+        {
+          "name": "prefix",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "suffix",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "trend",
+          "required": false,
+          "type": "StatisticTrend"
+        },
+        {
+          "name": "tone",
+          "required": false,
+          "type": "\"danger\" | \"default\""
+        },
+        {
+          "name": "loading",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "fallback",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "loadingLabel",
+          "required": false,
+          "type": "string"
+        }
+      ],
+      "native": "div"
+    },
+    {
+      "name": "Stepper",
+      "kind": "component",
+      "purpose": "Progress through ordered steps; the current step carries `aria-current=\"step\"`. Horizontal shows numbered markers (titles from sm up, optional links back to earlier steps); vertical shows a dotted list with descriptions.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "steps",
+          "required": true,
+          "type": "StepItem[]"
+        },
+        {
+          "name": "orientation",
+          "required": false,
+          "type": "\"horizontal\" | \"vertical\""
+        },
+        {
+          "name": "label",
           "required": false,
           "type": "string"
         }
@@ -521,6 +1177,88 @@
           "name": "retryLabel",
           "required": false,
           "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Tabs",
+      "kind": "component",
+      "purpose": "Switches between views. With `hrefFor` every tab is a server-rendered link and the URL holds the state; without it a client tablist with arrow keys and panels.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "items",
+          "required": true,
+          "type": "TabItem[]"
+        },
+        {
+          "name": "activeId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "defaultActiveId",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "onChange",
+          "required": false,
+          "type": "(id: string) => void"
+        },
+        {
+          "name": "variant",
+          "required": false,
+          "type": "\"underline\" | \"pills\""
+        },
+        {
+          "name": "hrefFor",
+          "required": false,
+          "type": "(id: string) => string"
+        },
+        {
+          "name": "label",
+          "required": false,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "Tag",
+      "kind": "component",
+      "purpose": "Small status or category label tinted by a tone; use ClosableTag when it can be dismissed.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "tone",
+          "required": false,
+          "type": "\"neutral\" | \"primary\" | \"success\" | \"warning\" | \"danger\" | \"info\""
+        }
+      ],
+      "native": "span"
+    },
+    {
+      "name": "Timeline",
+      "kind": "component",
+      "purpose": "Vertical event history (shipment checkpoints, order steps) with a toned dot per event; the latest event carries `aria-current=\"step\"`.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [
+        {
+          "name": "items",
+          "required": true,
+          "type": "TimelineItem[]"
         }
       ]
     },
@@ -621,8 +1359,10 @@
       "8",
       "10",
       "12",
+      "14",
       "16",
-      "18"
+      "18",
+      "20"
     ]
   }
 }

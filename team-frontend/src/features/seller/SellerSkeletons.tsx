@@ -6,9 +6,15 @@ import { KpiRow } from "./KpiRow";
 export function HeaderSkeleton() {
   return (
     <div className="space-y-3">
-      <Skeleton variant="text" lines={1} className="w-40" />
-      <Skeleton variant="text" lines={1} className="w-64" />
-      <Skeleton variant="text" lines={1} className="w-96 max-w-full" />
+      <div className="w-40">
+        <Skeleton variant="text" lines={1} />
+      </div>
+      <div className="w-64">
+        <Skeleton variant="text" lines={1} />
+      </div>
+      <div className="w-96 max-w-full">
+        <Skeleton variant="text" lines={1} />
+      </div>
     </div>
   );
 }
@@ -37,11 +43,17 @@ export function TableCardSkeleton({
   return (
     <Card aria-busy="true">
       <CardHeader>
-        <Skeleton variant="text" lines={1} className="w-40" />
+        <div className="w-40">
+          <Skeleton variant="text" lines={1} />
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {filter && <Skeleton variant="text" lines={1} className="h-10" />}
+          {filter && (
+            <div className="h-10">
+              <Skeleton variant="text" lines={1} />
+            </div>
+          )}
           <Skeleton variant="text" lines={rows} />
         </div>
       </CardContent>

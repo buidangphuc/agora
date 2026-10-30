@@ -2,11 +2,11 @@ import { render, screen } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it } from "vitest";
 
-import { toneStyles } from "@/components/ui/tones";
 import {
   OrderStatus,
   ReturnStatus,
 } from "@/generated/platform/order/v1/order_pb.js";
+import { components } from "@fe-platform/tokens";
 
 import { OrderStatusBadge, orderStatusTone } from "./OrderStatusBadge";
 
@@ -44,7 +44,7 @@ describe("OrderStatusBadge", () => {
     );
     const badge = screen.getByTestId("badge");
     expect(badge).toHaveTextContent("Đã hoàn thành");
-    for (const cls of toneStyles.success.soft.split(" ")) {
+    for (const cls of components.tone.success.split(" ")) {
       expect(badge).toHaveClass(cls);
     }
     expect(badge.textContent).toMatch(/^[\p{L}\s]+$/u);
@@ -75,7 +75,7 @@ describe("OrderStatusBadge", () => {
     );
     const badge = screen.getByTestId("badge");
     expect(badge).toHaveTextContent("Lạ");
-    for (const cls of toneStyles.neutral.soft.split(" ")) {
+    for (const cls of components.tone.neutral.split(" ")) {
       expect(badge).toHaveClass(cls);
     }
   });

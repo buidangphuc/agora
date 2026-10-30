@@ -320,7 +320,7 @@ export function Catalogue({
           />
         </Demo>
         <Demo label="Stepper: horizontal and vertical">
-          <Stepper steps={steps} className="w-full" />
+          <Stepper steps={steps} />
           <Stepper
             orientation="vertical"
             steps={[
@@ -420,22 +420,12 @@ export function Catalogue({
           </div>
         </Demo>
         <Demo label="Descriptions: default, loading, empty">
-          <Descriptions
-            title="Thông tin"
-            items={descItems}
-            className="w-full"
-          />
-          <Descriptions
-            title="Đang tải"
-            items={descItems}
-            loading
-            className="w-full"
-          />
+          <Descriptions title="Thông tin" items={descItems} />
+          <Descriptions title="Đang tải" items={descItems} loading />
           <Descriptions
             title="Trống"
             items={[]}
             emptyText="Chưa có thông tin"
-            className="w-full"
           />
         </Demo>
         <Demo label="Statistic: value, loading toggle">
@@ -478,14 +468,22 @@ export function Catalogue({
         </Demo>
         <Demo label="Timeline: default, loading, empty">
           <Timeline items={timeline} />
-          <Timeline items={timeline} loading className="w-64" />
+          <div className="w-64">
+            <Timeline items={timeline} loading />
+          </div>
           <Timeline items={[]} emptyText="Chưa có cập nhật" />
         </Demo>
         <Demo label="Skeleton presets">
-          <Skeleton variant="text" lines={3} className="w-48" />
+          <div className="w-48">
+            <Skeleton variant="text" lines={3} />
+          </div>
           <Skeleton variant="avatar" />
-          <Skeleton variant="image" aspect="4/3" className="w-48" />
-          <Skeleton variant="card" className="w-48" />
+          <div className="w-48">
+            <Skeleton variant="image" aspect="4/3" />
+          </div>
+          <div className="w-48">
+            <Skeleton variant="card" />
+          </div>
         </Demo>
         <Demo label="Empty: default and with action">
           <Empty />
@@ -497,13 +495,13 @@ export function Catalogue({
         <Demo label="Result statuses">
           {(["success", "error", "info", "warning", "404"] as const).map(
             (s) => (
-              <Result
-                key={s}
-                status={s}
-                title={`Trạng thái ${s}`}
-                subTitle="Mô tả ngắn"
-                className="w-72"
-              />
+              <div key={s} className="w-72">
+                <Result
+                  status={s}
+                  title={`Trạng thái ${s}`}
+                  subTitle="Mô tả ngắn"
+                />
+              </div>
             ),
           )}
         </Demo>

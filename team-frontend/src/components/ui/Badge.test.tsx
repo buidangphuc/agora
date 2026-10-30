@@ -20,7 +20,7 @@ describe("Badge", () => {
     }
   });
 
-  it("mall and discount read Tier 2 aliases", () => {
+  it("mall and discount are solid fills", () => {
     render(
       <>
         <Badge variant="mall">Mall</Badge>
@@ -28,20 +28,23 @@ describe("Badge", () => {
       </>,
     );
     expect(screen.getByText("Mall")).toHaveClass(
-      "bg-danger",
+      "bg-action-danger",
       "text-text-inverse",
     );
-    expect(screen.getByText("-10%")).toHaveClass("bg-promo");
+    expect(screen.getByText("-10%")).toHaveClass(
+      "bg-text-warning",
+      "text-text-inverse",
+    );
   });
 
   it("supports pill, size and passes through attributes", () => {
     render(
-      <Badge pill size="md" data-x="1" className="extra">
+      <Badge pill size="md" data-x="1">
         3
       </Badge>,
     );
     const el = screen.getByText("3");
-    expect(el).toHaveClass("rounded-full", "extra");
+    expect(el).toHaveClass("rounded-full");
     expect(el).toHaveAttribute("data-x", "1");
   });
 });

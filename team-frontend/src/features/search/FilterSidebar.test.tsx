@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.hoisted(() => vi.fn());
@@ -121,7 +127,7 @@ describe("FilterSidebar", () => {
     expect(within(trigger).getByText("2")).toBeInTheDocument();
   });
 
-  it("opens a drawer with the filters, and Escape returns focus to the trigger", () => {
+  it("opens a drawer with the filters, and Escape returns focus to the trigger", async () => {
     setup();
     const trigger = screen.getByRole("button", { name: /Bộ lọc/ });
     trigger.focus();
@@ -137,7 +143,7 @@ describe("FilterSidebar", () => {
     ).toHaveAttribute("form", "drawer-price-form");
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(document.activeElement).toBe(trigger);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
   it("rejects min greater than max without navigating", () => {

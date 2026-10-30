@@ -10,21 +10,43 @@ import {
 } from "@testing-library/react";
 import axe from "axe-core";
 import { useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   Alert,
+  Avatar,
+  Badge,
+  Breadcrumb,
   Button,
   Card,
   CardContent,
   CardTitle,
   Checkbox,
+  ClosableTag,
+  Descriptions,
   Dialog,
+  Drawer,
+  Empty,
+  Image,
   Input,
   Link,
   NativeSelect,
+  PageSkeleton,
+  Pagination,
+  PriceTag,
+  Progress,
+  Result,
   Select,
+  Skeleton,
+  Statistic,
+  Stepper,
   Table,
+  Tabs,
+  Tag,
+  Timeline,
   ToastProvider,
+  formatPrice,
+  initials,
   useToast,
 } from "./index";
 import { stateMatrix } from "./states";
@@ -245,6 +267,88 @@ describe("Checkbox", () => {
   });
 });
 
+describe("Tag", () => {
+  it("tints by tone and passes native attributes", () => {
+    render(
+      <Tag tone="success" data-testid="t">
+        Paid
+      </Tag>,
+    );
+    const tag = screen.getByTestId("t");
+    expect(tag.className).toContain("text-text-success");
+    expect(tag.textContent).toBe("Paid");
+  });
+
+  it("closes from a labelled touch-sized button and reports it", () => {
+    let closed = 0;
+    render(
+      <ClosableTag closeLabel="Remove Price" onClose={() => closed++}>
+        Price
+      </ClosableTag>,
+    );
+    const close = screen.getByRole("button", { name: "Remove Price" });
+    expect(close.className).toContain("min-h-touch");
+    fireEvent.click(close);
+    expect(closed).toBe(1);
+    expect(screen.queryByText("Price")).toBeNull();
+  });
+});
+
+describe("Badge", () => {
+  it("switches between soft and solid fills and pill shape", () => {
+    render(
+      <>
+        <Badge tone="danger" solid>
+          Mall
+        </Badge>
+        <Badge pill>3</Badge>
+      </>,
+    );
+    expect(screen.getByText("Mall").className).toContain("bg-action-danger");
+    const pill = screen.getByText("3");
+    expect(pill.className).toContain("rounded-full");
+    expect(pill.className).toContain("text-text-link");
+  });
+});
+
+describe("Empty", () => {
+  it("shows a default illustration, the description and the action", () => {
+    const { container } = render(
+      <Empty description="Nothing here" action={<a href="/">Home</a>} />,
+    );
+    expect(container.querySelector("svg")).not.toBeNull();
+    expect(screen.getByText("Nothing here")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Home" })).toBeTruthy();
+  });
+
+  it("replaces the illustration with a custom image", () => {
+    const { container } = render(
+      <Empty description="x" image={<span>img</span>} />,
+    );
+    expect(container.querySelector("svg")).toBeNull();
+  });
+});
+
+describe("Result", () => {
+  it("announces politely with a named status icon and heading", () => {
+    const { container } = render(
+      <Result status="error" title="Payment failed" statusLabel="Lỗi" />,
+    );
+    expect(
+      (container.firstChild as HTMLElement).getAttribute("aria-live"),
+    ).toBe("polite");
+    expect(screen.getByRole("img", { name: "Lỗi" })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Payment failed" }),
+    ).toBeTruthy();
+  });
+
+  it("falls back to an English status label", () => {
+    render(<Result status="404" title="Missing" />);
+    expect(screen.getByRole("img", { name: "Not found" })).toBeTruthy();
+  });
+});
+
 describe("Select", () => {
   it("opens from the keyboard and selects an option", async () => {
     let value = "";
@@ -384,6 +488,277 @@ describe("Dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+});
+
+describe("Skeleton", () => {
+  it("is busy, labelled for screen readers and renders the requested lines", () => {
+    const { container } = render(<Skeleton lines={4} label="Wait" />);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.getAttribute("aria-busy")).toBe("true");
+    expect(root.getAttribute("data-variant")).toBe("text");
+    expect(screen.getByText("Wait").className).toBe("sr-only");
+    expect(container.querySelectorAll(".h-4")).toHaveLength(4);
+  });
+
+  it("reserves the aspect box of image and card presets", () => {
+    const { container, rerender } = render(
+      <Skeleton variant="image" aspect="4/3" />,
+    );
+    expect(container.querySelector(".aspect-4\\/3")).not.toBeNull();
+    rerender(<Skeleton variant="avatar" size="sm" />);
+    expect(container.querySelector(".rounded-full.h-8")).not.toBeNull();
+  });
+
+  it("page skeleton is a busy live region with a tile grid", () => {
+    render(<PageSkeleton data-testid="page" />);
+    const page = screen.getByTestId("page");
+    expect(page.getAttribute("aria-busy")).toBe("true");
+    expect(page.getAttribute("aria-live")).toBe("polite");
+    expect(page.querySelectorAll(".animate-pulse").length).toBeGreaterThan(5);
+  });
+});
+
+describe("Progress", () => {
+  it("exposes a clamped value on a named progressbar", () => {
+    const { container, rerender } = render(
+      <Progress label="Upload" percent={40} />,
+    );
+    const bar = screen.getByRole("progressbar", { name: "Upload" });
+    expect(bar.getAttribute("aria-valuenow")).toBe("40");
+    expect(
+      (container.querySelector("[style]") as HTMLElement).style.width,
+    ).toBe("40%");
+    expect(screen.getByText("40%")).toBeTruthy();
+    rerender(<Progress label="Upload" percent={150} showInfo={false} />);
+    expect(bar.getAttribute("aria-valuenow")).toBe("100");
+    expect(screen.queryByText("100%")).toBeNull();
+  });
+
+  it("colours the fill by status", () => {
+    const { container } = render(
+      <Progress label="Upload" percent={10} status="danger" />,
+    );
+    expect(container.querySelector(".bg-action-danger")).not.toBeNull();
+  });
+});
+
+describe("Descriptions", () => {
+  const items = [
+    { key: "a", label: "Name", children: "Lamp" },
+    { key: "b", label: "Qty", children: "2" },
+  ];
+
+  it("renders pairs as a description list under a heading", () => {
+    const { container } = render(<Descriptions title="Order" items={items} />);
+    expect(screen.getByRole("heading", { name: "Order" })).toBeTruthy();
+    expect(container.querySelectorAll("dt")).toHaveLength(2);
+    expect(container.querySelector("dd")?.textContent).toBe("Lamp");
+  });
+
+  it("shows busy skeleton rows, the empty text or the fallback instead of values", () => {
+    const { container, rerender } = render(
+      <Descriptions items={items} loading />,
+    );
+    expect(screen.queryByText("Lamp")).toBeNull();
+    expect(container.querySelectorAll('[data-variant="text"]')).toHaveLength(2);
+    rerender(<Descriptions items={[]} emptyText="None" />);
+    expect(screen.getByText("None")).toBeTruthy();
+    rerender(<Descriptions items={items} fallback={<p>Broken</p>} />);
+    expect(screen.getByText("Broken")).toBeTruthy();
+    expect(container.querySelector("dl")).toBeNull();
+  });
+});
+
+describe("Statistic", () => {
+  it("renders the value with prefix, suffix and an upward trend", () => {
+    render(
+      <Statistic
+        title="Revenue"
+        value="1,200"
+        prefix="$"
+        suffix="k"
+        trend={{ value: "5%", isUp: true, label: "vs last week" }}
+      />,
+    );
+    expect(screen.getByText("1,200")).toBeTruthy();
+    expect(screen.getByText("↑").parentElement?.className).toContain(
+      "text-text-success",
+    );
+    expect(screen.getByText("vs last week")).toBeTruthy();
+  });
+
+  it("keeps the fixed-height rows while loading and marks itself busy", () => {
+    const trend = { value: "5%" };
+    const rows = (root: Element) =>
+      Array.from(root.querySelectorAll(".h-8, .mt-3.h-4")).map(
+        (el) => el.className,
+      );
+    const loaded = render(
+      <Statistic title="Orders" value="12" trend={trend} />,
+    );
+    const loadedRows = rows(loaded.container);
+    loaded.unmount();
+    const { container } = render(
+      <Statistic title="Orders" value="12" trend={trend} loading />,
+    );
+    expect(screen.queryByText("12")).toBeNull();
+    expect(container.firstElementChild?.getAttribute("aria-busy")).toBe("true");
+    expect(rows(container)).toEqual(loadedRows);
+    expect(loadedRows).toHaveLength(2);
+  });
+
+  it("replaces the value with the fallback and colours a danger tone", () => {
+    const { rerender } = render(
+      <Statistic title="Orders" value="12" fallback={<p>Broken</p>} />,
+    );
+    expect(screen.getByText("Broken")).toBeTruthy();
+    expect(screen.queryByText("12")).toBeNull();
+    rerender(<Statistic title="Overdue" value="3" tone="danger" />);
+    expect(screen.getByText("3").parentElement?.className).toContain(
+      "text-text-danger",
+    );
+  });
+});
+
+describe("PriceTag", () => {
+  it("formats dong with a leading symbol", () => {
+    expect(formatPrice(29990000)).toBe("₫29.990.000");
+  });
+
+  it("shows the struck original price and the rounded discount", () => {
+    render(<PriceTag price={75000} originalPrice={100000} />);
+    expect(screen.getByText("₫100.000").className).toContain("line-through");
+    expect(screen.getByText("-25%")).toBeTruthy();
+  });
+
+  it("hides the discount when the original is not higher", () => {
+    render(<PriceTag price={100000} originalPrice={100000} />);
+    expect(screen.queryByText(/^-\d+%$/)).toBeNull();
+  });
+});
+
+describe("Image", () => {
+  it("reserves the aspect box, lazy-loads and falls back on error", () => {
+    const { container } = render(
+      <Image src="/a.jpg" alt="Lamp" aspect="square" />,
+    );
+    const box = container.firstElementChild as HTMLElement;
+    expect(box.className).toContain("aspect-square");
+    const img = screen.getByAltText("Lamp");
+    expect(img.getAttribute("loading")).toBe("lazy");
+    fireEvent.error(img);
+    expect(screen.queryByAltText("Lamp")).toBeNull();
+    expect(screen.getByRole("img", { name: "No image" })).toBeTruthy();
+    expect(box.className).toContain("aspect-square");
+  });
+
+  it("renders the fallback in the server markup for an empty src", () => {
+    const html = renderToStaticMarkup(
+      <Image src="" alt="Lamp" aspect="2/1" fallbackLabel="Không có ảnh" />,
+    );
+    expect(html).not.toContain("<img");
+    expect(html).toContain("Không có ảnh");
+    expect(html).toContain("aspect-2/1");
+  });
+
+  it("drops the placeholder once loaded", () => {
+    const { container } = render(
+      <Image src="/a.jpg" alt="Lamp" aspect="4/3" radius="none" />,
+    );
+    expect(container.querySelector(".animate-pulse")).not.toBeNull();
+    fireEvent.load(screen.getByAltText("Lamp"));
+    expect(container.querySelector(".animate-pulse")).toBeNull();
+  });
+});
+
+describe("Avatar", () => {
+  it("derives up to two initials", () => {
+    expect(initials("Nguyễn Văn A")).toBe("NA");
+    expect(initials("")).toBe("?");
+  });
+
+  it("is a named image with initials when there is no src", () => {
+    render(<Avatar name="Ada Lovelace" />);
+    expect(screen.getByRole("img", { name: "Ada Lovelace" }).textContent).toBe(
+      "AL",
+    );
+  });
+
+  it("uses the anonymous label without a name", () => {
+    render(<Avatar anonymousLabel="Người dùng" />);
+    expect(screen.getByRole("img", { name: "Người dùng" })).toBeTruthy();
+  });
+
+  it("falls back to initials when the picture fails", () => {
+    render(<Avatar name="Ada Lovelace" src="/ada.jpg" />);
+    fireEvent.error(screen.getByAltText("Ada Lovelace"));
+    expect(screen.getByText("AL")).toBeTruthy();
+  });
+});
+
+describe("Drawer", () => {
+  it("is a labelled modal side panel that closes on Escape and the close button", () => {
+    const onClose = vi.fn();
+    render(
+      <Drawer
+        open
+        onClose={onClose}
+        title="Filters"
+        description="Narrow the results"
+        placement="left"
+      >
+        Body
+      </Drawer>,
+    );
+    const panel = screen.getByRole("dialog", { name: "Filters" });
+    expect(panel.getAttribute("aria-modal")).toBe("true");
+    expect(panel.className).toContain("left-0");
+    const describedBy = panel.getAttribute("aria-describedby") ?? "";
+    expect(document.getElementById(describedBy)?.textContent).toBe(
+      "Narrow the results",
+    );
+    fireEvent.keyDown(panel, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns focus to the element that opened it", async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Filters
+          </button>
+          <Drawer open={open} onClose={() => setOpen(false)} title="Filters">
+            Body
+          </Drawer>
+        </>
+      );
+    }
+    render(<Harness />);
+    const opener = screen.getByRole("button", { name: "Filters" });
+    opener.focus();
+    fireEvent.click(opener);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it("names an untitled panel from its label and renders nothing while closed", () => {
+    const { rerender } = render(
+      <Drawer open onClose={() => {}} label="Menu">
+        Body
+      </Drawer>,
+    );
+    expect(screen.getByRole("dialog", { name: "Menu" })).toBeTruthy();
+    rerender(
+      <Drawer open={false} onClose={() => {}} label="Menu">
+        Body
+      </Drawer>,
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 
@@ -568,6 +943,175 @@ describe("Alert", () => {
   });
 });
 
+describe("Tabs", () => {
+  const items = [
+    { id: "all", label: "All", content: <p>All panel</p> },
+    { id: "open", label: "Open", badge: 3, content: <p>Open panel</p> },
+    { id: "off", label: "Off", disabled: true },
+    { id: "done", label: "Done", content: <p>Done panel</p> },
+  ];
+
+  it("wires tablist, tabs and panels and moves with arrow keys past disabled tabs", () => {
+    const seen: string[] = [];
+    render(<Tabs items={items} onChange={(id) => seen.push(id)} />);
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    const panel = screen.getByRole("tabpanel", { name: "All" });
+    expect(tabs[0].getAttribute("aria-controls")).toBe(panel.id);
+    fireEvent.keyDown(tabs[1], { key: "ArrowRight" });
+    expect(seen).toEqual(["done"]);
+    expect(document.activeElement).toBe(tabs[3]);
+    expect(screen.getByRole("tabpanel").textContent).toBe("Done panel");
+    fireEvent.keyDown(tabs[3], { key: "Home" });
+    expect(tabs[0].getAttribute("tabindex")).toBe("0");
+    expect(tabs[3].getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("keeps every tab at the touch height with a keyboard focus ring", () => {
+    render(<Tabs items={items} variant="pills" />);
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab.className).toContain("min-h-touch");
+      expect(tab.className).toContain("focus-visible:ring-2");
+    }
+  });
+
+  it("renders server links with aria-current when hrefFor is given", () => {
+    const html = renderToStaticMarkup(
+      <Tabs items={items} activeId="open" hrefFor={(id) => `/o/${id}`} />,
+    );
+    expect(html).toContain('href="/o/open"');
+    expect(html).toContain('aria-current="page"');
+    expect(html).toContain('aria-label="Tabs"');
+    expect(html).not.toContain("<button");
+  });
+});
+
+describe("Pagination", () => {
+  const hrefFor = (p: number) => `/s?page=${p}`;
+
+  it("collapses long ranges around the current page with custom labels", () => {
+    render(
+      <Pagination
+        current={10}
+        total={200}
+        hrefFor={hrefFor}
+        pageLabel={(p) => `P${p}`}
+        previousLabel="Prev"
+        nextLabel="Next"
+      />,
+    );
+    expect(
+      screen.getAllByRole("link").map((l) => l.getAttribute("aria-label")),
+    ).toEqual(["Prev", "P1", "P9", "P10", "P11", "P20", "Next"]);
+    expect(
+      screen.getByRole("link", { name: "P10" }).getAttribute("aria-current"),
+    ).toBe("page");
+  });
+
+  it("disables the bound arrows, clamps the page and hides a single page", () => {
+    const { container, rerender } = render(
+      <Pagination current={99} total={30} hrefFor={hrefFor} />,
+    );
+    expect(
+      screen.getByLabelText("Next page").getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(
+      screen.getByRole("link", { name: "Page 3" }).getAttribute("aria-current"),
+    ).toBe("page");
+    rerender(<Pagination current={1} total={5} hrefFor={hrefFor} />);
+    expect(container.innerHTML).toBe("");
+  });
+});
+
+describe("Breadcrumb", () => {
+  it("links ancestors and marks the last item as the current page", () => {
+    render(
+      <Breadcrumb
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Pixel", href: "/p" },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeTruthy();
+    expect(
+      screen.getAllByRole("link").map((l) => l.getAttribute("href")),
+    ).toEqual(["/"]);
+    const current = screen.getByText("Pixel");
+    expect(current.getAttribute("aria-current")).toBe("page");
+    expect(current.closest("a")).toBeNull();
+  });
+});
+
+describe("Stepper", () => {
+  it("marks the current step and links only enabled steps with an href", () => {
+    render(
+      <Stepper
+        steps={[
+          { id: 1, title: "Address", status: "complete", href: "/a" },
+          {
+            id: 2,
+            title: "Shipping",
+            status: "complete",
+            href: "/b",
+            disabled: true,
+          },
+          { id: 3, title: "Pay", status: "current" },
+        ]}
+      />,
+    );
+    const items = screen.getAllByRole("listitem");
+    expect(items[2].getAttribute("aria-current")).toBe("step");
+    expect(items[0].getAttribute("aria-current")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Address" }).getAttribute("href"),
+    ).toBe("/a");
+    expect(screen.queryByRole("link", { name: "Shipping" })).toBeNull();
+    expect(screen.getByText("Shipping").getAttribute("aria-disabled")).toBe(
+      "true",
+    );
+  });
+
+  it("lists descriptions in the vertical orientation", () => {
+    render(
+      <Stepper
+        orientation="vertical"
+        steps={[
+          { id: 1, title: "Paid", status: "complete" },
+          { id: 2, title: "Failed", status: "failed", description: "Retry" },
+        ]}
+      />,
+    );
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.getByText("Retry")).toBeTruthy();
+  });
+});
+
+describe("Timeline", () => {
+  it("renders events in order with time, description, testId and the current mark", () => {
+    render(
+      <Timeline
+        items={[
+          { key: "1", title: "Ordered", time: "10:00", testId: "evt" },
+          {
+            key: "2",
+            title: "Shipping",
+            description: "With carrier",
+            tone: "primary",
+            current: true,
+          },
+        ]}
+      />,
+    );
+    const items = screen.getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[1].getAttribute("aria-current")).toBe("step");
+    expect(screen.getByTestId("evt").tagName).toBe("LI");
+    expect(screen.getByText("10:00")).toBeTruthy();
+    expect(screen.getByText("With carrier")).toBeTruthy();
+  });
+});
+
 const CLIENT_ONLY =
   /@radix-ui\/|\buse(?:State|Effect|Ref|Context|Callback|Memo|Reducer)\b|\bcreateContext\b/;
 
@@ -590,8 +1134,20 @@ describe("client boundary", () => {
     expect(clientBoundaryViolations(files)).toEqual([]);
   });
 
-  it("keeps Button, Input and Table server-safe", () => {
-    for (const name of ["Button.tsx", "Input.tsx", "Table.tsx"]) {
+  it("keeps Button, Input, Table and the status and data display components server-safe", () => {
+    for (const name of [
+      "Button.tsx",
+      "Input.tsx",
+      "Table.tsx",
+      "Tag.tsx",
+      "Badge.tsx",
+      "Empty.tsx",
+      "Result.tsx",
+      "Skeleton.tsx",
+      "Progress.tsx",
+      "Descriptions.tsx",
+      "Statistic.tsx",
+    ]) {
       expect(files[name]).not.toMatch(/^["']use client["']/);
     }
   });

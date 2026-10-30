@@ -65,7 +65,11 @@ function describe(symbol, checker) {
   const source = decl.getSourceFile().text;
   const entry = {
     name: symbol.getName(),
-    kind: symbol.getName().startsWith("use") ? "hook" : "component",
+    kind: symbol.getName().startsWith("use")
+      ? "hook"
+      : /^[a-z]/.test(symbol.getName())
+        ? "function"
+        : "component",
     purpose,
     client: /^\s*["']use client["']/.test(source),
     platforms: PLATFORMS,

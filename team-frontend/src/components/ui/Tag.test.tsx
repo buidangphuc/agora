@@ -8,7 +8,7 @@ import { Tag } from "./Tag";
 describe("Tag", () => {
   it("renders a label with a colour preset", () => {
     render(<Tag color="success">Freeship</Tag>);
-    expect(screen.getByText("Freeship")).toHaveClass("bg-accent-success/10");
+    expect(screen.getByText("Freeship")).toHaveClass("text-text-success");
   });
 
   it("defaults to neutral and supports every preset", () => {

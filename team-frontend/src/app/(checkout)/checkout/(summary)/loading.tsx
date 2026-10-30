@@ -13,7 +13,9 @@ export default function CheckoutLoading() {
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <CardHeader>
-              <Skeleton variant="text" lines={1} className="w-40" />
+              <div className="w-40">
+                <Skeleton variant="text" lines={1} />
+              </div>
             </CardHeader>
             <CardContent>
               <Skeleton variant="text" lines={5} />
@@ -23,7 +25,9 @@ export default function CheckoutLoading() {
         <div className="hidden lg:block">
           <Card>
             <CardHeader>
-              <Skeleton variant="text" lines={1} className="w-32" />
+              <div className="w-32">
+                <Skeleton variant="text" lines={1} />
+              </div>
             </CardHeader>
             <CardContent>
               <Skeleton variant="text" lines={4} />

@@ -32,12 +32,20 @@ export default function Loading() {
           </div>
           <div className="space-y-4 lg:col-span-7">
             <Skeleton variant="text" lines={2} />
-            <Skeleton variant="text" lines={1} className="w-1/3" />
-            <Skeleton variant="image" aspect="4/3" className="max-h-24" />
+            <div className="w-1/3">
+              <Skeleton variant="text" lines={1} />
+            </div>
+            <div className="max-h-24">
+              <Skeleton variant="image" aspect="4/3" />
+            </div>
             <Skeleton variant="text" lines={3} />
             <div className="flex gap-3">
-              <Skeleton variant="text" lines={1} className="w-40" />
-              <Skeleton variant="text" lines={1} className="w-40" />
+              <div className="w-40">
+                <Skeleton variant="text" lines={1} />
+              </div>
+              <div className="w-40">
+                <Skeleton variant="text" lines={1} />
+              </div>
             </div>
           </div>
         </div>
@@ -46,12 +54,16 @@ export default function Loading() {
       <Card padded>
         <div className="flex items-center gap-4">
           <Skeleton variant="avatar" size="lg" />
-          <Skeleton variant="text" lines={2} className="flex-1" />
+          <div className="flex-1">
+            <Skeleton variant="text" lines={2} />
+          </div>
         </div>
       </Card>
 
       <Card padded>
-        <Skeleton variant="text" lines={1} className="w-1/2" />
+        <div className="w-1/2">
+          <Skeleton variant="text" lines={1} />
+        </div>
       </Card>
 
       <Card padded>

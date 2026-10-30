@@ -1,5 +1,8 @@
 import {
   Alert,
+  Avatar,
+  Badge,
+  Breadcrumb,
   Button,
   Card,
   CardContent,
@@ -7,11 +10,20 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  ClosableTag,
   Dialog,
+  Drawer,
+  Image,
   Input,
   NativeSelect,
+  Pagination,
+  PriceTag,
   Select,
+  Stepper,
   Table,
+  Tabs,
+  Tag,
+  Timeline,
 } from "./index";
 
 // @ts-expect-error className would bypass tokens
@@ -53,3 +65,31 @@ export const buttonVariant = <Button variant="outline" />;
 export const alert = <Alert tone="info" className="x" />;
 // @ts-expect-error style would bypass tokens
 export const alertStyle = <Alert tone="info" style={{ color: "red" }} />;
+// @ts-expect-error className would bypass tokens
+export const tag = <Tag className="x" />;
+// @ts-expect-error className would bypass tokens
+export const closableTag = <ClosableTag closeLabel="a" className="x" />;
+// @ts-expect-error className would bypass tokens
+export const badge = <Badge className="x" />;
+// @ts-expect-error unknown tone
+export const badgeTone = <Badge tone="info" />;
+// @ts-expect-error className would bypass tokens
+export const tabs = <Tabs items={[]} className="x" />;
+export const pagination = (
+  // @ts-expect-error className would bypass tokens
+  <Pagination current={1} total={1} hrefFor={String} className="x" />
+);
+// @ts-expect-error className would bypass tokens
+export const breadcrumb = <Breadcrumb items={[]} className="x" />;
+// @ts-expect-error className would bypass tokens
+export const stepper = <Stepper steps={[]} className="x" />;
+// @ts-expect-error className would bypass tokens
+export const timeline = <Timeline items={[]} className="x" />;
+// @ts-expect-error className would bypass tokens
+export const priceTag = <PriceTag price={1} className="x" />;
+// @ts-expect-error className would bypass tokens
+export const image = <Image src="" alt="" aspect="square" className="x" />;
+// @ts-expect-error className would bypass tokens
+export const avatar = <Avatar className="x" />;
+// @ts-expect-error className would bypass tokens
+export const drawer = <Drawer open onClose={() => {}} className="x" />;

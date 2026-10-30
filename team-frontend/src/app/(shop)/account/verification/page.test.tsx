@@ -2,13 +2,13 @@ import { render, screen } from "@testing-library/react";
 import { redirect } from "next/navigation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { toneStyles } from "@/components/ui/tones";
 import { getPrincipal } from "@/lib/gateway/session";
 import {
   VerificationStatus,
   getVerificationStatus,
 } from "@/lib/gateway/verification";
 import { setupUser } from "@/test/user";
+import { components } from "@fe-platform/tokens";
 
 const toast = vi.hoisted(() => ({
   success: vi.fn(),
@@ -49,7 +49,7 @@ function status(s: VerificationStatus, statusText: string, badge = false) {
 }
 
 describe("/account/verification status Tag", () => {
-  const cases: [VerificationStatus, string, keyof typeof toneStyles][] = [
+  const cases: [VerificationStatus, string, keyof typeof components.tone][] = [
     [VerificationStatus.VERIFIED, "Đã xác minh", "success"],
     [VerificationStatus.PENDING, "Đang chờ duyệt", "warning"],
     [VerificationStatus.REJECTED, "Bị từ chối", "danger"],
@@ -60,7 +60,7 @@ describe("/account/verification status Tag", () => {
       status(s, text);
       render(await VerificationPage());
       const tag = screen.getByText(text);
-      expect(tag.className).toContain(toneStyles[tone].soft);
+      expect(tag.className).toContain(components.tone[tone]);
       expect(tag.className).not.toContain("bg-primary");
     });
   }

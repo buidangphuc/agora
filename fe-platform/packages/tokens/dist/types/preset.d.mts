@@ -23,6 +23,14 @@ declare namespace preset {
         namespace minHeight {
             let touch: string;
         }
+        let aspectRatio: {
+            auto: string;
+            square: string;
+            video: string;
+            "4/3": string;
+            "3/4": string;
+            "2/1": string;
+        };
         namespace boxShadow {
             let none: string;
         }
