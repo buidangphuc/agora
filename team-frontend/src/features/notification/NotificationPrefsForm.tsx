@@ -74,14 +74,13 @@ export function NotificationPrefsForm({
             {TYPE_ROWS.map((row) => (
               <Checkbox
                 key={row.key}
-                className="min-h-10 items-center"
                 name={row.key}
                 label={row.label}
                 checked={enabled[row.key]}
-                onChange={(e) =>
+                onCheckedChange={(v) =>
                   setEnabled((prev) => ({
                     ...prev,
-                    [row.key]: e.target.checked,
+                    [row.key]: v,
                   }))
                 }
               />

@@ -326,25 +326,20 @@ export function ListingForm({
         className="m-0 min-w-0 space-y-4 border-0 p-0"
       >
         <Section title="Thông tin cơ bản">
-          <FormItem
+          <Input
             label="Tên sản phẩm"
+            error={errorOf("title")}
+            id="title"
+            name="title"
             required
-            status={errorOf("title") ? "error" : undefined}
-            help={errorOf("title")}
-          >
-            <Input
-              id="title"
-              name="title"
-              required
-              value={title}
-              onChange={(e) => {
-                noteEdit("title");
-                change("title", () => setTitle(e.target.value));
-              }}
-              onBlur={() => touch("title")}
-              placeholder="VD: Điện thoại iPhone 15 Pro Max 256GB - Hàng Chính Hãng"
-            />
-          </FormItem>
+            value={title}
+            onChange={(e) => {
+              noteEdit("title");
+              change("title", () => setTitle(e.target.value));
+            }}
+            onBlur={() => touch("title")}
+            placeholder="VD: Điện thoại iPhone 15 Pro Max 256GB - Hàng Chính Hãng"
+          />
           <FormItem
             label="Ngành hàng"
             required
@@ -441,45 +436,33 @@ export function ListingForm({
 
         <Section title="Giá & tồn kho">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <FormItem
+            <Input
               label="Giá bán (₫)"
-              required
-              status={errorOf("price") ? "error" : undefined}
-              help={errorOf("price")}
-            >
-              <Input
-                id="price"
-                name="price"
-                type="number"
-                min={0}
-                value={price}
-                onChange={(e) => {
-                  noteEdit("price");
-                  change("price", () => setPrice(e.target.value));
-                }}
-                onBlur={() => touch("price")}
-                placeholder="VD: 29990000"
-              />
-            </FormItem>
-            <FormItem
+              error={errorOf("price")}
+              id="price"
+              name="price"
+              type="number"
+              min={0}
+              value={price}
+              onChange={(e) => {
+                noteEdit("price");
+                change("price", () => setPrice(e.target.value));
+              }}
+              onBlur={() => touch("price")}
+              placeholder="VD: 29990000"
+            />
+            <Input
               label="Kho hàng"
-              required
-              status={errorOf("stock") ? "error" : undefined}
-              help={errorOf("stock")}
-            >
-              <Input
-                id="stock"
-                name="stock"
-                type="number"
-                min={0}
-                value={stock}
-                onChange={(e) =>
-                  change("stock", () => setStock(e.target.value))
-                }
-                onBlur={() => touch("stock")}
-                placeholder="VD: 100"
-              />
-            </FormItem>
+              error={errorOf("stock")}
+              id="stock"
+              name="stock"
+              type="number"
+              min={0}
+              value={stock}
+              onChange={(e) => change("stock", () => setStock(e.target.value))}
+              onBlur={() => touch("stock")}
+              placeholder="VD: 100"
+            />
             <FormItem label="Đơn vị tiền tệ">
               <Select
                 id="currency"

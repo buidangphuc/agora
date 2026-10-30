@@ -6,7 +6,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
-import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { RadioGroup } from "@/components/ui/Radio";
@@ -157,22 +156,18 @@ export function VoucherModal({
             }}
           >
             <div className="flex-1">
-              <FormItem
+              <Input
                 label="Nhập mã giảm giá"
-                status={error ? "error" : undefined}
-                help={error || undefined}
-              >
-                <Input
-                  name="voucher_code"
-                  value={code}
-                  placeholder="Ví dụ: SAVE10"
-                  autoComplete="off"
-                  onChange={(e) => {
-                    setCode(e.target.value);
-                    if (error) setError("");
-                  }}
-                />
-              </FormItem>
+                error={error || undefined}
+                name="voucher_code"
+                value={code}
+                placeholder="Ví dụ: SAVE10"
+                autoComplete="off"
+                onChange={(e) => {
+                  setCode(e.target.value);
+                  if (error) setError("");
+                }}
+              />
             </div>
             <span className="mt-6">
               <Button

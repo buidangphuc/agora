@@ -48,48 +48,42 @@ export function RegisterForm({ returnUrl }: { returnUrl?: string }) {
               {returnUrl ? (
                 <input type="hidden" name="returnUrl" value={returnUrl} />
               ) : null}
-              <FormItem
+              <Input
                 label="Tên đăng nhập"
-                required
-                help={
-                  form.errors.username ?? `Tối thiểu ${MIN_USERNAME} ký tự.`
+                error={form.errors.username}
+                helperText={
+                  form.errors.username
+                    ? undefined
+                    : `Tối thiểu ${MIN_USERNAME} ký tự.`
                 }
-                status={form.errors.username ? "error" : undefined}
-              >
-                <Input
-                  className="min-h-10"
-                  ref={form.usernameRef}
-                  id="username"
-                  name="username"
-                  required
-                  autoComplete="username"
-                  placeholder="Chọn tên đăng nhập"
-                  onChange={() => form.onChange("username")}
-                  onBlur={() => form.onBlur("username")}
-                />
-              </FormItem>
+                ref={form.usernameRef}
+                id="username"
+                name="username"
+                required
+                autoComplete="username"
+                placeholder="Chọn tên đăng nhập"
+                onChange={() => form.onChange("username")}
+                onBlur={() => form.onBlur("username")}
+              />
 
-              <FormItem
+              <Input
                 label="Mật khẩu"
-                required
-                help={
-                  form.errors.password ?? `Tối thiểu ${MIN_PASSWORD} ký tự.`
+                error={form.errors.password}
+                helperText={
+                  form.errors.password
+                    ? undefined
+                    : `Tối thiểu ${MIN_PASSWORD} ký tự.`
                 }
-                status={form.errors.password ? "error" : undefined}
-              >
-                <Input
-                  className="min-h-10"
-                  ref={form.passwordRef}
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  placeholder="Chọn mật khẩu"
-                  onChange={() => form.onChange("password")}
-                  onBlur={() => form.onBlur("password")}
-                />
-              </FormItem>
+                ref={form.passwordRef}
+                id="password"
+                name="password"
+                type="password"
+                required
+                autoComplete="new-password"
+                placeholder="Chọn mật khẩu"
+                onChange={() => form.onChange("password")}
+                onBlur={() => form.onBlur("password")}
+              />
 
               <FormItem label="Loại tài khoản">
                 <Select

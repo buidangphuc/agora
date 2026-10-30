@@ -62,7 +62,7 @@ function Slot({
       >
         <Input
           name="voucher_code"
-          aria-label={label}
+          label={label}
           value={code}
           placeholder="Nhập mã giảm giá"
           autoComplete="off"

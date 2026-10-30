@@ -155,7 +155,9 @@ describe("standalone pages are wide, single column", () => {
       expect(container.querySelector("section")?.className).toContain(
         "max-w-5xl",
       );
-      expect(container.querySelector("[style*='width']")).toBeNull();
+      expect(
+        container.querySelector("[style*='width']:not([aria-hidden='true'])"),
+      ).toBeNull();
     });
   }
 });
@@ -165,7 +167,7 @@ describe("tap targets: form controls and page buttons are at least 40px high", (
     it(route, async () => {
       const { container } = render(await load());
       const controls = container.querySelectorAll(
-        "input:not([type=checkbox]), select, main button, button",
+        "input:not([type=checkbox]):not([aria-hidden='true']), select, main button:not([role=checkbox]), button:not([role=checkbox])",
       );
       for (const control of controls) {
         const ok =

@@ -127,32 +127,22 @@ export function AdCampaignForm({
                 />
               </FormItem>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormItem
+                <Input
                   label="Ngân sách (₫)"
-                  required
-                  status={shown("budget") ? "error" : undefined}
-                  help={shown("budget")}
-                >
-                  <Input
-                    type="number"
-                    min={0}
-                    value={budget}
-                    onChange={(e) => setBudget(e.target.value)}
-                  />
-                </FormItem>
-                <FormItem
+                  error={shown("budget")}
+                  type="number"
+                  min={0}
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                />
+                <Input
                   label="Giá thầu mỗi lượt (₫)"
-                  required
-                  status={shown("bid") ? "error" : undefined}
-                  help={shown("bid")}
-                >
-                  <Input
-                    type="number"
-                    min={0}
-                    value={bid}
-                    onChange={(e) => setBid(e.target.value)}
-                  />
-                </FormItem>
+                  error={shown("bid")}
+                  type="number"
+                  min={0}
+                  value={bid}
+                  onChange={(e) => setBid(e.target.value)}
+                />
               </div>
             </fieldset>
             {error && <Alert type="error" description={error} />}

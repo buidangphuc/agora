@@ -113,30 +113,20 @@ export function BundleManager({
         <CardContent>
           <form onSubmit={submit} noValidate className="space-y-4">
             <fieldset disabled={pending} className="m-0 space-y-4 border-0 p-0">
-              <FormItem
+              <Input
                 label="Tên combo"
-                required
-                status={shown("title") ? "error" : undefined}
-                help={shown("title")}
-              >
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </FormItem>
-              <FormItem
+                error={shown("title")}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+              <Input
                 label="Giá combo (₫)"
-                required
-                status={shown("price") ? "error" : undefined}
-                help={shown("price")}
-              >
-                <Input
-                  type="number"
-                  min={0}
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                />
-              </FormItem>
+                error={shown("price")}
+                type="number"
+                min={0}
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
               <FormItem
                 group
                 label={`Chọn sản phẩm (${selected.length} đã chọn)`}
@@ -155,7 +145,7 @@ export function BundleManager({
                         <Checkbox
                           label={l.title}
                           checked={selected.includes(l.id)}
-                          onChange={() => toggle(l.id)}
+                          onCheckedChange={() => toggle(l.id)}
                         />
                       </li>
                     ))}

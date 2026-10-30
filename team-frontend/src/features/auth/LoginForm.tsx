@@ -5,7 +5,6 @@ import { useActionState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Card, CardContent } from "@/components/ui/Card";
-import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
 import { AuthSubmitButton } from "./AuthSubmitButton";
 import { type AuthState, loginAction } from "./actions";
@@ -42,44 +41,32 @@ export function LoginForm({ returnUrl }: { returnUrl?: string }) {
               {returnUrl ? (
                 <input type="hidden" name="returnUrl" value={returnUrl} />
               ) : null}
-              <FormItem
+              <Input
                 label="Tên đăng nhập"
+                error={form.errors.username}
+                ref={form.usernameRef}
+                id="username"
+                name="username"
                 required
-                help={form.errors.username}
-                status={form.errors.username ? "error" : undefined}
-              >
-                <Input
-                  className="min-h-10"
-                  ref={form.usernameRef}
-                  id="username"
-                  name="username"
-                  required
-                  autoComplete="username"
-                  placeholder="Nhập username của bạn"
-                  onChange={() => form.onChange("username")}
-                  onBlur={() => form.onBlur("username")}
-                />
-              </FormItem>
+                autoComplete="username"
+                placeholder="Nhập username của bạn"
+                onChange={() => form.onChange("username")}
+                onBlur={() => form.onBlur("username")}
+              />
 
-              <FormItem
+              <Input
                 label="Mật khẩu"
+                error={form.errors.password}
+                ref={form.passwordRef}
+                id="password"
+                name="password"
+                type="password"
                 required
-                help={form.errors.password}
-                status={form.errors.password ? "error" : undefined}
-              >
-                <Input
-                  className="min-h-10"
-                  ref={form.passwordRef}
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  onChange={() => form.onChange("password")}
-                  onBlur={() => form.onBlur("password")}
-                />
-              </FormItem>
+                autoComplete="current-password"
+                placeholder="••••••••"
+                onChange={() => form.onChange("password")}
+                onBlur={() => form.onBlur("password")}
+              />
 
               {state.error && !form.hasFieldErrors && (
                 <Alert type="error" description={state.error} />

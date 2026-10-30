@@ -51,19 +51,15 @@ export function SubmitKycForm() {
           options={DOC_TYPES}
         />
       </FormItem>
-      <FormItem
+      <Input
         label="Mã tham chiếu tài liệu"
-        help="Nhập số giấy tờ hoặc khóa tệp đã tải lên."
-      >
-        <Input
-          className="min-h-10"
-          name="docRef"
-          required
-          value={docRef}
-          onChange={(e) => setDocRef(e.target.value)}
-          placeholder="Ví dụ: 0123456789"
-        />
-      </FormItem>
+        helperText="Nhập số giấy tờ hoặc khóa tệp đã tải lên."
+        name="docRef"
+        required
+        value={docRef}
+        onChange={(e) => setDocRef(e.target.value)}
+        placeholder="Ví dụ: 0123456789"
+      />
       <Button
         type="submit"
         isLoading={pending}

@@ -154,24 +154,22 @@ export function ReturnRequestModal({
           </FormItem>
         )}
 
-        <FormItem
+        <Input
           label="Số tiền hoàn (₫)"
-          required
-          status={errors.amount ? "error" : undefined}
-          help={
-            errors.amount ?? `Tối đa ${orderTotal.toLocaleString("vi-VN")}₫`
+          error={errors.amount}
+          helperText={
+            errors.amount
+              ? undefined
+              : `Tối đa ${orderTotal.toLocaleString("vi-VN")}₫`
           }
-        >
-          <Input
-            data-testid="return-amount"
-            type="number"
-            min={0}
-            max={orderTotal}
-            value={amount}
-            disabled={pending}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </FormItem>
+          data-testid="return-amount"
+          type="number"
+          min={0}
+          max={orderTotal}
+          value={amount}
+          disabled={pending}
+          onChange={(e) => setAmount(e.target.value)}
+        />
       </div>
     </Modal>
   );

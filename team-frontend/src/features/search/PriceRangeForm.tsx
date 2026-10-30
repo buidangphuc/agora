@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
 
 /** Validation of the custom price range; returns the message for the max field. */
@@ -75,32 +74,25 @@ export function PriceRangeForm({
         <input key={name} type="hidden" name={name} value={value} />
       ))}
       <div className="grid grid-cols-2 gap-2">
-        <FormItem label="Từ (₫)">
-          <Input
-            type="number"
-            name="minPrice"
-            inputMode="numeric"
-            min={0}
-            inputSize="sm"
-            value={min}
-            onChange={(e) => setMin(e.target.value)}
-          />
-        </FormItem>
-        <FormItem
+        <Input
+          label="Từ (₫)"
+          type="number"
+          name="minPrice"
+          inputMode="numeric"
+          min={0}
+          value={min}
+          onChange={(e) => setMin(e.target.value)}
+        />
+        <Input
           label="Đến (₫)"
-          status={error ? "error" : undefined}
-          help={error}
-        >
-          <Input
-            type="number"
-            name="maxPrice"
-            inputMode="numeric"
-            min={0}
-            inputSize="sm"
-            value={max}
-            onChange={(e) => setMax(e.target.value)}
-          />
-        </FormItem>
+          error={error}
+          type="number"
+          name="maxPrice"
+          inputMode="numeric"
+          min={0}
+          value={max}
+          onChange={(e) => setMax(e.target.value)}
+        />
       </div>
       {showSubmit && (
         <Button type="submit" variant="primary" size="md" fullWidth>
