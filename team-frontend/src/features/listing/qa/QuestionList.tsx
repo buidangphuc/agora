@@ -14,11 +14,11 @@ function QuestionItem({ question }: { question: ViewQuestion }) {
   return (
     <li
       data-testid="qa-item"
-      className="space-y-3 rounded-xl border border-border-subtle bg-surface-muted p-4"
+      className="space-y-4 rounded-2xl border border-border-subtle bg-surface-card p-5"
     >
       <div className="flex items-start gap-3">
         <Avatar name="Người mua" size="sm" />
-        <div className="min-w-0 flex-1 text-sm font-semibold text-text-primary">
+        <div className="min-w-0 flex-1 break-words pt-1 text-sm font-semibold text-text-primary">
           {question.questionText}
         </div>
       </div>
@@ -27,10 +27,10 @@ function QuestionItem({ question }: { question: ViewQuestion }) {
         <div
           key={a.id}
           data-testid="qa-answer"
-          className="flex items-start gap-3 pl-6 text-sm text-text-secondary"
+          className="ml-4 flex items-start gap-3 rounded-xl bg-surface-muted p-4 text-sm text-text-secondary"
         >
           <Avatar name={a.isShopReply ? "Shop" : "Người mua"} size="sm" />
-          <div className="min-w-0 flex-1 space-y-1">
+          <div className="min-w-0 flex-1 space-y-2 break-words">
             {a.isShopReply && <Tag color="success">Shop</Tag>}
             <p>{a.answerText}</p>
           </div>
@@ -78,7 +78,7 @@ export async function QuestionList({
   }
 
   return (
-    <ul className="space-y-3">
+    <ul className="space-y-4">
       {questions.map((q) => (
         <QuestionItem key={q.id} question={q} />
       ))}

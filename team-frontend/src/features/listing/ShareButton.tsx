@@ -50,12 +50,12 @@ export function ShareButton({ id }: { id: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
       <button
         type="button"
         onClick={share}
         disabled={pending}
-        className="rounded-md border border-border-subtle bg-surface-card px-3 py-1 text-xs font-medium text-text-secondary hover:bg-surface-page disabled:opacity-50"
+        className="inline-flex min-h-touch items-center rounded-xl border border-border-strong bg-surface-card px-4 text-sm font-medium text-text-primary transition duration-150 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:opacity-50"
       >
         {pending
           ? "Đang tạo..."

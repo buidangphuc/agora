@@ -8,8 +8,8 @@ import type { ViewRatingBreakdown } from "@/lib/gateway/reviews";
 const STARS = [5, 4, 3, 2, 1];
 
 const base =
-  "rounded-lg border px-3 py-1.5 text-sm font-medium transition duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2";
-const on = "border-text-primary bg-text-primary text-text-inverse";
+  "inline-flex min-h-touch items-center rounded-full border px-4 text-sm font-medium transition duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2";
+const on = "border-action-primary bg-action-primary text-text-inverse";
 const off =
   "border-border-strong bg-surface-card text-text-primary hover:bg-surface-muted";
 

@@ -25,7 +25,7 @@ const REASONS = [
 ];
 
 const linkClass =
-  "text-sm text-text-secondary underline hover:text-text-primary";
+  "inline-flex min-h-touch items-center text-sm text-text-secondary underline underline-offset-4 hover:text-text-primary";
 
 /** Buyer "Báo cáo tin đăng" control: login link for a guest, else a dialog. */
 export function ReportListingButton({
@@ -42,7 +42,7 @@ export function ReportListingButton({
 
   if (!loggedIn) {
     return (
-      <span className="text-sm text-text-secondary">
+      <span className="inline-flex min-h-touch items-center text-sm text-text-secondary">
         <Link href={loginPath(`/listing/${listingId}`)} variant="subtle">
           {LABEL}
         </Link>
@@ -114,7 +114,7 @@ export function ReportListingButton({
               maxLength={500}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="block w-full rounded-lg border border-border-subtle p-2 text-sm"
+              className="block w-full rounded-xl border border-border-strong px-4 py-3 text-sm"
               rows={3}
             />
             <p className="text-right text-xs text-text-muted">

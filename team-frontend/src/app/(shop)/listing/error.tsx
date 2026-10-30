@@ -13,7 +13,7 @@ export default function ListingError({
 }) {
   const retry = useRouteRetry(reset);
   return (
-    <div className="mx-auto max-w-xl py-12">
+    <div className="mx-auto w-full max-w-xl py-12 md:py-20">
       <Alert
         type="error"
         title="Không thể tải sản phẩm"

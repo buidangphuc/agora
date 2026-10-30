@@ -10,7 +10,7 @@ import { QuestionList } from "./QuestionList";
 /** Footprint of the question list while it loads. */
 export function QuestionListSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <Skeleton variant="text" lines={3} />
       <Skeleton variant="text" lines={3} />
     </div>
@@ -31,10 +31,10 @@ export function QASection({
   return (
     <section id="qa" aria-labelledby="qa-heading" className="scroll-mt-40">
       <Card padded>
-        <div className="space-y-4">
+        <div className="space-y-6">
           <h2
             id="qa-heading"
-            className="text-lg font-semibold text-text-primary"
+            className="text-xl font-semibold tracking-tight text-text-primary"
           >
             HỎI ĐÁP VỀ SẢN PHẨM (Q&amp;A)
           </h2>
@@ -44,7 +44,7 @@ export function QASection({
           ) : (
             <p
               data-testid="qa-login-prompt"
-              className="text-sm text-text-secondary"
+              className="rounded-2xl bg-surface-muted px-5 py-4 text-sm text-text-secondary"
             >
               <span className="font-semibold">
                 <Link href={loginPath(`/listing/${listingId}`)}>Đăng nhập</Link>
