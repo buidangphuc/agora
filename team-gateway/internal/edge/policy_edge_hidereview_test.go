@@ -38,7 +38,7 @@ func (h *hideReviewUpstream) HideReview(context.Context, *engagementv1.HideRevie
 func callHideReview(t *testing.T, up *hideReviewUpstream, auth func(f *cockpitFixture) string) (int, string) {
 	t.Helper()
 	f := newCockpitFixture(t)
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Engagement: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Engagement: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	t.Cleanup(srv.Close)
 	req, _ := http.NewRequest(http.MethodPost, srv.URL+hideReviewPath, strings.NewReader(`{"review_id":"r-1"}`))
 	req.Header.Set("Content-Type", "application/json")

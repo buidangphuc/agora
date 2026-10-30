@@ -60,7 +60,7 @@ def gateway_with_small_burst(world: World) -> None:
     args += ["-p", "127.0.0.1::8080"]
     private = {k: v for k, v in env.items() if k not in _SKIP_ENV}
     private.update(RATE_LIMIT_RPS=str(PRIVATE_RPS), RATE_LIMIT_BURST=str(PRIVATE_BURST))
-    private["HTTP_PORT"] = "8080"
+    private["GRPC_PORT"] = "8080"
     for key, value in private.items():
         args += ["-e", f"{key}={value}"]
     world.add_cleanup(lambda: pe.docker("rm", "-f", name, check=False))

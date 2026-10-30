@@ -1159,7 +1159,7 @@ features:
     tags: [admin, audit, auth]
     status: automated
     covered_by: "admin/user_enforcement.feature::Login enforcement: Banned user is refused after a correct password"
-    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestLoginBannedPermissionDenied`"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/identity` `TestLoginBannedPermissionDenied`"
 
   - id: user-enforcement.login-enforcement-suspended-user-is-refused-until-the-end-time
     title: "Login enforcement: Suspended user is refused until the end time"
@@ -1174,7 +1174,7 @@ features:
       - "Login enforcement: Suspended user is refused until the end time (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginSuspendedPermissionDenied`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestLoginSuspendedPermissionDenied`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-wrong-password-reveals-no-status
     title: "Login enforcement: Wrong password reveals no status"
@@ -1191,7 +1191,7 @@ features:
     tags: [admin, audit, auth]
     status: automated
     covered_by: "admin/user_enforcement.feature::Login enforcement: Wrong password reveals no status"
-    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestLoginWrongPasswordNoStatusOracle`"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/identity` `TestLoginWrongPasswordNoStatusOracle`"
 
   - id: user-enforcement.login-enforcement-refusal-does-not-leak-the-reason-or-note
     title: "Login enforcement: Refusal does not leak the reason or note"
@@ -1206,7 +1206,7 @@ features:
       - "Login enforcement: Refusal does not leak the reason or note (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestLoginRefusalLeaksNothing`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/rpc` `TestLoginRefusalLeaksNothing`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-ban-committed-during-login-leaves-no-live-session
     title: "Login enforcement: Ban committed during login leaves no live session"
@@ -1221,7 +1221,7 @@ features:
       - "Login enforcement: Ban committed during login leaves no live session (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestCreateSessionRechecksStatusUnderLockPG` and team-identity `internal/service` `TestLoginBanRaceNoLiveSession`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestCreateSessionRechecksStatusUnderLockPG` and team-identity `internal/identity` `TestLoginBanRaceNoLiveSession`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-restricted-and-active-users-log-in
     title: "Login enforcement: Restricted and active users log in"
@@ -1236,7 +1236,7 @@ features:
       - "Login enforcement: Restricted and active users log in (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginRestrictedAndActiveSucceed`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestLoginRestrictedAndActiveSucceed`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-expired-suspension-is-lifted
     title: "Login enforcement: Expired suspension is lifted"
@@ -1253,7 +1253,7 @@ features:
     tags: [admin, audit, auth]
     status: automated
     covered_by: "admin/user_enforcement.feature::Login enforcement: Expired suspension is lifted"
-    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestLoginLiftsExpiredSuspension`"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/identity` `TestLoginLiftsExpiredSuspension`"
 
   - id: user-enforcement.login-enforcement-suspension-ending-exactly-now-is-lifted
     title: "Login enforcement: Suspension ending exactly now is lifted"
@@ -1268,7 +1268,7 @@ features:
       - "Login enforcement: Suspension ending exactly now is lifted (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginSuspensionBoundaryIsLifted`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestLoginSuspensionBoundaryIsLifted`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-concurrent-logins-lift-once
     title: "Login enforcement: Concurrent logins lift once"
@@ -1283,7 +1283,7 @@ features:
       - "Login enforcement: Concurrent logins lift once (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestLiftExpiredSuspensionOnceUnderConcurrencyPG`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestLiftExpiredSuspensionOnceUnderConcurrencyPG`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-ban-racing-the-lift-refuses-the-login
     title: "Login enforcement: Ban racing the lift refuses the login"
@@ -1298,7 +1298,7 @@ features:
       - "Login enforcement: Ban racing the lift refuses the login (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginLiftMissRereadsStatus`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestLoginLiftMissRereadsStatus`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-failed-lift-fails-the-login-closed
     title: "Login enforcement: Failed lift fails the login closed"
@@ -1313,7 +1313,7 @@ features:
       - "Login enforcement: Failed lift fails the login closed (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginLiftFailureFailsClosed`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestLoginLiftFailureFailsClosed`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-lift-writes-no-audit-event
     title: "Login enforcement: Lift writes no audit event"
@@ -1328,7 +1328,7 @@ features:
       - "Login enforcement: Lift writes no audit event (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginLiftNotAudited`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestLoginLiftNotAudited`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-a-banned-user-is-never-lifted-by-time
     title: "Login enforcement: A banned user is never lifted by time"
@@ -1343,7 +1343,7 @@ features:
       - "Login enforcement: A banned user is never lifted by time (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestLoginBannedNeverLifted`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestLoginBannedNeverLifted`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-surviving-session-of-a-banned-user-is-refused-and-revoked
     title: "Login enforcement: Surviving session of a banned user is refused and revoked"
@@ -1358,7 +1358,7 @@ features:
       - "Login enforcement: Surviving session of a banned user is refused and revoked (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestRefreshBannedPermissionDeniedRevokes`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestRefreshBannedPermissionDeniedRevokes`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-expired-suspension-is-not-lifted-by-refresh
     title: "Login enforcement: Expired suspension is not lifted by refresh"
@@ -1373,7 +1373,7 @@ features:
       - "Login enforcement: Expired suspension is not lifted by refresh (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestRefreshSuspendedNotLifted`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestRefreshSuspendedNotLifted`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-unknown-token-is-still-generic
     title: "Login enforcement: Unknown token is still generic"
@@ -1388,7 +1388,7 @@ features:
       - "Login enforcement: Unknown token is still generic (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestRefreshUnknownTokenBeforeStatusCheck`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestRefreshUnknownTokenBeforeStatusCheck`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-restricted-user-refreshes-without-listing-write
     title: "Login enforcement: Restricted user refreshes without listing.write"
@@ -1403,7 +1403,7 @@ features:
       - "Login enforcement: Restricted user refreshes without listing.write (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestRefreshRestrictedDropsListingWrite`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestRefreshRestrictedDropsListingWrite`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-restricted-seller-token-lacks-listing-write
     title: "Login enforcement: Restricted seller token lacks listing.write"
@@ -1420,7 +1420,7 @@ features:
     tags: [admin, audit, auth]
     status: automated
     covered_by: "admin/user_enforcement.feature::Login enforcement: Restricted seller token lacks listing.write"
-    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/authz` `TestScopesForUserRestricted` and team-identity `internal/service` `TestLoginRestrictedSellerNoListingWrite`"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/authz` `TestScopesForUserRestricted` and team-identity `internal/identity` `TestLoginRestrictedSellerNoListingWrite`"
 
   - id: user-enforcement.login-enforcement-active-user-scopes-unchanged
     title: "Login enforcement: Active user scopes unchanged"
@@ -1450,7 +1450,7 @@ features:
       - "Login enforcement: Reinstated user regains listing.write at next refresh (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestRefreshAfterReinstatementRestoresScope`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestRefreshAfterReinstatementRestoresScope`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.login-enforcement-unknown-status-gets-no-extra-scopes
     title: "Login enforcement: Unknown status gets no extra scopes"
@@ -1480,7 +1480,7 @@ features:
       - "User enforcement: New user is active (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestCreateUserDefaultsToActive`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestCreateUserDefaultsToActive`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-existing-rows-read-as-active-after-migration
     title: "User enforcement: Existing rows read as active after migration"
@@ -1510,7 +1510,7 @@ features:
       - "User enforcement: Unknown status value is refused by the schema (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestUserStatusCheckConstraint`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestUserStatusCheckConstraint`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-ban-writes-one-audit-event-and-revokes-sessions
     title: "User enforcement: Ban writes one audit event and revokes sessions"
@@ -1527,7 +1527,7 @@ features:
     tags: [admin, audit, auth]
     status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Ban writes one audit event and revokes sessions"
-    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestSetUserStatusBanAuditsAndRevokes`"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/identity` `TestSetUserStatusBanAuditsAndRevokes`"
 
   - id: user-enforcement.user-enforcement-audit-is-written-before-the-change
     title: "User enforcement: Audit is written before the change"
@@ -1542,7 +1542,7 @@ features:
       - "User enforcement: Audit is written before the change (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusAuditPrecedesChange`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSetUserStatusAuditPrecedesChange`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-audit-down-refuses-the-change
     title: "User enforcement: Audit down refuses the change"
@@ -1559,7 +1559,7 @@ features:
     tags: [admin, audit, auth]
     status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Audit down refuses the change"
-    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/handler` `TestSetUserStatusAuditDownUnavailableNoChange`"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/identity` `TestSetUserStatusAuditDownUnavailableNoChange`"
 
   - id: user-enforcement.user-enforcement-no-audit-upstream-configured
     title: "User enforcement: No audit upstream configured"
@@ -1574,7 +1574,7 @@ features:
       - "User enforcement: No audit upstream configured (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/upstream` `TestNewAuditClientEmptyAddrIsNil` and team-identity `internal/service` `TestSetUserStatusNilAuditUnavailable`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSetUserStatusNilWriterUnavailableNoChange`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-audit-is-called-as-the-service-principal
     title: "User enforcement: Audit is called as the service principal"
@@ -1604,7 +1604,7 @@ features:
       - "User enforcement: Change failure after audit keeps the audit row (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusTxFailureAfterAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSetUserStatusTxFailureAfterAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-status-change-and-revokes-are-atomic
     title: "User enforcement: Status change and revokes are atomic"
@@ -1619,7 +1619,7 @@ features:
       - "User enforcement: Status change and revokes are atomic (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestSetUserStatusRollsBackOnOutboxFailure`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestSetUserStatusRollsBackOnOutboxFailure`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-restrict-revokes-sessions-and-keeps-the-user-able-to-log-in
     title: "User enforcement: Restrict revokes sessions and keeps the user able to log in"
@@ -1634,7 +1634,7 @@ features:
       - "User enforcement: Restrict revokes sessions and keeps the user able to log in (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusRestrictRevokesSessions`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSetUserStatusRestrictRevokesSessions`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-reinstating-to-active-revokes-nothing
     title: "User enforcement: Reinstating to active revokes nothing"
@@ -1649,7 +1649,7 @@ features:
       - "User enforcement: Reinstating to active revokes nothing (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusActiveRevokesNothing`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSetUserStatusActiveRevokesNothing` and team-identity `internal/store` `TestSetUserStatusActiveRevokesNothing`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-setting-the-same-status-updates-reason-and-until
     title: "User enforcement: Setting the same status updates reason and until"
@@ -1664,7 +1664,7 @@ features:
       - "User enforcement: Setting the same status updates reason and until (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusSuspendExtend`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSetUserStatusSuspendExtend`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-unknown-user-is-notfound-without-audit
     title: "User enforcement: Unknown user is NotFound without audit"
@@ -1679,7 +1679,7 @@ features:
       - "User enforcement: Unknown user is NotFound without audit (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSetUserStatusNotFoundNoAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSetUserStatusNotFoundNoAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-admin-cannot-change-their-own-status
     title: "User enforcement: Admin cannot change their own status"
@@ -1696,7 +1696,7 @@ features:
     tags: [admin, audit, auth]
     status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Admin cannot change their own status"
-    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestSetUserStatusSelfRefused`"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/identity` `TestSetUserStatusSelfRefused`"
 
   - id: user-enforcement.user-enforcement-admin-cannot-change-another-admin
     title: "User enforcement: Admin cannot change another admin"
@@ -1713,7 +1713,7 @@ features:
     tags: [admin, audit, auth]
     status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Admin cannot change another admin"
-    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestSetUserStatusAdminTargetRefused`"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/identity` `TestSetUserStatusAdminTargetRefused`"
 
   - id: user-enforcement.user-enforcement-invalid-input-is-rejected-before-any-audit
     title: "User enforcement: Invalid input is rejected before any audit"
@@ -1728,7 +1728,7 @@ features:
       - "User enforcement: Invalid input is rejected before any audit (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestSetUserStatusInvalidInput`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/rpc` `TestSetUserStatusInvalidInput`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-input-boundaries-are-accepted
     title: "User enforcement: Input boundaries are accepted"
@@ -1743,7 +1743,7 @@ features:
       - "User enforcement: Input boundaries are accepted (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestSetUserStatusInputBoundaries`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/rpc` `TestSetUserStatusInputBoundaries`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-non-admin-cannot-set-a-status
     title: "User enforcement: Non-admin cannot set a status"
@@ -1760,7 +1760,7 @@ features:
     tags: [admin, audit, auth]
     status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Non-admin cannot set a status"
-    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/handler` `TestSetUserStatusRequiresAdminScope`"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/rpc` `TestSetUserStatusRequiresAdminScope`"
 
   - id: user-enforcement.user-enforcement-audit-metadata-never-leaks-into-logs
     title: "User enforcement: Audit metadata never leaks into logs"
@@ -1775,7 +1775,7 @@ features:
       - "User enforcement: Audit metadata never leaks into logs (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestSetUserStatusNoteNeverLogged`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/rpc` `TestSetUserStatusNoteNeverLogged`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-one-sessionrevoked-per-session-then-one-userstatuschanged
     title: "User enforcement: One SessionRevoked per session then one UserStatusChanged"
@@ -1790,7 +1790,7 @@ features:
       - "User enforcement: One SessionRevoked per session then one UserStatusChanged (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestSetUserStatusOutboxRows`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestSetUserStatusOutboxRows`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-events-keep-per-user-order
     title: "User enforcement: Events keep per-user order"
@@ -1805,7 +1805,7 @@ features:
       - "User enforcement: Events keep per-user order (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestSetUserStatusOutboxOrderPG`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestSetUserStatusOutboxOrderPG`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-event-carries-no-note-and-no-username
     title: "User enforcement: Event carries no note and no username"
@@ -1835,7 +1835,7 @@ features:
       - "User enforcement: User without sessions still emits the status event (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestSetUserStatusNoSessions`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestSetUserStatusNoSessions`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-already-revoked-sessions-are-not-revoked-twice
     title: "User enforcement: Already revoked sessions are not revoked twice"
@@ -1850,7 +1850,7 @@ features:
       - "User enforcement: Already revoked sessions are not revoked twice (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestSetUserStatusSkipsRevokedSessions`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestSetUserStatusSkipsRevokedSessions`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-refresh-tokens-of-revoked-sessions-are-dead
     title: "User enforcement: Refresh tokens of revoked sessions are dead"
@@ -1867,7 +1867,7 @@ features:
     tags: [admin, audit, auth]
     status: automated
     covered_by: "admin/user_enforcement.feature::User enforcement: Refresh tokens of revoked sessions are dead"
-    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/service` `TestBannedUserRefreshTokenDead`"
+    notes: "identity-user-enforcement: e2e written red-first; spec VERIFIED BY: team-identity `internal/identity` `TestBannedUserRefreshTokenDead`"
 
   - id: user-enforcement.user-enforcement-find-by-username-prefix
     title: "User enforcement: Find by username prefix"
@@ -1882,7 +1882,7 @@ features:
       - "User enforcement: Find by username prefix (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestListUsersPrefix`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestListUsersPrefix`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-find-by-exact-id
     title: "User enforcement: Find by exact id"
@@ -1897,7 +1897,7 @@ features:
       - "User enforcement: Find by exact id (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestListUsersExactID`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestListUsersExactID`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-filter-by-status
     title: "User enforcement: Filter by status"
@@ -1912,7 +1912,7 @@ features:
       - "User enforcement: Filter by status (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestListUsersStatusFilter`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestListUsersStatusFilter`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-wildcards-in-the-query-are-literal
     title: "User enforcement: Wildcards in the query are literal"
@@ -1927,7 +1927,7 @@ features:
       - "User enforcement: Wildcards in the query are literal (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestListUsersEscapesLikeWildcards`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestListUsersEscapesLikeWildcards`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-paging-boundaries
     title: "User enforcement: Paging boundaries"
@@ -1942,7 +1942,7 @@ features:
       - "User enforcement: Paging boundaries (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestListUsersPaging`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestListUsersPaging`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-oversized-query-is-rejected
     title: "User enforcement: Oversized query is rejected"
@@ -1957,7 +1957,7 @@ features:
       - "User enforcement: Oversized query is rejected (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestListUsersQueryTooLong`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/rpc` `TestListUsersQueryTooLong`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-listing-never-exposes-credentials-and-is-not-audited
     title: "User enforcement: Listing never exposes credentials and is not audited"
@@ -1972,7 +1972,7 @@ features:
       - "User enforcement: Listing never exposes credentials and is not audited (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestListUsersNoCredentialsNoAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/rpc` `TestListUsersNoCredentialsNoAudit`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: user-enforcement.user-enforcement-non-admin-cannot-list-users
     title: "User enforcement: Non-admin cannot list users"
@@ -1987,7 +1987,7 @@ features:
       - "User enforcement: Non-admin cannot list users (unit-verified)"
     tags: [admin, unit]
     status: not-testable
-    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/handler` `TestListUsersRequiresAdminScope`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-user-enforcement: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/rpc` `TestListUsersRequiresAdminScope`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   # ---- identity-session-retention (e2e-author; planned until the feature scenarios run green)
 
@@ -2004,7 +2004,7 @@ features:
       - "Session retention: revoked session older than retention is deleted (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsDeletesOldRevoked`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestPurgeSessionsDeletesOldRevoked`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.expired-refresh-session-is-deleted
     title: "Session retention: expired refresh session is deleted"
@@ -2019,7 +2019,7 @@ features:
       - "Session retention: expired refresh session is deleted (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsDeletesExpiredRefresh`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestPurgeSessionsDeletesExpiredRefresh`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.absolute-max-age-counts-as-expiry
     title: "Session retention: absolute max age counts as expiry"
@@ -2034,7 +2034,7 @@ features:
       - "Session retention: absolute max age counts as expiry (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsAbsoluteMaxAge`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestPurgeSessionsAbsoluteMaxAge`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.legacy-rows-without-timestamps
     title: "Session retention: legacy rows without timestamps"
@@ -2049,7 +2049,7 @@ features:
       - "Session retention: legacy rows without timestamps (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsLegacyRows`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestPurgeSessionsLegacyRows`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.active-session-is-never-touched
     title: "Session retention: active session is never touched"
@@ -2064,7 +2064,7 @@ features:
       - "Session retention: active session is never touched (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsKeepsActive`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestPurgeSessionsKeepsActive`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.boundary-at-exactly-the-retention
     title: "Session retention: boundary at exactly the retention"
@@ -2079,7 +2079,7 @@ features:
       - "Session retention: boundary at exactly the retention (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsRetentionBoundary`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestPurgeSessionsRetentionBoundary`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.recently-revoked-session-is-kept
     title: "Session retention: recently revoked session is kept"
@@ -2094,7 +2094,7 @@ features:
       - "Session retention: recently revoked session is kept (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsKeepsRecentRevoked`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestPurgeSessionsKeepsRecentRevoked`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.revoke-records-revoked-at
     title: "Session retention: revoke records revoked_at"
@@ -2109,7 +2109,7 @@ features:
       - "Session retention: revoke records revoked_at (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestRevokePathsSetRevokedAt`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestRevokePathsSetRevokedAt`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.old-login-history-is-deleted
     title: "Session retention: old login history is deleted"
@@ -2124,7 +2124,7 @@ features:
       - "Session retention: old login history is deleted (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeLoginHistory`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestPurgeLoginHistory`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.login-history-without-rows-or-with-a-failed-purge
     title: "Session retention: login history without rows or with a failed purge"
@@ -2139,7 +2139,7 @@ features:
       - "Session retention: login history without rows or with a failed purge (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSweepOnceLoginHistoryErrorIsolated`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSweepOnceLoginHistoryErrorIsolated`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.login-history-boundary
     title: "Session retention: login history boundary"
@@ -2154,7 +2154,7 @@ features:
       - "Session retention: login history boundary (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeLoginHistoryBoundary`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestPurgeLoginHistoryBoundary`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.batches-of-500
     title: "Session retention: batches of 500"
@@ -2169,7 +2169,7 @@ features:
       - "Session retention: batches of 500 (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSweepOnceBatches`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSweepOnceBatches`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.locked-row-is-skipped
     title: "Session retention: locked row is skipped"
@@ -2184,7 +2184,7 @@ features:
       - "Session retention: locked row is skipped (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/repository` `TestPurgeSessionsSkipsLocked`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/store` `TestPurgeSessionsSkipsLocked`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.sweep-error-is-logged-and-retried
     title: "Session retention: sweep error is logged and retried"
@@ -2199,7 +2199,7 @@ features:
       - "Session retention: sweep error is logged and retried (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSweeperSurvivesError`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSweeperSurvivesError`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.shutdown-drains-the-sweeper
     title: "Session retention: shutdown drains the sweeper"
@@ -2229,7 +2229,7 @@ features:
       - "Session retention: purge does not log personal data (unit-verified)"
     tags: [auth, unit]
     status: not-testable
-    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/service` `TestSweeperLogsCountsOnly`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
+    notes: "identity-session-retention: unit-verified, see the VERIFIED BY line in the spec: team-identity `internal/identity` `TestSweeperLogsCountsOnly`. Not producible end to end through the gateway (needs fakes, fault injection, direct database or clock control)."
 
   - id: session-retention.defaults
     title: "Session retention: defaults"
@@ -2367,7 +2367,7 @@ features:
       - "Session client context: rotation records IP via repository"
     tags: [auth, session, unit]
     status: not-testable
-    notes: "frontend-session-client-context: unit-verified, not producible end to end (the browser cannot set the IP in the e2e stack). Verified by: `team-identity/internal/service/auth_refresh_test.go` and `team-identity/internal/repository/session_test.go`"
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (the browser cannot set the IP in the e2e stack). Verified by: `team-identity/internal/identity/auth_refresh_test.go` and `team-identity/internal/store/session_client_context_test.go`"
 
   - id: auth.session-client-context-unit-empty-client-keeps-stored-values-boundary
     title: "Session client context: empty client keeps stored values (boundary)"
@@ -2379,7 +2379,7 @@ features:
       - "Session client context: empty client keeps stored values (boundary)"
     tags: [auth, session, unit]
     status: not-testable
-    notes: "frontend-session-client-context: unit-verified, not producible end to end (needs a refresh with no client context and 400-byte values, not producible through the browser). Verified by: `team-identity/internal/service/auth_refresh_test.go`"
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (needs a refresh with no client context and 400-byte values, not producible through the browser). Verified by: `team-identity/internal/identity/auth_refresh_test.go`"
 
   - id: auth.session-client-context-unit-grace-replay-does-not-update-boundary
     title: "Session client context: grace replay does not update (boundary)"
@@ -2391,7 +2391,7 @@ features:
       - "Session client context: grace replay does not update (boundary)"
     tags: [auth, session, unit]
     status: not-testable
-    notes: "frontend-session-client-context: unit-verified, not producible end to end (timing-dependent, not stable end to end). Verified by: `team-identity/internal/service/auth_refresh_test.go`"
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (timing-dependent, not stable end to end). Verified by: `team-identity/internal/identity/auth_refresh_test.go`"
 
   - id: auth.session-client-context-unit-rejected-refresh-updates-nothing-error
     title: "Session client context: rejected refresh updates nothing (error)"
@@ -2403,7 +2403,7 @@ features:
       - "Session client context: rejected refresh updates nothing (error)"
     tags: [auth, session, unit]
     status: not-testable
-    notes: "frontend-session-client-context: unit-verified, not producible end to end (session rows are not readable by e2e beyond ListSessions). Verified by: `team-identity/internal/service/auth_refresh_test.go`"
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (session rows are not readable by e2e beyond ListSessions). Verified by: `team-identity/internal/identity/auth_refresh_test.go`"
 
   - id: auth.session-client-context-unit-refresh-needs-no-principal-and-grants-nothing-permission
     title: "Session client context: refresh needs no principal and grants nothing (permission)"
@@ -2415,4 +2415,732 @@ features:
       - "Session client context: refresh needs no principal and grants nothing (permission)"
     tags: [auth, session, unit]
     status: not-testable
-    notes: "frontend-session-client-context: unit-verified, not producible end to end (identity trusts only gateway-stamped metadata (ADR-0010); forged metadata cannot be sent straight at identity). Verified by: `team-identity/internal/handler/auth_test.go`"
+    notes: "frontend-session-client-context: unit-verified, not producible end to end (identity trusts only gateway-stamped metadata (ADR-0010); forged metadata cannot be sent straight at identity). Verified by: `team-identity/internal/rpc/auth_test.go`"
+
+  - id: auth.sdk-session-retention-the-sweeper-always-runs
+    title: "Session retention: the sweeper always runs"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Session retention: the sweeper always runs"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestSweeperRunsAtStart`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-missing-port-environment-key-or-key-id-fails-the-load
+    title: "A missing port, environment, key or key id fails the load"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A missing port, environment, key or key id fails the load"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestValidateRequiresPrivateKeyAndKID`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-removed-variables-are-ignored-when-set
+    title: "Removed variables are ignored when set"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Removed variables are ignored when set"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestRemovedVariablesAreIgnored`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-audit-address-is-required-in-every-env
+    title: "The audit address is required in every ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The audit address is required in every ENV"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestAuditAddrRequiredInEveryEnv`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-purge-settings-are-validated
+    title: "Purge settings are validated"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Purge settings are validated"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestOutboxPurgeSettingsValidated`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-migrate-loader-needs-only-the-environment-and-the-database
+    title: "The migrate loader needs only the environment and the database"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The migrate loader needs only the environment and the database"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestLoadMigrateNeedsOnlyDatabase`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-strict-env-requires-the-brokers-and-log-fingerprint-secret
+    title: "Strict ENV requires the brokers and log fingerprint secret"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Strict ENV requires the brokers and log fingerprint secret"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestStrictEnvRequiresDependencyAddresses`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-reset-token-is-never-exposed-in-a-deployed-env
+    title: "The reset token is never exposed in a deployed ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The reset token is never exposed in a deployed ENV"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestPasswordResetExposeTokenDefaultsOffAndRefusedInProd`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-development-signing-key-is-refused-when-settings-load-in-a-deploye
+    title: "The development signing key is refused when settings load in a deployed ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The development signing key is refused when settings load in a deployed ENV"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestStrictEnvRefusesDevSigningKey`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-every-strict-refusal-of-one-load-is-reported-together
+    title: "Every strict refusal of one load is reported together"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Every strict refusal of one load is reported together"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestStrictEnvReportsAllRefusals`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-development-signing-key-is-refused-by-run-in-a-deployed-env
+    title: "The development signing key is refused by Run in a deployed ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The development signing key is refused by Run in a deployed ENV"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestRunRefusesDevSigningKeyBeforeConnecting`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-an-unusable-signing-key-fails-boot-in-every-env
+    title: "An unusable signing key fails boot in every ENV"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "An unusable signing key fails boot in every ENV"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestRunFailsOnUnparsableSigningKey`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-seed-admin-keeps-its-guard
+    title: "Seed admin keeps its guard"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Seed admin keeps its guard"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestSeedAdminValidation`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-server-binary-does-not-link-the-in-memory-fakes
+    title: "The server binary does not link the in-memory fakes"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The server binary does not link the in-memory fakes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestServerBinaryExcludesFakes`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-an-empty-database-is-migrated-by-the-subcommand
+    title: "An empty database is migrated by the subcommand"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "An empty database is migrated by the subcommand"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestMigrateUpAppliesAllMigrations`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-service-never-migrates-at-boot
+    title: "The service never migrates at boot"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The service never migrates at boot"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestRunDoesNotMigrate`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-binary-dispatches-migrate-up
+    title: "The binary dispatches migrate up"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The binary dispatches migrate up"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `cmd/server` `TestMigrateSubcommandDispatch`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-database-already-at-version-8-is-upgraded-without-data-loss
+    title: "A database already at version 8 is upgraded without data loss"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A database already at version 8 is upgraded without data loss"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestMigrateUpgradesVersionEightDatabase`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-dirty-migration-state-fails-the-subcommand
+    title: "A dirty migration state fails the subcommand"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A dirty migration state fails the subcommand"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestMigrateFailsWhenStateIsDirty`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-failed-migration-leaves-no-half-started-server
+    title: "A failed migration leaves no half-started server"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A failed migration leaves no half-started server"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestMigrateFailsWhenStateIsDirty`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-outbox-migrations-equal-the-sdk-upgrade-steps
+    title: "The outbox migrations equal the SDK upgrade steps"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The outbox migrations equal the SDK upgrade steps"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestOutboxMigrationsEqualUpgradeSQL`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-row-parked-by-the-old-relayer-is-relayed-after-the-upgrade
+    title: "A row parked by the old relayer is relayed after the upgrade"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A row parked by the old relayer is relayed after the upgrade"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestOutboxUpgradeRequeuesParkedRows`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-unpublished-rows-of-the-old-aggregate-join-the-user-aggregate
+    title: "Unpublished rows of the old aggregate join the user aggregate"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Unpublished rows of the old aggregate join the user aggregate"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestOutboxUpgradeUnifiesAggregateType`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-migrations-0001-to-0008-keep-their-down-steps
+    title: "Migrations 0001 to 0008 keep their down steps"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Migrations 0001 to 0008 keep their down steps"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestMigration0007UserStatusUpDown`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-kafka-outage-does-not-fail-readiness-or-login
+    title: "A Kafka outage does not fail readiness or login"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A Kafka outage does not fail readiness or login"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestKafkaOutageKeepsReadinessAndAuth`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-public-rpcs-need-no-principal
+    title: "Public RPCs need no principal"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Public RPCs need no principal"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestRefreshSessionIsPublic`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-protected-rpc-refuses-an-anonymous-or-wrong-caller
+    title: "A protected RPC refuses an anonymous or wrong caller"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A protected RPC refuses an anonymous or wrong caller"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestAuthorizationBoundary`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-duplicate-username-returns-the-explicit-message
+    title: "A duplicate username returns the explicit message"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A duplicate username returns the explicit message"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestRegisterDuplicateUsernameMessage`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-an-unmapped-unique-violation-returns-alreadyexists
+    title: "An unmapped unique violation returns AlreadyExists"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "An unmapped unique violation returns AlreadyExists"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestUniqueViolationMapsToAlreadyExists`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-panicking-handler-does-not-stop-the-server
+    title: "A panicking handler does not stop the server"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A panicking handler does not stop the server"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestPanicIsRecoveredAsInternal`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-locked-accounts-keep-their-message
+    title: "Locked accounts keep their message"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Locked accounts keep their message"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestLoginBannedKeepsLockedMessage`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-revoke-commits-with-its-outbox-row
+    title: "A revoke commits with its outbox row"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A revoke commits with its outbox row"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestRevokeEnqueuesOutboxRowAtomically`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-an-outbox-failure-rolls-the-write-back
+    title: "An outbox failure rolls the write back"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "An outbox failure rolls the write back"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestRevokeRollsBackWhenOutboxFails`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-both-event-types-share-one-aggregate-and-keep-order
+    title: "Both event types share one aggregate and keep order"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Both event types share one aggregate and keep order"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/store` `TestSetUserStatusOutboxOrderPG`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-published-records-carry-key-topic-and-headers
+    title: "Published records carry key, topic and headers"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Published records carry key, topic and headers"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestRelayedRecordCarriesKeyTopicAndHeaders`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-broker-outage-keeps-rows-pending-and-retries-without-a-limit
+    title: "A broker outage keeps rows pending and retries without a limit"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A broker outage keeps rows pending and retries without a limit"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestTransientPublishFailuresNeverPark`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-event-payload-stays-minimal
+    title: "The event payload stays minimal"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The event payload stays minimal"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/events` `TestUserStatusChangedPayloadMinimal`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-refused-caller-leaves-no-outbox-row
+    title: "A refused caller leaves no outbox row"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A refused caller leaves no outbox row"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestSetUserStatusRequiresAdminScope`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-relay-failure-logs-carry-a-fingerprint-not-the-user-id
+    title: "Relay failure logs carry a fingerprint, not the user id"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Relay failure logs carry a fingerprint, not the user id"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/events` `TestRelayLogsFingerprintNotUserID`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-published-rows-older-than-seven-days-are-purged
+    title: "Published rows older than seven days are purged"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Published rows older than seven days are purged"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestOutboxPurgeKeepsRecentAndUnpublished`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-failed-purge-is-retried-and-logs-counts-only
+    title: "A failed purge is retried and logs counts only"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A failed purge is retried and logs counts only"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestOutboxPurgeSurvivesError`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-an-audit-failure-refuses-the-change-with-the-sdk-message
+    title: "An audit failure refuses the change with the SDK message"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "An audit failure refuses the change with the SDK message"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/identity` `TestSetUserStatusAuditDownUnavailableNoChange`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-audit-gate-logs-no-target-and-no-cause
+    title: "The audit gate logs no target and no cause"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The audit gate logs no target and no cause"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/identity` `TestAuditGateLogsNoTargetID`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-caller-without-the-admin-scope-triggers-no-audit-write
+    title: "A caller without the admin scope triggers no audit write"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A caller without the admin scope triggers no audit write"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/rpc` `TestSetUserStatusRequiresAdminScope`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-audit-client-sends-the-service-principal
+    title: "The audit client sends the service principal"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The audit client sends the service principal"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/upstream` `TestAuditUsesServicePrincipal`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-signed-token-decodes-as-the-shared-claims
+    title: "A signed token decodes as the shared claims"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A signed token decodes as the shared claims"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/token` `TestSignRS256`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-service-token-carries-no-sid
+    title: "A service token carries no sid"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A service token carries no sid"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/token` `TestSignedTokenOmitsEmptySID`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-jwks-document-is-public-keys-only
+    title: "The JWKS document is public keys only"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The JWKS document is public keys only"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/token` `TestBuildJWKS`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-jwks-listener-refuses-other-methods
+    title: "The JWKS listener refuses other methods"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The JWKS listener refuses other methods"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/token` `TestJWKSHandlerMethodsAndPaths`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-the-listener-starts-with-the-service-and-drains-on-shutdown
+    title: "The listener starts with the service and drains on shutdown"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "The listener starts with the service and drains on shutdown"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestJWKSListenerServesAndDrains`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-call-logs-carry-request-id-and-principal-id
+    title: "Call logs carry request id and principal id"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Call logs carry request id and principal id"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestCallLogsCarryRequestAndPrincipalID`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-refused-call-logs-the-principal-and-no-request-body
+    title: "A refused call logs the principal and no request body"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A refused call logs the principal and no request body"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestDeniedCallLogsCarryNoRequestBody`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-secrets-never-reach-logs-or-spans
+    title: "Secrets never reach logs or spans"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Secrets never reach logs or spans"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestSecretsNeverReachLogsOrSpans`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-failed-sweep-is-retried-on-the-next-tick
+    title: "A failed sweep is retried on the next tick"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A failed sweep is retried on the next tick"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/identity` `TestSweeperSurvivesError`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-a-non-positive-interval-is-refused-at-load
+    title: "A non-positive interval is refused at load"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "A non-positive interval is refused at load"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/config` `TestRetentionInvalidRejected`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: auth.sdk-enabled-seeding-creates-the-admin-once
+    title: "Enabled seeding creates the admin once"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change identity-go-sdk-v1."
+    entry_route: /
+    services: [team-identity]
+    acceptance:
+      - "Enabled seeding creates the admin once"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-identity `internal/app` `TestRunSeedsAdminOnce`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."

@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
   - consumer.yaml
   - ga4-relay.yaml
+  - externalsecret.yaml
 images:
   - name: localhost:5001/team-analytics
     newTag: sha-bcbb4d0a089c

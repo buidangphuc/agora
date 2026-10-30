@@ -125,7 +125,7 @@ type MockEmbedClient struct {
 	Err error
 }
 
-func (m *MockEmbedClient) Embed(ctx context.Context, text string) ([]float32, error) {
+func (m *MockEmbedClient) Embed(_ context.Context, text string) ([]float32, error) {
 	if m.Err != nil {
 		return nil, m.Err
 	}

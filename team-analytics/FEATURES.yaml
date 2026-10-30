@@ -57,7 +57,7 @@ features:
     title: Events are written in batches with offset-after-write
     persona: guest
     priority: P2
-    summary: The worker accumulates events and flushes on batch size or max interval, committing Kafka offsets only after a durable write (at-least-once).
+    summary: The worker fetches up to BATCH_MAX_SIZE records waiting at most BATCH_FLUSH_INTERVAL_SECONDS and commits Kafka offsets only after a durable write (at-least-once); a batch that keeps failing is dead-lettered after 5 attempts.
     entry_route: /
     services: [team-analytics]
     preconditions:
@@ -71,8 +71,8 @@ features:
     tags: [analytics, integration]
     status: not-testable
     notes: >
-      Batch flush (size + interval) and offset-after-write are covered by the
-      consumer unit tests (batcher_test.go).
+      Fetch-bounded batches, offset-after-write and dead-lettering after 5
+      attempts are covered by the consumer unit tests in internal/app.
 
   - id: analytics.order-facts-ingestion
     title: Consuming order paid events appends rows to order_facts
@@ -868,7 +868,7 @@ features:
       - "Funnel purchases count distinct transaction ids (unit-verified)"
     tags: [tracking, unit]
     status: not-testable
-    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/query/service_test.go. Not producible end to end."
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/rpc/service_test.go TestGetSellerFunnel_CheckoutPurchase. Not producible end to end."
 
   - id: tracking.unit-funnel-projects-checkout-and-purchase
     title: "Funnel projects checkout and purchase"
@@ -883,7 +883,7 @@ features:
       - "Funnel projects checkout and purchase (unit-verified)"
     tags: [tracking, unit]
     status: not-testable
-    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/query/service_test.go. Not producible end to end."
+    notes: "add-ga4-gtm-datalayer: unit-verified: team-analytics/internal/rpc/service_test.go TestGetSellerFunnel_CheckoutPurchase. Not producible end to end."
 
   - id: tracking.unit-exported-file-has-ecommerce-columns
     title: "Exported file has ecommerce columns"
@@ -1200,7 +1200,7 @@ features:
       - "A seller filter narrows the funnel"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/channel_funnel_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/channel_funnel_test.go TestChannelFunnel_ASellerFilterNarrowsTheFunnel. Not producible end to end."
 
   - id: ga4-export-import.counts-are-split-by-channel
     title: "Counts are split by channel"
@@ -1290,7 +1290,7 @@ features:
       - "Revenue is never read from GA4 data"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/channel_funnel_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/channel_funnel_test.go TestChannelFunnel_RevenueIsNeverReadFromGA4Data. Not producible end to end."
 
   - id: ga4-export-import.the-job-is-a-no-op-when-unconfigured
     title: "The job is a no-op when unconfigured"
@@ -1305,7 +1305,7 @@ features:
       - "The job is a no-op when unconfigured"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/cmd/consumer/ga4import_trigger_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/ga4import/importer_test.go TestTriggerIsANoOpWhenUnconfigured_TheJobIsANoOpWhenUnconfigured, TestScheduledRunIsANoOpWhenUnconfigured_TheJobIsANoOpWhenUnconfigured. Not producible end to end."
 
   - id: ga4-export-import.invalid-threshold-is-rejected-at-startup
     title: "Invalid threshold is rejected at startup"
@@ -1350,7 +1350,7 @@ features:
       - "Divergence at the threshold does not alert"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/ga4_reconcile_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/ga4_reconcile_test.go TestReconcile_DivergenceAtTheThresholdDoesNotAlert. Not producible end to end."
 
   - id: tracking-data-quality.zero-first-party-events-are-handled
     title: "Zero first-party events are handled"
@@ -1365,7 +1365,7 @@ features:
       - "Zero first-party events are handled"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/ga4_reconcile_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/ga4_reconcile_test.go TestReconcile_ZeroFirstPartyEventsAreHandled. Not producible end to end."
 
   - id: tracking-data-quality.a-missing-import-is-reported-not-treated-as-divergence
     title: "A missing import is reported, not treated as divergence"
@@ -1410,7 +1410,7 @@ features:
       - "Reconciliation failure does not break the report"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/ga4_reconcile_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/ga4_reconcile_test.go TestReconcile_FailureDoesNotBreakTheReport. Not producible end to end."
 
   - id: tracking-data-quality.only-admins-see-reconciliation-reasons
     title: "Only admins see reconciliation reasons"
@@ -1425,7 +1425,7 @@ features:
       - "Only admins see reconciliation reasons"
     tags: [tracking, analytics, ga4]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/query/ga4_reconcile_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/rpc/ga4_reconcile_test.go TestReconcile_OnlyAdminsSeeReconciliationReasons. Not producible end to end."
 
   - id: ga4-export-import.consent-and-client-id-are-persisted
     title: "Consent and client id are persisted"
@@ -1440,7 +1440,7 @@ features:
       - "Consent and client id are persisted (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/consumer/tracking_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/events/tracking_test.go TestConsentAndClientIdArePersisted. Not producible end to end."
 
   - id: ga4-export-import.client-id-is-blanked-without-analytics-consent
     title: "Client id is blanked without analytics consent"
@@ -1455,7 +1455,7 @@ features:
       - "Client id is blanked without analytics consent (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/consumer/tracking_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/events/tracking_test.go TestClientIdIsBlankedWithoutAnalyticsConsent. Not producible end to end."
 
   - id: ga4-export-import.a-legacy-payload-without-consent-is-stored-as-no-consent
     title: "A legacy payload without consent is stored as no consent"
@@ -1470,7 +1470,7 @@ features:
       - "A legacy payload without consent is stored as no consent (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/consumer/tracking_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/events/tracking_test.go TestLegacyPayloadWithoutConsentIsStoredAsNoConsent. Not producible end to end."
 
   - id: ga4-export-import.the-import-runs-inside-the-consumer-without-a-second-writer
     title: "The import runs inside the consumer without a second writer"
@@ -1485,7 +1485,7 @@ features:
       - "The import runs inside the consumer without a second writer (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/cmd/consumer/ga4import_trigger_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/ga4import/importer_test.go TestTriggerImportsFixtureDateThroughTheConsumerWriter_TheImportRunsInsideTheConsumerWithoutASecondWriter. Not producible end to end."
 
   - id: ga4-export-import.the-internal-trigger-is-not-exposed-through-the-gateway
     title: "The internal trigger is not exposed through the gateway"
@@ -1515,7 +1515,7 @@ features:
       - "An invalid date is rejected by the trigger (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/cmd/consumer/ga4import_trigger_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/ga4import/importer_test.go TestTriggerRejectsInvalidDateWith4xx_AnInvalidDateIsRejectedByTheTrigger. Not producible end to end."
 
   - id: ga4-export-import.a-failed-import-returns-5xx-with-the-date
     title: "A failed import returns 5xx with the date"
@@ -1530,7 +1530,7 @@ features:
       - "A failed import returns 5xx with the date (unit-verified)"
     tags: [tracking, analytics, ga4, unit]
     status: not-testable
-    notes: "add-ga4-export-import: unit-verified: team-analytics/cmd/consumer/ga4import_trigger_test.go. Not producible end to end."
+    notes: "add-ga4-export-import: unit-verified: team-analytics/internal/ga4import/importer_test.go TestTriggerReturns5xxWithDateWhenExportTableMissing_AFailedImportReturns5xxWithTheDate. Not producible end to end."
 
   # ---- add-ga4-purchase-relay (planned until the e2e is green against the relay) ----
 
@@ -1909,20 +1909,35 @@ features:
     status: automated
     covered_by: "tracking/ga4_purchase_relay.feature::Unconsented buyer is not sent under another identity"
 
-  - id: ga4-purchase-relay.no-inbound-endpoint-beyond-probes
-    title: "No inbound endpoint beyond probes"
+  - id: ga4-purchase-relay.plain-http-is-not-served
+    title: "Plain HTTP is not served"
     persona: guest
     priority: P2
-    summary: "No inbound endpoint beyond probes"
+    summary: "Plain HTTP is not served"
     entry_route: /
     services: [team-analytics]
     preconditions:
       login: guest
     acceptance:
-      - "No inbound endpoint beyond probes"
+      - "Plain HTTP is not served"
     tags: [tracking, analytics, ga4-purchase-relay]
     status: automated
-    covered_by: "tracking/ga4_purchase_relay.feature::No inbound endpoint beyond probes"
+    covered_by: "tracking/ga4_purchase_relay.feature::Plain HTTP is not served"
+
+  - id: ga4-purchase-relay.relay-is-probed-over-grpc
+    title: "The relay is probed over gRPC"
+    persona: guest
+    priority: P2
+    summary: "The relay is probed over gRPC"
+    entry_route: /
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "The relay is probed over gRPC"
+    tags: [tracking, analytics, ga4-purchase-relay]
+    status: automated
+    covered_by: "tracking/ga4_purchase_relay.feature::The relay is probed over gRPC"
 
 
   - id: ga4-purchase-relay.secret-unset
@@ -2073,7 +2088,7 @@ features:
       - "Loop storage: each new type is stored under its name"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventTypesMapToNames. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestNewLoopEventTypesMapToNames. Not producible end to end (consumer-internal mapping)."
 
   - id: loop-event-storage.a-produced-event-of-each-new-type-reaches-the-warehouse
     title: "Loop storage: a produced event of each new type reaches the warehouse"
@@ -2103,7 +2118,7 @@ features:
       - "Loop storage: existing types keep their names"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestExistingEventTypeNamesUnchanged. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestExistingEventTypeNamesUnchanged. Not producible end to end (consumer-internal mapping)."
 
   - id: loop-event-storage.an-unrecognised-enum-value-is-stored-as-unspecified-without-failing
     title: "Loop storage: an unrecognised enum value is stored as unspecified without failing"
@@ -2118,7 +2133,7 @@ features:
       - "Loop storage: an unrecognised enum value is stored as unspecified without failing"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestUnrecognisedEventTypeIsUnspecified. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestUnrecognisedEventTypeIsUnspecified. Not producible end to end (consumer-internal mapping)."
 
   - id: loop-event-storage.properties-and-listing-id-are-preserved
     title: "Loop storage: properties and listing id are preserved"
@@ -2134,7 +2149,7 @@ features:
     tags: [tracking, analytics, loop-event-storage, unit]
     status: automated
     covered_by: "tracking/loop_event_storage.feature::Loop storage: properties and listing id are preserved"
-    notes: "analytics-loop-event-storage:  also unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventsPreservePropertiesAndPrincipal."
+    notes: "analytics-loop-event-storage:  also unit-verified: team-analytics/internal/events/tracking_test.go TestNewLoopEventsPreservePropertiesAndPrincipal."
 
   - id: loop-event-storage.an-event-with-no-properties-is-stored-with-empty-properties
     title: "Loop storage: an event with no properties is stored with empty properties"
@@ -2149,7 +2164,7 @@ features:
       - "Loop storage: an event with no properties is stored with empty properties"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestReferralRedeemWithoutPropertiesIsStored. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestReferralRedeemWithoutPropertiesIsStored. Not producible end to end (consumer-internal mapping)."
 
   - id: loop-event-storage.the-client-id-is-blanked-without-analytics-consent
     title: "Loop storage: the client id is blanked without analytics consent"
@@ -2165,7 +2180,7 @@ features:
     tags: [tracking, analytics, loop-event-storage, unit]
     status: automated
     covered_by: "tracking/loop_event_storage.feature::Loop storage: the client id is blanked without analytics consent"
-    notes: "analytics-loop-event-storage:  also unit-verified: team-analytics/internal/consumer/tracking_test.go TestNewLoopEventClientIdBlankedWithoutConsent."
+    notes: "analytics-loop-event-storage:  also unit-verified: team-analytics/internal/events/tracking_test.go TestNewLoopEventClientIdBlankedWithoutConsent."
 
   - id: loop-event-storage.a-replayed-event-is-stored-once
     title: "Loop storage: a replayed event is stored once"
@@ -2195,7 +2210,7 @@ features:
       - "Loop storage: a non-tracking envelope is still skipped"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestNonTrackingEnvelopeIsSkipped. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestNonTrackingEnvelopeIsSkipped. Not producible end to end (consumer-internal mapping)."
 
   - id: loop-event-storage.an-undecodable-payload-is-still-a-consumer-error
     title: "Loop storage: an undecodable payload is still a consumer error"
@@ -2210,7 +2225,7 @@ features:
       - "Loop storage: an undecodable payload is still a consumer error"
     tags: [tracking, analytics, loop-event-storage, unit]
     status: not-testable
-    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/consumer/tracking_test.go TestMalformedEnvelopeErrors. Not producible end to end (consumer-internal mapping)."
+    notes: "analytics-loop-event-storage: unit-verified: team-analytics/internal/events/tracking_test.go TestMalformedEnvelopeErrors. Not producible end to end (consumer-internal mapping)."
 
   - id: analytics.review-hidden-reaches-warehouse
     title: "Analytics review hidden: a produced ReviewHidden reaches the warehouse"
@@ -2241,7 +2256,7 @@ features:
       - "Analytics review hidden: a ReviewHidden envelope maps to a review_hidden fact"
     tags: [analytics, unit]
     status: not-testable
-    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelopeReviewHidden. Not producible end to end."
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/events/engagement_test.go TestEngagementFactFromEnvelopeReviewHidden. Not producible end to end."
 
   - id: analytics.unit-review-hidden-hidden-at-missing-falls-back-to-the-envelope-time
     title: "Analytics review hidden: hidden_at missing falls back to the envelope time"
@@ -2256,7 +2271,7 @@ features:
       - "Analytics review hidden: hidden_at missing falls back to the envelope time"
     tags: [analytics, unit]
     status: not-testable
-    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelopeReviewHidden. Not producible end to end."
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/events/engagement_test.go TestEngagementFactFromEnvelopeReviewHidden. Not producible end to end."
 
   - id: analytics.unit-review-hidden-a-corrupt-payload-is-dead-lettered
     title: "Analytics review hidden: a corrupt payload is dead-lettered"
@@ -2271,7 +2286,7 @@ features:
       - "Analytics review hidden: a corrupt payload is dead-lettered"
     tags: [analytics, unit]
     status: not-testable
-    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelopeRejects, TestProcessEngagementRecordsDeadLettersAndContinues. Not producible end to end."
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/events/engagement_test.go TestEngagementFactFromEnvelopeRejects, TestMalformedEngagementRecordIsPermanent (handlers_test.go). Not producible end to end."
 
   - id: analytics.unit-review-hidden-existing-engagement-types-are-unchanged
     title: "Analytics review hidden: existing engagement types are unchanged"
@@ -2286,7 +2301,7 @@ features:
       - "Analytics review hidden: existing engagement types are unchanged"
     tags: [analytics, unit]
     status: not-testable
-    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/consumer/engagement_test.go TestEngagementFactFromEnvelope. Not producible end to end."
+    notes: "analytics-review-hidden: unit-verified: team-analytics/internal/events/engagement_test.go TestEngagementFactFromEnvelope. Not producible end to end."
 
   - id: analytics.unit-review-hidden-a-review-created-row-stores-its-review-id
     title: "Analytics review hidden: a review_created row stores its review id"
@@ -2392,3 +2407,1379 @@ features:
     tags: [analytics, unit]
     status: not-testable
     notes: "analytics-review-hidden: unit-verified: team-analytics/internal/warehouse/duckdb/duckdb_test.go TestReviewHiddenDoesNotAffectCurrentViews. Not producible end to end."
+
+  - id: analytics.runtime-go-mod-requires-the-sdk-tag
+    title: "go.mod requires the SDK tag"
+    persona: guest
+    priority: P2
+    summary: "go.mod requires the SDK tag (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `go.mod` of team-analytics is parsed"
+      - "THEN it has exactly one require of the SDK module at `v1.0.2`, no `replace` directive and a `tool` directive for golangci-lint"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestGoModRequiresSDKTagWithoutReplace. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-vendored-sdk-copy-is-refused
+    title: "A vendored SDK copy is refused"
+    persona: guest
+    priority: P2
+    summary: "A vendored SDK copy is refused (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the team-analytics tree is inspected for `third_party/`, a service-local `.golangci.yml` and a copy of `go-service.mk`"
+      - "THEN none exists"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestNoVendoredSDKOrLocalLintCopy. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-the-makefile-references-the-shared-files
+    title: "The Makefile references the shared files"
+    persona: guest
+    priority: P2
+    summary: "The Makefile references the shared files (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the `Makefile` is read"
+      - "THEN it contains `include ../platform-core/make/go-service.mk` and `LINT_CONFIG := ../platform-core/packages/go-sdk/.golangci.yml`, and sets `SERVICE`, `GRPC_PORT` and `BINARIES` to `consumer ga4-relay ga4import`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestMakefileReferencesSharedFiles. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-the-standalone-compose-file-boots-under-a-local-env
+    title: "The standalone compose file boots under a local ENV"
+    persona: guest
+    priority: P2
+    summary: "The standalone compose file boots under a local ENV (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `docker-compose.local.yaml` of team-analytics is parsed and its `team-analytics` environment is passed to `config.Load`"
+      - "THEN it declares `ENV=local` and `GRPC_PORT=50059`, declares no `KAFKA_ENABLED`, every key it declares is a key `Settings` binds, and `Load` returns no error"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestStandaloneComposeLoadsUnderLocalEnv. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-binary-that-imports-a-warehouse-query-events-or-franz-go-p
+    title: "A binary that imports a warehouse, query, events or franz-go package is not accepted"
+    persona: guest
+    priority: P2
+    summary: "A binary that imports a warehouse, query, events or franz-go package is not accepted (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the imports of `cmd/consumer/main.go`, `cmd/ga4-relay/main.go` and `cmd/ga4import/main.go` are listed"
+      - "THEN none imports `internal/warehouse`, `internal/query`, `internal/events` or franz-go"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestCmdMainsOnlyCallApp. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-strict-env-requires-the-broker-address
+    title: "A strict ENV requires the broker address"
+    persona: guest
+    priority: P2
+    summary: "A strict ENV requires the broker address (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `ENV=prod` and `KAFKA_BROKERS` unset"
+      - "THEN it returns an error naming `KAFKA_BROKERS`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestStrictEnvRequiresKafkaBrokers. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-strict-env-requires-the-key-fingerprint-secret
+    title: "A strict ENV requires the key fingerprint secret"
+    persona: guest
+    priority: P2
+    summary: "A strict ENV requires the key fingerprint secret (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `ENV=staging` and `LOG_KEY_FP_SECRET` unset"
+      - "THEN it returns an error naming `LOG_KEY_FP_SECRET`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestStrictEnvRequiresLogKeyFPSecret. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-local-env-fills-the-defaults
+    title: "A local ENV fills the defaults"
+    persona: guest
+    priority: P2
+    summary: "A local ENV fills the defaults (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `ENV=local` and neither `KAFKA_BROKERS` nor `LOG_KEY_FP_SECRET` set"
+      - "THEN `Kafka.Brokers` is `localhost:9092` and the secret is non-empty"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestLocalEnvFillsBrokerAndSecretDefaults. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-shutdown-timing-is-a-go-duration
+    title: "Shutdown timing is a Go duration"
+    persona: guest
+    priority: P2
+    summary: "Shutdown timing is a Go duration (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `SHUTDOWN_GRACE=15s`, `SHUTDOWN_DRAIN_DELAY=2s` and a stale `SHUTDOWN_GRACE_SECONDS=99`"
+      - "THEN `ShutdownGrace` is 15 s, `DrainDelay` is 2 s and the stale key has no effect"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestShutdownTimingIsGoDuration. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-non-positive-batch-size-is-rejected
+    title: "A non-positive batch size is rejected"
+    persona: guest
+    priority: P2
+    summary: "A non-positive batch size is rejected (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `BATCH_MAX_SIZE=0`"
+      - "THEN it returns an error naming `BATCH_MAX_SIZE`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestValidateRejectsNonPositiveBatchSize. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-missing-duckdb-path-is-rejected
+    title: "A missing DuckDB path is rejected"
+    persona: guest
+    priority: P2
+    summary: "A missing DuckDB path is rejected (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `WAREHOUSE_DRIVER=duckdb` and `DUCKDB_PATH` set to an empty string"
+      - "THEN it returns an error naming `DUCKDB_PATH`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestValidateRejectsEmptyDuckDBPath. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-strict-env-requires-the-ga4-relay-credentials
+    title: "A strict ENV requires the GA4 relay credentials"
+    persona: guest
+    priority: P2
+    summary: "A strict ENV requires the GA4 relay credentials (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `ENV=prod` and `GA4_API_SECRET` or `GA4_MEASUREMENT_ID` unset"
+      - "THEN it returns an error naming the unset key"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestStrictEnvRequiresGA4Credentials. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-strict-env-requires-the-ga4-export-dataset
+    title: "A strict ENV requires the GA4 export dataset"
+    persona: guest
+    priority: P2
+    summary: "A strict ENV requires the GA4 export dataset (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `ENV=staging` and `GA4_EXPORT_DATASET` unset"
+      - "THEN it returns an error naming `GA4_EXPORT_DATASET`, while the same settings under `ENV=local` load without error"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestStrictEnvRequiresGA4ExportDataset. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-otel-service-name-is-an-accepted-key
+    title: "OTEL_SERVICE_NAME is an accepted key"
+    persona: guest
+    priority: P2
+    summary: "OTEL_SERVICE_NAME is an accepted key (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `OTEL_SERVICE_NAME=analytics-eu`"
+      - "THEN `OTel.ServiceName` is `analytics-eu` and `.env.example` declares `OTEL_SERVICE_NAME`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestOTelServiceNameIsAcceptedKey. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-env-example-documents-exactly-the-declared-keys
+    title: ".env.example documents exactly the declared keys"
+    persona: guest
+    priority: P2
+    summary: ".env.example documents exactly the declared keys (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `TestEnvExampleInSync` compares `.env.example` with the keys declared by `Settings`"
+      - "THEN it reports no missing and no stale key"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestEnvExampleInSync. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-only-the-allowed-enable-flags-are-declared
+    title: "Only the allowed enable flags are declared"
+    persona: guest
+    priority: P2
+    summary: "Only the allowed enable flags are declared (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the env keys declared by `Settings` are listed"
+      - "THEN the keys ending in `_ENABLED` are exactly `OTEL_ENABLED` and `GRPC_REFLECTION_ENABLED`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestNoDependencyEnableFlags. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-removed-kafka-enabled-value-is-ignored
+    title: "A removed KAFKA_ENABLED value is ignored"
+    persona: guest
+    priority: P2
+    summary: "A removed KAFKA_ENABLED value is ignored (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `KAFKA_ENABLED=false`"
+      - "THEN it succeeds and the settings expose no field that reads that value"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestRemovedKafkaEnabledIsIgnored. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-binaries-link-no-in-memory-implementation
+    title: "Binaries link no in-memory implementation"
+    persona: guest
+    priority: P2
+    summary: "Binaries link no in-memory implementation (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the non-test files in the dependency set of the three binaries are scanned for declarations named `NewMemory*`, `NewInMemory*` or `Noop*`"
+      - "THEN the scan finds none"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestBinariesLinkNoInMemoryImplementation. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-unopenable-warehouse-fails-boot-in-a-local-env
+    title: "An unopenable warehouse fails boot in a local ENV"
+    persona: guest
+    priority: P2
+    summary: "An unopenable warehouse fails boot in a local ENV (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `RunConsumer` runs with `ENV=local` and `DUCKDB_PATH` inside a directory that does not exist"
+      - "THEN it returns an error that wraps `open warehouse` before any listener or consumer starts"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestBootFailsWhenWarehouseCannotOpen. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-reflection-setting-defaults-to-off
+    title: "Reflection setting defaults to off"
+    persona: guest
+    priority: P2
+    summary: "Reflection setting defaults to off (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `ENV=local` and `GRPC_REFLECTION_ENABLED` unset"
+      - "THEN `ReflectionEnabled` is false"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestReflectionDefaultsToOff. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-server-built-from-default-settings-does-not-serve-reflecti
+    title: "A server built from default settings does not serve reflection"
+    persona: guest
+    priority: P2
+    summary: "A server built from default settings does not serve reflection (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the query server is started from default settings and a client calls `grpc.reflection.v1.ServerReflection/ServerReflectionInfo`"
+      - "THEN the call returns `Unimplemented`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/rpc TestReflectionOffByDefault. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-strict-env-refuses-reflection
+    title: "A strict ENV refuses reflection"
+    persona: guest
+    priority: P2
+    summary: "A strict ENV refuses reflection (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `ENV=prod` and `GRPC_REFLECTION_ENABLED=true`"
+      - "THEN it returns an error naming `GRPC_REFLECTION_ENABLED`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestStrictEnvRefusesReflection. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-mock-data-runs-the-real-importer-on-fixtures
+    title: "Mock data runs the real importer on fixtures"
+    persona: guest
+    priority: P2
+    summary: "Mock data runs the real importer on fixtures (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `MOCK_DATA=ga4export` and `GA4_EXPORT_FIXTURE_DIR` holds `events_20260101.parquet` with 3 sessions and the trigger imports `2026-01-01`"
+      - "THEN `ga4_sessions` holds 3 rows for that date and one import run is recorded through the real importer"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4import TestMockDataGA4ExportRunsRealImporterOnFixtures. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-strict-env-refuses-mock-data-before-other-validation
+    title: "A strict ENV refuses mock data before other validation"
+    persona: guest
+    priority: P2
+    summary: "A strict ENV refuses mock data before other validation (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `ENV=prod`, `MOCK_DATA=ga4export` and an invalid `GA4_RECONCILE_MAX_DIFF_RATIO=-1`"
+      - "THEN the returned error names `MOCK_DATA` and ends before the ratio error is reported"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestStrictEnvRefusesMockDataBeforeValidation. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-unknown-mock-adapter-is-refused
+    title: "An unknown mock adapter is refused"
+    persona: guest
+    priority: P2
+    summary: "An unknown mock adapter is refused (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the mock set is built from `MOCK_DATA=bigquery`"
+      - "THEN it returns an error naming `bigquery` and listing `ga4export`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestUnknownMockAdapterRefused. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-mock-data-without-a-fixture-directory-fails-the-import
+    title: "Mock data without a fixture directory fails the import"
+    persona: guest
+    priority: P2
+    summary: "Mock data without a fixture directory fails the import (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `MOCK_DATA=ga4export` and `GA4_EXPORT_FIXTURE_DIR` is empty and the trigger runs"
+      - "THEN the response is a 5xx whose body names `GA4_EXPORT_FIXTURE_DIR`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4import TestMockDataWithoutFixtureDirFailsNamingTheSetting. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-fixture-directory-is-ignored-without-mock-data
+    title: "A fixture directory is ignored without mock data"
+    persona: guest
+    priority: P2
+    summary: "A fixture directory is ignored without mock data (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `MOCK_DATA` is unset, `GA4_EXPORT_FIXTURE_DIR` holds fixtures and `GA4_EXPORT_DATASET` is empty"
+      - "THEN the import returns 200 with 0 rows and `ga4_sessions` is unchanged"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4import TestFixtureDirIgnoredWithoutMockData. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-the-removed-ga4-export-source-has-no-effect
+    title: "The removed GA4_EXPORT_SOURCE has no effect"
+    persona: guest
+    priority: P2
+    summary: "The removed GA4_EXPORT_SOURCE has no effect (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Load` runs with `GA4_EXPORT_SOURCE=fixture` and `MOCK_DATA` unset"
+      - "THEN the import source is BigQuery and the settings expose no field that reads that value"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/config TestRemovedGA4ExportSourceIsIgnored. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-poison-batch-is-dead-lettered-after-5-attempts-and-the-gro
+    title: "A poison batch is dead-lettered after 5 attempts and the group moves on"
+    persona: guest
+    priority: P2
+    summary: "A poison batch is dead-lettered after 5 attempts and the group moves on (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a batch of 2 tracking records is produced to `analytics.events` on a Redpanda broker and the warehouse writer fails every write"
+      - "THEN both records appear on `analytics.events.dlq` within 30 s with the same keys, the writer was called 5 times and the group offset is past them"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestPoisonBatchIsDeadLetteredAfterFiveAttempts. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-decoded-batch-is-written-and-acknowledged
+    title: "A decoded batch is written and acknowledged"
+    persona: guest
+    priority: P2
+    summary: "A decoded batch is written and acknowledged (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the batch handler receives 3 tracking records and 2 order-fact records and the writer succeeds"
+      - "THEN the writer holds 3 tracking rows and the order-fact rows of the 2 records and the handler returns nil"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestBatchHandlerWritesTrackingAndOrderFactsThenAcknowledges. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-write-failure-is-returned-for-retry-not-skipped
+    title: "A write failure is returned for retry, not skipped"
+    persona: guest
+    priority: P2
+    summary: "A write failure is returned for retry, not skipped (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the batch handler receives 2 tracking records and the writer returns an error"
+      - "THEN the handler returns that error and it does not wrap `events.ErrDeadLetter`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestWriteFailureIsReturnedForRetry. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-non-tracking-envelope-is-skipped-without-a-row
+    title: "A non-tracking envelope is skipped without a row"
+    persona: guest
+    priority: P2
+    summary: "A non-tracking envelope is skipped without a row (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the batch handler receives an envelope whose type is neither `platform.analytics.v1.TrackingEvent` nor an order event type"
+      - "THEN the writer holds 0 rows and the handler returns nil"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestNonTrackingEnvelopeIsSkipped. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-undecodable-tracking-payload-is-counted-and-the-rest-of-t
+    title: "An undecodable tracking payload is counted and the rest of the batch is written"
+    persona: guest
+    priority: P2
+    summary: "An undecodable tracking payload is counted and the rest of the batch is written (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a batch holds one record of type `platform.analytics.v1.TrackingEvent` with a corrupt payload and 2 valid tracking records"
+      - "THEN the writer holds 2 rows, the decode-failure counter increases by 1 and the handler returns nil"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestUndecodableRecordIsCountedAndTheRestIsWritten. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-failing-decode-counter-does-not-block-the-batch
+    title: "A failing decode counter does not block the batch"
+    persona: guest
+    priority: P2
+    summary: "A failing decode counter does not block the batch (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a batch holds one corrupt tracking record and 2 valid tracking records and `RecordDecodeFailures` returns an error"
+      - "THEN the error is logged with `key_fp`, the writer holds 2 rows and the handler returns nil"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestDecodeCounterFailureDoesNotFailTheBatch. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-record-with-an-empty-key-does-not-fail-the-batch
+    title: "A record with an empty key does not fail the batch"
+    persona: guest
+    priority: P2
+    summary: "A record with an empty key does not fail the batch (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the batch handler receives a corrupt record whose key is empty"
+      - "THEN the handler returns nil and the log line carries the `key_fp` of the empty key"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestEmptyKeyRecordIsHandled. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-maximum-size-batch-is-handled-well-inside-the-rebalance-ti
+    title: "A maximum-size batch is handled well inside the rebalance timeout"
+    persona: guest
+    priority: P2
+    summary: "A maximum-size batch is handled well inside the rebalance timeout (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a batch of `BATCH_MAX_SIZE` (500) tracking records is written to a DuckDB file in a temporary directory"
+      - "THEN one write completes in under 5 s, so 5 attempts plus the 4 backoff waits (about 1.5 s) stay under 27 s, half of the 60 s group rebalance timeout"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestMaxSizeBatchWriteFitsRebalanceBudget. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-the-batch-bounds-come-from-the-settings
+    title: "The batch bounds come from the settings"
+    persona: guest
+    priority: P2
+    summary: "The batch bounds come from the settings (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the consumer options are built from `BATCH_MAX_SIZE=500` and `BATCH_FLUSH_INTERVAL_SECONDS=2`"
+      - "THEN `MaxPollRecords` is 500, the fetch max wait is 2 s and the dead-letter topic is `analytics.events.dlq`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestMainConsumerOptionsFromSettings. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-the-listing-consumer-starts-at-the-earliest-offset-in-its-ow
+    title: "The listing consumer starts at the earliest offset in its own group"
+    persona: guest
+    priority: P2
+    summary: "The listing consumer starts at the earliest offset in its own group (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the listing consumer spec is built from the default settings"
+      - "THEN it has group `team-analytics-listing-attrs`, topic `listing.events`, start-at-earliest true and dead-letter topic `listing.events.analytics.dlq`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestListingConsumerSpecFromSettings. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-poison-listing-batch-is-dead-lettered-and-the-group-moves
+    title: "A poison listing batch is dead-lettered and the group moves on"
+    persona: guest
+    priority: P2
+    summary: "A poison listing batch is dead-lettered and the group moves on (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a batch of 2 `ListingChanged` records is produced to `listing.events` on a Redpanda broker and the listing writer fails every upsert"
+      - "THEN both records appear on `listing.events.analytics.dlq` within 30 s with the same keys, the writer was called 5 times and the group offset is past them"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestPoisonListingBatchIsDeadLettered. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-undecodable-listing-record-is-skipped-and-the-batch-is-up
+    title: "An undecodable listing record is skipped and the batch is upserted"
+    persona: guest
+    priority: P2
+    summary: "An undecodable listing record is skipped and the batch is upserted (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a listing batch holds 1 corrupt record and 2 valid `ListingChanged` records"
+      - "THEN the writer upserts 2 listing rows and the handler returns nil"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestListingBatchSkipsUndecodableRecord. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-engagement-polls-fit-the-rebalance-timeout
+    title: "Engagement polls fit the rebalance timeout"
+    persona: guest
+    priority: P2
+    summary: "Engagement polls fit the rebalance timeout (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the engagement consumer options are built from the default settings"
+      - "THEN `MaxPollRecords` is 10 and `10 x (1.5 s + 5 x 50 ms)` is 17.5 s, under 30 s"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestEngagementOptionsFitRebalanceBudget. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-malformed-engagement-record-is-permanent
+    title: "A malformed engagement record is permanent"
+    persona: guest
+    priority: P2
+    summary: "A malformed engagement record is permanent (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the engagement handler receives a record whose value is not an `EventEnvelope`"
+      - "THEN it returns an error that wraps `events.ErrDeadLetter` (returned through `consume.Permanent`) and writes no row"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestMalformedEngagementRecordIsPermanent. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-unknown-engagement-type-is-permanent
+    title: "An unknown engagement type is permanent"
+    persona: guest
+    priority: P2
+    summary: "An unknown engagement type is permanent (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the engagement handler receives a well-formed envelope of an unknown type"
+      - "THEN it returns an error that wraps both `ErrUnknownEngagementType` and `events.ErrDeadLetter`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestUnknownEngagementTypeIsPermanent. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-valid-engagement-record-reaches-engagement-facts
+    title: "A valid engagement record reaches engagement_facts"
+    persona: guest
+    priority: P2
+    summary: "A valid engagement record reaches engagement_facts (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the engagement handler receives a `FavoriteAdded` envelope"
+      - "THEN the writer holds one `favorite_added` fact for that user and listing"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestValidEngagementRecordIsWritten. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-failing-engagement-write-is-returned-for-retry
+    title: "A failing engagement write is returned for retry"
+    persona: guest
+    priority: P2
+    summary: "A failing engagement write is returned for retry (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the engagement handler receives a valid record and the writer returns an error"
+      - "THEN the handler returns that error and it does not wrap `events.ErrDeadLetter`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestEngagementWriteFailureIsTransient. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-malformed-engagement-record-lands-on-the-dead-letter-topic
+    title: "A malformed engagement record lands on the dead-letter topic and the group moves on"
+    persona: guest
+    priority: P2
+    summary: "A malformed engagement record lands on the dead-letter topic and the group moves on (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a record that is not an `EventEnvelope` and then a valid `FavoriteAdded` record are produced to `engagement.events` on a Redpanda broker and the engagement consumer runs"
+      - "THEN a record with the same key and the headers `dlq-source-topic` and `dlq-error` appears on `engagement.events.analytics.dlq` within 30 s and the favourite reaches `engagement_facts`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestMalformedEngagementRecordIsDeadLetteredAndGroupMovesOn. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-dead-letter-copy-blanks-the-client-id-without-consent
+    title: "A dead-letter copy blanks the client id without consent"
+    persona: guest
+    priority: P2
+    summary: "A dead-letter copy blanks the client id without consent (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the redacting producer receives a tracking record with `ga_client_id=123.456`, `consent.analytics=false`, a user id and a listing id"
+      - "THEN the published record decodes to a `TrackingEvent` with `ga_client_id` empty and the same user id, listing id, key and headers"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestRedactingDLQBlanksGAClientIDWithoutConsent. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-dead-letter-copy-keeps-the-client-id-with-consent
+    title: "A dead-letter copy keeps the client id with consent"
+    persona: guest
+    priority: P2
+    summary: "A dead-letter copy keeps the client id with consent (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the redacting producer receives a tracking record with `ga_client_id=123.456`, `consent.analytics=true` and `consent.version=1`"
+      - "THEN the published record is byte-identical to the input value"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestRedactingDLQKeepsGAClientIDWithConsent. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-absent-or-version-0-consent-is-treated-as-denied
+    title: "Absent or version-0 consent is treated as denied"
+    persona: guest
+    priority: P2
+    summary: "Absent or version-0 consent is treated as denied (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the redacting producer receives a tracking record with `ga_client_id=123.456` and either no `consent` or `consent.analytics=true` with `consent.version=0`"
+      - "THEN the published record has `ga_client_id` empty in both cases"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestRedactingDLQTreatsMissingOrVersionZeroConsentAsDenied. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-undecodable-or-non-tracking-record-is-published-unchanged
+    title: "An undecodable or non-tracking record is published unchanged"
+    persona: guest
+    priority: P2
+    summary: "An undecodable or non-tracking record is published unchanged (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the redacting producer receives a record whose value is not an `EventEnvelope`, and another record whose envelope type is an order event"
+      - "THEN both are published with the original value, and the publish error of the wrapped producer is returned unchanged"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestRedactingDLQPassesOtherRecordsUnchanged. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-tracking-record-with-an-undecodable-payload-is-published-without-its-payload
+    title: "A tracking record with an undecodable payload is published without its payload"
+    persona: guest
+    priority: P2
+    summary: "A tracking record with an undecodable payload is published without its payload (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the redacting producer receives a tracking envelope whose payload bytes are not a valid `TrackingEvent` and contain `123.456`"
+      - "THEN the published record decodes to the same envelope with an empty payload, the same key and headers, and its value does not contain `123.456`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestRedactingDLQDropsUndecodableTrackingPayload. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-parked-tracking-batch-on-the-broker-carries-no-client-id-w
+    title: "A parked tracking batch on the broker carries no client id without consent"
+    persona: guest
+    priority: P2
+    summary: "A parked tracking batch on the broker carries no client id without consent (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a tracking record with `ga_client_id=123.456` and `consent.analytics=false` is produced to `analytics.events` on a Redpanda broker and the warehouse writer fails every write"
+      - "THEN the record appears on `analytics.events.dlq` within 30 s with the same key and `ga_client_id` empty"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestPoisonBatchDLQCarriesNoGAClientIDWithoutConsent. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-both-consumers-are-wired-to-the-redacting-producer
+    title: "Both consumers are wired to the redacting producer"
+    persona: guest
+    priority: P2
+    summary: "Both consumers are wired to the redacting producer (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the consumer and the relay composition roots are built"
+      - "THEN the dead-letter producer given to the main consumer and to the relay consumer is an `events.RedactingDLQ`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestDLQProducersAreRedacting. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-decode-failure-logs-the-fingerprint-and-not-the-key
+    title: "A decode failure logs the fingerprint and not the key"
+    persona: guest
+    priority: P2
+    summary: "A decode failure logs the fingerprint and not the key (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a corrupt record keyed `user-123` is handled by the batch handler with secret `s1`"
+      - "THEN the captured log output has `key_fp` equal to `Fingerprinter(s1).Of(\"user-123\")` and contains no occurrence of `user-123`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestNoConsumerLogContainsRawKey. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-the-relay-logs-the-fingerprint-and-not-the-buyer-key
+    title: "The relay logs the fingerprint and not the buyer key"
+    persona: guest
+    priority: P2
+    summary: "The relay logs the fingerprint and not the buyer key (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the relay handles an invalid envelope keyed `buyer-9`"
+      - "THEN the captured log output has `key_fp` and contains no occurrence of `buyer-9`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4relay TestRelayLogsNeverContainRawKey. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-empty-fingerprint-secret-is-refused-at-boot
+    title: "An empty fingerprint secret is refused at boot"
+    persona: guest
+    priority: P2
+    summary: "An empty fingerprint secret is refused at boot (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the consumer fingerprinter is built from an empty secret"
+      - "THEN construction returns an error and no consumer starts"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestEmptyLogKeyFPSecretRefusesBoot. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-warehouse-outage-flips-readiness-and-not-liveness
+    title: "A warehouse outage flips readiness and not liveness"
+    persona: guest
+    priority: P2
+    summary: "A warehouse outage flips readiness and not liveness (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the DuckDB ping check returns an error"
+      - "THEN the overall health status becomes NOT_SERVING within one health interval plus 1 s (6 s with `healthx.DefaultInterval`; the test injects a 200 ms interval through the `app` test seam and asserts NOT_SERVING within 1.2 s) and `liveness` stays SERVING"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestWarehouseOutageFlipsReadinessNotLiveness. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-kafka-outage-does-not-flip-readiness
+    title: "A Kafka outage does not flip readiness"
+    persona: guest
+    priority: P2
+    summary: "A Kafka outage does not flip readiness (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the consumer runs with `KAFKA_BROKERS` pointing at a closed port and the DuckDB ping succeeds"
+      - "THEN the overall health status stays SERVING for 10 s (two health intervals) and the registered check names are exactly `duckdb`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestKafkaOutageDoesNotFlipReadiness. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-shutdown-drains-health-before-the-server-stops
+    title: "Shutdown drains health before the server stops"
+    persona: guest
+    priority: P2
+    summary: "Shutdown drains health before the server stops (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the run context is cancelled while a client holds a health watch"
+      - "THEN the watch receives NOT_SERVING for the overall service before the server stops"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestShutdownDrainsHealthBeforeServerStops. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-workers-outlive-the-server-and-flush-on-the-way-out
+    title: "Workers outlive the server and flush on the way out"
+    persona: guest
+    priority: P2
+    summary: "Workers outlive the server and flush on the way out (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the run context is cancelled while the batch consumer holds a fetched batch"
+      - "THEN the batch is written before the warehouse closer runs"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestWorkersStopAfterServerAndBeforeWarehouseClose. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-bigquery-warehouse-serves-health-only
+    title: "A BigQuery warehouse serves health only"
+    persona: guest
+    priority: P2
+    summary: "A BigQuery warehouse serves health only (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the consumer runs with `WAREHOUSE_DRIVER=bigquery` and a stub writer that is not a DuckDB writer"
+      - "THEN a call to `GetSellerFunnel` returns `Unimplemented` and the health service answers SERVING"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestNonDuckDBWarehouseServesHealthOnly. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-admin-reads-any-seller
+    title: "An admin reads any seller"
+    persona: guest
+    priority: P2
+    summary: "An admin reads any seller (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a principal with scope `admin` calls `GetSellerFunnel` for `seller_id=s9`"
+      - "THEN the response is the funnel for `s9`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/rpc TestAdminReadsAnySeller. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-service-principal-without-admin-is-denied
+    title: "A service principal without admin is denied"
+    persona: guest
+    priority: P2
+    summary: "A service principal without admin is denied (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a service principal with scope `analytics.read` calls `GetSellerFunnel` for `seller_id=s1`"
+      - "THEN the call returns `PermissionDenied`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/rpc TestServicePrincipalWithoutAdminIsDenied. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-admin-rpc-requires-the-exact-admin-scope
+    title: "An admin RPC requires the exact admin scope"
+    persona: guest
+    priority: P2
+    summary: "An admin RPC requires the exact admin scope (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a user principal with scope `admin:read` calls `GetPlatformOrderSummary`"
+      - "THEN the call returns `PermissionDenied`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/rpc TestAdminRPCsRequireExactAdminScope. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-repository-error-does-not-leak-driver-text
+    title: "A repository error does not leak driver text"
+    persona: guest
+    priority: P2
+    summary: "A repository error does not leak driver text (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the repository returns an error whose text contains `duckdb: IO Error /data/analytics.duckdb`"
+      - "THEN the caller gets `Internal` with the message `internal error`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/rpc TestRepositoryErrorDoesNotLeak. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-cancelled-caller-gets-canceled
+    title: "A cancelled caller gets Canceled"
+    persona: guest
+    priority: P2
+    summary: "A cancelled caller gets Canceled (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the request context is cancelled while the repository call is running"
+      - "THEN the call returns `Canceled`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/rpc TestCancelledContextMapsToCanceled. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-unsupported-capability-is-unavailable
+    title: "An unsupported capability is unavailable"
+    persona: guest
+    priority: P2
+    summary: "An unsupported capability is unavailable (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN an admin calls `GetChannelFunnel` and the repository returns `query.ErrUnsupported`"
+      - "THEN the call returns `Unavailable` with the message `not available on this warehouse`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/rpc TestUnsupportedCapabilityIsUnavailable. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-processed-order-returns-nil
+    title: "A processed order returns nil"
+    persona: guest
+    priority: P2
+    summary: "A processed order returns nil (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Relay.Handle` receives an `OrderPaidEvent` for `o1` with a mapped buyer and the GA4 stub answers 204"
+      - "THEN it returns nil and the ledger contains `o1`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4relay TestHandleSentOrderReturnsNil. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-permanent-4xx-is-dead-lettered-by-the-sdk
+    title: "A permanent 4xx is dead-lettered by the SDK"
+    persona: guest
+    priority: P2
+    summary: "A permanent 4xx is dead-lettered by the SDK (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Relay.Handle` receives an `OrderPaidEvent` for `o2` and the GA4 stub answers 400"
+      - "THEN it returns an error that wraps `ga4relay.ErrDeadLetter` (returned through `consume.Permanent`), `ga4_relay_failed_total{reason=\"4xx\"}` increases by 1 and the ledger does not contain `o2`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4relay TestHandle4xxIsPermanent. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-exhausted-retries-are-permanent
+    title: "Exhausted retries are permanent"
+    persona: guest
+    priority: P2
+    summary: "Exhausted retries are permanent (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Relay.Handle` receives an `OrderPaidEvent` and the GA4 stub answers 503 for all 5 attempts"
+      - "THEN it returns an error that wraps `ga4relay.ErrDeadLetter` and `ga4_relay_failed_total{reason=\"exhausted\"}` increases by 1"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4relay TestHandleExhaustedRetriesIsPermanent. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-an-invalid-envelope-is-permanent
+    title: "An invalid envelope is permanent"
+    persona: guest
+    priority: P2
+    summary: "An invalid envelope is permanent (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Relay.Handle` receives a value that is not an `EventEnvelope`"
+      - "THEN it returns an error that wraps `ga4relay.ErrDeadLetter` and `ga4_relay_failed_total{reason=\"invalid\"}` increases by 1"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4relay TestHandleInvalidEnvelopeIsPermanent. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-ledger-failure-is-transient
+    title: "A ledger failure is transient"
+    persona: guest
+    priority: P2
+    summary: "A ledger failure is transient (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Relay.Handle` receives an `OrderPaidEvent` and the ledger lookup returns an error"
+      - "THEN it returns that error, it does not wrap `ga4relay.ErrDeadLetter` and the GA4 stub receives 0 requests"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4relay TestHandleLedgerFailureIsTransient. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-mapping-store-failure-is-transient
+    title: "A mapping store failure is transient"
+    persona: guest
+    priority: P2
+    summary: "A mapping store failure is transient (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the analytics-events handler receives a consented tracking event and the mapping store returns an error"
+      - "THEN it returns that error and it does not wrap `ga4relay.ErrDeadLetter`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4relay TestMappingStoreFailureIsTransient. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-rejected-paid-order-lands-on-the-relay-dead-letter-topic
+    title: "A rejected paid order lands on the relay dead-letter topic"
+    persona: guest
+    priority: P2
+    summary: "A rejected paid order lands on the relay dead-letter topic (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN an `OrderPaidEvent` is produced to `order.events` on a Redpanda broker, the relay runs against a GA4 stub answering 400 and a second valid order follows"
+      - "THEN the first record appears on `analytics.ga4-relay.dlq` within 30 s with header `dlq-source-topic=order.events` and the second order is sent once"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestRejectedOrderIsDeadLetteredAndNextOrderSent. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-redelivered-order-is-sent-once
+    title: "A redelivered order is sent once"
+    persona: guest
+    priority: P2
+    summary: "A redelivered order is sent once (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `Relay.Handle` receives the same `OrderPaidEvent` for `o1` 3 times"
+      - "THEN the GA4 stub receives exactly 1 request"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4relay TestHandleRedeliveryIsIdempotent. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-the-relay-polls-one-record-at-a-time
+    title: "The relay polls one record at a time"
+    persona: guest
+    priority: P2
+    summary: "The relay polls one record at a time (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the relay consumer options are built from the default settings"
+      - "THEN `MaxPollRecords` is 1 and one record handled at the worst case of 40 s fits the 60 s group rebalance timeout"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4relay TestRelayConsumerOptionsFitRebalanceBudget. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-the-relay-health-reflects-the-relay-duckdb-file-only-when-en
+    title: "The relay health reflects the relay DuckDB file only when enabled"
+    persona: guest
+    priority: P2
+    summary: "The relay health reflects the relay DuckDB file only when enabled (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the relay is enabled and its DuckDB ping fails"
+      - "THEN the overall health status becomes NOT_SERVING within one health interval plus 1 s (the test injects a 200 ms interval and asserts within 1.2 s) and `liveness` stays SERVING"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestRelayReadinessFollowsDuckDBWhenEnabled. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-kafka-outage-does-not-flip-relay-readiness
+    title: "A Kafka outage does not flip relay readiness"
+    persona: guest
+    priority: P2
+    summary: "A Kafka outage does not flip relay readiness (capability analytics-service-runtime)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the relay is enabled with `KAFKA_BROKERS` pointing at a closed port and its DuckDB ping succeeds"
+      - "THEN the overall health status stays SERVING for 10 s and the registered check names are exactly `duckdb`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestRelayReadinessIgnoresKafka. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-the-cli-reads-the-trigger-address-from-settings
+    title: "The CLI reads the trigger address from settings"
+    persona: guest
+    priority: P2
+    summary: "The CLI reads the trigger address from settings (capability ga4-export-import)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the CLI runs with `GA4_IMPORT_TRIGGER_URL` set to a stub that answers 200"
+      - "THEN the stub receives one POST and the CLI exits 0"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4import TestCLICallsTriggerAndExitsZeroOn200_TheImportRunsInsideTheConsumer. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-the-deployed-manifest-does-not-set-mock-data
+    title: "The deployed manifest does not set mock data"
+    persona: guest
+    priority: P2
+    summary: "The deployed manifest does not set mock data (capability ga4-export-import)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN `platform-gitops/platform/team-analytics/consumer.yaml` is parsed"
+      - "THEN no container env entry is named `MOCK_DATA` or `GA4_EXPORT_SOURCE`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, platform-e2e/scripts/tests/test_gitops_ga4.py. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-plain-http-is-not-served
+    title: "Plain HTTP is not served"
+    persona: guest
+    priority: P2
+    summary: "Plain HTTP is not served (capability ga4-purchase-relay)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN an HTTP/1.1 `GET /healthz` is sent to the relay's listening port"
+      - "THEN the connection yields no HTTP 200 response"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestRelayDoesNotServeHTTPProbes. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-ga4-outage-does-not-exceed-the-rebalance-timeout
+    title: "A GA4 outage does not exceed the rebalance timeout"
+    persona: guest
+    priority: P2
+    summary: "A GA4 outage does not exceed the rebalance timeout (capability ga4-purchase-relay)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the relay consumer options are built from the default settings"
+      - "THEN `MaxPollRecords` is 1, and `MaxPollRecords x (5 x RequestTimeout + 1 s + 2 s + 4 s + 8 s)` is 40 s, strictly under the 60 s group rebalance timeout"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/ga4relay TestRelayConsumerOptionsFitRebalanceBudget. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-store-outage-beyond-the-delivery-attempts-is-dead-lettered
+    title: "A store outage beyond the delivery attempts is dead-lettered and counted"
+    persona: guest
+    priority: P2
+    summary: "A store outage beyond the delivery attempts is dead-lettered and counted (capability ga4-purchase-relay)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN an `OrderPaidEvent` for `o4` is produced to `order.events` on a Redpanda broker while every ledger lookup fails"
+      - "THEN the record appears on `analytics.ga4-relay.dlq` within 30 s with its original key and the SDK `dlq-*` headers, `ga4_relay_failed_total{reason=\"store\"}` increases by 5, the GA4 stub receives 0 requests, and after the ledger recovers replaying that dead-letter record sends exactly 1 request for `o4`"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestStoreOutageIsDeadLetteredAfterFiveAttemptsAndReplaySends. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-burst-of-events-is-written-as-batches
+    title: "A burst of events is written as batches"
+    persona: guest
+    priority: P2
+    summary: "A burst of events is written as batches (capability tracking)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN a burst of tracking events arrives on `analytics.events`"
+      - "THEN the batch handler returns nil only after the writer holds the tracking rows of the batch, and returns the writer's error unchanged when a write fails, so the SDK does not commit a batch that was neither written nor parked (the broker-side commit is proven by \"A batch that cannot be written is parked, not dropped\" and \"A 1000-event burst is written at 100 events/s or faster\")"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/events TestBatchHandlerWritesTrackingAndOrderFactsThenAcknowledges. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-batch-that-cannot-be-written-is-parked-not-dropped
+    title: "A batch that cannot be written is parked, not dropped"
+    persona: guest
+    priority: P2
+    summary: "A batch that cannot be written is parked, not dropped (capability tracking)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the warehouse write of a batch fails on all 5 attempts"
+      - "THEN every record of the batch is on `KAFKA_DLQ_TOPIC` with its original key and value (`ga_client_id` blanked when the record has no analytics consent) before its offset is committed, and the next batch is processed"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestPoisonBatchIsDeadLetteredAfterFiveAttempts. Not producible end to end; the migration runs the platform-e2e suite once at the end."
+
+  - id: analytics.runtime-a-1000-event-burst-is-written-at-100-events-s-or-faster
+    title: "A 1000-event burst is written at 100 events/s or faster"
+    persona: guest
+    priority: P2
+    summary: "A 1000-event burst is written at 100 events/s or faster (capability tracking)"
+    entry_route: "/"
+    services: [team-analytics]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN 1000 tracking events are produced to `analytics.events` on a Redpanda broker in one burst and the consumer runs on a DuckDB file in a temporary directory with the default `BATCH_MAX_SIZE` (500) and `BATCH_FLUSH_INTERVAL_SECONDS` (2)"
+      - "THEN the warehouse holds 1000 tracking rows within 10 s of the first produce (at least 100 events/s) and the group offset on `analytics.events` equals the produced end offset"
+    tags: [analytics, unit]
+    status: not-testable
+    notes: "analytics-go-sdk-v1: unit-verified, team-analytics internal/app TestBurstOf1000EventsIsWrittenAtOrAbove100PerSecond. Not producible end to end; the migration runs the platform-e2e suite once at the end."

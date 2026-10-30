@@ -27,7 +27,7 @@ metadata:
   name: vault-config-script
   namespace: vault
 data:
-  SERVICES: "team-gateway team-identity team-domain team-search team-engagement team-order team-payment team-chat team-notification team-promotion team-ai team-audit team-referral team-sharing team-verification ga4-relay mlflow platform-finetune"
+  SERVICES: "team-gateway team-identity team-domain team-search team-engagement team-order team-payment team-chat team-notification team-promotion team-ai team-audit team-referral team-sharing team-verification team-analytics ga4-relay mlflow platform-finetune"
   config.sh: |
     #!/bin/sh
     set -e
@@ -104,14 +104,18 @@ data:
         :
       else
         # per-service env bag (services read DB differently: DATABASE_URL / DB_* / POSTGRES_*)
+        log_key="$(vault kv get -field=LOG_KEY_FP_SECRET "svc/${svc}/config" 2>/dev/null || true)"
+        if [ -z "$log_key" ]; then
+          log_key="$(head -c 32 /dev/urandom | base64 | tr -d '/+=\n')"
+        fi
         vault kv put "svc/${svc}/config" \
+          LOG_KEY_FP_SECRET="$log_key" \
           DATABASE_URL="postgres://${u}_svc:${u}_pass@postgres.marketplace.svc:5432/${u}_db?sslmode=disable" \
           DB_HOST="postgres.marketplace.svc" DB_PORT="5432" DB_USER="${u}_svc" DB_PASSWORD="${u}_pass" DB_NAME="${u}_db" \
           POSTGRES_HOST="postgres.marketplace.svc" POSTGRES_PORT="5432" POSTGRES_USER="${u}_svc" POSTGRES_PASSWORD="${u}_pass" POSTGRES_DB="${u}_db" \
           OPENSEARCH_URL="http://opensearch.marketplace.svc:9200" OPENSEARCH_INDEX="listings" \
           REDIS_HOST="valkey.marketplace.svc" REDIS_PORT="6379" \
-          KAFKA_BROKERS="redpanda.marketplace.svc:9092" KAFKA_BROKER="redpanda.marketplace.svc:9092" \
-          HTTP_PORT="8080" >/dev/null
+          KAFKA_BROKERS="redpanda.marketplace.svc:9092" KAFKA_BROKER="redpanda.marketplace.svc:9092" >/dev/null
       fi
       # policy: read ONLY its own path. The RS256 signing key at shared/jwt is
       # readable by team-identity ALONE (ADR-0006) — the edge/gateway and every
