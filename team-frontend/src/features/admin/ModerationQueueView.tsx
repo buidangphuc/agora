@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { Link } from "@/components/ui/Link";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatPrice } from "@/components/ui/format";
 import { usePending } from "@/features/seller/usePending";
@@ -119,12 +119,11 @@ export function ModerationQueueView({
         </table>
       )}
       {nextCursor ? (
-        <Link
-          href={nextHref(basePath, tab, nextCursor)}
-          className="mt-4 inline-block text-sm text-text-secondary"
-        >
-          Trang sau
-        </Link>
+        <span className="mt-4 inline-block text-sm text-text-secondary">
+          <Link href={nextHref(basePath, tab, nextCursor)} variant="subtle">
+            Trang sau
+          </Link>
+        </span>
       ) : null}
     </div>
   );

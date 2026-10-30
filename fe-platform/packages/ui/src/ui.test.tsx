@@ -18,6 +18,7 @@ import {
   Checkbox,
   Dialog,
   Input,
+  Link,
   Select,
   Table,
   ToastProvider,
@@ -161,6 +162,44 @@ describe("Card", () => {
       </Card>,
     );
     expect(screen.getByRole("heading", { name: "Desk lamp" })).toBeTruthy();
+  });
+});
+
+describe("Link", () => {
+  it("is an underlined text link by default and keeps href, name and test id", () => {
+    render(
+      <Link href="/shop" data-testid="back">
+        Back to shop
+      </Link>,
+    );
+    const a = screen.getByRole("link", { name: "Back to shop" });
+    expect(a.getAttribute("href")).toBe("/shop");
+    expect(a.getAttribute("data-testid")).toBe("back");
+    expect(a.className).toContain("underline");
+  });
+
+  it("subtle keeps the surrounding colour and drops the underline", () => {
+    render(
+      <Link href="/help" variant="subtle">
+        Help
+      </Link>,
+    );
+    const cls = screen.getByRole("link", { name: "Help" }).className;
+    expect(cls).not.toContain("underline");
+    expect(cls).toContain("hover:text-text-link");
+  });
+
+  it("draws a touch-sized button-shaped link from the button maps", () => {
+    render(
+      <Link href="/checkout" variant="primary" size="sm" fullWidth="mobile">
+        Continue
+      </Link>,
+    );
+    const cls = screen.getByRole("link", { name: "Continue" }).className;
+    expect(cls).toContain("bg-action-primary");
+    expect(cls).toContain("min-h-touch");
+    expect(cls).toContain("text-sm");
+    expect(cls).toContain("sm:w-auto");
   });
 });
 

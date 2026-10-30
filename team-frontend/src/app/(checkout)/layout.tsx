@@ -1,6 +1,7 @@
-import Link from "next/link";
+import NextLink from "next/link";
 import type { ReactNode } from "react";
 
+import { Link } from "@/components/ui/Link";
 import { CheckoutPendingProvider } from "@/features/order/CheckoutPending";
 import { CheckoutStepper } from "@/features/order/CheckoutStepper";
 import { isCheckoutEnabled } from "@/lib/flags";
@@ -26,12 +27,12 @@ export default async function CheckoutLayout({
       >
         <header className="rounded-xl border border-border-subtle bg-surface-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link
+            <NextLink
               href="/"
               className="text-xl font-semibold text-action-primary"
             >
               Marketplace
-            </Link>
+            </NextLink>
             <p className="text-xs text-text-secondary">Thanh toán an toàn</p>
           </div>
           <div className="mt-4">
@@ -42,10 +43,10 @@ export default async function CheckoutLayout({
         <footer className="border-t border-border-subtle pt-4 text-center text-xs text-text-secondary">
           <p>Thanh toán an toàn · Môi trường demo, không trừ tiền thật.</p>
           <p className="mt-1 space-x-3">
-            <Link href="/account/orders" className="hover:text-action-primary">
+            <Link href="/account/orders" variant="subtle">
               Đơn hàng của tôi
             </Link>
-            <Link href="/cart" className="hover:text-action-primary">
+            <Link href="/cart" variant="subtle">
               Giỏ hàng
             </Link>
           </p>

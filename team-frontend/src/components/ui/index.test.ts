@@ -17,6 +17,7 @@ const expected = [
   "FormItem",
   "Image",
   "Input",
+  "Link",
   "Modal",
   "Pagination",
   "PriceTag",

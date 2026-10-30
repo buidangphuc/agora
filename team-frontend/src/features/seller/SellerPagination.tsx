@@ -1,9 +1,7 @@
-import Link from "next/link";
-
+import { Link } from "@/components/ui/Link";
 import { Pagination } from "@/components/ui/Pagination";
 import { focusRing } from "@/components/ui/focus";
 
-const compactLink = `inline-flex h-9 items-center rounded-lg border border-border-subtle bg-surface-card px-3 text-sm text-text-primary transition hover:bg-surface-page ${focusRing}`;
 const compactOff =
   "inline-flex h-9 items-center rounded-lg border border-border-subtle bg-surface-card px-3 text-sm text-text-disabled opacity-50 pointer-events-none";
 
@@ -40,7 +38,7 @@ export function SellerPagination({
         className="flex items-center justify-between gap-3 md:hidden"
       >
         {page > 1 ? (
-          <Link href={hrefFor(page - 1)} rel="prev" className={compactLink}>
+          <Link href={hrefFor(page - 1)} rel="prev" variant="outline" size="xs">
             Trước
           </Link>
         ) : (
@@ -52,7 +50,7 @@ export function SellerPagination({
           Trang {page}/{pages}
         </span>
         {page < pages ? (
-          <Link href={hrefFor(page + 1)} rel="next" className={compactLink}>
+          <Link href={hrefFor(page + 1)} rel="next" variant="outline" size="xs">
             Sau
           </Link>
         ) : (

@@ -1,7 +1,6 @@
-import Link from "next/link";
-
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Image } from "@/components/ui/Image";
+import { Link } from "@/components/ui/Link";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { Tag } from "@/components/ui/Tag";
 import { shopLabel } from "@/lib/gateway/shops";
@@ -27,10 +26,7 @@ export function CartGroups({ groups }: { groups: ShopGroup[] }) {
                   sellerId={group.sellerId}
                   name={shopLabel(group.sellerId, group.sellerDisplayName)}
                 />
-                <Link
-                  href={`/shop/${group.sellerId}`}
-                  className="hover:text-action-primary"
-                >
+                <Link href={`/shop/${group.sellerId}`} variant="subtle">
                   {shopLabel(group.sellerId, group.sellerDisplayName)}
                 </Link>
               </span>
@@ -52,12 +48,11 @@ export function CartGroups({ groups }: { groups: ShopGroup[] }) {
                   />
                 </div>
                 <div className="min-w-0 flex-1 space-y-1.5">
-                  <Link
-                    href={`/listing/${it.listingId}`}
-                    className="line-clamp-2 text-sm font-medium text-text-primary hover:text-action-primary"
-                  >
-                    {it.title}
-                  </Link>
+                  <span className="line-clamp-2 text-sm font-medium text-text-primary">
+                    <Link href={`/listing/${it.listingId}`} variant="subtle">
+                      {it.title}
+                    </Link>
+                  </span>
                   {it.variantName && <Tag>Phân loại: {it.variantName}</Tag>}
                   <div>
                     <PriceTag price={it.unitPrice} size="sm" />

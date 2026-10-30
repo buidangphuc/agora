@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   type ReactNode,
   createContext,
@@ -12,8 +11,8 @@ import {
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
+import { Link } from "@/components/ui/Link";
 import { OrderSummary } from "@/features/order/OrderSummary";
-import { linkButtonPrimary } from "./linkButton";
 import { resolveSelection, selectionHref } from "./selection";
 
 export interface SelectionLine {
@@ -117,7 +116,7 @@ export function CartSelection({
             notice={notices}
             action={
               canBuy ? (
-                <Link href={href} className={`${linkButtonPrimary} w-full`}>
+                <Link href={href} variant="primary" fullWidth>
                   Mua hàng
                 </Link>
               ) : (
@@ -128,7 +127,7 @@ export function CartSelection({
             }
             mobileAction={
               canBuy ? (
-                <Link href={href} className={linkButtonPrimary}>
+                <Link href={href} variant="primary">
                   Mua hàng
                 </Link>
               ) : (

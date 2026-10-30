@@ -1,5 +1,5 @@
+import { Link } from "@/components/ui/Link";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
-import Link from "next/link";
 
 import { SellerPageHeader } from "@/features/seller/SellerPageHeader";
 import { ShopProfileForm } from "@/features/seller/ShopProfileForm";
@@ -24,12 +24,9 @@ export default async function SellerShopPage() {
         title="Hồ sơ gian hàng"
         description="Tên gian hàng người mua nhìn thấy trên trang shop và trang sản phẩm."
         action={
-          <Link
-            href={`/shop/${me.id}`}
-            className="text-sm font-medium text-action-primary hover:underline"
-          >
-            Xem gian hàng công khai
-          </Link>
+          <span className="text-sm font-medium">
+            <Link href={`/shop/${me.id}`}>Xem gian hàng công khai</Link>
+          </span>
         }
       />
       <ShopProfileForm initialName={storefront?.displayName ?? ""} />

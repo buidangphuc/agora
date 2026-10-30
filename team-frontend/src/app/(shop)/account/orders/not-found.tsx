@@ -1,7 +1,5 @@
-import Link from "next/link";
-
+import { Link } from "@/components/ui/Link";
 import { Result } from "@/components/ui/Result";
-import { linkButton } from "@/features/order/linkStyles";
 
 export default function OrderNotFound() {
   return (
@@ -10,7 +8,7 @@ export default function OrderNotFound() {
       title="Không tìm thấy đơn hàng"
       subTitle="Đơn hàng không tồn tại hoặc đã bị xóa."
       extra={
-        <Link href="/account/orders" className={linkButton.outlineMd}>
+        <Link href="/account/orders" variant="outline" size="sm">
           Về đơn hàng của tôi
         </Link>
       }

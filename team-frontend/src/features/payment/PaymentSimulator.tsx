@@ -1,17 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Link } from "@/components/ui/Link";
 import { Result } from "@/components/ui/Result";
 import { useToast } from "@/components/ui/ToastProvider";
-import {
-  linkButtonOutline,
-  linkButtonPrimary,
-} from "@/features/cart/linkButton";
 import { processMockPaymentAction } from "@/features/order/actions";
 
 export type SimulatorPhase = "idle" | "success" | "failed";
@@ -71,18 +67,18 @@ export function PaymentSimulator({
         subTitle="Đơn hàng của bạn đã được thanh toán."
         extra={
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/account/orders" className={linkButtonPrimary}>
+            <Link href="/account/orders" variant="primary">
               Xem đơn hàng
             </Link>
             {nextOrderId ? (
               <Link
                 href={`/checkout/pay/${encodeURIComponent(nextOrderId)}`}
-                className={linkButtonPrimary}
+                variant="primary"
               >
                 Thanh toán đơn tiếp theo
               </Link>
             ) : null}
-            <Link href="/" className={linkButtonOutline}>
+            <Link href="/" variant="outline">
               Tiếp tục mua sắm
             </Link>
           </div>
@@ -100,10 +96,7 @@ export function PaymentSimulator({
         extra={
           <div className="flex flex-wrap justify-center gap-3">
             <Button onClick={() => setPhase("idle")}>Thử lại</Button>
-            <Link
-              href={`/account/orders/${orderId}`}
-              className={linkButtonOutline}
-            >
+            <Link href={`/account/orders/${orderId}`} variant="outline">
               Đổi phương thức
             </Link>
           </div>
@@ -142,12 +135,11 @@ export function PaymentSimulator({
             Môi trường demo: không có khoản tiền thật nào bị trừ.
           </p>
           <div className="text-center">
-            <Link
-              href="/account/orders"
-              className="text-xs text-text-secondary hover:text-action-primary"
-            >
-              Bỏ qua và thanh toán sau
-            </Link>
+            <span className="text-xs text-text-secondary">
+              <Link href="/account/orders" variant="subtle">
+                Bỏ qua và thanh toán sau
+              </Link>
+            </span>
           </div>
         </div>
       </CardContent>

@@ -1,7 +1,7 @@
-import Link from "next/link";
+import NextLink from "next/link";
 
+import { Link } from "@/components/ui/Link";
 import { focusRing } from "@/components/ui/focus";
-import { linkButtonClass } from "./linkButton";
 
 /**
  * Home hero: one primary call to action and one quiet secondary link. No
@@ -26,15 +26,15 @@ export function Hero() {
           Tìm sản phẩm, so sánh giá và đặt hàng chỉ trong vài bước.
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/search" className={linkButtonClass("white")}>
+          <Link href="/search" variant="white" size="sm">
             Mua ngay
           </Link>
-          <Link
+          <NextLink
             href="/vouchers"
             className={`inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-text-inverse underline-offset-4 hover:underline ${focusRing}`}
           >
             Xem kho voucher
-          </Link>
+          </NextLink>
         </div>
       </div>
     </section>

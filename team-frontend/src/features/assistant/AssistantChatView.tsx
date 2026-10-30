@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
 
+import { Link } from "@/components/ui/Link";
 import { trackAiInteraction } from "@/lib/analytics/ai";
 import { askAssistantAction } from "./actions";
 
@@ -222,32 +222,40 @@ export function AssistantChatView() {
                         </div>
 
                         <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
-                          <Link
-                            href={`/listing/${p.listing_id}`}
-                            onClick={() =>
-                              trackAiInteraction(
-                                "assistant",
-                                "accepted",
-                                p.listing_id,
-                              )
-                            }
-                            className="flex-1 sm:flex-none px-3.5 py-1.5 bg-primary-600 hover:bg-primary-700 text-text-inverse text-xs font-semibold rounded-lg text-center transition-all shadow-sm"
-                          >
-                            Xem Ngay
-                          </Link>
-                          <Link
-                            href={"/checkout"}
-                            onClick={() =>
-                              trackAiInteraction(
-                                "assistant",
-                                "accepted",
-                                p.listing_id,
-                              )
-                            }
-                            className="flex-1 sm:flex-none px-3.5 py-1.5 bg-danger hover:bg-accent-danger-dark text-text-inverse text-xs font-semibold rounded-lg text-center transition-all shadow-sm"
-                          >
-                            Mua Ngay
-                          </Link>
+                          <span className="flex-1 sm:flex-none">
+                            <Link
+                              href={`/listing/${p.listing_id}`}
+                              onClick={() =>
+                                trackAiInteraction(
+                                  "assistant",
+                                  "accepted",
+                                  p.listing_id,
+                                )
+                              }
+                              variant="primary"
+                              size="xs"
+                              fullWidth
+                            >
+                              Xem Ngay
+                            </Link>
+                          </span>
+                          <span className="flex-1 sm:flex-none">
+                            <Link
+                              href={"/checkout"}
+                              onClick={() =>
+                                trackAiInteraction(
+                                  "assistant",
+                                  "accepted",
+                                  p.listing_id,
+                                )
+                              }
+                              variant="danger"
+                              size="xs"
+                              fullWidth
+                            >
+                              Mua Ngay
+                            </Link>
+                          </span>
                         </div>
                       </div>
                     ))}

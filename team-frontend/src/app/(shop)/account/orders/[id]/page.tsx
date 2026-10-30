@@ -1,5 +1,5 @@
+import { Link } from "@/components/ui/Link";
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { Alert } from "@/components/ui/Alert";
@@ -12,7 +12,6 @@ import {
 } from "@/features/order/OrderTimelineSection";
 import { ReturnStateProvider } from "@/features/order/ReturnState";
 import { parseDetailTab } from "@/features/order/detailTab";
-import { linkButton } from "@/features/order/linkStyles";
 import { listOrderDisputes } from "@/lib/gateway/disputes";
 import { listOrderReturns } from "@/lib/gateway/orders";
 import { getPrincipal } from "@/lib/gateway/session";
@@ -22,7 +21,7 @@ import { loadOrderResult } from "./data";
 export const dynamic = "force-dynamic";
 
 const backLink = (
-  <Link href="/account/orders" className={linkButton.outlineMd}>
+  <Link href="/account/orders" variant="outline" size="sm">
     Về đơn hàng của tôi
   </Link>
 );

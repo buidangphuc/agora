@@ -235,6 +235,8 @@ export const components = {
   },
   link: {
     base: "text-text-link underline underline-offset-4 hover:text-text-link-hover rounded-lg focus-visible:ring-2 focus-visible:ring-focus-ring",
+    subtle:
+      "hover:text-text-link rounded-lg focus-visible:ring-2 focus-visible:ring-focus-ring",
   },
   card: {
     base: "overflow-hidden rounded-2xl bg-surface-card border border-border-subtle text-text-primary shadow-card transition duration-200",

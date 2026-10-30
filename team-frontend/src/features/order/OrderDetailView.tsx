@@ -1,9 +1,9 @@
-import Link from "next/link";
 import React from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Descriptions } from "@/components/ui/Descriptions";
+import { Link } from "@/components/ui/Link";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { type StepItem, Stepper } from "@/components/ui/Stepper";
 import { Table, type TableColumn } from "@/components/ui/Table";
@@ -23,7 +23,6 @@ import { OrderStatusBadge } from "./OrderStatusBadge";
 import { ReturnRequestSection } from "./ReturnRequestSection";
 import type { OrderDetailTab } from "./detailTab";
 import { canPayAgain, canReturn } from "./lifecycle";
-import { linkButton } from "./linkStyles";
 
 function formatInstant(iso: string): string {
   return new Date(iso).toLocaleString("vi-VN", {
@@ -85,12 +84,11 @@ function itemColumns(order: ViewOrder): TableColumn<ViewOrderItem>[] {
             eager={index === 0}
           />
           <div className="min-w-0">
-            <Link
-              href={`/listing/${it.listingId}`}
-              className="line-clamp-2 text-sm font-medium text-text-primary hover:text-action-primary"
-            >
-              {it.title}
-            </Link>
+            <span className="line-clamp-2 text-sm font-medium text-text-primary">
+              <Link href={`/listing/${it.listingId}`} variant="subtle">
+                {it.title}
+              </Link>
+            </span>
             {it.variantName && (
               <p className="text-xs text-text-secondary">
                 Phân loại: {it.variantName}
@@ -281,7 +279,9 @@ export function OrderDetailView({
             {payable && (
               <Link
                 href={`/checkout/pay/${order.id}`}
-                className={`${linkButton.primary} w-full sm:w-auto`}
+                variant="primary"
+                size="xs"
+                fullWidth="mobile"
               >
                 Thanh toán lại
               </Link>

@@ -1,5 +1,5 @@
+import { Link } from "@/components/ui/Link";
 import { loginPath } from "@/features/auth/returnUrlShared";
-import Link from "next/link";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Empty } from "@/components/ui/Empty";
@@ -9,9 +9,6 @@ import {
   listQuestionsByListing,
 } from "@/lib/gateway/engagement";
 import { QAAnswerForm } from "./QAAnswerForm";
-
-const linkButton =
-  "inline-flex items-center justify-center rounded-lg border border-border-strong bg-surface-card px-4 py-2 text-sm font-medium text-text-primary shadow-sm transition duration-150 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2";
 
 function QuestionItem({ question }: { question: ViewQuestion }) {
   return (
@@ -62,13 +59,14 @@ export async function QuestionList({
           description="Chưa có câu hỏi nào. Hãy là người đầu tiên hỏi shop!"
           action={
             loggedIn ? (
-              <a href="#qa-ask" className={linkButton}>
+              <Link href="#qa-ask" variant="outline" size="sm">
                 Đặt câu hỏi
-              </a>
+              </Link>
             ) : (
               <Link
                 href={loginPath(`/listing/${listingId}`)}
-                className={linkButton}
+                variant="outline"
+                size="sm"
               >
                 Đăng nhập để hỏi
               </Link>

@@ -6,7 +6,6 @@ import { Pagination } from "@/components/ui/Pagination";
 import { RetryButton } from "@/features/account/RetryButton";
 import { OrderList } from "@/features/order/OrderList";
 import { OrderStatusTabs, ordersHref } from "@/features/order/OrderStatusTabs";
-import { linkButton } from "@/features/order/linkStyles";
 import {
   ORDERS_PAGE_SIZE,
   paginateOrders,

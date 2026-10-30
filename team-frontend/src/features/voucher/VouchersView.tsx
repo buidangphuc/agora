@@ -1,9 +1,7 @@
-import Link from "next/link";
-
 import { Card } from "@/components/ui/Card";
 import { Empty } from "@/components/ui/Empty";
+import { Link } from "@/components/ui/Link";
 import { Tabs } from "@/components/ui/Tabs";
-import { linkButtonClass } from "@/features/home/linkButton";
 import type { ViewVoucher } from "@/lib/gateway/promotion";
 import { VoucherCard } from "./VoucherCard";
 import {
@@ -55,7 +53,7 @@ export function VouchersView({
           <Empty
             description="Chưa có voucher nào trong mục này."
             action={
-              <Link href="/search" className={linkButtonClass("primary")}>
+              <Link href="/search" variant="primary" size="sm">
                 Xem sản phẩm
               </Link>
             }

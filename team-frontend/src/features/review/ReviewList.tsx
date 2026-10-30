@@ -1,8 +1,7 @@
-import Link from "next/link";
-
 import { Avatar } from "@/components/ui/Avatar";
 import { Empty } from "@/components/ui/Empty";
 import { Image } from "@/components/ui/Image";
+import { Link } from "@/components/ui/Link";
 import { Pagination } from "@/components/ui/Pagination";
 import { Rate } from "@/components/ui/Rate";
 import { Tag } from "@/components/ui/Tag";
@@ -105,7 +104,8 @@ export async function ReviewList({
             href={pdpHref(listingId, { variant }, "reviews")}
             replace
             scroll={false}
-            className="inline-flex items-center justify-center rounded-lg border border-border-strong bg-surface-card px-4 py-2 text-sm font-medium text-text-primary shadow-sm transition duration-150 hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2"
+            variant="outline"
+            size="sm"
           >
             Xem tất cả
           </Link>
