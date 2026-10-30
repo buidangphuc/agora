@@ -35,8 +35,8 @@ describe("login page returnUrl (frontend-login-return)", () => {
     );
   });
 
-  it("passes no returnUrl when absent", async () => {
-    expect(await renderPage({})).toBe("");
+  it("passes the seller centre as returnUrl when absent", async () => {
+    expect(await renderPage({})).toBe("/seller");
   });
 
   it("does not pass an unsafe returnUrl to the form", async () => {
@@ -59,7 +59,7 @@ describe("login page next param (cross-app entry from the buyer app)", () => {
   });
 
   it("drops an unsafe next", async () => {
-    expect(await renderPage({ next: "//evil.example" })).toBe("");
+    expect(await renderPage({ next: "//evil.example" })).toBe("/seller");
   });
 
   it("sends a signed-in seller straight to next", async () => {

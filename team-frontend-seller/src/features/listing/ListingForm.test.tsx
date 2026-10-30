@@ -190,7 +190,7 @@ describe("ListingForm submit", () => {
   it("has a sticky action bar on mobile", () => {
     render(<ListingForm categories={categories} submitLabel="Đăng bán ngay" />);
     const bar = screen.getByRole("button", { name: "Đăng bán ngay" })
-      .parentElement as HTMLElement;
+      .parentElement?.parentElement as HTMLElement;
     expect(bar).toHaveClass("sticky", "bottom-0");
     expect(within(bar).getByRole("link", { name: "Huỷ" })).toHaveAttribute(
       "href",

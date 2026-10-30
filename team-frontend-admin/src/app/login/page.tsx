@@ -34,7 +34,7 @@ export default async function LoginPage({
       <h1 className="text-center text-2xl font-bold text-text-primary">
         Đăng nhập
       </h1>
-      <LoginForm returnUrl={returnUrl} />
+      <LoginForm returnUrl={returnUrl ?? ADMIN_HOME} />
     </main>
   );
 }
