@@ -1,6 +1,7 @@
 import { ListingGrid } from "@/features/listing/ListingGrid";
 import { getRecentlyViewed } from "@/lib/gateway/engagement";
 import { type ViewListing, getListing } from "@/lib/gateway/listings";
+import { SectionHeading } from "./SectionHeading";
 
 /**
  * "Vừa xem" — recently-viewed listings for the signed-in user, sourced from
@@ -25,16 +26,12 @@ export async function RecentlyViewedRow({ limit = 12 }: { limit?: number }) {
   if (items.length === 0) return null;
 
   return (
-    <section aria-labelledby="recently-viewed-title" className="space-y-4">
-      <h2
+    <section aria-labelledby="recently-viewed-title" className="space-y-5">
+      <SectionHeading
         id="recently-viewed-title"
-        className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-border-subtle bg-surface-card px-5 py-4 text-lg font-semibold text-text-primary shadow-preline-card"
-      >
-        Vừa xem
-        <span className="text-xs font-normal text-text-secondary">
-          Sản phẩm bạn đã xem gần đây
-        </span>
-      </h2>
+        title="Vừa xem"
+        description="Sản phẩm bạn đã xem gần đây"
+      />
       <ListingGrid listings={items} placementId="recently_viewed" />
     </section>
   );

@@ -1,6 +1,7 @@
 import { Alert } from "@/components/ui/Alert";
 import { Link } from "@/components/ui/Link";
 import { ListingGrid } from "@/features/listing/ListingGrid";
+import { SectionHeading } from "./SectionHeading";
 import { loadFeed } from "./data";
 
 /** "Gợi ý hôm nay": the published-listings feed with its own failure state. */
@@ -8,13 +9,12 @@ export async function FeedBlock() {
   const { items, failed } = await loadFeed();
 
   return (
-    <section aria-labelledby="home-feed-title" className="space-y-4">
-      <h2
+    <section aria-labelledby="home-feed-title" className="space-y-5">
+      <SectionHeading
         id="home-feed-title"
-        className="flex min-h-16 items-center rounded-2xl border border-border-subtle bg-surface-card px-5 py-4 text-lg font-semibold text-action-primary shadow-preline-card"
-      >
-        Gợi ý hôm nay
-      </h2>
+        title="Gợi ý hôm nay"
+        description="Sản phẩm mới đăng bán từ các shop."
+      />
 
       {failed ? (
         <Alert
@@ -22,9 +22,9 @@ export async function FeedBlock() {
           title="Không tải được danh sách sản phẩm"
           description="Vui lòng thử lại sau ít phút."
           action={
-            <span className="text-sm font-medium">
-              <Link href="/">Thử lại</Link>
-            </span>
+            <Link href="/" variant="secondary" size="sm">
+              Thử lại
+            </Link>
           }
         />
       ) : (
@@ -35,8 +35,13 @@ export async function FeedBlock() {
             empty="Hiện chưa có sản phẩm nào được đăng bán."
           />
           {items.length > 0 && (
-            <div className="pt-2 text-center">
-              <Link href="/search" variant="outline" size="sm">
+            <div className="flex justify-center pt-2">
+              <Link
+                href="/search"
+                variant="secondary"
+                size="md"
+                fullWidth="mobile"
+              >
                 Xem thêm gợi ý
               </Link>
             </div>
