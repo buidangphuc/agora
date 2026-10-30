@@ -1,0 +1,147 @@
+---
+# Source: service/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: team-verification
+  namespace: marketplace
+spec:
+  podSelector:
+    matchLabels:
+      app: team-verification
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: team-gateway
+
+---
+# Source: service/templates/secrets.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: team-verification
+  namespace: marketplace
+  
+
+---
+# Source: service/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: team-verification
+  namespace: marketplace
+  labels:
+    app: team-verification
+spec:
+  selector:
+    app: team-verification
+  ports:
+    - name: http
+      port: 50064
+      targetPort: 50064
+
+---
+# Source: service/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: team-verification
+  namespace: marketplace
+  labels:
+    app: team-verification
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: team-verification
+  template:
+    metadata:
+      labels:
+        app: team-verification
+    spec:
+      serviceAccountName: team-verification
+      containers:
+        - name: team-verification
+          image: "localhost:5001/team-verification:local"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 50064
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          envFrom:
+            - secretRef:
+                name: team-verification-env
+          env:
+            - name: ENV
+              value: "local"
+            - name: GRPC_PORT
+              value: "50064"
+            - name: UPSTREAM_AUDIT_ADDR
+              value: "team-audit:50066"
+          readinessProbe:
+            grpc:
+              port: 50064
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            grpc:
+              port: 50064
+              service: "liveness"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            grpc:
+              port: 50064
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+
+---
+# Source: service/templates/secrets.yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: team-verification
+  namespace: marketplace
+  
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: team-verification
+    kind: SecretStore
+  target:
+    name: team-verification-env
+    creationPolicy: Owner
+  dataFrom:
+    - extract:
+        key: team-verification/config
+
+---
+# Source: service/templates/secrets.yaml
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore
+metadata:
+  name: team-verification
+  namespace: marketplace
+  
+spec:
+  provider:
+    vault:
+      server: http://vault.vault.svc:8200
+      path: svc
+      version: v2
+      auth:
+        kubernetes:
+          mountPath: kubernetes
+          role: team-verification
+          serviceAccountRef:
+            name: team-verification

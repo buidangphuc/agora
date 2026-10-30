@@ -1,17 +1,5 @@
 name: marketplace-services
 
-# ── DB MIGRATIONS (golang-migrate) ────────────────────────────────────────────
-# Each DB-backed service applies its own migrations on startup via a one-shot
-# migrate/migrate init container (the same tool each repo's `make migrate` uses),
-# reaching its owned Postgres over the shared platform-core_default network. The
-# app service `depends_on` its migrate step with condition
-# service_completed_successfully, so the schema exists before the server boots.
-# `up` is idempotent (no-op when already at the latest version). restart:
-# on-failure retries until the owned Postgres is reachable.
-x-migrate: &migrate-defaults
-  image: migrate/migrate:v4.17.1
-  restart: on-failure
-
 services:
   # ── KAFKA TOPIC INIT ────────────────────────────────────────────────────────
   # Redpanda (dev-container) does not reliably auto-create on first produce, so the
@@ -33,7 +21,7 @@ services:
         until rpk cluster info -X brokers=redpanda:9092 >/dev/null 2>&1; do
           echo "waiting for redpanda..."; sleep 2;
         done
-        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events analytics.events engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
+        rpk topic create payment.events payment.events.dlq order.events order.events.dlq order.events.payment-settlement.dlq chat.events chat.events.dlq promotion.events listing.events listing.events.dlq identity.events identity.events.dlq analytics.events analytics.events.dlq listing.events.analytics.dlq engagement.events engagement.events.order.dlq engagement.events.analytics.dlq analytics.ga4-relay.dlq -X brokers=redpanda:9092 -p 1 -r 1 || true
         rpk topic list -X brokers=redpanda:9092
 
   # ── OWNED DBs for the 4 new services ──────────────────────────────────────────
@@ -45,146 +33,160 @@ services:
   # network so each service reaches it in-network as postgres-<name>:5432. Host ports
   # continue the 543X sequence (5442–5445) with no collision with platform-core's DBs.
   team-identity-migrate:
-    <<: *migrate-defaults
+    image: team-identity:local
     container_name: team-identity-migrate
-    volumes:
-      - ./team-identity/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://identity_svc:identity_pass@postgres:5432/identity_db?sslmode=disable
-      - up
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://identity_svc:identity_pass@postgres:5432/identity_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-domain-migrate:
-    <<: *migrate-defaults
+    image: team-domain:local
     container_name: team-domain-migrate
-    volumes:
-      - ./team-domain/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
-      - up
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-engagement-migrate:
-    <<: *migrate-defaults
+    image: team-engagement:local
     container_name: team-engagement-migrate
-    volumes:
-      - ./team-engagement/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://engagement_svc:engagement_pass@postgres:5432/engagement_db?sslmode=disable
-      - up
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://engagement_svc:engagement_pass@postgres:5432/engagement_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-order-migrate:
-    <<: *migrate-defaults
+    image: team-order:local
     container_name: team-order-migrate
-    volumes:
-      - ./team-order/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://order_svc:order_pass@postgres:5432/order_db?sslmode=disable
-      - up
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://order_svc:order_pass@postgres:5432/order_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-search-migrate:
-    <<: *migrate-defaults
+    image: team-search:local
     container_name: team-search-migrate
-    volumes:
-      - ./team-search/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
-      - up
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-payment-migrate:
-    <<: *migrate-defaults
+    image: team-payment:local
     container_name: team-payment-migrate
-    volumes:
-      - ./team-payment/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://payment_svc:payment_pass@postgres:5432/payment_db?sslmode=disable
-      - up
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://payment_svc:payment_pass@postgres:5432/payment_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-chat-migrate:
-    <<: *migrate-defaults
+    image: team-chat:local
     container_name: team-chat-migrate
-    volumes:
-      - ./team-chat/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://chat_svc:chat_pass@postgres:5432/chat_db?sslmode=disable
-      - up
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://chat_svc:chat_pass@postgres:5432/chat_db?sslmode=disable
+    command: ["/server", "migrate", "up"]
 
   team-promotion-migrate:
-    <<: *migrate-defaults
+    image: team-promotion:local
     container_name: team-promotion-migrate
-    volumes:
-      - ./team-promotion/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://promotion_svc:promotion_pass@postgres:5432/promotion_db?sslmode=disable
-      - up
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://promotion_svc:promotion_pass@postgres:5432/promotion_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-notification-migrate:
-    <<: *migrate-defaults
+    image: team-notification:local
     container_name: team-notification-migrate
-    volumes:
-      - ./team-notification/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://notification_svc:notification_pass@postgres:5432/notification_db?sslmode=disable
-      - up
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://notification_svc:notification_pass@postgres:5432/notification_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-referral-migrate:
-    <<: *migrate-defaults
+    image: team-referral:local
     container_name: team-referral-migrate
+    restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./team-referral/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://referral_svc:referral_pass@postgres:5432/referral_db?sslmode=disable
-      - up
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://referral_svc:referral_pass@postgres:5432/referral_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-verification-migrate:
-    <<: *migrate-defaults
+    image: team-verification:local
     container_name: team-verification-migrate
+    restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./team-verification/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://verification_svc:verification_pass@postgres:5432/verification_db?sslmode=disable
-      - up
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://verification_svc:verification_pass@postgres:5432/verification_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-sharing-migrate:
-    <<: *migrate-defaults
+    image: team-sharing:local
     container_name: team-sharing-migrate
+    restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./team-sharing/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://sharing_svc:sharing_pass@postgres:5432/sharing_db?sslmode=disable
-      - up
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://sharing_svc:sharing_pass@postgres:5432/sharing_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-audit-migrate:
-    <<: *migrate-defaults
+    image: team-audit:local
     container_name: team-audit-migrate
+    restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./team-audit/migrations:/migrations:ro
-    command:
-      - -path=/migrations
-      - -database=postgres://audit_svc:audit_pass@postgres:5432/audit_db?sslmode=disable
-      - up
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgres://audit_svc:audit_pass@postgres:5432/audit_db?sslmode=disable
+    command: ["migrate", "up"]
 
   team-identity:
     build:
@@ -198,7 +200,6 @@ services:
       redpanda-init:
         condition: service_completed_successfully
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://identity_svc:identity_pass@postgres:5432/identity_db?sslmode=disable
       - JWT_PRIVATE_KEY='-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCa9r1/pblm+mdm\nFH5EHODWz/KHexkPcE4uDN8Fw+FaZXlC8LwPwGLX1uuBbOHZ4Itd8leTvREihqfs\nGqtPh4Nuuw+MmZr78WtH96tI1LxFvdyZJ4D8F9L9t3VIW3HgV3acVjZNQefFQCd8\nIwF3uoeH29+eazdZsbWLN3ulkpkgaUW+CptBm4wZ55zlizR+ANy0bHjhA9Pipy5k\ncvha5t6u2wOISbLu7YTkLARouE1YP1C54FGMMFOffhPm1aJfftfwysrroZnb0nLT\nQBv2knsjm2tk9rdA4gkkUqM6C8MrsExjFyLH6dSbW1q25zY0gwulic0PPmCkJq0c\nbj00NXhlAgMBAAECggEABaZoa16J/4Cyw2yM3APniL2FPL5WwBLaruAmQ4oMTeT0\nQmYPnU1o7TC3Xn0vUOfYfQDog4j5tnYNalTgmSI6Pw/P9dLl7Ti0rieQFbQ39x0A\njY78q3Rc64ZEXvKCmOjneLTF/xQflLgNmH+YPprM9T2ljhufpYQOt/g6aGOLdLyD\nUpHTroKQP6Jifa7q+8UgGz/44QhLHwZI3oyO07a/OWhzhRDlpwsh4eMhWcJiKIde\nfWdXxhwk5nafUCf3hpedIA0418QRBWeCK5h9F1pVkiIiznhNsmp6jyEcQoYlV0W5\n7j7+b0pGS6igchb8ljj3raHvhnm+ukd1FbF9CFmsEwKBgQDT9UzHAyGyBx1fQFde\nMy0hQUpbwjVcJzqhoNSRv97z4x5ejFMJRPsuloEzqXq33VQ86lHhpg1K+ArY6XeA\nvzy3cd8HLA/9vES9oMgspMCHrNRyomJ+x9+jYehr/umHGzIqyFfu3ZriJpuVrGf4\nPY+RiOUNVGVuBxwjZxNzJQ9OVwKBgQC7KbyR8dkRR87H17oBm8GWBO+joNmzUaNO\nsm5q3KS3aGdRoYzX2HdoPxhxaIr/gAEXektnp5QdNmt8r/xnhofm//tdOJaB4NKW\nfd/xerND0ajRzhWRlfh9enSQ8UYjsyurOQwpArZ7+LHUtpBPrFNR+p2pPa8yWz1+\n0WqRS3HBowKBgQC3jkA+PJ0KopSyL3M59dHIcdVmX2p8ctCYtkJAMkxvIynisV0b\nsuxf7SDYz5Wh8v+HfVkJtBbg7KvgK1c9XN/E8c02VddHYqqZGcsgtlCxbl/RIoVv\ny8IFqL1yASDVyxyH5lYYWztNTCgC13p2hUF2xHmwMH1iaq/YjORQHDEEIwKBgG0A\naao1x82gnHUW1mWJaL0OMuKBE0i0CwASOuxRhDysuT95bqVmlGRKGtoxoIIc8oXR\n24iKuGArCX6cn8tLNmr6OlKYWk9ZuEudE4d3hl/BAyjtdPJM/WNWpfykB81S0+Ps\nXYCk69JXjHntuS4tlnjwFFI0coxJRw9Mt1vXLHExAoGBAMgolo3b0gEaH9W0Y6JV\nmCgz4IWbwv33zYsgWkDIRAqxC3Yb7+LOIWOh5WkHZ3xDv6rRu5K3jwPjtP4HgOcU\nq157I7U+g8YFCgczWUrDz9Ffcxf2mpBKGKuKFxY0vQxFijomHTPvR7m0BLronev/\nmgi+aqBmWK71t/t9R9551U39\n-----END PRIVATE KEY-----\n'
       - JWT_KID=dev-2026
@@ -208,14 +209,11 @@ services:
       # SessionRevoked outbox relayer (ADR-0003 addendum): RevokeSession writes the
       # event in the same tx; the relayer publishes it to identity.events so the
       # gateway denies the revoked session's token. Same OUTBOX_* names as team-domain.
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - IDENTITY_EVENTS_TOPIC=identity.events
-      - OUTBOX_ENABLED=true
       - OUTBOX_POLL_INTERVAL=1s
       - OUTBOX_BATCH_SIZE=100
-      - OUTBOX_CLAIM_LOCK_SECONDS=60
-      - OUTBOX_MAX_ATTEMPTS=10
+      - OUTBOX_CLAIM_LOCK=60s
       # Local-only first-admin seed (dev password; override via SEED_ADMIN_PASSWORD).
       # Deployment manifests must NOT enable this (platform-gitops check).
       - SEED_ADMIN_ENABLED=true
@@ -223,6 +221,7 @@ services:
       - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD:-admin-dev-password-123}
       # SetUserStatus audits through team-audit and fails closed without it.
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
+      - GRPC_REFLECTION_ENABLED=true
 
   team-domain:
     build:
@@ -233,17 +232,18 @@ services:
     depends_on:
       team-domain-migrate:
         condition: service_completed_successfully
+      redpanda:
+        condition: service_healthy
+      redpanda-init:
+        condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       - UPSTREAM_AI_ADDR=team-ai-svc:50060
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://listing_svc:listing_pass@postgres:5432/listing_db?sslmode=disable
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
-      - OUTBOX_ENABLED=true
       - GRPC_PORT=50051
       - ENV=local
-      - IDENTITY_CONSUMER_ENABLED=true
+      - GRPC_REFLECTION_ENABLED=true
 
   team-search:
     build:
@@ -261,13 +261,12 @@ services:
       redpanda:
         condition: service_healthy
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
       - OPENSEARCH_URL=http://opensearch:9200
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - GRPC_PORT=50052
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
 
   team-search-indexer:
     image: team-search:local
@@ -280,20 +279,16 @@ services:
         condition: service_healthy
       redpanda:
         condition: service_healthy
-      team-search-migrate:
-        condition: service_completed_successfully
       team-ai:
         condition: service_started
     environment:
-      - DATABASE_ENABLED=true
-      - DATABASE_URL=postgres://search_svc:search_pass@postgres:5432/search_db?sslmode=disable
       - OPENSEARCH_URL=http://opensearch:9200
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       # Tag classification during ingestion (AIService.ClassifyTags, service principal, scope ai.classify).
       # A failed call never blocks ingestion: the listing is indexed with tags_pending.
       - UPSTREAM_AI_ADDR=team-ai-svc:50060
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
 
   team-engagement:
     build:
@@ -307,22 +302,22 @@ services:
       redpanda-init:
         condition: service_completed_successfully
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://engagement_svc:engagement_pass@postgres:5432/engagement_db?sslmode=disable
       # verified-purchase check: engagement calls team-order to confirm a delivered order (no cross-DB join)
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
       # HideReview writes an audit record via team-audit; fails closed (Unavailable) when unset
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
       # Follow feed: consume listing.events into seller_listings (DLQ listing.events.dlq).
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_CONSUMER_GROUP=team-engagement-feed
       - KAFKA_LISTING_TOPIC=listing.events
       # Engagement fact events: outbox relayer publishes to engagement.events (efe D4).
       - ENGAGEMENT_EVENTS_TOPIC=engagement.events
-      - ENGAGEMENT_OUTBOX_RELAY_INTERVAL=500ms
+      - OUTBOX_POLL_INTERVAL=500ms
       - GRPC_PORT=50054
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
+      - LOG_KEY_FP_SECRET=local-e2e-log-key-fp-secret
 
   team-order:
     build:
@@ -337,17 +332,14 @@ services:
         condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://order_svc:order_pass@postgres:5432/order_db?sslmode=disable
       - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
       - UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053
-      - FEATURE_FLAGS_ENABLED=true
       - FLIPT_ADDR=flipt:9000
-      - FEATURE_FLAGS_EVAL_TIMEOUT_MS=500
+      - FEATURE_FLAGS_EVAL_TIMEOUT=500ms
       # PaymentSettled consumer (AD4/AD1): consume payment.events, drive order→PAID
       # idempotently, park poison records on the DLQ. Keys read by
       # internal/bootstrap/kafka.go::KafkaConfigFromEnv.
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - PAYMENT_EVENTS_TOPIC=payment.events
       - ORDER_PAYMENT_CONSUMER_GROUP=team-order.payment
@@ -355,16 +347,16 @@ services:
       - ENGAGEMENT_EVENTS_DLQ_TOPIC=engagement.events.order.dlq
       # order.events outbox relayer (ADR-0013): publishes OrderPaidEvent (line
       # items) written in the same tx as the PAID transition. Same OUTBOX_* names
-      # as team-domain; needs KAFKA_ENABLED=true above.
+      # as team-domain.
       - ORDER_EVENTS_TOPIC=order.events
-      - OUTBOX_ENABLED=true
       - OUTBOX_POLL_INTERVAL=1s
       - OUTBOX_BATCH_SIZE=100
-      - OUTBOX_CLAIM_LOCK_SECONDS=60
-      - OUTBOX_MAX_ATTEMPTS=10
+      - OUTBOX_CLAIM_LOCK=60s
       - UPSTREAM_PROMOTION_ADDR=team-promotion-svc:50061
       - GRPC_PORT=50055
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
+      - LOG_KEY_FP_SECRET=local-dev-key-fp-secret
 
   team-promotion:
     build:
@@ -379,18 +371,16 @@ services:
         condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://promotion_svc:promotion_pass@postgres:5432/promotion_db?sslmode=disable
-      - FEATURE_FLAGS_ENABLED=true
       - FLIPT_ADDR=flipt:9000
-      - FEATURE_FLAGS_EVAL_TIMEOUT_MS=500
-      - KAFKA_ENABLED=true
+      - FEATURE_FLAGS_EVAL_TIMEOUT=500ms
       - KAFKA_BROKERS=redpanda:9092
       - PROMOTION_EVENTS_TOPIC=promotion.events
       # CreateCampaign checks listing ownership against team-domain (fails closed if unset).
       - UPSTREAM_DOMAIN_ADDR=team-domain-svc:50051
       - GRPC_PORT=50061
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
 
   team-payment:
     build:
@@ -405,13 +395,11 @@ services:
         condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://payment_svc:payment_pass@postgres:5432/payment_db?sslmode=disable
       - UPSTREAM_ORDER_ADDR=team-order-svc:50055
       # Transactional-outbox relayer (AD4): settle writes payment=PAID + a
       # PaymentSettled outbox row in one tx; the relayer drains it to
       # payment.events. Keys read by internal/bootstrap/kafka.go::kafkaConfigFromEnv.
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - PAYMENT_EVENTS_TOPIC=payment.events
       # Seller ledger consumer of order.events (OrderPaidEvent credit, OrderCancelled
@@ -424,7 +412,8 @@ services:
       - GRPC_PORT=50056
       - ENV=local
       # local/e2e only: enables ProcessMockPayment (refused at boot in staging/prod)
-      - MOCK_PAYMENTS=true
+      - MOCK_DATA=payment-provider
+      - GRPC_REFLECTION_ENABLED=true
 
   team-chat:
     build:
@@ -438,25 +427,22 @@ services:
       redpanda-init:
         condition: service_completed_successfully
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://chat_svc:chat_pass@postgres:5432/chat_db?sslmode=disable
       # chat.events producer: ChatMessage (with recipient_id) feeds team-notification
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_CHAT_TOPIC=chat.events
       # chat.events outbox relayer: SendMessage writes the event in the message tx
       # (chat_outbox_events) and the relayer publishes it, so a Kafka hiccup delays
       # but never loses a notification. Same OUTBOX_* names as team-order.
-      - OUTBOX_ENABLED=true
       - OUTBOX_POLL_INTERVAL=1s
       - OUTBOX_BATCH_SIZE=100
-      - OUTBOX_CLAIM_LOCK_SECONDS=60
-      - OUTBOX_MAX_ATTEMPTS=10
+      - OUTBOX_CLAIM_LOCK=60s
       # team-chat builds its DB config from POSTGRES_* (default host postgres-chat);
       # point it at the shared instance.
       - POSTGRES_HOST=postgres
       - GRPC_PORT=50057
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
 
   team-notification:
     build:
@@ -472,7 +458,6 @@ services:
     environment:
       - DATABASE_URL=postgres://notification_svc:notification_pass@postgres:5432/notification_db?sslmode=disable
       # listing.events consumer (F3): price-drop / back-in-stock alerts
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - LISTING_EVENTS_TOPIC=listing.events
       - NOTIFICATION_LISTING_CONSUMER_GROUP=team-notification.listing
@@ -491,6 +476,7 @@ services:
       - UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053
       - GRPC_PORT=50058
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
 
   # ── 4 NEW gRPC services (mirror team-notification wiring) ─────────────────────
   team-referral:
@@ -506,6 +492,7 @@ services:
       - DATABASE_URL=postgres://referral_svc:referral_pass@postgres:5432/referral_db?sslmode=disable
       - GRPC_PORT=50062
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
 
   team-verification:
     build:
@@ -518,10 +505,10 @@ services:
         condition: service_completed_successfully
     environment:
       - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://verification_svc:verification_pass@postgres:5432/verification_db?sslmode=disable
       - GRPC_PORT=50064
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
 
   team-sharing:
     build:
@@ -536,6 +523,7 @@ services:
       - DATABASE_URL=postgres://sharing_svc:sharing_pass@postgres:5432/sharing_db?sslmode=disable
       - GRPC_PORT=50065
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
 
   team-audit:
     build:
@@ -547,10 +535,10 @@ services:
       team-audit-migrate:
         condition: service_completed_successfully
     environment:
-      - DATABASE_ENABLED=true
       - DATABASE_URL=postgres://audit_svc:audit_pass@postgres:5432/audit_db?sslmode=disable
       - GRPC_PORT=50066
       - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
 
   team-gateway:
     build:
@@ -559,7 +547,7 @@ services:
     image: team-gateway:local
     container_name: team-gateway-svc
     environment:
-      - HTTP_PORT=8080
+      - GRPC_PORT=8080
       - UPSTREAM_IDENTITY_ADDR=team-identity-svc:50053
       - UPSTREAM_LISTING_ADDR=team-domain-svc:50051
       - UPSTREAM_SEARCH_ADDR=team-search-svc:50052
@@ -580,7 +568,6 @@ services:
       # locally too (shipped default 5 rps / burst 20; the flood scenario uses its own gateway).
       - TRACK_RATE_LIMIT_RPS=1000
       - TRACK_RATE_LIMIT_BURST=2000
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_ANALYTICS_TOPIC=analytics.events
       # Session revocation (ADR-0003 addendum): consume identity.events into the
@@ -600,6 +587,12 @@ services:
       - PROMETHEUS_URL=http://prometheus:9090
       - JAEGER_QUERY_URL=http://jaeger:16686
       - JAEGER_UI_URL=http://localhost:16686
+      - ENV=local
+      - UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059
+      - UPSTREAM_REFERRAL_ADDR=team-referral-svc:50062
+      - UPSTREAM_VERIFICATION_ADDR=team-verification-svc:50064
+      - UPSTREAM_SHARING_ADDR=team-sharing-svc:50065
+      - UPSTREAM_AUDIT_ADDR=team-audit-svc:50066
     ports:
       - "8080:8080"
 
@@ -821,7 +814,6 @@ services:
     environment:
       - ENV=local
       - GRPC_PORT=50059
-      - KAFKA_ENABLED=true
       - KAFKA_BROKERS=redpanda:9092
       - KAFKA_CONSUMER_GROUP=team-analytics
       - KAFKA_ANALYTICS_TOPIC=analytics.events
@@ -834,6 +826,7 @@ services:
       - ENGAGEMENT_EVENTS_TOPIC=engagement.events
       - ENGAGEMENT_DLQ_TOPIC=engagement.events.analytics.dlq
       - ENGAGEMENT_CONSUMER_GROUP=team-analytics.engagement
+      - GRPC_REFLECTION_ENABLED=true
     volumes:
       - analytics_data:/data
 
@@ -851,7 +844,9 @@ services:
       - DUCKDB_PATH=/data/ga4-relay.duckdb
       - GA4_RELAY_CONSUMER_GROUP=team-analytics.ga4-relay
       - GA4_RELAY_DLQ_TOPIC=analytics.ga4-relay.dlq
-      - GA4_RELAY_PROBE_PORT=8085
+      - ENV=local
+      - GRPC_REFLECTION_ENABLED=true
+      - GRPC_PORT=50059
     volumes:
       - ga4_relay_data:/data
     depends_on:

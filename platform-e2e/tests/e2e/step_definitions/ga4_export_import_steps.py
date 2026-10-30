@@ -5,7 +5,7 @@ Black box. The import runs inside the consumer; the job is triggered with the th
     docker exec <TEAM_ANALYTICS_CONTAINER> /ga4import --date YYYY-MM-DD
 
 (exit 0 on HTTP 200 from the consumer's internal trigger, non-zero + stderr text otherwise).
-The consumer must run with GA4_EXPORT_SOURCE=fixture, GA4_EXPORT_DATASET=fixture and
+The consumer must run with MOCK_DATA=ga4export, GA4_EXPORT_DATASET=fixture and
 GA4_EXPORT_FIXTURE_DIR=/data/ga4_fixture (stack override must set them; the e2e cannot change the
 consumer's env). Override the command with GA4_IMPORT_CMD (shell template, `{date}` substituted).
 The fixture is a Parquet file named `events_YYYYMMDD.parquet` in GA4 export schema (event_date,

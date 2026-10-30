@@ -100,8 +100,8 @@ func Cycle(ctx context.Context, e Exporter, path string, logger *slog.Logger) er
 			if ctx.Err() != nil {
 				return err
 			}
-			logger.WarnContext(ctx, "parquet export failed", slog.String("relation", t.Relation),
-				slog.String("path", t.Path), slog.Any("err", err))
+			logger.WarnContext(ctx, "parquet export failed", "relation", t.Relation,
+				"path", t.Path, "err", err)
 			if first == nil {
 				first = err
 			}

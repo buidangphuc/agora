@@ -102,7 +102,7 @@ func (e *Edge) edgeHTTP(next http.Handler, route string, lim *rateLimiter, logge
 		// user is keyed by id; everyone else (including an invalid token, which
 		// the handler answers itself) by client IP.
 		principal, key := "anonymous", "ip:"+e.httpClientIP(r)
-		if p := e.beaconPrincipal(r); p.GetId() != "anonymous" {
+		if p := e.beaconPrincipal(r); p.GetId() != "anonymous" { //nolint:contextcheck
 			principal, key = p.GetId(), "user:"+p.GetId()
 		}
 
@@ -115,14 +115,14 @@ func (e *Edge) edgeHTTP(next http.Handler, route string, lim *rateLimiter, logge
 		if rec.status == 0 {
 			rec.status = http.StatusOK
 		}
-		logger.Info("edge.request",
-			slog.String("method", route),
-			slog.String("principal", principal),
-			slog.String("code", httpCode(rec.status)),
-			slog.Int("status", rec.status),
-			slog.Int64("latency_ms", time.Since(start).Milliseconds()),
-			slog.String("request_id", rid),
-			slog.Int("attempts", attempts.value()),
+		logger.InfoContext(r.Context(), "edge.request", //nolint:contextcheck
+			"method", route,
+			"principal", principal,
+			"code", httpCode(rec.status),
+			"status", rec.status,
+			"latency_ms", time.Since(start).Milliseconds(),
+			"request_id", rid,
+			"attempts", attempts.value(),
 		)
 	})
 }
