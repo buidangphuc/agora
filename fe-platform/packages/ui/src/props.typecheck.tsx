@@ -1,8 +1,8 @@
 import {
   Alert,
+  Avatar,
   Badge,
   Breadcrumb,
-  Avatar,
   Button,
   Card,
   CardContent,

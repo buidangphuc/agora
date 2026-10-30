@@ -14,9 +14,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   Alert,
+  Avatar,
   Badge,
   Breadcrumb,
-  Avatar,
   Button,
   Card,
   CardContent,
@@ -25,18 +25,17 @@ import {
   ClosableTag,
   Descriptions,
   Dialog,
+  Drawer,
   Empty,
+  Image,
   Input,
   Link,
   NativeSelect,
   PageSkeleton,
   Pagination,
+  PriceTag,
   Progress,
   Result,
-  Drawer,
-  Image,
-  Input,
-  PriceTag,
   Select,
   Skeleton,
   Statistic,
@@ -941,6 +940,9 @@ describe("Alert", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(closed).toBe(1);
     expect(screen.queryByText("Saved")).toBeNull();
+  });
+});
+
 describe("Tabs", () => {
   const items = [
     { id: "all", label: "All", content: <p>All panel</p> },

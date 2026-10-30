@@ -74,15 +74,6 @@ describe("catalog", () => {
       '"secondary"',
     ]);
     expect(members(props.size.type)).toEqual(['"lg"', '"md"', '"sm"', '"xs"']);
-    expect(props.variant.type).toBe(
-      '"primary" | "secondary" | "ghost" | "danger"',
-    );
-    expect(props.size.type.split(" | ").sort()).toEqual([
-      '"lg"',
-      '"md"',
-      '"sm"',
-      '"xs"',
-    ]);
     expect(byName.Button.native).toBe("button");
   });
 
@@ -91,18 +82,14 @@ describe("catalog", () => {
     expect(byName.Table.client).toBe(false);
     expect(byName.NativeSelect.client).toBe(false);
     expect(byName.Alert.client).toBe(false);
+    expect(byName.Image.client).toBe(false);
+    expect(byName.formatPrice.kind).toBe("function");
     for (const n of ["Tag", "Badge", "Empty", "Result"])
       expect(byName[n].client).toBe(false);
     for (const n of [
       "Select",
       "Checkbox",
       "ClosableTag",
-      "Dialog",
-    expect(byName.Image.client).toBe(false);
-    expect(byName.formatPrice.kind).toBe("function");
-    for (const n of [
-      "Select",
-      "Checkbox",
       "Dialog",
       "Drawer",
       "ToastProvider",
