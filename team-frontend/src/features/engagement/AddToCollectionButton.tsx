@@ -67,19 +67,19 @@ export function AddToCollectionButton({
           }
           setOpen((o) => !o);
         }}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-brand hover:text-brand"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border-strong px-3 py-2 text-xs font-medium text-text-secondary transition hover:border-action-primary hover:text-action-primary"
       >
         <span>📁</span>
         <span>Thêm vào bộ sưu tập</span>
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-60 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <div className="absolute z-20 mt-2 w-60 rounded-lg border border-border-subtle bg-surface-card p-3 shadow-lg">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-disabled">
             Chọn bộ sưu tập
           </p>
           {collections.length === 0 ? (
-            <p className="mb-2 text-xs text-gray-400">
+            <p className="mb-2 text-xs text-text-disabled">
               Chưa có bộ sưu tập nào.
             </p>
           ) : (
@@ -90,13 +90,15 @@ export function AddToCollectionButton({
                     type="button"
                     disabled={pending}
                     onClick={() => add(c.id, c.name)}
-                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-gray-800 transition hover:bg-orange-50 disabled:opacity-60"
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs text-text-primary transition hover:bg-primary-50 disabled:opacity-60"
                   >
                     <span className="flex items-center gap-1.5">
                       <span>📂</span>
                       <span>{c.name}</span>
                     </span>
-                    <span className="text-xs text-gray-400">{c.itemCount}</span>
+                    <span className="text-xs text-text-disabled">
+                      {c.itemCount}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -109,12 +111,12 @@ export function AddToCollectionButton({
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Bộ sưu tập mới…"
               aria-label="Tên bộ sưu tập mới"
-              className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs focus:border-brand focus:outline-hidden"
+              className="flex-1 rounded-md border border-border-strong px-2 py-1.5 text-xs focus:border-action-primary focus:outline-hidden"
             />
             <button
               type="submit"
               disabled={pending || !newName.trim()}
-              className="rounded-md bg-brand px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+              className="rounded-md bg-action-primary px-2.5 py-1.5 text-xs font-semibold text-text-inverse disabled:opacity-60"
             >
               +
             </button>

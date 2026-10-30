@@ -48,8 +48,8 @@ export function FollowSellerButton({
       disabled={pending}
       className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${
         following
-          ? "bg-white/20 text-white"
-          : "bg-white text-brand hover:bg-yellow-100"
+          ? "bg-white/20 text-text-inverse"
+          : "bg-surface-card text-action-primary hover:bg-yellow-100"
       }`}
     >
       {following ? "✓ Đang theo dõi" : "+ Theo dõi"}

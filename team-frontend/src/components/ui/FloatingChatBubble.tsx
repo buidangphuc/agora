@@ -17,7 +17,7 @@ export function FloatingChatBubble() {
       <Link
         href="/chat"
         aria-label="Mở hộp thư tin nhắn và hỗ trợ"
-        className="flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-600 to-brand px-4 py-3 text-white shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:scale-105 active:scale-95 transition-all duration-200"
+        className="flex items-center gap-2 rounded-full bg-gradient-to-r from-primary-600 to-primary-600 px-4 py-3 text-text-inverse shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 hover:scale-105 active:scale-95 transition-all duration-200"
       >
         <div className="relative flex items-center justify-center">
           <span className="text-xl leading-none">💬</span>
@@ -33,7 +33,7 @@ export function FloatingChatBubble() {
         </span>
 
         {/* Floating tooltip on hover for desktop */}
-        <span className="pointer-events-none absolute right-0 bottom-full mb-2 hidden md:group-hover:flex items-center whitespace-nowrap rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="pointer-events-none absolute right-0 bottom-full mb-2 hidden md:group-hover:flex items-center whitespace-nowrap rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-text-inverse shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
           Nhắn tin với Người bán & Hỗ trợ
           <span className="absolute top-full right-6 -mt-1 border-4 border-transparent border-t-gray-900" />
         </span>

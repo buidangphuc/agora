@@ -51,7 +51,7 @@ export function ListingFeed({
             type="button"
             onClick={loadMore}
             disabled={loading}
-            className="rounded-md border px-6 py-2 hover:border-brand disabled:opacity-60"
+            className="rounded-md border px-6 py-2 hover:border-action-primary disabled:opacity-60"
           >
             {loading ? "Đang tải..." : "Xem thêm"}
           </button>

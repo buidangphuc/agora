@@ -74,7 +74,7 @@ export function LiveFlashSaleStock({
           <span className="animate-bounce text-sm">🔥</span>
           <span className="uppercase tracking-wider">FLASH SALE</span>
         </div>
-        <span className="text-brand font-extrabold text-base">
+        <span className="text-action-primary font-extrabold text-base">
           {formatPrice(campaign.salePrice, currency)}
         </span>
       </div>
@@ -90,14 +90,14 @@ export function LiveFlashSaleStock({
           className="h-full bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 rounded-full transition-all duration-700 ease-out"
           style={{ width: `${percentage}%` }}
         />
-        <div className="absolute inset-0 flex items-center justify-center text-xs font-black text-white drop-shadow-on-image">
+        <div className="absolute inset-0 flex items-center justify-center text-xs font-black text-text-inverse drop-shadow-on-image">
           {soldOut ? "ĐÃ BÁN HẾT" : `ĐÃ BÁN ${sold} / ${cap}`}
         </div>
       </div>
 
       <div className="text-xs text-orange-600/90 mt-1.5 flex items-center justify-between">
         <span>⚡ Số lượng có hạn — cập nhật trực tiếp</span>
-        <span className="font-semibold text-red-600">
+        <span className="font-semibold text-text-danger">
           Còn {remaining} sản phẩm
         </span>
       </div>

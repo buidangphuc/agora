@@ -39,21 +39,21 @@ export default async function ShopPage(props: {
 
       {/* ── Bundles / combos offered by this shop ── */}
       {bundles.length > 0 && (
-        <div className="mt-6 rounded-xs border border-gray-200 bg-white p-5 shadow-2xs">
-          <h2 className="mb-3 text-sm font-bold text-gray-800">
+        <div className="mt-6 rounded-xs border border-border-subtle bg-surface-card p-5 shadow-2xs">
+          <h2 className="mb-3 text-sm font-bold text-text-primary">
             🧩 Combo tiết kiệm ({bundles.length})
           </h2>
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {bundles.map((b) => (
               <li
                 key={b.id}
-                className="rounded-xs border border-gray-100 p-3 text-xs"
+                className="rounded-xs border border-border-subtle p-3 text-xs"
               >
-                <p className="font-semibold text-gray-800">{b.title}</p>
-                <p className="mt-0.5 text-gray-400">
+                <p className="font-semibold text-text-primary">{b.title}</p>
+                <p className="mt-0.5 text-text-disabled">
                   {b.listingIds.length} sản phẩm
                 </p>
-                <p className="mt-1 font-bold text-brand">
+                <p className="mt-1 font-bold text-action-primary">
                   {b.bundlePrice.toLocaleString("vi-VN")} VND
                 </p>
               </li>

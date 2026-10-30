@@ -42,14 +42,14 @@ export function LoanCalculatorView() {
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* ── Header ── */}
-      <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-gray-900 to-red-950 p-6 md:p-8 text-white shadow-md">
-        <span className="rounded-full bg-red-600/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-xs">
+      <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-neutral-900 to-red-950 p-6 md:p-8 text-text-inverse shadow-md">
+        <span className="rounded-full bg-red-600/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-text-inverse shadow-xs">
           🧮 CÔNG CỤ TÀI CHÍNH BĐS
         </span>
         <h1 className="mt-3 text-2xl md:text-3xl font-black">
           Tính Lãi Suất Vay Mua Nhà Trả Góp
         </h1>
-        <p className="mt-1 text-xs md:text-sm text-gray-300">
+        <p className="mt-1 text-xs md:text-sm text-neutral-300">
           Ước tính chính xác số tiền gốc + lãi trả hàng tháng và kế hoạch tài
           chính mua nhà an toàn
         </p>
@@ -58,16 +58,16 @@ export function LoanCalculatorView() {
       {/* ── Calculator Main Grid ── */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         {/* ── Left Form Inputs ── */}
-        <div className="lg:col-span-7 rounded-2xl border border-gray-200 bg-white p-6 shadow-xs space-y-5">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 border-b pb-3">
+        <div className="lg:col-span-7 rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-xs space-y-5">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-text-primary border-b pb-3">
             THÔNG TIN KHOẢN VAY
           </h2>
 
           {/* Property Price */}
           <div>
-            <div className="flex justify-between text-xs font-semibold text-gray-700 mb-1">
+            <div className="flex justify-between text-xs font-semibold text-text-secondary mb-1">
               <span>Giá trị bất động sản (VND):</span>
-              <strong className="text-red-600 font-bold text-sm">
+              <strong className="text-text-danger font-bold text-sm">
                 {formatPrice(propertyPrice)}
               </strong>
             </div>
@@ -76,7 +76,7 @@ export function LoanCalculatorView() {
               step={50000000}
               value={propertyPrice}
               onChange={(e) => setPropertyPrice(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 p-2.5 text-xs text-gray-900 outline-none focus:border-red-500"
+              className="w-full rounded-lg border border-border-strong p-2.5 text-xs text-text-primary outline-none focus:border-border-danger"
             />
             <div className="flex gap-2 mt-2">
               {[2000000000, 3500000000, 5000000000, 10000000000].map((val) => (
@@ -86,8 +86,8 @@ export function LoanCalculatorView() {
                   onClick={() => setPropertyPrice(val)}
                   className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
                     propertyPrice === val
-                      ? "bg-red-50 text-red-600 border border-red-300"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "bg-red-50 text-text-danger border border-red-300"
+                      : "bg-surface-muted text-text-secondary hover:bg-neutral-200"
                   }`}
                 >
                   {formatPrice(val)}
@@ -98,9 +98,9 @@ export function LoanCalculatorView() {
 
           {/* Loan Percentage */}
           <div>
-            <div className="flex justify-between text-xs font-semibold text-gray-700 mb-1">
+            <div className="flex justify-between text-xs font-semibold text-text-secondary mb-1">
               <span>Tỷ lệ vay ngân hàng:</span>
-              <strong className="text-gray-900">
+              <strong className="text-text-primary">
                 {loanPercent}% ({formatPrice(loanAmount)})
               </strong>
             </div>
@@ -113,7 +113,7 @@ export function LoanCalculatorView() {
               onChange={(e) => setLoanPercent(Number(e.target.value))}
               className="w-full accent-red-600 cursor-pointer"
             />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <div className="flex justify-between text-xs text-text-disabled mt-1">
               <span>10%</span>
               <span>50%</span>
               <span>70% (Phổ biến)</span>
@@ -123,9 +123,9 @@ export function LoanCalculatorView() {
 
           {/* Loan Years */}
           <div>
-            <div className="flex justify-between text-xs font-semibold text-gray-700 mb-1">
+            <div className="flex justify-between text-xs font-semibold text-text-secondary mb-1">
               <span>Thời hạn vay:</span>
-              <strong className="text-gray-900">
+              <strong className="text-text-primary">
                 {loanYears} năm ({totalMonths} tháng)
               </strong>
             </div>
@@ -138,7 +138,7 @@ export function LoanCalculatorView() {
               onChange={(e) => setLoanYears(Number(e.target.value))}
               className="w-full accent-red-600 cursor-pointer"
             />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <div className="flex justify-between text-xs text-text-disabled mt-1">
               <span>5 năm</span>
               <span>15 năm</span>
               <span>20 năm (Khuyên dùng)</span>
@@ -150,7 +150,7 @@ export function LoanCalculatorView() {
           <div>
             <label
               htmlFor="interest-rate"
-              className="block text-xs font-semibold text-gray-700 mb-1"
+              className="block text-xs font-semibold text-text-secondary mb-1"
             >
               Lãi suất vay ưu đãi (%/năm):
             </label>
@@ -160,13 +160,13 @@ export function LoanCalculatorView() {
               step={0.1}
               value={interestRate}
               onChange={(e) => setInterestRate(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 p-2.5 text-xs text-gray-900 outline-none focus:border-red-500"
+              className="w-full rounded-lg border border-border-strong p-2.5 text-xs text-text-primary outline-none focus:border-border-danger"
             />
           </div>
 
           {/* Payment Method */}
           <div>
-            <div className="block text-xs font-semibold text-gray-700 mb-2">
+            <div className="block text-xs font-semibold text-text-secondary mb-2">
               Phương thức tính lãi:
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -175,12 +175,12 @@ export function LoanCalculatorView() {
                 onClick={() => setMethod("reducing")}
                 className={`rounded-xl border p-3 text-left transition ${
                   method === "reducing"
-                    ? "border-red-600 bg-red-50/50 text-red-700 ring-1 ring-red-600"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-border-danger bg-red-50/50 text-text-danger ring-1 ring-border-danger"
+                    : "border-border-subtle hover:border-border-strong"
                 }`}
               >
                 <div className="font-bold text-xs">Dư nợ giảm dần</div>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-text-secondary mt-0.5">
                   Tiền lãi giảm dần theo thời gian
                 </p>
               </button>
@@ -190,12 +190,12 @@ export function LoanCalculatorView() {
                 onClick={() => setMethod("equal")}
                 className={`rounded-xl border p-3 text-left transition ${
                   method === "equal"
-                    ? "border-red-600 bg-red-50/50 text-red-700 ring-1 ring-red-600"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-border-danger bg-red-50/50 text-text-danger ring-1 ring-border-danger"
+                    : "border-border-subtle hover:border-border-strong"
                 }`}
               >
                 <div className="font-bold text-xs">Trả đều hàng tháng</div>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-text-secondary mt-0.5">
                   Khoản trả cố định mỗi tháng
                 </p>
               </button>
@@ -205,52 +205,54 @@ export function LoanCalculatorView() {
 
         {/* ── Right Results & Summary ── */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs space-y-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-900 border-b pb-3">
+          <div className="rounded-2xl border border-border-subtle bg-surface-card p-6 shadow-xs space-y-5">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-text-primary border-b pb-3">
               KẾT QUẢ ƯỚC TÍNH
             </h2>
 
             {/* Monthly First Payment Highlight */}
             <div className="rounded-xl bg-red-50 p-4 border border-red-200 text-center">
-              <span className="text-xs text-gray-600 font-medium block">
+              <span className="text-xs text-text-secondary font-medium block">
                 Số tiền trả tháng đầu tiên (Gốc + Lãi):
               </span>
-              <span className="text-2xl sm:text-3xl font-black text-red-600 mt-1 block">
+              <span className="text-2xl sm:text-3xl font-black text-text-danger mt-1 block">
                 {Math.round(firstMonthPayment).toLocaleString("vi-VN")} đ
               </span>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-text-secondary mt-1">
                 Gốc: {Math.round(monthlyPrincipal).toLocaleString("vi-VN")} đ ·
                 Lãi: {Math.round(firstMonthInterest).toLocaleString("vi-VN")} đ
               </p>
             </div>
 
             {/* Breakdown List */}
-            <div className="space-y-3 text-xs border-t pt-4 text-gray-700">
+            <div className="space-y-3 text-xs border-t pt-4 text-text-secondary">
               <div className="flex justify-between">
-                <span className="text-gray-500">
+                <span className="text-text-secondary">
                   Vốn tự có cần chuẩn bị ({100 - loanPercent}%):
                 </span>
-                <strong className="text-gray-900 font-bold">
+                <strong className="text-text-primary font-bold">
                   {formatPrice(upfrontAmount)}
                 </strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">
+                <span className="text-text-secondary">
                   Số tiền vay ngân hàng ({loanPercent}%):
                 </span>
-                <strong className="text-gray-900 font-bold">
+                <strong className="text-text-primary font-bold">
                   {formatPrice(loanAmount)}
                 </strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Tổng tiền lãi phải trả:</span>
-                <strong className="text-red-600 font-bold">
+                <span className="text-text-secondary">
+                  Tổng tiền lãi phải trả:
+                </span>
+                <strong className="text-text-danger font-bold">
                   {formatPrice(totalInterest)}
                 </strong>
               </div>
-              <div className="flex justify-between font-bold text-sm text-gray-900 pt-3 border-t">
+              <div className="flex justify-between font-bold text-sm text-text-primary pt-3 border-t">
                 <span>Tổng gốc + lãi:</span>
-                <span className="text-base text-gray-900">
+                <span className="text-base text-text-primary">
                   {formatPrice(totalCost)}
                 </span>
               </div>
@@ -260,7 +262,7 @@ export function LoanCalculatorView() {
             <div className="pt-2">
               <Link
                 href="/search"
-                className="flex items-center justify-center rounded-xl bg-red-600 py-3 text-xs font-bold uppercase tracking-wider text-white shadow-xs hover:bg-red-700 transition"
+                className="flex items-center justify-center rounded-xl bg-danger py-3 text-xs font-bold uppercase tracking-wider text-text-inverse shadow-xs hover:bg-accent-danger-dark transition"
               >
                 Tìm Nhà Đất Phù Hợp Tầm Tài Chính →
               </Link>
@@ -268,8 +270,10 @@ export function LoanCalculatorView() {
           </div>
 
           {/* Advice card */}
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-xs text-gray-600 space-y-1.5">
-            <p className="font-bold text-gray-800">💡 Lời khuyên chuyên gia:</p>
+          <div className="rounded-xl border border-border-subtle bg-surface-page p-4 text-xs text-text-secondary space-y-1.5">
+            <p className="font-bold text-text-primary">
+              💡 Lời khuyên chuyên gia:
+            </p>
             <p>
               • Khoản trả góp hàng tháng không nên vượt quá{" "}
               <strong>40% - 50%</strong> tổng thu nhập của gia đình.

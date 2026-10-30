@@ -42,7 +42,7 @@ export function ChatWithSellerButton({
       type="button"
       disabled={loading}
       onClick={handleChat}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-brand bg-orange-50 px-4 py-2 text-sm font-semibold text-brand transition hover:bg-orange-100 disabled:opacity-60"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-action-primary bg-primary-50 px-4 py-2 text-sm font-semibold text-action-primary transition hover:bg-primary-100 disabled:opacity-60"
     >
       💬 {loading ? "Đang kết nối..." : "Chat với người bán"}
     </button>

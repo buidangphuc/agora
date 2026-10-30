@@ -128,10 +128,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             role={t.type === "error" ? "alert" : "status"}
             className={`pointer-events-auto flex items-center justify-between gap-3 rounded-xl border p-3.5 shadow-lg backdrop-blur-md transition-all duration-300 ${
               t.type === "success"
-                ? "border-emerald-500/30 bg-emerald-900/90 text-white shadow-emerald-950/20"
+                ? "border-emerald-500/30 bg-emerald-900/90 text-text-inverse shadow-emerald-950/20"
                 : t.type === "error"
-                  ? "border-red-500/30 bg-red-900/90 text-white shadow-red-950/20"
-                  : "border-gray-700/40 bg-gray-900/90 text-white shadow-black/20"
+                  ? "border-red-500/30 bg-red-900/90 text-text-inverse shadow-red-950/20"
+                  : "border-neutral-700/40 bg-neutral-900/90 text-text-inverse shadow-black/20"
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -148,7 +148,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => removeToast(t.id)}
-              className="shrink-0 rounded-lg p-1 text-white/70 hover:bg-white/20 hover:text-white transition text-xs"
+              className="shrink-0 rounded-lg p-1 text-white/70 hover:bg-white/20 hover:text-text-inverse transition text-xs"
               aria-label="Đóng thông báo"
             >
               ✕

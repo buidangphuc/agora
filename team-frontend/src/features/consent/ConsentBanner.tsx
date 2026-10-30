@@ -72,9 +72,9 @@ export function ConsentBanner() {
       <dialog
         open
         aria-labelledby="consent-title"
-        className="static mx-auto w-full max-w-2xl rounded-lg border bg-white p-4 shadow-xl text-sm text-gray-700"
+        className="static mx-auto w-full max-w-2xl rounded-lg border bg-surface-card p-4 shadow-xl text-sm text-text-secondary"
       >
-        <h2 id="consent-title" className="font-bold text-gray-900 mb-2">
+        <h2 id="consent-title" className="font-bold text-text-primary mb-2">
           Cookie preferences
         </h2>
         <div className="space-y-2 mb-4">
@@ -91,7 +91,9 @@ export function ConsentBanner() {
               />
               <span>
                 <span className="font-medium">{g.label}</span>
-                <span className="block text-xs text-gray-500">{g.hint}</span>
+                <span className="block text-xs text-text-secondary">
+                  {g.hint}
+                </span>
               </span>
             </label>
           ))}
@@ -113,7 +115,7 @@ export function ConsentBanner() {
           </button>
           <button
             type="button"
-            className="rounded bg-brand px-3 py-1.5 text-white"
+            className="rounded bg-action-primary px-3 py-1.5 text-text-inverse"
             onClick={() =>
               commit({
                 analytics: true,
@@ -134,7 +136,7 @@ export function CookieSettingsLink() {
   return (
     <button
       type="button"
-      className="underline hover:text-gray-800"
+      className="underline hover:text-text-primary"
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
     >
       Cookie settings

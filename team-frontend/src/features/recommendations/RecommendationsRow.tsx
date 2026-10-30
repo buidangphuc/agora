@@ -43,12 +43,14 @@ export async function RecommendationsRow({
 
   return (
     <section className="space-y-3" data-recs-request-id={requestId}>
-      <div className="rounded-xs bg-white p-3 shadow-shopee border-b-2 border-brand flex items-center justify-between">
-        <span className="font-bold text-sm text-brand uppercase tracking-wider flex items-center gap-1.5">
+      <div className="rounded-xs bg-surface-card p-3 shadow-card border-b-2 border-action-primary flex items-center justify-between">
+        <span className="font-bold text-sm text-action-primary uppercase tracking-wider flex items-center gap-1.5">
           <span>✨</span>
           <span>Gợi ý cho bạn</span>
         </span>
-        <span className="text-xs text-gray-400 font-normal">{heading}</span>
+        <span className="text-xs text-text-disabled font-normal">
+          {heading}
+        </span>
       </div>
       <ListingGrid
         listings={items}

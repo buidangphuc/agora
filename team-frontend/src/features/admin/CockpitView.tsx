@@ -166,7 +166,7 @@ export function CockpitView({ initial }: { initial: CockpitData | null }) {
                   ? "○ Chưa có số liệu"
                   : "○ Đang tải"}
             </span>
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-text-inverse flex items-center gap-2">
               🛰️ Platform Operations HUD & SRE Cockpit
             </h1>
           </div>

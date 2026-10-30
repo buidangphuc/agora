@@ -148,7 +148,7 @@ export function AssistantChatView() {
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 min-h-viewport-main flex flex-col">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-2xl p-6 text-white shadow-lg mb-4 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-purple-600 via-primary-600 to-blue-600 rounded-2xl p-6 text-text-inverse shadow-lg mb-4 flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/20 backdrop-blur-sm">
@@ -167,7 +167,7 @@ export function AssistantChatView() {
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 overflow-y-auto space-y-5">
+      <div className="flex-1 bg-surface-card rounded-2xl border border-border-subtle shadow-sm p-4 sm:p-6 overflow-y-auto space-y-5">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -175,7 +175,7 @@ export function AssistantChatView() {
           >
             <div className="flex items-start gap-2.5 max-w-bubble-wide">
               {msg.sender === "ai" && (
-                <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow">
+                <div className="w-8 h-8 rounded-full bg-primary-600 text-text-inverse flex items-center justify-center font-bold text-xs shrink-0 shadow">
                   AI
                 </div>
               )}
@@ -183,8 +183,8 @@ export function AssistantChatView() {
               <div
                 className={`p-4 rounded-2xl text-sm leading-relaxed ${
                   msg.sender === "user"
-                    ? "bg-indigo-600 text-white rounded-tr-none shadow-md"
-                    : "bg-slate-50 text-slate-800 border border-slate-200 rounded-tl-none"
+                    ? "bg-primary-600 text-text-inverse rounded-tr-none shadow-md"
+                    : "bg-surface-page text-text-primary border border-border-subtle rounded-tl-none"
                 }`}
               >
                 <p className="whitespace-pre-wrap">{msg.text}</p>
@@ -195,7 +195,7 @@ export function AssistantChatView() {
                     {msg.product_cards.map((p) => (
                       <div
                         key={p.listing_id}
-                        className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row items-center gap-3.5"
+                        className="bg-surface-card border border-border-subtle rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row items-center gap-3.5"
                       >
                         <img
                           src={p.image_url}
@@ -203,18 +203,18 @@ export function AssistantChatView() {
                           className="w-20 h-20 object-cover rounded-lg shrink-0"
                         />
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-slate-900 text-sm line-clamp-1">
+                          <h4 className="font-bold text-text-primary text-sm line-clamp-1">
                             {p.title}
                           </h4>
                           <div className="text-xs text-amber-600 font-medium mt-0.5">
                             {p.rating_text}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-base font-black text-red-600">
+                            <span className="text-base font-black text-text-danger">
                               {p.price.toLocaleString()} ₫
                             </span>
                             {p.discount_rate > 0 && (
-                              <span className="text-xs font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                              <span className="text-xs font-bold bg-red-100 text-text-danger px-1.5 py-0.5 rounded">
                                 -{p.discount_rate}%
                               </span>
                             )}
@@ -231,7 +231,7 @@ export function AssistantChatView() {
                                 p.listing_id,
                               )
                             }
-                            className="flex-1 sm:flex-none px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg text-center transition-all shadow-sm"
+                            className="flex-1 sm:flex-none px-3.5 py-1.5 bg-primary-600 hover:bg-primary-700 text-text-inverse text-xs font-semibold rounded-lg text-center transition-all shadow-sm"
                           >
                             Xem Ngay
                           </Link>
@@ -244,7 +244,7 @@ export function AssistantChatView() {
                                 p.listing_id,
                               )
                             }
-                            className="flex-1 sm:flex-none px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg text-center transition-all shadow-sm"
+                            className="flex-1 sm:flex-none px-3.5 py-1.5 bg-danger hover:bg-accent-danger-dark text-text-inverse text-xs font-semibold rounded-lg text-center transition-all shadow-sm"
                           >
                             Mua Ngay
                           </Link>
@@ -268,7 +268,7 @@ export function AssistantChatView() {
                     key={f}
                     type="button"
                     onClick={() => handleSend(f)}
-                    className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-full text-xs font-medium transition-all shadow-2xs text-left"
+                    className="px-3 py-1 bg-primary-50 hover:bg-primary-100 text-primary-700 border border-primary-200 rounded-full text-xs font-medium transition-all shadow-2xs text-left"
                   >
                     💡 {f}
                   </button>
@@ -280,9 +280,9 @@ export function AssistantChatView() {
 
         {loading && (
           <div className="flex items-center gap-2 text-slate-400 text-xs italic pl-10">
-            <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" />
-            <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:0.2s]" />
-            <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:0.4s]" />
+            <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" />
+            <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce [animation-delay:0.2s]" />
+            <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce [animation-delay:0.4s]" />
             <span>AI đang truy vấn catalog và phân tích vector...</span>
           </div>
         )}
@@ -301,12 +301,12 @@ export function AssistantChatView() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Nhập câu hỏi mua sắm (VD: 'Tìm tai nghe pin trâu dưới 5 triệu')..."
-          className="flex-1 px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-sm"
+          className="flex-1 px-4 py-3 bg-surface-card border border-border-strong rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-primary-500 shadow-sm"
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center gap-2"
+          className="px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-text-inverse font-bold text-sm rounded-xl transition-all shadow-md flex items-center gap-2"
         >
           <span>Gửi</span>
           <span>➔</span>
