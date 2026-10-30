@@ -122,10 +122,10 @@ rollout:
     # Metric families + labels rendered by the collector's Prometheus exporter
     # (add-prometheus-infra). The RED signal is the gateway's gRPC client
     # duration histogram: `_count` for RPS/error-rate, `_bucket` for p95.
-    countMetric: marketplace_rpc_client_duration_milliseconds_count
-    bucketMetric: marketplace_rpc_client_duration_milliseconds_bucket
-    statusLabel: rpc_grpc_status_code   # "0" == OK
-    okStatus: "0"
+    countMetric: marketplace_rpc_client_call_duration_seconds_count
+    bucketMetric: marketplace_rpc_client_call_duration_seconds_bucket
+    statusLabel: rpc_response_status_code   # "OK" == OK
+    okStatus: "OK"
     range: 1m                # rate() window for the queries
     # Thresholds (per-service tunable).
     errorRateThreshold: "0.05"   # fail if non-OK/total error rate >= 5%

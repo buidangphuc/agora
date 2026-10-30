@@ -142,7 +142,7 @@ func TestCockpitSourcedFromPrometheus(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		var sample string
 		switch {
-		case strings.Contains(q, "rate(marketplace_rpc_client_duration_milliseconds_count[1m])"):
+		case strings.Contains(q, "rate(marketplace_rpc_client_call_duration_seconds_count[1m])"):
 			sample = "42.5" // RPS
 		case strings.Contains(q, "0.95"):
 			sample = "13.2" // p95

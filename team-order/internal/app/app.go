@@ -226,6 +226,9 @@ func Run(ctx context.Context, s config.Settings) (err error) {
 	if err != nil {
 		return err
 	}
+	logger.InfoContext(ctx, "reservation sweeper starting",
+		"reservation_ttl", reservationTTL.String(),
+		"sweep_interval", sweepInterval.String())
 	lifecycles, err := lifecycleSweep(orderSvc, lifecycleInterval, logger)
 	if err != nil {
 		return err

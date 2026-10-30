@@ -127,14 +127,13 @@ var cockpitRoster = []serviceRow{
 const (
 	// Base name of the gateway's OTel gRPC client duration histogram as rendered
 	// by the collector's Prometheus exporter (namespace `marketplace`, OTel
-	// `rpc.client.duration` unit ms → `_milliseconds`). The exact rendered name
-	// settles when add-prometheus-infra is applied against the live collector; if
-	// it differs, adjust this constant (and the label constants below).
-	rpcHistogram = "marketplace_rpc_client_duration_milliseconds"
-	// Label carrying the upstream gRPC service (from OTel `rpc.service`).
+	// `rpc.client.call.duration` unit s → `_seconds`).
+	rpcHistogram = "marketplace_rpc_client_call_duration_seconds"
+	// Label derived from `rpc_method` ("<service>/<method>") carrying the upstream gRPC service.
 	rpcServiceLabel = "rpc_service"
-	// Label carrying the numeric gRPC status; "0" == OK.
-	rpcStatusLabel = "rpc_grpc_status_code"
+	rpcMethodLabel  = "rpc_method"
+	// Label carrying the canonical gRPC status name; "OK" == success.
+	rpcStatusLabel = "rpc_response_status_code"
 
 	degradedThresholdErrRate = 0.05 // error-rate at/above which a row is DEGRADED
 )
@@ -446,27 +445,33 @@ func (h *CockpitHandler) snapshot(ctx context.Context) (promSnapshot, bool) {
 		return promSnapshot{}, false
 	}
 	rps, err := h.queryVector(ctx, fmt.Sprintf(
-		"sum by (%s) (rate(%s_count[1m]))", rpcServiceLabel, rpcHistogram))
+		"sum by (%s) (%s)", rpcServiceLabel, byService(fmt.Sprintf("rate(%s_count[1m])", rpcHistogram))))
 	if err != nil {
 		return promSnapshot{}, false // unreachable → degrade gracefully
 	}
 	p95, err := h.queryVector(ctx, fmt.Sprintf(
-		"histogram_quantile(0.95, sum by (le, %s) (rate(%s_bucket[5m])))", rpcServiceLabel, rpcHistogram))
+		"1000 * histogram_quantile(0.95, sum by (le, %s) (%s))", rpcServiceLabel, byService(fmt.Sprintf("rate(%s_bucket[5m])", rpcHistogram))))
 	if err != nil {
 		return promSnapshot{}, false
 	}
 	p99, err := h.queryVector(ctx, fmt.Sprintf(
-		"histogram_quantile(0.99, sum by (le, %s) (rate(%s_bucket[5m])))", rpcServiceLabel, rpcHistogram))
+		"1000 * histogram_quantile(0.99, sum by (le, %s) (%s))", rpcServiceLabel, byService(fmt.Sprintf("rate(%s_bucket[5m])", rpcHistogram))))
 	if err != nil {
 		return promSnapshot{}, false
 	}
 	errRate, err := h.queryVector(ctx, fmt.Sprintf(
-		"sum by (%[1]s) (rate(%[2]s_count{%[3]s!=\"0\"}[5m])) / sum by (%[1]s) (rate(%[2]s_count[5m]))",
-		rpcServiceLabel, rpcHistogram, rpcStatusLabel))
+		"sum by (%[1]s) (%[2]s) / sum by (%[1]s) (%[3]s)",
+		rpcServiceLabel,
+		byService(fmt.Sprintf("rate(%s_count{%s!=\"OK\"}[5m])", rpcHistogram, rpcStatusLabel)),
+		byService(fmt.Sprintf("rate(%s_count[5m])", rpcHistogram))))
 	if err != nil {
 		return promSnapshot{}, false
 	}
 	return promSnapshot{rps: rps, p95: p95, p99: p99, errRate: errRate}, true
+}
+
+func byService(expr string) string {
+	return fmt.Sprintf(`label_replace(%s, "%s", "$1", "%s", "([^/]+)/.*")`, expr, rpcServiceLabel, rpcMethodLabel)
 }
 
 // promQueryResponse is the subset of the Prometheus HTTP API instant-query
