@@ -31,7 +31,7 @@ def _url(world: World, **params: str) -> str:
     from urllib.parse import urlencode
 
     qs = urlencode({k: v for k, v in params.items() if v})
-    return f"{world.settings.base_url}/admin/audit" + (f"?{qs}" if qs else "")
+    return f"{world.settings.admin_base_url}/admin/audit" + (f"?{qs}" if qs else "")
 
 
 def _rows(world: World) -> Locator:
@@ -215,7 +215,7 @@ def submit_dates(world: World, frm: str, to: str) -> None:
 
 @when(parsers.parse('the admin opens the cockpit and clicks "{name}"'))
 def cockpit_click(world: World, name: str) -> None:
-    world.page.goto(f"{world.settings.base_url}/admin/cockpit", wait_until="domcontentloaded")
+    world.page.goto(f"{world.settings.admin_base_url}/admin/cockpit", wait_until="domcontentloaded")
     link = world.page.get_by_role("link", name=name)
     expect(link).to_be_visible(timeout=timeouts.NAVIGATION)
     link.click()

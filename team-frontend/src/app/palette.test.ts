@@ -5,10 +5,7 @@ import { describe, expect, it } from "vitest";
 const SRC = join(__dirname, "..");
 const PROP =
   "(?:text|bg|border(?:-[trblxy])?|ring|divide|placeholder|from|via|to|shadow)";
-const warmPalette = new Set([
-  "features/listing/LiveFlashSaleStock.tsx",
-  "features/admin/CockpitView.tsx",
-]);
+const warmPalette = new Set(["features/listing/LiveFlashSaleStock.tsx"]);
 
 const banned: { name: string; re: RegExp; allow?: Set<string> }[] = [
   {

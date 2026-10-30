@@ -10,11 +10,10 @@ Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 1
 
 | Surface | What | Authorization |
 |---|---|---|
-| 41 pages under `src/app/(shop)` and `src/app/(checkout)` | Buyer, account, seller, admin, chat, assistant, checkout (route groups below) | Per page/layout, from the gateway scopes in the session JWT |
+| 36 pages under `src/app/(shop)` and `src/app/(checkout)` | Buyer, account, seller, chat, assistant, checkout (route groups below) | Per page/layout, from the gateway scopes in the session JWT |
 | `GET /api/suggest?q=` | Search type-ahead, proxies `suggest` | Public; errors return empty suggestions |
 | `GET /api/listings?status=&cursor=` | "Load more" for the consumer feed | Public; errors return an empty page |
 | `POST /api/assistant/stream` | Relays `ChatService.StreamChat` deltas as a plain-text stream | Session cookie forwarded, no local check; the gateway decides. 400 on empty `message` |
-| `GET /api/admin/metrics` | Cockpit refresh, proxies `fetchCockpit` | 401 without a session; the gateway enforces scope `admin` (401/403 passed through) |
 | `GET /api/analytics/identity` | GA4 `user_id` from the verified principal (see GA4 via GTM) | Consent-gated; 204 when `GA4_USER_ID_HMAC_KEY` is unset |
 
 Route groups and page-level gates:
@@ -25,9 +24,10 @@ Route groups and page-level gates:
 | `(shop)` signed-in | `/favorites`, `/chat`, `/notifications`, `/account/{orders,orders/[id],addresses,following,referral,security,verification}` | redirect to `/login` without a session |
 | `(shop)` | `/chat/[id]` | redirects to `/chat?thread=<id>` |
 | `(shop)/seller/*` | dashboard, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `seller/layout.tsx`: `/login` if anonymous; "seller account needed" result unless scope `listing.write` |
-| `(shop)/admin/*` (`cockpit`, `audit`, `cases`, `listings`, `users`) | Ops cockpit, audit log, cases, listing moderation, user administration | `/login` if anonymous, denied view unless scope `admin`; the gateway re-enforces it on the data |
 | `(shop)/dev/ui` | UI component gallery | `notFound()` when `NODE_ENV=production` |
 | `(checkout)` | `/checkout`, `/checkout/pay/[id]` | `/checkout` redirects to `/login` if anonymous and to `/cart` if the cart is empty |
+
+There is no `/admin` route and no link to one (ADR-0006): the admin screens live in `team-frontend-admin` on its own host, `/admin` here is the standard 404, and `src/app/admin-isolation.test.ts` fails the build on any `/admin` route or link.
 
 **Consumes**: only `team-gateway` (`GATEWAY_URL`), through `@connectrpc/connect-node` clients over HTTP/1.1. All RPC code lives in `src/lib/gateway/*` (`server-only`); pages and `src/features/*` import from there. Clients are built per request with the caller's token (`makeClients(token)`), so the bearer is never a process singleton and never reaches the browser. Public reads retry once without the bearer (`anonymousFallback`) so a stale session degrades to anonymous browsing. `src/middleware.ts` refreshes an unusable `session` cookie once via the `agora_refresh` cookie before render; if the refresh fails with `Unauthenticated` or `PermissionDenied` both cookies are cleared, and a transient failure renders anonymous while keeping the refresh cookie.
 

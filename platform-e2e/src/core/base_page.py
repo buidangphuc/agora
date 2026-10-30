@@ -28,6 +28,7 @@ class BasePage(ABC):
     #: Route relative to BASE_URL (may contain `{}` placeholders — format before use).
     path: str = "/"
     name: str = "base"
+    base_url_setting: str = "base_url"
 
     def __init__(self, page: Page) -> None:
         self.page = page
@@ -36,7 +37,8 @@ class BasePage(ABC):
     # ── Navigation ───────────────────────────────────────────────────────
     def url(self, **params: str) -> str:
         path = self.path.format(**params) if params else self.path
-        return f"{self._settings.base_url.rstrip('/')}{path}"
+        base = getattr(self._settings, self.base_url_setting)
+        return f"{base.rstrip('/')}{path}"
 
     def navigate(self, **params: str) -> None:
         self.page.goto(self.url(**params), wait_until="domcontentloaded")

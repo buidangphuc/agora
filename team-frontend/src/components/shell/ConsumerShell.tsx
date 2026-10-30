@@ -356,21 +356,6 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                 </Link>
               </li>
               <li>
-                <Link href="/admin/cockpit" variant="subtle">
-                  Admin Observability Cockpit
-                </Link>
-              </li>
-              <li>
-                <Link href="/admin/listings" variant="subtle">
-                  Kiểm duyệt tin đăng
-                </Link>
-              </li>
-              <li>
-                <Link href="/admin/cases" variant="subtle">
-                  Hộp thư vụ việc
-                </Link>
-              </li>
-              <li>
                 <Link href="/seller" variant="subtle">
                   Kênh Người Bán & Quản Lý Kho
                 </Link>

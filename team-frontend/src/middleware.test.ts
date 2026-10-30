@@ -286,7 +286,7 @@ describe("middleware x-pathname", () => {
     const res = await middleware(
       req({
         url: "http://localhost/cart?coupon=A1",
-        headers: { "x-pathname": "/admin?evil=1" },
+        headers: { "x-pathname": "/account?evil=1" },
       }),
     );
     expect(forwarded(res, "x-pathname")).toBe("/cart?coupon=A1");

@@ -11,6 +11,7 @@ from src.core.base_page import BasePage
 class CockpitPage(BasePage):
     path = routes.ADMIN_COCKPIT
     name = "admin cockpit"
+    base_url_setting = "admin_base_url"
 
     @property
     def metrics_hud_container(self) -> Locator:
@@ -18,8 +19,7 @@ class CockpitPage(BasePage):
 
     @property
     def forbidden_result(self) -> Locator:
-        # The 403 Result a signed-in non-admin gets instead of the HUD.
-        return self.page.get_by_text("Cần tài khoản Quản trị", exact=False)
+        return self.page.get_by_role("heading", name="Không có quyền")
 
     @property
     def service_status_badges(self) -> Locator:

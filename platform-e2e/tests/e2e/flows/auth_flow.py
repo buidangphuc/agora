@@ -13,6 +13,17 @@ from src.constants import PageName
 from src.models import User
 
 SESSION_COOKIE = "session"
+ADMIN_SESSION_COOKIE = "admin_session"
+
+
+def admin_url(world, path: str = "") -> str:
+    return f"{world.settings.admin_base_url.rstrip('/')}{path}"
+
+
+def sign_in_admin_app(world, token: str) -> None:
+    world.context.add_cookies(
+        [{"name": ADMIN_SESSION_COOKIE, "value": token, "url": world.settings.admin_base_url}]
+    )
 
 
 def login_via_api(world, user: User) -> User:
@@ -27,6 +38,7 @@ def login_via_api(world, user: User) -> User:
     world.context.add_cookies(
         [{"name": SESSION_COOKIE, "value": token, "url": world.settings.base_url}]
     )
+    sign_in_admin_app(world, token)
     world.state.current_user = user
     world.logger.info(f"Logged in via API as {user.username} ({user.role})")
     return user
