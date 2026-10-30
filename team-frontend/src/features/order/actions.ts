@@ -3,7 +3,6 @@
 import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 
-import type { OrderStatus } from "@/generated/platform/order/v1/order_pb.js";
 import type { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { type ActionResult, fail, ok } from "@/lib/action-result";
 import { reorder } from "@/lib/gateway/cart";
@@ -15,7 +14,6 @@ import {
   confirmReceipt,
   createOrder,
   createReturnRequest,
-  updateOrderStatus,
 } from "@/lib/gateway/orders";
 import { createPayment, processMockPayment } from "@/lib/gateway/payment";
 import { findCancelReason } from "./cancelReasons";
@@ -79,7 +77,6 @@ export async function checkoutAction(
     revalidatePath("/cart");
     revalidatePath("/checkout");
     revalidatePath("/account/orders");
-    revalidatePath("/seller/orders");
 
     const orderIds = orders.map((o) => o.id);
     const online =
@@ -120,29 +117,6 @@ export async function checkoutAction(
   }
 }
 
-/**
- * Seller moves an order along (ship, ...). Shared mutation contract: returns
- * `{ ok, error?, data? }` and revalidates the seller list and the detail page.
- */
-export async function updateOrderStatusAction(
-  orderId: string,
-  status: OrderStatus,
-  trackingNumber?: string,
-): Promise<ActionResult<{ status: OrderStatus; trackingNumber: string }>> {
-  try {
-    const order = await updateOrderStatus(orderId, status, trackingNumber);
-    revalidatePath("/account/orders");
-    revalidatePath("/seller/orders");
-    revalidatePath(`/seller/orders/${orderId}`);
-    return ok({
-      status: order?.status ?? status,
-      trackingNumber: order?.trackingNumber ?? trackingNumber ?? "",
-    });
-  } catch (err: unknown) {
-    return fail(err instanceof Error ? err.message : "Cập nhật thất bại.");
-  }
-}
-
 /** Revalidate the buyer list and the detail page of one order. */
 function revalidateBuyerOrder(orderId: string) {
   revalidatePath("/account/orders");
@@ -158,7 +132,6 @@ export async function cancelOrderAction(
   try {
     await cancelOrder(orderId, choice.label, choice.code);
     revalidateBuyerOrder(orderId);
-    revalidatePath("/seller/orders");
     return ok();
   } catch (err: unknown) {
     return fail(err instanceof Error ? err.message : "Hủy đơn hàng thất bại.");
@@ -220,7 +193,6 @@ export async function processMockPaymentAction(
   try {
     const res = await processMockPayment(transactionId, simulateSuccess);
     revalidatePath("/account/orders");
-    revalidatePath("/seller/orders");
     return res.success
       ? ok({ message: res.message })
       : fail(res.message || "Thanh toán thất bại.");

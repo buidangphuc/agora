@@ -10571,7 +10571,7 @@ features:
       - "A failed or empty generation reports nothing"
     tags: [tracking, ai-interaction, unit]
     status: not-testable
-    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend/src/features/listing/MagicListingAssist.test.tsx` `reports nothing on failed generation`"
+    notes: "frontend-ai-interaction-events: unit-verified, not producible end to end (cannot be produced with mock team-ai or without a browser, AGENTS.md 9b). Verified by: `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `reports nothing on failed generation`"
 
   - id: frontend-ai-interaction-events.a-guest-cannot-reach-magic-listing-and-emits-nothing
     title: "A guest cannot reach Magic Listing and emits nothing"
@@ -11613,7 +11613,7 @@ features:
       - "Then it shows \"Cần tài khoản Người Bán\" and the line \"Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục.\", renders no children, and `redirect` is called zero times"
     tags: [admin, enforcement]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/app/(shop)/seller/layout.test.tsx` `shows the restricted notice without listing.write`. Unit level; not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/(auth)/forbidden/page.test.tsx` `names the missing seller access and keeps the restricted notice`. Unit level; not producible end to end."
 
   - id: frontend.user-enforcement-seller-pages-do-not-send-a-principal-without-the-listing-write-scope-to-login
     title: "Users UI: Seller pages do not send a principal without the listing.write scope to login"
@@ -11627,7 +11627,7 @@ features:
       - "Then with the principal `redirect` is called zero times for every page; with no principal every page calls `redirectGuestToLogin` with its own path"
     tags: [admin, enforcement]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/app/(shop)/seller/restrictedGuard.test.tsx` `signed-in principal without listing.write is never redirected`. Unit level; not producible end to end."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/restrictedGuard.test.tsx` `signed-in principal without listing.write is never redirected`. Unit level; not producible end to end."
 
   - id: frontend.user-enforcement-restricted-seller-sees-the-notice-in-the-browser
     title: "Users UI: Restricted seller sees the notice in the browser"
@@ -12754,7 +12754,7 @@ features:
     - moderation
     - unit
     status: not-testable
-    notes: VERIFIED BY `team-frontend/src/features/seller/status.test.tsx` `maps the new listing statuses`. Unit level; not producible end to end.
+    notes: VERIFIED BY `team-frontend-seller/src/features/seller/status.test.tsx` `maps the new listing statuses`. Unit level; not producible end to end.
 
   - id: frontend.listing-moderation-unknown-status-stays-neutral
     title: 'Moderation UI: Unknown status stays neutral'
@@ -12771,7 +12771,7 @@ features:
     - moderation
     - unit
     status: not-testable
-    notes: VERIFIED BY `team-frontend/src/features/seller/status.test.tsx` `falls back for an unknown status`. Unit level; not producible end to end.
+    notes: VERIFIED BY `team-frontend-seller/src/features/seller/status.test.tsx` `falls back for an unknown status`. Unit level; not producible end to end.
 
   - id: frontend.listing-moderation-rejected-listing-shows-reason-and-note
     title: 'Moderation UI: Rejected listing shows reason and note'
@@ -12788,7 +12788,7 @@ features:
     - moderation
     - unit
     status: not-testable
-    notes: VERIFIED BY `team-frontend/src/features/listing/ModerationBanner.test.tsx` `shows the rejected reason and note`. Unit level; not producible end to end.
+    notes: VERIFIED BY `team-frontend-seller/src/features/listing/ModerationBanner.test.tsx` `shows the rejected reason and note`. Unit level; not producible end to end.
 
   - id: frontend.listing-moderation-banned-listing-is-read-only
     title: 'Moderation UI: Banned listing is read-only'
@@ -12805,7 +12805,7 @@ features:
     - moderation
     - unit
     status: not-testable
-    notes: VERIFIED BY `team-frontend/src/features/listing/ModerationBanner.test.tsx` `banned renders the form read-only`. Unit level; not producible end to end.
+    notes: VERIFIED BY `team-frontend-seller/src/features/listing/ModerationBanner.test.tsx` `banned renders the form read-only`. Unit level; not producible end to end.
 
   - id: frontend.listing-moderation-held-listing-is-explained
     title: 'Moderation UI: Held listing is explained'
@@ -12822,7 +12822,7 @@ features:
     - moderation
     - unit
     status: not-testable
-    notes: VERIFIED BY `team-frontend/src/features/listing/ModerationBanner.test.tsx` `held renders the explanation`. Unit level; not producible end to end.
+    notes: VERIFIED BY `team-frontend-seller/src/features/listing/ModerationBanner.test.tsx` `held renders the explanation`. Unit level; not producible end to end.
 
   - id: frontend.listing-moderation-pending-listing-is-explained
     title: 'Moderation UI: Pending listing is explained'
@@ -12839,7 +12839,7 @@ features:
     - moderation
     - unit
     status: not-testable
-    notes: VERIFIED BY `team-frontend/src/features/listing/ModerationBanner.test.tsx` `pending shows the waiting banner`. Unit level; not producible end to end.
+    notes: VERIFIED BY `team-frontend-seller/src/features/listing/ModerationBanner.test.tsx` `pending shows the waiting banner`. Unit level; not producible end to end.
 
   - id: frontend.listing-moderation-unknown-reason-code-is-shown-raw
     title: 'Moderation UI: Unknown reason code is shown raw'
@@ -12856,7 +12856,7 @@ features:
     - moderation
     - unit
     status: not-testable
-    notes: VERIFIED BY `team-frontend/src/features/listing/ModerationBanner.test.tsx` `falls back to the raw reason code`. Unit level; not producible end to end.
+    notes: VERIFIED BY `team-frontend-seller/src/features/listing/ModerationBanner.test.tsx` `falls back to the raw reason code`. Unit level; not producible end to end.
 
   - id: frontend.listing-moderation-screen-flags-never-reach-a-seller-surface
     title: 'Moderation UI: Screen flags never reach a seller surface'
@@ -12890,7 +12890,7 @@ features:
     - moderation
     - unit
     status: not-testable
-    notes: VERIFIED BY `team-frontend/src/features/listing/actions.test.ts` `a pending result is reported as waiting for review`. Unit level; not producible end to end.
+    notes: VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `a pending result is reported as waiting for review`. Unit level; not producible end to end.
 
   - id: frontend.listing-moderation-write-to-a-banned-or-held-listing-is-refused
     title: 'Moderation UI: Write to a banned or held listing is refused'
@@ -12907,7 +12907,7 @@ features:
     - moderation
     - unit
     status: not-testable
-    notes: VERIFIED BY `team-frontend/src/features/listing/actions.test.ts` `maps failed precondition on update`. Unit level; not producible end to end.
+    notes: VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `maps failed precondition on update`. Unit level; not producible end to end.
 
   - id: frontend.listing-moderation-delete-of-a-banned-or-held-listing-is-refused
     title: 'Moderation UI: Delete of a banned or held listing is refused'
@@ -12924,7 +12924,7 @@ features:
     - moderation
     - unit
     status: not-testable
-    notes: VERIFIED BY `team-frontend/src/features/listing/actions.test.ts` `maps failed precondition on delete`. Unit level; not producible end to end.
+    notes: VERIFIED BY `team-frontend-seller/src/features/listing/actions.test.ts` `maps failed precondition on delete`. Unit level; not producible end to end.
 
   - id: frontend.listing-moderation-seller-sees-the-pending-status-after-publishing-a-flagged-listing
     title: 'Moderation UI: Seller sees the pending status after publishing a flagged listing'
@@ -13407,7 +13407,7 @@ features:
       - "Order lifecycle: only the buyer view offers the receipt button"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/app/(shop)/seller/orders/[id]/page.test.tsx` `seller view has no receipt button`. Not producible end to end through the browser (unit level)."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/orders/[id]/page.test.tsx` `seller view has no receipt button`. Not producible end to end through the browser (unit level)."
 
   - id: frontend.olc-a-shipped-order-states-its-automatic-completion-time
     title: "Order lifecycle: a shipped order states its automatic completion time"
@@ -13575,7 +13575,7 @@ features:
       - "Order lifecycle: the to-ship count is paid plus COD pending"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/features/seller/kpi.test.ts` `to-ship counts paid and cod pending`. Not producible end to end through the browser (unit level)."
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/kpi.test.ts` `to-ship counts paid and cod pending`. Not producible end to end through the browser (unit level)."
 
   - id: frontend.olc-overdue-shipments-are-highlighted
     title: "Order lifecycle: overdue shipments are highlighted"
@@ -13588,7 +13588,7 @@ features:
       - "Order lifecycle: overdue shipments are highlighted"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/features/seller/kpi.test.ts` `overdue is strictly past ship-by`. Not producible end to end through the browser (unit level)."
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/kpi.test.ts` `overdue is strictly past ship-by`. Not producible end to end through the browser (unit level)."
 
   - id: frontend.olc-the-to-ship-kpi-is-omitted-when-orders-fail-to-load
     title: "Order lifecycle: the to-ship KPI is omitted when orders fail to load"
@@ -13601,7 +13601,7 @@ features:
       - "Order lifecycle: the to-ship KPI is omitted when orders fail to load"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/app/(shop)/seller/(dashboard)/page.test.tsx` `to-ship KPI is omitted when orders fail`. Not producible end to end through the browser (unit level)."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/(dashboard)/page.test.tsx` `to-ship KPI is omitted when orders fail`. Not producible end to end through the browser (unit level)."
 
   - id: frontend.olc-seller-orders-show-the-ship-by-deadline
     title: "Order lifecycle: seller orders show the ship-by deadline"
@@ -13614,7 +13614,7 @@ features:
       - "Order lifecycle: seller orders show the ship-by deadline"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/features/seller/shipBy.test.tsx` `ship-by shown with overdue tag`. Not producible end to end through the browser (unit level)."
+    notes: "VERIFIED BY `team-frontend-seller/src/features/seller/shipBy.test.tsx` `ship-by shown with overdue tag`. Not producible end to end through the browser (unit level)."
 
   - id: frontend.olc-a-session-without-seller-scope-sees-no-seller-orders
     title: "Order lifecycle: a session without seller scope sees no seller orders"
@@ -13627,7 +13627,7 @@ features:
       - "Order lifecycle: a session without seller scope sees no seller orders"
     tags: [buyer, order, unit]
     status: not-testable
-    notes: "VERIFIED BY `team-frontend/src/app/(shop)/seller/layout.test.tsx` `no seller orders without listing scope`. Not producible end to end through the browser (unit level)."
+    notes: "VERIFIED BY `team-frontend-seller/src/app/seller/layout.test.tsx` `no seller orders without listing scope`. Not producible end to end through the browser (unit level)."
 
   - id: frontend.olc-the-seller-dashboard-flags-an-overdue-order
     title: "Order lifecycle: the seller dashboard flags an overdue order"

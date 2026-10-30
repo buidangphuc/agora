@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { isMain, root } from "./lib.mjs";
 
 export const PACKAGES = [
@@ -18,9 +18,15 @@ export const PACKAGES = [
   { dir: "packages/session", file: "fe-platform-session.tgz" },
 ];
 
+export function presentTargets(list, base = root) {
+  return list
+    .map((t) => resolve(base, t))
+    .filter((dir) => existsSync(dirname(dir)));
+}
+
 export function targets() {
   const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  return (pkg.vendor?.targets ?? []).map((t) => resolve(root, t));
+  return presentTargets(pkg.vendor?.targets ?? []);
 }
 
 export function pack() {

@@ -41,6 +41,7 @@ class Settings(BaseSettings):
 
     env: str = Field(default="local")
     base_url: str = Field(default="http://localhost:3000")
+    seller_base_url: str = Field(default="http://localhost:3001")
     gateway_url: str = Field(default="http://localhost:8080")
     headless: bool = Field(default=True)
     debug: bool = Field(default=False)
@@ -85,6 +86,7 @@ def get_settings() -> Settings:
     return Settings(
         env=os.getenv("ENV", "local"),
         base_url=os.getenv("BASE_URL", "http://localhost:3000"),
+        seller_base_url=os.getenv("SELLER_BASE_URL", "http://localhost:3001"),
         gateway_url=os.getenv("GATEWAY_URL", "http://localhost:8080"),
         headless=_as_bool(os.getenv("HEADLESS"), default=True),
         debug=_as_bool(os.getenv("DEBUG"), default=False),

@@ -15,7 +15,7 @@ from pytest_bdd import given, parsers, then, when
 
 from src.constants import PageName, timeouts
 from src.pages import SellerOrderReturnsPage
-from tests.e2e.flows.auth_flow import SESSION_COOKIE
+from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.step_definitions.prm_rma_steps import (  # noqa: F401
     _order,
     _rid,
@@ -38,7 +38,7 @@ def _norm(text: str) -> str:
 def _sign_in(world: World, actor) -> None:
     world.context.clear_cookies()
     world.context.add_cookies(
-        [{"name": SESSION_COOKIE, "value": actor.token, "url": world.settings.base_url}]
+        session_cookies(world.settings, actor.token)
     )
     world.service_factory.set_token(actor.token)
 

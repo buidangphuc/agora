@@ -11,13 +11,14 @@ import re
 from playwright.sync_api import expect
 from pytest_bdd import given, parsers, then, when
 
+from src.api.services import ChatService
 from src.constants import timeouts
 from src.pages import AssistantPage, SellerNewListingPage
-from src.api.services import ChatService
-from tests.e2e.flows.auth_flow import SESSION_COOKIE
+from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.support import ai_events_support as ai
 from tests.e2e.support import d2_support as d2
 from tests.e2e.support import review_order_support as ros
+from tests.e2e.support.apps import app_url
 from tests.e2e.support.world import World
 
 _QUESTION = "Tìm laptop dưới 20 triệu"
@@ -221,7 +222,7 @@ def seller_thread(world: World) -> None:
     x = _x(world)
     x.update(ai_thread=thread["id"], ai_shop=shop, ai_buyer_token=buyer_token)
     world.context.add_cookies(
-        [{"name": SESSION_COOKIE, "value": shop["token"], "url": world.settings.base_url}]
+        session_cookies(world.settings, shop["token"])
     )
     world.service_factory.set_token(shop["token"])
 
@@ -289,7 +290,7 @@ def send_composer(world: World) -> None:
 def buyer_opens_thread(world: World) -> None:
     token = _x(world)["ai_buyer_token"]
     world.context.clear_cookies()
-    world.context.add_cookies([{"name": SESSION_COOKIE, "value": token, "url": world.settings.base_url}])
+    world.context.add_cookies(session_cookies(world.settings, token))
     world.service_factory.set_token(token)
     world.page.goto(f"{_base(world)}/chat?thread={_x(world)['ai_thread']}", wait_until="domcontentloaded")
     expect(world.page.get_by_text(_BUYER_MESSAGE).first).to_be_visible(timeout=timeouts.NAVIGATION)
@@ -308,7 +309,7 @@ def _form(world: World) -> SellerNewListingPage:
 
 @when("the seller opens the new listing form for Magic Listing")
 def open_form(world: World) -> None:
-    world.page.goto(f"{_base(world)}/seller/new", wait_until="domcontentloaded")
+    world.page.goto(app_url(world.settings, "/seller/new"), wait_until="domcontentloaded")
     form = _form(world)
     expect(form.title_input).to_be_visible(timeout=timeouts.NAVIGATION)
     form.wait_until_interactive(form.title_input)
@@ -358,7 +359,7 @@ def description_filled(world: World) -> None:
 
 @when("a guest requests the new listing page")
 def guest_requests_new_listing(world: World) -> None:
-    world.page.goto(f"{_base(world)}/seller/new", wait_until="domcontentloaded")
+    world.page.goto(app_url(world.settings, "/seller/new"), wait_until="domcontentloaded")
     world.page.wait_for_load_state("load", timeout=timeouts.NAVIGATION)
 
 

@@ -36,6 +36,10 @@
     "postcss": "^8.5.29"
   },
   "vendor": {
-    "targets": ["../team-frontend/vendor"]
+    "targets": [
+      "../team-frontend/vendor",
+      "../team-frontend-seller/vendor",
+      "../team-frontend-admin/vendor"
+    ]
   }
 }

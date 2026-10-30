@@ -10,6 +10,7 @@ from src.models import Listing
 
 
 class SellerNewListingPage(BasePage):
+    app = "seller"
     path = routes.SELLER_NEW
     name = "seller new listing"
 

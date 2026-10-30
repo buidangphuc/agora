@@ -1,0 +1,529 @@
+// @vitest-environment node
+import { Code, ConnectError } from "@connectrpc/connect";
+import { NextRequest } from "next/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Mock only the true external boundary (the Gateway RefreshSession call).
+// Assumed API: middleware(req) is async (returns Promise<NextResponse>); it calls
+// refreshSession(refreshToken, clientContext) (no bearer, S12) from
+// "@/lib/gateway/refresh"; `config.runtime === "nodejs"`.
+const refreshSession = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/gateway/refresh", () => ({ refreshSession }));
+
+import { config, middleware } from "./middleware";
+
+function jwt(exp: number, sub = "u1"): string {
+  const b = (o: object) =>
+    btoa(JSON.stringify(o))
+      .replace(/=+$/, "")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_");
+  return `${b({ alg: "RS256" })}.${b({ sub, exp })}.sig`;
+}
+const nowSec = () => Math.floor(Date.now() / 1000);
+
+function req(
+  opts: {
+    session?: string;
+    refresh?: string;
+    url?: string;
+    headers?: Record<string, string>;
+    host?: boolean;
+  } = {},
+) {
+  const p = opts.host ? "__Host-" : "";
+  const cookies = [
+    opts.session !== undefined ? `${p}seller_session=${opts.session}` : "",
+    opts.refresh !== undefined ? `${p}seller_refresh=${opts.refresh}` : "",
+  ].filter(Boolean);
+  const headers: Record<string, string> = { ...(opts.headers ?? {}) };
+  if (cookies.length) headers.cookie = cookies.join("; ");
+  return new NextRequest(opts.url ?? "http://localhost/search", { headers });
+}
+
+// Request headers the render will see (Next encodes overrides as
+// x-middleware-request-<name>).
+function forwarded(res: Response, name: string): string | null {
+  return res.headers.get(`x-middleware-request-${name}`);
+}
+function isDeleted(
+  res: { cookies: { get(n: string): { value: string } | undefined } },
+  name: string,
+) {
+  const c = res.cookies.get(name);
+  return c !== undefined && c.value === "";
+}
+
+const NEW_ACCESS = jwt(nowSec() + 3600, "u2");
+const ok = (accessToken = NEW_ACCESS, refreshToken = "R2") => ({
+  token: accessToken,
+  refreshToken,
+});
+
+beforeEach(() => {
+  refreshSession.mockReset();
+});
+
+describe("middleware refresh", () => {
+  it("S5: expired session + refresh cookie refreshes once and sets rotated cookies", async () => {
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(refreshSession).toHaveBeenCalledWith("R1", expect.anything());
+    const access = res.cookies.get("seller_session");
+    const refresh = res.cookies.get("seller_refresh");
+    expect(access?.value).toBe(NEW_ACCESS);
+    expect(refresh?.value).toBe("R2");
+    expect(access).toEqual(
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 3600,
+      }),
+    );
+    expect(refresh).toEqual(
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 2592000,
+      }),
+    );
+  });
+
+  it("S6: missing session + refresh cookie behaves as S5", async () => {
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(req({ refresh: "R1" }));
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(res.cookies.get("seller_session")?.value).toBe(NEW_ACCESS);
+    expect(res.cookies.get("seller_refresh")?.value).toBe("R2");
+  });
+
+  it("S2/S5: cookies are secure when x-forwarded-proto is https, not otherwise", async () => {
+    refreshSession.mockResolvedValue(ok());
+    const https = await middleware(
+      req({
+        refresh: "R1",
+        host: true,
+        headers: { "x-forwarded-proto": "https" },
+      }),
+    );
+    expect(https.cookies.get("__Host-seller_session")?.secure).toBe(true);
+    expect(https.cookies.get("__Host-seller_refresh")?.secure).toBe(true);
+    const http = await middleware(req({ refresh: "R1" }));
+    expect(Boolean(http.cookies.get("seller_session")?.secure)).toBe(false);
+    expect(Boolean(http.cookies.get("seller_refresh")?.secure)).toBe(false);
+  });
+
+  it("S21: the render sees the new access and rotated refresh in the Cookie header", async () => {
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    const cookie = forwarded(res, "cookie") ?? "";
+    expect(cookie).toContain(`seller_session=${NEW_ACCESS}`);
+    expect(cookie).toContain("seller_refresh=R2");
+    expect(cookie).not.toContain("seller_refresh=R1");
+    expect(cookie.match(/seller_session=/g)).toHaveLength(1);
+  });
+
+  it("S21: missing session case also shows the new access to the render", async () => {
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(req({ refresh: "R1" }));
+    expect(forwarded(res, "cookie")).toContain(`seller_session=${NEW_ACCESS}`);
+  });
+
+  it("S7: usable session (with or without refresh) makes zero refresh calls", async () => {
+    const live = jwt(nowSec() + 3600);
+    const a = await middleware(req({ session: live, refresh: "R1" }));
+    const b = await middleware(req({ session: live }));
+    expect(refreshSession).not.toHaveBeenCalled();
+    expect(a.cookies.get("seller_session")).toBeUndefined();
+    expect(b.cookies.get("seller_session")).toBeUndefined();
+  });
+
+  it("S7: token just beyond the 5 s skew is usable (boundary)", async () => {
+    await middleware(req({ session: jwt(nowSec() + 30), refresh: "R1" }));
+    expect(refreshSession).not.toHaveBeenCalled();
+  });
+
+  it("S20: exp equal to now triggers exactly one refresh", async () => {
+    refreshSession.mockResolvedValue(ok());
+    await middleware(req({ session: jwt(nowSec()), refresh: "R1" }));
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("S20: exp within the 5 s skew triggers exactly one refresh", async () => {
+    refreshSession.mockResolvedValue(ok());
+    await middleware(req({ session: jwt(nowSec() + 2), refresh: "R1" }));
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("S8: expired session without refresh cookie clears session, no refresh call", async () => {
+    const res = await middleware(req({ session: jwt(nowSec() - 60) }));
+    expect(refreshSession).not.toHaveBeenCalled();
+    expect(isDeleted(res, "seller_session")).toBe(true);
+    expect(forwarded(res, "cookie") ?? "").not.toContain("seller_session=");
+  });
+
+  it("S8: no cookies at all makes no refresh call and sets no cookies", async () => {
+    const res = await middleware(req());
+    expect(refreshSession).not.toHaveBeenCalled();
+    expect(res.cookies.get("seller_session")).toBeUndefined();
+    expect(res.cookies.get("seller_refresh")).toBeUndefined();
+  });
+
+  it("S9: Unauthenticated clears both cookies in browser and render", async () => {
+    refreshSession.mockRejectedValue(
+      new ConnectError("bad", Code.Unauthenticated),
+    );
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(isDeleted(res, "seller_session")).toBe(true);
+    expect(isDeleted(res, "seller_refresh")).toBe(true);
+    const cookie = forwarded(res, "cookie") ?? "";
+    expect(cookie).not.toContain("seller_session=");
+    expect(cookie).not.toContain("seller_refresh=");
+  });
+
+  it.each([
+    ["Unavailable", new ConnectError("down", Code.Unavailable)],
+    ["DeadlineExceeded", new ConnectError("slow", Code.DeadlineExceeded)],
+    ["non-Connect error", new Error("boom")],
+  ])(
+    "S10: %s renders anonymous, leaves both cookies as received, no retry",
+    async (_n, err) => {
+      refreshSession.mockRejectedValue(err);
+      const stale = jwt(nowSec() - 60);
+      const res = await middleware(req({ session: stale, refresh: "R1" }));
+      expect(refreshSession).toHaveBeenCalledTimes(1);
+      expect(res.cookies.get("seller_session")).toBeUndefined();
+      expect(res.cookies.get("seller_refresh")).toBeUndefined();
+      expect(res.headers.get("set-cookie")).toBeNull();
+      // Render is still anonymous: no usable session reaches it, and the
+      // refresh cookie is not rewritten.
+      const cookie = forwarded(res, "cookie");
+      if (cookie !== null) {
+        expect(cookie).not.toContain(`seller_session=${stale}`);
+        expect(cookie).toContain("seller_refresh=R1");
+      }
+    },
+  );
+
+  it("S11: empty access token is treated as S9", async () => {
+    refreshSession.mockResolvedValue(ok("", "R2"));
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(isDeleted(res, "seller_session")).toBe(true);
+    expect(isDeleted(res, "seller_refresh")).toBe(true);
+    const cookie = forwarded(res, "cookie") ?? "";
+    expect(cookie).not.toContain("seller_session=");
+    expect(cookie).not.toContain("seller_refresh=");
+  });
+
+  it("S12: refreshSession receives only the refresh token (no bearer argument)", async () => {
+    refreshSession.mockResolvedValue(ok());
+    await middleware(req({ session: jwt(nowSec() - 60), refresh: "R1" }));
+    expect(refreshSession.mock.calls[0]?.[0]).toBe("R1");
+    expect(refreshSession.mock.calls[0]).toHaveLength(2);
+  });
+
+  it("S19: empty refresh_token sets only session and keeps agora_refresh", async () => {
+    refreshSession.mockResolvedValue(ok(NEW_ACCESS, ""));
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(res.cookies.get("seller_session")?.value).toBe(NEW_ACCESS);
+    expect(res.cookies.get("seller_refresh")).toBeUndefined();
+    const cookie = forwarded(res, "cookie") ?? "";
+    expect(cookie).toContain(`seller_session=${NEW_ACCESS}`);
+    expect(cookie).toContain("seller_refresh=R1");
+  });
+});
+
+describe("middleware x-pathname", () => {
+  it("S23: carries path and query when anonymous", async () => {
+    const res = await middleware(
+      req({ url: "http://localhost/cart?coupon=A1" }),
+    );
+    expect(forwarded(res, "x-pathname")).toBe("/cart?coupon=A1");
+  });
+
+  it("S23: carries path and query when signed in", async () => {
+    const res = await middleware(
+      req({
+        session: jwt(nowSec() + 3600),
+        url: "http://localhost/cart?coupon=A1",
+      }),
+    );
+    expect(forwarded(res, "x-pathname")).toBe("/cart?coupon=A1");
+  });
+
+  it("S23: carries path and query when refreshed", async () => {
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(
+      req({ refresh: "R1", url: "http://localhost/cart?coupon=A1" }),
+    );
+    expect(forwarded(res, "x-pathname")).toBe("/cart?coupon=A1");
+  });
+
+  it("S23: carries path and query when the stale cookie is cleared", async () => {
+    const res = await middleware(
+      req({
+        session: jwt(nowSec() - 60),
+        url: "http://localhost/cart?coupon=A1",
+      }),
+    );
+    expect(forwarded(res, "x-pathname")).toBe("/cart?coupon=A1");
+  });
+
+  it("S23: path without query has no trailing question mark", async () => {
+    const res = await middleware(req({ url: "http://localhost/search" }));
+    expect(forwarded(res, "x-pathname")).toBe("/search");
+  });
+
+  it("S26: a client-supplied x-pathname is overwritten with the real path", async () => {
+    const res = await middleware(
+      req({
+        url: "http://localhost/cart?coupon=A1",
+        headers: { "x-pathname": "/admin?evil=1" },
+      }),
+    );
+    expect(forwarded(res, "x-pathname")).toBe("/cart?coupon=A1");
+  });
+
+  it("S26: overwrite also holds on the refresh path", async () => {
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(
+      req({
+        refresh: "R1",
+        url: "http://localhost/cart",
+        headers: { "x-pathname": "/evil" },
+      }),
+    );
+    expect(forwarded(res, "x-pathname")).toBe("/cart");
+  });
+});
+
+describe("middleware config", () => {
+  it("S5: runs on the Node runtime (connect-node client)", () => {
+    expect((config as { runtime?: string }).runtime).toBe("nodejs");
+  });
+  it("keeps the static-asset-excluding matcher", () => {
+    expect(config.matcher).toEqual([
+      "/((?!_next/static|_next/image|favicon.ico).*)",
+    ]);
+  });
+});
+
+describe("middleware refresh enforcement (frontend-user-enforcement)", () => {
+  it("Users UI: Refresh of a suspended user clears both cookies - permission denied on refresh clears both cookies", async () => {
+    refreshSession.mockRejectedValue(
+      new ConnectError("user suspended", Code.PermissionDenied),
+    );
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(isDeleted(res, "seller_session")).toBe(true);
+    expect(isDeleted(res, "seller_refresh")).toBe(true);
+    const cookie = forwarded(res, "cookie") ?? "";
+    expect(cookie).not.toContain("seller_session=");
+    expect(cookie).not.toContain("seller_refresh=");
+  });
+
+  it("Users UI: Transient refresh failure keeps the refresh cookie - transient refresh failure keeps the refresh cookie", async () => {
+    refreshSession.mockRejectedValue(
+      new ConnectError("down", Code.Unavailable),
+    );
+    const stale = jwt(nowSec() - 60);
+    const res = await middleware(req({ session: stale, refresh: "R1" }));
+    expect(res.cookies.get("seller_refresh")).toBeUndefined();
+    expect(res.headers.get("set-cookie")).toBeNull();
+    const cookie = forwarded(res, "cookie") ?? "";
+    expect(cookie).not.toContain(`seller_session=${stale}`);
+    expect(cookie).toContain("seller_refresh=R1");
+  });
+});
+
+describe("middleware COOKIE_SECURE (frontend-cookie-secure)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("Cookie secure: middleware refresh forced Secure - both rotated cookies Secure without x-forwarded-proto", async () => {
+    vi.stubEnv("COOKIE_SECURE", "true");
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1", host: true }),
+    );
+    expect(res.cookies.get("__Host-seller_session")?.value).toBe(NEW_ACCESS);
+    expect(res.cookies.get("__Host-seller_refresh")?.value).toBe("R2");
+    expect(res.cookies.get("__Host-seller_session")?.secure).toBe(true);
+    expect(res.cookies.get("__Host-seller_refresh")?.secure).toBe(true);
+  });
+
+  it("Cookie secure: middleware refresh forced Secure - beats a client x-forwarded-proto: http", async () => {
+    vi.stubEnv("COOKIE_SECURE", " TRUE ");
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(
+      req({
+        refresh: "R1",
+        host: true,
+        headers: { "x-forwarded-proto": "http" },
+      }),
+    );
+    expect(res.cookies.get("__Host-seller_session")?.secure).toBe(true);
+    expect(res.cookies.get("__Host-seller_refresh")?.secure).toBe(true);
+  });
+
+  it("Cookie secure: middleware refresh unset over https - Secure with header, not without", async () => {
+    vi.stubEnv("COOKIE_SECURE", "");
+    refreshSession.mockResolvedValue(ok());
+    const https = await middleware(
+      req({
+        session: jwt(nowSec() - 60),
+        refresh: "R1",
+        host: true,
+        headers: { "x-forwarded-proto": "https" },
+      }),
+    );
+    expect(https.cookies.get("__Host-seller_session")?.secure).toBe(true);
+    expect(https.cookies.get("__Host-seller_refresh")?.secure).toBe(true);
+    const plain = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1" }),
+    );
+    expect(plain.cookies.get("seller_session")?.value).toBe(NEW_ACCESS);
+    expect(Boolean(plain.cookies.get("seller_session")?.secure)).toBe(false);
+    expect(Boolean(plain.cookies.get("seller_refresh")?.secure)).toBe(false);
+  });
+
+  it("Cookie secure: middleware refresh forced Secure - flag is read per request", async () => {
+    refreshSession.mockResolvedValue(ok());
+    vi.stubEnv("COOKIE_SECURE", "false");
+    const off = await middleware(req({ refresh: "R1" }));
+    expect(Boolean(off.cookies.get("seller_session")?.secure)).toBe(false);
+    vi.stubEnv("COOKIE_SECURE", "true");
+    const on = await middleware(req({ refresh: "R1", host: true }));
+    expect(on.cookies.get("__Host-seller_session")?.secure).toBe(true);
+  });
+
+  it("Cookie secure: failed refresh sets nothing (error) - Unauthenticated deletes both, no valued cookie", async () => {
+    vi.stubEnv("COOKIE_SECURE", "true");
+    refreshSession.mockRejectedValue(
+      new ConnectError("bad", Code.Unauthenticated),
+    );
+    const res = await middleware(
+      req({ session: jwt(nowSec() - 60), refresh: "R1", host: true }),
+    );
+    expect(isDeleted(res, "__Host-seller_session")).toBe(true);
+    expect(isDeleted(res, "__Host-seller_refresh")).toBe(true);
+    for (const name of ["__Host-seller_session", "__Host-seller_refresh"]) {
+      expect(res.cookies.get(name)?.value).toBe("");
+    }
+    expect(res.cookies.get("agora_auth_evt")).toBeUndefined();
+  });
+});
+
+describe("middleware client context (frontend-session-client-context)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("Session client context: middleware refresh forwards IP and UA", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    refreshSession.mockResolvedValue(ok());
+    await middleware(
+      req({
+        session: jwt(nowSec() - 60),
+        refresh: "R1",
+        headers: {
+          "x-forwarded-for": "203.0.113.9",
+          "user-agent": "AgoraTest/2",
+        },
+      }),
+    );
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(refreshSession).toHaveBeenCalledWith("R1", {
+      ip: "203.0.113.9",
+      userAgent: "AgoraTest/2",
+    });
+  });
+
+  it("Session client context: spoofed leftmost X-Forwarded-For is ignored on middleware refresh (permission)", async () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    refreshSession.mockResolvedValue(ok());
+    await middleware(
+      req({
+        refresh: "R1",
+        headers: {
+          "x-forwarded-for": "6.6.6.6, 198.51.100.4",
+          "user-agent": "AgoraTest/2",
+        },
+      }),
+    );
+    expect(refreshSession).toHaveBeenCalledWith("R1", {
+      ip: "198.51.100.4",
+      userAgent: "AgoraTest/2",
+    });
+  });
+
+  it("Session client context: missing headers still refresh with an empty context (boundary)", async () => {
+    refreshSession.mockResolvedValue(ok());
+    const res = await middleware(req({ refresh: "R1" }));
+    expect(refreshSession).toHaveBeenCalledWith("R1", {});
+    expect(res.cookies.get("seller_session")?.value).toBe(NEW_ACCESS);
+  });
+
+  it("Session client context: refresh failure behaviour unchanged (error) - Unauthenticated with context clears both cookies", async () => {
+    refreshSession.mockRejectedValue(
+      new ConnectError("bad", Code.Unauthenticated),
+    );
+    const res = await middleware(
+      req({
+        session: jwt(nowSec() - 60),
+        refresh: "R1",
+        headers: {
+          "x-forwarded-for": "203.0.113.9",
+          "user-agent": "AgoraTest/2",
+        },
+      }),
+    );
+    expect(refreshSession).toHaveBeenCalledWith("R1", {
+      ip: "203.0.113.9",
+      userAgent: "AgoraTest/2",
+    });
+    expect(isDeleted(res, "seller_session")).toBe(true);
+    expect(isDeleted(res, "seller_refresh")).toBe(true);
+  });
+
+  it("Session client context: refresh failure behaviour unchanged (error) - transient failure keeps cookies", async () => {
+    refreshSession.mockRejectedValue(
+      new ConnectError("slow", Code.DeadlineExceeded),
+    );
+    const res = await middleware(
+      req({
+        session: jwt(nowSec() - 60),
+        refresh: "R1",
+        headers: {
+          "x-forwarded-for": "203.0.113.9",
+          "user-agent": "AgoraTest/2",
+        },
+      }),
+    );
+    expect(refreshSession).toHaveBeenCalledWith("R1", {
+      ip: "203.0.113.9",
+      userAgent: "AgoraTest/2",
+    });
+    expect(res.headers.get("set-cookie")).toBeNull();
+    expect(forwarded(res, "cookie") ?? "seller_refresh=R1").toContain(
+      "seller_refresh=R1",
+    );
+  });
+});

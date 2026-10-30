@@ -40,7 +40,8 @@ browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) �
 | **team-chat** | Go | Buyer-seller chat threads & real-time messaging | :50057 |
 | **team-notification**| Go | In-app notification center | :50058 |
 | **team-gateway** | Go | Connect edge: verify JWT once, rate-limit/CORS, forward to services | :8080 (HTTP) |
-| **team-frontend** | TS | Next.js 15 App Router SSR; consumer home + `/seller` area + auth | :3000 |
+| **team-frontend** | TS | Next.js 15 App Router SSR; buyer app: consumer home, shopping, account + auth | :3000 |
+| **team-frontend-seller** | TS | Next.js 15 seller app: `/seller` centre, `/sell`, seller login with its own `seller_*` session (ADR-0006) | :3001 |
 | **fe-platform** | TS | AI-ready frontend platform template (npm workspaces: config, tokens, ui, api-client, Next.js app shell). Not wired to team-frontend | — |
 | **team-ai** | Python | FastAPI + gRPC AI service (AIService, ChatService, RecommendationService, SearchListings; :50060 gRPC) | :8000 |
 | **team-analytics** | Go | Kafka worker (§6c): `analytics.events` → analytics warehouse (DB-per-service; no business RPC, health only) | :50059 |
@@ -127,12 +128,13 @@ docker compose -p platform-core up -d      # postgres-* redis qdrant redpanda ra
 
 # 3. frontend
 cd team-frontend && npm run dev             # http://localhost:3000
+cd team-frontend-seller && npm run dev      # http://localhost:3001
 
 # 4. seed demo data through the gateway
 platform-core/tools/seed-marketplace.sh
 ```
 
-Ports: gateway `:8080`, frontend `:3000`, domain `:50051`, search `:50052`,
+Ports: gateway `:8080`, frontend `:3000`, seller app `:3001`, domain `:50051`, search `:50052`,
 identity `:50053`, engagement `:50054`, promotion `:50061`, referral `:50062`, verification `:50064`, sharing `:50065`, audit `:50066`. Modelserve router: `:8100`. Infra: redis `6379`, qdrant `6333/6334`, redpanda `19092` (host), rabbitmq `5672/15672`,
 opensearch `9200`, otel-collector `4317`, MLflow `5050` (backed by `postgres-mlflow`, which has
 no host port — reach it only from the compose network).

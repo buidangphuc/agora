@@ -9,6 +9,7 @@ from src.core.base_page import BasePage
 
 
 class SellerWalletPage(BasePage):
+    app = "seller"
     path = routes.SELLER_WALLET
     name = "seller wallet"
 

@@ -9,6 +9,7 @@ from src.core.base_page import BasePage
 
 
 class SellerEditListingPage(BasePage):
+    app = "seller"
     path = routes.SELLER_EDIT  # "/seller/{listing_id}/edit"
     name = "seller edit listing"
 

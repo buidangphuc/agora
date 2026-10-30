@@ -21,7 +21,7 @@ from src.pages import CartPage, CheckoutPage
 from src.pages.payment_result_page import PaymentResultPage
 from src.utils import data as fake
 from tests.e2e.flows import create_order_via_api, login_via_api, scenario_buyer
-from tests.e2e.flows.auth_flow import SESSION_COOKIE
+from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -46,7 +46,7 @@ def buyer_opens_cart_with_session(world: World) -> None:
     """The shop-name seeding step logs the buyer in through the API only; set the browser cookie."""
     token = world.state.extra["buyer_token"]
     world.context.add_cookies(
-        [{"name": SESSION_COOKIE, "value": token, "url": world.settings.base_url}]
+        session_cookies(world.settings, token)
     )
     world.navigate_to(PageName.CART)
 

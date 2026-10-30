@@ -9,7 +9,8 @@ from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
 from tests.e2e.support import d2_support as d2
-from tests.e2e.support.uif_support import ALERTS, base
+from tests.e2e.support.apps import app_url
+from tests.e2e.support.uif_support import ALERTS
 from tests.e2e.support.world import World
 
 
@@ -24,7 +25,7 @@ def seller_with_listings(world: World, count: int) -> None:
 
 @when("the uif seller opens the workplace")
 def open_workplace(world: World) -> None:
-    world.page.goto(f"{base(world)}/seller", wait_until="domcontentloaded")
+    world.page.goto(app_url(world.settings, "/seller"), wait_until="domcontentloaded")
 
 
 @then(
@@ -45,7 +46,7 @@ def kpi_hidden(world: World) -> None:
 @when("the uif seller asks for an AI suggestion for a typed title")
 def ask_magic(world: World) -> None:
     page = world.page
-    page.goto(f"{base(world)}/seller/new", wait_until="domcontentloaded")
+    page.goto(app_url(world.settings, "/seller/new"), wait_until="domcontentloaded")
     page.locator("#title").fill("Laptop Dell XPS 13")
     button = page.get_by_role("button", name="Tạo gợi ý")
     expect(button).to_be_enabled(timeout=timeouts.DEFAULT)
@@ -76,7 +77,7 @@ def magic_failed(world: World) -> None:
 
 @when("the uif seller opens the analytics page")
 def open_analytics(world: World) -> None:
-    world.page.goto(f"{base(world)}/seller/analytics", wait_until="domcontentloaded")
+    world.page.goto(app_url(world.settings, "/seller/analytics"), wait_until="domcontentloaded")
 
 
 @then(
@@ -100,7 +101,7 @@ def analytics_failed(world: World) -> None:
 @when("the uif seller opens the edit page of the listing")
 def open_edit(world: World) -> None:
     listing_id = _seller(world)["listings"][0]["id"]
-    world.page.goto(f"{base(world)}/seller/{listing_id}/edit", wait_until="domcontentloaded")
+    world.page.goto(app_url(world.settings, f"/seller/{listing_id}/edit"), wait_until="domcontentloaded")
 
 
 @then('the route error result offers a retry button and a link to "/seller"')

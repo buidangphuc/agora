@@ -34,6 +34,7 @@ from tests.e2e.flows import login_via_api
 from tests.e2e.support import audit_support as aud
 from tests.e2e.support import report_support as rs
 from tests.e2e.support import srm_support as s
+from tests.e2e.support.apps import app_url
 from tests.e2e.support.oic_order_support import Actor
 from tests.e2e.support.world import World
 
@@ -247,11 +248,11 @@ def audit_up(world: World) -> None:
 @when("the seller opens the seller center")
 def open_seller_center(world: World) -> None:
     _ensure_seller(world)
-    world.page.goto(f"{_base(world)}/seller", wait_until="domcontentloaded")
+    world.page.goto(app_url(world.settings, "/seller"), wait_until="domcontentloaded")
 
 
 def _open_edit(world: World, listing_id: str) -> None:
-    world.page.goto(f"{_base(world)}/seller/{listing_id}/edit", wait_until="domcontentloaded")
+    world.page.goto(app_url(world.settings, f"/seller/{listing_id}/edit"), wait_until="domcontentloaded")
 
 
 @when("the seller opens the edit page of the flagged listing")

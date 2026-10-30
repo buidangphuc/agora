@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tier 2 semantic aliases (--color-*, --shadow-*) are written into :root by the platform
+ * plugin in tailwind.config.ts from @fe-platform/tokens (light theme only).
+ */
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-surface-page);
+    color: var(--color-text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: theme("colors.neutral.100");
+}
+::-webkit-scrollbar-thumb {
+  background: theme("colors.neutral.300");
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: theme("colors.neutral.400");
+}
+
+/* The PDP buy bar is fixed to the bottom below lg: reserve its height under the page (on body,
+   not inside the footer, so the footer's own box ends above the bar). */
+@media (max-width: 1023.98px) {
+  body:has([data-testid="buy-bar"]) {
+    padding-bottom: theme("spacing.24"); /* the bar is h-20 plus a 1px border */
+  }
+}

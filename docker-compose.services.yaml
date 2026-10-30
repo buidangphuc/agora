@@ -561,7 +561,7 @@ services:
       - UPSTREAM_RECOMMENDATION_ADDR=team-ai-svc:50060
       - JWKS_URL=http://team-identity-svc:50063/.well-known/jwks.json
       - JWKS_CACHE_TTL=300
-      - CORS_ORIGINS=http://localhost:3000,http://team-frontend:3000,http://127.0.0.1:3000
+      - CORS_ORIGINS=http://localhost:3000,http://team-frontend:3000,http://127.0.0.1:3000,http://localhost:3001,http://team-frontend-seller:3001
       - RATE_LIMIT_RPS=1000
       - RATE_LIMIT_BURST=2000
       # Every e2e browser shares the docker host IP, so the per-IP collector limit is raised
@@ -868,6 +868,21 @@ services:
     ports:
       - "3000:3000"
 
+  team-frontend-seller:
+    build:
+      context: ./team-frontend-seller
+      dockerfile: Dockerfile
+    image: team-frontend-seller:local
+    container_name: team-frontend-seller-svc
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - NEXT_PUBLIC_GATEWAY_URL=http://localhost:8080
+      - NEXT_PUBLIC_BUYER_APP_URL=http://localhost:3000
+      - GATEWAY_URL=http://team-gateway-svc:8080
+    ports:
+      - "3001:3001"
+
   platform-e2e:
     build:
       context: ./platform-e2e
@@ -877,6 +892,7 @@ services:
     environment:
       - ENV=docker
       - BASE_URL=http://team-frontend-svc:3000
+      - SELLER_BASE_URL=http://team-frontend-seller-svc:3001
       - GATEWAY_URL=http://team-gateway-svc:8080
       - HEADLESS=true
     volumes:

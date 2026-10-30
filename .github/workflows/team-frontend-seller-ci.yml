@@ -1,0 +1,52 @@
+name: team-frontend-seller-ci
+
+on:
+  push:
+    branches: [main]
+    paths: ["team-frontend-seller/**", ".github/workflows/team-frontend-seller-ci.yml"]
+  pull_request:
+    paths: ["team-frontend-seller/**", ".github/workflows/team-frontend-seller-ci.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: team-frontend-seller-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: team-frontend-seller check and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: team-frontend-seller
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: team-frontend-seller/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run proto
+      - run: npm run check
+      - run: npm run build
+
+  image:
+    name: team-frontend-seller image builds from its own directory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: team-frontend-seller/package-lock.json
+      - name: generate Connect stubs for the build context
+        working-directory: team-frontend-seller
+        run: |
+          npm ci --ignore-scripts
+          npm run proto
+      - run: docker build -t team-frontend-seller:ci team-frontend-seller

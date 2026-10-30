@@ -1,0 +1,49 @@
+version: v2
+
+# Generated code is written ONLY inside platform-core's own tree (../../gen).
+# platform-core NEVER writes into sibling repos — that would make the polyrepo
+# a monorepo-on-disk. Consumers vendor the proto module and run `buf generate`
+# in THEIR OWN repo (with their own module path). See ADR-0001.
+clean: true
+
+# Managed mode auto-sets file options (e.g. go_package) so individual .proto
+# files stay language-neutral. The go prefix here is only for platform-core's
+# own verification build; each consumer overrides it in their own buf.gen.yaml.
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: platform-core/gen/go
+
+plugins:
+  # ── Go ──────────────────────────────────────────────────────────────
+  - remote: buf.build/protocolbuffers/go
+    out: ../../gen/go
+    opt: paths=source_relative
+  - remote: buf.build/grpc/go
+    out: ../../gen/go
+    opt: paths=source_relative
+
+  # ── Python ──────────────────────────────────────────────────────────
+  - remote: buf.build/protocolbuffers/python
+    out: ../../gen/python
+  - remote: buf.build/protocolbuffers/pyi
+    out: ../../gen/python
+  - remote: buf.build/grpc/python
+    out: ../../gen/python
+
+  # ── JVM (Kotlin + Java runtime) ─────────────────────────────────────
+  - remote: buf.build/protocolbuffers/java
+    out: ../../gen/jvm
+  - remote: buf.build/protocolbuffers/kotlin
+    out: ../../gen/jvm
+  - remote: buf.build/grpc/java
+    out: ../../gen/jvm
+  - remote: buf.build/grpc/kotlin
+    out: ../../gen/jvm
+
+  # ── TypeScript (Connect-ES) ─────────────────────────────────────────
+  - remote: buf.build/bufbuild/es
+    out: ../../gen/ts
+  - remote: buf.build/connectrpc/es
+    out: ../../gen/ts
