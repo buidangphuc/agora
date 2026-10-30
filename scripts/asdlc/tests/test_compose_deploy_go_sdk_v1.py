@@ -156,7 +156,8 @@ def test_go_services_enable_reflection_locally():
     services = _services()
     for name in GO_BLOCKS:
         env = _env(services[name])
-        assert env.get("GRPC_REFLECTION_ENABLED") == "true", name
+        want = None if name == "team-gateway" else "true"
+        assert env.get("GRPC_REFLECTION_ENABLED") == want, name
         assert env.get("ENV") == "local", name
 
 

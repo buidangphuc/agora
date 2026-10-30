@@ -588,7 +588,6 @@ services:
       - JAEGER_QUERY_URL=http://jaeger:16686
       - JAEGER_UI_URL=http://localhost:16686
       - ENV=local
-      - GRPC_REFLECTION_ENABLED=true
       - UPSTREAM_ANALYTICS_ADDR=team-analytics-svc:50059
       - UPSTREAM_REFERRAL_ADDR=team-referral-svc:50062
       - UPSTREAM_VERIFICATION_ADDR=team-verification-svc:50064
