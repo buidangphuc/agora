@@ -88,7 +88,7 @@ func newLifeFixture(t *testing.T, hold bool) *lifeFixture {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
@@ -97,7 +97,7 @@ func newLifeFixture(t *testing.T, hold bool) *lifeFixture {
 	e := edge.NewEdge(token.NewVerifier(jwks.URL, time.Minute), []string{"listing.read"}, time.Second, 0, 1000, 1000).
 		WithRevocations(f.denylist).
 		WithStreamRevocationCheck(20 * time.Millisecond)
-	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	f.srv = httptest.NewServer(edge.NewMux(&upstream.Clients{AIChat: f.chat}, e, noPub{}, edge.CockpitConfig{}, logger))
 	t.Cleanup(f.srv.Close)
 	return f

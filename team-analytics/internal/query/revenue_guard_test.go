@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/buidangphuc/team-analytics/internal/query"
+	"github.com/buidangphuc/team-analytics/internal/query/querytest"
 	"github.com/buidangphuc/team-analytics/internal/warehouse"
 	"github.com/buidangphuc/team-analytics/internal/warehouse/duckdb"
 )
@@ -22,13 +23,13 @@ const (
 func guardMemory(t *testing.T) query.Repository {
 	t.Helper()
 	d := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
-	return query.NewMemoryRepository(
+	return querytest.NewMemoryRepository(
 		// order line: the only revenue source.
-		query.Event{SellerID: "seller-1", OrderID: "o-1", Revenue: guardOrderTotal, SKU: "sku-a", ListingID: "lst-a", Units: 1, OccurredAt: d},
+		querytest.Event{SellerID: "seller-1", OrderID: "o-1", Revenue: guardOrderTotal, SKU: "sku-a", ListingID: "lst-a", Units: 1, OccurredAt: d},
 		// tracking purchases: Event has no value field, so they carry zero revenue
 		// by construction; one matches o-1, one has no order at all.
-		query.Event{SellerID: "seller-1", EventType: "purchase", TransactionID: "o-1", ListingID: "lst-a", OccurredAt: d},
-		query.Event{SellerID: "seller-1", EventType: "purchase", TransactionID: "tx-orphan", ListingID: "lst-a", OccurredAt: d},
+		querytest.Event{SellerID: "seller-1", EventType: "purchase", TransactionID: "o-1", ListingID: "lst-a", OccurredAt: d},
+		querytest.Event{SellerID: "seller-1", EventType: "purchase", TransactionID: "tx-orphan", ListingID: "lst-a", OccurredAt: d},
 	)
 }
 

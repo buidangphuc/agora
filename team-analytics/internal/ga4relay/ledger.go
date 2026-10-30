@@ -3,7 +3,6 @@ package ga4relay
 import (
 	"context"
 	"database/sql"
-	"sync"
 	"time"
 )
 
@@ -14,38 +13,6 @@ const ledgerTTL = 90 * 24 * time.Hour
 type Ledger interface {
 	Sent(ctx context.Context, orderID string) (bool, error)
 	MarkSent(ctx context.Context, orderID string) error
-}
-
-type memoryLedger struct {
-	mu  sync.Mutex
-	now func() time.Time
-	m   map[string]time.Time
-}
-
-// NewMemoryLedger returns an in-memory Ledger with 90d retention.
-func NewMemoryLedger(now func() time.Time) Ledger {
-	return &memoryLedger{now: now, m: map[string]time.Time{}}
-}
-
-func (l *memoryLedger) Sent(_ context.Context, orderID string) (bool, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	exp, ok := l.m[orderID]
-	if !ok {
-		return false, nil
-	}
-	if !l.now().Before(exp) {
-		delete(l.m, orderID)
-		return false, nil
-	}
-	return true, nil
-}
-
-func (l *memoryLedger) MarkSent(_ context.Context, orderID string) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.m[orderID] = l.now().Add(ledgerTTL)
-	return nil
 }
 
 type sqlLedger struct {
@@ -82,20 +49,6 @@ func (l *sqlLedger) MarkSent(ctx context.Context, orderID string) error {
 // Purger physically deletes expired rows and returns how many were removed.
 type Purger interface {
 	Purge(ctx context.Context) (int64, error)
-}
-
-func (l *memoryLedger) Purge(_ context.Context) (int64, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	var n int64
-	now := l.now()
-	for k, exp := range l.m {
-		if !now.Before(exp) {
-			delete(l.m, k)
-			n++
-		}
-	}
-	return n, nil
 }
 
 func (l *sqlLedger) Purge(ctx context.Context) (int64, error) {

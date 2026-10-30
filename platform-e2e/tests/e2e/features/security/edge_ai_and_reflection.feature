@@ -1,7 +1,7 @@
 Feature: AI generation calls are sent once and reflection is off by default
   team-gateway forwards the AI generation procedures exactly once (no retry on unavailable)
   and reports the upstream attempt count on its edge.request log line; gRPC reflection is
-  not served unless EDGE_REFLECTION_ENABLED is set. Change: port-edge-authz-residuals
+  not served unless GRPC_REFLECTION_ENABLED is set. Change: port-edge-authz-residuals
   (edge-stream-and-http-policy).
 
   # Stops team-ai for real; it is started again and awaited in teardown.

@@ -33,7 +33,7 @@ func (s *funnelSpy) GetChannelFunnel(ctx context.Context, _ *analyticsv1.GetChan
 
 func postFunnel(t *testing.T, f *cockpitFixture, spy *funnelSpy, hdr map[string]string) (*http.Response, string) {
 	t.Helper()
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{AnalyticsQuery: spy}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{AnalyticsQuery: spy}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	t.Cleanup(srv.Close)
 	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/platform.analytics.v1.AnalyticsQueryService/GetChannelFunnel", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")

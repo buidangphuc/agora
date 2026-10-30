@@ -1,0 +1,46 @@
+{{- if .Values.migrate.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.name }}-migrate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.name }}-migrate
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrate.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}-migrate
+    spec:
+      restartPolicy: Never
+      {{- if .Values.secrets.enabled }}
+      serviceAccountName: {{ .Values.name }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repo }}:{{ index .Values.images .Values.name | default .Values.defaultTag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          {{- with .Values.migrate.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args:
+            {{- toYaml .Values.migrate.args | nindent 12 }}
+          {{- if .Values.secrets.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.name }}-env
+          {{- end }}
+          env:
+            - name: ENV
+              value: {{ .Values.env.ENV | quote }}
+            {{- if not .Values.secrets.enabled }}
+            - name: DATABASE_URL
+              value: {{ .Values.env.DATABASE_URL | quote }}
+            {{- end }}
+{{- end }}
