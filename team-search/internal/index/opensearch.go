@@ -112,6 +112,8 @@ type Index interface {
 	Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (SearchResult, error)
 	SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (SearchResult, error)
 	Suggest(ctx context.Context, prefix string, limit int) ([]string, error)
+	// Ping fails when the cluster is unreachable or unhealthy (readiness, boot).
+	Ping(ctx context.Context) error
 }
 
 // FacetCounter is an optional Index capability: facet aggregations over an
@@ -134,6 +136,20 @@ func New(url, name string) (*OpenSearchIndex, error) {
 		return nil, fmt.Errorf("opensearch client: %w", err)
 	}
 	return &OpenSearchIndex{client: client, name: name, now: time.Now}, nil
+}
+
+// Ping checks the cluster answers its root endpoint without an error status.
+func (o *OpenSearchIndex) Ping(ctx context.Context) error {
+	res, err := opensearchapi.InfoRequest{}.Do(ctx, o.client)
+	if err != nil {
+		return fmt.Errorf("opensearch ping: %w", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	_, _ = io.Copy(io.Discard, res.Body)
+	if res.IsError() {
+		return fmt.Errorf("opensearch ping: status %s", res.Status())
+	}
+	return nil
 }
 
 // indexMapping: title as search_as_you_type powers both full-text and prefix

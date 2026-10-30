@@ -5,8 +5,11 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"strings"
+
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 )
 
 // DevJWTKID is the key id of the development signing key committed to the repo.
@@ -34,18 +37,42 @@ func PublicKeyFingerprint(pub *rsa.PublicKey) (string, error) {
 // fingerprint). Other environments always pass. The key material is never
 // logged or included in the error.
 func (s *Settings) RequireNonDevSigningKey(kid string, pub *rsa.PublicKey) error {
-	if !s.RequiresHardenedSecrets() {
+	return requireNonDevSigningKey(s.Runtime, kid, pub)
+}
+
+func requireNonDevSigningKey(rt sdkconfig.Runtime, kid string, pub *rsa.PublicKey) error {
+	if !rt.IsStrict() {
 		return nil
 	}
 	if strings.EqualFold(strings.TrimSpace(kid), DevJWTKID) {
-		return fmt.Errorf("refusing to start: JWT_KID=%q is the committed development key id in a strict ENV (ENV=%q); provision a real signing key and kid (Vault svc/shared/jwt)", kid, s.Runtime.Env)
+		return fmt.Errorf("refusing to start: JWT_KID=%q is the committed development key id in a strict ENV (ENV=%q); provision a real signing key and kid (Vault svc/shared/jwt)", kid, rt.Env)
+	}
+	if pub == nil {
+		return nil
 	}
 	fp, err := PublicKeyFingerprint(pub)
 	if err != nil {
 		return err
 	}
 	if fp == devKeyFingerprint {
-		return fmt.Errorf("refusing to start: JWT_PRIVATE_KEY is the development signing key committed to the repository, which is not allowed in a strict ENV (ENV=%q); provision a real signing key (Vault svc/shared/jwt)", s.Runtime.Env)
+		return fmt.Errorf("refusing to start: JWT_PRIVATE_KEY is the development signing key committed to the repository, which is not allowed in a strict ENV (ENV=%q); provision a real signing key (Vault svc/shared/jwt)", rt.Env)
+	}
+	return nil
+}
+
+func publicKeyOf(privatePEM string) *rsa.PublicKey {
+	block, _ := pem.Decode([]byte(strings.ReplaceAll(strings.TrimSpace(privatePEM), `\n`, "\n")))
+	if block == nil {
+		return nil
+	}
+	if k, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
+		if rk, ok := k.(*rsa.PrivateKey); ok {
+			return &rk.PublicKey
+		}
+		return nil
+	}
+	if rk, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
+		return &rk.PublicKey
 	}
 	return nil
 }

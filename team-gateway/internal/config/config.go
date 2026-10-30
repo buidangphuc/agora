@@ -1,63 +1,55 @@
-// Package config assembles the gateway's flat Settings from per-capability
-// struct groups (same reflection loader + .env.example drift gate as the other
-// services). The gateway holds no business config — only where to listen and
-// which upstream services to route to.
+// Package config declares the gateway's Settings on the SDK loader. The gateway
+// holds no business config: where to listen, which upstreams to route to, how
+// to verify tokens and how to harden the edge.
 package config
 
 import (
 	"errors"
 	"fmt"
-	"os"
-	"reflect"
+	"net"
 	"strconv"
 	"strings"
+	"time"
+
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 )
+
+const serviceName = "team-gateway"
 
 // Settings is the whole configuration surface, grouped by capability.
 type Settings struct {
-	Runtime       Runtime
-	Server        Server
-	Upstream      Upstream
-	Auth          Auth
-	Edge          Edge
-	Events        Events
-	Identity      IdentityEvents
-	Observability Observability
-}
-
-type Runtime struct {
-	Env      string `env:"ENV" default:"local"`
-	LogLevel string `env:"LOG_LEVEL" default:"info"`
-	LogJSON  bool   `env:"LOG_JSON" default:"true"`
-}
-
-// Server is the edge HTTP listener (serves Connect: gRPC + gRPC-web + JSON).
-type Server struct {
-	Host          string  `env:"HTTP_HOST" default:"0.0.0.0"`
-	Port          int     `env:"HTTP_PORT" default:"8080"`
-	ShutdownGrace float64 `env:"SHUTDOWN_GRACE_SECONDS" default:"10"`
+	sdkconfig.Runtime
+	GRPC
+	Kafka    sdkconfig.Kafka
+	OTel     sdkconfig.OTel
+	Mock     sdkconfig.MockData
+	Upstream Upstream
+	Auth     Auth
+	Edge     Edge
+	Events   Events
+	Identity IdentityEvents
 }
 
 // Upstream is the routing table: which gRPC service backs each contract.
 type Upstream struct {
-	SearchAddr       string `env:"UPSTREAM_SEARCH_ADDR" default:"localhost:50052"`
-	ListingAddr      string `env:"UPSTREAM_LISTING_ADDR" default:"localhost:50051"`
-	IdentityAddr     string `env:"UPSTREAM_IDENTITY_ADDR" default:"localhost:50053"`
-	EngagementAddr   string `env:"UPSTREAM_ENGAGEMENT_ADDR" default:"localhost:50054"`
-	OrderAddr        string `env:"UPSTREAM_ORDER_ADDR" default:"localhost:50055"`
-	PaymentAddr      string `env:"UPSTREAM_PAYMENT_ADDR" default:"localhost:50056"`
-	ChatAddr         string `env:"UPSTREAM_CHAT_ADDR" default:"localhost:50057"`
-	AIAddr           string `env:"UPSTREAM_AI_ADDR" default:"localhost:50060"`
-	RecAddr          string `env:"UPSTREAM_RECOMMENDATION_ADDR" default:"localhost:50060"`
-	PromotionAddr    string `env:"UPSTREAM_PROMOTION_ADDR" default:"localhost:50061"`
-	NotificationAddr string `env:"UPSTREAM_NOTIFICATION_ADDR" default:"localhost:50058"`
+	SearchAddr       string `env:"UPSTREAM_SEARCH_ADDR" default:"localhost:50052" keepempty:"true"`
+	ListingAddr      string `env:"UPSTREAM_LISTING_ADDR" default:"localhost:50051" keepempty:"true"`
+	IdentityAddr     string `env:"UPSTREAM_IDENTITY_ADDR" default:"localhost:50053" keepempty:"true"`
+	EngagementAddr   string `env:"UPSTREAM_ENGAGEMENT_ADDR" default:"localhost:50054" keepempty:"true"`
+	OrderAddr        string `env:"UPSTREAM_ORDER_ADDR" default:"localhost:50055" keepempty:"true"`
+	PaymentAddr      string `env:"UPSTREAM_PAYMENT_ADDR" default:"localhost:50056" keepempty:"true"`
+	ChatAddr         string `env:"UPSTREAM_CHAT_ADDR" default:"localhost:50057" keepempty:"true"`
+	AIAddr           string `env:"UPSTREAM_AI_ADDR" default:"localhost:50060" keepempty:"true"`
+	RecAddr          string `env:"UPSTREAM_RECOMMENDATION_ADDR" default:"localhost:50060" keepempty:"true"`
+	PromotionAddr    string `env:"UPSTREAM_PROMOTION_ADDR" default:"localhost:50061" keepempty:"true"`
+	NotificationAddr string `env:"UPSTREAM_NOTIFICATION_ADDR" default:"localhost:50058" keepempty:"true"`
 	// AnalyticsAddr backs the AnalyticsQueryService (seller-dashboard read-model).
-	AnalyticsAddr string `env:"UPSTREAM_ANALYTICS_ADDR" default:"team-analytics-svc:50059"`
+	AnalyticsAddr string `env:"UPSTREAM_ANALYTICS_ADDR" default:"team-analytics-svc:50059" keepempty:"true"`
 	// The four new standalone services (each owns its DB).
-	ReferralAddr     string  `env:"UPSTREAM_REFERRAL_ADDR" default:"team-referral-svc:50062"`
-	VerificationAddr string  `env:"UPSTREAM_VERIFICATION_ADDR" default:"team-verification-svc:50064"`
-	SharingAddr      string  `env:"UPSTREAM_SHARING_ADDR" default:"team-sharing-svc:50065"`
-	AuditAddr        string  `env:"UPSTREAM_AUDIT_ADDR" default:"team-audit-svc:50066"`
+	ReferralAddr     string  `env:"UPSTREAM_REFERRAL_ADDR" default:"team-referral-svc:50062" keepempty:"true"`
+	VerificationAddr string  `env:"UPSTREAM_VERIFICATION_ADDR" default:"team-verification-svc:50064" keepempty:"true"`
+	SharingAddr      string  `env:"UPSTREAM_SHARING_ADDR" default:"team-sharing-svc:50065" keepempty:"true"`
+	AuditAddr        string  `env:"UPSTREAM_AUDIT_ADDR" default:"team-audit-svc:50066" keepempty:"true"`
 	DialTimeout      float64 `env:"DIAL_TIMEOUT_SECONDS" default:"2"`
 }
 
@@ -92,17 +84,14 @@ type Edge struct {
 	// against the in-memory revocation denylist; a revoked session ends the stream
 	// with unauthenticated within this interval. (Token expiry ends it on time.)
 	StreamRevocationCheckSecs float64 `env:"STREAM_REVOCATION_CHECK_SECONDS" default:"5"`
-	// ReflectionEnabled mounts gRPC reflection. Development aid only: refused
-	// under a strict ENV (staging, production).
-	ReflectionEnabled bool `env:"EDGE_REFLECTION_ENABLED" default:"false"`
 	// PrometheusURL is where the Admin Cockpit handler runs its fixed server-side
 	// PromQL set (GET /api/v1/query). Read-only, never exposed to the browser.
 	// Empty/unreachable → the handler degrades to zeroed values (never random).
-	PrometheusURL string `env:"PROMETHEUS_URL" default:"http://prometheus:9090"`
+	PrometheusURL string `env:"PROMETHEUS_URL" default:"http://prometheus:9090" keepempty:"true"`
 	// JaegerQueryURL is the Jaeger query API the cockpit asks for recent
 	// team-gateway traces (fixed query, 2 s timeout). Server-side only. Empty or
 	// unreachable → recent_traces is empty.
-	JaegerQueryURL string `env:"JAEGER_QUERY_URL" default:"http://jaeger:16686"`
+	JaegerQueryURL string `env:"JAEGER_QUERY_URL" default:"http://jaeger:16686" keepempty:"true"`
 	// JaegerUIURL is the browser-facing Jaeger UI base used to build trace links.
 	JaegerUIURL string `env:"JAEGER_UI_URL" default:"http://localhost:16686"`
 	// TrustedProxies lists the peers whose X-Forwarded-For the edge believes when
@@ -112,82 +101,125 @@ type Edge struct {
 	TrustedProxies string `env:"TRUSTED_PROXIES" default:""`
 }
 
-// Events configures the edge telemetry producer (ADR-0002) that emits browsing
-// TrackingEvents on the analytics topic. When KafkaEnabled is false the producer
-// is a no-op, so the collector still accepts beacons without a broker. This is
-// pure edge telemetry (validate → stamp → produce), not business config (Rule 2).
-type Events struct {
-	KafkaEnabled   bool   `env:"KAFKA_ENABLED" default:"false"`
-	Brokers        string `env:"KAFKA_BROKERS" default:"localhost:9092"` // comma-separated
-	AnalyticsTopic string `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
+// GRPC is the edge listener. It mirrors sdkconfig.GRPC but leaves GRPC_PORT to
+// Validate, so an unset port is reported together with, and after, the
+// environment-dependent refusals (MOCK_DATA, reflection).
+type GRPC struct {
+	Host              string        `env:"GRPC_HOST" default:"0.0.0.0"`
+	Port              int           `env:"GRPC_PORT"`
+	ShutdownGrace     time.Duration `env:"SHUTDOWN_GRACE" default:"10s"`
+	DrainDelay        time.Duration `env:"SHUTDOWN_DRAIN_DELAY" default:"0s"`
+	ReflectionEnabled bool          `env:"GRPC_REFLECTION_ENABLED" default:"false"`
 }
 
-// IdentityEvents configures the revocation consumer (ADR-0003 addendum): the
-// gateway reads identity.events (SessionRevoked) into an in-memory session
-// denylist. It reuses KAFKA_ENABLED / KAFKA_BROKERS from Events. The consumer
-// takes no group (every replica reads every partition from the earliest offset)
-// and is best-effort: Kafka being down never stops the gateway starting.
+func (g *GRPC) ResolveFor(rt sdkconfig.Runtime) error {
+	if g.ReflectionEnabled && !rt.IsLocal() {
+		return errors.New("GRPC_REFLECTION_ENABLED is only allowed when ENV is local or test")
+	}
+	return nil
+}
+
+func (g GRPC) Validate() error {
+	var errs []error
+	if g.Port <= 0 || g.Port > 65535 {
+		errs = append(errs, fmt.Errorf("GRPC_PORT is required and must be a port number: %d", g.Port))
+	}
+	if g.ShutdownGrace < 0 {
+		errs = append(errs, fmt.Errorf("SHUTDOWN_GRACE must be >= 0: %v", g.ShutdownGrace))
+	}
+	if g.DrainDelay < 0 {
+		errs = append(errs, fmt.Errorf("SHUTDOWN_DRAIN_DELAY must be >= 0: %v", g.DrainDelay))
+	}
+	return errors.Join(errs...)
+}
+
+// Addr returns the host:port the edge listens on.
+func (g GRPC) Addr() string { return net.JoinHostPort(g.Host, strconv.Itoa(g.Port)) }
+
+// Events configures the edge telemetry producer (ADR-0002) that emits browsing
+// TrackingEvents on the analytics topic.
+type Events struct {
+	AnalyticsTopic      string        `env:"KAFKA_ANALYTICS_TOPIC" default:"analytics.events"`
+	TrackPublishTimeout time.Duration `env:"TRACK_PUBLISH_TIMEOUT" default:"2s"`
+}
+
+// IdentityEvents configures the revocation consumer (ADR-0003 addendum).
 type IdentityEvents struct {
 	Topic string `env:"IDENTITY_EVENTS_TOPIC" default:"identity.events"`
 }
 
-type Observability struct {
-	Enabled      bool   `env:"OTEL_ENABLED" default:"false"`
-	OTLPEndpoint string `env:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
-	ServiceName  string `env:"OTEL_SERVICE_NAME" default:"team-gateway"`
-}
-
-// LoadSettings reads the environment into Settings, applies defaults, validates.
-func LoadSettings() (*Settings, error) {
-	s := &Settings{}
-	if err := bindGroups(reflect.ValueOf(s).Elem()); err != nil {
-		return nil, err
+// Load reads the environment into Settings, applies defaults and validates.
+func Load() (Settings, error) {
+	s, err := sdkconfig.Load[Settings]()
+	if err != nil {
+		return s, err
 	}
-	if err := s.Validate(); err != nil {
-		return nil, err
+	if s.OTel.ServiceName == "" {
+		s.OTel.ServiceName = serviceName
 	}
 	return s, nil
 }
 
-func (s *Settings) Validate() error {
-	if s.Server.Port <= 0 || s.Server.Port > 65535 {
-		return fmt.Errorf("HTTP_PORT out of range: %d", s.Server.Port)
+// Validate checks the gateway-specific bounds.
+func (s Settings) Validate() error {
+	var errs []error
+	for _, v := range []interface{ Validate() error }{s.Runtime, s.GRPC, s.Upstream, s.Auth, s.Edge, s.Events} {
+		if err := v.Validate(); err != nil {
+			errs = append(errs, err)
+		}
 	}
-	if strings.TrimSpace(s.Upstream.SearchAddr) == "" || strings.TrimSpace(s.Upstream.ListingAddr) == "" {
-		return errors.New("UPSTREAM_SEARCH_ADDR and UPSTREAM_LISTING_ADDR are required")
+	return errors.Join(errs...)
+}
+
+func (u Upstream) Validate() error {
+	var errs []error
+	for key, addr := range map[string]string{
+		"UPSTREAM_SEARCH_ADDR": u.SearchAddr, "UPSTREAM_LISTING_ADDR": u.ListingAddr,
+		"UPSTREAM_IDENTITY_ADDR": u.IdentityAddr, "UPSTREAM_ENGAGEMENT_ADDR": u.EngagementAddr,
+		"UPSTREAM_ORDER_ADDR": u.OrderAddr, "UPSTREAM_PAYMENT_ADDR": u.PaymentAddr,
+		"UPSTREAM_CHAT_ADDR": u.ChatAddr, "UPSTREAM_AI_ADDR": u.AIAddr,
+		"UPSTREAM_RECOMMENDATION_ADDR": u.RecAddr, "UPSTREAM_PROMOTION_ADDR": u.PromotionAddr,
+		"UPSTREAM_NOTIFICATION_ADDR": u.NotificationAddr, "UPSTREAM_ANALYTICS_ADDR": u.AnalyticsAddr,
+		"UPSTREAM_REFERRAL_ADDR": u.ReferralAddr, "UPSTREAM_VERIFICATION_ADDR": u.VerificationAddr,
+		"UPSTREAM_SHARING_ADDR": u.SharingAddr, "UPSTREAM_AUDIT_ADDR": u.AuditAddr,
+	} {
+		if strings.TrimSpace(addr) == "" {
+			errs = append(errs, fmt.Errorf("%s is required", key))
+		}
 	}
-	if strings.TrimSpace(s.Upstream.IdentityAddr) == "" {
-		return errors.New("UPSTREAM_IDENTITY_ADDR is required")
+	return errors.Join(errs...)
+}
+
+func (a Auth) Validate() error {
+	var errs []error
+	if strings.TrimSpace(a.JWKSURL) == "" {
+		errs = append(errs, errors.New("JWKS_URL is required (team-identity's /.well-known/jwks.json)"))
 	}
-	if strings.TrimSpace(s.Auth.JWKSURL) == "" {
-		return errors.New("JWKS_URL is required (team-identity's /.well-known/jwks.json)")
+	if a.JWKSCacheTTLSeconds <= 0 {
+		errs = append(errs, fmt.Errorf("JWKS_CACHE_TTL must be > 0: %d", a.JWKSCacheTTLSeconds))
 	}
-	if s.Auth.JWKSCacheTTLSeconds <= 0 {
-		return fmt.Errorf("JWKS_CACHE_TTL must be > 0: %d", s.Auth.JWKSCacheTTLSeconds)
+	return errors.Join(errs...)
+}
+
+func (e Edge) Validate() error {
+	if e.RetryMax < 0 {
+		return fmt.Errorf("RETRY_MAX must be >= 0: %d", e.RetryMax)
 	}
-	if s.Server.ShutdownGrace < 0 {
-		return fmt.Errorf("SHUTDOWN_GRACE_SECONDS must be >= 0: %v", s.Server.ShutdownGrace)
-	}
-	if s.IsStrictEnv() && s.Edge.ReflectionEnabled {
-		return fmt.Errorf("EDGE_REFLECTION_ENABLED must not be true when ENV=%s", s.Runtime.Env)
+	return nil
+}
+
+func (e Events) Validate() error {
+	if e.TrackPublishTimeout <= 0 {
+		return fmt.Errorf("TRACK_PUBLISH_TIMEOUT must be a positive duration: %s", e.TrackPublishTimeout)
 	}
 	return nil
 }
 
 // PublicScopesList returns the scopes granted to anonymous callers.
-func (s *Settings) PublicScopesList() []string {
-	return splitCSV(s.Auth.PublicScopes)
-}
+func (s Settings) PublicScopesList() []string { return splitCSV(s.Auth.PublicScopes) }
 
 // CORSOriginsList returns the allowed CORS origins.
-func (s *Settings) CORSOriginsList() []string {
-	return splitCSV(s.Edge.CORSOrigins)
-}
-
-// KafkaBrokers splits the comma-separated KAFKA_BROKERS into seed addresses.
-func (s *Settings) KafkaBrokers() []string {
-	return splitCSV(s.Events.Brokers)
-}
+func (s Settings) CORSOriginsList() []string { return splitCSV(s.Edge.CORSOrigins) }
 
 func splitCSV(v string) []string {
 	parts := strings.Split(v, ",")
@@ -198,85 +230,4 @@ func splitCSV(v string) []string {
 		}
 	}
 	return out
-}
-
-func (s *Settings) IsProd() bool {
-	e := strings.ToLower(strings.TrimSpace(s.Runtime.Env))
-	return e == "prod" || e == "production"
-}
-
-// IsStrictEnv reports staging or production: environments where dev-only
-// switches must refuse to boot.
-func (s *Settings) IsStrictEnv() bool {
-	switch strings.ToLower(strings.TrimSpace(s.Runtime.Env)) {
-	case "staging", "stage", "prod", "production":
-		return true
-	}
-	return false
-}
-
-// DeclaredEnvKeys returns every env key declared by Settings, in struct order.
-func DeclaredEnvKeys() []string {
-	var keys []string
-	t := reflect.TypeOf(Settings{})
-	for i := 0; i < t.NumField(); i++ {
-		gt := t.Field(i).Type
-		for j := 0; j < gt.NumField(); j++ {
-			if k := gt.Field(j).Tag.Get("env"); k != "" {
-				keys = append(keys, k)
-			}
-		}
-	}
-	return keys
-}
-
-func bindGroups(v reflect.Value) error {
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		group := v.Field(i)
-		gt := group.Type()
-		for j := 0; j < gt.NumField(); j++ {
-			f := gt.Field(j)
-			key := f.Tag.Get("env")
-			if key == "" {
-				continue
-			}
-			raw := f.Tag.Get("default")
-			if val, ok := os.LookupEnv(key); ok {
-				raw = val
-			}
-			if err := setField(group.Field(j), raw); err != nil {
-				return fmt.Errorf("config %s: %w", key, err)
-			}
-		}
-	}
-	return nil
-}
-
-func setField(fv reflect.Value, raw string) error {
-	switch fv.Kind() {
-	case reflect.String:
-		fv.SetString(raw)
-	case reflect.Bool:
-		b, err := strconv.ParseBool(strings.TrimSpace(raw))
-		if err != nil {
-			return err
-		}
-		fv.SetBool(b)
-	case reflect.Int, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-		if err != nil {
-			return err
-		}
-		fv.SetInt(n)
-	case reflect.Float32, reflect.Float64:
-		x, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
-		if err != nil {
-			return err
-		}
-		fv.SetFloat(x)
-	default:
-		return fmt.Errorf("unsupported config field kind %s", fv.Kind())
-	}
-	return nil
 }

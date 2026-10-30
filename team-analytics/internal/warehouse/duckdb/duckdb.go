@@ -140,6 +140,7 @@ func (w *Writer) ensureSchema(ctx context.Context) error {
 	}
 
 	// Create or replace standard ga4_events view
+	//nolint:gosec // only fixed identifiers are interpolated
 	createViewSQL := fmt.Sprintf(`CREATE OR REPLACE VIEW ga4_events AS
 SELECT
   event_id,
@@ -247,6 +248,7 @@ FROM (
 
 var favoritesCurrentDDL = currentStateViewDDL(warehouse.FavoritesCurrentViewName, "listing_id",
 	warehouse.FactFavoriteAdded, warehouse.FactFavoriteRemoved)
+
 var followsCurrentDDL = currentStateViewDDL(warehouse.FollowsCurrentViewName, "seller_id",
 	warehouse.FactSellerFollowed, warehouse.FactSellerUnfollowed)
 
@@ -349,8 +351,10 @@ FROM %s t LEFT JOIN %s i USING (anonymous_id)`,
 	warehouse.ResolvedViewName, warehouse.TableName, warehouse.IdentityViewName)
 
 // insertSQL is the parameterized append for one row, column order == Schema.
-var insertSQL = buildInsertSQL()
-var insertOrderFactsSQL = buildInsertOrderFactsSQL()
+var (
+	insertSQL           = buildInsertSQL()
+	insertOrderFactsSQL = buildInsertOrderFactsSQL()
+)
 
 // buildIdempotentInsert builds an anti-join append keyed on event_id:
 // INSERT ... SELECT CAST(? AS type)... WHERE NOT EXISTS (same event_id). Kafka
@@ -466,7 +470,7 @@ func (w *Writer) Write(ctx context.Context, batch []*warehouse.TrackingRecord) e
 	// Counter failures must never block ingestion (analytics-data-quality D1).
 	if dup := int64(len(batch)) - inserted; dup > 0 {
 		if err := w.addCounters(ctx, ingestedAt, 0, dup); err != nil {
-			slog.Warn("tracking ingest counters not updated", slog.Any("err", err))
+			slog.WarnContext(ctx, "tracking ingest counters not updated", "err", err)
 		}
 	}
 	return nil
@@ -595,10 +599,12 @@ func marshalProperties(p map[string]string) (string, error) {
 }
 
 // compile-time assertion that the adapter satisfies the seam.
-var _ warehouse.WarehouseWriter = (*Writer)(nil)
-var _ warehouse.ListingSellerWriter = (*Writer)(nil)
-var _ warehouse.IngestCounterWriter = (*Writer)(nil)
-var _ warehouse.EngagementFactWriter = (*Writer)(nil)
+var (
+	_ warehouse.WarehouseWriter      = (*Writer)(nil)
+	_ warehouse.ListingSellerWriter  = (*Writer)(nil)
+	_ warehouse.IngestCounterWriter  = (*Writer)(nil)
+	_ warehouse.EngagementFactWriter = (*Writer)(nil)
+)
 
 // nullIfEmpty maps "" to SQL NULL so "unattributed" has one representation.
 func nullIfEmpty(s string) any {

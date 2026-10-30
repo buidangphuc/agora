@@ -47,8 +47,10 @@ func hybridEngine(idx index.Index) *retrieval.Engine {
 	})
 }
 
-var hybridQ = retrieval.SearchParams{Query: "q", SearchMode: searchv1.SearchMode_SEARCH_MODE_HYBRID, Size: 10,
-	Filters: map[string]string{"in_stock": "true", "seller_id": "s1"}, CategoryID: "c1", MinPrice: 5, MaxPrice: 9}
+var hybridQ = retrieval.SearchParams{
+	Query: "q", SearchMode: searchv1.SearchMode_SEARCH_MODE_HYBRID, Size: 10,
+	Filters: map[string]string{"in_stock": "true", "seller_id": "s1"}, CategoryID: "c1", MinPrice: 5, MaxPrice: 9,
+}
 
 // Both legs receive every structured filter.
 func TestEngine_FiltersReachBothLegs(t *testing.T) {

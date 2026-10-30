@@ -138,6 +138,7 @@ def row_states_city_fee(world: World, city: str, other: str) -> None:
     st = sup.state(world)
     label = "hn" if city == "Hà Nội" else "dn"
     token = st["buyers"][label]["token"]
+    expect(sup.shipping_row(world.page)).to_contain_text(city, timeout=timeouts.DEFAULT)
     text = _row_text(world)  # the page first: it must state the threshold
     fee = sup.shipping_fee(token, city, 0)["fee"]
     assert fee > 0, f"the server returned no below-threshold fee for {city}"

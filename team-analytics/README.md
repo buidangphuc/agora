@@ -79,18 +79,22 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | Read into settings; nothing uses it |
+| `ENV` | required | `local`, `test`, `staging` or `prod`; staging and prod are strict |
 | `LOG_LEVEL` | `info` | `debug`, `warn`, `error`, else info |
 | `LOG_JSON` | `true` | JSON vs text slog output |
 | `GRPC_HOST` | `0.0.0.0` | |
-| `GRPC_PORT` | `50059` | 1 to 65535 |
-| `GRPC_REFLECTION_ENABLED` | `true` | |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | Validated but unused; shutdown calls `GracefulStop` with no timeout |
-| `KAFKA_ENABLED` | `false` | The process exits with an error unless `true` |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated |
+| `GRPC_PORT` | required (`.env.example` sets `50059`) | 1 to 65535 |
+| `GRPC_REFLECTION_ENABLED` | `false` | Refused when ENV is not local or test |
+| `SHUTDOWN_GRACE` | `10s` | Go duration |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Go duration |
+| `LOG_KEY_FP_SECRET` | local value for local/test | Required when ENV is staging or prod; keys the Kafka key fingerprint in logs |
+| `MOCK_DATA` | empty | Fixture adapters; must be empty when ENV is staging or prod |
+| `KAFKA_BROKERS` | `localhost:9092` for local/test | Comma-separated; required when ENV is staging or prod |
 | `KAFKA_CONSUMER_GROUP` | `team-analytics` | |
 | `KAFKA_ANALYTICS_TOPIC` | `analytics.events` | |
 | `KAFKA_ORDER_TOPIC` | `order.events` | |
+| `KAFKA_DLQ_TOPIC` | `analytics.events.dlq` | Dead-letter topic of the analytics and order consumer |
+| `KAFKA_LISTING_DLQ_TOPIC` | `listing.events.analytics.dlq` | Dead-letter topic of the listing consumer |
 | `ENGAGEMENT_EVENTS_TOPIC` | `engagement.events` | Source of `engagement_facts`; must not be empty |
 | `ENGAGEMENT_DLQ_TOPIC` | `engagement.events.analytics.dlq` | Dead-letter topic for undecodable engagement records; must not be empty |
 | `ENGAGEMENT_CONSUMER_GROUP` | `team-analytics.engagement` | Own group; must not be empty |
@@ -109,21 +113,20 @@ Loaded by reflection from the `env`/`default` tags in `internal/config/config.go
 | `TRACKING_LAG_P95_MAX_SECONDS` | `300` | `DEGRADED` (`lagging`) when p95 ingest lag exceeds it; must be > 0 |
 | `TRACKING_MISSING_LISTING_MAX_RATIO` | `0.05` | `DEGRADED` (`incomplete`) when a listing-scoped type's share of events without `listing_id` exceeds it; 0 to 1 |
 | `METRICS_ADDR` | `:9109` | HTTP listen address of `GET /metrics` (Prometheus text) and the GA4 import trigger; empty disables both |
-| `GA4_EXPORT_SOURCE` | `bigquery` | `bigquery` or `fixture` (Parquet `events_YYYYMMDD.parquet` in `GA4_EXPORT_FIXTURE_DIR`); the GA4 import is a no-op while `GA4_EXPORT_DATASET` is empty |
-| `GA4_EXPORT_DATASET` | empty | BigQuery dataset holding the GA4 `events_YYYYMMDD` tables (`dataset` or `project.dataset`) |
-| `GA4_EXPORT_FIXTURE_DIR` | empty | Directory of Parquet fixtures when `GA4_EXPORT_SOURCE=fixture` |
+| `GA4_EXPORT_DATASET` | empty | Required when ENV is staging or prod; the GA4 import is a no-op while empty locally. BigQuery dataset holding the GA4 `events_YYYYMMDD` tables (`dataset` or `project.dataset`) |
+| `GA4_EXPORT_FIXTURE_DIR` | empty | Directory of Parquet fixtures (`events_YYYYMMDD.parquet`) |
 | `GA4_IMPORT_AT` | `03:30` | Daily UTC `HH:MM` at which the consumer imports yesterday's GA4 export |
+| `GA4_IMPORT_TRIGGER_URL` | `http://localhost:9109/internal/ga4import` | Endpoint `cmd/ga4import` calls to trigger an import |
 | `GA4_RECONCILE_MAX_DIFF_RATIO` | `0.35` | GA4 vs first-party divergence threshold for the reconciliation report; must be >= 0 |
-| `GA4_API_SECRET` | empty | Secret for the GA4 Measurement Protocol relay; set it via the secret store, never commit it. Relay disabled unless set with `GA4_MEASUREMENT_ID` |
+| `GA4_API_SECRET` | empty | Secret for the GA4 Measurement Protocol relay; set it via the secret store, never commit it. Required when ENV is staging or prod; locally the relay is disabled unless set with `GA4_MEASUREMENT_ID` |
 | `GA4_MEASUREMENT_ID` | empty | GA4 measurement id for the purchase relay |
 | `GA4_ENDPOINT` | `https://www.google-analytics.com/mp/collect` | Measurement Protocol endpoint |
 | `GA4_RELAY_CONSUMER_GROUP` | `team-analytics.ga4-relay` | Consumer group of the GA4 relay |
 | `GA4_RELAY_DLQ_TOPIC` | `analytics.ga4-relay.dlq` | Dead-letter topic of the GA4 relay |
-| `GA4_RELAY_PROBE_PORT` | `8085` | Health probe port of the GA4 relay (1 to 65535 when the relay is enabled) |
 | `RECS_ATTRIBUTION_WINDOW_HOURS` | `24` | `GetRecommendationPerformance` credits an add-to-cart or purchase to a click made at most this many hours earlier; must be > 0 |
-| `OTEL_ENABLED` | `false` | Inert: no tracing code reads it |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty in code (`.env.example` sets `http://localhost:4317`) | Inert |
-| `OTEL_SERVICE_NAME` | `team-analytics` | Inert |
+| `OTEL_ENABLED` | `false` | |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty in code (`.env.example` sets `http://localhost:4317`) | |
+| `OTEL_SERVICE_NAME` | `team-analytics` | |
 
 ## 5. Run locally
 
@@ -134,11 +137,11 @@ docker compose up -d --build                                # whole stack
 docker compose --profile jobs run --rm platform-recsys      # trains from the Parquet export
 ```
 
-The `team-analytics` service in `docker-compose.services.yaml` sets `KAFKA_ENABLED=true`, `KAFKA_BROKERS=redpanda:9092`, `DUCKDB_PATH=/data/analytics.duckdb`, `PARQUET_EXPORT_PATH=/data/tracking_events.parquet`, `PARQUET_EXPORT_INTERVAL_SECONDS=300` on the `analytics_data` volume. It publishes no host port; the gateway reaches it at `team-analytics-svc:50059`. The root compose does not set `KAFKA_ORDER_TOPIC`, so the default `order.events` applies.
+The `team-analytics` service in `docker-compose.services.yaml` sets `KAFKA_BROKERS=redpanda:9092`, `DUCKDB_PATH=/data/analytics.duckdb`, `PARQUET_EXPORT_PATH=/data/tracking_events.parquet`, `PARQUET_EXPORT_INTERVAL_SECONDS=300` on the `analytics_data` volume. It publishes no host port; the gateway reaches it at `team-analytics-svc:50059`. The root compose does not set `KAFKA_ORDER_TOPIC`, so the default `order.events` applies.
 
 The `ga4-relay` service in `docker-compose.services.yaml` runs the GA4 purchase relay (`/ga4-relay`) with no `GA4_API_SECRET`, so it stays disabled; locally, `make ga4-relay` runs it without Docker.
 
-Standalone: `docker-compose.local.yaml` runs only this worker against the platform-core Redpanda on the external `platform-core_default` network (DuckDB on the `analytics-data` volume; no Parquet export configured). Without Docker: `cp .env.example .env`, `make proto`, then `KAFKA_ENABLED=true make consumer` (needs CGO and a C toolchain for DuckDB, and a writable `DUCKDB_PATH`; the default `/data/...` usually is not).
+Standalone: `docker-compose.local.yaml` runs only this worker against the platform-core Redpanda on the external `platform-core_default` network (DuckDB on the `analytics-data` volume; no Parquet export configured). Without Docker: `cp .env.example .env`, `make proto`, then `make consumer` (needs CGO and a C toolchain for DuckDB, and a writable `DUCKDB_PATH`; the default `/data/...` usually is not).
 
 ## 6. Build, test and lint
 
@@ -146,7 +149,7 @@ Standalone: `docker-compose.local.yaml` runs only this worker against the platfo
 |---|---|
 | `make proto` | `buf generate` into `generated/` (needs `buf`) |
 | `make tidy` | `go mod tidy` (the Dockerfile also runs it in the image) |
-| `make consumer` | Runs the analytics consumer (`go run ./cmd/consumer`; needs `KAFKA_ENABLED=true`) |
+| `make consumer` | Runs the analytics consumer (`go run ./cmd/consumer`) |
 | `make ga4-relay` | Runs the GA4 purchase relay (`go run ./cmd/ga4-relay`) |
 | `make check` | Merge gate: `check-env`, `gofmt -l` (fails on unformatted files), `go vet ./...`, `go test ./...` |
 | `make check-env` | `.env.example` vs `internal/config` drift gate |
@@ -175,7 +178,7 @@ There is no CI workflow in this directory; `make check` is the gate. Go is 1.26 
 - Trusted principal metadata: any caller that reaches `:50059` can set `x-principal-*` and act as a seller or admin. Protection relies on network policy (ADR-0010); this service does no token or mTLS check.
 - BigQuery has no query path and no Parquet export; with `WAREHOUSE_DRIVER=bigquery` the query RPCs are not registered (Health only).
 - Deduplication on `event_id` is exact in DuckDB only; BigQuery relies on best-effort insert-id deduplication.
-- `OTEL_*`, `ENV` and `SHUTDOWN_GRACE_SECONDS` are declared but unused; the `internal/interceptor` package comment mentions a `tracing.go` that does not exist.
+- The `internal/interceptor` package comment mentions a `tracing.go` that does not exist.
 - The demand forecast is a flat baseline with no seasonality or recency; its mean and std-dev are per order line over all history.
 - Root `AGENTS.md`, `.env.example` and `proto/README.md` still say this service has "no business RPC, health only"; the code serves `AnalyticsQueryService`. Out of scope for this README and needs a separate fix.
 - For `analytics.events` and `order.events`, an undecodable record is skipped after a warning; there is no dead-letter topic for them (engagement records do go to the DLQ).

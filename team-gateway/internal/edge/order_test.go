@@ -6,7 +6,6 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"math/big"
 	"net/http"
@@ -42,7 +41,7 @@ func (f *feeOrder) CalculateShippingFee(_ context.Context, in *orderv1.Calculate
 
 func feeClient(t *testing.T, up *feeOrder) orderv1connect.OrderServiceClient {
 	t.Helper()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	e := edge.NewEdge(nil, []string{"order.read"}, time.Second, 0, 1000, 1000)
 	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Order: up}, e, nil, edge.CockpitConfig{}, logger))
 	t.Cleanup(srv.Close)
@@ -128,14 +127,14 @@ func previewClient(t *testing.T, up *previewOrder) (orderv1connect.OrderServiceC
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
 	t.Cleanup(jwks.Close)
 	tok := mint(t, key, "kid-1", time.Now().Add(time.Hour))
 	e := edge.NewEdge(token.NewVerifier(jwks.URL, time.Minute), []string{"order.read"}, time.Second, 0, 1000, 1000)
-	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.NewTextHandler(io.Discard, nil)))...)
+	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.DiscardHandler))...)
 	mux := http.NewServeMux()
 	path, h := orderv1connect.NewOrderServiceHandler(edge.NewOrderForwarder(up, e), opts)
 	mux.Handle(path, h)

@@ -1,0 +1,1 @@
+ALTER TABLE identity_outbox_events DROP CONSTRAINT IF EXISTS identity_outbox_events_seq_nn;
