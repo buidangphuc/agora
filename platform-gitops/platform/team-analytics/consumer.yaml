@@ -34,7 +34,10 @@ spec:
         - name: consumer
           image: localhost:5001/team-analytics
           env:
-            - { name: KAFKA_ENABLED, value: "true" }
+            - { name: ENV, value: "local" }
+            - { name: GRPC_PORT, value: "50059" }
+            - name: LOG_KEY_FP_SECRET
+              valueFrom: { secretKeyRef: { name: team-analytics-env, key: LOG_KEY_FP_SECRET } }
             - { name: KAFKA_BROKERS, value: "redpanda:9092" }
             - { name: KAFKA_ANALYTICS_TOPIC, value: "analytics.events" }
             - { name: KAFKA_ORDER_TOPIC, value: "order.events" }
@@ -50,7 +53,6 @@ spec:
             - { name: PARQUET_EXPORT_INTERVAL_SECONDS, value: "300" }
             # Daily GA4 export import runs inside this process (single DuckDB writer); no-op while
             # GA4_EXPORT_DATASET is empty (never set in local/staging).
-            - { name: GA4_EXPORT_SOURCE, value: "bigquery" }
             - { name: GA4_EXPORT_DATASET, value: "" }
             - { name: GA4_IMPORT_AT, value: "03:30" }
             - { name: GA4_RECONCILE_MAX_DIFF_RATIO, value: "0.35" }
@@ -68,7 +70,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
-            grpc: { port: 50059 }
+            grpc: { port: 50059, service: liveness }
             initialDelaySeconds: 5
             periodSeconds: 5
           volumeMounts:

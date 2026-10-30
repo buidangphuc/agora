@@ -39,7 +39,7 @@ type jwksServer struct {
 
 func newJWKSServer() *jwksServer {
 	js := &jwksServer{keys: map[string]*rsa.PublicKey{}}
-	js.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	js.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		js.mu.Lock()
 		defer js.mu.Unlock()
 		doc := struct {

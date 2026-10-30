@@ -42,7 +42,7 @@ func newCockpitFixture(t *testing.T) *cockpitFixture {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
@@ -142,7 +142,7 @@ func TestCockpitSourcedFromPrometheus(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		var sample string
 		switch {
-		case strings.Contains(q, "rate(marketplace_rpc_client_duration_milliseconds_count[1m])"):
+		case strings.Contains(q, "rate(marketplace_rpc_client_call_duration_seconds_count[1m])"):
 			sample = "42.5" // RPS
 		case strings.Contains(q, "0.95"):
 			sample = "13.2" // p95

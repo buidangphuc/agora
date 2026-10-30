@@ -80,7 +80,7 @@ func TestPurge_MappingStore_DuckDB_DeletesExpiredRowsKeepsFresh(t *testing.T) {
 	if got := countRows(t, db, "ga4_relay_client_map"); got != 1 {
 		t.Fatalf("rows after purge=%d want 1", got)
 	}
-	if id, ok := mustGet(t, s, "fresh"); !ok || id != "3.3" {
+	if id, ok := mustGet(ctx, t, s, "fresh"); !ok || id != "3.3" {
 		t.Fatalf("fresh mapping lost: %q,%v", id, ok)
 	}
 	purgeCheck(t, p, 0) // idempotent
@@ -111,7 +111,7 @@ func TestPurge_MappingStore_Memory_DeletesExpired(t *testing.T) {
 	_ = s.Put(ctx, "fresh", "2.2")
 	clk.Advance(11 * 24 * time.Hour)
 	purgeCheck(t, p, 1)
-	if _, ok := mustGet(t, s, "fresh"); !ok {
+	if _, ok := mustGet(ctx, t, s, "fresh"); !ok {
 		t.Fatal("fresh mapping lost")
 	}
 	purgeCheck(t, p, 0)

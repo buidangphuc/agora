@@ -1,0 +1,11 @@
+Baseline: team-search pre-migration, measured 2026-10-29 on mainx stack
+Image: team-search:local id 67d2394bb892
+Index: listings, doc count 5107 (existing data, no seeding needed)
+Transport: gRPC over mainx_default network to team-search-svc:50052, via grpcurl (linux binary in python:3.12-alpine container)
+Latency is wall time per grpcurl invocation (includes client process start + proto parse); use for relative comparison only.
+Principal metadata: x-principal-id=bench, x-principal-type=user, x-principal-scopes=search:read
+Query set (10, cycled, 240 calls per RPC): laptop phone camera shoes watch book chair headphones jacket lamp
+SearchListings request: {"query":<q>,"page":{"page_size":10}}
+Suggest request: {"query":<q>,"limit":5}
+SearchListings: n=240 p50=16.2ms p95=20.1ms
+Suggest:        n=240 p50=15.0ms p95=21.2ms

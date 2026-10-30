@@ -19,6 +19,22 @@ linters:
       no-mixed-args: true
       kv-only: true
       context: scope
+      forbidden-keys:
+        - user_id
+        - buyer_id
+        - seller_id
+        - actor_id
+        - principal_id
+        - owner_id
+        - recipient_id
+        - sender_id
+        - username
+        - email
+        - phone
+        - ip
+        - client_ip
+        - ga_client_id
+        - address
     revive:
       enable-default-rules: true
       rules:

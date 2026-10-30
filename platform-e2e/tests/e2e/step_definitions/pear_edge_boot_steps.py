@@ -45,16 +45,16 @@ def _assert_refused(world: World, setting: str) -> None:
     assert setting in log, log
 
 
-@when("the team-gateway image is started with ENV=production and EDGE_REFLECTION_ENABLED=true")
+@when("the team-gateway image is started with ENV=production and GRPC_REFLECTION_ENABLED=true")
 def start_gateway(world: World) -> None:
     env = pe.compose_env("team-gateway")
-    env.update(ENV="production", EDGE_REFLECTION_ENABLED="true")
+    env.update(ENV="production", GRPC_REFLECTION_ENABLED="true")
     world.state.extra["pe_boot"] = _run(world, pe.gateway_boot_image(), env, "gateway")
 
 
-@then("the gateway process exits non-zero and its log names EDGE_REFLECTION_ENABLED")
+@then("the gateway process exits non-zero and its log names GRPC_REFLECTION_ENABLED")
 def gateway_refused(world: World) -> None:
-    _assert_refused(world, "EDGE_REFLECTION_ENABLED")
+    _assert_refused(world, "GRPC_REFLECTION_ENABLED")
 
 
 def _own_signing_key() -> str:

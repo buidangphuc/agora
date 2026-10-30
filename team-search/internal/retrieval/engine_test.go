@@ -25,19 +25,20 @@ type fakeIndex struct {
 	lexSize    int
 }
 
-func (f *fakeIndex) EnsureIndex(ctx context.Context) error                  { return nil }
-func (f *fakeIndex) Upsert(ctx context.Context, doc index.ListingDoc) error { return nil }
-func (f *fakeIndex) PartialUpdate(ctx context.Context, id string, p map[string]interface{}) error {
+func (f *fakeIndex) EnsureIndex(_ context.Context) error                { return nil }
+func (f *fakeIndex) Ping(context.Context) error                         { return nil }
+func (f *fakeIndex) Upsert(_ context.Context, _ index.ListingDoc) error { return nil }
+func (f *fakeIndex) PartialUpdate(_ context.Context, _ string, _ map[string]interface{}) error {
 	return nil
 }
-func (f *fakeIndex) Delete(ctx context.Context, id string, version int64) error { return nil }
-func (f *fakeIndex) PurgeTombstones(context.Context, time.Time) (int64, error)  { return 0, nil }
-func (f *fakeIndex) UpdateStock(context.Context, string, int32, int64) error    { return nil }
-func (f *fakeIndex) Suggest(ctx context.Context, prefix string, limit int) ([]string, error) {
+func (f *fakeIndex) Delete(_ context.Context, _ string, _ int64) error         { return nil }
+func (f *fakeIndex) PurgeTombstones(context.Context, time.Time) (int64, error) { return 0, nil }
+func (f *fakeIndex) UpdateStock(context.Context, string, int32, int64) error   { return nil }
+func (f *fakeIndex) Suggest(_ context.Context, _ string, _ int) ([]string, error) {
 	return nil, nil
 }
 
-func (f *fakeIndex) Search(ctx context.Context, query string, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
+func (f *fakeIndex) Search(_ context.Context, _ string, _ map[string]string, _ string, _, _ int64, _ int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
 	f.lexCalled = true
 	f.lexSort, f.lexFrom, f.lexSize = sortBy, from, size
 	if f.lexErr != nil {
@@ -52,7 +53,7 @@ func (f *fakeIndex) Search(ctx context.Context, query string, filters map[string
 	}, nil
 }
 
-func (f *fakeIndex) SearchVector(ctx context.Context, vector []float32, filters map[string]string, categoryID string, minPrice, maxPrice int64, minRating int32, sortBy searchv1.SortBy, from, size int) (index.SearchResult, error) {
+func (f *fakeIndex) SearchVector(_ context.Context, vector []float32, _ map[string]string, _ string, _, _ int64, _ int32, _ searchv1.SortBy, _, _ int) (index.SearchResult, error) {
 	f.vecCalled = true
 	f.lastVector = vector
 	if f.vecErr != nil {
@@ -88,7 +89,6 @@ func TestEngine_HybridConcurrentRetrievalAndFusion(t *testing.T) {
 		From:       0,
 		Size:       10,
 	})
-
 	if err != nil {
 		t.Fatalf("Engine execute failed: %v", err)
 	}
@@ -126,7 +126,6 @@ func TestEngine_FailOpenWhenEmbeddingFails(t *testing.T) {
 		From:       0,
 		Size:       10,
 	})
-
 	if err != nil {
 		t.Fatalf("expected fail-open success, got error: %v", err)
 	}
@@ -156,7 +155,6 @@ func TestEngine_DeepPaginationFallsBackToBM25(t *testing.T) {
 		From:       250,
 		Size:       10,
 	})
-
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
 	}
@@ -185,7 +183,6 @@ func TestEngine_ExplicitLexicalMode(t *testing.T) {
 		From:       0,
 		Size:       10,
 	})
-
 	if err != nil {
 		t.Fatalf("Execute failed: %v", err)
 	}

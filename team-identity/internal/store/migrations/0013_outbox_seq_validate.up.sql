@@ -1,0 +1,1 @@
+ALTER TABLE identity_outbox_events VALIDATE CONSTRAINT identity_outbox_events_seq_nn;

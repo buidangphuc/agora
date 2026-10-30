@@ -36,6 +36,11 @@ while IFS= read -r c; do
   echo "::group::$c"
   if command -v openspec >/dev/null 2>&1; then openspec validate "$c" --strict || rc=1
   else echo "WARN openspec not installed, validate skipped"; fi
+  if grep -qE '^skip_specs:[[:space:]]*true[[:space:]]*$' "openspec/changes/$c/.openspec.yaml" 2>/dev/null; then
+    echo "skip_specs: spec_lint and spec_sync not applicable"
+    echo "::endgroup::"
+    continue
+  fi
   "$PY" scripts/asdlc/spec_lint.py "openspec/changes/$c" || rc=1
   if all_checked "$c"; then mode=--strict; else mode=""; echo "tasks not all checked: spec_sync runs non-strict"; fi
   "$PY" platform-e2e/scripts/spec_sync.py "$c" $mode || rc=1

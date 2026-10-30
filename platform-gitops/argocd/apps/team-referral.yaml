@@ -41,6 +41,8 @@ spec:
             GRPC_PORT: "50062"
           probes:
             livenessService: liveness
+          migrate:
+            enabled: true
           secrets:
             enabled: true
   syncPolicy:

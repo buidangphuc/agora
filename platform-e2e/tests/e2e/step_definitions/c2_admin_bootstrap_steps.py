@@ -25,7 +25,6 @@ from tests.e2e.support import pear_edge_support as pe
 from tests.e2e.support.world import World
 
 GITOPS = pe.REPO_ROOT / "platform-gitops"
-MIGRATE_IMAGE = "migrate/migrate:v4.17.1"
 POSTGRES_CONTAINER = "agora-postgres-1"
 BOOT_SECONDS = 8
 RUN_TIMEOUT_S = 60
@@ -70,12 +69,11 @@ def scratch_database(world: World) -> None:
             check=False,
         )
     )
-    migrations = pe.REPO_ROOT / "team-identity" / "migrations"
     url = f"postgres://identity_svc:identity_pass@postgres:5432/{db}?sslmode=disable"
     run = pe.docker(
         "run", "--rm", "--network", pe.stack_network(),
-        "-v", f"{migrations}:/migrations:ro", MIGRATE_IMAGE,
-        "-path=/migrations", f"-database={url}", "up",
+        "-e", "ENV=local", "-e", f"DATABASE_URL={url}",
+        pe.identity_boot_image(), "migrate", "up",
         check=False,
     )  # fmt: skip
     assert run.returncode == 0, f"migrate failed: {run.stdout}{run.stderr}"

@@ -85,6 +85,9 @@ def url_has_rating_and_only_four_star(world: World) -> None:
         timeout=timeouts.DEFAULT,
     )
     expect(_detail(world).review_items).to_have_count(2, timeout=timeouts.DEFAULT)
+    expect(
+        _detail(world).review_items.get_by_role("img", name=re.compile(r"trên 5 sao"))
+    ).to_have_count(2, timeout=timeouts.DEFAULT)
     assert set(_listed_ratings(world)) == {4}, _listed_ratings(world)
 
 
@@ -93,6 +96,9 @@ def reload_keeps_filter(world: World) -> None:
     world.page.reload(wait_until="domcontentloaded")
     assert _rating_param(world.page.url) == "4"
     expect(_detail(world).review_items).to_have_count(2, timeout=timeouts.NAVIGATION)
+    expect(
+        _detail(world).review_items.get_by_role("img", name=re.compile(r"trên 5 sao"))
+    ).to_have_count(2, timeout=timeouts.NAVIGATION)
     assert set(_listed_ratings(world)) == {4}, _listed_ratings(world)
 
 
