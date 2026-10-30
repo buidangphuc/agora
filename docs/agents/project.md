@@ -3,13 +3,14 @@
 ## Feedback loops
 <!-- read by: diagnosing-bugs, tdd -->
 - **Go service unit**: `(cd team-<svc> && go test ./...)` — fastest red/green for a team-* service; needs generated stubs (`team-*/generated`; team-gateway: `buf generate --template buf.gen.local.yaml`).
-- **Frontend unit**: `(cd <app> && npx vitest run <file>)` for `team-frontend` (buyer :3000), `team-frontend-seller` (:3001) or `team-frontend-admin` (:3002) — colocated `*.test.ts(x)`; each app needs its own `npm ci` and `npm run proto` stubs.
-- **fe-platform**: `(cd fe-platform && npm ci && npm run check)`; after a `tokens`/`ui`/`api-client`/`session` change run `npm run catalog` and `npm run vendor`, then rewrite the `integrity` of the `@fe-platform/*` entries in each app's `package-lock.json` from the new tarball (sha512 base64) and `npm ci` in each app.
+- **Frontend unit**: `(cd <app> && npx vitest run <file>)` for `team-frontend` (buyer :3000), `team-frontend-seller` (:3001) or `team-frontend-admin` (:3002) — colocated `*.test.ts(x)`; each app needs its own `npm ci` and `npm run proto` stubs (also in every fresh worktree). Iterate with `npx vitest run <paths>` + `npx tsc --noEmit`, then one `npm run check` and `npm run build` per touched app.
+- **fe-platform**: `(cd fe-platform && npm ci && npm run check)`; after a `tokens`/`ui`/`api-client`/`session` change run `npm run catalog` and `npm run vendor`, then rewrite the `integrity` of the `@fe-platform/*` entries in each app's `package-lock.json` from the new tarball (sha512 base64) and `npm ci` in each app; commit `vendor/` with the lock file. The targets are `vendor.targets` in `fe-platform/package.json`; `vendor:check` fails on a stale tarball in any app.
 - **platform-featurestore**: `(cd platform-featurestore && uv run --frozen --all-extras pytest -q)` — the per-repo `.venv` has no pytest.
 - **platform-recsys**: from `platform-recsys/`: `uv venv <scratch> && uv pip install -p <scratch> -r requirements-dev.txt -e .` (pulls py-modelregistry from `../platform-core/packages/py-modelregistry`, so run it from that dir), then `make -C platform-recsys compile lint check-env test-host PY=<scratch>/bin/python` — CI uses Python 3.10; Spark tests (`make test`, `make eval`) need Java 17 on `PATH`.
 - **py-modelregistry**: `cd platform-core/packages/py-modelregistry && pip install -e '.[dev]' && pytest -q` — offline, local MLflow file store; CI also runs `ruff check .` and `mypy src` (py3.10).
 - **platform-finetune**: `cd platform-finetune && uv pip install -e '.[dev,cpu]' 'mlflow>=3.2,<3.3' && pytest -q` — CPU, no GPU, no dataset download; the mlflow pin matches py-modelregistry's mlflow-skinny (pip's resolver hangs on the `dev` extra — use uv).
 - **e2e (full stack)**: `(cd platform-e2e && HEADLESS=true .venv/bin/python -m pytest -q tests/e2e/features/<area>/<file>.feature)` — the stack runs from `../agora-deps` (compose project `agora`), not this tree; rebuild one service before testing worktree code (see memory `reference-local-e2e-stack`).
+- **Frontend e2e base URLs**: buyer `BASE_URL` (:3000), seller `SELLER_BASE_URL` (:3001), admin `ADMIN_BASE_URL` (:3002); page objects pick the app (`app = "seller"`, `base_url_setting = "admin_base_url"`).
 - **Spec↔e2e for a change**: `platform-e2e/.venv/bin/python platform-e2e/scripts/spec_sync.py <change> [--strict]` — uncovered scenarios and tasks/FEATURES/.feature cross-check.
 
 ## Checks
@@ -50,6 +51,8 @@
 - Local e2e stack is built from `../agora-deps`, not this checkout — a stale image gives a wrong-reason red.
 - `.claude/worktrees/<change>/` lacks gitignored artifacts (stubs, node_modules, `platform-e2e/.venv` symlink — never commit it); red_first temp worktrees report false "red at head" for stub-dependent tests.
 - `plans/`: initiatives (ASDLC) plus `plans/mlops/` (older free-form plan). ASDLC process docs: `docs/asdlc/`.
+- Two ADR-0006 files: `platform-core/docs/ADR/0006-rs256-jwks-auth.md` (auth) and `fe-platform/docs/ADR/0006-three-apps-on-the-platform.md` (three frontend apps).
+- Frontend FEATURES ownership: entries routed under `/seller` or `/sell` live in `team-frontend-seller/FEATURES.yaml`, under `/admin` in `team-frontend-admin/FEATURES.yaml`, the rest in `team-frontend/FEATURES.yaml`; `features.py` discovers every `*/FEATURES.yaml`.
 - `order_facts` is the only revenue source; never sum money from `tracking_events` or GA4.
 - The platform-recsys image builds from the monorepo root (`docker build -f platform-recsys/Dockerfile ..`; compose `context: .`) so it can copy py-modelregistry; building from `platform-recsys/` fails.
 - The platform-finetune image builds from `platform-finetune/` and gets py-modelregistry only through the compose `additional_contexts` entry `modelregistry`; a plain `docker build` still succeeds but has no registry library, and `python main.py run` fails closed on import.

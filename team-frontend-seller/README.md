@@ -36,7 +36,7 @@ No database, no migrations.
 |---|---|---|
 | `GATEWAY_URL` | `http://127.0.0.1:8080` | `src/lib/gateway/config.ts` |
 | `NEXT_PUBLIC_GATEWAY_URL` | `http://localhost:8080` (build-time) | `next.config.mjs` (CSP) |
-| `NEXT_PUBLIC_BUYER_APP_URL` | `http://localhost:3000` (build-time) | `src/lib/apps.ts` |
+| `NEXT_PUBLIC_BUYER_APP_URL` | `http://localhost:3000` (build-time, Dockerfile `ARG`); every link to the buyer app goes through `buyerAppUrl()` | `src/lib/apps.ts` |
 | `NEXT_PUBLIC_MEDIA_BASE_URL` | `http://localhost:9000/listing-images` (build-time) | `src/lib/media.ts` |
 | `OTEL_SERVICE_NAME` | `team-frontend` | `src/lib/gateway/config.ts` |
 | `TRUSTED_PROXY_HOPS` | `1` | `src/lib/gateway/client-context.ts` |
@@ -73,7 +73,8 @@ CI: `.github/workflows/team-frontend-seller-ci.yml` (check, build, `docker build
 ## 7. Spec and verification
 
 - OpenSpec change `openspec/changes/team-frontend-seller-app`.
-- E2E: `platform-e2e` drives this app at `SELLER_BASE_URL` (default `http://localhost:3001`); seller page objects set `app = "seller"` and `tests/e2e/support/apps.py` routes `/seller*` and `/sell` here. The seller features are still listed in `team-frontend/FEATURES.yaml`.
+- E2E: `platform-e2e` drives this app at `SELLER_BASE_URL` (default `http://localhost:3001`); seller page objects set `app = "seller"` and `tests/e2e/support/apps.py` routes `/seller*` and `/sell` here.
+- Feature manifest: `FEATURES.yaml` in this directory (96 entries moved from `team-frontend/FEATURES.yaml`: every entry routed under `/seller` or `/sell` or verified by a test in this app). Gate: `make -C platform-e2e features-check`.
 
 ## 8. Shared platform packages
 
@@ -84,6 +85,7 @@ CI: `.github/workflows/team-frontend-seller-ci.yml` (check, build, `docker build
 - Duplicated from `team-frontend` on purpose (to be shared or trimmed later): `src/lib/gateway/*` (gateway clients, refresh, revoke, token expiry), `src/components/ui/*` facades, `src/features/auth/*` (login form, actions, return URL), `src/features/order/OrderStatusBadge.tsx`, `src/features/account/skeletons.tsx`, `src/lib/analytics/*` (only for `trackAiInteraction`), `src/lib/action-result.ts`, `src/lib/requestCache.ts`, `src/lib/media.ts`, `src/lib/useRouteRetry.ts`, `scripts/check-tokens.mjs`, `scripts/patch-react-dom-ping.mjs`, `tailwind.config.ts`, `src/app/globals.css` and the vendored `proto/`.
 - No SSO between apps: a buyer signed in on `:3000` signs in again here, and the "Chăm sóc khách hàng" link opens the buyer chat with the buyer session (gap G8 in `fe-platform/docs/gaps.md`, ADR-0006). Logout ("Đăng xuất" in the sidebar, the mobile drawer and `/forbidden`) revokes the server session and clears only `seller_session`/`seller_refresh`.
 - `/sell` still redirects to `/seller/new`; there is no seller onboarding flow, so the forbidden page links there.
-- Compose lists all three apps in the gateway `TRUSTED_PROXIES` (`docker-compose.services.yaml:580`), but the gitops gateway config still trusts only `team-frontend` (`platform-gitops/envs/services/team-gateway.yaml:52`), so in a deployed environment the client IP this app forwards on login and refresh is ignored.
+- Locally the gateway trusts this app: compose sets `TRUSTED_PROXIES=team-frontend-svc,team-frontend-seller-svc,team-frontend-admin-svc` (`docker-compose.services.yaml:580`). The gitops gateway config still trusts only `team-frontend` (`platform-gitops/envs/services/team-gateway.yaml:52`, `platform-gitops/argocd/apps/team-gateway.yaml:71`), so in a deployed environment the gateway ignores the `X-Forwarded-For` this app sends on login and refresh and records the pod IP instead of the browser IP.
+- Compose passes `NEXT_PUBLIC_BUYER_APP_URL` as a runtime variable, which has no effect on the built image; the image bakes the `http://localhost:3000` default. Other hosts need `--build-arg NEXT_PUBLIC_BUYER_APP_URL=...`.
 - `OTEL_SERVICE_NAME` defaults to `team-frontend` in `src/lib/gateway/config.ts`; set it to `team-frontend-seller` in deployed environments.
 - The gitops baseline and staging/prod overlays (`platform-gitops/envs/{services,staging/services,prod/services}/team-frontend-seller.yaml`, `COOKIE_SECURE: "true"`) exist but are not wired into any ApplicationSet or image tag yet (`platform-gitops/README.md` known gaps).

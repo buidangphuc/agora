@@ -51,8 +51,26 @@ Shared packages come from `vendor/*.tgz`, written by `npm run vendor` in `fe-pla
 | `GATEWAY_URL` | `http://127.0.0.1:8080` | Gateway base URL for server-side calls |
 | `NEXT_PUBLIC_GATEWAY_URL` | `http://localhost:8080` | Gateway origin allowed in the CSP `connect-src` (build time) |
 | `TRUSTED_PROXY_HOPS` | `1` | Reverse proxies in front of this server, for the client IP sent at login |
+| `OTEL_SERVICE_NAME` | `team-frontend` | Service name on gateway calls (`src/lib/gateway/config.ts`) |
+| `COOKIE_SECURE` | unset | `true` forces `Secure` and the `__Host-` prefix on the admin cookies (TLS environments only) |
 
-## 4. Known gaps
+There is no `NEXT_PUBLIC_*_APP_URL`: the admin app links to neither the buyer nor the seller app, and neither of them links here. `NEXT_PUBLIC_*` values are baked in at `next build`; the Dockerfile takes `NEXT_PUBLIC_GATEWAY_URL` and `NEXT_PUBLIC_APP_ENV` as build args.
+
+Local stack (from the repo root; the gateway has no `depends_on` link, so start it too):
+
+```bash
+docker compose -f docker-compose.services.yaml up --build team-frontend-admin team-gateway   # plus the services the screen needs
+```
+
+CI: `.github/workflows/team-frontend-admin-ci.yml` (`npm run proto`, `check`, `build`, `docker build` from this directory alone).
+
+## 4. Spec and verification
+
+- OpenSpec changes `team-frontend-admin-app`, `team-frontend-admin-vouchers`, `team-frontend-admin-campaigns`, `team-frontend-layout-admin-ops`, `team-frontend-layout-admin-promo`.
+- Feature manifest: `FEATURES.yaml` in this directory (211 entries moved from `team-frontend/FEATURES.yaml`: every entry routed under `/admin` or verified by a test in this app, plus the dispute-cases browser scenarios). Gate: `make -C platform-e2e features-check`.
+- E2E: admin page objects set `base_url_setting = "admin_base_url"` (`ADMIN_BASE_URL`, default `http://localhost:3002`) and seed the `admin_session` cookie (`tests/e2e/flows/auth_flow.py`).
+
+## 5. Known gaps
 
 - Duplicated with `team-frontend` until shared pieces move to `fe-platform` (plan step D): `src/lib/gateway/` (client, auth interceptor, config, client context, refresh, revoke, token expiry, disputes, reports), `src/components/ui/` (facades over `@fe-platform/ui` plus local Badge, Descriptions, Empty, Modal, Table, Toast), `src/features/auth/` (login form, return URL, guard path), `src/features/dispute/` (resolve action, allowed actions), `src/lib/{action-result,useRouteRetry}.ts`, `src/components/LinkButton.tsx` and `src/lib/usePending.ts` (copied from the seller feature), `tailwind.config.ts`, `scripts/`, `proto/`.
 - Platform vouchers cannot be edited, stopped or deleted: `VoucherService` has no RPC for it (gap G9 in `fe-platform/docs/gaps.md`). The confirm dialog says so.
@@ -62,4 +80,7 @@ Shared packages come from `vendor/*.tgz`, written by `npm run vendor` in `fe-pla
 - Campaigns (`fe-platform/docs/gaps.md` G12-G14): there is no RPC to list every campaign (scheduled or ended) or to cancel or edit one, so `/admin/campaigns` shows only active campaigns and says so. `CreateCampaign` has no idempotency key, so after a timeout the screen tells the operator to check the active list instead of retrying. The admin create path does not check that the listing exists and the service does not validate price, stock cap or window; the form validates them (positive integers, end after start and in the future). The flash-sale kill-switch makes the active list empty with no signal, so "no campaigns" and "switched off" look the same. Audit-down and promotion-down both reach the app as `UNAVAILABLE` with a sanitized message, so the error names both.
 - Campaign and plan screens are tested with an in-memory Connect router transport and in the browser against an unreachable gateway; they have not been run against the real promotion, audit and gateway services.
 - Ingress is not limited to a VPN or IP allow-list (platform-gitops, ADR-0006 open risk). The baseline and staging/prod overlays exist (`platform-gitops/envs/{services,staging/services,prod/services}/team-frontend-admin.yaml`) but are not wired into any ApplicationSet or image tag yet (`platform-gitops/README.md` known gaps).
-- e2e: the admin scenarios now open `ADMIN_BASE_URL` (default `http://localhost:3002`) and seed the `admin_session` cookie, but they have not been run against this app; scenarios that expected GA4 pushes on admin pages no longer apply (this app ships no analytics).
+- Locally the gateway trusts this app (`TRUSTED_PROXIES` in `docker-compose.services.yaml:580`); the gitops gateway config trusts only `team-frontend` (`platform-gitops/envs/services/team-gateway.yaml:52`, `platform-gitops/argocd/apps/team-gateway.yaml:71`), so a deployed gateway records the pod IP instead of the operator's browser IP on admin login and refresh.
+- `OTEL_SERVICE_NAME` defaults to `team-frontend`; set it to `team-frontend-admin` in deployed environments.
+- No single sign-on (gap G8, ADR-0006): an operator signs in here even with a buyer or seller session, and admin stays excluded from any future hand-off.
+- e2e: the admin scenarios now open `ADMIN_BASE_URL` (default `http://localhost:3002`) and seed the `admin_session` cookie, but they have not been run against this app; `platform-e2e/docker-compose.e2e.yaml` does not set `ADMIN_BASE_URL`, so the containerised runner falls back to `localhost:3002`; scenarios that expected GA4 pushes on admin pages no longer apply (this app ships no analytics).

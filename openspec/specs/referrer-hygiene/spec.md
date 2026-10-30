@@ -27,22 +27,22 @@ The frontend SHALL send `Referrer-Policy: strict-origin-when-cross-origin` on ev
 #### Scenario: Referrer hygiene: admin audit page declares no-referrer
 - **WHEN** `/admin/audit?target_id=u-1` is rendered for an admin
 - **THEN** the document head contains `<meta name="referrer" content="no-referrer">`
-- **VERIFIED BY**: `team-frontend/src/app/(shop)/admin/audit/page.test.tsx` `metadata referrer is no-referrer`
+- **VERIFIED BY**: `team-frontend-admin/src/app/admin/audit/page.test.tsx` `metadata referrer is no-referrer`
 
 #### Scenario: Referrer hygiene: every admin page and login declare no-referrer
 - **WHEN** the metadata export of `/login` and of `admin/cockpit`, `admin/users`, `admin/audit`, `admin/listings`, `admin/cases` is read
 - **THEN** each has `referrer` equal to `no-referrer`
-- **VERIFIED BY**: `team-frontend/src/app/referrerMetadata.test.ts` `login and all admin pages set no-referrer`
+- **VERIFIED BY**: `team-frontend-admin/src/app/referrerMetadata.test.ts` `login and all admin pages set no-referrer`
 
 #### Scenario: Referrer hygiene: a new admin page without the metadata fails the build
-- **WHEN** a `page.tsx` exists under `src/app/(shop)/admin/` whose metadata lacks `referrer: "no-referrer"`
+- **WHEN** a `page.tsx` exists under `team-frontend-admin/src/app/admin/` whose metadata lacks `referrer: "no-referrer"`
 - **THEN** the test `every admin page sets no-referrer` fails and names the file
-- **VERIFIED BY**: `referrerMetadata.test.ts` `every admin page sets no-referrer` (static scan, not producible end to end)
+- **VERIFIED BY**: `team-frontend-admin/src/app/referrerMetadata.test.ts` `every admin page sets no-referrer` (static scan, not producible end to end)
 
 #### Scenario: Referrer hygiene: non-admin 403 view on an admin URL also sends no referrer
 - **WHEN** a signed-in buyer opens `/admin/users?query=x`
 - **THEN** the 403 view is rendered and the document head contains `<meta name="referrer" content="no-referrer">`
-- **VERIFIED BY**: `team-frontend/src/app/(shop)/admin/users/page.test.tsx` `403 view keeps no-referrer`
+- **VERIFIED BY**: `team-frontend-admin/src/app/admin/users/page.test.tsx` `403 view keeps no-referrer`
 
 #### Scenario: Referrer hygiene: no admin query reaches a cross-origin request header
 - **WHEN** an admin opens `/admin/audit?target_id=u-1` in a browser and the page issues a cross-origin request
@@ -145,4 +145,4 @@ When a guest is redirected to login from a path equal to `/admin` or beneath `/a
 #### Scenario: Referrer hygiene: signed-in non-admin still sees the 403 view
 - **WHEN** a signed-in buyer opens `/admin/users?query=x`
 - **THEN** the response renders "Cần tài khoản Quản trị" with no redirect to login
-- **VERIFIED BY**: `team-frontend/src/app/(shop)/admin/users/page.test.tsx` `non-admin sees 403` (existing, must stay green)
+- **VERIFIED BY**: `team-frontend-admin/src/app/admin/users/page.test.tsx` `non-admin sees 403` (existing, must stay green)

@@ -181,7 +181,9 @@ a verify-only party that holds no signing material; it fetches identity's JWKS.)
 2. Re-vendor `proto/` into the owning service repo + regenerate.
 3. Implement handler/service/repository in that one repo. Add a DB migration if a
    new column/table is needed.
-4. Route it in `team-gateway` (add a forwarder method) + surface in `team-frontend`.
+4. Route it in `team-gateway` (add a forwarder method) + surface it in the app that owns the
+   route: `team-frontend` (buyer), `team-frontend-seller` (`/seller`, `/sell`) or
+   `team-frontend-admin` (`/admin`). The e2e entry goes in that app's `FEATURES.yaml`.
 
 **b) New capability on an existing domain's data** → stays in that domain's repo
 (reads/writes its tables). No new repo.
@@ -207,9 +209,17 @@ service behind the gateway; it never requires a new repo.
 - **Go dependency pins** (all modules `go 1.26`; do not bump without checking): franz-go
   `v1.18.0`, opensearch-go/v2 `v2.3.0`, golang-jwt/v5 `v5.2.2`, rs/cors `v1.11.0`,
   golang.org/x/time `v0.5.0`.
-- **Frontend**: Next.js 15 App Router + Tailwind, Connect-ES v1, a server-only
-  gateway module, per-request clients built with the caller's token from the
-  httpOnly `session` cookie. `next build` + `tsc` clean.
+- **Frontend**: three Next.js 15 App Router apps (buyer `team-frontend` :3000,
+  `team-frontend-seller` :3001, `team-frontend-admin` :3002;
+  `fe-platform/docs/ADR/0006-three-apps-on-the-platform.md`, not the platform-core
+  ADR-0006 on RS256). Each has Tailwind, Connect-ES v1, a server-only gateway module
+  and per-request clients built with the caller's token from its own httpOnly cookie
+  (`session`, `seller_session`, `admin_session`). Apps never import each other's
+  code; shared UI, tokens, client and session come from `@fe-platform/*` tarballs in
+  each app's `vendor/`. After a `fe-platform` package change: `npm run vendor` in
+  `fe-platform`, rewrite the `integrity` of the `@fe-platform/*` entries in each
+  app's `package-lock.json`, `npm ci`, and commit `vendor/` with the lock file.
+  Gate per app: `npm run check` (biome + tsc + token lint + vitest) and `npm run build`.
 - **Financially sensitive** (payments / wallet / boost): **mock/placeholder only**
   — never implement real money movement.
 - **Commits** authored as `Bùi Đăng phúc <95173128+buidangphuc@users.noreply.github.com>`, and

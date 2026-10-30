@@ -382,8 +382,8 @@ on prices (`PriceTag`) and on badges; success and danger states SHALL use the `s
 #### Scenario: Token lint passes on seller code
 
 - **WHEN** `npm run check` runs after the change
-- **THEN** the token lint reports no raw hex, `rgb()` or arbitrary `-[..]` value in `src/app/seller/**`,
-  `src/app/sell/**` or `src/features/seller/**`
+- **THEN** the token lint reports no raw hex, `rgb()` or arbitrary `-[..]` value in `team-frontend-seller`
+  `src/app/seller/**`, `src/app/sell/**` or `src/features/seller/**`
 
 #### Scenario: One primary CTA per page
 

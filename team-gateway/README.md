@@ -176,7 +176,7 @@ is not covered by that gate.
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty (`.env.example` sets `http://localhost:4317`) | |
 | `OTEL_SERVICE_NAME` | `team-gateway` | |
 
-The root compose file sets `TRUSTED_PROXIES=team-frontend-svc`, `KAFKA_BROKERS=redpanda:9092` and `RATE_LIMIT_RPS=1000` (burst 2000).
+The root compose file sets `TRUSTED_PROXIES=team-frontend-svc,team-frontend-seller-svc,team-frontend-admin-svc` (the three Next apps), `KAFKA_BROKERS=redpanda:9092` and `RATE_LIMIT_RPS=1000` (burst 2000).
 
 ## Run locally
 

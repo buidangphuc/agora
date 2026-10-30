@@ -101,7 +101,7 @@ Rebuild rule: path segments come from route params, each re-encoded with `encode
 - **WHEN** an anonymous visitor requests `/seller/orders` and the middleware has set `x-pathname: /seller/orders`
 - **THEN** `seller/layout.tsx` redirects to `/login?returnUrl=%2Fseller%2Forders`
 - **AND** when the header is absent it redirects to `/login` with no returnUrl
-- **VERIFIED BY**: e2e `login-return.spec.ts` `guard redirect round trip` (seller variant); unit `team-frontend/src/app/(shop)/seller/layout.test.tsx` `uses x-pathname header`
+- **VERIFIED BY**: e2e `login-return.spec.ts` `guard redirect round trip` (seller variant); unit `team-frontend-seller/src/app/seller/layout.test.tsx` `uses x-pathname header`
 
 #### Scenario: Over-length path falls back to plain login
 - **WHEN** an anonymous visitor requests `/chat?thread=` followed by 2100 characters

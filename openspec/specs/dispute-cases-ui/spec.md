@@ -115,17 +115,17 @@ The returns tab SHALL list the disputes returned by `ListOrderDisputes` for the 
 #### Scenario: Anonymous visitor on the dispute tab is redirected to login
 - **WHEN** a request with no session opens `/admin/cases?tab=disputes`
 - **THEN** the page redirects to `/login` and `ListDisputes` is called zero times
-- **VERIFIED BY**: `team-frontend/src/app/(shop)/admin/cases/page.test.tsx` `redirects an anonymous visitor on the disputes tab`
+- **VERIFIED BY**: `team-frontend-admin/src/app/admin/cases/page.test.tsx` `redirects an anonymous visitor on the disputes tab`
 
 #### Scenario: Non-admin sees the 403 result on the dispute tab
 - **WHEN** a signed-in buyer without the `admin` scope opens `/admin/cases?tab=disputes`
 - **THEN** the page renders status 403 with "Cần tài khoản Quản trị" and `ListDisputes` is called zero times
-- **VERIFIED BY**: `team-frontend/src/app/(shop)/admin/cases/page.test.tsx` `renders 403 on the disputes tab for a non-admin`
+- **VERIFIED BY**: `team-frontend-admin/src/app/admin/cases/page.test.tsx` `renders 403 on the disputes tab for a non-admin`
 
 #### Scenario: Gateway refusal and expired session
 - **WHEN** the principal has the `admin` scope and `ListDisputes` answers `PermissionDenied`, then `Unauthenticated`
 - **THEN** the first render shows the 403 result and no rows, the second redirects to `/login`
-- **VERIFIED BY**: `team-frontend/src/app/(shop)/admin/cases/page.test.tsx` `maps gateway PermissionDenied and Unauthenticated on the disputes tab`
+- **VERIFIED BY**: `team-frontend-admin/src/app/admin/cases/page.test.tsx` `maps gateway PermissionDenied and Unauthenticated on the disputes tab`
 
 #### Scenario: A buyer opening the tab in the browser is refused
 - **WHEN** a signed-in buyer opens `/admin/cases?tab=disputes` in the browser
@@ -144,7 +144,7 @@ For an admin the tab SHALL call `ListDisputes` once per render with the `status`
 #### Scenario: Status filter and server order
 - **WHEN** an admin opens the tab with `status=investigating` and the server returns three disputes with ascending `created_at`
 - **THEN** the call carries `status = INVESTIGATING` and the rows appear in the returned order
-- **VERIFIED BY**: `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `keeps the server order and applies the status filter`
+- **VERIFIED BY**: `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `keeps the server order and applies the status filter`
 
 #### Scenario: Non-admin token is denied the list
 - **WHEN** `ListDisputes` answers `PermissionDenied` for a token the page believed to be admin
@@ -159,12 +159,12 @@ For an admin the tab SHALL call `ListDisputes` once per render with the `status`
 #### Scenario: Next page link carries the cursor
 - **WHEN** the response has `next_cursor` "c2" under filter `status=open`
 - **THEN** the panel renders a "Trang sau" link to `/admin/cases?tab=disputes&status=open&cursor=c2`, and no link when `next_cursor` is empty
-- **VERIFIED BY**: `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `builds the next link from the filter and cursor`
+- **VERIFIED BY**: `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `builds the next link from the filter and cursor`
 
 #### Scenario: Admin tab has no disputes
 - **WHEN** `ListDisputes` returns an empty list
 - **THEN** the panel shows "Không có khiếu nại nào"
-- **VERIFIED BY**: `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `shows the empty state`
+- **VERIFIED BY**: `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `shows the empty state`
 
 #### Scenario: Load failure
 - **WHEN** `ListDisputes` fails with `UNAVAILABLE`
@@ -174,12 +174,12 @@ For an admin the tab SHALL call `ListDisputes` once per render with the `status`
 #### Scenario: Deep link opens one dispute
 - **WHEN** an admin opens `/admin/cases?tab=disputes&dispute=d-1`, then a dispute id the server answers `NOT_FOUND` for
 - **THEN** `GetDispute` is called with the id; the first shows that dispute's detail (reason, status and its actions) and the second shows "Không tìm thấy khiếu nại này."
-- **VERIFIED BY**: `team-frontend/src/app/(shop)/admin/cases/page.test.tsx` `deep link renders the dispute detail`; `team-frontend-admin/src/lib/gateway/disputes.test.ts` `getDispute maps NOT_FOUND to not_found`
+- **VERIFIED BY**: `team-frontend-admin/src/app/admin/cases/page.test.tsx` `deep link renders the dispute detail`; `team-frontend-admin/src/lib/gateway/disputes.test.ts` `getDispute maps NOT_FOUND to not_found`
 
 #### Scenario: Row detail and unsafe evidence URL
 - **WHEN** a dispute has evidence URLs "https://x.test/a.jpg" and "javascript:alert(1)"
 - **THEN** the first is an anchor with `rel="noopener noreferrer"` and the second is plain text with no anchor
-- **VERIFIED BY**: `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `links only http and https evidence`
+- **VERIFIED BY**: `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `links only http and https evidence`
 
 ### Requirement: Admin actions follow the dispute state machine
 
@@ -193,17 +193,17 @@ The panel SHALL offer only the transitions the server allows: for OPEN "Bắt đ
 #### Scenario: Start investigating
 - **WHEN** an admin clicks "Bắt đầu điều tra" on an OPEN dispute
 - **THEN** `ResolveDispute` is called once with `status = INVESTIGATING`, and the panel shows that dispute's detail at `?tab=disputes&dispute=<id>` with "Đang điều tra" and the actions "Cập nhật ghi chú", "Giải quyết" and "Từ chối"
-- **VERIFIED BY**: `team-frontend/src/features/dispute/actions.test.ts` `resolveDisputeAction moves OPEN to INVESTIGATING`; `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `shows the dispute detail with its new status after an action`
+- **VERIFIED BY**: `team-frontend/src/features/dispute/actions.test.ts` `resolveDisputeAction moves OPEN to INVESTIGATING`; `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `shows the dispute detail with its new status after an action`
 
 #### Scenario: Ruling is required for a return-linked dispute
 - **WHEN** an admin clicks "Giải quyết" on an INVESTIGATING dispute that has a `return_id` without choosing a ruling
 - **THEN** the panel shows "Vui lòng chọn phán quyết." and `ResolveDispute` is called zero times
-- **VERIFIED BY**: `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `requires a ruling for a return-linked dispute`
+- **VERIFIED BY**: `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `requires a ruling for a return-linked dispute`
 
 #### Scenario: Buyer-favour needs confirmation
 - **WHEN** an admin picks "Người mua thắng" and clicks "Giải quyết"
 - **THEN** the panel shows "Xác nhận phán quyết người mua thắng? Yêu cầu trả hàng sẽ được duyệt; nếu đơn đã thanh toán trực tuyến, người mua sẽ được hoàn tiền." and `ResolveDispute` is called only after "Xác nhận", with `status = RESOLVED` and `ruling = BUYER_FAVOUR`; "Hủy" sends nothing
-- **VERIFIED BY**: `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `confirms a buyer-favour ruling before sending`
+- **VERIFIED BY**: `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `confirms a buyer-favour ruling before sending`
 
 #### Scenario: Seller-favour and reject send the right payload
 - **WHEN** an admin resolves with "Người bán thắng", then rejects another dispute with a note
@@ -213,17 +213,17 @@ The panel SHALL offer only the transitions the server allows: for OPEN "Bắt đ
 #### Scenario: Dispute without a return takes no ruling
 - **WHEN** an admin resolves an INVESTIGATING dispute with no `return_id`
 - **THEN** no ruling control is shown and `ResolveDispute` is called with `status = RESOLVED` and no ruling
-- **VERIFIED BY**: `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `omits the ruling for a dispute without a return`
+- **VERIFIED BY**: `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `omits the ruling for a dispute without a return`
 
 #### Scenario: Server refuses the transition
 - **WHEN** `ResolveDispute` answers `FAILED_PRECONDITION`, or `INVALID_ARGUMENT`
 - **THEN** the action returns "Không thể chuyển khiếu nại sang trạng thái này." without the server error text, and the panel shows it while the dispute keeps its status and actions
-- **VERIFIED BY**: `team-frontend/src/features/dispute/actions.test.ts` `maps a refused transition`; `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `shows an action error and keeps the status`
+- **VERIFIED BY**: `team-frontend/src/features/dispute/actions.test.ts` `maps a refused transition`; `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `shows an action error and keeps the status`
 
 #### Scenario: Audit service is down
 - **WHEN** `ResolveDispute` answers `UNAVAILABLE`
 - **THEN** the action returns "Hệ thống kiểm toán tạm thời không khả dụng. Chưa có thay đổi nào được lưu.", and the panel shows it while the dispute keeps its status and actions
-- **VERIFIED BY**: `team-frontend/src/features/dispute/actions.test.ts` `maps UNAVAILABLE to the audit-down message`; `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `shows an action error and keeps the status`
+- **VERIFIED BY**: `team-frontend/src/features/dispute/actions.test.ts` `maps UNAVAILABLE to the audit-down message`; `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `shows an action error and keeps the status`
 
 #### Scenario: Resolve times out
 - **WHEN** `ResolveDispute` does not answer within 5 s
@@ -238,7 +238,7 @@ The panel SHALL offer only the transitions the server allows: for OPEN "Bắt đ
 #### Scenario: Double click on a resolve sends one request
 - **WHEN** an admin clicks "Xác nhận" twice before the call returns
 - **THEN** `ResolveDispute` is called exactly once
-- **VERIFIED BY**: `team-frontend/src/features/admin/DisputeCasesPanel.test.tsx` `is single-flight`
+- **VERIFIED BY**: `team-frontend-admin/src/features/admin/DisputeCasesPanel.test.tsx` `is single-flight`
 
 #### Scenario: Admin investigates and rules for the buyer in the browser
 - **WHEN** an admin opens the OPEN dispute created by the buyer at `/admin/cases?tab=disputes&dispute=<id>`, clicks "Bắt đầu điều tra", and on the same detail (now "Đang điều tra") picks "Người mua thắng", clicks "Giải quyết" and "Xác nhận"
