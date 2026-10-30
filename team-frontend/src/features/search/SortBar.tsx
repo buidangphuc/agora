@@ -1,4 +1,4 @@
-import { Tabs } from "@/components/ui/Tabs";
+import { Link } from "@/components/ui/Link";
 import { SortSelect } from "./SortSelect";
 import { type SearchState, type SortKey, buildSearchHref } from "./url";
 
@@ -49,20 +49,29 @@ export function SortBar({
   const priceActive = PRICE_SORTS.some((s) => s.id === active);
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-card p-3 shadow-preline-card sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="hidden text-sm text-text-secondary sm:inline">
-          Sắp xếp theo:
+    <div className="flex flex-col gap-4 rounded-2xl border border-border-subtle bg-surface-card p-4 shadow-card sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <span className="hidden text-sm font-medium text-text-secondary sm:inline">
+          Sắp xếp theo
         </span>
 
-        {/* Desktop: tabs + price select */}
-        <div className="hidden items-center gap-2 sm:flex">
-          <Tabs
-            variant="pills"
-            items={TAB_SORTS.map((s) => ({ id: s.id, label: s.label }))}
-            activeId={priceActive ? undefined : active}
-            hrefFor={(id) => hrefs[id] ?? "/search"}
-          />
+        <div className="hidden flex-wrap items-center gap-2 sm:flex">
+          <nav aria-label="Kiểu sắp xếp" className="flex items-center gap-2">
+            {TAB_SORTS.map((s) => {
+              const isActive = !priceActive && s.id === active;
+              return (
+                <Link
+                  key={s.id}
+                  href={hrefs[s.id] ?? "/search"}
+                  variant={isActive ? "primary" : "ghost"}
+                  size="sm"
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  {s.label}
+                </Link>
+              );
+            })}
+          </nav>
           <SortSelect
             label="Sắp xếp theo giá"
             placeholder="Giá"
@@ -73,7 +82,6 @@ export function SortBar({
           />
         </div>
 
-        {/* Mobile: one select with every option */}
         <SortSelect
           label="Sắp xếp"
           className="w-full sm:hidden"
@@ -86,7 +94,7 @@ export function SortBar({
         />
       </div>
 
-      <p className="text-sm text-text-secondary">
+      <p className="shrink-0 text-sm text-text-secondary">
         Tìm thấy{" "}
         <strong className="font-semibold text-action-primary">
           {totalResults}

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { focusRing } from "@/components/ui/focus";
 
 const cell =
-  "inline-flex h-11 min-w-11 items-center justify-center rounded-lg border px-3 text-sm transition duration-150";
+  "inline-flex min-h-touch min-w-11 items-center justify-center rounded-xl border px-4 text-base font-semibold transition duration-150";
 const idle = `${cell} border-border-subtle bg-surface-card text-text-primary hover:bg-surface-page ${focusRing}`;
 const off = `${cell} pointer-events-none cursor-not-allowed border-border-subtle bg-surface-card text-text-disabled opacity-50`;
 
@@ -30,7 +30,7 @@ export function CompactPagination({
 
   return (
     <nav aria-label="Phân trang" className={className}>
-      <ul className="flex items-center justify-center gap-2">
+      <ul className="flex items-center justify-center gap-3">
         <li>
           {page > 1 ? (
             <Link

@@ -1,7 +1,6 @@
 import NextLink from "next/link";
 
 import { Link } from "@/components/ui/Link";
-import { Tag } from "@/components/ui/Tag";
 import { focusRing } from "@/components/ui/focus";
 import {
   attributeGroupLabel,
@@ -86,23 +85,26 @@ export function ActiveFilters({
       data-testid="active-filters"
       className="flex flex-wrap items-center gap-2 text-sm"
     >
-      <span className="text-text-secondary">Đang lọc theo:</span>
+      <span className="w-full text-text-secondary sm:w-auto">
+        Đang lọc theo:
+      </span>
       {tags.map((t) => (
-        <Tag key={t.key} color="primary">
-          {t.label}
-          <NextLink
-            href={t.href}
-            aria-label={`Bỏ lọc ${t.label}`}
-            className={`-mr-1 inline-flex h-5 w-5 items-center justify-center rounded-xs hover:bg-primary-100 ${focusRing}`}
-          >
-            <span aria-hidden="true">×</span>
-          </NextLink>
-        </Tag>
+        <NextLink
+          key={t.key}
+          href={t.href}
+          aria-label={`Bỏ lọc ${t.label}`}
+          className={`inline-flex min-h-touch max-w-full items-center gap-2 rounded-full border border-border-subtle bg-surface-card px-4 text-sm font-medium text-text-primary transition duration-150 hover:border-border-strong hover:bg-surface-muted ${focusRing}`}
+        >
+          <span className="truncate">{t.label}</span>
+          <span aria-hidden="true" className="text-base text-text-secondary">
+            ×
+          </span>
+        </NextLink>
       ))}
       {activeFilterCount(state) > 0 && (
-        <span className="inline-flex min-h-9 items-center px-2 text-sm">
-          <Link href={clearFiltersHref(state)}>Xóa tất cả bộ lọc</Link>
-        </span>
+        <Link href={clearFiltersHref(state)} variant="ghost" size="sm">
+          Xóa tất cả bộ lọc
+        </Link>
       )}
     </div>
   );
