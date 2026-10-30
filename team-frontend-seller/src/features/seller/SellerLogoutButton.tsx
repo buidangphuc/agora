@@ -8,7 +8,7 @@ export function SellerLogoutButton({ compact = false }: { compact?: boolean }) {
       <button
         type="submit"
         aria-label={compact ? "Đăng xuất" : undefined}
-        className="flex min-h-touch w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-text-secondary transition hover:bg-surface-page hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+        className="flex min-h-touch w-full items-center justify-center gap-2 rounded-xl px-3 text-xs font-medium text-text-secondary transition hover:bg-surface-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
       >
         <NavIcon name="logout" className="h-4 w-4" />
         {!compact && <span>Đăng xuất</span>}

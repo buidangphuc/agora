@@ -22,7 +22,7 @@ export function ShopCard({
     );
   }
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 rounded-2xl bg-surface-muted p-4">
       <div className="flex items-center gap-3">
         <Avatar name={shop.name} size="md" shape="square" />
         <div className="min-w-0 flex-1">
@@ -38,11 +38,14 @@ export function ShopCard({
         </div>
       </div>
       {shop.sellerId && (
-        <span className="block text-xs font-medium text-text-secondary">
-          <Link href={buyerAppUrl(`/shop/${shop.sellerId}`)} variant="subtle">
-            Xem gian hàng công khai
-          </Link>
-        </span>
+        <Link
+          href={buyerAppUrl(`/shop/${shop.sellerId}`)}
+          variant="outline"
+          size="xs"
+          fullWidth
+        >
+          Xem gian hàng công khai
+        </Link>
       )}
     </div>
   );

@@ -80,9 +80,9 @@ export function RecentOrders({
     <Card>
       <CardHeader>
         <CardTitle>Đơn hàng gần đây</CardTitle>
-        <span className="text-xs font-medium">
-          <Link href="/seller/orders">Xem tất cả</Link>
-        </span>
+        <Link href="/seller/orders" variant="ghost" size="xs">
+          Xem tất cả
+        </Link>
       </CardHeader>
       <CardContent>{body}</CardContent>
     </Card>

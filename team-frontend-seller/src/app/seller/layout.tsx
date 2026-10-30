@@ -27,11 +27,13 @@ export default async function SellerLayout({
   };
 
   return (
-    <div className="min-h-screen bg-surface-muted md:flex">
+    <div className="min-h-screen bg-surface-page md:flex">
       <SellerSidebar shop={shop} />
       <div className="min-w-0 flex-1">
         <SellerNavDrawer shop={shop} />
-        <div className="mx-auto max-w-6xl space-y-6 p-4 lg:p-6">{children}</div>
+        <main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-6 md:px-6 md:py-8 lg:px-10 lg:py-10">
+          {children}
+        </main>
       </div>
     </div>
   );

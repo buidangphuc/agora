@@ -54,23 +54,29 @@ export function SellerSidebar({ shop }: { shop: SellerShopInfo }) {
         collapsed ? "w-16" : "w-64"
       }`}
     >
-      <div className="sticky top-0 space-y-4 p-3">
+      <div
+        className={`sticky top-0 flex max-h-screen flex-col gap-6 overflow-y-auto py-6 ${
+          collapsed ? "px-2" : "px-4"
+        }`}
+      >
         <ShopCard shop={shop} compact={collapsed} />
         <SellerNavList collapsed={collapsed} />
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-subtle px-3 py-2 text-xs font-medium text-text-secondary transition hover:bg-surface-page focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-        >
-          <NavIcon
-            name={collapsed ? "chevron-right" : "chevron-left"}
-            className="h-4 w-4"
-          />
-          {!collapsed && <span>Thu gọn</span>}
-        </button>
-        <SellerLogoutButton compact={collapsed} />
+        <div className="space-y-2 border-t border-border-subtle pt-4">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
+            className="flex min-h-touch w-full items-center justify-center gap-2 rounded-xl px-3 text-xs font-medium text-text-secondary transition hover:bg-surface-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          >
+            <NavIcon
+              name={collapsed ? "chevron-right" : "chevron-left"}
+              className="h-4 w-4"
+            />
+            {!collapsed && <span>Thu gọn</span>}
+          </button>
+          <SellerLogoutButton compact={collapsed} />
+        </div>
       </div>
     </aside>
   );

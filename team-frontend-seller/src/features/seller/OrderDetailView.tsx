@@ -175,109 +175,115 @@ export function OrderDetailView({
 }) {
   const cancelled = order.status === OrderStatus.CANCELLED;
   return (
-    <section data-testid="packing-slip" className="space-y-6">
-      <Card>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-2">
-              <Descriptions
-                title={`Đơn hàng #${order.id.slice(0, 8)}`}
-                column={2}
-                items={[
-                  { key: "id", label: "Mã đơn", children: order.id },
-                  {
-                    key: "created",
-                    label: "Ngày tạo",
-                    children: order.createdAt || "—",
-                  },
-                  {
-                    key: "shipBy",
-                    label: "Hạn gửi",
-                    children: <ShipByLabel order={order} />,
-                  },
-                  {
-                    key: "payment",
-                    label: "Thanh toán",
-                    children: order.paymentMethodText,
-                  },
-                  {
-                    key: "tracking",
-                    label: "Mã vận đơn",
-                    children: order.trackingNumber || "—",
-                  },
-                ]}
-              />
-            </div>
-            <Statistic
-              title="Trạng thái"
-              value={
-                <OrderStatusTag status={order.status} text={order.statusText} />
-              }
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {cancelled ? (
-        <Alert type="info" description="Đơn hàng này đã bị hủy." />
-      ) : (
+    <section
+      data-testid="packing-slip"
+      className="grid gap-6 lg:grid-cols-3 lg:items-start lg:gap-8"
+    >
+      <div className="min-w-0 space-y-6 lg:col-start-3 lg:row-start-1">
+        <Statistic
+          title="Trạng thái"
+          value={
+            <OrderStatusTag status={order.status} text={order.statusText} />
+          }
+        />
         <Card>
           <CardContent>
-            <Stepper steps={fulfilmentSteps(order.status)} />
+            <Descriptions
+              title={`Đơn hàng #${order.id.slice(0, 8)}`}
+              column={1}
+              items={[
+                { key: "id", label: "Mã đơn", children: order.id },
+                {
+                  key: "created",
+                  label: "Ngày tạo",
+                  children: order.createdAt || "—",
+                },
+                {
+                  key: "shipBy",
+                  label: "Hạn gửi",
+                  children: <ShipByLabel order={order} />,
+                },
+                {
+                  key: "payment",
+                  label: "Thanh toán",
+                  children: order.paymentMethodText,
+                },
+                {
+                  key: "tracking",
+                  label: "Mã vận đơn",
+                  children: order.trackingNumber || "—",
+                },
+              ]}
+            />
           </CardContent>
         </Card>
-      )}
+        <Card>
+          <CardContent>
+            <Descriptions
+              title="Người nhận"
+              column={1}
+              items={[
+                {
+                  key: "name",
+                  label: "Họ tên",
+                  children: order.recipientName || "—",
+                },
+                {
+                  key: "phone",
+                  label: "Số điện thoại",
+                  children: order.phone || "—",
+                },
+                {
+                  key: "address",
+                  label: "Địa chỉ giao hàng",
+                  children: order.addressFull || "—",
+                },
+              ]}
+            />
+          </CardContent>
+        </Card>
+      </div>
 
-      <Card>
-        <CardContent>
-          <div className="space-y-4">
-            <div data-print-hidden>
-              <Tabs
-                activeId={tab}
-                hrefFor={tabHref}
-                items={[
-                  { id: "items", label: "Hàng hoá", badge: order.items.length },
-                  { id: "shipment", label: "Vận chuyển" },
-                  { id: "returns", label: "Trả hàng / Hoàn tiền" },
-                ]}
-              />
+      <div className="min-w-0 space-y-6 lg:col-span-2 lg:col-start-1 lg:row-start-1">
+        {cancelled ? (
+          <Alert type="info" description="Đơn hàng này đã bị hủy." />
+        ) : (
+          <Card>
+            <CardContent>
+              <Stepper steps={fulfilmentSteps(order.status)} />
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardContent>
+            <div className="space-y-6">
+              <div data-print-hidden>
+                <Tabs
+                  activeId={tab}
+                  hrefFor={tabHref}
+                  items={[
+                    {
+                      id: "items",
+                      label: "Hàng hoá",
+                      badge: order.items.length,
+                    },
+                    { id: "shipment", label: "Vận chuyển" },
+                    { id: "returns", label: "Trả hàng / Hoàn tiền" },
+                  ]}
+                />
+              </div>
+              {tab === "shipment" ? (
+                <ShipmentPanel shipment={shipment} />
+              ) : tab === "returns" ? (
+                returnsPanel
+              ) : (
+                <ItemsPanel order={order} />
+              )}
             </div>
-            {tab === "shipment" ? (
-              <ShipmentPanel shipment={shipment} />
-            ) : tab === "returns" ? (
-              returnsPanel
-            ) : (
-              <ItemsPanel order={order} />
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          <Descriptions
-            title="Người nhận"
-            column={1}
-            items={[
-              {
-                key: "name",
-                label: "Họ tên",
-                children: order.recipientName || "—",
-              },
-              {
-                key: "phone",
-                label: "Số điện thoại",
-                children: order.phone || "—",
-              },
-              {
-                key: "address",
-                label: "Địa chỉ giao hàng",
-                children: order.addressFull || "—",
-              },
-            ]}
-          />
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </section>
   );
 }
