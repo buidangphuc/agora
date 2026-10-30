@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { chatCopilot, magicListing, shoppingAssistant } from "./ai.js";
+import { chatCopilot, shoppingAssistant } from "./ai.js";
 import { makeClients } from "./client.js";
 
 vi.mock("./client.js", () => ({ makeClients: vi.fn() }));
@@ -12,7 +12,6 @@ vi.mock("./session.js", () => ({
 function stubAi(rpcs: Record<string, ReturnType<typeof vi.fn>>) {
   const ai = {
     shoppingAssistant: vi.fn(),
-    magicListing: vi.fn(),
     chatCopilot: vi.fn(),
     ...rpcs,
   };
@@ -61,30 +60,6 @@ describe("ai gateway wrapper", () => {
       shoppingAssistant: vi.fn().mockRejectedValue(new Error("ai down")),
     });
     await expect(shoppingAssistant("q")).rejects.toThrow("ai down");
-  });
-
-  it("magicListing maps hints to the request and numbers the price range", async () => {
-    const ai = stubAi({
-      magicListing: vi.fn().mockResolvedValue({
-        generatedTitle: "T",
-        generatedDescription: "D",
-        suggestedCategoryId: "c1",
-        suggestedPriceMin: 100n,
-        suggestedPriceMax: 200n,
-        highlightTags: ["a"],
-      }),
-    });
-    const res = await magicListing("hint", "cat", "img");
-    expect(ai.magicListing).toHaveBeenCalledWith({
-      titleHint: "hint",
-      categoryHint: "cat",
-      imageUrl: "img",
-    });
-    expect(res).toMatchObject({
-      generatedTitle: "T",
-      suggestedPriceMin: 100,
-      suggestedPriceMax: 200,
-    });
   });
 
   it("chatCopilot returns the quick replies list", async () => {

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { Drawer } from "@/components/ui/Drawer";
+import { SellerLogoutButton } from "./SellerLogoutButton";
 import { SellerNavList } from "./SellerNavList";
 import { type SellerShopInfo, ShopCard } from "./ShopCard";
 import { NavIcon } from "./nav";
@@ -44,6 +45,7 @@ export function SellerNavDrawer({ shop }: { shop: SellerShopInfo }) {
         <div className="space-y-4">
           <ShopCard shop={shop} />
           <SellerNavList onNavigate={() => setOpenedOn(null)} />
+          <SellerLogoutButton />
         </div>
       </Drawer>
     </div>

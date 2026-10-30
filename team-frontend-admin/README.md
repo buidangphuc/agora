@@ -11,7 +11,7 @@ Status: compose service `team-frontend-admin`, port `:3002`. Stack: React 19, Ta
 | Surface | What | Authorization |
 |---|---|---|
 | `/` | Redirects to `/admin/cockpit` | none |
-| `/login` | Admin sign-in (no registration link, no sign-up route) | public |
+| `/login` | Admin sign-in (no registration link, no sign-up route). Takes `?next=<path>` or `?returnUrl=`, both checked by `safeReturnUrl`; a session that already has scope `admin` goes straight there (default `/admin/cockpit`) | public |
 | `/admin/cockpit`, `/admin/listings`, `/admin/cases`, `/admin/users`, `/admin/audit`, `/admin/vouchers`, `/admin/vouchers/new`, `/admin/vouchers/[code]` | Ops cockpit, listing moderation, reports and disputes, user administration, audit log, platform vouchers (list, create, detail) | `src/app/admin/layout.tsx`: `/login?returnUrl=` without a session, "Không có quyền" unless scope `admin`; each page and action re-checks, the gateway re-enforces |
 | `/admin/campaigns` | Active flash-sale campaigns (`FlashSaleService.ListActiveCampaigns`, paged by `?cursor=`) and a lookup of one listing's active sale (`GetActiveFlashSale`, `?listing=`) | same as above; the promotion service lets any caller read both |
 | `/admin/campaigns/new` | Create a flash sale (`FlashSaleService.CreateCampaign`): form, review dialog with a summary, then the campaign the server returned | same as above; the promotion service requires `admin` or `listing.write` and audits an admin create (fail-closed) |

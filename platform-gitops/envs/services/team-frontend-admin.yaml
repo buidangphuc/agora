@@ -1,0 +1,21 @@
+name: team-frontend-admin
+image:
+  repo: localhost:5001/team-frontend-admin
+  pullPolicy: Always
+containerPort: 3002
+service:
+  port: 3002
+healthPath: /login
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+env:
+  GATEWAY_URL: "http://team-gateway:8080"
+ingress:
+  enabled: true
+  host: admin.localtest.me
+  path: /

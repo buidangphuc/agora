@@ -1,5 +1,4 @@
 import "server-only";
-import { headers } from "next/headers";
 import { redirectToLogin } from "./returnUrl";
 
 const MAX_LEN = 2048;
@@ -31,12 +30,4 @@ export function redirectGuestToLogin(
   searchParams?: GuardSearchParams | null,
 ): never {
   return redirectToLogin(buildReturnPath(pathname, searchParams));
-}
-
-/** Guest guard for param-less layouts: reads the `x-pathname` request header. */
-export async function redirectGuestToLoginFromHeader(): Promise<never> {
-  const h = await headers();
-  const path = h.get("x-pathname");
-  if (!path || path.length > MAX_LEN) return redirectToLogin(undefined);
-  return redirectToLogin(path);
 }

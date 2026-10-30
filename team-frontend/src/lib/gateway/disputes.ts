@@ -2,23 +2,18 @@ import "server-only";
 
 import { Code, ConnectError } from "@connectrpc/connect";
 
-import { PageRequest } from "@/generated/platform/common/v1/common_pb.js";
 import {
   CreateDisputeRequest,
   type Dispute,
   DisputeRuling,
   DisputeStatus,
-  GetDisputeRequest,
-  ListDisputesRequest,
   ListOrderDisputesRequest,
-  ResolveDisputeRequest,
 } from "@/generated/platform/engagement/v1/engagement_pb.js";
 
 import { makeClients } from "./client.js";
 import { getToken } from "./session.js";
 
 const TIMEOUT_MS = 5000;
-const PAGE_SIZE = 20;
 
 export type DisputeStatusName =
   | "OPEN"
@@ -42,13 +37,6 @@ export interface ViewDispute {
   rulingText: string;
   createdAt: string;
 }
-
-const STATUS_BY_NAME: Record<DisputeStatusName, DisputeStatus> = {
-  OPEN: DisputeStatus.OPEN,
-  INVESTIGATING: DisputeStatus.INVESTIGATING,
-  RESOLVED: DisputeStatus.RESOLVED,
-  REJECTED: DisputeStatus.REJECTED,
-};
 
 const STATUS_TEXT: Record<DisputeStatusName, string> = {
   OPEN: "Đang chờ xử lý",
@@ -171,124 +159,5 @@ export async function listOrderDisputes(
     return { status: "ok", disputes: res.disputes.map(mapDispute) };
   } catch {
     return { status: "unavailable" };
-  }
-}
-
-export type ListDisputesResult =
-  | { status: "ok"; disputes: ViewDispute[]; nextCursor: string }
-  | { status: "unauthenticated" | "forbidden" | "unavailable" };
-
-export async function listDisputes(
-  status: string | undefined,
-  cursor: string,
-): Promise<ListDisputesResult> {
-  const wanted =
-    status !== undefined && Object.hasOwn(STATUS_BY_NAME, status)
-      ? STATUS_BY_NAME[status as DisputeStatusName]
-      : DisputeStatus.OPEN;
-  try {
-    const res = await makeClients(getToken()).engagement.listDisputes(
-      new ListDisputesRequest({
-        status: wanted,
-        page: new PageRequest({ cursor, pageSize: PAGE_SIZE }),
-      }),
-      { timeoutMs: TIMEOUT_MS },
-    );
-    return {
-      status: "ok",
-      disputes: res.disputes.map(mapDispute),
-      nextCursor: res.page?.nextCursor ?? "",
-    };
-  } catch (err) {
-    switch (codeOf(err)) {
-      case Code.Unauthenticated:
-        return { status: "unauthenticated" };
-      case Code.PermissionDenied:
-        return { status: "forbidden" };
-      default:
-        return { status: "unavailable" };
-    }
-  }
-}
-
-export type GetDisputeResult =
-  | { status: "ok"; dispute: ViewDispute }
-  | { status: "not_found" | "unauthenticated" | "forbidden" | "unavailable" };
-
-export async function getDispute(id: string): Promise<GetDisputeResult> {
-  try {
-    const res = await makeClients(getToken()).engagement.getDispute(
-      new GetDisputeRequest({ disputeId: id }),
-      { timeoutMs: TIMEOUT_MS },
-    );
-    if (!res.dispute) return { status: "not_found" };
-    return { status: "ok", dispute: mapDispute(res.dispute) };
-  } catch (err) {
-    switch (codeOf(err)) {
-      case Code.NotFound:
-        return { status: "not_found" };
-      case Code.Unauthenticated:
-        return { status: "unauthenticated" };
-      case Code.PermissionDenied:
-        return { status: "forbidden" };
-      default:
-        return { status: "unavailable" };
-    }
-  }
-}
-
-export type ResolveDisputeResult =
-  | { status: "ok"; dispute: ViewDispute }
-  | {
-      status:
-        | "failed_precondition"
-        | "permission_denied"
-        | "not_found"
-        | "invalid_argument"
-        | "unauthenticated"
-        | "unavailable"
-        | "timeout";
-    };
-
-export async function resolveDispute(input: {
-  disputeId: string;
-  status: Exclude<DisputeStatusName, "OPEN">;
-  resolution: string;
-  ruling?: Exclude<DisputeRulingName, "">;
-}): Promise<ResolveDisputeResult> {
-  try {
-    const res = await makeClients(getToken()).engagement.resolveDispute(
-      new ResolveDisputeRequest({
-        disputeId: input.disputeId,
-        status: STATUS_BY_NAME[input.status],
-        resolution: input.resolution,
-        ruling:
-          input.ruling === "BUYER_FAVOUR"
-            ? DisputeRuling.BUYER_FAVOUR
-            : input.ruling === "SELLER_FAVOUR"
-              ? DisputeRuling.SELLER_FAVOUR
-              : DisputeRuling.UNSPECIFIED,
-      }),
-      { timeoutMs: TIMEOUT_MS },
-    );
-    if (!res.dispute) return { status: "unavailable" };
-    return { status: "ok", dispute: mapDispute(res.dispute) };
-  } catch (err) {
-    switch (codeOf(err)) {
-      case Code.FailedPrecondition:
-        return { status: "failed_precondition" };
-      case Code.PermissionDenied:
-        return { status: "permission_denied" };
-      case Code.NotFound:
-        return { status: "not_found" };
-      case Code.InvalidArgument:
-        return { status: "invalid_argument" };
-      case Code.Unauthenticated:
-        return { status: "unauthenticated" };
-      case Code.DeadlineExceeded:
-        return { status: "timeout" };
-      default:
-        return { status: "unavailable" };
-    }
   }
 }

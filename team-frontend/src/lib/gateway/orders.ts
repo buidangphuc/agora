@@ -405,37 +405,6 @@ export async function listBuyerOrdersResult(): Promise<
   }
 }
 
-/**
- * The seller's orders. A failed call yields [] unless `throwOnError` is set
- * (callers that must tell "no orders" from "could not load").
- */
-export async function listSellerOrders(
-  statusFilter: OrderStatus = OrderStatus.UNSPECIFIED,
-  opts: { throwOnError?: boolean } = {},
-): Promise<ViewOrder[]> {
-  try {
-    const res = await gateway().order.listSellerOrders({ statusFilter });
-    return res.orders.map(mapOrder);
-  } catch (err) {
-    if (opts.throwOnError) throw err;
-    return [];
-  }
-}
-
-export async function updateOrderStatus(
-  id: string,
-  status: OrderStatus,
-  trackingNumber?: string,
-): Promise<ViewOrder> {
-  const res = await gateway().order.updateOrderStatus({
-    id,
-    status,
-    trackingNumber: trackingNumber ?? "",
-  });
-  if (!res.order) throw new Error("update order status failed");
-  return mapOrder(res.order);
-}
-
 export async function cancelOrder(
   id: string,
   reason?: string,
@@ -621,15 +590,6 @@ export async function getReturnRequest(
   } catch {
     return null;
   }
-}
-
-export async function updateReturnStatus(
-  id: string,
-  status: ReturnStatus,
-): Promise<ViewOrderReturn> {
-  const res = await gateway().order.updateReturnStatus({ id, status });
-  if (!res.returnRequest) throw new Error("update return status failed");
-  return mapReturn(res.returnRequest);
 }
 
 /** The order's returns, newest first (buyer, seller or admin of the order). */

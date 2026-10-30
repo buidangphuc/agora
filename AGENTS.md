@@ -20,7 +20,7 @@ exactly one service's business code. Services talk **gRPC**, defined once in
 consumes them (CQRS).
 
 ```
-browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) ─gRPC─▶ services
+browser ─▶ team-frontend{,-seller,-admin} (Next.js SSR) ─▶ team-gateway (Connect edge) ─gRPC─▶ services
                                                                           │
    team-domain ──(Kafka: listing.events)──▶ team-search (OpenSearch read-model)
 ```
@@ -30,7 +30,7 @@ browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) �
 | Repo | Lang | Role | gRPC port |
 |---|---|---|---|
 | **platform-core** | — | Contract (proto), infra (compose), ADRs, tooling, seed | — |
-| **platform-e2e** | Python | pytest-bdd + Playwright E2E platform (POM, per-scenario World, tag-driven API seeding); drives team-frontend :3000 via the gateway :8080 | — |
+| **platform-e2e** | Python | pytest-bdd + Playwright E2E platform (POM, per-scenario World, tag-driven API seeding); drives team-frontend :3000, team-frontend-seller :3001 and team-frontend-admin :3002 via the gateway :8080 | — |
 | **team-identity** | Go | Register/login, issues RS256 JWT + serves JWKS (:50063), role→scopes, password reset | :50053 |
 | **team-domain** | Go | Listing write-model + owner enforcement, emits Kafka events | :50051 |
 | **team-search** | Go | Consumes `listing.events` → OpenSearch; search/suggest (read-model) | :50052 |
@@ -40,10 +40,10 @@ browser ─▶ team-frontend (Next.js SSR) ─▶ team-gateway (Connect edge) �
 | **team-chat** | Go | Buyer-seller chat threads & real-time messaging | :50057 |
 | **team-notification**| Go | In-app notification center | :50058 |
 | **team-gateway** | Go | Connect edge: verify JWT once, rate-limit/CORS, forward to services | :8080 (HTTP) |
-| **team-frontend** | TS | Next.js 15 App Router SSR; buyer app: consumer home, shopping, account + auth; no `/seller` or `/admin` route | :3000 |
-| **team-frontend-seller** | TS | Next.js 15 seller app: `/seller` centre, `/sell`, seller login with its own `seller_*` session (ADR-0006) | :3001 |
-| **team-frontend-admin** | TS | Next.js 15 admin app on its own host (ADR-0006): moderation, cases, users, audit, cockpit; `admin_*` session cookies, noindex; the buyer app has no `/admin` route | :3002 |
-| **fe-platform** | TS | AI-ready frontend platform template (npm workspaces: config, tokens, ui, api-client, Next.js app shell). Not wired to team-frontend | — |
+| **team-frontend** | TS | Next.js 15 App Router SSR; buyer app: consumer home, shopping, account + auth; `session`/`agora_refresh` cookies; no `/seller` or `/admin` route and no link to admin; "Kênh Người Bán" opens the seller app at `/login?next=/seller` | :3000 |
+| **team-frontend-seller** | TS | Next.js 15 seller app: `/seller` centre, `/sell`, seller login (`?next=`) with its own `seller_session`/`seller_refresh` session, "Không có quyền" at `/forbidden`, logout clears only `seller_*` (ADR-0006) | :3001 |
+| **team-frontend-admin** | TS | Next.js 15 admin app on its own host (ADR-0006): moderation, cases, users, audit, cockpit; login (`?next=`) without registration, `admin_session`/`admin_refresh` (sameSite strict, short TTL), "Không có quyền" without scope `admin`, logout clears only `admin_*`, noindex; neither the buyer nor the seller app routes or links to it | :3002 |
+| **fe-platform** | TS | AI-ready frontend platform (npm workspaces: config, tokens, ui, api-client, session, Next.js app template). `npm run vendor` packs tokens/ui/api-client/session into each app's `vendor/` (`vendor:check` gate) | — |
 | **team-ai** | Python | FastAPI + gRPC AI service (AIService, ChatService, RecommendationService, SearchListings; :50060 gRPC) | :8000 |
 | **team-analytics** | Go | Kafka worker (§6c): `analytics.events` → analytics warehouse (DB-per-service; no business RPC, health only) | :50059 |
 | **team-promotion** | Go | Shop/platform vouchers + flash-sale campaigns; checkout redemption (reserve→commit/release); emits `promotion.events` | :50061 |
@@ -136,7 +136,7 @@ cd team-frontend-admin && npm run dev       # http://localhost:3002 (admin)
 platform-core/tools/seed-marketplace.sh
 ```
 
-Ports: gateway `:8080`, frontend `:3000`, seller app `:3001`, admin frontend `:3002`, domain `:50051`, search `:50052`,
+Ports: gateway `:8080`, buyer app `:3000`, seller app `:3001`, admin app `:3002`, domain `:50051`, search `:50052`,
 identity `:50053`, engagement `:50054`, promotion `:50061`, referral `:50062`, verification `:50064`, sharing `:50065`, audit `:50066`. Modelserve router: `:8100`. Infra: redis `6379`, qdrant `6333/6334`, redpanda `19092` (host), rabbitmq `5672/15672`,
 opensearch `9200`, otel-collector `4317`, MLflow `5050` (backed by `postgres-mlflow`, which has
 no host port — reach it only from the compose network).

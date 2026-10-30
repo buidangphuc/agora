@@ -227,6 +227,35 @@ describe("admin logoutAction", () => {
     expect(redirect).toHaveBeenCalledWith("/login");
   });
 
+  it("Per-app logout: clears only the admin cookies, never another app’s", async () => {
+    const jar = await freshJar();
+    jar.set("admin_session", jwt({ sub: "u1", sid: "sess-P", exp: future() }));
+    for (const n of [
+      "admin_refresh",
+      "session",
+      "agora_refresh",
+      "seller_session",
+      "seller_refresh",
+    ])
+      jar.set(n, `${n}-value`);
+
+    await logoutAction();
+
+    const deleted = vi.mocked(jar.delete).mock.calls.map((c) => c[0]);
+    expect(new Set(deleted)).toEqual(
+      new Set(["admin_session", "admin_refresh"]),
+    );
+    for (const other of [
+      "session",
+      "agora_refresh",
+      "seller_session",
+      "seller_refresh",
+    ]) {
+      expect(deleted).not.toContain(other);
+      expect(deleted).not.toContain(`__Host-${other}`);
+    }
+  });
+
   it("still clears the cookies when revoke fails", async () => {
     seen.reply = () => {
       throw new ConnectError("boom", Code.Unavailable);
