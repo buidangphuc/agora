@@ -3,28 +3,9 @@
 @tailwind utilities;
 
 /*
- * Tier 2 semantic aliases (UI_SYSTEM_DESIGN.md section 2). Values reference the
- * Tier 1 primitives in tailwind.config.ts; Tailwind exposes them as colours
- * (bg-action-primary, text-text-primary, border-border-subtle, ...).
- * Redefine this block under a selector (e.g. .dark) to re-theme every consumer.
+ * Tier 2 semantic aliases (--color-*, --shadow-*) are written into :root by the platform
+ * plugin in tailwind.config.ts from @fe-platform/tokens (light theme only).
  */
-:root {
-  --color-action-primary: theme("colors.primary.500");
-  --color-action-primary-hover: theme("colors.primary.600");
-  --color-surface-page: theme("colors.neutral.100");
-  --color-surface-card: #fff;
-  --color-surface-muted: theme("colors.neutral.50");
-  --color-border-subtle: theme("colors.neutral.200");
-  --color-border-strong: theme("colors.neutral.300");
-  --color-text-primary: theme("colors.neutral.900");
-  --color-text-secondary: theme("colors.neutral.600");
-  --color-text-disabled: theme("colors.neutral.400");
-  --color-text-inverse: #fff;
-  --color-danger: theme("colors.accent.danger");
-  --color-promo: theme("colors.accent.promo");
-  --color-success: theme("colors.accent.success");
-  --color-focus-ring: theme("colors.primary.300");
-}
 
 @layer base {
   html {

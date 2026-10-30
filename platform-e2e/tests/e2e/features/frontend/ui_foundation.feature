@@ -10,8 +10,8 @@ Feature: UI foundation - design tokens and exception shells
 
   Scenario: The brand colour resolves from the design tokens
     Given the "home" page is open
-    Then the header search button renders the brand colour "rgb(238, 77, 45)"
-    And the "--color-action-primary" alias resolves to the brand colour "#ee4d2d"
+    Then the header search button renders the brand colour "rgb(79, 70, 229)"
+    And the "--color-action-primary" alias resolves to the brand colour "#4f46e5"
 
   Scenario: Changing an alias restyles every user of it
     Given the "home" page is open

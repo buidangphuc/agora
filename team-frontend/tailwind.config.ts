@@ -1,4 +1,6 @@
+import { primitives, resolveShadows, resolveTheme } from "@fe-platform/tokens";
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 /**
  * Design tokens (see platform-core/docs/UI_SYSTEM_DESIGN.md section 2).
@@ -12,45 +14,35 @@ import type { Config } from "tailwindcss";
  */
 
 // ---------------------------------------------------------------- Tier 1
-const primary = {
-  50: "#fff5f2",
-  100: "#ffe8e1",
-  200: "#ffd4c7",
-  300: "#ffb5a0",
-  400: "#ff8566",
-  500: "#ee4d2d",
-  600: "#d73211",
-  700: "#b52309",
-  800: "#941e0c",
-  900: "#7a1d0f",
-  950: "#430b05",
-  DEFAULT: "#ee4d2d",
+// Colours come from @fe-platform/tokens (ADR-0005, ADR-0006); only the layout sizes, radii
+// and type scale below are still local. The platform preset is not applied wholesale because
+// it replaces spacing, screens and font sizes that this app still uses.
+const palette = primitives.color as Record<string, string>;
+
+const scale = (prefix: string, steps: number[]): Record<string, string> =>
+  Object.fromEntries(steps.map((n) => [n, palette[`${prefix}-${n}`]]));
+
+const primary: Record<string, string> = {
+  ...scale("primary", [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]),
+  DEFAULT: palette["primary-600"],
 };
 
-// Slate-free neutral: same values as Tailwind's `gray`, so existing gray-*
-// utilities and the neutral-* tokens always agree.
-const neutral = {
-  50: "#f9fafb",
-  100: "#f3f4f6",
-  200: "#e5e7eb",
-  300: "#d1d5db",
-  400: "#9ca3af",
-  500: "#6b7280",
-  600: "#4b5563",
-  700: "#374151",
-  800: "#1f2937",
-  900: "#111827",
-};
+// `gray` is aliased to this scale below, so existing gray-* utilities and the neutral-* tokens
+// always agree.
+const neutral = scale(
+  "neutral",
+  [50, 100, 200, 300, 400, 500, 600, 700, 800, 900],
+);
 
 const accent = {
-  danger: "#d0011b",
-  "danger-dark": "#b00016",
-  promo: "#ffbe00",
+  danger: palette.danger,
+  "danger-dark": palette["danger-dark"],
+  promo: palette.promo,
   "promo-light": "#ffe97a",
-  success: "#00bfa5",
+  success: palette.success,
   // Text-safe shades of promo / success for copy on their own 10% tints (WCAG AA on white).
-  "promo-dark": "#8a5a00",
-  "success-dark": "#007a69",
+  "promo-dark": palette["promo-dark"],
+  "success-dark": palette["success-dark"],
 };
 
 // Type scale is limited to 12 / 14 / 16 / 20 / 24 px. Tailwind's larger step
@@ -72,6 +64,31 @@ const fontSize: Record<string, [string, { lineHeight: string }]> = {
 // ---------------------------------------------------------------- Tier 2 (colour aliases)
 const alias = (name: string) => `var(--color-${name})`;
 
+const lightTheme = resolveTheme("light");
+const platformAliases = Object.fromEntries(
+  Object.keys(lightTheme).map((name) => [name, alias(name)]),
+);
+
+// Tier 2 variables and platform utilities. Only the light theme is emitted: the app has no
+// dark design and its components still use raw palette utilities.
+const platformTokens = plugin(({ addBase, addUtilities }) => {
+  const vars: Record<string, string> = {};
+  for (const [name, value] of Object.entries(lightTheme)) {
+    vars[`--color-${name}`] = value;
+  }
+  vars["--color-danger"] = palette.danger;
+  vars["--color-promo"] = palette.promo;
+  vars["--color-success"] = palette.success;
+  for (const [name, value] of Object.entries(resolveShadows("light"))) {
+    vars[`--shadow-${name}`] = value;
+  }
+  addBase({ ":root": vars });
+  addUtilities({
+    ".pt-safe": { paddingTop: "env(safe-area-inset-top)" },
+    ".pb-safe": { paddingBottom: "env(safe-area-inset-bottom)" },
+  });
+});
+
 const config: Config = {
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
@@ -86,43 +103,35 @@ const config: Config = {
         // Tier 1
         primary,
         neutral,
+        gray: neutral,
         accent,
-        // Tier 2 (class names: bg-action-primary, text-text-primary, border-border-subtle, ...)
-        "action-primary": alias("action-primary"),
-        "action-primary-hover": alias("action-primary-hover"),
-        "surface-page": alias("surface-page"),
-        "surface-card": alias("surface-card"),
-        "surface-muted": alias("surface-muted"),
-        "border-subtle": alias("border-subtle"),
-        "border-strong": alias("border-strong"),
-        "text-primary": alias("text-primary"),
-        "text-secondary": alias("text-secondary"),
-        "text-disabled": alias("text-disabled"),
-        "text-inverse": alias("text-inverse"),
+        // Tier 2 (class names: bg-action-primary, text-text-primary, border-border-subtle, ...):
+        // every platform semantic name, plus the three app aliases below.
+        ...platformAliases,
         danger: alias("danger"),
         promo: alias("promo"),
         success: alias("success"),
-        "focus-ring": alias("focus-ring"),
-        // Legacy brand names (kept: referenced across features)
+        // Legacy names (kept so call sites compile; recoloured to the platform palette, removed
+        // in a later change)
         brand: {
-          DEFAULT: "#ee4d2d",
-          dark: "#d73211",
-          light: "#ffeee8",
-          hover: "#f05d40",
+          DEFAULT: primary[600],
+          dark: primary[700],
+          light: primary[50],
+          hover: primary[500],
         },
         mall: {
-          DEFAULT: "#d0011b",
-          dark: "#b00016",
+          DEFAULT: palette.danger,
+          dark: palette["danger-dark"],
         },
         shopee: {
-          bg: "#f5f5f5",
-          orange: "#ee4d2d",
-          red: "#d0011b",
-          yellow: "#ffbe00",
-          green: "#00bfa5",
-          dark: "#222222",
-          gray: "#757575",
-          border: "#e5e7eb",
+          bg: neutral[100],
+          orange: primary[600],
+          red: palette.danger,
+          yellow: palette.promo,
+          green: palette.success,
+          dark: neutral[900],
+          gray: neutral[500],
+          border: neutral[200],
         },
       },
       fontFamily: {
@@ -153,6 +162,8 @@ const config: Config = {
         "2xl": "1rem",
       },
       boxShadow: {
+        card: "var(--shadow-card)",
+        pop: "var(--shadow-pop)",
         "2xs": "0 1px 0 0 rgba(0, 0, 0, 0.05)",
         xs: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
         "preline-card":
@@ -176,6 +187,7 @@ const config: Config = {
         modal: "37.5rem",
       },
       minHeight: {
+        touch: `${primitives.touchTarget}px`,
         "viewport-main": "calc(100vh - 140px)",
         chat: "32.5rem",
       },
@@ -197,6 +209,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [platformTokens],
 };
 export default config;
