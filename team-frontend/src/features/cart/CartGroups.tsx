@@ -16,19 +16,21 @@ import type { ShopGroup } from "./groupByShop";
  */
 export function CartGroups({ groups }: { groups: ShopGroup[] }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {groups.map((group, groupIndex) => (
         <Card key={group.sellerId} data-testid="cart-shop-group">
           <CardHeader>
             <CardTitle>
-              <span className="flex items-center gap-2.5">
+              <span className="flex min-w-0 items-center gap-3">
                 <ShopCheckbox
                   sellerId={group.sellerId}
                   name={shopLabel(group.sellerId, group.sellerDisplayName)}
                 />
-                <Link href={`/shop/${group.sellerId}`} variant="subtle">
-                  {shopLabel(group.sellerId, group.sellerDisplayName)}
-                </Link>
+                <span className="truncate">
+                  <Link href={`/shop/${group.sellerId}`} variant="subtle">
+                    {shopLabel(group.sellerId, group.sellerDisplayName)}
+                  </Link>
+                </span>
               </span>
             </CardTitle>
           </CardHeader>
@@ -36,35 +38,37 @@ export function CartGroups({ groups }: { groups: ShopGroup[] }) {
             {group.items.map((it) => (
               <li
                 key={it.id}
-                className="flex flex-wrap gap-3 p-4 sm:flex-nowrap sm:items-center"
+                className="flex flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:gap-6 sm:px-6"
               >
-                <LineCheckbox id={it.id} title={it.title} />
-                <div className="w-20 shrink-0">
-                  <Image
-                    src={getImageUrl(it.imageUrl)}
-                    alt={it.title}
-                    aspect="square"
-                    loading={groupIndex === 0 ? "eager" : "lazy"}
-                  />
-                </div>
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <span className="line-clamp-2 text-sm font-medium text-text-primary">
-                    <Link href={`/listing/${it.listingId}`} variant="subtle">
-                      {it.title}
-                    </Link>
-                  </span>
-                  {it.variantName && <Tag>Phân loại: {it.variantName}</Tag>}
-                  <div>
-                    <PriceTag price={it.unitPrice} size="sm" />
+                <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center sm:gap-4">
+                  <LineCheckbox id={it.id} title={it.title} />
+                  <div className="w-20 shrink-0 sm:w-24">
+                    <Image
+                      src={getImageUrl(it.imageUrl)}
+                      alt={it.title}
+                      aspect="square"
+                      loading={groupIndex === 0 ? "eager" : "lazy"}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <span className="line-clamp-2 break-words text-sm font-medium text-text-primary sm:text-base">
+                      <Link href={`/listing/${it.listingId}`} variant="subtle">
+                        {it.title}
+                      </Link>
+                    </span>
+                    {it.variantName && <Tag>Phân loại: {it.variantName}</Tag>}
+                    <div>
+                      <PriceTag price={it.unitPrice} size="sm" />
+                    </div>
                   </div>
                 </div>
-                <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-end sm:gap-6">
+                <div className="flex items-center justify-between gap-4 pl-9 sm:shrink-0 sm:justify-end sm:gap-6 sm:pl-0">
                   <CartQuantityControl
                     itemId={it.id}
                     quantity={it.quantity}
                     title={it.title}
                   />
-                  <div className="w-28 text-right">
+                  <div className="min-w-0 text-right sm:w-32">
                     <PriceTag price={it.unitPrice * it.quantity} size="md" />
                   </div>
                 </div>

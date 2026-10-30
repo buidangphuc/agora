@@ -47,11 +47,12 @@ export function CartQuantityControl({
 
   return (
     <div
-      className="flex items-center gap-3"
+      className="flex items-center gap-2"
       aria-busy={pending ? "true" : undefined}
     >
       <QuantityPicker
         size="sm"
+        className="min-h-touch"
         value={quantity}
         min={1}
         disabled={pending !== null}
