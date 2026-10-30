@@ -34,20 +34,20 @@ export function SpecsSection({
       className="scroll-mt-40"
     >
       <Card padded>
-        <div className="space-y-5">
+        <div className="space-y-6">
           <h2
             id="specs-heading"
-            className="text-lg font-semibold text-text-primary"
+            className="text-xl font-semibold tracking-tight text-text-primary"
           >
             CHI TIẾT SẢN PHẨM
           </h2>
           <Descriptions items={items} column={2} />
           {description.trim() !== "" && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-text-primary">
+            <div className="space-y-3 border-t border-border-subtle pt-6">
+              <h3 className="text-base font-semibold text-text-primary">
                 MÔ TẢ SẢN PHẨM
               </h3>
-              <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary">
+              <p className="whitespace-pre-line break-words text-base leading-relaxed text-text-secondary">
                 {description}
               </p>
             </div>

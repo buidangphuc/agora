@@ -57,7 +57,7 @@ export function ReviewHideButton({
       <Button
         data-testid="hide-review"
         variant="outline"
-        size="xs"
+        size="sm"
         onClick={() => setOpen(true)}
       >
         Ẩn
@@ -105,7 +105,7 @@ export function ReviewHideButton({
             value={reason}
             disabled={pending}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full rounded-lg border border-border-strong bg-surface-card p-2.5 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-xl border border-border-strong bg-surface-card px-4 py-3 text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
           <div className="text-right text-xs text-text-secondary">
             {reason.length}/{MAX_REASON}

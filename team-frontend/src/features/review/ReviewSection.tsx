@@ -29,7 +29,7 @@ export function AiSummarySkeleton() {
 /** Footprint of the review list while it loads. */
 export function ReviewListSkeleton() {
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-6 py-2">
       <Skeleton variant="text" lines={3} />
       <Skeleton variant="text" lines={3} />
     </div>
@@ -69,16 +69,16 @@ export function ReviewSection({
       className="scroll-mt-40"
     >
       <Card padded>
-        <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2
                 id="reviews-heading"
-                className="text-lg font-semibold text-text-primary"
+                className="text-xl font-semibold tracking-tight text-text-primary"
               >
                 ĐÁNH GIÁ SẢN PHẨM
               </h2>
-              <p className="mt-0.5 text-sm text-text-secondary">
+              <p className="mt-1 text-sm text-text-secondary">
                 Nhận xét thực tế từ người mua hàng đã trải nghiệm
               </p>
             </div>
@@ -94,12 +94,12 @@ export function ReviewSection({
 
           <div
             data-testid="review-summary"
-            className="flex flex-col gap-6 rounded-xl bg-surface-muted p-5 sm:flex-row sm:items-center"
+            className="flex flex-col gap-6 rounded-2xl bg-surface-muted p-5 sm:p-6 md:flex-row md:items-center md:gap-8"
           >
-            <div className="space-y-1 text-center sm:min-w-40 sm:border-r sm:border-border-subtle sm:pr-6">
+            <div className="space-y-2 text-center md:min-w-44 md:border-r md:border-border-subtle md:pr-8">
               {rated ? (
                 <>
-                  <div className="text-2xl font-bold text-text-primary">
+                  <div className="text-4xl font-semibold tracking-tight text-text-primary">
                     {summary.averageRating.toFixed(1)}{" "}
                     <span className="text-base font-normal text-text-secondary">
                       / 5
@@ -120,9 +120,9 @@ export function ReviewSection({
               )}
             </div>
 
-            <div className="min-w-0 flex-1 space-y-4">
+            <div className="min-w-0 flex-1 space-y-5">
               {rated && (
-                <ul className="space-y-1.5">
+                <ul className="space-y-2">
                   {STARS.map((star) => {
                     const count = starCount(summary.breakdown, star);
                     return (

@@ -42,10 +42,10 @@ export function VariantSelector() {
 
   return (
     <fieldset className="m-0 min-w-0 border-0 p-0">
-      <legend className="mb-2 text-sm font-medium text-text-primary">
+      <legend className="mb-3 text-sm font-semibold text-text-primary">
         Phân loại
       </legend>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-3">
         {listing.variants.map((v) => {
           const out = v.stock <= 0;
           const checked = v.id === selected.id;
@@ -67,7 +67,7 @@ export function VariantSelector() {
                 className="peer sr-only"
               />
               <span
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-focus-ring peer-focus-visible:ring-offset-2 ${
+                className={`inline-flex min-h-touch items-center gap-2 rounded-xl border px-4 py-2 text-sm transition duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-focus-ring peer-focus-visible:ring-offset-2 ${
                   checked
                     ? "border-action-primary bg-primary-50 font-medium text-action-primary"
                     : "border-border-strong bg-surface-card text-text-primary"

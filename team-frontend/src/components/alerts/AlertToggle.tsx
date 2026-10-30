@@ -88,7 +88,7 @@ function ToggleButton({
       aria-pressed={active}
       onClick={toggle}
       disabled={pending}
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:opacity-60 ${
+      className={`inline-flex min-h-touch items-center gap-2 rounded-xl border px-4 text-sm font-medium transition disabled:opacity-60 ${
         active
           ? "border-action-primary bg-primary-50 text-action-primary"
           : "border-border-strong text-text-secondary hover:border-action-primary hover:text-action-primary"
@@ -113,7 +113,9 @@ export function AlertToggle({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs text-text-secondary">🔔 Nhận thông báo:</span>
+      <span className="w-full text-sm text-text-secondary sm:w-auto">
+        🔔 Nhận thông báo:
+      </span>
       <ToggleButton
         listingId={listingId}
         kind="price_drop"

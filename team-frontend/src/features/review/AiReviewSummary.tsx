@@ -21,12 +21,12 @@ export function AiReviewSummaryCard({
       </h3>
 
       {summary.summary && (
-        <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+        <p className="mt-3 text-sm leading-relaxed text-text-secondary">
           {summary.summary}
         </p>
       )}
 
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {summary.pros.length > 0 && (
           <div>
             <p className="text-sm font-semibold text-accent-success-dark">

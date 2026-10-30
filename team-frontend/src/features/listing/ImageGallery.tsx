@@ -74,10 +74,10 @@ export function ImageGallery({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div
         data-testid="gallery-stage"
-        className="relative w-full overflow-hidden rounded-xl border border-border-subtle"
+        className="relative w-full overflow-hidden rounded-3xl border border-border-subtle bg-surface-muted"
         onTouchStart={(e) => {
           touchStartX.current = e.touches[0]?.clientX ?? null;
         }}
@@ -90,14 +90,14 @@ export function ImageGallery({
           loading="eager"
           className="rounded-none"
         />
-        {overlay && <div className="absolute bottom-2 right-2">{overlay}</div>}
+        {overlay && <div className="absolute bottom-3 right-3">{overlay}</div>}
       </div>
 
       {images.length > 1 && (
         <>
           <ul
             aria-label="Ảnh sản phẩm"
-            className="flex gap-2 overflow-x-auto p-1"
+            className="flex gap-3 overflow-x-auto p-1"
           >
             {images.map((src, index) => {
               const current = index === currentIndex;
@@ -112,7 +112,7 @@ export function ImageGallery({
                     aria-current={current ? "true" : undefined}
                     onClick={() => select(index)}
                     onKeyDown={(e) => onThumbKey(e, index)}
-                    className={`block h-16 w-16 overflow-hidden rounded-lg border-2 transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 ${
+                    className={`block h-16 w-16 overflow-hidden rounded-xl border-2 transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 ${
                       current
                         ? "border-action-primary"
                         : "border-transparent hover:border-border-strong"
@@ -129,10 +129,9 @@ export function ImageGallery({
               );
             })}
           </ul>
-          {/* Mobile dot indicator: the swipe position, decorative. */}
           <div
             aria-hidden="true"
-            className="flex justify-center gap-1.5 lg:hidden"
+            className="flex justify-center gap-1.5 md:hidden"
           >
             {images.map((src, index) => (
               <span
