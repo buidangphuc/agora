@@ -1,4 +1,5 @@
 import {
+  Avatar,
   Button,
   Card,
   CardContent,
@@ -7,7 +8,10 @@ import {
   CardTitle,
   Checkbox,
   Dialog,
+  Drawer,
+  Image,
   Input,
+  PriceTag,
   Select,
   Table,
 } from "./index";
@@ -41,3 +45,11 @@ export const cardContent = <CardContent className="x" />;
 export const cardFooter = <CardFooter className="x" />;
 // @ts-expect-error unknown variant
 export const buttonVariant = <Button variant="outline" />;
+// @ts-expect-error className would bypass tokens
+export const priceTag = <PriceTag price={1} className="x" />;
+// @ts-expect-error className would bypass tokens
+export const image = <Image src="" alt="" aspect="square" className="x" />;
+// @ts-expect-error className would bypass tokens
+export const avatar = <Avatar className="x" />;
+// @ts-expect-error className would bypass tokens
+export const drawer = <Drawer open onClose={() => {}} className="x" />;

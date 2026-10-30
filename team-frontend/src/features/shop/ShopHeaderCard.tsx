@@ -74,7 +74,7 @@ export function ShopHeaderCard({
           alt="Ảnh bìa gian hàng"
           aspect="2/1"
           loading="eager"
-          className="rounded-none"
+          radius="none"
         />
       )}
       {storefront?.tagline && (

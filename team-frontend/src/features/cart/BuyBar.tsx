@@ -25,7 +25,9 @@ export function BuyBar() {
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="mx-auto flex h-20 max-w-page items-center gap-3 px-4">
-          <PriceTag price={displayPrice} size="lg" className="shrink-0" />
+          <div className="shrink-0">
+            <PriceTag price={displayPrice} size="lg" />
+          </div>
           <div className="ml-auto flex gap-2">
             <Button
               variant="secondary"

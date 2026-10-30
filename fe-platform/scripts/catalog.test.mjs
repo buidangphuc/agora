@@ -11,6 +11,7 @@ describe("catalog", () => {
 
   it("lists every exported ui component and hook", () => {
     expect(Object.keys(byName).sort()).toEqual([
+      "Avatar",
       "Button",
       "Card",
       "CardContent",
@@ -20,11 +21,16 @@ describe("catalog", () => {
       "CardTitle",
       "Checkbox",
       "Dialog",
+      "Drawer",
+      "Image",
       "Input",
       "Link",
+      "PriceTag",
       "Select",
       "Table",
       "ToastProvider",
+      "formatPrice",
+      "initials",
       "useToast",
     ]);
   });
@@ -46,14 +52,27 @@ describe("catalog", () => {
     expect(props.variant.type).toBe(
       '"primary" | "secondary" | "ghost" | "danger"',
     );
-    expect(props.size.type).toBe('"xs" | "sm" | "md" | "lg"');
+    expect(props.size.type.split(" | ").sort()).toEqual([
+      '"lg"',
+      '"md"',
+      '"sm"',
+      '"xs"',
+    ]);
     expect(byName.Button.native).toBe("button");
   });
 
   it("marks client components and required props", () => {
     expect(byName.Button.client).toBe(false);
     expect(byName.Table.client).toBe(false);
-    for (const n of ["Select", "Checkbox", "Dialog", "ToastProvider"]) {
+    expect(byName.Image.client).toBe(false);
+    expect(byName.formatPrice.kind).toBe("function");
+    for (const n of [
+      "Select",
+      "Checkbox",
+      "Dialog",
+      "Drawer",
+      "ToastProvider",
+    ]) {
       expect(byName[n].client).toBe(true);
     }
     const label = byName.Input.props.find((p) => p.name === "label");

@@ -43,8 +43,10 @@ export const primitives = {
     8: 32,
     10: 40,
     12: 48,
+    14: 56,
     16: 64,
     18: 72,
+    20: 80,
   },
   radius: {
     none: 0,
@@ -221,6 +223,86 @@ export const components = {
   },
   link: {
     base: "text-text-link underline underline-offset-4 hover:text-text-link-hover rounded-lg focus-visible:ring-2 focus-visible:ring-focus-ring",
+  },
+  priceTag: {
+    root: "inline-flex flex-wrap items-baseline gap-1",
+    price: "flex items-baseline gap-1 tracking-tight text-action-primary",
+    symbol: "font-semibold",
+    original: "font-normal text-text-disabled line-through",
+    discount:
+      "rounded-xs bg-surface-muted font-bold leading-tight text-action-primary",
+    size: {
+      sm: {
+        symbol: "text-xs",
+        price: "text-xs font-bold",
+        original: "text-xs",
+        discount: "px-1 text-xs",
+      },
+      md: {
+        symbol: "text-xs",
+        price: "text-sm font-bold",
+        original: "text-xs",
+        discount: "px-1 text-xs",
+      },
+      lg: {
+        symbol: "text-sm",
+        price: "text-xl font-bold",
+        original: "text-xs",
+        discount: "px-2 text-xs",
+      },
+      xl: {
+        symbol: "text-xl",
+        price: "text-2xl font-black",
+        original: "text-sm",
+        discount: "px-2 text-xs",
+      },
+    },
+  },
+  image: {
+    box: "relative w-full overflow-hidden bg-surface-page",
+    radius: { xl: "rounded-xl", lg: "rounded-lg", none: "rounded-none" },
+    aspect: {
+      square: "aspect-square",
+      video: "aspect-video",
+      "4/3": "aspect-4/3",
+      "3/4": "aspect-3/4",
+      "2/1": "aspect-2/1",
+    },
+    picture: "absolute inset-0 h-full w-full",
+    fit: { cover: "object-cover", contain: "object-contain" },
+    placeholder: "absolute inset-0 animate-pulse bg-surface-muted",
+    fallback: "absolute inset-0 flex items-center justify-center",
+    empty:
+      "flex h-full w-full items-center justify-center bg-surface-page text-text-disabled",
+    icon: "h-8 w-8",
+  },
+  avatar: {
+    base: "relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden bg-surface-page",
+    shape: { circle: "rounded-full", square: "rounded-lg" },
+    size: {
+      sm: "h-8 w-8 text-xs",
+      md: "h-10 w-10 text-sm",
+      lg: "h-14 w-14 text-base",
+      xl: "h-20 w-20 text-xl",
+    },
+    initials: "font-semibold text-text-secondary",
+  },
+  drawer: {
+    overlay: "fixed inset-0 z-50 bg-surface-overlay",
+    content:
+      "fixed inset-y-0 z-50 flex h-full w-full flex-col border-border-subtle bg-surface-card text-text-primary shadow-pop",
+    placement: { left: "left-0 border-r", right: "right-0 border-l" },
+    size: { sm: "max-w-xs", md: "max-w-md", lg: "max-w-xl" },
+    header:
+      "flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4",
+    title: "text-base font-semibold leading-tight text-text-primary",
+    description: "mt-1 text-xs text-text-secondary",
+    close:
+      "-mr-2 inline-flex min-h-touch shrink-0 items-center justify-center rounded-lg px-3 text-text-secondary hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-focus-ring",
+    icon: "h-4 w-4",
+    body: "flex-1 overflow-y-auto px-5 py-4",
+    footer:
+      "flex items-center justify-end gap-2 border-t border-border-subtle bg-surface-muted px-5 py-3",
   },
   card: {
     base: "overflow-hidden rounded-2xl bg-surface-card border border-border-subtle text-text-primary shadow-card transition duration-200",

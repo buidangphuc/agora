@@ -93,6 +93,8 @@ const config: Config = {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/features/**/*.{js,ts,jsx,tsx,mdx}",
+    "./node_modules/@fe-platform/ui/src/**/*.{ts,tsx}",
+    "./node_modules/@fe-platform/tokens/src/tokens.mjs",
   ],
   theme: {
     fontSize,

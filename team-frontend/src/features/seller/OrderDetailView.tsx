@@ -55,7 +55,7 @@ const itemColumns: TableColumn<ViewOrderItem>[] = [
             src={it.imageUrl ? getImageUrl(it.imageUrl) : ""}
             alt={it.title}
             aspect="square"
-            className="rounded-lg"
+            radius="lg"
           />
         </div>
         <span className="line-clamp-2 font-medium">{it.title}</span>

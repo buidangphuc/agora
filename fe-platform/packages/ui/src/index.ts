@@ -1,3 +1,4 @@
+export { Avatar, type AvatarProps, initials } from "./Avatar";
 export { Button, type ButtonProps } from "./Button";
 export {
   Card,
@@ -10,8 +11,12 @@ export {
 } from "./Card";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
 export { Dialog, type DialogProps } from "./Dialog";
+export { Drawer, type DrawerProps } from "./Drawer";
+export { formatPrice } from "./format";
+export { type Aspect, Image, type ImageProps } from "./Image";
 export { Input, type InputProps } from "./Input";
 export { Link, type LinkProps } from "./Link";
+export { PriceTag, type PriceTagProps } from "./PriceTag";
 export { Select, type SelectOption, type SelectProps } from "./Select";
 export { Table, type TableColumn, type TableProps } from "./Table";
 export {

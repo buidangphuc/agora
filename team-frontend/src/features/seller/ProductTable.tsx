@@ -27,7 +27,7 @@ export function ProductTable({ items }: { items: ViewListing[] }) {
               alt={l.title}
               aspect="square"
               loading={i < EAGER_ROWS ? "eager" : "lazy"}
-              className="rounded-lg"
+              radius="lg"
             />
           </div>
           <div className="min-w-0">
