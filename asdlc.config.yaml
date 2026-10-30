@@ -21,6 +21,8 @@ routing:                 # path globs (fnmatch) that tag a change NEEDS_HUMAN; m
     - "team-gateway/internal/edge/server*.go"   # admin RPC wiring
     - "team-frontend/src/app/api/**/route.ts"   # server routes that can read the session token/principal
     - "team-frontend/src/lib/gateway/session*"  # session cookie / token access
+    - "team-frontend-seller/src/lib/gateway/session*"
+    - "team-frontend-seller/src/middleware.ts"
   payment:               # payment handling
     - "team-payment/**"
   pii:                   # personal data (PDPA / GDPR)

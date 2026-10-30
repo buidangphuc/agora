@@ -17,7 +17,7 @@ from src.api.services import AddressService, AuthService, CartService, ListingSe
 from src.constants import gateway_endpoints as ep
 from src.models import Listing, User
 from src.utils import data as fake
-from tests.e2e.flows.auth_flow import SESSION_COOKIE
+from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
@@ -105,7 +105,7 @@ def seed_buyer(world: World, *, address_city: str | None = "Hà Nội") -> User:
         )
     user = User(username=username, password=SETTINGS.seed_password, role="buyer", token=token)
     world.context.add_cookies(
-        [{"name": SESSION_COOKIE, "value": token, "url": world.settings.base_url}]
+        session_cookies(world.settings, token)
     )
     world.service_factory.set_token(token)
     world.state.current_user = user
@@ -202,7 +202,7 @@ def seed_seller_session(
             svc.create_listing(listing)
         items.append({"id": listing.listing_id, "title": listing.title, "stock": stock})
     world.context.add_cookies(
-        [{"name": SESSION_COOKIE, "value": token, "url": world.settings.base_url}]
+        session_cookies(world.settings, token)
     )
     world.service_factory.set_token(token)
     seller = {

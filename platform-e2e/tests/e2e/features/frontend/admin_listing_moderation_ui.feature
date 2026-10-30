@@ -17,7 +17,7 @@ Feature: Admin listing moderation queue in the browser (frontend-listing-moderat
     Given a freshly registered moderation buyer
     And the moderation buyer is signed in the browser
     When the visitor opens the moderation queue
-    Then the moderation page shows "Cần tài khoản Quản trị" and no table
+    Then the moderation page shows "Không có quyền" and no table
     When an admin is signed in the browser
     And the visitor opens the moderation queue
     Then the moderation queue is shown

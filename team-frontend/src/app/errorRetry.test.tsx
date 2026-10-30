@@ -14,12 +14,10 @@ import CartError from "./(shop)/cart/error";
 import FavoritesError from "./(shop)/favorites/error";
 import ListingError from "./(shop)/listing/error";
 import NotificationsError from "./(shop)/notifications/error";
-import SellerError from "./(shop)/seller/error";
 import RootError from "./error";
 
 const boundaries = {
   root: RootError,
-  seller: SellerError,
   orders: OrdersError,
   checkout: CheckoutError,
   cart: CartError,

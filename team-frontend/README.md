@@ -10,24 +10,23 @@ Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 1
 
 | Surface | What | Authorization |
 |---|---|---|
-| 41 pages under `src/app/(shop)` and `src/app/(checkout)` | Buyer, account, seller, admin, chat, assistant, checkout (route groups below) | Per page/layout, from the gateway scopes in the session JWT |
+| 24 pages under `src/app/(shop)` and `src/app/(checkout)` | Buyer, account, chat, assistant, checkout (route groups below); the seller centre is the separate `team-frontend-seller` app and the admin screens the separate `team-frontend-admin` app | Per page/layout, from the gateway scopes in the session JWT |
 | `GET /api/suggest?q=` | Search type-ahead, proxies `suggest` | Public; errors return empty suggestions |
 | `GET /api/listings?status=&cursor=` | "Load more" for the consumer feed | Public; errors return an empty page |
 | `POST /api/assistant/stream` | Relays `ChatService.StreamChat` deltas as a plain-text stream | Session cookie forwarded, no local check; the gateway decides. 400 on empty `message` |
-| `GET /api/admin/metrics` | Cockpit refresh, proxies `fetchCockpit` | 401 without a session; the gateway enforces scope `admin` (401/403 passed through) |
 | `GET /api/analytics/identity` | GA4 `user_id` from the verified principal (see GA4 via GTM) | Consent-gated; 204 when `GA4_USER_ID_HMAC_KEY` is unset |
 
 Route groups and page-level gates:
 
 | Group | Routes | Gate |
 |---|---|---|
-| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect), `/login`, `/register`, `/sell`, `/cart`, `/assistant` | no page-level redirect (the gateway still scopes the data) |
+| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect), `/login`, `/register`, `/cart`, `/assistant` | no page-level redirect (the gateway still scopes the data) |
 | `(shop)` signed-in | `/favorites`, `/chat`, `/notifications`, `/account/{orders,orders/[id],addresses,following,referral,security,verification}` | redirect to `/login` without a session |
 | `(shop)` | `/chat/[id]` | redirects to `/chat?thread=<id>` |
-| `(shop)/seller/*` | dashboard, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `seller/layout.tsx`: `/login` if anonymous; "seller account needed" result unless scope `listing.write` |
-| `(shop)/admin/*` (`cockpit`, `audit`, `cases`, `listings`, `users`) | Ops cockpit, audit log, cases, listing moderation, user administration | `/login` if anonymous, denied view unless scope `admin`; the gateway re-enforces it on the data |
 | `(shop)/dev/ui` | UI component gallery | `notFound()` when `NODE_ENV=production` |
 | `(checkout)` | `/checkout`, `/checkout/pay/[id]` | `/checkout` redirects to `/login` if anonymous and to `/cart` if the cart is empty |
+
+There is no `/admin` route and no link to one (ADR-0006): the admin screens live in `team-frontend-admin` on its own host, `/admin` here is the standard 404, and `src/app/admin-isolation.test.ts` fails the build on any `/admin` route or link.
 
 **Consumes**: only `team-gateway` (`GATEWAY_URL`), through `@connectrpc/connect-node` clients over HTTP/1.1. All RPC code lives in `src/lib/gateway/*` (`server-only`); pages and `src/features/*` import from there. Clients are built per request with the caller's token (`makeClients(token)`), so the bearer is never a process singleton and never reaches the browser. Public reads retry once without the bearer (`anonymousFallback`) so a stale session degrades to anonymous browsing. `src/middleware.ts` refreshes an unusable `session` cookie once via the `agora_refresh` cookie before render; if the refresh fails with `Unauthenticated` or `PermissionDenied` both cookies are cleared, and a transient failure renders anonymous while keeping the refresh cookie.
 
@@ -60,6 +59,7 @@ Read by the code (see `.env.example`; there is no drift gate for this repo):
 | `TRUSTED_PROXY_HOPS` | `1` (values below 1 or non-numeric fall back to 1) | `src/lib/gateway/client-context.ts` |
 | `NEXT_PUBLIC_GTM_ID` | empty, GTM disabled (Dockerfile build `ARG`, inlined at build) | `src/lib/analytics/destinations/gtm.ts` |
 | `NEXT_PUBLIC_MEDIA_BASE_URL` | `http://localhost:9000/listing-images` | `src/lib/media.ts` |
+| `NEXT_PUBLIC_SELLER_APP_URL` | `http://localhost:3001` (build-time); every link to the seller centre goes through `sellerAppUrl()` | `src/lib/apps.ts` |
 | `NEXT_PUBLIC_APP_ENV` | unset; `staging` turns on GA4 `debug_mode` (build-time) | `src/lib/analytics/destinations/gtm.ts` |
 | `GA4_USER_ID_HMAC_KEY` | unset (server-only secret from Vault): `user_id` disabled, `/api/analytics/identity` returns 204 | `src/lib/analytics/ga4/userId.ts` |
 
@@ -128,6 +128,7 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 - `/api/suggest` and `/api/listings` swallow every error and return empty results, hiding gateway outages from the UI.
 - `.env.example` omits `NEXT_PUBLIC_MEDIA_BASE_URL`, whose default points at a local MinIO URL that is wrong outside local dev.
 - `FEATURES.yaml` has 7 `planned` features with no automated coverage yet.
+- `/seller*` and `/sell` moved to `team-frontend-seller` (`:3001`) and are a 404 here (`src/app/sellerRoutes.test.ts`). `src/features/seller/usePending.ts` stays because `ReportListingButton` imports it. The seller features are still listed in this `FEATURES.yaml`.
 
 ## 10. Links
 

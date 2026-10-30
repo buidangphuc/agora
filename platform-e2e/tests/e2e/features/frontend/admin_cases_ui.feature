@@ -60,7 +60,7 @@ Feature: Admin cases inbox in the browser (frontend-listing-moderation)
     And the moderation buyer is signed in the browser
     When the buyer follows the footer link "Hộp thư vụ việc"
     Then the browser is on "/admin/cases"
-    And the moderation page shows "Cần tài khoản Quản trị" and no table
+    And the moderation page shows "Không có quyền" and no table
     When an admin is signed in the browser
     And the admin opens the cases inbox
     Then the open reports show a row for the listing

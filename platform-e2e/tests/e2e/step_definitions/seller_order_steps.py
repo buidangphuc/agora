@@ -10,7 +10,7 @@ from tests.e2e.support.world import World
 
 @when("the seller navigates to the seller orders page")
 def seller_navigates_to_seller_orders(world: World) -> None:
-    world.page.goto(f"{world.settings.base_url}/seller/orders")
+    world.page.goto(f"{world.settings.seller_base_url}/seller/orders")
     world.page.wait_for_load_state("networkidle")
 
 

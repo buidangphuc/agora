@@ -27,6 +27,11 @@ from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
 BASE = SETTINGS.base_url.rstrip("/")
+ADMIN_BASE = SETTINGS.admin_base_url.rstrip("/")
+
+
+def _host(path: str) -> str:
+    return ADMIN_BASE if path.startswith("/admin") else BASE
 POLICY = "strict-origin-when-cross-origin"
 WEAKER = {
     "unsafe-url",
@@ -60,7 +65,7 @@ def request_paths(world: World, a: str, b: str, c: str) -> None:
     responses = {}
     with httpx.Client(follow_redirects=False, timeout=30) as client:
         for path in (a, b, c):
-            responses[path] = client.get(f"{BASE}{path}")
+            responses[path] = client.get(f"{_host(path)}{path}")
     _x(world)["rh_responses"] = responses
 
 
@@ -91,7 +96,7 @@ def one_not_weaker(world: World) -> None:
 # ── meta referrer ────────────────────────────────────────────────────────────
 @when(parsers.parse('the admin opens "{path}"'))
 def admin_opens(world: World, path: str) -> None:
-    world.page.goto(f"{BASE}{path}", wait_until="domcontentloaded")
+    world.page.goto(f"{_host(path)}{path}", wait_until="domcontentloaded")
     _x(world)["rh_path"] = path
 
 
@@ -112,7 +117,7 @@ def head_has_meta(world: World, value: str) -> None:
 def admin_opens_all(world: World) -> None:
     seen: dict[str, list] = {}
     for name in ADMIN_PAGES:
-        world.page.goto(f"{BASE}/admin/{name}", wait_until="load")
+        world.page.goto(f"{ADMIN_BASE}/admin/{name}", wait_until="load")
         # positive control: the admin is on the page, not bounced to login / 404
         assert urlsplit(world.page.url).path == f"/admin/{name}", world.page.url
         seen[name] = _meta(world)
@@ -128,7 +133,7 @@ def all_admin_meta(world: World, value: str) -> None:
 @when(parsers.parse('an anonymous visitor opens "{path}" in a fresh browser context'))
 def anonymous_opens(world: World, path: str) -> None:
     world.context.clear_cookies()
-    world.page.goto(f"{BASE}{path}", wait_until="load")
+    world.page.goto(f"{_host(path)}{path}", wait_until="load")
     assert urlsplit(world.page.url).path == path, world.page.url
 
 
@@ -148,7 +153,7 @@ def buyer_signed_in(world: World) -> None:
 
 @when(parsers.parse('the admin page "{path}" is opened by the signed-in buyer'))
 def buyer_opens_admin(world: World, path: str) -> None:
-    world.page.goto(f"{BASE}{path}", wait_until="load")
+    world.page.goto(f"{_host(path)}{path}", wait_until="load")
 
 
 @then(parsers.parse('the 403 view "{text}" is rendered without a redirect to login'))
@@ -250,10 +255,10 @@ def _collect(world: World, must_contain: str) -> None:
 )
 def admin_visits_two(world: World) -> None:
     _start_recording(world)
-    world.page.goto(f"{BASE}/admin/audit?target_id=u-1&actor_id=u-2", wait_until="domcontentloaded")
+    world.page.goto(f"{ADMIN_BASE}/admin/audit?target_id=u-1&actor_id=u-2", wait_until="domcontentloaded")
     _collect(world, "/admin/audit")
     # full document navigation so document.referrer is the audit URL (as the browser reports it)
-    world.page.evaluate("(u) => { window.location.href = u; }", f"{BASE}/admin/users?query=a%40b.vn")
+    world.page.evaluate("(u) => { window.location.href = u; }", f"{ADMIN_BASE}/admin/users?query=a%40b.vn")
     world.page.wait_for_url(lambda u: urlsplit(u).path == "/admin/users", timeout=timeouts.NAVIGATION)
     _collect(world, "/admin/users")
 

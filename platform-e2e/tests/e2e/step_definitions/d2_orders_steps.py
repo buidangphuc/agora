@@ -16,6 +16,7 @@ from src.pages import OrderDetailPage, OrdersListPage
 from tests.e2e.step_definitions.d2_cart_steps import toast
 from tests.e2e.step_definitions.d2_checkout_steps import slow_actions, track_actions
 from tests.e2e.support import d2_support as d2
+from tests.e2e.support.apps import app_url
 from tests.e2e.support.world import World
 
 TONE_CLASS = {
@@ -744,7 +745,7 @@ def buyer_n_orders_images(world: World, count: int) -> None:
 
 # ── Layout, images and source ────────────────────────────────────────────
 def server_html(world: World, path: str) -> str:
-    resp = world.context.request.get(f"{base(world)}{path}")
+    resp = world.context.request.get(app_url(world.settings, path))
     assert resp.ok, resp.status
     return resp.text()
 

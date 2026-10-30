@@ -10,12 +10,13 @@ from playwright.sync_api import Locator
 
 from src.core.base_page import BasePage
 
-FORBIDDEN_TITLE = "Cần tài khoản Quản trị"
+FORBIDDEN_TITLE = "Không có quyền"
 
 
 class AdminUsersPage(BasePage):
     path = "/admin/users"
     name = "admin users"
+    base_url_setting = "admin_base_url"
 
     def is_displayed(self) -> bool:
         return self.page.get_by_role("heading", name="Quản lý người dùng").is_visible()

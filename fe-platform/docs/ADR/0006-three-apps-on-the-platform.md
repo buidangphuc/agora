@@ -25,3 +25,4 @@ Status: accepted, 2026-10-30 (chosen by the user; supersedes the P0 decision "no
 - Updating a shared package means `npm run vendor` and committing the tarballs and the lockfiles of the apps that use it.
 - The platform must merge before the apps that depend on its tarballs.
 - Only about 8 of the 37 buyer-app components have a platform equivalent; the rest are restyled with the new tokens inside the apps and promoted only when two apps need them.
+- The admin app keeps the `/admin/*` paths on its own host (its root redirects to `/admin/cockpit`), so test ids, links between screens and e2e page objects carry over; the e2e suite reaches it through `ADMIN_BASE_URL`. Code the admin and buyer apps both need (gateway helpers, ui facades, auth forms) is duplicated until step D promotes it, and listed in the admin README.

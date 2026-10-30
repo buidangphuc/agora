@@ -54,7 +54,7 @@ Feature: Admin audit viewer in the browser (frontend-audit-viewer)
   Scenario: A buyer opening the page in the browser is refused - A buyer cannot open the audit page
     Given I am logged in as a buyer via API
     When the visitor opens the audit page
-    Then the audit page shows "Cần tài khoản Quản trị" and no audit table
+    Then the audit page shows "Không có quyền" and no audit table
 
   Scenario: Following the cockpit link - Admin reaches the audit page from the cockpit
     Given an admin is logged in

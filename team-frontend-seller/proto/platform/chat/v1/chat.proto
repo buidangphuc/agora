@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+// team-chat (Go) owns this: Buyer↔Seller 1:1 messaging & threads (Phase 6).
+package platform.chat.v1;
+
+import "google/protobuf/timestamp.proto";
+import "platform/common/v1/common.proto";
+
+service ChatService {
+  // ── Buyer <-> Seller 1:1 Messaging (Phase 6) ──
+  rpc GetOrCreateThread(GetOrCreateThreadRequest) returns (GetOrCreateThreadResponse);
+  rpc ListThreads(ListThreadsRequest) returns (ListThreadsResponse);
+  rpc GetThreadMessages(GetThreadMessagesRequest) returns (GetThreadMessagesResponse);
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+  rpc MarkThreadRead(MarkThreadReadRequest) returns (MarkThreadReadResponse);
+  // Full-text search across the caller's own messages (participant-scoped).
+  rpc SearchMessages(SearchMessagesRequest) returns (SearchMessagesResponse);
+
+  // ── AI Token Streaming (Seeded) ──
+  rpc StreamChat(StreamChatRequest) returns (stream StreamChatResponse);
+
+  // Canned quick-reply suggestions a seller has configured for buyers.
+  rpc ListQuickReplies(ListQuickRepliesRequest) returns (ListQuickRepliesResponse);
+}
+
+// Rich-message kind. Zero value TEXT keeps plain messages backward compatible.
+enum MessageType {
+  MESSAGE_TYPE_TEXT = 0;
+  MESSAGE_TYPE_LISTING_CARD = 1;
+  MESSAGE_TYPE_QUICK_REPLY = 2;
+}
+
+message ChatThread {
+  string id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  string listing_id = 4;
+  string listing_title = 5;
+  string listing_image_url = 6;
+  string last_message_text = 7;
+  google.protobuf.Timestamp last_message_at = 8;
+  int32 unread_count_buyer = 9;
+  int32 unread_count_seller = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message ChatMessage {
+  string id = 1;
+  string thread_id = 2;
+  string sender_id = 3;
+  string sender_name = 4;
+  string content = 5;
+  google.protobuf.Timestamp created_at = 6;
+  MessageType message_type = 7;
+  string listing_id = 8;          // set for LISTING_CARD messages
+  string payload = 9;             // JSON blob for rich payloads (card/quick-reply data)
+}
+
+message GetOrCreateThreadRequest {
+  string seller_id = 1;
+  string listing_id = 2;
+}
+
+message GetOrCreateThreadResponse {
+  ChatThread thread = 1;
+}
+
+message ListThreadsRequest {
+  platform.common.v1.PageRequest page = 1;
+}
+
+message ListThreadsResponse {
+  repeated ChatThread threads = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message GetThreadMessagesRequest {
+  string thread_id = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message GetThreadMessagesResponse {
+  repeated ChatMessage messages = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+message SendMessageRequest {
+  string thread_id = 1;
+  string content = 2;
+  MessageType message_type = 3;
+  string listing_id = 4;          // set for LISTING_CARD messages
+  string payload = 5;             // JSON blob for rich payloads (card/quick-reply data)
+}
+
+message SendMessageResponse {
+  ChatMessage message = 1;
+}
+
+message ListQuickRepliesRequest {
+  string seller_id = 1;
+}
+
+message ListQuickRepliesResponse {
+  repeated string quick_replies = 1;
+}
+
+message MarkThreadReadRequest {
+  string thread_id = 1;
+}
+
+message MarkThreadReadResponse {}
+
+message SearchMessagesRequest {
+  string query = 1;
+  platform.common.v1.PageRequest page = 2;
+}
+
+message SearchMessagesResponse {
+  repeated ChatMessage messages = 1;
+  platform.common.v1.PageResponse page = 2;
+}
+
+// ── AI Seed messages ──
+message StreamChatRequest {
+  string session_id = 1;
+  string message = 2;
+}
+
+message StreamChatResponse {
+  string delta = 1;
+  bool done = 2;
+}

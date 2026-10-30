@@ -4,7 +4,7 @@ from playwright.sync_api import Page, expect
 from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
-from tests.e2e.flows.auth_flow import SESSION_COOKIE
+from tests.e2e.flows.auth_flow import session_cookies, sign_in_admin_app
 from tests.e2e.support import dde_support as d
 from tests.e2e.support import dispute_cases_ui_support as ui
 from tests.e2e.support import odr_support as odr
@@ -15,7 +15,7 @@ from tests.e2e.support.world import World
 ESCALATE = "Khiếu nại lên Agora"
 RETURNS_TAB = "Trả hàng / Hoàn tiền"
 ADMIN_H2 = "Khiếu nại cần xử lý"
-FORBIDDEN = "Cần tài khoản Quản trị"
+FORBIDDEN = "Không có quyền"
 CONFIRM_TEXT = (
     "Xác nhận phán quyết người mua thắng? Yêu cầu trả hàng sẽ được duyệt; "
     "nếu đơn đã thanh toán trực tuyến, người mua sẽ được hoàn tiền."
@@ -30,14 +30,23 @@ def base(world: World) -> str:
     return world.settings.base_url.rstrip("/")
 
 
+def admin_base(world: World) -> str:
+    return world.settings.admin_base_url.rstrip("/")
+
+
+def host_for(world: World, path: str) -> str:
+    return admin_base(world) if path.startswith("/admin") else base(world)
+
+
 def sign_in(world: World, token: str) -> None:
     world.context.add_cookies(
-        [{"name": SESSION_COOKIE, "value": token, "url": world.settings.base_url}]
+        session_cookies(world.settings, token)
     )
+    sign_in_admin_app(world, token)
 
 
 def goto(world: World, path: str) -> None:
-    world.page.goto(f"{base(world)}{path}", wait_until="domcontentloaded")
+    world.page.goto(f"{host_for(world, path)}{path}", wait_until="domcontentloaded")
 
 
 def dispute_path(w: OicWorld) -> str:
@@ -162,7 +171,7 @@ def detail_offers_not(world: World, name: str) -> None:
 def on_detail(world: World, query: str) -> None:
     w = world_of(world)
     expect(world.page).to_have_url(
-        f"{base(world)}/admin/cases?{query.replace('<id>', w.data['dispute_id'])}",
+        f"{admin_base(world)}/admin/cases?{query.replace('<id>', w.data['dispute_id'])}",
         timeout=timeouts.DEFAULT,
     )
 

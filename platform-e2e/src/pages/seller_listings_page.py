@@ -14,6 +14,7 @@ from src.core.base_page import BasePage
 
 
 class SellerListingsPage(BasePage):
+    app = "seller"
     path = routes.SELLER
     name = "seller listings"
 

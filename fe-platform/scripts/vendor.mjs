@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { isMain, root } from "./lib.mjs";
 
 export const PACKAGES = [
@@ -18,9 +18,13 @@ export const PACKAGES = [
   { dir: "packages/session", file: "fe-platform-session.tgz" },
 ];
 
-export function targets() {
-  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  return (pkg.vendor?.targets ?? []).map((t) => resolve(root, t));
+export function targets(base = root) {
+  const pkg = JSON.parse(readFileSync(join(base, "package.json"), "utf8"));
+  return (pkg.vendor?.targets ?? []).map((t) => resolve(base, t));
+}
+
+export function presentTargets(dirs) {
+  return dirs.filter((d) => existsSync(dirname(d)));
 }
 
 export function pack() {
@@ -69,11 +73,14 @@ export function write(packed, dir) {
 
 if (isMain(import.meta.url)) {
   const check = process.argv.includes("--check");
-  const dirs = targets();
-  if (dirs.length === 0) {
+  const declared = targets();
+  if (declared.length === 0) {
     console.error("vendor: no vendor.targets in package.json");
     process.exit(1);
   }
+  const dirs = presentTargets(declared);
+  for (const d of declared)
+    if (!dirs.includes(d)) console.log(`vendor: skipped ${d} (app missing)`);
   const packed = pack();
   if (check) {
     const problems = dirs.flatMap((d) => diffVendored(packed, d));

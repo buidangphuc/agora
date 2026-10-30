@@ -1,8 +1,14 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PACKAGES, diffVendored, write } from "./vendor.mjs";
+import {
+  PACKAGES,
+  diffVendored,
+  presentTargets,
+  targets,
+  write,
+} from "./vendor.mjs";
 
 const packed = new Map([
   ["a.tgz", Buffer.from("one")],
@@ -46,5 +52,27 @@ describe("vendored packages", () => {
       "fe-platform-api-client.tgz",
       "fe-platform-session.tgz",
     ]);
+  });
+});
+
+describe("vendor targets", () => {
+  it("declares the buyer, seller and admin apps", () => {
+    expect(targets().map((t) => t.split("/").slice(-2).join("/"))).toEqual([
+      "team-frontend/vendor",
+      "team-frontend-seller/vendor",
+      "team-frontend-admin/vendor",
+    ]);
+  });
+
+  it("skips targets whose app directory does not exist", () => {
+    const dir = scratch();
+    try {
+      mkdirSync(join(dir, "present"));
+      const present = join(dir, "present", "vendor");
+      const missing = join(dir, "missing", "vendor");
+      expect(presentTargets([present, missing])).toEqual([present]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

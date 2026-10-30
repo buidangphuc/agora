@@ -86,7 +86,7 @@ def audit_down(world: World) -> None:
 @when("the visitor opens the users page")
 @when("the admin opens the users page")
 def open_users(world: World) -> None:
-    world.page.goto(f"{world.settings.base_url}/admin/users", wait_until="domcontentloaded")
+    world.page.goto(f"{world.settings.admin_base_url}/admin/users", wait_until="domcontentloaded")
 
 
 @when("the admin searches for that buyer's username")
@@ -117,11 +117,14 @@ def submit_no_until(world: World, status: str, reason: str) -> None:
     _users(world).submit_status(_x(world)["buyer"]["username"], status, reason)
 
 
-def _browser_login(world: World, password: str) -> None:
+def _browser_login(world: World, password: str, host: str | None = None) -> None:
     user = _subject(world)
     world.context.clear_cookies()
     page = _login(world)
-    page.navigate()
+    if host:
+        world.page.goto(f"{host.rstrip('/')}/login", wait_until="domcontentloaded")
+    else:
+        page.navigate()
     page.login(user["username"], password)
 
 
@@ -137,10 +140,11 @@ def login_wrong(world: World) -> None:
 
 @when(parsers.parse('the seller logs in on the login page and opens "{path}"'))
 def seller_login_open(world: World, path: str) -> None:
-    _browser_login(world, _x(world)["seller"]["password"])
+    host = world.settings.admin_base_url if path.startswith("/admin") else world.settings.base_url
+    _browser_login(world, _x(world)["seller"]["password"], host)
     # Wait until the login submit settles: either off /login or an error shown.
     world.page.wait_for_url(lambda u: "/login" not in u, timeout=timeouts.NAVIGATION)
-    world.page.goto(f"{world.settings.base_url}{path}", wait_until="domcontentloaded")
+    world.page.goto(f"{host.rstrip('/')}{path}", wait_until="domcontentloaded")
 
 
 # ── Thens ────────────────────────────────────────────────────────────────

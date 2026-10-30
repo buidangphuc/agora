@@ -13,7 +13,7 @@ from playwright.sync_api import Locator, Page
 from src.constants import timeouts
 from src.core.base_page import BasePage
 
-FORBIDDEN_TITLE = "Cần tài khoản Quản trị"
+FORBIDDEN_TITLE = "Không có quyền"
 EMPTY_QUEUE = "Hàng chờ trống"
 EMPTY_REPORTS = "Không có báo cáo nào"
 NEXT_LINK = "Trang sau"
@@ -25,6 +25,7 @@ _CONFIRM = re.compile(r"^(Xác nhận|Từ chối|Khóa|Duyệt|Đóng báo cáo
 class AdminModerationPage(BasePage):
     path = "/admin/listings"
     name = "admin moderation"
+    base_url_setting = "admin_base_url"
 
     def is_displayed(self) -> bool:
         return self.table.or_(self.page.get_by_text(EMPTY_QUEUE)).first.is_visible()

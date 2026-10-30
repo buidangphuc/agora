@@ -14,6 +14,7 @@ from src.core.base_page import BasePage
 
 
 class SellerOrderReturnsPage(BasePage):
+    app = "seller"
     path = routes.SELLER_ORDER_RETURNS
     name = "seller order returns"
 
