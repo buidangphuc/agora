@@ -14,7 +14,7 @@ Feature: Admin users page and login enforcement in the browser (frontend-user-en
   Scenario: Users UI: A buyer opening the page in the browser is refused
     Given I am logged in as a buyer via API
     When the visitor opens the users page
-    Then the users page shows "Cần tài khoản Quản trị" and no user table
+    Then the users page shows "Không có quyền" and no user table
     Given an admin is logged in
     When the visitor opens the users page
     Then the users table is shown

@@ -30,7 +30,7 @@ Feature: Admin and login URLs do not leak through referrers or analytics (fronte
     Given a registered buyer for referrer hygiene
     And the referrer-hygiene buyer is signed in in the browser
     When the admin page "/admin/users?query=x" is opened by the signed-in buyer
-    Then the 403 view "Cần tài khoản Quản trị" is rendered without a redirect to login
+    Then the 403 view "Không có quyền" is rendered without a redirect to login
     And the document head contains the meta referrer "no-referrer"
 
   Scenario: Referrer hygiene: no admin query reaches a cross-origin request header
@@ -62,4 +62,4 @@ Feature: Admin and login URLs do not leak through referrers or analytics (fronte
     Given a registered buyer for referrer hygiene
     And the referrer-hygiene buyer is signed in in the browser
     When the admin page "/admin/users?query=x" is opened by the signed-in buyer
-    Then the 403 view "Cần tài khoản Quản trị" is rendered without a redirect to login
+    Then the 403 view "Không có quyền" is rendered without a redirect to login

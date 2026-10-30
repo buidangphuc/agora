@@ -47,7 +47,7 @@ def stop_analytics(world: World) -> None:
 
 @when("the admin opens the cockpit tracking quality panel")
 def open_panel(world: World) -> None:
-    world.page.goto(f"{world.settings.base_url}/admin/cockpit", timeout=PAGE_LOAD_MS)
+    world.page.goto(f"{world.settings.admin_base_url}/admin/cockpit", timeout=PAGE_LOAD_MS)
     world.page.wait_for_load_state("networkidle")
 
 

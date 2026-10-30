@@ -50,6 +50,14 @@ def _base(world: World) -> str:
     return world.settings.base_url.rstrip("/")
 
 
+def _admin_base(world: World) -> str:
+    return world.settings.admin_base_url.rstrip("/")
+
+
+def _host(world: World, path: str) -> str:
+    return _admin_base(world) if path.startswith("/admin") else _base(world)
+
+
 def _admin_page(world: World) -> AdminModerationPage:
     return AdminModerationPage(world.page)
 
@@ -320,17 +328,17 @@ def buyer_reports_in_browser(world: World, reason: str, note: str) -> None:
 # ── Whens: admin pages ───────────────────────────────────────────────────
 @when("the visitor opens the moderation queue")
 def open_queue(world: World) -> None:
-    world.page.goto(f"{_base(world)}/admin/listings", wait_until="domcontentloaded")
+    world.page.goto(f"{_admin_base(world)}/admin/listings", wait_until="domcontentloaded")
 
 
 @when("the admin opens the cases inbox")
 def open_cases(world: World) -> None:
-    world.page.goto(f"{_base(world)}{ADMIN_ROUTE}", wait_until="domcontentloaded")
+    world.page.goto(f"{_admin_base(world)}{ADMIN_ROUTE}", wait_until="domcontentloaded")
 
 
 @when("the admin opens the cockpit")
 def open_cockpit(world: World) -> None:
-    world.page.goto(f"{_base(world)}/admin/cockpit", wait_until="domcontentloaded")
+    world.page.goto(f"{_admin_base(world)}/admin/cockpit", wait_until="domcontentloaded")
 
 
 @when(parsers.parse('the admin follows the link "{name}"'))
@@ -638,7 +646,7 @@ def still_pending(world: World) -> None:
 
 @then(parsers.parse('the browser is on "{path}"'))
 def browser_on(world: World, path: str) -> None:
-    world.page.wait_for_url(re.compile(re.escape(f"{_base(world)}{path}") + r"(\?.*)?$"), timeout=timeouts.NAVIGATION)
+    world.page.wait_for_url(re.compile(re.escape(f"{_host(world, path)}{path}") + r"(\?.*)?$"), timeout=timeouts.NAVIGATION)
 
 
 @then(parsers.parse('the "{name}" tab is selected'))
@@ -654,7 +662,7 @@ def report_moved(world: World, filt: str) -> None:
     x = _x(world)
     status = {"Đã xử lý": "ACTIONED", "Đã bác bỏ": "DISMISSED"}[filt]
     page = _admin_page(world)
-    base = f"{_base(world)}{ADMIN_ROUTE}?tab=reports"
+    base = f"{_admin_base(world)}{ADMIN_ROUTE}?tab=reports"
     world.page.goto(f"{base}&status={status}", wait_until="domcontentloaded")
     row = page.find_row(x["listing_id"])
     assert row is not None, f"report is not listed under {filt}"

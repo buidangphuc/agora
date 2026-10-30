@@ -41,6 +41,7 @@ class Settings(BaseSettings):
 
     env: str = Field(default="local")
     base_url: str = Field(default="http://localhost:3000")
+    admin_base_url: str = Field(default="http://localhost:3002")
     gateway_url: str = Field(default="http://localhost:8080")
     headless: bool = Field(default=True)
     debug: bool = Field(default=False)

@@ -10,7 +10,7 @@ from tests.e2e.support.world import World
 
 @when("the admin opens the cockpit HUD")
 def admin_opens_cockpit_hud(world: World) -> None:
-    world.page.goto(f"{world.settings.base_url}/admin/cockpit")
+    world.page.goto(f"{world.settings.admin_base_url}/admin/cockpit")
     world.page.wait_for_load_state("networkidle")
 
 
