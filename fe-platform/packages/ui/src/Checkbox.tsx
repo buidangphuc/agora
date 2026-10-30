@@ -31,7 +31,7 @@ export function Checkbox({
   const errorId = `${id}-error`;
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
+      <div className={checkbox.row}>
         <RadixCheckbox.Root
           id={id}
           name={name}

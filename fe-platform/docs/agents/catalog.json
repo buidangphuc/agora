@@ -5,6 +5,10 @@
       "kind": "component",
       "purpose": "Action trigger. One `primary` per view; `ghost` for low-emphasis actions.",
       "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
       "props": [
         {
           "name": "variant",
@@ -25,10 +29,26 @@
       "native": "button"
     },
     {
+      "name": "Card",
+      "kind": "component",
+      "purpose": "Surface that groups related content such as a product, a summary or a form.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [],
+      "native": "div"
+    },
+    {
       "name": "Checkbox",
       "kind": "component",
       "purpose": "Boolean choice with a visible label and optional error text.",
       "client": true,
+      "platforms": [
+        "web",
+        "wap"
+      ],
       "props": [
         {
           "name": "label",
@@ -72,6 +92,10 @@
       "kind": "component",
       "purpose": "Modal for a focused task or confirmation. Title and description are required.",
       "client": true,
+      "platforms": [
+        "web",
+        "wap"
+      ],
       "props": [
         {
           "name": "triggerLabel",
@@ -110,6 +134,10 @@
       "kind": "component",
       "purpose": "Text field with a required visible label. Errors are text, never colour alone.",
       "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
       "props": [
         {
           "name": "label",
@@ -134,6 +162,10 @@
       "kind": "component",
       "purpose": "Navigation to another page. Use for every \"go there\" action; Button is for actions on the current page.",
       "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
       "props": [
         {
           "name": "href",
@@ -163,6 +195,10 @@
       "kind": "component",
       "purpose": "Single choice from a short list; use Input for free text.",
       "client": true,
+      "platforms": [
+        "web",
+        "wap"
+      ],
       "props": [
         {
           "name": "label",
@@ -216,6 +252,10 @@
       "kind": "component",
       "purpose": "Read-only data table with a required caption and column-scoped headers.",
       "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
       "props": [
         {
           "name": "caption",
@@ -244,6 +284,10 @@
       "kind": "component",
       "purpose": "Wrap the app once; call `useToast().toast(...)` from any client component.",
       "client": true,
+      "platforms": [
+        "web",
+        "wap"
+      ],
       "props": [
         {
           "name": "children",
@@ -257,6 +301,10 @@
       "kind": "hook",
       "purpose": "Returns `toast(message)` for transient feedback; only valid under ToastProvider.",
       "client": true,
+      "platforms": [
+        "web",
+        "wap"
+      ],
       "props": []
     }
   ],
@@ -297,6 +345,7 @@
       "lg",
       "xl",
       "2xl",
+      "3xl",
       "full"
     ],
     "space": [

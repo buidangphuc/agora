@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   Button,
+  Card,
   Checkbox,
   Dialog,
   Input,
@@ -18,6 +19,9 @@ const options = [
 export const stateMatrix: Record<string, Record<string, ReactNode>> = {
   Link: {
     default: <Link href="/shop">Back to shop</Link>,
+  },
+  Card: {
+    default: <Card>Desk lamp</Card>,
   },
   Button: {
     default: <Button>Save</Button>,

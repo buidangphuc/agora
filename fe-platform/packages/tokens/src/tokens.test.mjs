@@ -7,7 +7,16 @@ import { describe, expect, it } from "vitest";
 import { checkPair, contrastRatio } from "./contrast.mjs";
 import { pairs } from "./pairs.mjs";
 import preset from "./preset.mjs";
-import { THEMES, resolveTheme, semanticNames, toCss } from "./resolve.mjs";
+import {
+  THEMES,
+  px,
+  resolveShadows,
+  resolveTheme,
+  semanticNames,
+  shadowNames,
+  toCss,
+  toJson,
+} from "./resolve.mjs";
 import { components, primitives, semantic } from "./tokens.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -121,10 +130,32 @@ describe("tailwind preset", () => {
     expect(keys.some((k) => k.startsWith("primary-"))).toBe(false);
   });
 
-  it("replaces spacing, radius and font size with token values", () => {
-    expect(preset.theme.spacing).toBe(primitives.space);
-    expect(preset.theme.borderRadius).toBe(primitives.radius);
-    expect(preset.theme.fontSize).toBe(primitives.fontSize);
+  it("replaces spacing, radius and font size with token values in px", () => {
+    expect(preset.theme.spacing[4]).toBe("16px");
+    expect(preset.theme.spacing[0]).toBe("0px");
+    expect(preset.theme.borderRadius["2xl"]).toBe("16px");
+    expect(preset.theme.fontSize.base).toEqual(["16px", "24px"]);
+    expect(Object.keys(preset.theme.spacing)).toEqual(
+      Object.keys(primitives.space),
+    );
+  });
+
+  it("exposes breakpoints, touch height, shadows and safe-area utilities", () => {
+    expect(preset.theme.screens).toEqual({
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+    });
+    expect(preset.theme.minHeight.touch).toBe("44px");
+    expect(Object.keys(preset.theme.boxShadow)).toEqual([
+      "none",
+      ...shadowNames(),
+    ]);
+    const added = {};
+    for (const plugin of preset.plugins) {
+      plugin({ addUtilities: (u) => Object.assign(added, u) });
+    }
+    expect(Object.keys(added)).toEqual([".pt-safe", ".pb-safe"]);
   });
 });
 
@@ -162,6 +193,89 @@ describe("component class maps", () => {
           return !names.has(rest);
         });
       expect(bad).toEqual([]);
+    });
+  }
+});
+
+describe("platform-neutral token data", () => {
+  const unit = /\d\s*(px|rem|em|pt|dp|sp)\b/;
+
+  function strings(node) {
+    if (typeof node === "string") return [node];
+    if (node && typeof node === "object")
+      return Object.values(node).flatMap(strings);
+    return [];
+  }
+
+  it("holds raw numbers, never platform unit strings", () => {
+    const scales = {
+      space: primitives.space,
+      radius: primitives.radius,
+      fontSize: primitives.fontSize,
+      breakpoint: primitives.breakpoint,
+      touchTarget: primitives.touchTarget,
+    };
+    expect(strings(scales).filter((s) => unit.test(s))).toEqual([]);
+    for (const n of [
+      ...Object.values(primitives.space),
+      ...Object.values(primitives.radius),
+      ...Object.values(primitives.breakpoint),
+      ...primitives.fontSize.base,
+    ]) {
+      expect(typeof n).toBe("number");
+    }
+    expect(typeof primitives.touchTarget).toBe("number");
+  });
+
+  it("matches the committed tokens.json", () => {
+    const committed = readFileSync(
+      join(here, "..", "dist", "tokens.json"),
+      "utf8",
+    );
+    expect(committed).toBe(toJson());
+  });
+
+  it("agrees with tokens.css on every colour and shadow", () => {
+    const json = JSON.parse(toJson());
+    const css = readFileSync(join(here, "..", "dist", "tokens.css"), "utf8");
+    const blocks = {
+      light: css.split("\n\n")[0],
+      dark: css.split("\n\n")[1],
+    };
+    for (const theme of THEMES) {
+      for (const [name, value] of Object.entries(json.color[theme])) {
+        expect(blocks[theme]).toContain(`--color-${name}: ${value};`);
+      }
+      for (const [name, value] of Object.entries(resolveShadows(theme))) {
+        expect(blocks[theme]).toContain(`--shadow-${name}: ${value};`);
+      }
+      for (const name of shadowNames()) {
+        expect(json.shadow[theme][name].length).toBeGreaterThan(0);
+        for (const l of json.shadow[theme][name]) {
+          expect(Object.keys(l)).toEqual(["x", "y", "blur", "spread", "color"]);
+        }
+      }
+    }
+  });
+
+  it("formats zero without a bare unit", () => {
+    expect(px(0)).toBe("0px");
+    expect(px(8)).toBe("8px");
+  });
+});
+
+describe("touch targets", () => {
+  const controls = {
+    "button.base": components.button.base,
+    "input.base": components.input.base,
+    "select.trigger": components.select.trigger,
+    "select.item": components.select.item,
+    "checkbox.row": components.checkbox.row,
+  };
+
+  for (const [name, classes] of Object.entries(controls)) {
+    it(`${name} keeps the minimum touch height`, () => {
+      expect(classes.split(/\s+/)).toContain("min-h-touch");
     });
   }
 });

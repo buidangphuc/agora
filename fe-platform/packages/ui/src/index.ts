@@ -1,4 +1,5 @@
 export { Button, type ButtonProps } from "./Button";
+export { Card } from "./Card";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
 export { Dialog, type DialogProps } from "./Dialog";
 export { Input, type InputProps } from "./Input";

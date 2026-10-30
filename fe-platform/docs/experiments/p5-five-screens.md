@@ -2,6 +2,8 @@
 
 Date: 2026-10-29. One run, no control run (no agent without the written context), so this record supports "met / did not meet the criteria" only, not a claim that the written context improves coherence.
 
+Note (2026-10-30): measured on the previous orange, dense look; P7 (ADR-0005) redesigned these screens and the numbers below are not re-measured.
+
 ## Method
 
 - Brief: `docs/experiments/p5-brief.md`, committed before the run (baseline: `npm run check` green with 110 tests, build green, 7 disable comments).

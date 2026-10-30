@@ -1,4 +1,4 @@
-import { primitives, semantic } from "./tokens.mjs";
+import { primitives, semantic, shadow } from "./tokens.mjs";
 
 export const THEMES = ["light", "dark"];
 
@@ -23,22 +23,79 @@ export function semanticNames() {
   return Object.keys(semantic.light);
 }
 
+export function px(/** @type {number} */ n) {
+  return n === 0 ? "0px" : `${n}px`;
+}
+
 /**
- * @param {Record<string, string>} values
+ * @param {{ x: number, y: number, blur: number, spread: number, color: string }[]} layers
+ */
+export function shadowToCss(layers) {
+  return layers
+    .map(
+      (l) => `${px(l.x)} ${px(l.y)} ${px(l.blur)} ${px(l.spread)} ${l.color}`,
+    )
+    .join(", ");
+}
+
+/**
+ * @param {string} theme
+ * @returns {Record<string, string>}
+ */
+export function resolveShadows(theme) {
+  const layers = /** @type {Record<string, Record<string, any[]>>} */ (shadow)[
+    theme
+  ];
+  return Object.fromEntries(
+    Object.entries(layers).map(([name, l]) => [name, shadowToCss(l)]),
+  );
+}
+
+export function shadowNames() {
+  return Object.keys(shadow.light);
+}
+
+/**
+ * @param {string} theme
  * @param {string} indent
  */
-function declarations(values, indent) {
-  return Object.entries(values)
-    .map(([name, value]) => `${indent}--color-${name}: ${value};`)
-    .join("\n");
+function declarations(theme, indent) {
+  const colors = Object.entries(resolveTheme(theme)).map(
+    ([name, value]) => `${indent}--color-${name}: ${value};`,
+  );
+  const shadows = Object.entries(resolveShadows(theme)).map(
+    ([name, value]) => `${indent}--shadow-${name}: ${value};`,
+  );
+  return [...colors, ...shadows].join("\n");
 }
 
 export function toCss() {
-  const light = resolveTheme("light");
-  const dark = resolveTheme("dark");
   return `${[
-    `:root {\n${declarations(light, "  ")}\n}`,
-    `:root[data-theme="dark"] {\n${declarations(dark, "  ")}\n}`,
-    `@media (prefers-color-scheme: dark) {\n  :root:not([data-theme="light"]) {\n${declarations(dark, "    ")}\n  }\n}`,
+    `:root {\n${declarations("light", "  ")}\n}`,
+    `:root[data-theme="dark"] {\n${declarations("dark", "  ")}\n}`,
+    `@media (prefers-color-scheme: dark) {\n  :root:not([data-theme="light"]) {\n${declarations("dark", "    ")}\n  }\n}`,
   ].join("\n\n")}\n`;
+}
+
+export function toJson() {
+  const fontSize = Object.fromEntries(
+    Object.entries(primitives.fontSize).map(([k, [size, lineHeight]]) => [
+      k,
+      { size, lineHeight },
+    ]),
+  );
+  return `${JSON.stringify(
+    {
+      color: { light: resolveTheme("light"), dark: resolveTheme("dark") },
+      shadow,
+      space: primitives.space,
+      radius: primitives.radius,
+      fontSize,
+      fontFamily: primitives.fontFamily,
+      breakpoint: primitives.breakpoint,
+      touchTarget: primitives.touchTarget,
+    },
+    null,
+    2,
+  )}\n`;
 }

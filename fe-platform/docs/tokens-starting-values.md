@@ -1,6 +1,6 @@
 # Starting token values (P0)
 
-Authority is `packages/tokens` since P2. This page records where the starting values came from; it is not kept in sync, and the package wins on any difference.
+Historical since ADR-0005 (2026-10-30): the palette, radii and neutral scale below were replaced and no longer describe the package. Authority is `packages/tokens` since P2. This page records where the starting values came from; it is not kept in sync, and the package wins on any difference.
 
 Source files: `team-frontend/tailwind.config.ts` (Tier 1 primitives) and `team-frontend/src/app/globals.css` (Tier 2 aliases).
 

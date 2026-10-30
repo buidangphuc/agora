@@ -11,7 +11,8 @@
       "types": "./dist/types/preset.d.mts",
       "default": "./src/preset.mjs"
     },
-    "./tokens.css": "./dist/tokens.css"
+    "./tokens.css": "./dist/tokens.css",
+    "./tokens.json": "./dist/tokens.json"
   },
   "scripts": {
     "build": "node scripts/build.mjs && rm -rf dist/types && tsc -p tsconfig.build.json",

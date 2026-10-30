@@ -32,42 +32,85 @@ export namespace primitives {
         "success-dark": string;
     };
     let space: {
-        0: string;
-        1: string;
-        2: string;
-        3: string;
-        4: string;
-        5: string;
-        6: string;
-        8: string;
-        10: string;
-        12: string;
-        16: string;
-        18: string;
+        0: number;
+        1: number;
+        2: number;
+        3: number;
+        4: number;
+        5: number;
+        6: number;
+        8: number;
+        10: number;
+        12: number;
+        16: number;
+        18: number;
     };
     let radius: {
-        none: string;
-        xs: string;
-        lg: string;
-        xl: string;
-        "2xl": string;
-        full: string;
+        none: number;
+        xs: number;
+        lg: number;
+        xl: number;
+        "2xl": number;
+        "3xl": number;
+        full: number;
     };
     let fontSize: {
-        xs: string[];
-        sm: string[];
-        base: string[];
-        xl: string[];
-        "2xl": string[];
-        "3xl": string[];
-        "4xl": string[];
+        xs: number[];
+        sm: number[];
+        base: number[];
+        xl: number[];
+        "2xl": number[];
+        "3xl": number[];
+        "4xl": number[];
     };
     namespace fontFamily {
         let sans: string[];
     }
+    namespace breakpoint {
+        let sm: number;
+        let md: number;
+        let lg: number;
+    }
+    let touchTarget: number;
+}
+export namespace shadow {
+    namespace light {
+        let card: {
+            x: number;
+            y: number;
+            blur: number;
+            spread: number;
+            color: string;
+        }[];
+        let pop: {
+            x: number;
+            y: number;
+            blur: number;
+            spread: number;
+            color: string;
+        }[];
+    }
+    namespace dark {
+        let card_1: {
+            x: number;
+            y: number;
+            blur: number;
+            spread: number;
+            color: string;
+        }[];
+        export { card_1 as card };
+        let pop_1: {
+            x: number;
+            y: number;
+            blur: number;
+            spread: number;
+            color: string;
+        }[];
+        export { pop_1 as pop };
+    }
 }
 export namespace semantic {
-    let light: {
+    let light_1: {
         "action-primary": string;
         "action-primary-hover": string;
         "surface-page": string;
@@ -88,7 +131,8 @@ export namespace semantic {
         "text-warning": string;
         "focus-ring": string;
     };
-    let dark: {
+    export { light_1 as light };
+    let dark_1: {
         "action-primary": string;
         "action-primary-hover": string;
         "surface-page": string;
@@ -109,9 +153,10 @@ export namespace semantic {
         "text-warning": string;
         "focus-ring": string;
     };
+    export { dark_1 as dark };
 }
 export namespace components {
-    namespace button {
+    export namespace button {
         let base: string;
         namespace variant {
             let primary: string;
@@ -119,41 +164,45 @@ export namespace components {
             let ghost: string;
         }
         namespace size {
-            let sm: string;
-            let md: string;
-            let lg: string;
+            let sm_1: string;
+            export { sm_1 as sm };
+            let md_1: string;
+            export { md_1 as md };
+            let lg_1: string;
+            export { lg_1 as lg };
         }
         let disabled: string;
     }
-    namespace field {
+    export namespace field {
         let label: string;
         let help: string;
         let error: string;
     }
-    namespace input {
+    export namespace input {
         let base_1: string;
         export { base_1 as base };
         export let invalid: string;
         let disabled_1: string;
         export { disabled_1 as disabled };
     }
-    namespace select {
+    export namespace select {
         let trigger: string;
         let content: string;
         let item: string;
     }
-    namespace checkbox {
+    export namespace checkbox {
+        let row: string;
         let root: string;
         let checked: string;
     }
-    namespace dialog {
+    export namespace dialog {
         export let overlay: string;
         let content_1: string;
         export { content_1 as content };
         export let title: string;
         export let description: string;
     }
-    namespace toast {
+    export namespace toast {
         let root_1: string;
         export { root_1 as root };
         let title_1: string;
@@ -161,7 +210,7 @@ export namespace components {
         let description_1: string;
         export { description_1 as description };
     }
-    namespace table {
+    export namespace table {
         let root_2: string;
         export { root_2 as root };
         export let caption: string;
@@ -169,12 +218,13 @@ export namespace components {
         export let td: string;
         export let empty: string;
     }
-    namespace link {
+    export namespace link {
         let base_2: string;
         export { base_2 as base };
     }
-    namespace card {
+    export namespace card_2 {
         let base_3: string;
         export { base_3 as base };
     }
+    export { card_2 as card };
 }

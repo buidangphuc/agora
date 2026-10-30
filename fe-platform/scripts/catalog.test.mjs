@@ -12,6 +12,7 @@ describe("catalog", () => {
   it("lists every exported ui component and hook", () => {
     expect(Object.keys(byName).sort()).toEqual([
       "Button",
+      "Card",
       "Checkbox",
       "Dialog",
       "Input",
@@ -21,6 +22,11 @@ describe("catalog", () => {
       "ToastProvider",
       "useToast",
     ]);
+  });
+
+  it("tags every entry with the platforms it runs on", () => {
+    for (const c of catalog.components)
+      expect(c.platforms).toEqual(["web", "wap"]);
   });
 
   it("gives every entry a purpose", () => {
