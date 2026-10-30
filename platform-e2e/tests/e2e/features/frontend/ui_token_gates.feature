@@ -7,7 +7,7 @@ Feature: UI foundation - token gates and the frontend quality pipeline
 
   Scenario: The brand scale resolves from the config
     When a component uses the "bg-primary-500" class built from the Tailwind config
-    Then the computed background colour is "rgb(238, 77, 45)"
+    Then the computed background colour is "rgb(99, 102, 241)"
 
   Scenario: Text below 12px is not available
     When the built CSS served by the storefront is searched for type-scale font sizes

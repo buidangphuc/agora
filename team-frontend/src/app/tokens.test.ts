@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { primitives, resolveShadows, resolveTheme } from "@fe-platform/tokens";
 import postcss from "postcss";
 import tailwindcss from "tailwindcss";
 import { describe, expect, it } from "vitest";
@@ -35,13 +36,19 @@ function declaration(css: string, selector: string, prop: string) {
   return found;
 }
 
-const BRAND = "#ee4d2d";
+const palette = primitives.color as Record<string, string>;
+const BRAND = resolveTheme("light")["action-primary"];
+
+function rgbOf(hex: string): string {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
+}
 
 describe("design tokens", () => {
-  it("Tier 1: bg-primary-500 resolves to the brand colour", async () => {
+  it("Tier 1: bg-primary-500 resolves to the platform primary scale", async () => {
     const css = await build("bg-primary-500");
     expect(declaration(css, ".bg-primary-500", "background-color")).toContain(
-      "rgb(238 77 45",
+      rgbOf(palette["primary-500"]),
     );
   });
 
@@ -51,6 +58,73 @@ describe("design tokens", () => {
       "var(--color-action-primary)",
     );
     expect(declaration(css, ":root", "--color-action-primary")).toBe(BRAND);
+    expect(BRAND).toBe(palette["primary-600"]);
+  });
+
+  it("Tier 2: every platform semantic name is defined on :root and exposed as a colour", async () => {
+    const css = await build("");
+    const colors = config.theme?.extend?.colors as Record<string, unknown>;
+    for (const [name, value] of Object.entries(resolveTheme("light"))) {
+      expect(declaration(css, ":root", `--color-${name}`), name).toBe(value);
+      expect(colors[name], `colour ${name}`).toBe(`var(--color-${name})`);
+    }
+  });
+
+  it("emits the light theme only: no dark or data-theme block", async () => {
+    const css = await build("");
+    expect(css).not.toContain("prefers-color-scheme");
+    expect(css).not.toContain("data-theme");
+  });
+
+  it("exposes the platform shadows", async () => {
+    const css = await build("shadow-card shadow-pop");
+    expect(declaration(css, ":root", "--shadow-card")).toBe(
+      resolveShadows("light").card,
+    );
+    expect(css).toContain(".shadow-card");
+    expect(css).toContain(".shadow-pop");
+  });
+
+  it("gray is the neutral scale so gray-* and neutral-* agree", async () => {
+    const css = await build("bg-gray-100 bg-neutral-100");
+    const gray = declaration(css, ".bg-gray-100", "background-color");
+    const neutral = declaration(css, ".bg-neutral-100", "background-color");
+    expect(gray).toBe(neutral);
+    expect(gray).toContain(rgbOf(palette["neutral-100"]));
+  });
+
+  it("legacy colour groups no longer carry the old orange, red, yellow or green", () => {
+    const old = [
+      "#ee4d2d",
+      "#d73211",
+      "#ffeee8",
+      "#f05d40",
+      "#d0011b",
+      "#b00016",
+      "#ffbe00",
+      "#00bfa5",
+    ];
+    const colors = config.theme?.extend?.colors as Record<
+      string,
+      Record<string, string>
+    >;
+    const legacy = JSON.stringify([
+      colors.brand,
+      colors.mall,
+      colors.shopee,
+    ]).toLowerCase();
+    for (const hex of old) expect(legacy, hex).not.toContain(hex);
+  });
+
+  it("platform utilities for touch height and safe areas exist", async () => {
+    const css = await build("min-h-touch pt-safe pb-safe");
+    expect(declaration(css, ".min-h-touch", "min-height")).toBe("44px");
+    expect(declaration(css, ".pt-safe", "padding-top")).toContain(
+      "safe-area-inset-top",
+    );
+    expect(declaration(css, ".pb-safe", "padding-bottom")).toContain(
+      "safe-area-inset-bottom",
+    );
   });
 
   it("Tier 2: every semantic alias is defined on :root and exposed as a colour", async () => {
