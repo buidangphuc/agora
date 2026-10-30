@@ -109,7 +109,9 @@ function classesOf(node) {
 }
 
 describe("component class maps", () => {
-  const names = new Set(semanticNames());
+  const names = new Set([...semanticNames(), "transparent", "current"]);
+  const sides = new Set(["t", "r", "b", "l", "x", "y"]);
+  const keywords = new Set(["left", "center", "right", "collapse"]);
   const space = new Set(Object.keys(primitives.space));
   const radius = new Set(Object.keys(primitives.radius));
   const sizes = new Set(Object.keys(primitives.fontSize));
@@ -128,6 +130,7 @@ describe("component class maps", () => {
           if (kind === "p" || kind === "px" || kind === "py" || kind === "gap")
             return !space.has(rest);
           if (rest === undefined) return false;
+          if (sides.has(rest) || keywords.has(rest)) return false;
           if (kind === "text" && sizes.has(rest)) return false;
           if ((kind === "border" || kind === "ring") && /^\d+$/.test(rest))
             return false;

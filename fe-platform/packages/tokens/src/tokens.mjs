@@ -25,6 +25,7 @@ export const primitives = {
     danger: "#d0011b",
     "danger-dark": "#b00016",
     "danger-light": "#ff8a98",
+    scrim: "#11182799",
     promo: "#ffbe00",
     "promo-dark": "#8a5a00",
     success: "#00bfa5",
@@ -83,6 +84,8 @@ export const semantic = {
     "surface-muted": "neutral-50",
     "border-subtle": "neutral-200",
     "border-strong": "neutral-300",
+    "border-danger": "danger-dark",
+    "surface-overlay": "scrim",
     "text-primary": "neutral-900",
     "text-secondary": "neutral-600",
     "text-disabled": "neutral-400",
@@ -100,6 +103,8 @@ export const semantic = {
     "surface-muted": "neutral-700",
     "border-subtle": "neutral-700",
     "border-strong": "neutral-600",
+    "border-danger": "danger-light",
+    "surface-overlay": "scrim",
     "text-primary": "neutral-50",
     "text-secondary": "neutral-300",
     "text-disabled": "neutral-500",
@@ -113,12 +118,12 @@ export const semantic = {
 
 export const components = {
   button: {
-    base: "inline-flex items-center justify-center rounded-lg text-sm font-sans focus-visible:ring-2 focus-visible:ring-focus-ring",
+    base: "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-sans focus-visible:ring-2 focus-visible:ring-focus-ring",
     variant: {
       primary:
         "bg-action-primary text-text-inverse hover:bg-action-primary-hover",
       secondary:
-        "bg-surface-card text-text-primary border border-border-strong",
+        "bg-surface-card text-text-primary border border-border-strong hover:bg-surface-muted",
       ghost: "text-text-primary hover:bg-surface-muted",
     },
     size: {
@@ -126,9 +131,47 @@ export const components = {
       md: "px-4 py-2",
       lg: "px-6 py-3",
     },
+    disabled: "text-text-disabled",
+  },
+  field: {
+    label: "block text-sm text-text-primary",
+    help: "text-xs text-text-secondary",
+    error: "text-xs text-text-danger",
   },
   input: {
-    base: "rounded-lg border border-border-strong bg-surface-card text-text-primary text-sm px-3 py-2 focus-visible:ring-2 focus-visible:ring-focus-ring",
+    base: "w-full rounded-lg border border-border-strong bg-surface-card text-text-primary text-sm px-3 py-2 focus-visible:ring-2 focus-visible:ring-focus-ring",
+    invalid: "border-border-danger",
+    disabled: "bg-surface-muted text-text-disabled",
+  },
+  select: {
+    trigger:
+      "inline-flex w-full items-center justify-between rounded-lg border border-border-strong bg-surface-card text-text-primary text-sm px-3 py-2 focus-visible:ring-2 focus-visible:ring-focus-ring",
+    content:
+      "rounded-lg border border-border-subtle bg-surface-card text-text-primary p-1",
+    item: "rounded-xs px-3 py-2 text-sm text-text-primary",
+  },
+  checkbox: {
+    root: "h-5 w-5 rounded-xs border border-border-strong bg-surface-card text-text-inverse focus-visible:ring-2 focus-visible:ring-focus-ring",
+    checked: "aria-checked:bg-action-primary",
+  },
+  dialog: {
+    overlay: "fixed inset-0 bg-surface-overlay",
+    content:
+      "fixed rounded-2xl bg-surface-card text-text-primary border border-border-subtle p-6",
+    title: "text-xl text-text-primary",
+    description: "text-sm text-text-secondary",
+  },
+  toast: {
+    root: "rounded-xl border border-border-subtle bg-surface-card text-text-primary p-4",
+    title: "text-sm text-text-primary",
+    description: "text-xs text-text-secondary",
+  },
+  table: {
+    root: "w-full text-sm text-text-primary",
+    caption: "p-2 text-left text-sm text-text-secondary",
+    th: "border-b border-border-strong bg-surface-muted p-2 text-left text-text-primary",
+    td: "border-b border-border-subtle p-2",
+    empty: "p-6 text-center text-text-secondary",
   },
   card: {
     base: "rounded-xl bg-surface-card border border-border-subtle p-4",

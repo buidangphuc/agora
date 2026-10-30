@@ -1,0 +1,191 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import axe from "axe-core";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  Input,
+  Select,
+  ToastProvider,
+  useToast,
+} from "./index";
+import { stateMatrix } from "./states";
+
+afterEach(cleanup);
+
+async function violations(node: Element) {
+  const result = await axe.run(node, {
+    rules: {
+      "color-contrast": { enabled: false },
+      region: { enabled: false },
+    },
+  });
+  return result.violations.map((v) => `${v.id}: ${v.help}`);
+}
+
+describe("state matrix", () => {
+  for (const [component, states] of Object.entries(stateMatrix)) {
+    for (const [state, element] of Object.entries(states)) {
+      it(`${component} ${state} has no axe violations`, async () => {
+        const { baseElement } = render(element);
+        expect(await violations(baseElement)).toEqual([]);
+      });
+    }
+  }
+
+  it("fails on a deliberately inaccessible fixture", async () => {
+    const { baseElement } = render(<button type="button" />);
+    expect((await violations(baseElement)).length).toBeGreaterThan(0);
+  });
+});
+
+describe("Button", () => {
+  it("defaults to type=button and marks loading as busy and disabled", () => {
+    render(<Button loading>Saving</Button>);
+    const button = screen.getByRole("button", { name: "Saving" });
+    expect(button.getAttribute("type")).toBe("button");
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("Input", () => {
+  it("announces the error through text linked by aria-describedby", () => {
+    render(<Input label="Name" errorText="Name is required" />);
+    const input = screen.getByLabelText("Name");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    const id = input.getAttribute("aria-describedby") ?? "";
+    expect(document.getElementById(id)?.textContent).toBe("Name is required");
+  });
+});
+
+describe("Checkbox", () => {
+  it("toggles from the keyboard-accessible control", () => {
+    let value = false;
+    render(
+      <Checkbox
+        label="Accept"
+        onCheckedChange={(v) => {
+          value = v;
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Accept" }));
+    expect(value).toBe(true);
+  });
+});
+
+describe("Select", () => {
+  it("opens from the keyboard and selects an option", async () => {
+    let value = "";
+    render(
+      <Select
+        label="Letter"
+        options={[
+          { value: "a", label: "Alpha" },
+          { value: "b", label: "Beta" },
+        ]}
+        onValueChange={(v) => {
+          value = v;
+        }}
+      />,
+    );
+    const trigger = screen.getByRole("combobox", { name: "Letter" });
+    trigger.focus();
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    const option = await screen.findByRole("option", { name: "Beta" });
+    expect(await violations(document.body)).toEqual([]);
+    fireEvent.click(option);
+    expect(value).toBe("b");
+  });
+});
+
+describe("Dialog", () => {
+  it("opens, exposes title and description, and closes on Escape", () => {
+    render(
+      <Dialog
+        triggerLabel="Open"
+        title="Confirm"
+        description="Are you sure?"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    const dialog = screen.getByRole("dialog", { name: "Confirm" });
+    expect(dialog.getAttribute("aria-describedby")).toBeTruthy();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+function Fire() {
+  const { toast } = useToast();
+  return (
+    <button type="button" onClick={() => toast({ title: "Saved" })}>
+      Go
+    </button>
+  );
+}
+
+describe("Toast", () => {
+  it("shows a message in a live region and can be dismissed", async () => {
+    render(
+      <ToastProvider>
+        <Fire />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    await screen.findByText("Saved", { selector: "li *" });
+    await waitFor(() => {
+      const live = screen.getAllByRole("status");
+      expect(live.some((el) => el.textContent?.includes("Saved"))).toBe(true);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("Saved")).toBeNull();
+  });
+});
+
+const CLIENT_ONLY =
+  /@radix-ui\/|\buse(?:State|Effect|Ref|Context|Callback|Memo|Reducer)\b|\bcreateContext\b/;
+
+function clientBoundaryViolations(files: Record<string, string>) {
+  return Object.entries(files)
+    .filter(([, text]) => CLIENT_ONLY.test(text))
+    .filter(([, text]) => !/^["']use client["'];?/.test(text.trimStart()))
+    .map(([name]) => name);
+}
+
+describe("client boundary", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const files = Object.fromEntries(
+    readdirSync(here)
+      .filter((f) => /\.tsx?$/.test(f) && !/\.test\.|states\./.test(f))
+      .map((f) => [f, readFileSync(join(here, f), "utf8")]),
+  );
+
+  it("marks every client-only file with use client", () => {
+    expect(clientBoundaryViolations(files)).toEqual([]);
+  });
+
+  it("keeps Button, Input and Table server-safe", () => {
+    for (const name of ["Button.tsx", "Input.tsx", "Table.tsx"]) {
+      expect(files[name]).not.toMatch(/^["']use client["']/);
+    }
+  });
+
+  it("detects a seeded violation", () => {
+    const seeded = {
+      "Bad.tsx": 'import * as R from "@radix-ui/react-dialog";\nexport {};',
+    };
+    expect(clientBoundaryViolations(seeded)).toEqual(["Bad.tsx"]);
+  });
+});
