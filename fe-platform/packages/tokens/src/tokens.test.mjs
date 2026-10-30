@@ -192,7 +192,7 @@ describe("component class maps", () => {
             return false;
           const side = /^([trblxy])-(.+)$/.exec(rest);
           if (kind === "border" && side && sides.has(side[1]))
-            return !names.has(side[2]);
+            return !names.has(side[2]) && !/^\d+$/.test(side[2]);
           return !names.has(rest);
         });
       expect(bad).toEqual([]);
@@ -274,6 +274,10 @@ describe("touch targets", () => {
     "select.trigger": components.select.trigger,
     "select.item": components.select.item,
     "checkbox.row": components.checkbox.row,
+    "tabs.tab": components.tabs.tab,
+    "pagination.cell": components.pagination.cell,
+    "breadcrumb.link": components.breadcrumb.link,
+    "stepper.link": components.stepper.link,
   };
 
   for (const [name, classes] of Object.entries(controls)) {

@@ -323,7 +323,7 @@ export function Catalogue({
           />
         </Demo>
         <Demo label="Stepper: horizontal and vertical">
-          <Stepper steps={steps} className="w-full" />
+          <Stepper steps={steps} />
           <Stepper
             orientation="vertical"
             steps={[
@@ -484,7 +484,9 @@ export function Catalogue({
         </Demo>
         <Demo label="Timeline: default, loading, empty">
           <Timeline items={timeline} />
-          <Timeline items={timeline} loading className="w-64" />
+          <div className="w-64">
+            <Timeline items={timeline} loading />
+          </div>
           <Timeline items={[]} emptyText="Chưa có cập nhật" />
         </Demo>
         <Demo label="Skeleton presets">

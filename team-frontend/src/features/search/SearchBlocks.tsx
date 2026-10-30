@@ -157,13 +157,14 @@ export async function SearchResultsBlock({ state }: { state: SearchState }) {
         )}
       </div>
 
-      <Pagination
-        current={result.page}
-        total={result.total}
-        pageSize={result.pageSize}
-        hrefFor={hrefFor}
-        className="hidden justify-center sm:flex"
-      />
+      <div className="hidden justify-center sm:flex">
+        <Pagination
+          current={result.page}
+          total={result.total}
+          pageSize={result.pageSize}
+          hrefFor={hrefFor}
+        />
+      </div>
       <CompactPagination
         current={result.page}
         total={result.total}

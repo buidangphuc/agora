@@ -54,13 +54,14 @@ export default async function AccountOrdersPage(props: {
             status={view.status}
             shopNames={shopNames}
           />
-          <Pagination
-            current={view.page}
-            total={view.total}
-            pageSize={ORDERS_PAGE_SIZE}
-            hrefFor={(p) => ordersHref(view.status, p)}
-            className="flex justify-center pt-2"
-          />
+          <div className="flex justify-center pt-2">
+            <Pagination
+              current={view.page}
+              total={view.total}
+              pageSize={ORDERS_PAGE_SIZE}
+              hrefFor={(p) => ordersHref(view.status, p)}
+            />
+          </div>
         </>
       ) : (
         <Alert

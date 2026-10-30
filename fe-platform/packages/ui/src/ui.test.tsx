@@ -9,8 +9,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import axe from "axe-core";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  Breadcrumb,
   Button,
   Card,
   CardContent,
@@ -18,7 +20,11 @@ import {
   Checkbox,
   Dialog,
   Input,
+  Pagination,
   Select,
+  Stepper,
+  Tabs,
+  Timeline,
   ToastProvider,
   useToast,
 } from "./index";
@@ -268,6 +274,175 @@ describe("Toast", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText("Saved")).toBeNull();
+  });
+});
+
+describe("Tabs", () => {
+  const items = [
+    { id: "all", label: "All", content: <p>All panel</p> },
+    { id: "open", label: "Open", badge: 3, content: <p>Open panel</p> },
+    { id: "off", label: "Off", disabled: true },
+    { id: "done", label: "Done", content: <p>Done panel</p> },
+  ];
+
+  it("wires tablist, tabs and panels and moves with arrow keys past disabled tabs", () => {
+    const seen: string[] = [];
+    render(<Tabs items={items} onChange={(id) => seen.push(id)} />);
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    const panel = screen.getByRole("tabpanel", { name: "All" });
+    expect(tabs[0].getAttribute("aria-controls")).toBe(panel.id);
+    fireEvent.keyDown(tabs[1], { key: "ArrowRight" });
+    expect(seen).toEqual(["done"]);
+    expect(document.activeElement).toBe(tabs[3]);
+    expect(screen.getByRole("tabpanel").textContent).toBe("Done panel");
+    fireEvent.keyDown(tabs[3], { key: "Home" });
+    expect(tabs[0].getAttribute("tabindex")).toBe("0");
+    expect(tabs[3].getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("keeps every tab at the touch height with a keyboard focus ring", () => {
+    render(<Tabs items={items} variant="pills" />);
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab.className).toContain("min-h-touch");
+      expect(tab.className).toContain("focus-visible:ring-2");
+    }
+  });
+
+  it("renders server links with aria-current when hrefFor is given", () => {
+    const html = renderToStaticMarkup(
+      <Tabs items={items} activeId="open" hrefFor={(id) => `/o/${id}`} />,
+    );
+    expect(html).toContain('href="/o/open"');
+    expect(html).toContain('aria-current="page"');
+    expect(html).toContain('aria-label="Tabs"');
+    expect(html).not.toContain("<button");
+  });
+});
+
+describe("Pagination", () => {
+  const hrefFor = (p: number) => `/s?page=${p}`;
+
+  it("collapses long ranges around the current page with custom labels", () => {
+    render(
+      <Pagination
+        current={10}
+        total={200}
+        hrefFor={hrefFor}
+        pageLabel={(p) => `P${p}`}
+        previousLabel="Prev"
+        nextLabel="Next"
+      />,
+    );
+    expect(
+      screen.getAllByRole("link").map((l) => l.getAttribute("aria-label")),
+    ).toEqual(["Prev", "P1", "P9", "P10", "P11", "P20", "Next"]);
+    expect(
+      screen.getByRole("link", { name: "P10" }).getAttribute("aria-current"),
+    ).toBe("page");
+  });
+
+  it("disables the bound arrows, clamps the page and hides a single page", () => {
+    const { container, rerender } = render(
+      <Pagination current={99} total={30} hrefFor={hrefFor} />,
+    );
+    expect(
+      screen.getByLabelText("Next page").getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(
+      screen.getByRole("link", { name: "Page 3" }).getAttribute("aria-current"),
+    ).toBe("page");
+    rerender(<Pagination current={1} total={5} hrefFor={hrefFor} />);
+    expect(container.innerHTML).toBe("");
+  });
+});
+
+describe("Breadcrumb", () => {
+  it("links ancestors and marks the last item as the current page", () => {
+    render(
+      <Breadcrumb
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Pixel", href: "/p" },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toBeTruthy();
+    expect(
+      screen.getAllByRole("link").map((l) => l.getAttribute("href")),
+    ).toEqual(["/"]);
+    const current = screen.getByText("Pixel");
+    expect(current.getAttribute("aria-current")).toBe("page");
+    expect(current.closest("a")).toBeNull();
+  });
+});
+
+describe("Stepper", () => {
+  it("marks the current step and links only enabled steps with an href", () => {
+    render(
+      <Stepper
+        steps={[
+          { id: 1, title: "Address", status: "complete", href: "/a" },
+          {
+            id: 2,
+            title: "Shipping",
+            status: "complete",
+            href: "/b",
+            disabled: true,
+          },
+          { id: 3, title: "Pay", status: "current" },
+        ]}
+      />,
+    );
+    const items = screen.getAllByRole("listitem");
+    expect(items[2].getAttribute("aria-current")).toBe("step");
+    expect(items[0].getAttribute("aria-current")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Address" }).getAttribute("href"),
+    ).toBe("/a");
+    expect(screen.queryByRole("link", { name: "Shipping" })).toBeNull();
+    expect(screen.getByText("Shipping").getAttribute("aria-disabled")).toBe(
+      "true",
+    );
+  });
+
+  it("lists descriptions in the vertical orientation", () => {
+    render(
+      <Stepper
+        orientation="vertical"
+        steps={[
+          { id: 1, title: "Paid", status: "complete" },
+          { id: 2, title: "Failed", status: "failed", description: "Retry" },
+        ]}
+      />,
+    );
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.getByText("Retry")).toBeTruthy();
+  });
+});
+
+describe("Timeline", () => {
+  it("renders events in order with time, description, testId and the current mark", () => {
+    render(
+      <Timeline
+        items={[
+          { key: "1", title: "Ordered", time: "10:00", testId: "evt" },
+          {
+            key: "2",
+            title: "Shipping",
+            description: "With carrier",
+            tone: "primary",
+            current: true,
+          },
+        ]}
+      />,
+    );
+    const items = screen.getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[1].getAttribute("aria-current")).toBe("step");
+    expect(screen.getByTestId("evt").tagName).toBe("LI");
+    expect(screen.getByText("10:00")).toBeTruthy();
+    expect(screen.getByText("With carrier")).toBeTruthy();
   });
 });
 

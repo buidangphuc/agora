@@ -11,6 +11,7 @@ describe("catalog", () => {
 
   it("lists every exported ui component and hook", () => {
     expect(Object.keys(byName).sort()).toEqual([
+      "Breadcrumb",
       "Button",
       "Card",
       "CardContent",
@@ -22,8 +23,12 @@ describe("catalog", () => {
       "Dialog",
       "Input",
       "Link",
+      "Pagination",
       "Select",
+      "Stepper",
       "Table",
+      "Tabs",
+      "Timeline",
       "ToastProvider",
       "useToast",
     ]);

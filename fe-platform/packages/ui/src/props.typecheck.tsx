@@ -1,4 +1,5 @@
 import {
+  Breadcrumb,
   Button,
   Card,
   CardContent,
@@ -8,8 +9,12 @@ import {
   Checkbox,
   Dialog,
   Input,
+  Pagination,
   Select,
+  Stepper,
   Table,
+  Tabs,
+  Timeline,
 } from "./index";
 
 // @ts-expect-error className would bypass tokens
@@ -41,3 +46,15 @@ export const cardContent = <CardContent className="x" />;
 export const cardFooter = <CardFooter className="x" />;
 // @ts-expect-error unknown variant
 export const buttonVariant = <Button variant="outline" />;
+// @ts-expect-error className would bypass tokens
+export const tabs = <Tabs items={[]} className="x" />;
+export const pagination = (
+  // @ts-expect-error className would bypass tokens
+  <Pagination current={1} total={1} hrefFor={String} className="x" />
+);
+// @ts-expect-error className would bypass tokens
+export const breadcrumb = <Breadcrumb items={[]} className="x" />;
+// @ts-expect-error className would bypass tokens
+export const stepper = <Stepper steps={[]} className="x" />;
+// @ts-expect-error className would bypass tokens
+export const timeline = <Timeline items={[]} className="x" />;
