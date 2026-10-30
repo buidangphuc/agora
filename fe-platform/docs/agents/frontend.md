@@ -34,7 +34,8 @@ Short on purpose. v1 changes come from `docs/experiments/p5-five-screens.md`; fi
 ## Boundaries
 - Feature code imports UI only from `packages/ui` and values only from `packages/tokens`. Use the existing component before writing a control; a missing variant is added to the component, not styled around it.
 - Components never call the network. Data loads in server components or `lib/` functions through `@fe-platform/api-client`; screens receive plain view models, never proto types. Failures are `ApiError`; `not_found` becomes `notFound()`.
-- `templates/app/app/(public)/shop` is a demo with hardcoded products, cart maths in `lib/shop.ts` and no order call. Copy its look, never its data or pricing logic: real catalogue and order data come from the gateway, and the owning services stay authoritative for prices, totals and field rules.
+- Every value on a screen (products, prices, carts, addresses, orders) comes from a gateway API through `lib/` loaders and server actions; money and totals are the backend's and are formatted, never computed. Nothing is hardcoded: a source scan test fails on static product lists, price literals and local cart state. When the backend cannot provide something, add a row to `docs/gaps.md` and show an honest empty or unavailable state; never invent a value.
+- Screens that need a user use `guarded(next, fn)` (loaders) or `attempt(next, fn)` (actions) from `lib/guard.ts`; they send an expired session to `/session/refresh` and an anonymous visitor to `/login`. Action failures redirect with an error code (`?error=invalid`), never the backend message or personal data.
 - Public routes must not import internal-only code.
 - A component used by one feature stays in that feature until a second use appears.
 

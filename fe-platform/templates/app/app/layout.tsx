@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SiteHeader } from "../components/SiteHeader";
 import "./globals.css";
 
 export const viewport = {
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="bg-surface-page font-sans text-base text-text-primary">
+        <SiteHeader />
         {children}
       </body>
     </html>

@@ -1,50 +1,37 @@
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  Input,
-  Select,
-  Table,
-} from "@fe-platform/ui";
+import { Link, Table } from "@fe-platform/ui";
+import { Page } from "../../../components/Page";
+import { guarded } from "../../../lib/guard";
+import { toOrderView } from "../../../lib/orders";
 
-const columns = [
-  { key: "name", header: "Name" },
-  { key: "status", header: "Status" },
-];
+export const dynamic = "force-dynamic";
 
-const rows = [
-  { id: 1, name: "Order 1001", status: "Shipped" },
-  { id: 2, name: "Order 1002", status: "Pending" },
-];
-
-export default function Dashboard() {
+export default async function Dashboard() {
+  const orders = (
+    await guarded("/dashboard", (c) => c.order.listBuyerOrders({}))
+  ).orders.map(toOrderView);
   return (
-    <main className="flex flex-col gap-6 p-6">
-      <h1 className="text-2xl">Dashboard</h1>
-      <p className="text-text-secondary">
-        Internal route group. Authentication checks belong on this group's
-        layout.
-      </p>
-      <form className="flex max-w-lg flex-col gap-4">
-        <Input label="Name" helpText="As shown on invoices" />
-        <Select
-          label="Status"
-          options={[
-            { value: "open", label: "Open" },
-            { value: "closed", label: "Closed" },
-          ]}
-        />
-        <Checkbox label="Send me updates" />
-        <div className="flex gap-2">
-          <Button type="submit">Save</Button>
-          <Dialog
-            triggerLabel="Delete"
-            title="Delete this record?"
-            description="This cannot be undone."
-          />
-        </div>
-      </form>
-      <Table caption="Recent orders" columns={columns} rows={rows} />
-    </main>
+    <Page title="Your orders" description="Orders you have placed.">
+      <Table
+        caption="Your orders"
+        columns={[
+          { key: "order", header: "Order" },
+          { key: "placed", header: "Placed" },
+          { key: "status", header: "Status" },
+          { key: "total", header: "Total" },
+        ]}
+        rows={orders.map((o) => ({
+          id: o.id,
+          order: (
+            <Link href={`/shop/confirmation?order=${encodeURIComponent(o.id)}`}>
+              {o.id}
+            </Link>
+          ),
+          placed: o.placedOn,
+          status: o.status,
+          total: o.total,
+        }))}
+        emptyText="You have not placed any orders yet."
+      />
+    </Page>
   );
 }
