@@ -32,12 +32,12 @@ export default async function AccountOrdersPage(props: {
   const shopNames = await batchGetShopNames(view.orders.map((o) => o.sellerId));
 
   return (
-    <section className="mx-auto max-w-4xl space-y-4 py-2">
-      <header>
-        <h1 className="text-xl font-bold text-text-primary">
+    <section className="mx-auto flex w-full max-w-4xl flex-col gap-6 py-4 md:gap-8 md:py-8">
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
           Đơn hàng của tôi
         </h1>
-        <p className="text-sm text-text-secondary">
+        <p className="text-base text-text-secondary">
           {result.ok
             ? `${view.counts.all} đơn hàng`
             : "Không tải được đơn hàng"}
@@ -47,7 +47,7 @@ export default async function AccountOrdersPage(props: {
       <OrderStatusTabs active={view.status} counts={view.counts} />
 
       {result.ok ? (
-        <>
+        <div className="flex flex-col gap-6">
           <OrderList
             orders={view.orders}
             status={view.status}
@@ -58,9 +58,9 @@ export default async function AccountOrdersPage(props: {
             total={view.total}
             pageSize={ORDERS_PAGE_SIZE}
             hrefFor={(p) => ordersHref(view.status, p)}
-            className="flex justify-center pt-2"
+            className="flex justify-center"
           />
-        </>
+        </div>
       ) : (
         <Alert
           type="error"

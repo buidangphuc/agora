@@ -49,7 +49,7 @@ export function ReturnRequestSection({
     !disputes.some((d) => d.returnId === ret.id && isOpenDispute(d));
 
   return (
-    <div data-testid="return-section" className="space-y-4">
+    <div data-testid="return-section" className="flex flex-col gap-4">
       {returns.length > 0 ? (
         returns.map((ret) => (
           <React.Fragment key={ret.id}>
@@ -74,7 +74,11 @@ export function ReturnRequestSection({
               ]}
             />
             {canEscalateReturn(ret) && (
-              <Button variant="outline" onClick={() => setEscalating(ret.id)}>
+              <Button
+                variant="outline"
+                fullWidth="mobile"
+                onClick={() => setEscalating(ret.id)}
+              >
                 Khiếu nại lên Agora
               </Button>
             )}

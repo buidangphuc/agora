@@ -3,7 +3,7 @@ import React from "react";
 import { Image } from "@/components/ui/Image";
 import { getImageUrl } from "@/lib/media";
 
-/** 1:1 item thumbnail in a fixed 64px box; the fallback placeholder keeps the box. */
+/** 1:1 item thumbnail in a fixed 64px box (80px from sm); the fallback placeholder keeps the box. */
 export function OrderItemThumb({
   imageUrl,
   title,
@@ -16,7 +16,7 @@ export function OrderItemThumb({
 }) {
   const src = getImageUrl(imageUrl);
   return (
-    <div className="w-16 shrink-0">
+    <div className="w-16 shrink-0 sm:w-20">
       {src ? (
         <Image
           src={src}
@@ -28,7 +28,7 @@ export function OrderItemThumb({
         <div
           role="img"
           aria-label="Không có ảnh"
-          className="aspect-square w-full rounded-xl bg-surface-page"
+          className="aspect-square w-full rounded-2xl bg-surface-muted"
         />
       )}
     </div>

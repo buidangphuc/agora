@@ -91,14 +91,14 @@ export function OrderTimeline({
   return (
     <div
       data-testid="order-timeline"
-      className="rounded-xl border border-border-subtle bg-surface-card p-5"
+      className="rounded-2xl border border-border-subtle bg-surface-card p-4 shadow-card sm:p-6"
     >
       <div className="border-b border-border-subtle pb-4">
-        <h2 className="text-base font-semibold text-text-primary">
+        <h2 className="text-lg font-semibold text-text-primary">
           Hành trình đơn hàng
         </h2>
         {shipment && (
-          <p className="mt-1 text-xs text-text-secondary">
+          <p className="mt-1 break-words text-sm text-text-secondary">
             {shipment.carrier || "Đơn vị vận chuyển"} · Mã vận đơn:{" "}
             <span className="font-semibold text-text-primary">
               {shipment.trackingCode || "—"}
@@ -125,7 +125,7 @@ export function OrderTimeline({
         </div>
       )}
 
-      <div className="mt-5">
+      <div className="mt-6">
         {!hasCheckpoints && !hasSaga ? (
           <div data-testid="timeline-empty">
             <Empty description="Chưa có thông tin vận chuyển cho đơn hàng này." />
