@@ -116,14 +116,14 @@ function itemColumns(order: ViewOrder): TableColumn<ViewOrderItem>[] {
       key: "price",
       title: "Đơn giá",
       align: "right",
-      className: "hidden md:table-cell",
+      hideBelow: "md",
       render: (it) => <PriceTag price={it.unitPrice} size="sm" />,
     },
     {
       key: "qty",
       title: "Số lượng",
       align: "center",
-      className: "hidden md:table-cell",
+      hideBelow: "md",
       render: (it) => it.quantity,
     },
     {

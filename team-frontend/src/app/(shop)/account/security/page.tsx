@@ -27,7 +27,6 @@ export const metadata = {
 
 // Below `sm` the IP and time columns are hidden and repeated as a meta line
 // under the first cell, so each row stacks instead of scrolling sideways.
-const wide = "hidden sm:table-cell";
 const meta = "mt-0.5 block text-xs font-normal text-text-secondary sm:hidden";
 
 const sessionColumns: TableColumn<ViewSession>[] = [
@@ -48,13 +47,13 @@ const sessionColumns: TableColumn<ViewSession>[] = [
   {
     key: "ip",
     title: "IP",
-    className: wide,
+    hideBelow: "sm",
     render: (s) => s.ip || "—",
   },
   {
     key: "lastSeen",
     title: "Hoạt động lần cuối",
-    className: wide,
+    hideBelow: "sm",
     render: (s) => s.lastSeen || s.createdAt,
   },
   {
@@ -83,11 +82,11 @@ const historyColumns: TableColumn<ViewLoginEvent>[] = [
       </>
     ),
   },
-  { key: "ip", title: "IP", className: wide, render: (e) => e.ip || "—" },
+  { key: "ip", title: "IP", hideBelow: "sm", render: (e) => e.ip || "—" },
   {
     key: "createdAt",
     title: "Thời gian",
-    className: wide,
+    hideBelow: "sm",
     dataIndex: "createdAt",
   },
   {

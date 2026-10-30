@@ -111,6 +111,24 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
         rows={[]}
       />
     ),
+    loading: (
+      <Table
+        caption="Items"
+        captionHidden
+        columns={[{ key: "name", header: "Name" }]}
+        rows={[]}
+        loading
+      />
+    ),
+    error: (
+      <Table
+        caption="Items"
+        columns={[{ key: "name", header: "Name" }]}
+        rows={[]}
+        error="Could not load items"
+        onRetry={() => undefined}
+      />
+    ),
   },
   Toast: {
     provider: (

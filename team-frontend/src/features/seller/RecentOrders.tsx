@@ -15,7 +15,7 @@ const columns: TableColumn<ViewOrder>[] = [
   {
     key: "id",
     title: "Mã đơn",
-    className: "sticky left-0 z-10 bg-surface-card md:static",
+    sticky: true,
     render: (o) => (
       <Link
         href={`/seller/orders/${o.id}`}

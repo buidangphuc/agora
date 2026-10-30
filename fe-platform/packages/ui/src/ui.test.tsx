@@ -19,6 +19,7 @@ import {
   Dialog,
   Input,
   Select,
+  Table,
   ToastProvider,
   useToast,
 } from "./index";
@@ -268,6 +269,75 @@ describe("Toast", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText("Saved")).toBeNull();
+  });
+});
+
+describe("Table", () => {
+  type Row = { sku: string; name: string; qty: number };
+  const rows: Row[] = [
+    { sku: "a", name: "Pen", qty: 2 },
+    { sku: "b", name: "Ink", qty: 5 },
+  ];
+  const columns = [
+    { key: "name", header: "Name" },
+    {
+      key: "qty",
+      header: "Qty",
+      align: "right" as const,
+      render: (r: Row) => `x${r.qty}`,
+    },
+  ];
+
+  it("renders custom cells, row test ids and a hidden caption as the name", () => {
+    render(
+      <Table<Row>
+        caption="Items"
+        captionHidden
+        columns={columns}
+        rows={rows}
+        rowKey={(r) => r.sku}
+        rowTestId={(r) => `row-${r.sku}`}
+      />,
+    );
+    expect(screen.getByRole("table", { name: "Items" })).toBeTruthy();
+    expect(screen.getByTestId("row-b").textContent).toBe("Inkx5");
+    expect(screen.getAllByRole("columnheader")).toHaveLength(2);
+  });
+
+  it("keeps the headers and marks the table busy while loading", () => {
+    render(
+      <Table<Row>
+        caption="Items"
+        columns={columns}
+        rows={rows}
+        loading
+        loadingRows={3}
+      />,
+    );
+    expect(screen.getByRole("table").getAttribute("aria-busy")).toBe("true");
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+    expect(screen.queryByText("Pen")).toBeNull();
+  });
+
+  it("shows an error alert with a retry action instead of rows", () => {
+    let retried = 0;
+    render(
+      <Table<Row>
+        caption="Items"
+        columns={columns}
+        rows={rows}
+        error="Could not load"
+        onRetry={() => {
+          retried += 1;
+        }}
+        retryLabel="Retry"
+      />,
+    );
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("Could not load");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retried).toBe(1);
+    expect(screen.queryByText("Pen")).toBeNull();
   });
 });
 
