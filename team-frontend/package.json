@@ -21,6 +21,7 @@
     "@connectrpc/connect": "^1.6.1",
     "@connectrpc/connect-node": "^1.6.1",
     "@fe-platform/api-client": "file:./vendor/fe-platform-api-client.tgz",
+    "@fe-platform/session": "file:./vendor/fe-platform-session.tgz",
     "@fe-platform/tokens": "file:./vendor/fe-platform-tokens.tgz",
     "@fe-platform/ui": "file:./vendor/fe-platform-ui.tgz",
     "@openfeature/flipt-provider": "^0.1.4",

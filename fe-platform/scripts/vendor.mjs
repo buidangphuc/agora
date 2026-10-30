@@ -15,6 +15,7 @@ export const PACKAGES = [
   { dir: "packages/tokens", file: "fe-platform-tokens.tgz" },
   { dir: "packages/ui", file: "fe-platform-ui.tgz" },
   { dir: "packages/api-client", file: "fe-platform-api-client.tgz" },
+  { dir: "packages/session", file: "fe-platform-session.tgz" },
 ];
 
 export function targets() {
