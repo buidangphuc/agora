@@ -74,19 +74,17 @@ function setup(over: Over = {}) {
   );
 }
 
-const line = (id: string) =>
-  screen.getByTestId(`cart-line-checkbox-${id}`) as HTMLInputElement;
-const shop = (id: string) =>
-  screen.getByTestId(`cart-shop-checkbox-${id}`) as HTMLInputElement;
+const line = (id: string) => screen.getByTestId(`cart-line-checkbox-${id}`);
+const shop = (id: string) => screen.getByTestId(`cart-shop-checkbox-${id}`);
 const buyLinks = () => screen.queryAllByRole("link", { name: "Mua hàng" });
 const buyHref = () => buyLinks()[0]?.getAttribute("href");
 
 describe("CartSelection island", () => {
   it("[Cart selection: every line is ticked by default] all lines ticked by default", () => {
     setup();
-    for (const id of ["A", "B", "C"]) expect(line(id).checked).toBe(true);
-    expect(shop("s1").checked).toBe(true);
-    expect(shop("s2").checked).toBe(true);
+    for (const id of ["A", "B", "C"]) expect(line(id)).toBeChecked();
+    expect(shop("s1")).toBeChecked();
+    expect(shop("s2")).toBeChecked();
     expect(buyHref()).toBe("/checkout?items=A%2CB%2CC");
     expect(screen.getByText(/Tạm tính \(3 sản phẩm\)/)).toBeInTheDocument();
   });
@@ -96,9 +94,9 @@ describe("CartSelection island", () => {
     const user = userEvent.setup();
     await user.click(line("B"));
     await user.click(line("C"));
-    expect(line("A").checked).toBe(true);
-    expect(line("B").checked).toBe(false);
-    expect(line("C").checked).toBe(false);
+    expect(line("A")).toBeChecked();
+    expect(line("B")).not.toBeChecked();
+    expect(line("C")).not.toBeChecked();
     expect(buyHref()).toBe("/checkout?items=A");
     expect(screen.getByText(/Tạm tính \(1 sản phẩm\)/)).toBeInTheDocument();
     expect(screen.getByTestId("order-total")).toHaveTextContent("300.000");
@@ -119,30 +117,30 @@ describe("CartSelection island", () => {
     setup();
     const user = userEvent.setup();
     await user.click(shop("s1"));
-    expect(line("A").checked).toBe(false);
-    expect(line("B").checked).toBe(false);
-    expect(line("C").checked).toBe(true);
-    expect(shop("s1").checked).toBe(false);
+    expect(line("A")).not.toBeChecked();
+    expect(line("B")).not.toBeChecked();
+    expect(line("C")).toBeChecked();
+    expect(shop("s1")).not.toBeChecked();
     expect(buyHref()).toBe("/checkout?items=C");
     await user.click(shop("s1"));
-    expect(line("A").checked).toBe(true);
-    expect(line("B").checked).toBe(true);
-    expect(line("C").checked).toBe(true);
+    expect(line("A")).toBeChecked();
+    expect(line("B")).toBeChecked();
+    expect(line("C")).toBeChecked();
     expect(buyHref()).toBe("/checkout?items=A%2CB%2CC");
   });
 
   it("[Cart selection: a shop select-all toggles that shop's lines] shop checkbox is indeterminate while only one of its lines is ticked", async () => {
     setup();
     const user = userEvent.setup();
-    expect(shop("s1").indeterminate).toBe(false);
+    expect(shop("s1")).not.toBePartiallyChecked();
     await user.click(line("B"));
-    expect(shop("s1").indeterminate).toBe(true);
-    expect(shop("s1").checked).toBe(false);
-    expect(shop("s2").indeterminate).toBe(false);
+    expect(shop("s1")).toBePartiallyChecked();
+    expect(shop("s1")).not.toBeChecked();
+    expect(shop("s2")).not.toBePartiallyChecked();
     await user.click(shop("s1"));
-    expect(line("A").checked).toBe(true);
-    expect(line("B").checked).toBe(true);
-    expect(shop("s1").indeterminate).toBe(false);
+    expect(line("A")).toBeChecked();
+    expect(line("B")).toBeChecked();
+    expect(shop("s1")).not.toBePartiallyChecked();
   });
 
   it("[Cart selection: nothing ticked disables the buy action] nothing ticked disables buy", async () => {
@@ -196,22 +194,22 @@ describe("CartSelection island", () => {
 
   it("[Cart selection: the back link from checkout restores the selection] initial selection comes from items param", () => {
     setup({ initialItems: "B,ghost" });
-    expect(line("A").checked).toBe(false);
-    expect(line("B").checked).toBe(true);
-    expect(line("C").checked).toBe(false);
+    expect(line("A")).not.toBeChecked();
+    expect(line("B")).toBeChecked();
+    expect(line("C")).not.toBeChecked();
     expect(buyHref()).toBe("/checkout?items=B");
     expect(screen.getByText(/Tạm tính \(1 sản phẩm\)/)).toBeInTheDocument();
   });
 
   it("[Cart selection: an items parameter with no current line ticks everything] unmatched items param ticks every line", () => {
     setup({ initialItems: "ghost" });
-    for (const id of ["A", "B", "C"]) expect(line(id).checked).toBe(true);
+    for (const id of ["A", "B", "C"]) expect(line(id)).toBeChecked();
     expect(buyHref()).toBe("/checkout?items=A%2CB%2CC");
   });
 
   it("[Cart selection: the back link from checkout restores the selection] encoded items param is read", () => {
     setup({ initialItems: "A,C" });
-    expect(line("B").checked).toBe(false);
+    expect(line("B")).not.toBeChecked();
     expect(buyHref()).toBe("/checkout?items=A%2CC");
   });
 

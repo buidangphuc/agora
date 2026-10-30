@@ -171,6 +171,12 @@ describe("Input", () => {
     const id = input.getAttribute("aria-describedby") ?? "";
     expect(document.getElementById(id)?.textContent).toBe("Name is required");
   });
+
+  it("marks a required field without changing its accessible name", () => {
+    render(<Input label="Name" required />);
+    const input = screen.getByRole("textbox", { name: "Name" });
+    expect(input.hasAttribute("required")).toBe(true);
+  });
 });
 
 describe("Checkbox", () => {
@@ -186,6 +192,13 @@ describe("Checkbox", () => {
     );
     fireEvent.click(screen.getByRole("checkbox", { name: "Accept" }));
     expect(value).toBe(true);
+  });
+
+  it("keeps a hidden label as the accessible name and reports the mixed state", () => {
+    render(<Checkbox label="Select all" labelHidden checked="indeterminate" />);
+    const box = screen.getByRole("checkbox", { name: "Select all" });
+    expect(box.getAttribute("aria-checked")).toBe("mixed");
+    expect(screen.getByText("Select all").className).toBe("sr-only");
   });
 });
 

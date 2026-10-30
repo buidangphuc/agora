@@ -5,9 +5,7 @@ import {
   type ReactNode,
   createContext,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 
@@ -152,9 +150,10 @@ export function LineCheckbox({ id, title }: { id: string; title: string }) {
   return (
     <Checkbox
       data-testid={`cart-line-checkbox-${id}`}
-      aria-label={`Chọn ${title}`}
+      label={`Chọn ${title}`}
+      labelHidden
       checked={ctx.selected.has(id)}
-      onChange={() => ctx.toggleLine(id)}
+      onCheckedChange={() => ctx.toggleLine(id)}
     />
   );
 }
@@ -167,22 +166,18 @@ export function ShopCheckbox({
   name: string;
 }) {
   const ctx = useContext(SelectionContext);
-  const ref = useRef<HTMLInputElement>(null);
   const shopLines = ctx?.lines.filter((l) => l.sellerId === sellerId) ?? [];
   const on = shopLines.filter((l) => ctx?.selected.has(l.id)).length;
   const all = shopLines.length > 0 && on === shopLines.length;
   const some = on > 0 && !all;
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = some;
-  }, [some]);
   if (!ctx) return null;
   return (
     <Checkbox
-      ref={ref}
       data-testid={`cart-shop-checkbox-${sellerId}`}
-      aria-label={`Chọn tất cả sản phẩm của ${name}`}
-      checked={all}
-      onChange={() => ctx.toggleShop(sellerId)}
+      label={`Chọn tất cả sản phẩm của ${name}`}
+      labelHidden
+      checked={all ? true : some ? "indeterminate" : false}
+      onCheckedChange={() => ctx.toggleShop(sellerId)}
     />
   );
 }

@@ -86,16 +86,14 @@ export function VoucherManager({
           aria-label="Create voucher"
           className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2"
         >
-          <FormItem label="Mã Voucher">
-            <Input
-              type="text"
-              name="code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="VD: SALE50"
-              className="uppercase"
-            />
-          </FormItem>
+          <Input
+            label="Mã Voucher"
+            type="text"
+            name="code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="VD: SALE50"
+          />
 
           <FormItem label="Phạm vi">
             <Select
@@ -126,45 +124,41 @@ export function VoucherManager({
             />
           </FormItem>
 
-          <FormItem label="Giá trị giảm">
-            <Input
-              type="number"
-              name="discount_value"
-              min="0"
-              value={discountValue}
-              onChange={(e) => setDiscountValue(e.target.value)}
-            />
-          </FormItem>
+          <Input
+            label="Giá trị giảm"
+            type="number"
+            name="discount_value"
+            min="0"
+            value={discountValue}
+            onChange={(e) => setDiscountValue(e.target.value)}
+          />
 
-          <FormItem label="Đơn tối thiểu (VND)">
-            <Input
-              type="number"
-              name="min_spend"
-              min="0"
-              value={minSpend}
-              onChange={(e) => setMinSpend(e.target.value)}
-            />
-          </FormItem>
+          <Input
+            label="Đơn tối thiểu (VND)"
+            type="number"
+            name="min_spend"
+            min="0"
+            value={minSpend}
+            onChange={(e) => setMinSpend(e.target.value)}
+          />
 
-          <FormItem label="Giảm tối đa (VND, 0 = không giới hạn)">
-            <Input
-              type="number"
-              name="max_discount"
-              min="0"
-              value={maxDiscount}
-              onChange={(e) => setMaxDiscount(e.target.value)}
-            />
-          </FormItem>
+          <Input
+            label="Giảm tối đa (VND, 0 = không giới hạn)"
+            type="number"
+            name="max_discount"
+            min="0"
+            value={maxDiscount}
+            onChange={(e) => setMaxDiscount(e.target.value)}
+          />
 
-          <FormItem label="Số lượng (quota)">
-            <Input
-              type="number"
-              name="quota"
-              min="0"
-              value={quota}
-              onChange={(e) => setQuota(e.target.value)}
-            />
-          </FormItem>
+          <Input
+            label="Số lượng (quota)"
+            type="number"
+            name="quota"
+            min="0"
+            value={quota}
+            onChange={(e) => setQuota(e.target.value)}
+          />
 
           <div className="flex items-end">
             <Button

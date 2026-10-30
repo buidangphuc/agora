@@ -5,7 +5,6 @@ import { type FormEvent, useId, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
-import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -87,87 +86,59 @@ export function AddressModal({
     >
       <form id={formId} onSubmit={submit} noValidate className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormItem
+          <Input
             label="Họ và tên"
+            error={errors.recipientName}
+            name="recipientName"
             required
-            help={errors.recipientName}
-            status={errors.recipientName ? "error" : undefined}
-          >
-            <Input
-              className="min-h-10"
-              name="recipientName"
-              required
-              defaultValue={address?.recipientName}
-              placeholder="VD: Nguyễn Văn A"
-              autoComplete="name"
-            />
-          </FormItem>
-          <FormItem
+            defaultValue={address?.recipientName}
+            placeholder="VD: Nguyễn Văn A"
+            autoComplete="name"
+          />
+          <Input
             label="Số điện thoại"
+            error={errors.phone}
+            name="phone"
+            type="tel"
             required
-            help={errors.phone}
-            status={errors.phone ? "error" : undefined}
-          >
-            <Input
-              className="min-h-10"
-              name="phone"
-              type="tel"
-              required
-              defaultValue={address?.phone}
-              placeholder="VD: 0912345678"
-              autoComplete="tel"
-            />
-          </FormItem>
+            defaultValue={address?.phone}
+            placeholder="VD: 0912345678"
+            autoComplete="tel"
+          />
         </div>
 
-        <FormItem
+        <Input
           label="Địa chỉ chi tiết (số nhà, tên đường)"
+          error={errors.street}
+          name="street"
           required
-          help={errors.street}
-          status={errors.street ? "error" : undefined}
-        >
-          <Input
-            className="min-h-10"
-            name="street"
-            required
-            defaultValue={address?.street}
-            placeholder="VD: 123 Đường Nguyễn Huệ"
-            autoComplete="street-address"
-          />
-        </FormItem>
+          defaultValue={address?.street}
+          placeholder="VD: 123 Đường Nguyễn Huệ"
+          autoComplete="street-address"
+        />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <FormItem label="Phường / Xã">
-            <Input
-              className="min-h-10"
-              name="ward"
-              defaultValue={address?.ward}
-              placeholder="VD: P. Bến Nghé"
-            />
-          </FormItem>
-          <FormItem label="Quận / Huyện">
-            <Input
-              className="min-h-10"
-              name="district"
-              defaultValue={address?.district}
-              placeholder="VD: Quận 1"
-            />
-          </FormItem>
-          <FormItem
+          <Input
+            label="Phường / Xã"
+            name="ward"
+            defaultValue={address?.ward}
+            placeholder="VD: P. Bến Nghé"
+          />
+          <Input
+            label="Quận / Huyện"
+            name="district"
+            defaultValue={address?.district}
+            placeholder="VD: Quận 1"
+          />
+          <Input
             label="Tỉnh / Thành phố"
+            error={errors.city}
+            name="city"
             required
-            help={errors.city}
-            status={errors.city ? "error" : undefined}
-          >
-            <Input
-              className="min-h-10"
-              name="city"
-              required
-              defaultValue={address?.city}
-              placeholder="VD: TP. HCM"
-              autoComplete="address-level1"
-            />
-          </FormItem>
+            defaultValue={address?.city}
+            placeholder="VD: TP. HCM"
+            autoComplete="address-level1"
+          />
         </div>
 
         <Checkbox

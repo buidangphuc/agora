@@ -188,6 +188,7 @@ export namespace components {
         let label: string;
         let help: string;
         let error: string;
+        let required: string;
     }
     export namespace input {
         let base_1: string;
@@ -205,6 +206,7 @@ export namespace components {
         let row: string;
         let root: string;
         let checked: string;
+        let mixed: string;
     }
     export namespace dialog {
         export let overlay: string;

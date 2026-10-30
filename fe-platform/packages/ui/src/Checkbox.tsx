@@ -9,31 +9,38 @@ const { checkbox, field } = components;
 
 export type CheckboxProps = {
   label: string;
+  labelHidden?: boolean;
+  id?: string;
   name?: string;
-  checked?: boolean;
+  checked?: boolean | "indeterminate";
   defaultChecked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
   disabled?: boolean;
   errorText?: string;
+  "data-testid"?: string;
 };
 
-/** Boolean choice with a visible label and optional error text. */
+/** Boolean choice with a label (visible unless `labelHidden`), optional mixed state and error text. */
 export function Checkbox({
   label,
+  labelHidden,
+  id,
   name,
   checked,
   defaultChecked,
   onCheckedChange,
   disabled,
   errorText,
+  "data-testid": testId,
 }: CheckboxProps) {
-  const id = useId();
-  const errorId = `${id}-error`;
+  const auto = useId();
+  const boxId = id ?? auto;
+  const errorId = `${boxId}-error`;
   return (
     <div className="flex flex-col gap-1">
       <div className={checkbox.row}>
         <RadixCheckbox.Root
-          id={id}
+          id={boxId}
           name={name}
           checked={checked}
           defaultChecked={defaultChecked}
@@ -41,13 +48,21 @@ export function Checkbox({
           disabled={disabled}
           aria-invalid={errorText ? true : undefined}
           aria-describedby={errorText ? errorId : undefined}
-          className={cx(checkbox.root, checkbox.checked)}
+          data-testid={testId}
+          className={cx(
+            checkbox.root,
+            checkbox.checked,
+            checked === "indeterminate" && checkbox.mixed,
+          )}
         >
           <RadixCheckbox.Indicator aria-hidden="true">
-            ✓
+            {checked === "indeterminate" ? "–" : "✓"}
           </RadixCheckbox.Indicator>
         </RadixCheckbox.Root>
-        <label htmlFor={id} className={field.label}>
+        <label
+          htmlFor={boxId}
+          className={labelHidden ? "sr-only" : field.label}
+        >
           {label}
         </label>
       </div>

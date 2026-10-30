@@ -66,12 +66,11 @@ export function CollectionsManager({
           >
             <div className="flex-1">
               <Input
-                className="min-h-10"
+                label="Tên bộ sưu tập"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Tên bộ sưu tập mới…"
-                aria-label="Tên bộ sưu tập"
               />
             </div>
             <Button

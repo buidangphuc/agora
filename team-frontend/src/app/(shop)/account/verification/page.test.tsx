@@ -91,7 +91,7 @@ describe("SubmitKycForm", () => {
     status(VerificationStatus.UNSPECIFIED, "Chưa xác minh");
     render(await VerificationPage());
     expect(screen.getByLabelText("Loại giấy tờ").tagName).toBe("SELECT");
-    const ref = screen.getByLabelText("Mã tham chiếu tài liệu");
+    const ref = screen.getByRole("textbox", { name: "Mã tham chiếu tài liệu" });
     expect(ref.tagName).toBe("INPUT");
     expect(ref).toHaveAccessibleDescription(
       "Nhập số giấy tờ hoặc khóa tệp đã tải lên.",
@@ -106,7 +106,7 @@ describe("SubmitKycForm", () => {
 
     const submit = screen.getByRole("button", { name: "Gửi hồ sơ xác minh" });
     expect(submit).toBeDisabled();
-    const ref = screen.getByLabelText("Mã tham chiếu tài liệu");
+    const ref = screen.getByRole("textbox", { name: "Mã tham chiếu tài liệu" });
     await user.type(ref, "0123456789");
     expect(submit).toBeEnabled();
 
@@ -124,7 +124,10 @@ describe("SubmitKycForm", () => {
     });
     status(VerificationStatus.UNSPECIFIED, "Chưa xác minh");
     render(await VerificationPage());
-    await user.type(screen.getByLabelText("Mã tham chiếu tài liệu"), "x");
+    await user.type(
+      screen.getByRole("textbox", { name: "Mã tham chiếu tài liệu" }),
+      "x",
+    );
     await user.click(
       screen.getByRole("button", { name: "Gửi hồ sơ xác minh" }),
     );

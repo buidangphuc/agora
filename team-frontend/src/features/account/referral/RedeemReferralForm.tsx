@@ -3,7 +3,6 @@
 import { type FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/ToastProvider";
 import { usePendingAction } from "@/features/account/usePendingAction";
@@ -41,14 +40,10 @@ export function RedeemReferralForm() {
       onSubmit={submit}
       className="flex flex-col gap-3 sm:flex-row sm:items-start"
     >
-      <FormItem
-        label="Mã của bạn bè"
-        help={error || undefined}
-        status={error ? "error" : undefined}
-        className="flex-1"
-      >
+      <div className="flex-1">
         <Input
-          className="min-h-10"
+          label="Mã của bạn bè"
+          error={error || undefined}
           name="code"
           value={code}
           onChange={(e) => {
@@ -58,7 +53,7 @@ export function RedeemReferralForm() {
           placeholder="Nhập mã của bạn bè"
           autoComplete="off"
         />
-      </FormItem>
+      </div>
       <span className="sm:mt-6">
         <Button
           type="submit"

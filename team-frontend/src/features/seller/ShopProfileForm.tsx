@@ -5,7 +5,6 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
-import { FormItem } from "@/components/ui/FormItem";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/ToastProvider";
 import { upsertStorefrontAction } from "./actions";
@@ -46,25 +45,23 @@ export function ShopProfileForm({ initialName }: { initialName: string }) {
     <Card>
       <CardContent>
         <form onSubmit={submit} noValidate className="max-w-xl space-y-4">
-          <FormItem
-            label="Tên gian hàng"
+          <Input
             required
-            status={shown ? "error" : undefined}
-            help={
-              shown ??
-              `Hiển thị trên trang gian hàng và trang sản phẩm. Tối đa ${SHOP_NAME_MAX} ký tự.`
+            label="Tên gian hàng"
+            error={shown ?? undefined}
+            helperText={
+              shown
+                ? undefined
+                : `Hiển thị trên trang gian hàng và trang sản phẩm. Tối đa ${SHOP_NAME_MAX} ký tự.`
             }
-          >
-            <Input
-              id="shop-display-name"
-              name="displayName"
-              value={name}
-              disabled={pending}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={() => setTouched(true)}
-              placeholder="VD: Nhà Sách An Nhiên"
-            />
-          </FormItem>
+            id="shop-display-name"
+            name="displayName"
+            value={name}
+            disabled={pending}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => setTouched(true)}
+            placeholder="VD: Nhà Sách An Nhiên"
+          />
           {serverError && <Alert type="error" description={serverError} />}
           <Button type="submit" isLoading={pending}>
             Lưu thay đổi

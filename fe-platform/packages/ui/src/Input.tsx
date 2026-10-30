@@ -11,13 +11,14 @@ export type InputProps = NativeProps<"input"> & {
   helpText?: string;
 };
 
-/** Text field with a required visible label. Errors are text, never colour alone. */
+/** Text field with a required visible label; `required` adds a hidden-from-AT mark. Errors are text, never colour alone. */
 export function Input({
   label,
   errorText,
   helpText,
   id,
   disabled,
+  required,
   ...rest
 }: InputProps) {
   const auto = useId();
@@ -31,11 +32,17 @@ export function Input({
     <div className="flex flex-col gap-1">
       <label htmlFor={inputId} className={field.label}>
         {label}
+        {required && (
+          <span aria-hidden="true" className={field.required}>
+            *
+          </span>
+        )}
       </label>
       <input
         {...rest}
         id={inputId}
         disabled={disabled}
+        required={required}
         aria-invalid={errorText ? true : undefined}
         aria-describedby={describedBy}
         className={cx(
