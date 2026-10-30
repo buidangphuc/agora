@@ -119,21 +119,17 @@ export function ReturnRequestModal({
       }
     >
       <div className="space-y-4">
-        <FormItem
+        <Select
           label="Lý do trả hàng"
           required
-          status={errors.reason ? "error" : undefined}
-          help={errors.reason}
-        >
-          <Select
-            data-testid="return-reason"
-            placeholder="Chọn lý do"
-            value={reasonKey}
-            disabled={pending}
-            options={RETURN_REASONS}
-            onChange={(e) => setReasonKey(e.target.value)}
-          />
-        </FormItem>
+          error={errors.reason}
+          data-testid="return-reason"
+          placeholder="Chọn lý do"
+          value={reasonKey}
+          disabled={pending}
+          options={RETURN_REASONS}
+          onChange={(e) => setReasonKey(e.target.value)}
+        />
 
         {reasonKey === "other" && (
           <FormItem

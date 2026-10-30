@@ -340,30 +340,23 @@ export function ListingForm({
             onBlur={() => touch("title")}
             placeholder="VD: Điện thoại iPhone 15 Pro Max 256GB - Hàng Chính Hãng"
           />
-          <FormItem
+          <Select
             label="Ngành hàng"
             required
-            status={errorOf("categoryId") ? "error" : undefined}
-            help={errorOf("categoryId")}
-          >
-            <Select
-              id="categoryId"
-              name="categoryId"
-              value={categoryId}
-              onChange={(e) =>
-                change("categoryId", () => setCategoryId(e.target.value))
-              }
-              onBlur={() => touch("categoryId")}
-            >
-              <option value="">-- Chọn ngành hàng --</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.iconUrl ? `${c.iconUrl} ` : ""}
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </FormItem>
+            error={errorOf("categoryId")}
+            id="categoryId"
+            name="categoryId"
+            value={categoryId}
+            onChange={(e) =>
+              change("categoryId", () => setCategoryId(e.target.value))
+            }
+            onBlur={() => touch("categoryId")}
+            placeholder="-- Chọn ngành hàng --"
+            options={categories.map((c) => ({
+              value: c.id,
+              label: `${c.iconUrl ? `${c.iconUrl} ` : ""}${c.name}`,
+            }))}
+          />
           <FormItem label="Mô tả chi tiết">
             <textarea
               id="description"
@@ -465,15 +458,14 @@ export function ListingForm({
               onBlur={() => touch("stock")}
               placeholder="VD: 100"
             />
-            <FormItem label="Đơn vị tiền tệ">
-              <Select
-                id="currency"
-                name="currency"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                options={[{ value: "VND", label: "VND (Việt Nam Đồng)" }]}
-              />
-            </FormItem>
+            <Select
+              label="Đơn vị tiền tệ"
+              id="currency"
+              name="currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              options={[{ value: "VND", label: "VND (Việt Nam Đồng)" }]}
+            />
           </div>
         </Section>
 

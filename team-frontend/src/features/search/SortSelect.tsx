@@ -32,9 +32,9 @@ export function SortSelect({
   return (
     <div className={className}>
       <Select
-        aria-label={label}
+        label={label}
+        labelHidden
         aria-busy={pending ? "true" : undefined}
-        selectSize="md"
         options={options}
         placeholder={placeholder}
         value={value}

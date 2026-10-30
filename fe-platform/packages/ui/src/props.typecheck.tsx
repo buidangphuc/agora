@@ -8,6 +8,7 @@ import {
   Checkbox,
   Dialog,
   Input,
+  NativeSelect,
   Select,
   Table,
 } from "./index";
@@ -22,6 +23,12 @@ export const input = <Input label="a" className="x" />;
 export const checkbox = <Checkbox label="a" className="x" />;
 // @ts-expect-error className would bypass tokens
 export const select = <Select label="a" options={[]} className="x" />;
+export const nativeSelect = (
+  // @ts-expect-error className would bypass tokens
+  <NativeSelect label="a" options={[]} className="x" />
+);
+// @ts-expect-error label is mandatory
+export const nativeSelectLabel = <NativeSelect options={[]} />;
 const dialogBase = { triggerLabel: "a", title: "a", description: "a" };
 // @ts-expect-error className would bypass tokens
 export const dialog = <Dialog {...dialogBase} className="x" />;

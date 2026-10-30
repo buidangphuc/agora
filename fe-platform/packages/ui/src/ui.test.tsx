@@ -18,6 +18,7 @@ import {
   Checkbox,
   Dialog,
   Input,
+  NativeSelect,
   Select,
   ToastProvider,
   useToast,
@@ -224,6 +225,70 @@ describe("Select", () => {
     expect(await violations(document.body)).toEqual([]);
     fireEvent.click(option);
     expect(value).toBe("b");
+  });
+});
+
+describe("NativeSelect", () => {
+  const options = [
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Beta", disabled: true },
+  ];
+
+  it("renders a labelled native select that reports changes", () => {
+    let value = "";
+    render(
+      <NativeSelect
+        label="Letter"
+        name="letter"
+        data-testid="letter"
+        placeholder="Pick"
+        options={options}
+        onChange={(e) => {
+          value = e.target.value;
+        }}
+      />,
+    );
+    const box = screen.getByRole("combobox", { name: "Letter" });
+    expect(box.tagName).toBe("SELECT");
+    expect(box.getAttribute("name")).toBe("letter");
+    expect(screen.getByTestId("letter")).toBe(box);
+    expect((box as HTMLSelectElement).value).toBe("");
+    expect(
+      (screen.getByRole("option", { name: "Pick" }) as HTMLOptionElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("option", { name: "Beta" }) as HTMLOptionElement)
+        .disabled,
+    ).toBe(true);
+    fireEvent.change(box, { target: { value: "a" } });
+    expect(value).toBe("a");
+  });
+
+  it("links help and error text and marks the field invalid", () => {
+    render(
+      <NativeSelect
+        label="Letter"
+        options={options}
+        helpText="Any letter"
+        errorText="Pick one"
+        required
+      />,
+    );
+    const box = screen.getByRole("combobox", { name: "Letter" });
+    expect(box.getAttribute("aria-invalid")).toBe("true");
+    const ids = box.getAttribute("aria-describedby")?.split(" ") ?? [];
+    expect(ids.map((id) => document.getElementById(id)?.textContent)).toEqual([
+      "Pick one",
+      "Any letter",
+    ]);
+    expect((box as HTMLSelectElement).required).toBe(true);
+  });
+
+  it("keeps the accessible name when the label is hidden", () => {
+    render(<NativeSelect label="Letter" labelHidden options={options} />);
+    expect(screen.getByRole("combobox", { name: "Letter" })).toBeTruthy();
+    expect(screen.getByText("Letter").className).toBe("sr-only");
   });
 });
 

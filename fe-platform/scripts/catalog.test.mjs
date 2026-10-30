@@ -22,6 +22,7 @@ describe("catalog", () => {
       "Dialog",
       "Input",
       "Link",
+      "NativeSelect",
       "Select",
       "Table",
       "ToastProvider",
@@ -53,6 +54,7 @@ describe("catalog", () => {
   it("marks client components and required props", () => {
     expect(byName.Button.client).toBe(false);
     expect(byName.Table.client).toBe(false);
+    expect(byName.NativeSelect.client).toBe(false);
     for (const n of ["Select", "Checkbox", "Dialog", "ToastProvider"]) {
       expect(byName[n].client).toBe(true);
     }

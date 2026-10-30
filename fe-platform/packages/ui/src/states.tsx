@@ -11,6 +11,7 @@ import {
   Dialog,
   Input,
   Link,
+  NativeSelect,
   Select,
   Table,
   ToastProvider,
@@ -79,6 +80,19 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
     selected: <Select label="Letter" options={options} defaultValue="a" />,
     error: <Select label="Letter" options={options} errorText="Pick one" />,
     disabled: <Select label="Letter" options={options} disabled />,
+  },
+  NativeSelect: {
+    default: <NativeSelect label="Letter" options={options} />,
+    placeholder: (
+      <NativeSelect label="Letter" options={options} placeholder="Pick" />
+    ),
+    help: <NativeSelect label="Letter" options={options} helpText="Any" />,
+    error: (
+      <NativeSelect label="Letter" options={options} errorText="Pick one" />
+    ),
+    disabled: <NativeSelect label="Letter" options={options} disabled />,
+    required: <NativeSelect label="Letter" options={options} required />,
+    hidden: <NativeSelect label="Letter" options={options} labelHidden />,
   },
   Dialog: {
     closed: (

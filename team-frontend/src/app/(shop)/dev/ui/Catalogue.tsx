@@ -194,22 +194,28 @@ export function Catalogue({
           <Input label="Mã" disabled defaultValue="Đã khoá" />
           <Input label="Họ tên" required />
         </Demo>
-        <Demo label="Select: default, placeholder, error, disabled">
+        <Demo label="Select: default, placeholder, required, error, disabled">
           <Select
-            aria-label="Tỉnh"
+            label="Tỉnh"
             options={[
               { value: "hn", label: "Hà Nội" },
               { value: "hcm", label: "TP. Hồ Chí Minh" },
             ]}
           />
           <Select
-            aria-label="Tỉnh 2"
+            label="Tỉnh 2"
             placeholder="Chọn tỉnh"
             options={[{ value: "hn", label: "Hà Nội" }]}
           />
-          <Select aria-label="Tỉnh 3" invalid options={[]} />
           <Select
-            aria-label="Tỉnh 4"
+            label="Tỉnh/Thành"
+            required
+            helperText="Chọn nơi nhận hàng"
+            options={[{ value: "hn", label: "Hà Nội" }]}
+          />
+          <Select label="Quận" error="Vui lòng chọn quận" options={[]} />
+          <Select
+            label="Tỉnh 4"
             disabled
             options={[{ value: "hn", label: "Hà Nội" }]}
           />
@@ -242,16 +248,7 @@ export function Catalogue({
           />
           <Radio name="single" label="Radio đơn" />
         </Demo>
-        <Demo label="FormItem: required, help, error, success, group">
-          <FormItem label="Tỉnh/Thành" required help="Chọn nơi nhận hàng">
-            <Select options={[{ value: "hn", label: "Hà Nội" }]} />
-          </FormItem>
-          <FormItem label="Quận" status="error" help="Vui lòng chọn quận">
-            <Select options={[]} />
-          </FormItem>
-          <FormItem label="Mã giảm giá" status="success" help="Mã hợp lệ">
-            <Select options={[{ value: "x", label: "FREESHIP" }]} />
-          </FormItem>
+        <Demo label="FormItem: group">
           <FormItem label="Vận chuyển" group help="Chọn một">
             <RadioGroup
               options={[
