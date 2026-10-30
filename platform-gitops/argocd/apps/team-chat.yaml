@@ -37,14 +37,18 @@ spec:
               cpu: 250m
               memory: 256Mi
           env:
-            KAFKA_ENABLED: "true"
+            ENV: "local"
+            GRPC_PORT: "50057"
+            OUTBOX_CLAIM_LOCK: "60s"
             KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
             KAFKA_CHAT_TOPIC: "chat.events"
-            OUTBOX_ENABLED: "true"
             OUTBOX_POLL_INTERVAL: "1s"
             OUTBOX_BATCH_SIZE: "100"
-            OUTBOX_CLAIM_LOCK_SECONDS: "60"
-            OUTBOX_MAX_ATTEMPTS: "10"
+          probes:
+            livenessService: liveness
+          migrate:
+            enabled: true
+            command: [/server]
           secrets:
             enabled: true
   syncPolicy:

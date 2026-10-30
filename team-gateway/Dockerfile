@@ -4,12 +4,12 @@ WORKDIR /src
 COPY go.mod go.sum* ./
 RUN go mod download
 COPY . .
+ARG BIN=gateway
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -trimpath -ldflags="-s -w" -o /out/gateway ./cmd/gateway
+RUN go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/${BIN}
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
-COPY --from=build /out/gateway /gateway
-ENV HTTP_PORT=8080
+COPY --from=build /out/app /app
 EXPOSE 8080
 USER nonroot:nonroot
-ENTRYPOINT ["/gateway"]
+ENTRYPOINT ["/app"]

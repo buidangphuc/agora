@@ -79,7 +79,7 @@ func (d *disputeUpstream) ResolveDispute(_ context.Context, in *engagementv1.Res
 func callDisputeRPC(t *testing.T, up *disputeUpstream, path, body string, auth func(f *cockpitFixture) string) (int, string) {
 	t.Helper()
 	f := newCockpitFixture(t)
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Engagement: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Engagement: up}, f.edge, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	t.Cleanup(srv.Close)
 	req, _ := http.NewRequest(http.MethodPost, srv.URL+path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

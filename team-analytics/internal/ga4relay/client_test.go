@@ -270,7 +270,7 @@ func TestClient_TimeoutCountedAsNetworkErrorAndRetried_RequestTimeoutBoundary(t 
 	sl := &sleepRecorder{}
 	c := NewClient(ClientConfig{
 		Endpoint: srv.URL, MeasurementID: "G-TEST123", APISecret: testSecret,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:  slog.New(slog.DiscardHandler),
 		Sleep:   sl.Sleep,
 		Timeout: 50 * time.Millisecond, // test override of the 5 s default
 	})
@@ -293,7 +293,7 @@ func TestClient_ContextCancelStopsRetries(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c := NewClient(ClientConfig{
 		Endpoint: srv.URL, MeasurementID: "G-TEST123", APISecret: testSecret,
-		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger: slog.New(slog.DiscardHandler),
 		Sleep: func(ctx context.Context, _ time.Duration) error {
 			cancel()
 			return ctx.Err()

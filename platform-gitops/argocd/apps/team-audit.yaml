@@ -30,6 +30,7 @@ spec:
             port: 50066
           grpcPort: 50066          # native gRPC health probes (grpc.health.v1.Health)
           env:
+            ENV: "local"
             GRPC_PORT: "50066"
           resources:
             requests:
@@ -38,6 +39,10 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
+          probes:
+            livenessService: liveness
+          migrate:
+            enabled: true
           secrets:
             enabled: true
   syncPolicy:
