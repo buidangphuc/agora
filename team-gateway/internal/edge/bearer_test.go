@@ -6,7 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
-	"io"
+	"errors"
 	"log/slog"
 	"math/big"
 	"net/http"
@@ -109,7 +109,7 @@ func newBearerFixture(t *testing.T) *bearerFixture {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
@@ -119,7 +119,7 @@ func newBearerFixture(t *testing.T) *bearerFixture {
 	f.verifier = token.NewVerifier(jwks.URL, time.Minute)
 	e := edge.NewEdge(f.verifier, []string{"listing.read", "search:read"}, time.Second, 0, 1000, 1000).
 		WithRevocations(f.denylist)
-	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.NewTextHandler(io.Discard, nil)))...)
+	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.DiscardHandler))...)
 	mux := http.NewServeMux()
 	sp, sh := searchv1connect.NewSearchServiceHandler(edge.NewSearchForwarder(spySearch{spy: f.search}, e), opts)
 	mux.Handle(sp, sh)
@@ -154,7 +154,11 @@ func (f *bearerFixture) call(t *testing.T, route, auth string) (connect.Code, *c
 	if err == nil {
 		return 0, nil
 	}
-	ce := err.(*connect.Error)
+	ce := func() *connect.Error {
+		target := &connect.Error{}
+		_ = errors.As(err, &target)
+		return target
+	}()
 	return ce.Code(), ce
 }
 

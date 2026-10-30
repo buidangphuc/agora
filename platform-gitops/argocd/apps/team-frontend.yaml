@@ -41,7 +41,6 @@ spec:
             GATEWAY_URL: "http://team-gateway:8080"
             JWT_SECRET: "dev-secret-change-me"
             FLIPT_ADDR: "flipt:8080"
-            FEATURE_FLAGS_ENABLED: "true"
           ingress:
             enabled: true
             host: marketplace.localtest.me

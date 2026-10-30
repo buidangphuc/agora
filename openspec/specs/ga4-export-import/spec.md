@@ -60,17 +60,17 @@ The analytics tracking consumer SHALL persist `TrackingEvent.ga_client_id` (fiel
 #### Scenario: Consent and client id are persisted
 - **WHEN** the consumer handles a tracking event with `ga_client_id` `111.222` and consent version 1, analytics true, marketing false, personalization true
 - **THEN** the stored row has `ga_client_id` `111.222`, `consent_version` 1, `consent_analytics` true, `consent_marketing` false and `consent_personalization` true
-- **VERIFIED BY**: team-analytics/internal/consumer/tracking_test.go
+- **VERIFIED BY**: team-analytics/internal/events/tracking_test.go
 
 #### Scenario: Client id is blanked without analytics consent
 - **WHEN** the consumer handles a tracking event with `ga_client_id` `111.222` and `consent.analytics` false
 - **THEN** the stored row has an empty `ga_client_id` and `consent_analytics` false
-- **VERIFIED BY**: team-analytics/internal/consumer/tracking_test.go
+- **VERIFIED BY**: team-analytics/internal/events/tracking_test.go
 
 #### Scenario: A legacy payload without consent is stored as no consent
 - **WHEN** the consumer handles a tracking event that has no field 26
 - **THEN** the stored row has `consent_version` 0, all three consent flags false and an empty `ga_client_id`
-- **VERIFIED BY**: team-analytics/internal/consumer/tracking_test.go
+- **VERIFIED BY**: team-analytics/internal/events/tracking_test.go
 
 ### Requirement: tracking_events_attributed joins first-party events to GA4 sessions
 The view `tracking_events_attributed` SHALL expose every row of `tracking_events_resolved` plus `source`, `medium`, `campaign` and `landing_page`, joined where `tracking_events.ga_client_id = ga4_sessions.user_pseudo_id` (`ga_client_id` stored without the `GA1.1.` prefix) and the event time falls in the session. A session window is [`ts`, min(next session `ts` of the same `user_pseudo_id`, `ended_at` + 30 min)). Events without a match, or with empty `ga_client_id`, SHALL be kept with `source`='(none)'. The view SHALL NOT multiply rows when a client has several sessions.
@@ -110,7 +110,7 @@ The view `tracking_events_attributed` SHALL expose every row of `tracking_events
 #### Scenario: A seller filter narrows the funnel
 - **WHEN** an admin requests the channel funnel with `seller_id` = S for events of sellers S and T
 - **THEN** every returned count includes only events of seller S
-- **VERIFIED BY**: team-analytics/internal/query/channel_funnel_test.go
+- **VERIFIED BY**: team-analytics/internal/rpc/channel_funnel_test.go
 
 #### Scenario: Counts are split by channel
 - **WHEN** an admin requests the channel funnel for seeded events of two campaigns, 4 views for `spring` and 2 for `summer`
@@ -135,7 +135,7 @@ The view `tracking_events_attributed` SHALL expose every row of `tracking_events
 #### Scenario: Revenue is never read from GA4 data
 - **WHEN** `ga4_sessions` and `ga4_events_daily` hold purchase values and `order_facts` holds a different total
 - **THEN** every revenue query returns the `order_facts` total
-- **VERIFIED BY**: team-analytics/internal/query/channel_funnel_test.go
+- **VERIFIED BY**: team-analytics/internal/rpc/channel_funnel_test.go
 
 ### Requirement: The import runs inside the consumer process
 The analytics consumer process SHALL run the GA4 import once per day for the previous UTC date (time configurable, `GA4_IMPORT_AT`, default `03:30` UTC) using its already-open warehouse writer (DuckDB or BigQuery), so no second process writes to the warehouse. It SHALL expose an internal, cluster-only trigger `POST /internal/ga4import?date=YYYY-MM-DD` on the consumer's internal HTTP listener (`METRICS_ADDR`, `:9109`; not routed through the gateway) that runs the import synchronously and returns 200 with the row count, 4xx for an invalid date, and 5xx with the date in the body on failure (for example a missing export table). The CLI `/ga4import --date` SHALL be a thin client of that trigger: exit 0 on 200, non-zero with the error text on stderr otherwise. When `GA4_EXPORT_DATASET` is empty and no fixture directory is set, the scheduled run and the trigger SHALL be no-ops returning 200 with rows = 0.
@@ -143,7 +143,7 @@ The analytics consumer process SHALL run the GA4 import once per day for the pre
 #### Scenario: The import runs inside the consumer without a second writer
 - **WHEN** the consumer holds the warehouse writer and `POST /internal/ga4import?date=D` is called for a fixture date
 - **THEN** the response is 200 with the row count, `ga4_sessions` holds the rows for D, and no second warehouse connection is opened
-- **VERIFIED BY**: team-analytics/cmd/consumer/ga4import_trigger_test.go
+- **VERIFIED BY**: team-analytics/internal/ga4import/trigger_test.go
 
 #### Scenario: The internal trigger is not exposed through the gateway
 - **WHEN** the gateway route table and the team-analytics gitops manifests are inspected
@@ -153,12 +153,12 @@ The analytics consumer process SHALL run the GA4 import once per day for the pre
 #### Scenario: An invalid date is rejected by the trigger
 - **WHEN** `POST /internal/ga4import?date=not-a-date` is called
 - **THEN** the response is a 4xx and `ga4_sessions` is unchanged
-- **VERIFIED BY**: team-analytics/cmd/consumer/ga4import_trigger_test.go
+- **VERIFIED BY**: team-analytics/internal/ga4import/trigger_test.go
 
 #### Scenario: A failed import returns 5xx with the date
 - **WHEN** the trigger is called for a date whose export table does not exist
 - **THEN** the response is 5xx with the date in the body and the CLI exits non-zero with that text on stderr
-- **VERIFIED BY**: team-analytics/cmd/consumer/ga4import_trigger_test.go
+- **VERIFIED BY**: team-analytics/internal/ga4import/trigger_test.go
 
 ### Requirement: The import is deployed with disabled-by-default configuration
 `platform-gitops` SHALL set `GA4_EXPORT_SOURCE`, `GA4_EXPORT_DATASET`, `GA4_IMPORT_AT` and `GA4_RECONCILE_MAX_DIFF_RATIO` on the team-analytics consumer Deployment (no CronJob) and SHALL keep the metrics/trigger port cluster-internal; when `GA4_EXPORT_DATASET` is unset in `local` and `staging`, the import SHALL return success without reading anything.
@@ -166,7 +166,7 @@ The analytics consumer process SHALL run the GA4 import once per day for the pre
 #### Scenario: The job is a no-op when unconfigured
 - **WHEN** the scheduled run or the trigger executes with `GA4_EXPORT_DATASET` unset and no fixture directory
 - **THEN** it returns 200 (CLI exit 0) with rows = 0 and writes zero rows
-- **VERIFIED BY**: team-analytics/cmd/consumer/ga4import_trigger_test.go
+- **VERIFIED BY**: team-analytics/internal/ga4import/trigger_test.go
 
 #### Scenario: Invalid threshold is rejected at startup
 - **WHEN** the consumer or the CLI starts with `GA4_RECONCILE_MAX_DIFF_RATIO=-1`

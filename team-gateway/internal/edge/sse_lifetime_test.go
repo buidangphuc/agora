@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -39,7 +40,7 @@ func newSSELife(t *testing.T) *sseLife {
 	jwks := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "kid-1",
-			"n": b64(key.PublicKey.N.Bytes()),
+			"n": b64(key.N.Bytes()),
 			"e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
 		}}})
 	}))
@@ -54,7 +55,7 @@ func newSSELife(t *testing.T) *sseLife {
 }
 
 // connect opens the SSE route and returns the response (handshake not yet read).
-func (f *sseLife) connect(t *testing.T, ctx context.Context, room, tok string) *http.Response {
+func (f *sseLife) connect(ctx context.Context, t *testing.T, room, tok string) *http.Response {
 	t.Helper()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, f.srv.URL+"?room="+room, nil)
 	if tok != "" {
@@ -94,7 +95,7 @@ func readAll(t *testing.T, resp *http.Response, limit time.Duration) (string, ti
 	}()
 	select {
 	case r := <-ch:
-		if r.err != io.EOF {
+		if !errors.Is(r.err, io.EOF) {
 			t.Fatalf("body ended with %v, want a clean close", r.err)
 		}
 		return r.s, time.Since(start)
@@ -107,7 +108,7 @@ func readAll(t *testing.T, resp *http.Response, limit time.Duration) (string, ti
 func TestSSEEndsWithUnauthenticatedWhenTokenExpires(t *testing.T) {
 	f := newSSELife(t)
 	tok := mintSID(t, f.key, "kid-1", time.Now().Add(time.Second), "sid-1")
-	resp := f.connect(t, context.Background(), "user:user-1", tok)
+	resp := f.connect(context.Background(), t, "user:user-1", tok)
 	body, took := readAll(t, resp, 4*time.Second)
 	if !strings.Contains(body, "event: connected") {
 		t.Fatalf("missing handshake: %q", body)
@@ -124,7 +125,7 @@ func TestSSEEndsWithUnauthenticatedWhenSessionRevoked(t *testing.T) {
 	f := newSSELife(t)
 	exp := time.Now().Add(time.Hour)
 	tok := mintSID(t, f.key, "kid-1", exp, "sid-rev")
-	resp := f.connect(t, context.Background(), "user:user-1", tok)
+	resp := f.connect(context.Background(), t, "user:user-1", tok)
 	go func() {
 		time.Sleep(200 * time.Millisecond)
 		f.denylist.Add("sid-rev", exp)
@@ -142,7 +143,7 @@ func TestSSENothingStreamedAfterTheCut(t *testing.T) {
 	f := newSSELife(t)
 	exp := time.Now().Add(time.Hour)
 	tok := mintSID(t, f.key, "kid-1", exp, "sid-cut")
-	resp := f.connect(t, context.Background(), "user:user-1", tok)
+	resp := f.connect(context.Background(), t, "user:user-1", tok)
 	f.denylist.Add("sid-cut", exp)
 	body, _ := readAll(t, resp, 3*time.Second)
 	// A broadcast after the cut reaches nobody: the subscription was released.
@@ -157,7 +158,7 @@ func TestSSEPublicRoomIsNotCut(t *testing.T) {
 	f := newSSELife(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	resp := f.connect(t, ctx, "listing:42", "")
+	resp := f.connect(ctx, t, "listing:42", "")
 	time.Sleep(400 * time.Millisecond)
 	f.broker.Broadcast("listing:42", "stock", 1)
 	r := bufio.NewReader(resp.Body)
@@ -180,7 +181,7 @@ func TestSSEClientCloseReleasesWatcher(t *testing.T) {
 	open := func(sid string) {
 		tok := mintSID(t, f.key, "kid-1", exp, sid)
 		ctx, cancel := context.WithCancel(context.Background())
-		resp := f.connect(t, ctx, "user:user-1", tok)
+		resp := f.connect(ctx, t, "user:user-1", tok)
 		if line, _ := bufio.NewReader(resp.Body).ReadString('\n'); !strings.Contains(line, "connected") {
 			t.Fatalf("handshake = %q", line)
 		}

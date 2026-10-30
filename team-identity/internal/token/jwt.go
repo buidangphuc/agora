@@ -8,25 +8,15 @@ package token
 
 import (
 	"crypto/rsa"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-)
 
-// Claims are the platform's JWT claims: a Principal (sub/type/scopes) + display
-// name, over the standard registered claims (exp/iat). Unchanged from ADR-0003.
-type Claims struct {
-	Name   string   `json:"name"`
-	Type   string   `json:"typ"` // "user" | "service" | "anonymous"
-	Scopes []string `json:"scopes"`
-	// SessionID (`sid`) ties the token to a row in team-identity's sessions
-	// table so a revoked session can be recognised. Empty for tokens minted
-	// without a session (service tokens, legacy callers).
-	SessionID string `json:"sid,omitempty"`
-	jwt.RegisteredClaims
-}
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/jwtx"
+)
 
 // Signer holds the parsed RSA private key and the key id it stamps into every
 // token header. It is the only thing that can mint a platform token.
@@ -68,18 +58,24 @@ func (s *Signer) Sign(subject, name, principalType string, scopes []string, ttl 
 // SignWithSession is Sign plus a `sid` claim carrying the session id.
 func (s *Signer) SignWithSession(subject, name, principalType string, scopes []string, sessionID string, ttl time.Duration) (string, error) {
 	now := time.Now()
-	claims := Claims{
+	claims := jwtx.Claims{
 		Name:      name,
 		Type:      principalType,
 		Scopes:    scopes,
 		SessionID: sessionID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   subject,
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
-		},
+		Subject:   subject,
+		IssuedAt:  now.Unix(),
+		ExpiresAt: now.Add(ttl).Unix(),
 	}
-	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	raw, err := json.Marshal(claims)
+	if err != nil {
+		return "", fmt.Errorf("token: marshal claims: %w", err)
+	}
+	var mc jwt.MapClaims
+	if err := json.Unmarshal(raw, &mc); err != nil {
+		return "", fmt.Errorf("token: build claims: %w", err)
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, mc)
 	tok.Header["kid"] = s.kid
 	signed, err := tok.SignedString(s.key)
 	if err != nil {

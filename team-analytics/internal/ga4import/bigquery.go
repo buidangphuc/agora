@@ -2,6 +2,7 @@ package ga4import
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -81,7 +82,7 @@ func (b *BigQuerySource) Extract(ctx context.Context, day time.Time) (*Extract, 
 			End          time.Time `bigquery:"end_ts"`
 		}
 		err := it.Next(&r)
-		if err == iterator.Done {
+		if errors.Is(err, iterator.Done) {
 			break
 		}
 		if err != nil {
@@ -100,7 +101,7 @@ func (b *BigQuerySource) Extract(ctx context.Context, day time.Time) (*Extract, 
 			Events    int64  `bigquery:"events"`
 		}
 		err := dit.Next(&r)
-		if err == iterator.Done {
+		if errors.Is(err, iterator.Done) {
 			break
 		}
 		if err != nil {
