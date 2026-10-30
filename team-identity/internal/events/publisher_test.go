@@ -12,10 +12,6 @@ import (
 	"github.com/buidangphuc/team-identity/internal/events"
 )
 
-func TestNoopPublisherClose(t *testing.T) {
-	events.NoopPublisher{}.Close()
-}
-
 // The envelope carries the caller-supplied (stable outbox) event_id, the
 // SessionRevoked type discriminator and a payload the gateway can decode.
 func TestBuildSessionRevokedEnvelope(t *testing.T) {

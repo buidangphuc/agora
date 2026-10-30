@@ -1,5 +1,5 @@
 # W4-2/W4-4: minimal in-cluster OTel collector so the gateway's RED series
-# (marketplace_rpc_client_duration_milliseconds_*) actually reach Prometheus. Without it the
+# (marketplace_rpc_client_call_duration_seconds_*) actually reach Prometheus. Without it the
 # canary AnalysisTemplate (rps-sanity) and the HighErrorRate/HighLatencyP95 alerts see no data.
 # Same receiver/exporter as platform-core/infra/otel-collector.yaml, minus Jaeger (not deployed).
 # prometheus.yaml already scrapes otel-collector.marketplace.svc:8889. Only services that set

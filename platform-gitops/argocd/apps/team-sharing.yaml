@@ -40,6 +40,8 @@ spec:
             ENV: "local"
           probes:
             livenessService: liveness
+          migrate:
+            enabled: true
           secrets:
             enabled: true
   syncPolicy:

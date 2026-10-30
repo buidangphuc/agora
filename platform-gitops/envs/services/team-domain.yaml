@@ -16,15 +16,20 @@ resources:
     cpu: 250m
     memory: 256Mi
 env:
-  KAFKA_ENABLED: "true"
+  ENV: "local"
+  GRPC_PORT: "50051"
+  KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
   # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
   UPSTREAM_AUDIT_ADDR: "team-audit:50066"
   # Listing screening (Q6 trust): keyword matcher + team-ai screener; unset => every
   # publish goes to pending_review.
   UPSTREAM_AI_ADDR: "team-ai:50060"
   # Seller enforcement: consume identity.events UserStatusChanged to hide/restore listings.
-  IDENTITY_CONSUMER_ENABLED: "true"
   KAFKA_IDENTITY_TOPIC: "identity.events"
+probes:
+  livenessService: liveness
+migrate:
+  enabled: true
 secrets:
   enabled: true
 # Zero-trust interim (ADR-0010, SA-H4): default-deny ingress to the gRPC port

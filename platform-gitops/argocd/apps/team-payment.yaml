@@ -36,19 +36,21 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
+          probes:
+            livenessService: liveness
+          migrate:
+            enabled: true
           secrets:
             enabled: true
           env:
+            ENV: "local"
             # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
             UPSTREAM_AUDIT_ADDR: "team-audit:50066"   # same as envs/services
             UPSTREAM_ORDER_ADDR: "team-order:50055"   # PaymentService order client
-            MOCK_PAYMENTS: "true"   # local kind only; refused at boot in staging/prod
             # payment.events relayer + order.events settlement consumer
-            KAFKA_ENABLED: "true"
             KAFKA_BROKERS: "redpanda.marketplace.svc:9092"
             PAYMENT_EVENTS_TOPIC: "payment.events"
             ORDER_EVENTS_TOPIC: "order.events"
-            PAYMENT_SETTLEMENT_CONSUMER_ENABLED: "true"
             PAYMENT_SETTLEMENT_CONSUMER_GROUP: "team-payment.settlement"
             PAYMENT_SETTLEMENT_DLQ_TOPIC: "order.events.payment-settlement.dlq"
   syncPolicy:

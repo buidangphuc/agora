@@ -1,0 +1,49 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../team-analytics
+patches:
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: team-analytics
+        namespace: marketplace
+      spec:
+        template:
+          spec:
+            containers:
+              - name: consumer
+                env:
+                  - name: ENV
+                    value: "production"
+                  - name: GA4_API_SECRET
+                    valueFrom:
+                      secretKeyRef:
+                        name: team-analytics-env
+                        key: GA4_API_SECRET
+                  - name: GA4_MEASUREMENT_ID
+                    valueFrom:
+                      secretKeyRef:
+                        name: team-analytics-env
+                        key: GA4_MEASUREMENT_ID
+                  - name: GA4_EXPORT_DATASET
+                    value: null
+                    valueFrom:
+                      secretKeyRef:
+                        name: team-analytics-env
+                        key: GA4_EXPORT_DATASET
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ga4-relay
+        namespace: marketplace
+      spec:
+        template:
+          spec:
+            containers:
+              - name: ga4-relay
+                env:
+                  - name: ENV
+                    value: "production"

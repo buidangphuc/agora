@@ -198,7 +198,7 @@ features:
     persona: admin
     priority: P0
     summary: >-
-      Boot guard: staging/production fail boot with DATABASE_ENABLED=false or with an unreachable database; ENV=local with DATABASE_ENABLED=false uses in-memory storage.
+      Boot guard: team-search exits non-zero without a reachable database in every ENV; there is no in-memory fallback.
     entry_route: /
     services: [team-search]
     preconditions:
@@ -206,9 +206,9 @@ features:
     api:
       exercised: [search.v1.SaveSearch]
     acceptance:
-      - WHEN the team-search image is started with ENV=production and no DATABASE_URL, or with DATABASE_ENABLED=true and an unreachable one
-      - THEN the process exits non-zero and its log names the database setting or the postgres error
-      - AND with ENV=local and DATABASE_ENABLED=false it falls back to in-memory storage
+      - WHEN the team-search image is started with ENV=production and no DATABASE_URL, or with an unreachable one
+      - THEN the process exits non-zero and its log names the database setting
+      - AND with ENV=local and an unreachable database it also exits non-zero
     tags: [ops, security]
     status: automated
     covered_by: "ops/boot_guard_search.feature::team-search refuses to boot without a reachable database in production"
@@ -889,7 +889,7 @@ features:
     tags: [buyer, search]
     status: not-testable
     notes: >-
-      VERIFIED BY team-search/internal/consumer/listing_test.go TestListingEventHandler_ClassifierOutageDoesNotFailIngestion and
+      VERIFIED BY team-search/internal/events/listing_test.go TestListingEventHandler_ClassifierOutageDoesNotFailIngestion and
       internal/index/attributes_integration_test.go TestIT_Attr_TagsPendingKeepsStoredTags. Not verifiable end to end: it needs
       team-ai stopped, which no scenario may do to the shared stack. Reason also recorded in the change's design.md (D6).
 
@@ -1453,3 +1453,760 @@ features:
     tags: [search]
     status: not-testable
     notes: "semantic-floor-calibration: verified by team-search/internal/config/config_test.go › TestSemanticMinScoreDefault. The e2e overlay sets its own floor for the fake TEI, so the default is not observable end to end."
+
+  - id: runtime.sdk-an-unset-env-refuses-to-load
+    title: "An unset ENV refuses to load"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An unset ENV refuses to load"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestLoadRequiresEnv` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-missing-grpc-port-refuses-to-load-the-server
+    title: "A missing gRPC port refuses to load the server"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A missing gRPC port refuses to load the server"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestServerLoadRequiresGRPCPort` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-retired-enable-flags-are-not-declared
+    title: "Retired enable flags are not declared"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "Retired enable flags are not declared"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestNoDependencyEnableFlags` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-the-server-requires-a-database-url-in-every-environment
+    title: "The server requires a database URL in every environment"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "The server requires a database URL in every environment"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestServerLoadRequiresDatabaseURL` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-the-indexer-loads-without-a-database
+    title: "The indexer loads without a database"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "The indexer loads without a database"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestIndexerLoadNeedsNoDatabase` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-empty-opensearch-url-refuses-to-load
+    title: "An empty OPENSEARCH_URL refuses to load"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An empty OPENSEARCH_URL refuses to load"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestValidateRequiresOpenSearchURL` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-unset-shutdown-grace-defaults-to-10s-for-the-indexer
+    title: "An unset SHUTDOWN_GRACE defaults to 10s for the indexer"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An unset SHUTDOWN_GRACE defaults to 10s for the indexer"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestIndexerShutdownGraceDefaultsAndValidates` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-the-opentelemetry-service-name-defaults-per-binary
+    title: "The OpenTelemetry service name defaults per binary"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "The OpenTelemetry service name defaults per binary"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestOTelServiceNameDefaultsPerBinary` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-migrate-up-applies-the-embedded-migrations
+    title: "migrate up applies the embedded migrations"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "migrate up applies the embedded migrations"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestMigrateUpAppliesEmbeddedMigrations` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-migrate-up-with-an-unreachable-database-fails
+    title: "migrate up with an unreachable database fails"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "migrate up with an unreachable database fails"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestMigrateUpFailsOnUnreachableDatabase` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-migrate-up-needs-only-env-and-database-url
+    title: "migrate up needs only ENV and DATABASE_URL"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "migrate up needs only ENV and DATABASE_URL"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestLoadMigrateNeedsOnlyEnvAndDatabaseURL` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-the-server-does-not-migrate-at-boot
+    title: "The server does not migrate at boot"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "The server does not migrate at boot"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestRunDoesNotMigrate` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-unreachable-database-fails-boot-in-a-local-environment
+    title: "An unreachable database fails boot in a local environment"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An unreachable database fails boot in a local environment"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestRunFailsOnUnreachableDatabase` (subtest `local`) Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-unreachable-database-fails-boot-in-production
+    title: "An unreachable database fails boot in production"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An unreachable database fails boot in production"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestRunFailsOnUnreachableDatabase` (subtest `production`) Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-unreachable-opensearch-fails-boot
+    title: "An unreachable OpenSearch fails boot"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An unreachable OpenSearch fails boot"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestRunFailsOnUnreachableOpenSearch` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-no-runtime-in-memory-fallback-exists
+    title: "No runtime in-memory fallback exists"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "No runtime in-memory fallback exists"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestNoRuntimeInMemoryFallback` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-failing-dependency-turns-readiness-off
+    title: "A failing dependency turns readiness off"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A failing dependency turns readiness off"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestReadinessFollowsDependencies` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-readiness-registers-no-kafka-checker
+    title: "Readiness registers no Kafka checker"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "Readiness registers no Kafka checker"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestReadinessCheckersArePostgresAndOpenSearch` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-shutdown-drains-health-then-stops-serving
+    title: "Shutdown drains health, then stops serving"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "Shutdown drains health, then stops serving"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestShutdownDrainsHealth` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-saved-search-survives-a-restart
+    title: "A saved search survives a restart"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A saved search survives a restart"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/store` `TestSavedSearchesPersistAcrossStores` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-saved-searches-list-newest-first-with-a-total
+    title: "Saved searches list newest first with a total"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "Saved searches list newest first with a total"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSavedSearchListNewestFirstWithCursor` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-page-size-above-the-maximum-is-clamped
+    title: "A page size above the maximum is clamped"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A page size above the maximum is clamped"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSavedSearchListClampsPageSize` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-another-user-s-saved-search-is-not-found
+    title: "Another user's saved search is not found"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "Another user's saved search is not found"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSavedSearchOwnerIsolation`; `team-search/internal/store` `TestStoreScopesEveryCallByUser` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-anonymous-caller-is-unauthenticated-whatever-its-scopes
+    title: "An anonymous caller is unauthenticated whatever its scopes"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An anonymous caller is unauthenticated whatever its scopes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSavedSearchCallerIdentity_Matrix` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-service-principal-is-denied
+    title: "A service principal is denied"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A service principal is denied"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSavedSearchCallerIdentity_Matrix` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-user-without-the-scope-is-denied
+    title: "A user without the scope is denied"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A user without the scope is denied"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSavedSearchScopes_AfterIdentity` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-signed-in-user-with-both-scopes-succeeds
+    title: "A signed-in user with both scopes succeeds"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A signed-in user with both scopes succeeds"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSavedSearch_UserWithScopesSucceeds` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-empty-save-is-rejected
+    title: "An empty save is rejected"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An empty save is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSaveSearchRejectsEmpty` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-store-failure-returns-a-generic-internal-error
+    title: "A store failure returns a generic internal error"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A store failure returns a generic internal error"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestStoreFailureReturnsGenericInternalError` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-anonymous-browsing-is-not-blocked-by-the-sdk-gate
+    title: "Anonymous browsing is not blocked by the SDK gate"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "Anonymous browsing is not blocked by the SDK gate"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSearchAnonymousWithScopeSucceeds` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-request-id-is-logged-and-a-trace-is-continued
+    title: "A request id is logged and a trace is continued"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A request id is logged and a trace is continued"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestRequestIDAndTraceparentPropagate` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-malformed-traceparent-does-not-fail-the-call
+    title: "A malformed traceparent does not fail the call"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A malformed traceparent does not fail the call"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestRequestIDGeneratedAndBadTraceparentIgnored` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-search-backend-failure-returns-a-generic-internal-error
+    title: "A search backend failure returns a generic internal error"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A search backend failure returns a generic internal error"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSearchBackendFailureReturnsGenericInternalError` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-draft-filter-by-a-stranger-keeps-its-visibility-error
+    title: "A draft filter by a stranger keeps its visibility error"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A draft filter by a stranger keeps its visibility error"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestVisibilityErrorPassesThroughStatusTable` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-searchlistings-called-with-no-principal-metadata
+    title: "SearchListings called with no principal metadata"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "SearchListings called with no principal metadata"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestSearch_Unauthenticated` (existing behaviour) Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-anonymous-principal-holding-search-read-can-search-and-get-suggesti
+    title: "An anonymous principal holding search:read can search and get suggestions"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An anonymous principal holding search:read can search and get suggestions"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSearchAnonymousWithScopeSucceeds` and `TestSuggestAnonymousWithScopeSucceeds`; `team-search/internal/app` `TestSearch_AnonymousWithScope` (over HTTP-equivalent gRPC from the gateway path); FEATURES `search.visibility-hides-drafts` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-anonymous-principal-asking-for-status-draft-keeps-its-visibility-er
+    title: "An anonymous principal asking for status=draft keeps its visibility error"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An anonymous principal asking for status=draft keeps its visibility error"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/rpc` `TestSearchAnonymousDraftFilterKeepsVisibilityError` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-search-without-the-search-scope-is-denied
+    title: "A search without the search scope is denied"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A search without the search scope is denied"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestSearch_InsufficientScope` (existing behaviour, also FEATURES `search.visibility-foreign-drafts-403`) Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-malformed-stock-event-is-retried-and-parked
+    title: "A malformed stock event is retried and parked"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A malformed stock event is retried and parked"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestIndexerParksMalformedStockEvent` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-listing-event-updates-the-read-model
+    title: "A listing event updates the read-model"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A listing event updates the read-model"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/events` `TestListingEventHandler_VectorizesPublishedListing` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-failing-dlq-publish-does-not-advance-the-offset
+    title: "A failing DLQ publish does not advance the offset"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A failing DLQ publish does not advance the offset"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestIndexerDLQFailureDoesNotAdvanceOffset` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-recoverable-handler-error-does-not-park-the-record
+    title: "A recoverable handler error does not park the record"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A recoverable handler error does not park the record"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestIndexerRecoversBeforeDLQ` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-retry-and-park-logs-carry-the-fingerprint
+    title: "Retry and park logs carry the fingerprint"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "Retry and park logs carry the fingerprint"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestIndexerLogsKeyFingerprintOnly` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-empty-key-is-still-fingerprinted
+    title: "An empty key is still fingerprinted"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An empty key is still fingerprinted"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestIndexerEmptyKeyIsFingerprinted` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-strict-environment-refuses-a-missing-fingerprint-secret
+    title: "A strict environment refuses a missing fingerprint secret"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A strict environment refuses a missing fingerprint secret"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestIndexerLoadRequiresLogKeyFPSecretInStrictEnv` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-missing-team-ai-address-refuses-boot
+    title: "A missing team-ai address refuses boot"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A missing team-ai address refuses boot"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestIndexerLoadRequiresAIAddr` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-strict-environments-need-broker-addresses
+    title: "Strict environments need broker addresses"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "Strict environments need broker addresses"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestIndexerLoadRequiresBrokersInStrictEnv` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-the-classifier-call-carries-the-service-principal
+    title: "The classifier call carries the service principal"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "The classifier call carries the service principal"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/taxonomy` `TestClassifierCallCarriesServicePrincipal` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-the-classifier-call-never-carries-an-end-user-principal
+    title: "The classifier call never carries an end-user principal"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "The classifier call never carries an end-user principal"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/taxonomy` `TestClassifierCallCarriesServicePrincipal` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-classifier-outage-does-not-fail-ingestion
+    title: "A classifier outage does not fail ingestion"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A classifier outage does not fail ingestion"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/events` `TestListingEventHandler_ClassifierOutageDoesNotFailIngestion` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-the-indexer-stops-when-cancelled
+    title: "The indexer stops when cancelled"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "The indexer stops when cancelled"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/app` `TestRunIndexerStopsOnCancel` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-failed-purge-does-not-stop-the-indexer
+    title: "A failed purge does not stop the indexer"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A failed purge does not stop the indexer"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/tombstone` `TestPurge_FailureIsLoggedNotFatal` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-go-mod-requires-the-tag-without-a-replace
+    title: "go.mod requires the tag without a replace"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "go.mod requires the tag without a replace"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestGoModRequiresTaggedSDK` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-a-vendored-sdk-copy-is-rejected
+    title: "A vendored SDK copy is rejected"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "A vendored SDK copy is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestNoVendoredSDKOrLintCopy` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-the-image-builds-both-binaries
+    title: "The image builds both binaries"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-service-runtime)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "The image builds both binaries"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestDockerfileBuildsBothBinaries` (reads the Dockerfile) and the `docker build` command of the last code task Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-an-invalid-tombstone-duration-refuses-boot
+    title: "An invalid tombstone duration refuses boot"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-read-model-deletes)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "An invalid tombstone duration refuses boot"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestTombstoneDurationsRefuseInvalid` Not producible end to end through the gateway (unit level)."
+
+  - id: runtime.sdk-unset-tombstone-durations-take-the-defaults
+    title: "Unset tombstone durations take the defaults"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change search-go-sdk-v1 (capability search-read-model-deletes)."
+    entry_route: /
+    services: [team-search]
+    acceptance:
+      - "Unset tombstone durations take the defaults"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY `team-search/internal/config` `TestTombstoneDefaults` Not producible end to end through the gateway (unit level)."
+
+  - id: ops.search-boot-guard-in-memory-storage
+    title: "team-search refuses in-memory storage in production"
+    persona: admin
+    priority: P0
+    summary: "Boot guard: team-search exits non-zero with an empty DATABASE_URL in a strict ENV; it has no in-memory mode."
+    entry_route: /
+    services: [team-search]
+    preconditions:
+      login: guest
+    acceptance:
+      - "WHEN the team-search image is started with ENV=production and DATABASE_URL empty"
+      - "THEN the process exits non-zero and its log names the database setting"
+    tags: [ops, security]
+    status: automated
+    covered_by: "ops/boot_guard_search.feature::team-search refuses in-memory storage in production"

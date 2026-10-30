@@ -2,7 +2,6 @@ package edge_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net/http/httptest"
 	"sync"
@@ -47,7 +46,7 @@ func (f *fakeRefreshIdentity) RefreshSession(ctx context.Context, in *identityv1
 func newRefreshClient(t *testing.T, id *fakeRefreshIdentity, retryMax int, rps float64, burst int) identityv1connect.AuthServiceClient {
 	t.Helper()
 	e := edge.NewEdge(token.NewVerifier("http://127.0.0.1:1/jwks", time.Minute), []string{"listing.read"}, time.Second, retryMax, rps, burst)
-	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Identity: id}, e, nil, edge.CockpitConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	srv := httptest.NewServer(edge.NewMux(&upstream.Clients{Identity: id}, e, nil, edge.CockpitConfig{}, slog.New(slog.DiscardHandler)))
 	t.Cleanup(srv.Close)
 	return identityv1connect.NewAuthServiceClient(srv.Client(), srv.URL)
 }

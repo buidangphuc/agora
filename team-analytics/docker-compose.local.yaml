@@ -6,7 +6,8 @@ services:
   team-analytics:
     build: .
     environment:
-      KAFKA_ENABLED: "true"
+      ENV: "local"
+      GRPC_PORT: "50059"
       KAFKA_BROKERS: "redpanda:9092"
       KAFKA_ANALYTICS_TOPIC: "analytics.events"
       KAFKA_CONSUMER_GROUP: "team-analytics"

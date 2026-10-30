@@ -209,7 +209,7 @@ func (e *Edge) authInterceptor() connect.Interceptor {
 	}
 }
 
-func (e *Edge) logRequest(logger *slog.Logger, ctx context.Context, procedure string, start time.Time, err error, attempts *attemptCounter) {
+func (e *Edge) logRequest(ctx context.Context, logger *slog.Logger, procedure string, start time.Time, err error, attempts *attemptCounter) {
 	code := "ok"
 	if err != nil {
 		code = connect.CodeOf(err).String()
@@ -219,13 +219,13 @@ func (e *Edge) logRequest(logger *slog.Logger, ctx context.Context, procedure st
 	if p, ok := principalFrom(ctx); ok {
 		principalID = p.id
 	}
-	logger.Info("edge.request",
-		slog.String("method", procedure),
-		slog.String("principal", principalID),
-		slog.String("code", code),
-		slog.Int64("latency_ms", time.Since(start).Milliseconds()),
-		slog.String("request_id", requestIDFrom(ctx)),
-		slog.Int("attempts", attempts.value()),
+	logger.InfoContext(ctx, "edge.request",
+		"method", procedure,
+		"principal", principalID,
+		"code", code,
+		"latency_ms", time.Since(start).Milliseconds(),
+		"request_id", requestIDFrom(ctx),
+		"attempts", attempts.value(),
 	)
 }
 
@@ -236,7 +236,7 @@ func (e *Edge) loggingInterceptor(logger *slog.Logger) connect.Interceptor {
 				start := time.Now()
 				attempts := &attemptCounter{}
 				res, err := next(withAttempts(ctx, attempts), req)
-				e.logRequest(logger, ctx, req.Spec().Procedure, start, err, attempts)
+				e.logRequest(ctx, logger, req.Spec().Procedure, start, err, attempts)
 				return res, err
 			}
 		},
@@ -245,7 +245,7 @@ func (e *Edge) loggingInterceptor(logger *slog.Logger) connect.Interceptor {
 				start := time.Now()
 				attempts := &attemptCounter{}
 				err := next(withAttempts(ctx, attempts), conn)
-				e.logRequest(logger, ctx, conn.Spec().Procedure, start, err, attempts)
+				e.logRequest(ctx, logger, conn.Spec().Procedure, start, err, attempts)
 				return err
 			}
 		},

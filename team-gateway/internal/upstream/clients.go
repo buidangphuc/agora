@@ -100,9 +100,16 @@ func dialOptions(timeout time.Duration) []grpc.DialOption {
 	}
 }
 
+// Addr names one upstream and the address it is dialled at.
+type Addr struct {
+	Name    string
+	Address string
+}
+
 // Dial creates (lazy) gRPC connections to the upstream services. dialTimeout
-// (DIAL_TIMEOUT_SECONDS) bounds the reconnect backoff.
-func Dial(dialTimeout time.Duration, searchAddr, listingAddr, identityAddr, engagementAddr, orderAddr, paymentAddr, chatAddr, aiAddr, recAddr, promotionAddr, notificationAddr, analyticsAddr, referralAddr, verificationAddr, sharingAddr, auditAddr string) (*Clients, error) {
+// (DIAL_TIMEOUT_SECONDS) bounds the reconnect backoff. Every service name in
+// the routing table must appear in addrs.
+func Dial(dialTimeout time.Duration, addrs []Addr) (*Clients, error) {
 	// The gateway is the single edge that dials every upstream (Rules 1 & 2), so
 	// one otelgrpc client stats handler here emits per-service gRPC RED metrics
 	// (request count + duration histogram, labelled by rpc.service/method/status)
@@ -110,77 +117,41 @@ func Dial(dialTimeout time.Duration, searchAddr, listingAddr, identityAddr, enga
 	// into the global MeterProvider, which is the SDK no-op unless OTEL_ENABLED=true.
 	opts := dialOptions(dialTimeout)
 	c := &Clients{}
-	dial := func(name, addr string) (*grpc.ClientConn, error) {
-		conn, err := grpc.NewClient(addr, opts...)
+	var err error
+	byName := make(map[string]*grpc.ClientConn, len(addrs))
+	for _, a := range addrs {
+		conn, err := grpc.NewClient(a.Address, opts...)
 		if err != nil {
 			c.Close()
-			return nil, fmt.Errorf("dial %s %s: %w", name, addr, err)
+			return nil, fmt.Errorf("dial %s %s: %w", a.Name, a.Address, err)
 		}
 		c.conns = append(c.conns, conn)
-		return conn, nil
+		byName[a.Name] = conn
 	}
-	searchConn, err := dial("search", searchAddr)
-	if err != nil {
-		return nil, err
+	conn := func(name string) *grpc.ClientConn {
+		if err == nil && byName[name] == nil {
+			err = fmt.Errorf("no upstream address for %s", name)
+		}
+		return byName[name]
 	}
-	listingConn, err := dial("listing", listingAddr)
+	searchConn := conn("search")
+	listingConn := conn("listing")
+	identityConn := conn("identity")
+	engagementConn := conn("engagement")
+	orderConn := conn("order")
+	paymentConn := conn("payment")
+	chatConn := conn("chat")
+	aiConn := conn("ai")
+	recConn := conn("recommendation")
+	promotionConn := conn("promotion")
+	notificationConn := conn("notification")
+	analyticsConn := conn("analytics")
+	referralConn := conn("referral")
+	verificationConn := conn("verification")
+	sharingConn := conn("sharing")
+	auditConn := conn("audit")
 	if err != nil {
-		return nil, err
-	}
-	identityConn, err := dial("identity", identityAddr)
-	if err != nil {
-		return nil, err
-	}
-	engagementConn, err := dial("engagement", engagementAddr)
-	if err != nil {
-		return nil, err
-	}
-	orderConn, err := dial("order", orderAddr)
-	if err != nil {
-		return nil, err
-	}
-	paymentConn, err := dial("payment", paymentAddr)
-	if err != nil {
-		return nil, err
-	}
-	chatConn, err := dial("chat", chatAddr)
-	if err != nil {
-		return nil, err
-	}
-	aiConn, err := dial("ai", aiAddr)
-	if err != nil {
-		return nil, err
-	}
-	recConn, err := dial("recommendation", recAddr)
-	if err != nil {
-		return nil, err
-	}
-	promotionConn, err := dial("promotion", promotionAddr)
-	if err != nil {
-		return nil, err
-	}
-	notificationConn, err := dial("notification", notificationAddr)
-	if err != nil {
-		return nil, err
-	}
-	analyticsConn, err := dial("analytics", analyticsAddr)
-	if err != nil {
-		return nil, err
-	}
-	referralConn, err := dial("referral", referralAddr)
-	if err != nil {
-		return nil, err
-	}
-	verificationConn, err := dial("verification", verificationAddr)
-	if err != nil {
-		return nil, err
-	}
-	sharingConn, err := dial("sharing", sharingAddr)
-	if err != nil {
-		return nil, err
-	}
-	auditConn, err := dial("audit", auditAddr)
-	if err != nil {
+		c.Close()
 		return nil, err
 	}
 
