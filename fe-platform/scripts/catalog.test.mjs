@@ -56,6 +56,34 @@ describe("catalog", () => {
     expect(render(buildCatalog())).toBe(render(buildCatalog()));
   });
 
+  it("has no deprecated entries today", () => {
+    expect(catalog.components.filter((c) => "deprecated" in c)).toEqual([]);
+  });
+
+  it("copies a @deprecated tag into the entry", () => {
+    const dir = mkdtempSync(join(tmpdir(), "catalog-"));
+    try {
+      const entry = join(dir, "index.ts");
+      writeFileSync(
+        entry,
+        "/**\n * Old thing.\n * @deprecated Use B; removed in 2.0.0.\n */\nexport function A(p: { x: string }) { return p.x; }\n",
+      );
+      const options = {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.ESNext,
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
+        strict: true,
+        noEmit: true,
+        skipLibCheck: true,
+      };
+      const [a] = collectComponents(entry, options);
+      expect(a.purpose).toBe("Old thing.");
+      expect(a.deprecated).toBe("Use B; removed in 2.0.0.");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("fails generation when an export has no JSDoc purpose", () => {
     const dir = mkdtempSync(join(tmpdir(), "catalog-"));
     try {

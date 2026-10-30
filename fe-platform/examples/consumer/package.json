@@ -1,0 +1,29 @@
+{
+  "name": "fe-platform-consumer-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "classes": "node scripts/check-classes.mjs",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run classes && npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "@fe-platform/tokens": "^0.1.1",
+    "@fe-platform/ui": "^0.1.0",
+    "autoprefixer": "^10.6.2",
+    "next": "^15.5.27",
+    "postcss": "^8.5.32",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^3.4.19"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^5.6.0"
+  }
+}
