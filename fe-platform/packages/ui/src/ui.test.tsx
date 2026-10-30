@@ -9,6 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import axe from "axe-core";
+import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   Button,
@@ -241,6 +242,42 @@ describe("Dialog", () => {
     expect(dialog.getAttribute("aria-describedby")).toBeTruthy();
     fireEvent.keyDown(dialog, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("runs controlled without a trigger, shows footer actions and returns focus to the opener", async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Opener
+          </button>
+          <Dialog
+            open={open}
+            onOpenChange={setOpen}
+            title="Remove item"
+            closeLabel="Dismiss"
+            size="sm"
+            footer={<button type="button">Remove</button>}
+          >
+            body
+          </Dialog>
+        </>
+      );
+    }
+    render(<Harness />);
+    const opener = screen.getByRole("button", { name: "Opener" });
+    opener.focus();
+    fireEvent.click(opener);
+    const dialog = screen.getByRole("dialog", { name: "Remove item" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.getAttribute("aria-describedby")).toBeNull();
+    expect(
+      dialog.contains(screen.getByRole("button", { name: "Remove" })),
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 });
 
