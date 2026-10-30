@@ -94,6 +94,25 @@ describe("gateway client", () => {
     expect(seen[0].headers.get("x-request-id")).toBe("rid-9");
   });
 
+  it("routes each service to its own gateway path", async () => {
+    const { fetch, seen } = fakeFetch(
+      () =>
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+    const c = createGatewayClients({ baseUrl: "http://gw.test", fetch });
+    await c.search.suggest({});
+    await c.cart.getCart({});
+    await c.session.listSessions({});
+    expect(seen.map((r) => r.url)).toEqual([
+      "http://gw.test/platform.search.v1.SearchService/Suggest",
+      "http://gw.test/platform.order.v1.CartService/GetCart",
+      "http://gw.test/platform.identity.v1.SessionService/ListSessions",
+    ]);
+  });
+
   it("generates a request id when none is given and omits an absent token", async () => {
     const { fetch, seen } = fakeFetch(ok);
     const { listing } = createGatewayClients({
