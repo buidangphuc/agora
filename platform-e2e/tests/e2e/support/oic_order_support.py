@@ -403,12 +403,26 @@ def start_domain(w: OicWorld) -> None:
 
 def wait_domain_up(w: OicWorld, timeout: float = 90.0) -> None:
     deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        try:
-            r = post(w, None, LISTING, "GetListing", {"id": next(iter(w.listings.values()))["id"]})
-            if r.status_code == 200:
-                return
-        except httpx.HTTPError:
-            pass
-        time.sleep(1)
-    raise TimeoutError("team-domain did not come back")
+    listing_id = next(iter(w.listings.values()))["id"]
+    buyer = next((a for a in w.actors.values() if a.role == "buyer"), None)
+
+    def gateway_reaches_domain() -> bool:
+        return post(w, None, LISTING, "GetListing", {"id": listing_id}).status_code == 200
+
+    def order_reaches_domain() -> bool:
+        if buyer is None:
+            return True
+        body = {"listingId": str(uuid.uuid4()), "quantity": 1}
+        return post(w, buyer, CART, "AddToCart", body).status_code != 503
+
+    for probe in (gateway_reaches_domain, order_reaches_domain):
+        while True:
+            try:
+                if probe():
+                    break
+            except httpx.HTTPError:
+                pass
+            if time.monotonic() >= deadline:
+                raise TimeoutError("team-domain did not come back")
+            time.sleep(1)
+            time.sleep(1)

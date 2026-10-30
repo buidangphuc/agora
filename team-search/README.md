@@ -4,14 +4,14 @@ Search and discovery read-model for the Agora marketplace (Go). It owns the Open
 `listings`, a projection built by consuming `listing.events` (CQRS, ADR-0005), and the
 `platform.search.v1.SearchService` gRPC API: lexical, semantic and hybrid (RRF) listing search,
 facets, prefix suggest, and per-user saved searches. Saved searches live in this service's own
-Postgres database (`search_db`) when `DATABASE_ENABLED=true`, and in memory otherwise.
+Postgres database (`search_db`).
 
 Two binaries ship in one image (`Dockerfile`):
 
 | Binary | Entry | Role | Compose service |
 |---|---|---|---|
 | `/server` (default) | `cmd/server` | gRPC query API on `:50052` | `team-search` (container `team-search-svc`) |
-| `/indexer` | `cmd/indexer` | Kafka consumer that writes the index; requires `KAFKA_ENABLED=true` | `team-search-indexer` |
+| `/indexer` | `cmd/indexer` | Kafka consumer that writes the index | `team-search-indexer` |
 
 The gateway reaches it through `UPSTREAM_SEARCH_ADDR=team-search-svc:50052`.
 
@@ -86,7 +86,7 @@ principal `service-team-search`, scope `ai.classify`, 2 s deadline; empty = no c
 | Consumes | `listing.events` (`KAFKA_LISTING_TOPIC`), group `team-search-indexer` | `platform.events.v1.EventEnvelope` wrapping `ListingChanged`, `ListingBaseInfoChanged`, `ListingPricingChanged`, `ListingStockChanged`, `ListingStatusChanged`; other types are ignored | not used by the handler |
 | Produces | `listing.events.dlq` (topic + `.dlq`) | the original record, parked after retries are exhausted | original key |
 
-Handling (`internal/consumer/listing.go`):
+Handling (`internal/events/listing.go`):
 
 - Version guard: the document version is the envelope `occurred_at` in nanoseconds. Every
   whole-document write (upsert and delete) is one `scripted_upsert` guarded on `_source.version`
@@ -123,9 +123,8 @@ Handling (`internal/consumer/listing.go`):
 - Migrations are not applied by the service. In root compose, the `team-search-migrate`
   one-shot (golang-migrate) runs them and `team-search` depends on it. Standalone, run
   golang-migrate against `DATABASE_URL`.
-- `DATABASE_ENABLED=true` uses the Postgres repository (pgx; the DB is pinged at startup and
-  the server fails to start if it is unreachable). `false` uses an in-memory repository and logs
-  a warning: saved searches are lost on restart and not shared between replicas.
+- The server always uses the Postgres store (the DB is pinged at startup and the server fails
+  to start if it is unreachable). There is no in-memory fallback.
 
 ## Configuration
 
@@ -134,13 +133,13 @@ if `.env.example` and the config structs drift in either direction.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | `prod`/`production` counts as prod |
+| `ENV` | `local` | required; `prod`/`production` counts as prod |
 | `LOG_LEVEL` | `info` | |
 | `LOG_JSON` | `true` | |
 | `GRPC_HOST` | `0.0.0.0` | |
-| `GRPC_PORT` | `50052` | |
-| `GRPC_REFLECTION_ENABLED` | `true` | |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | |
+| `GRPC_PORT` | `50052` | required |
+| `GRPC_REFLECTION_ENABLED` | `false` | refused in staging and prod |
+| `SHUTDOWN_GRACE` | `10s` | |
 | `OPENSEARCH_URL` | `http://localhost:9200` | required non-empty |
 | `OPENSEARCH_INDEX` | `listings` | |
 | `MODEL_SERVER_URL` | `http://localhost:8100` | modelserve base URL (embed, rerank); 2 s HTTP client timeout |
@@ -152,15 +151,14 @@ if `.env.example` and the config structs drift in either direction.
 | `HYBRID_LEXICAL_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_WEIGHT` | `1.0` | values <= 0 fall back to 1.0 |
 | `HYBRID_SEMANTIC_MIN_SCORE` | `0.65` | minimum cosine similarity (-1..1) of a semantic candidate; <= -1 disables the floor |
-| `KAFKA_ENABLED` | `false` | the indexer refuses to start unless true; the server does not use Kafka |
 | `KAFKA_BROKERS` | `localhost:9092` | comma-separated |
 | `KAFKA_CONSUMER_GROUP` | `team-search-indexer` | |
 | `KAFKA_LISTING_TOPIC` | `listing.events` | |
-| `UPSTREAM_AI_ADDR` | `""` | indexer only; team-ai gRPC address for tag classification (`team-ai-svc:50060` in compose). Empty means no classification |
-| `TOMBSTONE_TTL` | `336h` | indexer only; tombstone retention from when the indexer applied the delete; invalid or non-positive falls back to the default with a WARN |
-| `TOMBSTONE_PURGE_INTERVAL` | `1h` | indexer only; how often expired tombstones are purged; same fallback |
-| `DATABASE_ENABLED` | `false` | Postgres vs in-memory saved searches; used by the server only |
-| `DATABASE_URL` | `""` | required when `DATABASE_ENABLED=true`; `.env.example` supplies a local value |
+| `UPSTREAM_AI_ADDR` | `""` | required by the indexer; team-ai gRPC address for tag classification (`team-ai-svc:50060` in compose) |
+| `TOMBSTONE_TTL` | `336h` | indexer only; tombstone retention from when the indexer applied the delete; must be a positive duration; invalid values fail startup |
+| `TOMBSTONE_PURGE_INTERVAL` | `1h` | indexer only; how often expired tombstones are purged; must be a positive duration; invalid values fail startup |
+| `DATABASE_URL` | `""` | required by the server; `.env.example` supplies a local value |
+| `LOG_KEY_FP_SECRET` | `""` | secret for log key fingerprints; `.env.example` supplies a local value |
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `""` | `.env.example` sets `http://localhost:4317`; the code default is empty |
 | `OTEL_SERVICE_NAME` | `team-search` | |
@@ -168,7 +166,7 @@ if `.env.example` and the config structs drift in either direction.
 ## Run locally
 
 Whole stack (root of the repo): `docker compose up -d --build`. This starts `team-search-migrate`,
-`team-search` and `team-search-indexer` with `DATABASE_ENABLED=true`, OpenSearch and Redpanda.
+`team-search` and `team-search-indexer` OpenSearch and Redpanda.
 The root compose runs a `modelserve-router` (port 8100), but `MODEL_SERVER_URL` is not set
 for team-search there, so embeds fail and hybrid search degrades to lexical (new documents are
 indexed with `vector_pending=true`). To get semantic results, run `platform-modelserve`
@@ -182,8 +180,8 @@ docker compose -f docker-compose.local.yaml up -d   # OpenSearch 2.15 on :9200 o
 # Redpanda: from platform-core/infra, or use the root stack
 cp .env.example .env
 make proto                                          # generated/ is gitignored
-KAFKA_ENABLED=true make indexer                     # Kafka -> OpenSearch
-make server                                         # gRPC on :50052
+make indexer                     # Kafka -> OpenSearch
+make run                                            # gRPC on :50052
 ```
 
 Smoke test (scopes are trusted metadata, so send them yourself):
@@ -199,10 +197,13 @@ grpcurl -plaintext localhost:50052 grpc.health.v1.Health/Check
 | Command | What it does |
 |---|---|
 | `make proto` | `buf generate` into `generated/` (needs `buf`); then `go mod tidy` |
-| `make server` / `make indexer` | `go run` the binaries |
-| `make test` | `go test ./...` |
+| `make run` | `go run ./cmd/server` (first binary in `BINARIES`) |
+| `make indexer` | `go run ./cmd/indexer` |
+| `make build` | `go build ./...` |
+| `make lint` | golangci-lint with the shared config |
+| `make test` | tests with the race detector |
 | `make check-env` | `.env.example` vs config drift gate |
-| `make check` | merge gate: `check-env`, `gofmt -l .`, `go vet ./...`, `go test ./...` |
+| `make check` | merge gate: `go vet`, `make lint`, `make test` (Docker tests must run), `make check-env` |
 
 `go.mod` is Go 1.26; `franz-go` is pinned at v1.18.0; do not bump without running the tests. The
 Docker build uses `golang:1.26`.
@@ -246,7 +247,6 @@ Docker build uses `golang:1.26`.
 - `RunSavedSearch` ignores `search_mode`, the engine and the reranker: it calls the lexical index search directly.
 - Root compose runs a `modelserve-router` but does not set `MODEL_SERVER_URL` for team-search (see Run locally).
 - Facets come from the lexical result only, and in hybrid mode `Total` is the larger of the two strategies' totals (an estimate).
-- With `DATABASE_ENABLED=false` (local/test only; staging/production refuse to boot), saved searches are in memory only.
 
 ## References
 

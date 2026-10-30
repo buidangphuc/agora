@@ -1,27 +1,29 @@
-package upstream
+package upstream_test
 
 import (
 	"context"
 	"net"
 	"sync"
 	"testing"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 	auditv1 "github.com/buidangphuc/team-identity/generated/platform/audit/v1"
+	"github.com/buidangphuc/team-identity/internal/upstream"
 )
 
 type recordingAudit struct {
 	auditv1.UnimplementedAuditServiceServer
-	mu    sync.Mutex
-	reqs  []*auditv1.WriteAuditEventRequest
-	mds   []metadata.MD
-	err   error
-	block bool
+	mu   sync.Mutex
+	reqs []*auditv1.WriteAuditEventRequest
+	mds  []metadata.MD
+	err  error
 }
 
 func (r *recordingAudit) WriteAuditEvent(ctx context.Context, req *auditv1.WriteAuditEventRequest) (*auditv1.WriteAuditEventResponse, error) {
@@ -30,17 +32,19 @@ func (r *recordingAudit) WriteAuditEvent(ctx context.Context, req *auditv1.Write
 	r.reqs = append(r.reqs, req)
 	r.mds = append(r.mds, md)
 	r.mu.Unlock()
-	if r.block {
-		<-ctx.Done()
-		return nil, ctx.Err()
-	}
 	if r.err != nil {
 		return nil, r.err
 	}
 	return &auditv1.WriteAuditEventResponse{}, nil
 }
 
-func startAudit(t *testing.T, svc *recordingAudit) string {
+func (r *recordingAudit) calls() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.reqs)
+}
+
+func startAudit(t *testing.T, svc *recordingAudit) auditx.Writer {
 	t.Helper()
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -50,46 +54,39 @@ func startAudit(t *testing.T, svc *recordingAudit) string {
 	auditv1.RegisterAuditServiceServer(srv, svc)
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)
-	return lis.Addr().String()
+	conn, err := auditx.Dial(config.Audit{Addr: lis.Addr().String()}, "service-team-identity", "audit.write")
+	if err != nil || conn == nil {
+		t.Fatalf("auditx.Dial: %v, %v", conn, err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+	w := upstream.NewAuditWriter(conn)
+	if w == nil {
+		t.Fatal("NewAuditWriter returned nil; it must never be nil")
+	}
+	return w
 }
 
-// Scenario: User enforcement: No audit upstream configured
-func TestNewAuditClientEmptyAddrIsNil(t *testing.T) {
-	c, err := NewAuditClient("", time.Second)
-	if err != nil || c != nil {
-		t.Fatalf("NewAuditClient(\"\") = %v, %v; want nil, nil", c, err)
-	}
-	if err := c.Close(); err != nil {
-		t.Fatalf("Close on nil client must be safe: %v", err)
-	}
+func adminCtx() context.Context {
+	ctx := auth.WithPrincipal(context.Background(), auth.Principal{ID: "adm-1", Type: auth.TypeUser, Scopes: []string{"admin"}})
+	return metadata.NewOutgoingContext(ctx, metadata.Pairs(
+		"x-principal-id", "adm-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
 }
 
-// Scenario: User enforcement: No audit upstream configured (nil client fails closed).
-func TestAuditNilReceiverFailsClosed_NoAuditUpstreamConfigured(t *testing.T) {
-	var c *AuditClient
-	if err := c.WriteUserSetStatus(context.Background(), "adm-1", "u-1", "banned", "scam", "", nil); err == nil {
-		t.Fatal("nil audit client must return an error, never succeed silently")
-	}
-}
-
-// Scenario: User enforcement: Audit is called as the service principal
+// Scenario: The audit client sends the service principal
 func TestAuditUsesServicePrincipal(t *testing.T) {
 	rec := &recordingAudit{}
-	c, err := NewAuditClient(startAudit(t, rec), time.Second)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: %v, %v", c, err)
+	w := startAudit(t, rec)
+	ev := auditx.Event{
+		ActorID: "adm-1", Action: "user.set_status", TargetType: "user", TargetID: "u-1",
+		Metadata: map[string]string{
+			"status": "suspended", "reason_code": "abuse", "note": "repeated spam", "until": "2026-11-01T03:30:00Z",
+		},
 	}
-	defer func() { _ = c.Close() }()
-
-	// The admin's own principal rides on the context; it must be replaced, never forwarded.
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(
-		"x-principal-id", "adm-1", "x-principal-type", "user", "x-principal-scopes", "admin"))
-	until := time.Date(2026, 11, 1, 10, 30, 0, 0, time.FixedZone("x", 7*3600))
-	if err := c.WriteUserSetStatus(ctx, "adm-1", "u-1", "suspended", "abuse", "repeated spam", &until); err != nil {
-		t.Fatalf("WriteUserSetStatus: %v", err)
+	if err := w.WriteAuditEvent(adminCtx(), ev); err != nil {
+		t.Fatalf("WriteAuditEvent: %v", err)
 	}
-	if len(rec.reqs) != 1 {
-		t.Fatalf("want exactly 1 WriteAuditEvent call, got %d", len(rec.reqs))
+	if rec.calls() != 1 {
+		t.Fatalf("want exactly 1 WriteAuditEvent call, got %d", rec.calls())
 	}
 	req := rec.reqs[0]
 	if req.GetActorId() != "adm-1" || req.GetAction() != "user.set_status" ||
@@ -97,9 +94,13 @@ func TestAuditUsesServicePrincipal(t *testing.T) {
 		t.Errorf("unexpected event: %+v", req)
 	}
 	m := req.GetMetadata()
-	if len(m) != 4 || m["status"] != "suspended" || m["reason_code"] != "abuse" ||
-		m["note"] != "repeated spam" || m["until"] != "2026-11-01T03:30:00Z" {
-		t.Errorf("metadata = %v, want status, reason_code, note, until (RFC3339 UTC)", m)
+	if len(m) != len(ev.Metadata) {
+		t.Errorf("metadata = %v, want %v", m, ev.Metadata)
+	}
+	for k, v := range ev.Metadata {
+		if m[k] != v {
+			t.Errorf("metadata[%s] = %q, want %q", k, m[k], v)
+		}
 	}
 	want := map[string]string{
 		"x-principal-id":     "service-team-identity",
@@ -108,54 +109,47 @@ func TestAuditUsesServicePrincipal(t *testing.T) {
 	}
 	for k, v := range want {
 		if vals := rec.mds[0].Get(k); len(vals) != 1 || vals[0] != v {
-			t.Errorf("%s = %v, want [%s]", k, vals, v)
+			t.Errorf("%s = %v, want exactly [%s] (admin principal must be replaced, never forwarded)", k, vals, v)
 		}
 	}
 }
 
-// Scenario: User enforcement: Ban writes one audit event and revokes sessions
-// (client half: optional note and until are omitted from metadata when not given).
-func TestAuditOmitsNoteAndUntilWhenAbsent(t *testing.T) {
+// Scenario: The audit client sends the service principal (optional metadata is passed through unchanged)
+func TestAuditWriterMapsEventWithoutOptionalMetadata(t *testing.T) {
 	rec := &recordingAudit{}
-	c, err := NewAuditClient(startAudit(t, rec), time.Second)
-	if err != nil {
+	w := startAudit(t, rec)
+	ev := auditx.Event{
+		ActorID: "adm-1", Action: "user.set_status", TargetType: "user", TargetID: "u-2",
+		Metadata: map[string]string{"status": "banned", "reason_code": "scam"},
+	}
+	if err := w.WriteAuditEvent(context.Background(), ev); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = c.Close() }()
-	if err := c.WriteUserSetStatus(context.Background(), "adm-1", "u-1", "banned", "scam", "", nil); err != nil {
-		t.Fatal(err)
+	if rec.calls() != 1 {
+		t.Fatalf("want 1 call, got %d", rec.calls())
 	}
 	m := rec.reqs[0].GetMetadata()
 	if len(m) != 2 || m["status"] != "banned" || m["reason_code"] != "scam" {
 		t.Errorf("metadata = %v, want status+reason_code only", m)
 	}
+	if got := rec.mds[0].Get("x-principal-id"); len(got) != 1 || got[0] != "service-team-identity" {
+		t.Errorf("x-principal-id = %v, want [service-team-identity] even with no caller principal", got)
+	}
 }
 
-// Scenario: User enforcement: Audit down refuses the change (client returns the error).
-func TestAuditUpstreamErrorIsReturned(t *testing.T) {
+// Scenario: The audit client sends the service principal (upstream failure is returned, never swallowed)
+func TestAuditWriterReturnsUpstreamError(t *testing.T) {
 	rec := &recordingAudit{err: status.Error(codes.Internal, "audit db down")}
-	c, err := NewAuditClient(startAudit(t, rec), time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = c.Close() }()
-	if err := c.WriteUserSetStatus(context.Background(), "adm-1", "u-1", "banned", "scam", "", nil); err == nil {
+	w := startAudit(t, rec)
+	ev := auditx.Event{ActorID: "adm-1", Action: "user.set_status", TargetType: "user", TargetID: "u-1"}
+	err := w.WriteAuditEvent(context.Background(), ev)
+	if err == nil {
 		t.Fatal("an audit failure must be returned, not swallowed")
 	}
-}
-
-// Scenario: User enforcement: Audit down refuses the change (deadline half: bounded call).
-func TestAuditBoundedWhenAuditHangs(t *testing.T) {
-	c, err := NewAuditClient(startAudit(t, &recordingAudit{block: true}), 150*time.Millisecond)
-	if err != nil {
-		t.Fatal(err)
+	if rec.calls() != 1 {
+		t.Fatalf("want exactly 1 call, got %d", rec.calls())
 	}
-	defer func() { _ = c.Close() }()
-	start := time.Now()
-	if err := c.WriteUserSetStatus(context.Background(), "adm-1", "u-1", "banned", "scam", "", nil); err == nil {
-		t.Fatal("expected an error when team-audit hangs")
-	}
-	if el := time.Since(start); el > 2*time.Second {
-		t.Fatalf("audit call was not bounded: took %v", el)
+	if status.Code(err) != codes.Internal {
+		t.Errorf("code = %v, want Internal passed through for the gate to map", status.Code(err))
 	}
 }

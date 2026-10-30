@@ -127,7 +127,7 @@ func TestFakeRoundTrip(t *testing.T) {
 
 // TestWriterInterface asserts the fake (and, by the compile-time asserts in each
 // adapter file, the real adapters) satisfy the seam.
-func TestWriterInterface(t *testing.T) {
+func TestWriterInterface(_ *testing.T) {
 	var _ warehouse.WarehouseWriter = fake.New()
 }
 

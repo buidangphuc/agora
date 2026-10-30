@@ -59,9 +59,11 @@ Upstream: team-audit `AuditService.WriteAuditEvent` (`UPSTREAM_AUDIT_ADDR`), use
 | Consumes | none | | |
 
 `RevokeSession` inserts the outbox row in the same transaction as `sessions.revoked = true`. The
-relayer (`internal/events/relayer.go`) publishes pending rows and runs only when `KAFKA_ENABLED` and
-`OUTBOX_ENABLED` are both true. With `KAFKA_ENABLED=false` (the default) rows are recorded and never
-relayed. The envelope carries an expiry of session creation time plus `JWT_TTL_SECONDS`, which is how
+SDK outbox relayer (`pkg/outbox`) always runs and publishes pending rows to `IDENTITY_EVENTS_TOPIC`
+keyed by the user id, with `event-id`, `event-type`, `x-request-id` and `traceparent` headers. A broker
+outage never parks a row: transient failures retry without a limit and only a permanent record error
+parks one. Published rows older than 7 days (`OUTBOX_PURGE_RETENTION`, checked every
+`OUTBOX_PURGE_INTERVAL`) are purged; pending and failed rows are never purged. The envelope carries an expiry of session creation time plus `JWT_TTL_SECONDS`, which is how
 the gateway knows how long to deny that session's token.
 
 ## Data
@@ -82,40 +84,47 @@ Retention: `sessions` and `login_history` rows are purged by a background sweepe
 `SESSION_RETENTION` (default 30d) and `LOGIN_HISTORY_RETENTION` (default 180d), in batches every
 `SESSION_SWEEP_INTERVAL`. Invalid (zero, negative, unparseable) values stop startup.
 
-All user-owned tables reference `users(id)` with `ON DELETE CASCADE`. Migrations are not run by the
-service: the root compose runs the `team-identity-migrate` job; standalone use `make migrate`
-(needs docker).
+All user-owned tables reference `users(id)` with `ON DELETE CASCADE`. Migrations are never run by the
+service at boot. Run `server migrate up` (the `team-identity-migrate` job in the root compose does
+this) before the service starts; standalone use `make migrate`. A dirty `schema_migrations` state
+fails the subcommand and needs manual repair.
+
+Deploy order: run `migrate up` first, then roll out the service. Migration `0019` requeues outbox rows
+that earlier versions parked as `failed`. To requeue parked rows again by hand:
+
+```sql
+UPDATE identity_outbox_events SET status='pending', attempts=0, available_at=now(), locked_until=NULL, error=NULL WHERE status='failed';
+```
 
 ## Configuration
 
 Read by `internal/config/config.go`. `make check-env` (part of `make check`) fails if `.env.example`
-drifts from the config structs. The service refuses to start without `DATABASE_ENABLED=true`.
+drifts from the config structs. The service has no enable flags: Postgres, Kafka, the outbox relayer
+and the session sweeper are always on.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ENV` | `local` | |
+| `ENV` | required | `local`, `test`, `staging` or `production` |
 | `LOG_LEVEL` | `info` | |
 | `LOG_JSON` | `true` | |
 | `GRPC_HOST` | `0.0.0.0` | Also the bind host for JWKS |
-| `GRPC_PORT` | `50053` | |
-| `GRPC_REFLECTION_ENABLED` | `true` | |
-| `SHUTDOWN_GRACE_SECONDS` | `10` | |
-| `DATABASE_ENABLED` | `true` | Must stay true |
+| `GRPC_PORT` | required | Compose uses `50053` |
+| `GRPC_REFLECTION_ENABLED` | `false` | Set `GRPC_REFLECTION_ENABLED=true` to serve reflection; accepted only when `ENV` is `local` or `test` |
+| `SHUTDOWN_GRACE` | `10s` | |
+| `SHUTDOWN_DRAIN_DELAY` | `0s` | Wait after health reports NOT_SERVING, before gRPC stops |
 | `DATABASE_URL` | empty | Required |
 | `DB_MAX_CONNS` | `10` | |
-| `KAFKA_ENABLED` | `false` | |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated |
+| `KAFKA_BROKERS` | empty | Comma-separated |
 | `IDENTITY_EVENTS_TOPIC` | `identity.events` | |
-| `OUTBOX_ENABLED` | `true` | Relayer also needs `KAFKA_ENABLED` |
-| `OUTBOX_POLL_INTERVAL` | `1s` | Go duration; invalid falls back to 1s |
+| `OUTBOX_POLL_INTERVAL` | `1s` | Go duration |
 | `OUTBOX_BATCH_SIZE` | `100` | |
-| `OUTBOX_CLAIM_LOCK_SECONDS` | `60` | |
-| `OUTBOX_MAX_ATTEMPTS` | `10` | |
+| `OUTBOX_CLAIM_LOCK` | `60s` | |
+| `OUTBOX_PURGE_RETENTION` | `168h` | Published rows older than this (7 days) are purged; must be > 0 |
+| `OUTBOX_PURGE_INTERVAL` | `1h` | Must be > 0 |
 | `SESSION_RETENTION` | `720h` | Go duration, must be > 0; sessions older than this are purged |
 | `LOGIN_HISTORY_RETENTION` | `4320h` | Go duration, must be > 0; login_history rows older than this are purged |
 | `SESSION_SWEEP_INTERVAL` | `1h` | Go duration, must be > 0 |
 | `SESSION_SWEEP_BATCH_SIZE` | `500` | Rows deleted per batch, must be > 0 |
-| `SESSION_SWEEP_ENABLED` | `true` | Turns the retention sweeper off when `false` |
 | `JWT_PRIVATE_KEY` | empty | Required. PEM RSA key (PKCS#1 or PKCS#8); literal `\n` and surrounding quotes are accepted |
 | `JWT_KID` | empty | Required |
 | `JWKS_HTTP_PORT` | `50063` | |
@@ -124,11 +133,11 @@ drifts from the config structs. The service refuses to start without `DATABASE_E
 | `SEED_ADMIN_USERNAME` | `admin` | |
 | `SEED_ADMIN_PASSWORD` | empty | Required, >= 12 chars, when seeding is enabled |
 | `PASSWORD_RESET_EXPOSE_TOKEN` | `false` | Return the raw reset token from `RequestPasswordReset`. Dev/e2e only; config load fails when `ENV=prod` |
-| `UPSTREAM_AUDIT_ADDR` | empty | team-audit gRPC address; empty disables the audit client and user-status changes fail closed |
-| `UPSTREAM_CALL_TIMEOUT_SECONDS` | `2` | Per-call timeout for upstream calls; must be > 0 |
+| `UPSTREAM_AUDIT_ADDR` | empty | Required. team-audit gRPC address; user-status changes fail closed when it is down |
+| `LOG_KEY_FP_SECRET` | empty | |
 | `OTEL_ENABLED` | `false` | |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | `.env.example` sets `http://localhost:4317` |
-| `OTEL_SERVICE_NAME` | `team-identity` | |
+| `OTEL_SERVICE_NAME` | empty | |
 
 Admin seed: with `SEED_ADMIN_ENABLED=true` the user is created only if absent and an existing
 password is never overwritten. A missing or short password aborts startup. A seeding failure after
@@ -145,7 +154,7 @@ Whole stack (service, migrate job, redpanda, shared Postgres), from the repo roo
 docker compose up -d --build team-identity
 ```
 
-Compose wires `KAFKA_ENABLED=true`, `JWKS_HTTP_PORT=50063`, a dev signing key and `SEED_ADMIN_*`.
+Compose wires `KAFKA_BROKERS`, `JWKS_HTTP_PORT=50063`, a dev signing key and `SEED_ADMIN_*`.
 The shared `postgres` container serves `identity_db` in-network as `postgres:5432`.
 
 Standalone, with the service's own Postgres on host port `5435`:
@@ -154,7 +163,7 @@ Standalone, with the service's own Postgres on host port `5435`:
 docker compose -f docker-compose.local.yaml up -d postgres-identity
 cp .env.example .env     # then set JWT_PRIVATE_KEY, see below
 make proto               # generated/ is gitignored
-make migrate
+make migrate             # runs `server migrate up`
 make run
 ```
 
@@ -176,12 +185,11 @@ grpcurl -plaintext -d '{"username":"seller_dan","password":"SecurePassword123","
 | Command | What it does |
 |---|---|
 | `make proto` | `buf generate` from the vendored `proto/` into `generated/` (needs `buf`; the plugins are remote on buf.build) |
-| `make check` | The merge gate: `check-env`, `gofmt -l .`, `go vet ./...`, `go test ./...` |
+| `make check` | The merge gate: `check-env`, format, lint (shared `.golangci.yml`), `go vet ./...`, `go test ./...` |
 | `make check-env` | `TestEnvExampleInSync` only |
 | `make test` | `go test ./...` |
 
-There is no linter beyond gofmt and vet. Postgres-backed tests (`*_pg_test.go`) skip unless
-`TEST_DATABASE_URL` is set. No workflow file for this repo exists in this checkout; treat
+Postgres-backed tests start a throwaway container through the SDK `testkit` and need docker. Treat
 `make check` as the gate.
 
 ## Spec and verification
@@ -201,8 +209,9 @@ then implement, per the root README's ASDLC. `PublicProfileService` has no `FEAT
   not depend on `EXPOSE`.
 - `RevokeSession` only records and relays an event. Enforcement happens at the gateway, which must
   consume `identity.events`; the refresh path also rejects revoked sessions (`NOT revoked` in the lookup), but nothing else reads `sessions.revoked` to gate requests.
-- With `KAFKA_ENABLED=false`, outbox rows accumulate unrelayed.
-- JWKS publishes exactly one key (the signer's). `BuildJWKS` accepts several, but `main.go` passes one,
+- With Kafka unreachable, outbox rows stay pending and are relayed once the broker is back; login and readiness are unaffected.
+- Health: `liveness` always serves while the process is up; the empty service name follows Postgres and drops to NOT_SERVING first on shutdown. An unknown service name returns `NOT_FOUND`.
+- JWKS publishes exactly one key (the signer's). `BuildJWKS` accepts several, but `internal/app` passes one,
   so rotation means redeploying with a new `JWT_KID` and key.
 - In-memory repositories exist for tests only; the server always uses Postgres.
 

@@ -63,9 +63,9 @@ features:
     priority: P2
     summary: >-
       Telemetry emission is best-effort: the beacon is fired asynchronously and
-      the gateway producer degrades to a no-op when Kafka is disabled
-      (KAFKA_ENABLED=false) or the broker is unavailable, so recording an event
-      never blocks or fails the buyer's browsing action.
+      a produce failure is logged and never changes the 202 answer when the
+      broker is unavailable, so recording an event never blocks or fails the
+      buyer's browsing action.
     entry_route: /
     related_routes: ["/listing/{id}"]
     services: [team-gateway]
@@ -556,8 +556,8 @@ features:
     entry_route: /
     services: [team-gateway]
     acceptance:
-      - "When the team-gateway image is started with ENV=production and EDGE_REFLECTION_ENABLED=true"
-      - "Then the process exits non-zero and its log names EDGE_REFLECTION_ENABLED"
+      - "When the team-gateway image is started with ENV=production and GRPC_REFLECTION_ENABLED=true"
+      - "Then the process exits non-zero and its log names GRPC_REFLECTION_ENABLED"
     tags: [security]
     status: automated
     covered_by: "ops/boot_guard_gateway.feature::The gateway refuses reflection in production"
@@ -1874,3 +1874,887 @@ features:
     tags: [buyer, order, unit]
     status: not-testable
     notes: "VERIFIED BY team-gateway `internal/edge` `TestConfirmReceiptForwarded`. Not producible end to end through the gateway (unit level)."
+
+  - id: gateway.sdk-a-stuck-broker-does-not-hold-the-browser-request
+    title: "A stuck broker does not hold the browser request"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A stuck broker does not hold the browser request"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestTrackPublishIsBoundedByTimeout`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-runtime-binary-does-not-import-a-fake
+    title: "The runtime binary does not import a fake"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The runtime binary does not import a fake"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestRuntimeDoesNotImportFakes`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-makefile-uses-the-shared-targets
+    title: "The Makefile uses the shared targets"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The Makefile uses the shared targets"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestMakefileIncludesSharedTargets`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-listen-port-is-required
+    title: "The listen port is required"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The listen port is required"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/config` `TestLoadRequiresListenPort`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-missing-jwks-url-is-rejected-in-every-environment
+    title: "A missing JWKS URL is rejected in every environment"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A missing JWKS URL is rejected in every environment"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/config` `TestLoadRequiresJWKSURL`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-empty-upstream-address-is-rejected
+    title: "An empty upstream address is rejected"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An empty upstream address is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/config` `TestLoadRefusesEmptyUpstreamAddr`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-out-of-range-bound-is-rejected
+    title: "An out-of-range bound is rejected"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An out-of-range bound is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/config` `TestLoadRefusesInvalidBounds`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-retired-keys-are-ignored
+    title: "Retired keys are ignored"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Retired keys are ignored"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/config` `TestRetiredKeysAreIgnored`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-explicit-empty-url-disables-a-cockpit-source
+    title: "An explicit empty URL disables a cockpit source"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An explicit empty URL disables a cockpit source"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/config` `TestEmptyCockpitURLsStayEmpty`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-kafka-brokers-are-required-in-a-strict-environment
+    title: "Kafka brokers are required in a strict environment"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Kafka brokers are required in a strict environment"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/config` `TestStrictEnvRequiresKafkaBrokers`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-mock-data-is-refused-in-a-strict-environment-before-other-errors
+    title: "Mock data is refused in a strict environment before other errors"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Mock data is refused in a strict environment before other errors"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/config` `TestStrictEnvRefusesMockDataFirst`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-environment-outside-both-sets-refuses-only-reflection
+    title: "An environment outside both sets refuses only reflection"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An environment outside both sets refuses only reflection"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/config` `TestEnvOutsideBothSetsRefusesOnlyReflection`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-undeclared-mock-adapter-fails-boot-locally
+    title: "An undeclared mock adapter fails boot locally"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An undeclared mock adapter fails boot locally"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestUnknownMockAdapterFailsBoot`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-beacon-becomes-a-keyed-record-with-trace-headers
+    title: "A beacon becomes a keyed record with trace headers"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A beacon becomes a keyed record with trace headers"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/events` `TestKafkaPublisherProducesKeyedRecordWithHeaders`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-produce-failure-still-answers-202
+    title: "A produce failure still answers 202"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A produce failure still answers 202"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestTrackAcceptsBeaconWhenPublishFails`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-stuck-broker-cannot-hold-the-beacon
+    title: "A stuck broker cannot hold the beacon"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A stuck broker cannot hold the beacon"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestTrackPublishIsBoundedByTimeout`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-malformed-beacon-is-rejected-without-a-publish
+    title: "A malformed beacon is rejected without a publish"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A malformed beacon is rejected without a publish"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestHandleTrackUnknownTypeStillRejected`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-producer-has-no-disabled-mode
+    title: "The producer has no disabled mode"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The producer has no disabled mode"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestProducerIsBuiltWithoutEnableFlag`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-revoked-session-is-rejected-after-the-event-is-read
+    title: "A revoked session is rejected after the event is read"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A revoked session is rejected after the event is read"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/revocation` `TestConsumerFeedsDenylistFromTopic`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-revocations-survive-a-restart
+    title: "Revocations survive a restart"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Revocations survive a restart"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/revocation` `TestConsumerReplaysFromEarliestOnRestart`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-consumer-creates-no-consumer-group
+    title: "The consumer creates no consumer group"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The consumer creates no consumer group"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/revocation` `TestConsumerCreatesNoConsumerGroup`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-undecodable-record-is-skipped-without-logging-a-key
+    title: "An undecodable record is skipped without logging a key"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An undecodable record is skipped without logging a key"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/revocation` `TestUndecodableRecordIsSkippedWithoutKey`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-readiness-waits-for-the-denylist-to-catch-up
+    title: "Readiness waits for the denylist to catch up"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Readiness waits for the denylist to catch up"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestRevocationCheckWaitsForCatchUp`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-empty-topic-is-caught-up-at-once
+    title: "An empty topic is caught up at once"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An empty topic is caught up at once"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/revocation` `TestEmptyTopicIsCaughtUpImmediately`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-broker-outage-after-catch-up-does-not-unset-the-check
+    title: "A broker outage after catch-up does not unset the check"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A broker outage after catch-up does not unset the check"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/revocation` `TestCaughtUpStaysAfterBrokerOutage`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-other-event-types-are-ignored
+    title: "Other event types are ignored"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Other event types are ignored"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/revocation` `TestApplyIgnoresOtherEventTypesAndEmptySession`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-unreachable-broker-keeps-the-consumer-retrying
+    title: "An unreachable broker keeps the consumer retrying"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An unreachable broker keeps the consumer retrying"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/revocation` `TestRunWithUnreachableKafkaFailsOpen`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-expired-entries-are-dropped
+    title: "Expired entries are dropped"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Expired entries are dropped"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/revocation` `TestExpiredEntriesAreRejectedAndPruned`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-revoked-token-is-refused-on-every-route
+    title: "A revoked token is refused on every route"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A revoked token is refused on every route"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestRevokedSessionIsRejected`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-readiness-is-serving-when-the-denylist-has-caught-up-and-the-jwks-is-a
+    title: "Readiness is SERVING when the denylist has caught up and the JWKS is available"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Readiness is SERVING when the denylist has caught up and the JWKS is available"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestHealthServingWhenDependenciesUp`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-readiness-waits-for-the-first-jwks-fetch
+    title: "Readiness waits for the first JWKS fetch"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Readiness waits for the first JWKS fetch"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestReadinessWaitsForJWKS`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-broker-outage-after-start-does-not-change-readiness
+    title: "A broker outage after start does not change readiness"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A broker outage after start does not change readiness"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestReadinessIgnoresKafkaAfterCatchUp`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-gateway-that-starts-without-a-broker-is-not-ready
+    title: "A gateway that starts without a broker is not ready"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A gateway that starts without a broker is not ready"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestStartWithoutBrokerIsNotReadyUntilCaughtUp`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-identity-outage-after-the-first-fetch-does-not-flip-readiness
+    title: "An identity outage after the first fetch does not flip readiness"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An identity outage after the first fetch does not flip readiness"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestReadyAfterJWKSOutageWithCachedKeys`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-health-check-needs-no-bearer-token-and-is-not-rate-limited
+    title: "A health check needs no bearer token and is not rate limited"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A health check needs no bearer token and is not rate limited"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestHealthCheckBypassesAuthAndRateLimit`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-unknown-health-service-is-not-found
+    title: "An unknown health service is not found"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An unknown health service is not found"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestHealthUnknownServiceIsNotFound`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-health-check-speaks-the-grpc-protocol-on-the-edge-port
+    title: "The health check speaks the gRPC protocol on the edge port"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The health check speaks the gRPC protocol on the edge port"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestHealthCheckOverGRPCProtocol`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-process-health-route-is-unchanged
+    title: "The process health route is unchanged"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The process health route is unchanged"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestHealthzIsProcessLiveness`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-current-key-verifies
+    title: "A current key verifies"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A current key verifies"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/token` `TestVerifierAcceptsCurrentKey`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-rotated-in-key-is-accepted-after-one-forced-refresh
+    title: "A rotated-in key is accepted after one forced refresh"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A rotated-in key is accepted after one forced refresh"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/token` `TestVerifierAcceptsRotatedInKey`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-unknown-key-is-rejected
+    title: "An unknown key is rejected"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An unknown key is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/token` `TestVerifierRejectsUnknownKey`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-token-without-expiry-or-subject-is-rejected
+    title: "A token without expiry or subject is rejected"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A token without expiry or subject is rejected"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/token` `TestVerifierRequiresExpAndSub`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-jwks-keys-decode-through-the-sdk-types
+    title: "JWKS keys decode through the SDK types"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "JWKS keys decode through the SDK types"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/token` `TestJWKSDocumentDecodesWithSDKTypes`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-invalid-bearer-is-never-downgraded-to-anonymous
+    title: "An invalid bearer is never downgraded to anonymous"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An invalid bearer is never downgraded to anonymous"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestBearerResolution`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-anonymous-caller-gets-the-public-scopes-only
+    title: "An anonymous caller gets the public scopes only"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An anonymous caller gets the public scopes only"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestRequireProcedureScope`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-jwks-fetch-is-retried-in-the-background-until-it-succeeds
+    title: "The JWKS fetch is retried in the background until it succeeds"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The JWKS fetch is retried in the background until it succeeds"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestJWKSPrimeRetriesInBackgroundWithoutTraffic`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-boot-does-not-fail-when-identity-is-down
+    title: "Boot does not fail when identity is down"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Boot does not fail when identity is down"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestRunStartsWhenJWKSUnreachable`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-read-retries-unavailable-up-to-retry-max
+    title: "A read retries Unavailable up to RETRY_MAX"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A read retries Unavailable up to RETRY_MAX"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestCallReadRetriesUnavailableUpToRetryMax`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-persistent-outage-stops-after-retry-max-plus-one-attempts
+    title: "A persistent outage stops after RETRY_MAX plus one attempts"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A persistent outage stops after RETRY_MAX plus one attempts"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestCallReadStopsAfterRetryMaxPlusOne`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-business-error-is-not-retried
+    title: "A business error is not retried"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A business error is not retried"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestCallReadRetriesOnlyUnavailable`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-caller-deadline-or-cancellation-is-not-retried
+    title: "A caller deadline or cancellation is not retried"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A caller deadline or cancellation is not retried"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestCallerDeadlineAndCancelAreNotRetried`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-failing-upstream-is-called-on-every-read
+    title: "A failing upstream is called on every read"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A failing upstream is called on every read"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestNoBreakerEveryReadReachesUpstream`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-write-and-an-ai-call-make-one-attempt
+    title: "A write and an AI call make one attempt"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A write and an AI call make one attempt"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestWriteAndAICallsAreSingleAttempt`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-spoofed-principal-headers-are-overwritten
+    title: "Spoofed principal headers are overwritten"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Spoofed principal headers are overwritten"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestRefreshSessionForwardedPublicDropsSpoofedPrincipalHeaders`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-anonymous-principal-is-forwarded-with-the-public-scopes
+    title: "The anonymous principal is forwarded with the public scopes"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The anonymous principal is forwarded with the public scopes"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestAnonymousPrincipalIsForwardedWithPublicScopes`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-valid-idempotency-key-is-forwarded
+    title: "A valid idempotency key is forwarded"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A valid idempotency key is forwarded"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestIdempotencyKeyForwardedAndValidated`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-invalid-idempotency-key-is-refused
+    title: "An invalid idempotency key is refused"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An invalid idempotency key is refused"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestValidIdempotencyKey`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-repeated-idempotency-key-is-refused
+    title: "A repeated idempotency key is refused"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A repeated idempotency key is refused"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestRepeatedIdempotencyKeyIsRefusedAndWhitespaceTrimmed`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-an-unsafe-request-id-is-replaced
+    title: "An unsafe request id is replaced"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "An unsafe request id is replaced"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestRequestIDIsValidatedBeforeForwarding`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-client-context-cannot-be-spoofed
+    title: "Client context cannot be spoofed"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Client context cannot be spoofed"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestClientContextDirectIgnoresSpoofedHeaders`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-health-drains-before-the-server-stops
+    title: "Health drains before the server stops"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Health drains before the server stops"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestHealthDrainsBeforeServerStops`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-run-returns-within-the-grace-period
+    title: "Run returns within the grace period"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Run returns within the grace period"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestRunShutsDownWithinGrace`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-busy-port-fails-boot
+    title: "A busy port fails boot"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A busy port fails boot"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestRunFailsWhenPortIsBusy`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-edge-request-line-keeps-its-fields
+    title: "The edge.request line keeps its fields"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The edge.request line keeps its fields"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestEdgeRequestLineKeepsFields`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-token-never-reaches-the-logs
+    title: "A token never reaches the logs"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A token never reaches the logs"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/edge` `TestBearerTokenIsNeverLogged`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-telemetry-is-disabled-by-default
+    title: "Telemetry is disabled by default"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "Telemetry is disabled by default"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/app` `TestOTelDisabledByDefault`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-the-revocation-gauges-report-the-consumer-state
+    title: "The revocation gauges report the consumer state"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "The revocation gauges report the consumer state"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/revocation` `TestRevocationGaugesReportConsumerState`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."
+
+  - id: gateway.sdk-a-retired-reflection-key-does-not-enable-reflection
+    title: "A retired reflection key does not enable reflection"
+    persona: admin
+    priority: P2
+    summary: "Unit-verified scenario of change gateway-go-sdk-v1."
+    entry_route: /
+    services: [team-gateway]
+    acceptance:
+      - "A retired reflection key does not enable reflection"
+    tags: [go-sdk, unit]
+    status: not-testable
+    notes: "VERIFIED BY team-gateway `internal/config` `TestRetiredReflectionKeyIsIgnored`. Not producible end to end through the compose stack (unit or Docker-backed Go test level)."

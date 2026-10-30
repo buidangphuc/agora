@@ -127,7 +127,7 @@ func TestExpiredEntriesAreRejectedAndPruned(t *testing.T) {
 func TestConsumerStatsStartDown(t *testing.T) {
 	d := NewDenylist()
 	d.Add("s1", time.Now().Add(time.Hour))
-	c := NewConsumer([]string{"localhost:1"}, "identity.events", d, nil)
+	c := newTestConsumer(t, "localhost:1", "identity.events", d, nil)
 	s := c.Stats()
 	if s.Up || s.Lag != 0 || s.DenylistSize != 1 {
 		t.Fatalf("unexpected initial stats: %+v", s)
@@ -138,16 +138,27 @@ func TestConsumerStatsStartDown(t *testing.T) {
 // retrying in the background, reports up=false, and stops promptly on shutdown.
 func TestRunWithUnreachableKafkaFailsOpen(t *testing.T) {
 	d := NewDenylist()
-	c := NewConsumer([]string{"127.0.0.1:1"}, "identity.events", d, nil)
+	c := newTestConsumer(t, "127.0.0.1:1", "identity.events", d, nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() { c.Run(ctx); close(done) }()
+	done := make(chan error, 1)
+	go func() { done <- c.Run(ctx) }()
 
-	time.Sleep(700 * time.Millisecond)
-	if c.Stats().Up {
-		t.Fatal("up must be false while Kafka is unreachable")
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		select {
+		case err := <-done:
+			t.Fatalf("Run returned while Kafka is unreachable: %v", err)
+		default:
+		}
+		if c.Stats().Up {
+			t.Fatal("up must be false while Kafka is unreachable")
+		}
+		if c.CaughtUp() {
+			t.Fatal("an unreachable broker must not count as caught up")
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
-	if d.Revoked("anything") {
+	if d.Revoked("anything") || d.Len() != 0 {
 		t.Fatal("fail open: nothing is revoked without the topic")
 	}
 	cancel()
