@@ -24,6 +24,7 @@ export namespace primitives {
         "neutral-900": string;
         danger: string;
         "danger-dark": string;
+        "danger-darker": string;
         "danger-light": string;
         scrim: string;
         promo: string;
@@ -113,6 +114,8 @@ export namespace semantic {
     let light_1: {
         "action-primary": string;
         "action-primary-hover": string;
+        "action-danger": string;
+        "action-danger-hover": string;
         "surface-page": string;
         "surface-card": string;
         "surface-muted": string;
@@ -135,6 +138,8 @@ export namespace semantic {
     let dark_1: {
         "action-primary": string;
         "action-primary-hover": string;
+        "action-danger": string;
+        "action-danger-hover": string;
         "surface-page": string;
         "surface-card": string;
         "surface-muted": string;
@@ -162,8 +167,10 @@ export namespace components {
             let primary: string;
             let secondary: string;
             let ghost: string;
+            let danger: string;
         }
         namespace size {
+            export let xs: string;
             let sm_1: string;
             export { sm_1 as sm };
             let md_1: string;
@@ -172,6 +179,9 @@ export namespace components {
             export { lg_1 as lg };
         }
         let disabled: string;
+        let fullWidth: string;
+        let icon: string;
+        let spinner: string;
     }
     export namespace field {
         let label: string;
@@ -225,6 +235,18 @@ export namespace components {
     export namespace card_2 {
         let base_3: string;
         export { base_3 as base };
+        export let padded: string;
+        export let hoverable: string;
+        export let loading: string;
+        export let skeleton: string;
+        export let header: string;
+        let title_2: string;
+        export { title_2 as title };
+        let description_2: string;
+        export { description_2 as description };
+        let content_2: string;
+        export { content_2 as content };
+        export let footer: string;
     }
     export { card_2 as card };
 }

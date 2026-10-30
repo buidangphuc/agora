@@ -3,7 +3,7 @@
     {
       "name": "Button",
       "kind": "component",
-      "purpose": "Action trigger. One `primary` per view; `ghost` for low-emphasis actions.",
+      "purpose": "Action trigger. One `primary` per view; `ghost` for low-emphasis actions; `danger` for destructive ones.",
       "client": false,
       "platforms": [
         "web",
@@ -13,17 +13,32 @@
         {
           "name": "variant",
           "required": false,
-          "type": "\"primary\" | \"secondary\" | \"ghost\""
+          "type": "\"primary\" | \"secondary\" | \"ghost\" | \"danger\""
         },
         {
           "name": "size",
           "required": false,
-          "type": "\"sm\" | \"md\" | \"lg\""
+          "type": "\"xs\" | \"sm\" | \"md\" | \"lg\""
         },
         {
           "name": "loading",
           "required": false,
           "type": "boolean"
+        },
+        {
+          "name": "fullWidth",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "leftIcon",
+          "required": false,
+          "type": "ReactNode"
+        },
+        {
+          "name": "rightIcon",
+          "required": false,
+          "type": "ReactNode"
         }
       ],
       "native": "button"
@@ -37,8 +52,84 @@
         "web",
         "wap"
       ],
+      "props": [
+        {
+          "name": "padded",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "hoverable",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "name": "loading",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "native": "div"
+    },
+    {
+      "name": "CardContent",
+      "kind": "component",
+      "purpose": "Padded body of a flush Card.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
       "props": [],
       "native": "div"
+    },
+    {
+      "name": "CardDescription",
+      "kind": "component",
+      "purpose": "Supporting line under a CardTitle.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [],
+      "native": "p"
+    },
+    {
+      "name": "CardFooter",
+      "kind": "component",
+      "purpose": "Muted bottom row of a flush Card for meta text or links.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [],
+      "native": "div"
+    },
+    {
+      "name": "CardHeader",
+      "kind": "component",
+      "purpose": "Top row of a flush Card: title on the left, optional actions on the right.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [],
+      "native": "div"
+    },
+    {
+      "name": "CardTitle",
+      "kind": "component",
+      "purpose": "Heading of a Card, rendered as an h3.",
+      "client": false,
+      "platforms": [
+        "web",
+        "wap"
+      ],
+      "props": [],
+      "native": "h3"
     },
     {
       "name": "Checkbox",
@@ -310,6 +401,8 @@
   ],
   "tokens": {
     "colors": [
+      "action-danger",
+      "action-danger-hover",
       "action-primary",
       "action-primary-hover",
       "border-danger",

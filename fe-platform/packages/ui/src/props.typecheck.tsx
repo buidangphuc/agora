@@ -1,4 +1,16 @@
-import { Button, Checkbox, Dialog, Input, Select, Table } from "./index";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Checkbox,
+  Dialog,
+  Input,
+  Select,
+  Table,
+} from "./index";
 
 // @ts-expect-error className would bypass tokens
 export const button = <Button className="x" />;
@@ -15,3 +27,17 @@ const dialogBase = { triggerLabel: "a", title: "a", description: "a" };
 export const dialog = <Dialog {...dialogBase} className="x" />;
 // @ts-expect-error className would bypass tokens
 export const table = <Table caption="a" columns={[]} rows={[]} className="x" />;
+// @ts-expect-error className would bypass tokens
+export const card = <Card className="x" />;
+// @ts-expect-error style would bypass tokens
+export const cardStyle = <Card style={{ color: "red" }} />;
+// @ts-expect-error className would bypass tokens
+export const cardHeader = <CardHeader className="x" />;
+// @ts-expect-error className would bypass tokens
+export const cardTitle = <CardTitle className="x" />;
+// @ts-expect-error className would bypass tokens
+export const cardContent = <CardContent className="x" />;
+// @ts-expect-error className would bypass tokens
+export const cardFooter = <CardFooter className="x" />;
+// @ts-expect-error unknown variant
+export const buttonVariant = <Button variant="outline" />;

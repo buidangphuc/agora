@@ -1,6 +1,8 @@
 :root {
   --color-action-primary: #4f46e5;
   --color-action-primary-hover: #4338ca;
+  --color-action-danger: #b91c1c;
+  --color-action-danger-hover: #991b1b;
   --color-surface-page: #f8fafc;
   --color-surface-card: #ffffff;
   --color-surface-muted: #f1f5f9;
@@ -25,6 +27,8 @@
 :root[data-theme="dark"] {
   --color-action-primary: #4f46e5;
   --color-action-primary-hover: #4338ca;
+  --color-action-danger: #dc2626;
+  --color-action-danger-hover: #b91c1c;
   --color-surface-page: #0f172a;
   --color-surface-card: #1e293b;
   --color-surface-muted: #334155;
@@ -50,6 +54,8 @@
   :root:not([data-theme="light"]) {
     --color-action-primary: #4f46e5;
     --color-action-primary-hover: #4338ca;
+    --color-action-danger: #dc2626;
+    --color-action-danger-hover: #b91c1c;
     --color-surface-page: #0f172a;
     --color-surface-card: #1e293b;
     --color-surface-muted: #334155;

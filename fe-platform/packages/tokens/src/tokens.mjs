@@ -24,6 +24,7 @@ export const primitives = {
     "neutral-900": "#0f172a",
     danger: "#dc2626",
     "danger-dark": "#b91c1c",
+    "danger-darker": "#991b1b",
     "danger-light": "#fca5a5",
     scrim: "#11182799",
     promo: "#fbbf24",
@@ -105,6 +106,8 @@ export const semantic = {
   light: {
     "action-primary": "primary-600",
     "action-primary-hover": "primary-700",
+    "action-danger": "danger-dark",
+    "action-danger-hover": "danger-darker",
     "surface-page": "neutral-50",
     "surface-card": "white",
     "surface-muted": "neutral-100",
@@ -126,6 +129,8 @@ export const semantic = {
   dark: {
     "action-primary": "primary-600",
     "action-primary-hover": "primary-700",
+    "action-danger": "danger",
+    "action-danger-hover": "danger-dark",
     "surface-page": "neutral-900",
     "surface-card": "neutral-800",
     "surface-muted": "neutral-700",
@@ -155,13 +160,20 @@ export const components = {
       secondary:
         "bg-surface-card text-text-primary border border-border-strong hover:bg-surface-muted",
       ghost: "text-text-primary hover:bg-surface-muted",
+      danger:
+        "bg-action-danger text-text-inverse hover:bg-action-danger-hover shadow-card",
     },
     size: {
+      xs: "px-3 py-1 text-xs",
       sm: "px-4 py-2 text-sm",
       md: "px-6 py-3 text-base",
       lg: "px-8 py-4 text-base",
     },
     disabled: "text-text-disabled",
+    fullWidth: "w-full",
+    icon: "inline-flex shrink-0",
+    spinner:
+      "size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent",
   },
   field: {
     label: "block text-sm font-semibold text-text-primary",
@@ -208,6 +220,17 @@ export const components = {
     base: "text-text-link underline underline-offset-4 hover:text-text-link-hover rounded-lg focus-visible:ring-2 focus-visible:ring-focus-ring",
   },
   card: {
-    base: "rounded-2xl bg-surface-card border border-border-subtle p-6 shadow-card",
+    base: "overflow-hidden rounded-2xl bg-surface-card border border-border-subtle text-text-primary shadow-card transition duration-200",
+    padded: "p-6",
+    hoverable: "hover:border-border-strong hover:shadow-pop",
+    loading: "space-y-3 p-6",
+    skeleton: "h-4 animate-pulse rounded-lg bg-surface-muted",
+    header:
+      "flex items-center justify-between gap-3 border-b border-border-subtle px-6 py-4",
+    title: "text-base font-semibold leading-snug text-text-primary",
+    description: "mt-1 text-sm text-text-secondary",
+    content: "p-6",
+    footer:
+      "flex items-center justify-between gap-3 border-t border-border-subtle bg-surface-muted px-6 py-3 text-sm text-text-secondary",
   },
 };

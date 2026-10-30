@@ -13,6 +13,8 @@ export const pairs = [
   ),
   { fg: "text-inverse", bg: "action-primary", size: "normal" },
   { fg: "text-inverse", bg: "action-primary-hover", size: "normal" },
+  { fg: "text-inverse", bg: "action-danger", size: "normal" },
+  { fg: "text-inverse", bg: "action-danger-hover", size: "normal" },
   ...["text-danger", "text-success", "text-warning"].flatMap((fg) =>
     ["surface-card", "surface-page"].map((bg) => ({ fg, bg, size: "normal" })),
   ),
