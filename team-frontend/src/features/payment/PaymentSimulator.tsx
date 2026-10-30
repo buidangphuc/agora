@@ -66,19 +66,20 @@ export function PaymentSimulator({
         title="Thanh toán thành công"
         subTitle="Đơn hàng của bạn đã được thanh toán."
         extra={
-          <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/account/orders" variant="primary">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+            <Link href="/account/orders" variant="primary" fullWidth="mobile">
               Xem đơn hàng
             </Link>
             {nextOrderId ? (
               <Link
                 href={`/checkout/pay/${encodeURIComponent(nextOrderId)}`}
                 variant="primary"
+                fullWidth="mobile"
               >
                 Thanh toán đơn tiếp theo
               </Link>
             ) : null}
-            <Link href="/" variant="outline">
+            <Link href="/" variant="outline" fullWidth="mobile">
               Tiếp tục mua sắm
             </Link>
           </div>
@@ -94,9 +95,15 @@ export function PaymentSimulator({
         title="Thanh toán thất bại"
         subTitle={failure || "Giao dịch chưa được thanh toán."}
         extra={
-          <div className="flex flex-wrap justify-center gap-3">
-            <Button onClick={() => setPhase("idle")}>Thử lại</Button>
-            <Link href={`/account/orders/${orderId}`} variant="outline">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+            <Button fullWidth="mobile" onClick={() => setPhase("idle")}>
+              Thử lại
+            </Button>
+            <Link
+              href={`/account/orders/${orderId}`}
+              variant="outline"
+              fullWidth="mobile"
+            >
               Đổi phương thức
             </Link>
           </div>
@@ -111,7 +118,7 @@ export function PaymentSimulator({
         <CardTitle>Mô phỏng thanh toán</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
+        <div className="space-y-4">
           <Button
             size="lg"
             fullWidth
@@ -131,16 +138,12 @@ export function PaymentSimulator({
           >
             Thanh toán thất bại
           </Button>
-          <p className="text-center text-xs text-text-secondary">
+          <p className="rounded-xl bg-surface-muted px-4 py-3 text-center text-xs text-text-secondary">
             Môi trường demo: không có khoản tiền thật nào bị trừ.
           </p>
-          <div className="text-center">
-            <span className="text-xs text-text-secondary">
-              <Link href="/account/orders" variant="subtle">
-                Bỏ qua và thanh toán sau
-              </Link>
-            </span>
-          </div>
+          <Link href="/account/orders" variant="ghost" size="sm" fullWidth>
+            Bỏ qua và thanh toán sau
+          </Link>
         </div>
       </CardContent>
     </Card>

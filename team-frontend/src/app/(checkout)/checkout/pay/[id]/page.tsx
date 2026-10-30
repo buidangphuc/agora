@@ -157,7 +157,7 @@ export default async function MockPaymentPage(props: {
   }
 
   return (
-    <section className="mx-auto max-w-xl space-y-4 py-4">
+    <section className="mx-auto w-full min-w-0 max-w-xl space-y-4 md:space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Thanh toán đơn hàng</CardTitle>

@@ -5,11 +5,11 @@ import { Skeleton } from "@/components/ui/Skeleton";
 export default function CheckoutLoading() {
   return (
     <section
-      className="py-2 pb-24 lg:pb-2"
+      className="pb-28 lg:pb-0"
       aria-busy="true"
       data-testid="checkout-skeleton"
     >
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <CardHeader>
