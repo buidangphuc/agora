@@ -13,25 +13,25 @@ export function Hero() {
   return (
     <section
       aria-labelledby="home-hero-title"
-      className="relative flex min-h-60 flex-col justify-center overflow-hidden rounded-2xl bg-gradient-to-r from-primary-500 to-primary-700 p-6 text-text-inverse shadow-preline-card sm:min-h-64 sm:p-8"
+      className="relative flex min-h-72 flex-col justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-primary-500 to-primary-700 px-6 py-10 text-text-inverse shadow-card sm:min-h-80 sm:px-10 lg:px-14"
     >
-      <div className="max-w-xl space-y-4">
+      <div className="max-w-2xl space-y-5">
         <h1
           id="home-hero-title"
-          className="text-lg font-bold leading-snug sm:text-2xl"
+          className="text-2xl font-bold leading-tight tracking-tight sm:text-4xl"
         >
           Mua sắm trực tuyến từ các shop trên Marketplace
         </h1>
-        <p className="text-sm text-primary-100">
+        <p className="text-base text-primary-100 sm:text-lg">
           Tìm sản phẩm, so sánh giá và đặt hàng chỉ trong vài bước.
         </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link href="/search" variant="white" size="sm">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+          <Link href="/search" variant="white" size="md" fullWidth="mobile">
             Mua ngay
           </Link>
           <NextLink
             href="/vouchers"
-            className={`inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-text-inverse underline-offset-4 hover:underline ${focusRing}`}
+            className={`inline-flex min-h-touch items-center justify-center rounded-xl px-4 text-base font-medium text-text-inverse underline-offset-4 hover:underline ${focusRing}`}
           >
             Xem kho voucher
           </NextLink>

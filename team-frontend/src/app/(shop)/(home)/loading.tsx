@@ -8,7 +8,7 @@ import {
 /** Route-level skeleton for `/`: hero, hubs, category grid and the feed grid. */
 export default function HomeLoading() {
   return (
-    <div className="space-y-6" aria-busy="true">
+    <div className="flex flex-col gap-8 sm:gap-12" aria-busy="true">
       <HeroSkeleton />
       <ServiceHubsSkeleton />
       <CategoryGridSkeleton />

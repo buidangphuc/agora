@@ -30,21 +30,21 @@ export function FlashSaleSection({
   return (
     <section
       id="flash-sale"
-      className="scroll-mt-24 space-y-4 rounded-xl border border-border-subtle bg-surface-card p-4 shadow-preline-card"
+      className="scroll-mt-24 space-y-5 rounded-3xl border border-border-subtle bg-surface-card p-4 shadow-card sm:p-6"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold text-action-primary">
+          <h2 className="text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
             Flash Sale
           </h2>
           {endsAt !== undefined && <CountdownClock endsAt={endsAt} />}
         </div>
-        <span className="text-sm font-medium">
-          <Link href="/search">Xem tất cả</Link>
-        </span>
+        <Link href="/search" variant="ghost" size="sm">
+          Xem tất cả
+        </Link>
       </div>
 
-      <ul className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:pb-0 md:grid-cols-4 lg:grid-cols-6">
+      <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 md:grid-cols-4 lg:grid-cols-6">
         {listings.slice(0, 6).map((l, i) => {
           const figures = stockById?.[l.id];
           return (
