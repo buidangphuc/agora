@@ -116,6 +116,17 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
         open
       />
     ),
+    withFooter: (
+      <Dialog
+        title="Confirm"
+        open
+        onOpenChange={() => {}}
+        size="sm"
+        footer={<Button>Confirm</Button>}
+      >
+        Body
+      </Dialog>
+    ),
   },
   Table: {
     rows: (

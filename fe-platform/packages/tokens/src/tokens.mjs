@@ -204,11 +204,25 @@ export const components = {
     mixed: "bg-action-primary",
   },
   dialog: {
-    overlay: "fixed inset-0 bg-surface-overlay",
+    overlay: "fixed inset-0 z-50 bg-surface-overlay",
     content:
-      "fixed rounded-2xl bg-surface-card text-text-primary border border-border-subtle p-6 shadow-pop",
-    title: "text-2xl font-semibold text-text-primary",
-    description: "text-base text-text-secondary",
+      "fixed inset-4 z-50 m-auto flex h-fit w-auto flex-col overflow-hidden rounded-2xl bg-surface-card text-text-primary border border-border-subtle p-0 shadow-pop",
+    size: {
+      sm: "max-w-md",
+      md: "max-w-lg",
+      lg: "max-w-2xl",
+      xl: "max-w-4xl",
+    },
+    header:
+      "flex items-start justify-between gap-4 border-b border-border-subtle px-6 py-4",
+    title: "text-xl font-semibold text-text-primary",
+    description: "mt-1 text-sm text-text-secondary",
+    close:
+      "inline-flex shrink-0 items-center justify-center rounded-lg px-3 min-h-touch text-text-secondary hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-focus-ring",
+    closeIcon: "size-5",
+    body: "flex-1 overflow-y-auto px-6 py-5",
+    footer:
+      "flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle bg-surface-muted px-6 py-4",
   },
   toast: {
     root: "rounded-2xl border border-border-subtle bg-surface-card text-text-primary p-4 shadow-pop",
