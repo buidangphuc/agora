@@ -1,3 +1,4 @@
+export { Alert, type AlertProps, type AlertTone } from "./Alert";
 export { Button, type ButtonProps } from "./Button";
 export {
   Card,
@@ -22,5 +23,7 @@ export { Table, type TableColumn, type TableProps } from "./Table";
 export {
   type ToastMessage,
   ToastProvider,
+  type ToastProviderProps,
+  type ToastTone,
   useToast,
 } from "./Toast";

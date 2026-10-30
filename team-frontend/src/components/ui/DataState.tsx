@@ -16,17 +16,18 @@ export interface ErrorStateProps {
  */
 export function ErrorState({ error, onRetry, className }: ErrorStateProps) {
   return (
-    <Alert
-      type="error"
-      description={error}
-      className={className}
-      action={
-        onRetry ? (
-          <Button size="sm" variant="outline" onClick={onRetry}>
-            Thử lại
-          </Button>
-        ) : undefined
-      }
-    />
+    <div className={className}>
+      <Alert
+        type="error"
+        description={error}
+        action={
+          onRetry ? (
+            <Button size="sm" variant="outline" onClick={onRetry}>
+              Thử lại
+            </Button>
+          ) : undefined
+        }
+      />
+    </div>
   );
 }

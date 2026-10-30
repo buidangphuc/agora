@@ -1,20 +1,22 @@
-import React from "react";
-import { AlertClient } from "./AlertClient";
-import { AlertView, type AlertViewProps } from "./alertView";
+import {
+  Alert as PlatformAlert,
+  type AlertProps as PlatformAlertProps,
+} from "@fe-platform/ui";
 
-export type { AlertType } from "./alertView";
+export type AlertType = "info" | "success" | "warning" | "error";
 
-export interface AlertProps extends Omit<AlertViewProps, "closeButton"> {
-  /** Adds a close button (turns the alert into a client island). */
-  closable?: boolean;
-  onClose?: () => void;
+export interface AlertProps
+  extends Omit<PlatformAlertProps, "tone" | "closeLabel"> {
+  type: AlertType;
 }
 
-/**
- * Ant Design `Alert` (info / success / warning / error) with an optional
- * action. Server-compatible unless `closable`; errors use role="alert".
- */
-export function Alert({ closable = false, onClose, ...view }: AlertProps) {
-  if (closable) return <AlertClient {...view} onClose={onClose} />;
-  return <AlertView {...view} />;
+const toneFor = {
+  info: "info",
+  success: "success",
+  warning: "warning",
+  error: "danger",
+} as const;
+
+export function Alert({ type, ...rest }: AlertProps) {
+  return <PlatformAlert {...rest} tone={toneFor[type]} closeLabel="Đóng" />;
 }

@@ -11,6 +11,7 @@ describe("catalog", () => {
 
   it("lists every exported ui component and hook", () => {
     expect(Object.keys(byName).sort()).toEqual([
+      "Alert",
       "Button",
       "Card",
       "CardContent",
@@ -55,6 +56,7 @@ describe("catalog", () => {
     expect(byName.Button.client).toBe(false);
     expect(byName.Table.client).toBe(false);
     expect(byName.NativeSelect.client).toBe(false);
+    expect(byName.Alert.client).toBe(false);
     for (const n of ["Select", "Checkbox", "Dialog", "ToastProvider"]) {
       expect(byName[n].client).toBe(true);
     }
