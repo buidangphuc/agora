@@ -1921,7 +1921,7 @@ features:
     acceptance:
       - "Plain HTTP is not served"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
     covered_by: "tracking/ga4_purchase_relay.feature::Plain HTTP is not served"
 
   - id: ga4-purchase-relay.relay-is-probed-over-grpc
@@ -1936,7 +1936,7 @@ features:
     acceptance:
       - "The relay is probed over gRPC"
     tags: [tracking, analytics, ga4-purchase-relay]
-    status: planned
+    status: automated
     covered_by: "tracking/ga4_purchase_relay.feature::The relay is probed over gRPC"
 
 
