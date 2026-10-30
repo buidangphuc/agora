@@ -15,7 +15,8 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { href: "/admin/users", label: "Người dùng", ready: true },
   { href: "/admin/audit", label: "Nhật ký kiểm toán", ready: true },
   { href: "/admin/vouchers", label: "Voucher sàn", ready: true },
-  { href: "/admin/campaigns", label: "Chiến dịch", ready: false },
+  { href: "/admin/campaigns", label: "Chiến dịch", ready: true },
+  { href: "/admin/plans", label: "Gói đăng ký", ready: true },
 ];
 
 export function visibleNav(): AdminNavItem[] {
