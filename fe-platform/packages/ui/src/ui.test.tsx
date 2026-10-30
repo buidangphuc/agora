@@ -16,9 +16,14 @@ import {
   CardContent,
   CardTitle,
   Checkbox,
+  Descriptions,
   Dialog,
   Input,
+  PageSkeleton,
+  Progress,
   Select,
+  Skeleton,
+  Statistic,
   ToastProvider,
   useToast,
 } from "./index";
@@ -244,6 +249,136 @@ describe("Dialog", () => {
   });
 });
 
+describe("Skeleton", () => {
+  it("is busy, labelled for screen readers and renders the requested lines", () => {
+    const { container } = render(<Skeleton lines={4} label="Wait" />);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.getAttribute("aria-busy")).toBe("true");
+    expect(root.getAttribute("data-variant")).toBe("text");
+    expect(screen.getByText("Wait").className).toBe("sr-only");
+    expect(container.querySelectorAll(".h-4")).toHaveLength(4);
+  });
+
+  it("reserves the aspect box of image and card presets", () => {
+    const { container, rerender } = render(
+      <Skeleton variant="image" aspect="4/3" />,
+    );
+    expect(container.querySelector(".aspect-4\\/3")).not.toBeNull();
+    rerender(<Skeleton variant="avatar" size="sm" />);
+    expect(container.querySelector(".rounded-full.h-8")).not.toBeNull();
+  });
+
+  it("page skeleton is a busy live region with a tile grid", () => {
+    render(<PageSkeleton data-testid="page" />);
+    const page = screen.getByTestId("page");
+    expect(page.getAttribute("aria-busy")).toBe("true");
+    expect(page.getAttribute("aria-live")).toBe("polite");
+    expect(page.querySelectorAll(".animate-pulse").length).toBeGreaterThan(5);
+  });
+});
+
+describe("Progress", () => {
+  it("exposes a clamped value on a named progressbar", () => {
+    const { container, rerender } = render(
+      <Progress label="Upload" percent={40} />,
+    );
+    const bar = screen.getByRole("progressbar", { name: "Upload" });
+    expect(bar.getAttribute("aria-valuenow")).toBe("40");
+    expect(
+      (container.querySelector("[style]") as HTMLElement).style.width,
+    ).toBe("40%");
+    expect(screen.getByText("40%")).toBeTruthy();
+    rerender(<Progress label="Upload" percent={150} showInfo={false} />);
+    expect(bar.getAttribute("aria-valuenow")).toBe("100");
+    expect(screen.queryByText("100%")).toBeNull();
+  });
+
+  it("colours the fill by status", () => {
+    const { container } = render(
+      <Progress label="Upload" percent={10} status="danger" />,
+    );
+    expect(container.querySelector(".bg-action-danger")).not.toBeNull();
+  });
+});
+
+describe("Descriptions", () => {
+  const items = [
+    { key: "a", label: "Name", children: "Lamp" },
+    { key: "b", label: "Qty", children: "2" },
+  ];
+
+  it("renders pairs as a description list under a heading", () => {
+    const { container } = render(<Descriptions title="Order" items={items} />);
+    expect(screen.getByRole("heading", { name: "Order" })).toBeTruthy();
+    expect(container.querySelectorAll("dt")).toHaveLength(2);
+    expect(container.querySelector("dd")?.textContent).toBe("Lamp");
+  });
+
+  it("shows busy skeleton rows, the empty text or the fallback instead of values", () => {
+    const { container, rerender } = render(
+      <Descriptions items={items} loading />,
+    );
+    expect(screen.queryByText("Lamp")).toBeNull();
+    expect(container.querySelectorAll('[data-variant="text"]')).toHaveLength(2);
+    rerender(<Descriptions items={[]} emptyText="None" />);
+    expect(screen.getByText("None")).toBeTruthy();
+    rerender(<Descriptions items={items} fallback={<p>Broken</p>} />);
+    expect(screen.getByText("Broken")).toBeTruthy();
+    expect(container.querySelector("dl")).toBeNull();
+  });
+});
+
+describe("Statistic", () => {
+  it("renders the value with prefix, suffix and an upward trend", () => {
+    render(
+      <Statistic
+        title="Revenue"
+        value="1,200"
+        prefix="$"
+        suffix="k"
+        trend={{ value: "5%", isUp: true, label: "vs last week" }}
+      />,
+    );
+    expect(screen.getByText("1,200")).toBeTruthy();
+    expect(screen.getByText("↑").parentElement?.className).toContain(
+      "text-text-success",
+    );
+    expect(screen.getByText("vs last week")).toBeTruthy();
+  });
+
+  it("keeps the fixed-height rows while loading and marks itself busy", () => {
+    const trend = { value: "5%" };
+    const rows = (root: Element) =>
+      Array.from(root.querySelectorAll(".h-8, .mt-3.h-4")).map(
+        (el) => el.className,
+      );
+    const loaded = render(
+      <Statistic title="Orders" value="12" trend={trend} />,
+    );
+    const loadedRows = rows(loaded.container);
+    loaded.unmount();
+    const { container } = render(
+      <Statistic title="Orders" value="12" trend={trend} loading />,
+    );
+    expect(screen.queryByText("12")).toBeNull();
+    expect(container.firstElementChild?.getAttribute("aria-busy")).toBe("true");
+    expect(rows(container)).toEqual(loadedRows);
+    expect(loadedRows).toHaveLength(2);
+  });
+
+  it("replaces the value with the fallback and colours a danger tone", () => {
+    const { rerender } = render(
+      <Statistic title="Orders" value="12" fallback={<p>Broken</p>} />,
+    );
+    expect(screen.getByText("Broken")).toBeTruthy();
+    expect(screen.queryByText("12")).toBeNull();
+    rerender(<Statistic title="Overdue" value="3" tone="danger" />);
+    expect(screen.getByText("3").parentElement?.className).toContain(
+      "text-text-danger",
+    );
+  });
+});
+
 function Fire() {
   const { toast } = useToast();
   return (
@@ -293,8 +428,16 @@ describe("client boundary", () => {
     expect(clientBoundaryViolations(files)).toEqual([]);
   });
 
-  it("keeps Button, Input and Table server-safe", () => {
-    for (const name of ["Button.tsx", "Input.tsx", "Table.tsx"]) {
+  it("keeps Button, Input, Table and the data display components server-safe", () => {
+    for (const name of [
+      "Button.tsx",
+      "Input.tsx",
+      "Table.tsx",
+      "Skeleton.tsx",
+      "Progress.tsx",
+      "Descriptions.tsx",
+      "Statistic.tsx",
+    ]) {
       expect(files[name]).not.toMatch(/^["']use client["']/);
     }
   });

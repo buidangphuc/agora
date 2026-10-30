@@ -34,6 +34,9 @@ const preset = {
     fontFamily: primitives.fontFamily,
     screens: pxScale(primitives.breakpoint),
     minHeight: { touch: px(primitives.touchTarget) },
+    extend: {
+      aspectRatio: { "4/3": "4 / 3", "3/4": "3 / 4", "2/1": "2 / 1" },
+    },
     boxShadow: {
       none: "none",
       ...Object.fromEntries(

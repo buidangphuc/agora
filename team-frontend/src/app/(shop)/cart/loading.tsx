@@ -12,20 +12,30 @@ export default function CartLoading() {
       data-testid="cart-skeleton"
     >
       <div className="flex items-center justify-between gap-3">
-        <Skeleton variant="text" lines={1} className="w-48" />
+        <div className="w-48">
+          <Skeleton variant="text" lines={1} />
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <CardHeader>
-              <Skeleton variant="text" lines={1} className="w-40" />
+              <div className="w-40">
+                <Skeleton variant="text" lines={1} />
+              </div>
             </CardHeader>
             <ul className="divide-y divide-border-subtle">
               {ROWS.map((row) => (
                 <li key={row} className="flex items-center gap-3 p-4">
-                  <Skeleton variant="image" className="w-20 shrink-0" />
-                  <Skeleton variant="text" lines={2} className="flex-1" />
-                  <Skeleton variant="text" lines={1} className="w-28" />
+                  <div className="w-20 shrink-0">
+                    <Skeleton variant="image" />
+                  </div>
+                  <div className="flex-1">
+                    <Skeleton variant="text" lines={2} />
+                  </div>
+                  <div className="w-28">
+                    <Skeleton variant="text" lines={1} />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -34,7 +44,9 @@ export default function CartLoading() {
         <div className="hidden lg:block">
           <Card>
             <CardHeader>
-              <Skeleton variant="text" lines={1} className="w-32" />
+              <div className="w-32">
+                <Skeleton variant="text" lines={1} />
+              </div>
             </CardHeader>
             <CardContent>
               <Skeleton variant="text" lines={4} />

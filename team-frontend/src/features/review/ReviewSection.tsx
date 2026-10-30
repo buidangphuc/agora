@@ -133,13 +133,14 @@ export function ReviewSection({
                         <span className="w-12 shrink-0 text-text-secondary">
                           {star} sao
                         </span>
-                        <Progress
-                          className="flex-1"
-                          size="sm"
-                          showInfo={false}
-                          percent={(count / summary.reviewCount) * 100}
-                          label={`${star} sao: ${count} đánh giá`}
-                        />
+                        <div className="flex-1">
+                          <Progress
+                            size="sm"
+                            showInfo={false}
+                            percent={(count / summary.reviewCount) * 100}
+                            label={`${star} sao: ${count} đánh giá`}
+                          />
+                        </div>
                         <span className="w-8 shrink-0 text-right text-text-secondary">
                           {count}
                         </span>
