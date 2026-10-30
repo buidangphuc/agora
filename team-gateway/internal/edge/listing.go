@@ -118,7 +118,7 @@ func (f *ListingForwarder) DeleteListing(
 	return connect.NewResponse(out), nil
 }
 
-func (f *ListingForwarder) GetImageUploadUrl(
+func (f *ListingForwarder) GetImageUploadUrl( //nolint:revive // bound to generated interface
 	ctx context.Context,
 	req *connect.Request[listingv1.GetImageUploadUrlRequest],
 ) (*connect.Response[listingv1.GetImageUploadUrlResponse], error) {

@@ -6,13 +6,12 @@
 #
 # Build flow (ADR-0001): generated proto is produced by `make proto` (buf) BEFORE
 # `docker build`, since buf is not on the host and generated/ is gitignored.
-# `go mod tidy` in-image resolves the (BigQuery-heavy) dependency graph + go.sum
-# on first build.
 FROM golang:1.26-bookworm AS build
 WORKDIR /src
+COPY go.mod go.sum* ./
+RUN go mod download
 COPY . .
 ENV CGO_ENABLED=1 GOOS=linux
-RUN go mod tidy
 RUN go build -trimpath -o /out/consumer ./cmd/consumer
 RUN go build -trimpath -o /out/ga4import ./cmd/ga4import
 RUN go build -trimpath -o /out/ga4-relay ./cmd/ga4-relay

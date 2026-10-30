@@ -25,7 +25,7 @@ from tests.e2e.support.world import World
 
 SETTINGS = get_settings()
 
-_REVIEW_PHOTO = "https://picsum.photos/seed/e2e-review/200/200"
+_REVIEW_PHOTO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 
 
 # ── existing coverage (kept) ─────────────────────────────────────────────

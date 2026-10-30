@@ -14,7 +14,7 @@ Why two paths: ArgoCD `selfHeal` re-applies git, so `undo` alone is rolled forwa
 Plain Deployment services have no canary: `scripts/rollback.sh <svc> --env staging --to <good-tag>` then `gitops-push`. The previous good tag is in `git log -p platform-gitops/envs/staging/values.yaml`.
 
 ## Canary-failure drill (human-approved live run)
-Goal: prove a failing canary is rolled back automatically. Prereqs: kind stack up, staging overlay Healthy (`make -C deploy status-staging`), `otel-collector` and `prometheus` Healthy in `marketplace` (the AnalysisTemplate reads `marketplace_rpc_client_duration_milliseconds_*` through them).
+Goal: prove a failing canary is rolled back automatically. Prereqs: kind stack up, staging overlay Healthy (`make -C deploy status-staging`), `otel-collector` and `prometheus` Healthy in `marketplace` (the AnalysisTemplate reads `marketplace_rpc_client_call_duration_seconds_*` through them).
 
 1. Baseline: `kubectl argo rollouts get rollout team-gateway -n marketplace-staging` shows `Healthy`, note the stable revision/tag.
 2. Make the analysis fail on purpose, in `platform-gitops/envs/staging/kind/team-gateway.yaml`, add:

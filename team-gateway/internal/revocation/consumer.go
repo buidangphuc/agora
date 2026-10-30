@@ -8,9 +8,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kmsg"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/kafkax"
 	eventsv1 "github.com/buidangphuc/team-gateway/generated/platform/events/v1"
 	identityv1 "github.com/buidangphuc/team-gateway/generated/platform/identity/v1"
 )
@@ -46,37 +50,51 @@ func Apply(d *Denylist, value []byte) error {
 	return nil
 }
 
+const (
+	probeInterval = 5 * time.Second
+	probeTimeout  = 3 * time.Second
+	retryDelay    = 2 * time.Second
+)
+
 // Stats is a point-in-time view of the consumer for the up/lag gauges.
 type Stats struct {
-	Up           bool  // a broker answered the last health probe
-	Lag          int64 // records behind the high watermark, summed over partitions
+	Up           bool
+	Lag          int64
 	DenylistSize int
 }
 
-// Consumer feeds a Denylist from the `identity.events` topic. It deliberately does
-// NOT join a consumer group: franz-go's direct (group-less) consuming assigns every
-// partition of the topic to this client and starts at the earliest offset, so each
-// gateway replica rebuilds the FULL denylist on start (replicas never split
-// revocations between them). Kafka being down never blocks startup: Run keeps
-// retrying in the background and the gateway fails open meanwhile.
+// Consumer feeds a Denylist from the identity events topic with a group-less
+// client: every replica reads every partition from the earliest offset, so no
+// consumer group exists and each replica rebuilds the full denylist on start.
+// Kafka being down never blocks startup: Run keeps retrying and the gateway
+// fails open meanwhile.
 type Consumer struct {
-	brokers []string
-	topic   string
-	list    *Denylist
-	logger  *slog.Logger
+	client *kgo.Client
+	topic  string
+	list   *Denylist
+	logger *slog.Logger
 
-	up  atomic.Bool
-	mu  sync.Mutex
-	lag map[int32]int64
+	up       atomic.Bool
+	caughtUp atomic.Bool
+	mu       sync.Mutex
+	lag      map[int32]int64
 }
 
-// NewConsumer builds a consumer (it does not connect until Run).
-func NewConsumer(brokers []string, topic string, list *Denylist, logger *slog.Logger) *Consumer {
+// NewConsumer builds a consumer; it does not connect until Run.
+func NewConsumer(kafka config.Kafka, topic string, list *Denylist, logger *slog.Logger) (*Consumer, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Consumer{brokers: brokers, topic: topic, list: list, logger: logger, lag: map[int32]int64{}}
+	cl, err := kafkax.NewConsumerClient(kafka, "", []string{topic})
+	if err != nil {
+		return nil, fmt.Errorf("revocation consumer: %w", err)
+	}
+	return &Consumer{client: cl, topic: topic, list: list, logger: logger, lag: map[int32]int64{}}, nil
 }
+
+// CaughtUp reports whether the consumer has applied every record that existed
+// when it first reached the broker. It is a latch: it never returns to false.
+func (c *Consumer) CaughtUp() bool { return c.caughtUp.Load() }
 
 // Stats returns the current gauge values.
 func (c *Consumer) Stats() Stats {
@@ -89,53 +107,45 @@ func (c *Consumer) Stats() Stats {
 	return Stats{Up: c.up.Load(), Lag: lag, DenylistSize: c.list.Len()}
 }
 
-// Run consumes until ctx is cancelled. Safe to call in a goroutine from main.
-func (c *Consumer) Run(ctx context.Context) {
-	for ctx.Err() == nil {
-		if err := c.runOnce(ctx); err != nil && ctx.Err() == nil {
-			c.up.Store(false)
-			c.logger.Warn("revocation consumer stopped; revocations are NOT enforced until it recovers (fail open)",
-				slog.String("topic", c.topic), slog.Any("err", err))
-		}
-		select {
-		case <-ctx.Done():
-		case <-time.After(5 * time.Second):
+// Run consumes until ctx is cancelled and then returns nil.
+func (c *Consumer) Run(ctx context.Context) error {
+	defer c.client.Close()
+
+	go c.probeLoop(ctx)
+	go c.pruneLoop(ctx)
+
+	ends := c.captureEnds(ctx)
+	if ctx.Err() != nil {
+		return nil
+	}
+	c.logger.InfoContext(ctx, "revocation consumer started (no consumer group, from earliest offset)",
+		"topic", c.topic)
+
+	pending := map[int32]int64{}
+	for p, end := range ends {
+		if end > 0 {
+			pending[p] = end
 		}
 	}
-}
-
-func (c *Consumer) runOnce(ctx context.Context) error {
-	cl, err := kgo.NewClient(
-		kgo.SeedBrokers(c.brokers...),
-		kgo.ConsumeTopics(c.topic),
-		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
-	)
-	if err != nil {
-		return fmt.Errorf("kafka client: %w", err)
+	if len(pending) == 0 {
+		c.caughtUp.Store(true)
 	}
-	defer cl.Close()
-
-	probeCtx, stopProbe := context.WithCancel(ctx)
-	defer stopProbe()
-	go c.probeLoop(probeCtx, cl)
-	go c.pruneLoop(probeCtx)
-
-	c.logger.Info("revocation consumer started (no consumer group, from earliest offset)",
-		slog.Any("brokers", c.brokers), slog.String("topic", c.topic))
 
 	for {
-		fetches := cl.PollFetches(ctx)
+		fetches := c.client.PollFetches(ctx)
 		if fetches.IsClientClosed() || ctx.Err() != nil {
-			return ctx.Err()
+			return nil
 		}
 		fetches.EachError(func(topic string, part int32, err error) {
-			c.logger.Warn("revocation consumer fetch error",
-				slog.String("topic", topic), slog.Int("partition", int(part)), slog.Any("err", err))
+			c.logger.WarnContext(ctx, "revocation consumer fetch error", "topic", topic, "partition", int(part), "err", err)
 		})
 		fetches.EachRecord(func(r *kgo.Record) {
 			if err := Apply(c.list, r.Value); err != nil {
-				c.logger.Warn("revocation consumer skipped an undecodable record",
-					slog.Int("partition", int(r.Partition)), slog.Int64("offset", r.Offset), slog.Any("err", err))
+				c.logger.WarnContext(ctx, "revocation consumer skipped an undecodable record",
+					"partition", int(r.Partition), "offset", r.Offset, "err", err)
+			}
+			if end, ok := pending[r.Partition]; ok && r.Offset+1 >= end {
+				delete(pending, r.Partition)
 			}
 		})
 		c.mu.Lock()
@@ -145,26 +155,88 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 			}
 		})
 		c.mu.Unlock()
+		if len(pending) == 0 {
+			c.caughtUp.Store(true)
+		}
 	}
 }
 
-// probeLoop keeps the `up` flag honest: franz-go retries a dead broker silently, so
-// a periodic ApiVersions ping is what tells us Kafka is unreachable.
-func (c *Consumer) probeLoop(ctx context.Context, cl *kgo.Client) {
+func (c *Consumer) captureEnds(ctx context.Context) map[int32]int64 {
+	for ctx.Err() == nil {
+		ends, err := c.endOffsets(ctx)
+		if err == nil {
+			return ends
+		}
+		c.logger.WarnContext(ctx, "revocation consumer cannot read end offsets; revocations are NOT enforced until it recovers (fail open)",
+			"topic", c.topic, "err", err)
+		select {
+		case <-ctx.Done():
+		case <-time.After(retryDelay):
+		}
+	}
+	return nil
+}
+
+func (c *Consumer) endOffsets(ctx context.Context) (map[int32]int64, error) {
+	rctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+
+	mreq := kmsg.NewPtrMetadataRequest()
+	mt := kmsg.NewMetadataRequestTopic()
+	mt.Topic = kmsg.StringPtr(c.topic)
+	mreq.Topics = append(mreq.Topics, mt)
+	mresp, err := mreq.RequestWith(rctx, c.client)
+	if err != nil {
+		return nil, err
+	}
+	lreq := kmsg.NewPtrListOffsetsRequest()
+	lreq.ReplicaID = -1
+	lt := kmsg.NewListOffsetsRequestTopic()
+	lt.Topic = c.topic
+	for _, t := range mresp.Topics {
+		if err := kerr.ErrorForCode(t.ErrorCode); err != nil {
+			return nil, err
+		}
+		for _, p := range t.Partitions {
+			lp := kmsg.NewListOffsetsRequestTopicPartition()
+			lp.Partition = p.Partition
+			lp.Timestamp = -1
+			lp.CurrentLeaderEpoch = -1
+			lt.Partitions = append(lt.Partitions, lp)
+		}
+	}
+	lreq.Topics = append(lreq.Topics, lt)
+	lresp, err := lreq.RequestWith(rctx, c.client)
+	if err != nil {
+		return nil, err
+	}
+	ends := map[int32]int64{}
+	for _, t := range lresp.Topics {
+		for _, p := range t.Partitions {
+			if err := kerr.ErrorForCode(p.ErrorCode); err != nil {
+				return nil, err
+			}
+			ends[p.Partition] = p.Offset
+		}
+	}
+	return ends, nil
+}
+
+func (c *Consumer) probeLoop(ctx context.Context) {
 	probe := func() {
-		pctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		pctx, cancel := context.WithTimeout(ctx, probeTimeout)
 		defer cancel()
-		ok := cl.Ping(pctx) == nil
+		ok := c.client.Ping(pctx) == nil
 		if was := c.up.Swap(ok); was != ok && ctx.Err() == nil {
 			if ok {
-				c.logger.Info("revocation consumer connected to Kafka")
+				c.logger.InfoContext(ctx, "revocation consumer connected to Kafka")
 			} else {
-				c.logger.Warn("revocation consumer cannot reach Kafka; revocations are NOT enforced (fail open)")
+				c.logger.WarnContext(ctx, "revocation consumer cannot reach Kafka; revocations are NOT enforced (fail open)")
 			}
 		}
 	}
 	probe()
-	t := time.NewTicker(10 * time.Second)
+	t := time.NewTicker(probeInterval)
 	defer t.Stop()
 	for {
 		select {
@@ -176,7 +248,6 @@ func (c *Consumer) probeLoop(ctx context.Context, cl *kgo.Client) {
 	}
 }
 
-// pruneLoop drops denylist entries whose token expiry has passed.
 func (c *Consumer) pruneLoop(ctx context.Context) {
 	t := time.NewTicker(time.Minute)
 	defer t.Stop()

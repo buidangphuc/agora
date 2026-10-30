@@ -3,7 +3,6 @@ package export_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -96,7 +95,7 @@ func TestRun_FailuresDoNotStopTheLoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		export.Run(ctx, e, path, 5*time.Millisecond, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		export.Run(ctx, e, path, 5*time.Millisecond, slog.New(slog.DiscardHandler))
 		close(done)
 	}()
 	deadline := time.Now().Add(2 * time.Second)
@@ -114,7 +113,7 @@ func TestCycle_WritesEveryFileBesideTheTrackingFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tracking_events.parquet")
 	e := &fileExporter{body: "x-"}
-	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
+	if err := export.Cycle(context.Background(), e, path, slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatalf("Cycle: %v", err)
 	}
 	for _, name := range []string{"tracking_events", "tracking_events_resolved", "engagement_facts", "order_facts", "listing_sellers"} {
@@ -136,7 +135,7 @@ func TestCycle_OneFailureDoesNotBlockTheOthers(t *testing.T) {
 		t.Fatal(err)
 	}
 	e := &fileExporter{body: "x-", failRel: "engagement_facts"}
-	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err == nil {
+	if err := export.Cycle(context.Background(), e, path, slog.New(slog.DiscardHandler)); err == nil {
 		t.Fatal("want the failure reported")
 	}
 	for _, name := range []string{"tracking_events", "tracking_events_resolved", "order_facts"} {
@@ -245,7 +244,7 @@ func TestCycle_ImportOfAFixtureDayProducesSessions_WritesGA4Files(t *testing.T) 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tracking_events.parquet")
 	e := &fileExporter{body: "x-"}
-	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
+	if err := export.Cycle(context.Background(), e, path, slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatalf("Cycle: %v", err)
 	}
 	for _, name := range []string{"ga4_sessions", "tracking_events_attributed"} {
@@ -265,7 +264,7 @@ func TestCycle_ImportOfAFixtureDayProducesSessions_GA4FailureIsIsolated(t *testi
 		t.Fatal(err)
 	}
 	e := &fileExporter{body: "x-", failRel: "ga4_sessions"}
-	if err := export.Cycle(context.Background(), e, path, slog.New(slog.NewTextHandler(io.Discard, nil))); err == nil {
+	if err := export.Cycle(context.Background(), e, path, slog.New(slog.DiscardHandler)); err == nil {
 		t.Fatal("want the failure reported")
 	}
 	if got, _ := os.ReadFile(old); string(got) != "old" {

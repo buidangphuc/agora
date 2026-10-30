@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -14,88 +13,77 @@ import (
 )
 
 type fakePurger struct {
-	mu      sync.Mutex
 	cutoffs []time.Time
-	errs    []error
-	done    chan struct{}
+	err     error
 }
 
 func (f *fakePurger) PurgeTombstones(_ context.Context, olderThan time.Time) (int64, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.cutoffs = append(f.cutoffs, olderThan)
-	var err error
-	if len(f.errs) > 0 {
-		err, f.errs = f.errs[0], f.errs[1:]
-	}
-	f.done <- struct{}{}
-	if err != nil {
-		return 0, err
+	if f.err != nil {
+		return 0, f.err
 	}
 	return 3, nil
 }
 
-type syncBuf struct {
-	mu sync.Mutex
-	b  bytes.Buffer
+func logger(buf *bytes.Buffer) *slog.Logger {
+	return slog.New(slog.NewTextHandler(buf, nil))
 }
 
-func (s *syncBuf) Write(p []byte) (int, error) { s.mu.Lock(); defer s.mu.Unlock(); return s.b.Write(p) }
-func (s *syncBuf) String() string              { s.mu.Lock(); defer s.mu.Unlock(); return s.b.String() }
-
-// D6: each tick purges tombstones older than now - TTL, logs the count, and a
-// failure is logged and retried on the next tick, not fatal.
-func TestLoop_PurgesEveryIntervalWithTTLCutoff(t *testing.T) {
+// Scenario "An expired tombstone is purged": each purge removes tombstones older
+// than now - TTL and logs how many it removed.
+func TestPurge_UsesTTLCutoff(t *testing.T) {
 	clock := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
-	ticks := make(chan time.Time)
-	var gotInterval []time.Duration
-	var mu sync.Mutex
-	p := &fakePurger{done: make(chan struct{}), errs: []error{nil, errors.New("cluster down"), nil}}
-	logs := &syncBuf{}
-	ctx, cancel := context.WithCancel(context.Background())
-	stopped := make(chan struct{})
-	go func() {
-		tombstone.Loop{
-			Purger: p, TTL: 30 * time.Second, Interval: 2 * time.Second,
-			Logger: slog.New(slog.NewTextHandler(logs, nil)),
-			Now:    func() time.Time { mu.Lock(); defer mu.Unlock(); return clock },
-			After: func(d time.Duration) <-chan time.Time {
-				mu.Lock()
-				gotInterval = append(gotInterval, d)
-				mu.Unlock()
-				return ticks
-			},
-		}.Run(ctx)
-		close(stopped)
-	}()
+	p := &fakePurger{}
+	var logs bytes.Buffer
 
-	for i := 0; i < 3; i++ {
-		mu.Lock()
-		clock = clock.Add(2 * time.Second)
-		mu.Unlock()
-		ticks <- clock
-		<-p.done
+	err := tombstone.Purge(context.Background(), p, 30*time.Second, logger(&logs), func() time.Time { return clock })
+	if err != nil {
+		t.Fatalf("Purge: %v", err)
 	}
-	cancel()
-	<-stopped
+	if len(p.cutoffs) != 1 {
+		t.Fatalf("want 1 purge call, got %d", len(p.cutoffs))
+	}
+	if want := clock.Add(-30 * time.Second); !p.cutoffs[0].Equal(want) {
+		t.Errorf("cutoff = %s, want %s", p.cutoffs[0], want)
+	}
+	if !strings.Contains(logs.String(), "purged=3") {
+		t.Errorf("want the purged count logged, got:\n%s", logs.String())
+	}
 
-	if len(p.cutoffs) != 3 {
-		t.Fatalf("want 3 purges, got %d", len(p.cutoffs))
+	clock = clock.Add(time.Hour)
+	if err := tombstone.Purge(context.Background(), p, 30*time.Second, logger(&logs), func() time.Time { return clock }); err != nil {
+		t.Fatalf("second Purge: %v", err)
 	}
-	base := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
-	for i, c := range p.cutoffs {
-		want := base.Add(time.Duration(i+1)*2*time.Second - 30*time.Second)
-		if !c.Equal(want) {
-			t.Errorf("purge %d cutoff = %s, want %s", i, c, want)
-		}
+	if want := clock.Add(-30 * time.Second); !p.cutoffs[1].Equal(want) {
+		t.Errorf("second cutoff = %s, want %s (cutoff follows the injected clock)", p.cutoffs[1], want)
 	}
-	for _, d := range gotInterval {
-		if d != 2*time.Second {
-			t.Errorf("waited %s, want the 2s interval", d)
-		}
+}
+
+// Scenario "A failed purge does not stop the indexer": the failure is logged
+// with its cause; if Purge reports it, the error wraps the cause so
+// lifecycle.Every (which keeps ticking after an error) can log it too.
+func TestPurge_FailureIsLoggedNotFatal(t *testing.T) {
+	cause := errors.New("cluster down")
+	p := &fakePurger{err: cause}
+	var logs bytes.Buffer
+	clock := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	err := tombstone.Purge(context.Background(), p, time.Minute, logger(&logs), func() time.Time { return clock })
+	if err != nil && !errors.Is(err, cause) {
+		t.Errorf("Purge error = %v, want nil or one wrapping the cause", err)
 	}
-	out := logs.String()
-	if strings.Count(out, "purged=3") != 2 || !strings.Contains(out, "cluster down") {
-		t.Errorf("want two purge counts and the failure logged, got:\n%s", out)
+	if !strings.Contains(logs.String(), "cluster down") {
+		t.Errorf("want the failure logged with its cause, got:\n%s", logs.String())
+	}
+	if strings.Contains(logs.String(), "purged=") {
+		t.Errorf("a failed purge must not log a purged count:\n%s", logs.String())
+	}
+
+	p.err = nil
+	if err := tombstone.Purge(context.Background(), p, time.Minute, logger(&logs), func() time.Time { return clock }); err != nil {
+		t.Fatalf("Purge after recovery: %v", err)
+	}
+	if len(p.cutoffs) != 2 {
+		t.Errorf("next call must purge again, got %d calls", len(p.cutoffs))
 	}
 }

@@ -285,12 +285,12 @@ The warehouse adapters (DuckDB and BigQuery) SHALL add the new tracking columns 
 #### Scenario: Funnel purchases count distinct transaction ids
 - **WHEN** `GetSellerFunnel` runs for a seller with 3 `purchase` events sharing `transaction_id=o-1` and 1 `purchase` with `transaction_id=o-2`
 - **THEN** the response has `purchases=2`
-- **VERIFIED BY**: `team-analytics/internal/query/service_test.go` TestGetSellerFunnel_CheckoutPurchase (case "Funnel purchases count distinct transaction ids")
+- **VERIFIED BY**: `team-analytics/internal/rpc/service_test.go` TestGetSellerFunnel_CheckoutPurchase (case "Funnel purchases count distinct transaction ids")
 
 #### Scenario: Funnel projects checkout and purchase
 - **WHEN** `GetSellerFunnel` runs for a seller with 2 `begin_checkout` and 1 `purchase` events
 - **THEN** the response has `begin_checkouts=2` and `purchases=1`
-- **VERIFIED BY**: `team-analytics/internal/query/service_test.go` TestGetSellerFunnel_CheckoutPurchase (case "Funnel projects checkout and purchase")
+- **VERIFIED BY**: `team-analytics/internal/rpc/service_test.go` TestGetSellerFunnel_CheckoutPurchase (case "Funnel projects checkout and purchase")
 
 ### Requirement: Ecommerce columns in Parquet export
 The export job SHALL write `item_list_id`, `position`, `event_group_id`, `transaction_id`, `currency`, and `value` to the tracking Parquet file.

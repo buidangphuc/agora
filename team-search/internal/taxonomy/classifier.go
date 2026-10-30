@@ -11,11 +11,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 
 	aiv1 "github.com/buidangphuc/team-search/generated/platform/ai/v1"
 	"github.com/buidangphuc/team-search/internal/index"
@@ -50,44 +47,19 @@ type Classifier interface {
 	Classify(ctx context.Context, l Listing) (Classification, error)
 }
 
-// Service-principal convention for internal gRPC calls (same wire shape as
-// team-order's and team-notification's upstream clients): the caller sets x-principal-*
-// itself because an indexer has no user request to forward. The scope is the least this
-// service needs: ai.classify, which only service principals may use (team-ai refuses it
-// for a user principal). team-gateway never routes ClassifyTags.
-const (
-	servicePrincipalID     = "service-team-search"
-	servicePrincipalType   = "service"
-	servicePrincipalScopes = "ai.classify"
-
-	// callTimeout bounds one classification; a slow team-ai must not stall indexing.
-	callTimeout = 2 * time.Second
-)
-
-// GRPCClassifier calls team-ai's AIService.ClassifyTags.
+// GRPCClassifier calls team-ai's AIService.ClassifyTags over a connection built
+// with upstream.NewClient (service principal ai.classify and the call deadline are
+// the connection's options).
 type GRPCClassifier struct {
-	client  aiv1.AIServiceClient
-	timeout time.Duration
+	client aiv1.AIServiceClient
 }
 
-// NewGRPCClassifier wraps an AIService client (tests inject one over a real listener).
-func NewGRPCClassifier(client aiv1.AIServiceClient, timeout time.Duration) *GRPCClassifier {
-	if timeout <= 0 {
-		timeout = callTimeout
-	}
-	return &GRPCClassifier{client: client, timeout: timeout}
+// NewGRPCClassifier wraps a connection to team-ai.
+func NewGRPCClassifier(conn grpc.ClientConnInterface) *GRPCClassifier {
+	return &GRPCClassifier{client: aiv1.NewAIServiceClient(conn)}
 }
 
-// DialGRPCClassifier connects lazily to team-ai's gRPC address (host:port).
-func DialGRPCClassifier(addr string) (*GRPCClassifier, *grpc.ClientConn, error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, nil, fmt.Errorf("dial team-ai %q: %w", addr, err)
-	}
-	return NewGRPCClassifier(aiv1.NewAIServiceClient(conn), callTimeout), conn, nil
-}
-
-// Classify calls ClassifyTags with the service principal and a 2 s deadline.
+// Classify calls ClassifyTags.
 func (c *GRPCClassifier) Classify(ctx context.Context, l Listing) (Classification, error) {
 	title := strings.TrimSpace(l.Title)
 	if len([]rune(title)) < 2 {
@@ -103,13 +75,6 @@ func (c *GRPCClassifier) Classify(ctx context.Context, l Listing) (Classificatio
 			VariantId: v.ID, Name: name, SkuCode: v.SkuCode, Price: max(v.Price, 0), Stock: max(v.Stock, 0),
 		})
 	}
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
-	defer cancel()
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
-		"x-principal-id", servicePrincipalID,
-		"x-principal-type", servicePrincipalType,
-		"x-principal-scopes", servicePrincipalScopes,
-	))
 	res, err := c.client.ClassifyTags(ctx, req)
 	if err != nil {
 		return Classification{}, fmt.Errorf("team-ai ClassifyTags: %w", err)

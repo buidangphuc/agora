@@ -1,0 +1,248 @@
+package rpc_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	commonv1 "github.com/buidangphuc/team-order/generated/platform/common/v1"
+	orderv1 "github.com/buidangphuc/team-order/generated/platform/order/v1"
+	"github.com/buidangphuc/team-order/internal/rpc"
+	"github.com/buidangphuc/team-order/internal/store"
+)
+
+type rmaEnv struct {
+	h      *rpc.OrderHandler
+	orders *store.PostgresOrderRepository
+	outbox *pgOutbox
+}
+
+func newRMAEnv(ctx context.Context, t testing.TB) rmaEnv {
+	outbox := newPGOutbox(ctx, t)
+	orders := outbox.orders()
+	returns := outbox.returns(store.WithReturnOutbox(BuildReturnRefundedOutboxRow))
+	svc := newSvc(t, orders, nil, returns, nil, nil, nil, nil)
+	return rmaEnv{h: newHandler(t, svc, nil, nil, withAudit(&fakeAudit{})), orders: orders, outbox: outbox}
+}
+
+func (e rmaEnv) order(ctx context.Context, t *testing.T, paidOnline bool) store.Order {
+	t.Helper()
+	o, err := e.orders.CreateOrder(ctx, store.Order{BuyerID: "buyer_1", SellerID: "seller_1", TotalAmount: 500000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	from := store.OrderStatusPending
+	if paidOnline {
+		if _, err := e.orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusPaid, []store.OrderStatus{store.OrderStatusPending}, ""); err != nil {
+			t.Fatal(err)
+		}
+		from = store.OrderStatusPaid
+	}
+	if o, err = e.orders.UpdateOrderStatusFrom(ctx, o.ID, store.OrderStatusShipped, []store.OrderStatus{from}, "T"); err != nil {
+		t.Fatal(err)
+	}
+	return o
+}
+
+func (e rmaEnv) createReturn(ctx context.Context, t *testing.T, orderID string, amount int64) string {
+	t.Helper()
+	resp, err := e.h.CreateReturnRequest(incomingPrincipalCtxFrom(ctx, "buyer_1"), &orderv1.CreateReturnRequestRequest{
+		OrderId: orderID, Reason: "broken", RefundAmount: amount,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp.GetReturnRequest().GetId()
+}
+
+func (e rmaEnv) setStatus(ctx context.Context, id string, st orderv1.ReturnStatus) error {
+	_, err := e.h.UpdateReturnStatus(ctx, &orderv1.UpdateReturnStatusRequest{Id: id, Status: st})
+	return err
+}
+
+func (e rmaEnv) refundRows(ctx context.Context) int {
+	n := 0
+	for _, r := range e.outbox.EnqueuedRows(ctx) {
+		if r.EventType == ReturnRefundedEventType {
+			n++
+		}
+	}
+	return n
+}
+
+func wantCode(t *testing.T, err error, code codes.Code) {
+	t.Helper()
+	if status.Code(err) != code {
+		t.Fatalf("want %v, got %v", code, err)
+	}
+}
+
+func adminCtx() context.Context {
+	return withPrincipal(context.Background(), &commonv1.Principal{Id: "ops", Type: commonv1.PrincipalType_PRINCIPAL_TYPE_USER, Scopes: []string{"admin", "order.admin"}})
+}
+
+func TestReturnRefund_Handler(t *testing.T) {
+	seller := incomingPrincipalCtx("seller_1", "seller")
+	buyer := incomingPrincipalCtx("buyer_1", "buyer")
+
+	t.Run("the seller refunds an approved return and one fact is written", func(t *testing.T) {
+		e := newRMAEnv(seller, t)
+		o := e.order(seller, t, true)
+		id := e.createReturn(seller, t, o.ID, 200000)
+		wantCode(t, e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REFUNDED), codes.FailedPrecondition) // PENDING -> REFUNDED
+		if e.refundRows(seller) != 0 {
+			t.Fatal("refused transition wrote a fact")
+		}
+		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED); err != nil {
+			t.Fatal(err)
+		}
+		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REFUNDED); err != nil {
+			t.Fatal(err)
+		}
+		if e.refundRows(seller) != 1 {
+			t.Fatalf("want 1 ReturnRefunded row, got %d", e.refundRows(seller))
+		}
+		wantCode(t, e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REFUNDED), codes.FailedPrecondition)
+		if e.refundRows(seller) != 1 {
+			t.Fatal("a repeated refund wrote another fact")
+		}
+	})
+
+	t.Run("the buyer cannot refund their own return", func(t *testing.T) {
+		e := newRMAEnv(seller, t)
+		o := e.order(seller, t, true)
+		id := e.createReturn(seller, t, o.ID, 200000)
+		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED); err != nil {
+			t.Fatal(err)
+		}
+		wantCode(t, e.setStatus(buyer, id, orderv1.ReturnStatus_RETURN_STATUS_REFUNDED), codes.PermissionDenied)
+		got, err := e.h.GetReturnRequest(buyer, &orderv1.GetReturnRequestRequest{Id: id})
+		if err != nil || got.GetReturnRequest().GetStatus() != orderv1.ReturnStatus_RETURN_STATUS_APPROVED {
+			t.Fatalf("status: %v %v", got, err)
+		}
+		if e.refundRows(seller) != 0 {
+			t.Fatal("buyer refund wrote a fact")
+		}
+	})
+
+	t.Run("a COD order's approved return is refused with the spec message", func(t *testing.T) {
+		e := newRMAEnv(seller, t)
+		o := e.order(seller, t, false)
+		id := e.createReturn(seller, t, o.ID, 200000)
+		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED); err != nil {
+			t.Fatalf("approve on COD: %v", err)
+		}
+		err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REFUNDED)
+		wantCode(t, err, codes.FailedPrecondition)
+		if msg := status.Convert(err).Message(); msg != "order was not paid online; cash-on-delivery refunds are handled outside the system" {
+			t.Fatalf("message %q", msg)
+		}
+		got, _ := e.h.GetReturnRequest(seller, &orderv1.GetReturnRequestRequest{Id: id})
+		if got.GetReturnRequest().GetStatus() != orderv1.ReturnStatus_RETURN_STATUS_APPROVED {
+			t.Fatalf("status %v", got.GetReturnRequest().GetStatus())
+		}
+		if n := len(e.outbox.EnqueuedRows(seller)); n != 0 {
+			t.Fatalf("COD refund wrote %d rows", n)
+		}
+		if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REJECTED); err != nil {
+			t.Fatalf("reject on COD: %v", err)
+		}
+	})
+
+	t.Run("the return cap codes", func(t *testing.T) {
+		e := newRMAEnv(seller, t)
+		o := e.order(seller, t, true)
+		e.createReturn(seller, t, o.ID, 300000)
+		_, err := e.h.CreateReturnRequest(buyer, &orderv1.CreateReturnRequestRequest{OrderId: o.ID, Reason: "r", RefundAmount: 300000})
+		wantCode(t, err, codes.InvalidArgument)
+		e.createReturn(seller, t, o.ID, 200000)
+		_, err = e.h.CreateReturnRequest(buyer, &orderv1.CreateReturnRequestRequest{OrderId: o.ID, Reason: "r"})
+		wantCode(t, err, codes.FailedPrecondition)
+		_, err = e.h.CreateReturnRequest(buyer, &orderv1.CreateReturnRequestRequest{OrderId: o.ID, Reason: "r", RefundAmount: 100000})
+		wantCode(t, err, codes.InvalidArgument)
+	})
+}
+
+func TestListOrderReturns_Handler(t *testing.T) {
+	e := newRMAEnv(t.Context(), t)
+	o := e.order(t.Context(), t, true)
+	first := e.createReturn(t.Context(), t, o.ID, 200000)
+	time.Sleep(2 * time.Millisecond)
+	second := e.createReturn(t.Context(), t, o.ID, 100000)
+
+	for name, ctx := range map[string]context.Context{
+		"buyer":  incomingPrincipalCtx("buyer_1", "buyer"),
+		"seller": incomingPrincipalCtx("seller_1", "seller"),
+		"admin":  adminCtx(),
+	} {
+		resp, err := e.h.ListOrderReturns(ctx, &orderv1.ListOrderReturnsRequest{OrderId: o.ID})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		got := resp.GetReturns()
+		if len(got) != 2 || got[0].GetId() != second || got[1].GetId() != first {
+			t.Fatalf("%s: newest first: %v", name, got)
+		}
+		if got[1].GetReason() != "broken" || got[1].GetRefundAmount() != 200000 || got[1].GetStatus() != orderv1.ReturnStatus_RETURN_STATUS_PENDING {
+			t.Fatalf("%s: fields %v", name, got[1])
+		}
+	}
+
+	_, err := e.h.ListOrderReturns(incomingPrincipalCtx("other_buyer", "buyer"), &orderv1.ListOrderReturnsRequest{OrderId: o.ID})
+	wantCode(t, err, codes.PermissionDenied)
+	_, err = e.h.ListOrderReturns(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.ListOrderReturnsRequest{OrderId: "missing"})
+	wantCode(t, err, codes.NotFound)
+	_, err = e.h.ListOrderReturns(incomingPrincipalCtx("buyer_1", "buyer"), &orderv1.ListOrderReturnsRequest{})
+	wantCode(t, err, codes.InvalidArgument)
+	_, err = e.h.ListOrderReturns(context.Background(), &orderv1.ListOrderReturnsRequest{OrderId: o.ID})
+	if err == nil {
+		t.Fatal("no principal must be refused")
+	}
+}
+
+func TestGetOrder_PaidAtOnTheWire(t *testing.T) {
+	e := newRMAEnv(t.Context(), t)
+	buyer := incomingPrincipalCtx("buyer_1", "buyer")
+	paid := e.order(t.Context(), t, true)
+	resp, err := e.h.GetOrder(buyer, &orderv1.GetOrderRequest{Id: paid.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.GetOrder().GetPaidAt() == nil || !resp.GetOrder().GetPaidAt().AsTime().Equal(*paid.PaidAt) {
+		t.Fatalf("paid_at %v, want %v", resp.GetOrder().GetPaidAt(), paid.PaidAt)
+	}
+	cod := e.order(t.Context(), t, false)
+	resp, err = e.h.GetOrder(buyer, &orderv1.GetOrderRequest{Id: cod.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.GetOrder().GetPaidAt() != nil {
+		t.Fatalf("a COD order must leave paid_at unset: %v", resp.GetOrder().GetPaidAt())
+	}
+}
+
+func TestUpdateReturnStatusRejectedStaysTerminal(t *testing.T) {
+	seller := incomingPrincipalCtx("seller_1", "seller")
+	callers := map[string]context.Context{"seller": seller, "order.admin": adminCtx()}
+	for name, ctx := range callers {
+		t.Run("Dispute refund: Re-approval is not reachable from the status RPC/"+name, func(t *testing.T) {
+			e := newRMAEnv(ctx, t)
+			o := e.order(ctx, t, true)
+			id := e.createReturn(ctx, t, o.ID, 200000)
+			if err := e.setStatus(seller, id, orderv1.ReturnStatus_RETURN_STATUS_REJECTED); err != nil {
+				t.Fatal(err)
+			}
+			wantCode(t, e.setStatus(ctx, id, orderv1.ReturnStatus_RETURN_STATUS_APPROVED), codes.FailedPrecondition)
+			got, err := e.h.GetReturnRequest(seller, &orderv1.GetReturnRequestRequest{Id: id})
+			if err != nil || got.GetReturnRequest().GetStatus() != orderv1.ReturnStatus_RETURN_STATUS_REJECTED {
+				t.Fatalf("status: %v %v", got, err)
+			}
+			if e.refundRows(ctx) != 0 {
+				t.Fatal("refused re-approval wrote a fact")
+			}
+		})
+	}
+}

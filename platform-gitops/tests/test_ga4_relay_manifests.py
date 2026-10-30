@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RELAY = ROOT / "platform/team-analytics/ga4-relay.yaml"
 REDPANDA = ROOT / "platform/infra/redpanda.yaml"
 KUSTOMIZATION = ROOT / "platform/team-analytics/kustomization.yaml"
-PROBE_PORT = 8085
+GRPC_PORT = 50059
 SECRET_KEYS = {"GA4_API_SECRET", "GA4_MEASUREMENT_ID"}
 
 
@@ -42,15 +42,23 @@ class Ga4RelayManifest(unittest.TestCase):
         self.assertEqual(len(deps), 1, "exactly one Deployment ga4-relay")
         return deps[0]
 
-    def test_scenario_no_inbound_endpoint_beyond_probes_deployment_ports_and_probes(self):
+    def test_relay_probes_are_grpc(self):
+        """Scenario: The relay is probed over gRPC."""
         for c in containers(self.dep()):
-            ports = {p["containerPort"] for p in c.get("ports", [])}
-            self.assertLessEqual(ports, {PROBE_PORT}, "only the probe port may be declared")
+            env = {e["name"]: e.get("value") for e in c.get("env", [])}
+            self.assertEqual(env.get("GRPC_PORT"), str(GRPC_PORT))
+            self.assertNotIn("GA4_RELAY_PROBE_PORT", env)
+            ports = {p["containerPort"]: p.get("name") for p in c.get("ports", [])}
+            self.assertEqual(ports, {GRPC_PORT: "grpc"}, "one container port, named grpc")
+            self.assertNotIn(8085, ports)
             for name in ("livenessProbe", "readinessProbe"):
-                p = c[name]["httpGet"]
-                self.assertEqual(p["port"], PROBE_PORT)
-            self.assertEqual(c["livenessProbe"]["httpGet"]["path"], "/healthz")
-            self.assertEqual(c["readinessProbe"]["httpGet"]["path"], "/readyz")
+                probe = c[name]
+                self.assertNotIn("httpGet", probe)
+                self.assertEqual(probe["grpc"]["port"], GRPC_PORT)
+            self.assertEqual(c["livenessProbe"]["grpc"].get("service"), "liveness")
+            self.assertNotIn("service", c["readinessProbe"]["grpc"])
+        self.assertNotIn("8085", RELAY.read_text())
+        self.assertNotIn("GA4_RELAY_PROBE_PORT", RELAY.read_text())
 
     def test_scenario_no_inbound_endpoint_beyond_probes_no_service_or_ingress(self):
         for d in self.docs:
@@ -58,9 +66,7 @@ class Ga4RelayManifest(unittest.TestCase):
                 self.fail("ga4-relay must not have an Ingress")
         for svc in kind(self.docs, "Service"):
             for p in svc["spec"].get("ports", []):
-                self.assertEqual(p.get("port", p.get("targetPort")), PROBE_PORT,
-                                 "a Service may expose nothing but the probe port")
-                self.assertEqual(p.get("targetPort", PROBE_PORT), PROBE_PORT)
+                self.fail("ga4-relay must not expose a Service port")
 
     def test_scenario_secret_unset_externalsecret_declares_only_the_two_keys(self):
         es = kind(self.docs, "ExternalSecret")
@@ -223,9 +229,10 @@ class LocalCompose(unittest.TestCase):
     def test_scenario_ops_compose_relay_env_and_own_volume(self):
         s = self.svc()
         env = _env_map(s)
-        for k in ("GA4_RELAY_CONSUMER_GROUP", "GA4_RELAY_DLQ_TOPIC", "GA4_RELAY_PROBE_PORT", "DUCKDB_PATH"):
+        for k in ("GA4_RELAY_CONSUMER_GROUP", "GA4_RELAY_DLQ_TOPIC", "DUCKDB_PATH"):
             self.assertTrue(env.get(k), f"{k} must be set")
         self.assertEqual(env["GA4_RELAY_DLQ_TOPIC"], "analytics.ga4-relay.dlq")
+        self.assertNotIn("GA4_RELAY_PROBE_PORT", env)
         mount_dir = env["DUCKDB_PATH"].rsplit("/", 1)[0]
         mine = [v.split(":")[0] for v in s.get("volumes", []) if isinstance(v, str) and v.split(":")[1:2] == [mount_dir]]
         self.assertEqual(len(mine), 1, f"a volume must be mounted at {mount_dir}")

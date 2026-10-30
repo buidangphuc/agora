@@ -1,6 +1,7 @@
 package edge
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -147,8 +148,10 @@ func validateBeacon(b *trackBeacon) error {
 			return jsonError("invalid ai_interaction properties")
 		}
 	}
-	for _, f := range []string{b.ListingID, b.SessionID, b.AnonymousID, b.PlacementID, b.ImpressionID,
-		b.ModelVersion, b.EventGroupID, b.TransactionID} {
+	for _, f := range []string{
+		b.ListingID, b.SessionID, b.AnonymousID, b.PlacementID, b.ImpressionID,
+		b.ModelVersion, b.EventGroupID, b.TransactionID,
+	} {
 		if utf8.RuneCountInString(f) > maxIDChars {
 			return jsonError("field too long")
 		}
@@ -222,7 +225,7 @@ func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) ht
 			return
 		}
 
-		principal := e.beaconPrincipal(r)
+		principal := e.beaconPrincipal(r) //nolint:contextcheck
 		ca, cm, cp, cv := parseConsentCookie(r)
 
 		type item struct {
@@ -290,12 +293,15 @@ func HandleTrack(e *Edge, pub events.AnalyticsPublisher, logger *slog.Logger) ht
 		}
 
 		for _, it := range items {
-			if err := pub.PublishTrackingEvent(r.Context(), it.ev, principal, requestID, it.eventID); err != nil {
+			pctx, cancel := context.WithTimeout(r.Context(), e.trackTimeout)
+			err := pub.PublishTrackingEvent(pctx, it.ev, principal, requestID, it.eventID)
+			cancel()
+			if err != nil {
 				// Best-effort: log and keep going; the browsing action must not fail.
-				logger.Warn("publish tracking event",
-					slog.String("event_type", it.ev.GetEventType().String()),
-					slog.String("listing_id", it.ev.GetListingId()),
-					slog.Any("err", err),
+				logger.WarnContext(r.Context(), "publish tracking event",
+					"event_type", it.ev.GetEventType().String(),
+					"listing_id", it.ev.GetListingId(),
+					"err", err,
 				)
 			}
 		}
