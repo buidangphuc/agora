@@ -57,6 +57,11 @@ const nextConfig = {
   output: "standalone",
   // connect-node is a server-only dependency; keep it out of the RSC bundle.
   serverExternalPackages: ["@connectrpc/connect-node"],
+  transpilePackages: [
+    "@fe-platform/api-client",
+    "@fe-platform/tokens",
+    "@fe-platform/ui",
+  ],
   async headers() {
     return [
       {

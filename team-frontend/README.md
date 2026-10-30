@@ -134,3 +134,7 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 - Rules: root `AGENTS.md` (Rule 1: frontend talks only to the gateway; port table `:3000`).
 - `platform-core/docs/UI_SYSTEM_DESIGN.md`, `platform-core/docs/ARCHITECTURE.md`.
 - ADRs: `platform-core/docs/ADR/0001-proto-distribution.md`, `0003-auth-model.md`, `0006-rs256-jwks-auth.md`.
+
+## 11. Shared platform packages
+
+`@fe-platform/tokens`, `@fe-platform/ui` and `@fe-platform/api-client` come from `fe-platform/` as committed tarballs in `vendor/` (`file:./vendor/*.tgz`), so the image builds from this directory alone (the Dockerfile copies `vendor/` before `npm ci`). To update: in `fe-platform/` run `npm run vendor`, then here run `npm install` and commit `vendor/` and `package-lock.json`. Decision: `fe-platform/docs/ADR/0006-three-apps-on-the-platform.md`. No component or token from these packages is used yet.
