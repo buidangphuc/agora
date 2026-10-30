@@ -19,3 +19,12 @@ describe("buy-bar space", () => {
     expect(footer).not.toContain("buy-bar");
   });
 });
+
+describe("seller channel links", () => {
+  const shell = readFileSync(join(__dirname, "ConsumerShell.tsx"), "utf8");
+
+  it("open the seller app login with a next param, never a bare seller URL", () => {
+    expect(shell.match(/href=\{sellerEntryUrl\(\)\}/g)).toHaveLength(2);
+    expect(shell).not.toContain("sellerAppUrl(");
+  });
+});

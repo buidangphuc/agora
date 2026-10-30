@@ -9,7 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { useToast } from "@/components/ui/ToastProvider";
 import { loginPath } from "@/features/auth/returnUrlShared";
-import { usePending } from "@/features/seller/usePending";
+import { usePending } from "@/lib/usePending";
 
 import { reportListingAction } from "./reportActions";
 

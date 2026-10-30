@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/features/auth/actions", () => ({ logoutAction: vi.fn() }));
 
 import ForbiddenPage from "./page";
 
@@ -23,5 +25,13 @@ describe("seller forbidden page", () => {
     expect(
       screen.getByRole("link", { name: "Về trang mua sắm" }),
     ).toHaveAttribute("href", "http://localhost:3000/");
+  });
+
+  it("lets the user sign out of the seller app to switch account", () => {
+    render(<ForbiddenPage />);
+    expect(screen.getByRole("button", { name: "Đăng xuất" })).toHaveAttribute(
+      "type",
+      "submit",
+    );
   });
 });

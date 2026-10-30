@@ -21,7 +21,6 @@ import {
   listBuyerOrdersResult,
   listOrderReturns,
   previewCheckout,
-  updateOrderStatus,
 } from "./orders.js";
 
 vi.mock("./client.js", () => ({ makeClients: vi.fn() }));
@@ -36,8 +35,6 @@ function stubOrder(rpcs: Record<string, ReturnType<typeof vi.fn>>) {
     createOrder: vi.fn(),
     getOrder: vi.fn(),
     listBuyerOrders: vi.fn(),
-    listSellerOrders: vi.fn(),
-    updateOrderStatus: vi.fn(),
     cancelOrder: vi.fn(),
     confirmReceipt: vi.fn(),
     previewCheckout: vi.fn(),
@@ -236,13 +233,6 @@ describe("orders gateway wrapper", () => {
     await expect(calculateShippingFee("Hà Nội", 350000)).resolves.toMatchObject(
       { shippingFee: 20000, isFreeShipping: false },
     );
-  });
-
-  it("updateOrderStatus throws when the gateway returns no order", async () => {
-    stubOrder({ updateOrderStatus: vi.fn().mockResolvedValue({}) });
-    await expect(
-      updateOrderStatus("o1", OrderStatus.SHIPPED, "TRK9"),
-    ).rejects.toThrow("update order status failed");
   });
 
   it("Order lifecycle: cancel sends the reason code with the label", async () => {

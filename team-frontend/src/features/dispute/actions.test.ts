@@ -2,21 +2,14 @@ import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { redirectGuestToLogin } from "@/features/auth/guardPath";
-import {
-  type ViewDispute,
-  createDispute,
-  resolveDispute,
-} from "@/lib/gateway/disputes";
+import { type ViewDispute, createDispute } from "@/lib/gateway/disputes";
 import { getPrincipal } from "@/lib/gateway/session";
 
 import { createDisputeAction } from "./actions";
 
 vi.mock("@/lib/gateway/disputes", () => ({
   createDispute: vi.fn(),
-  resolveDispute: vi.fn(),
-  listDisputes: vi.fn(),
   listOrderDisputes: vi.fn(),
-  getDispute: vi.fn(),
 }));
 vi.mock("@/lib/gateway/session", () => ({
   getPrincipal: vi.fn(),
@@ -33,8 +26,6 @@ vi.mock("@/features/auth/guardPath", () => ({
 //   "use server"
 //   createDisputeAction({ orderId, defendantId, returnId, reason })
 //     => ActionResult<ViewDispute>  (ok: true carries data = the dispute)
-//   resolveDisputeAction({ disputeId, status, resolution, ruling? })
-//     => ActionResult<ViewDispute>; admin scope re-checked via getPrincipal().
 // Error text is the proposal copy table; err.message is never forwarded.
 
 const dispute: ViewDispute = {
@@ -90,10 +81,6 @@ beforeEach(() => {
     scopes: ["admin"],
   });
   vi.mocked(createDispute).mockResolvedValue({ status: "ok", dispute });
-  vi.mocked(resolveDispute).mockResolvedValue({
-    status: "ok",
-    dispute: { ...dispute, status: "INVESTIGATING" },
-  });
 });
 
 describe("createDisputeAction", () => {

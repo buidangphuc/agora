@@ -11,7 +11,7 @@ Status: compose service `team-frontend-admin`, port `:3002`. Stack: React 19, Ta
 | Surface | What | Authorization |
 |---|---|---|
 | `/` | Redirects to `/admin/cockpit` | none |
-| `/login` | Admin sign-in (no registration link, no sign-up route) | public |
+| `/login` | Admin sign-in (no registration link, no sign-up route). Takes `?next=<path>` or `?returnUrl=`, both checked by `safeReturnUrl`; a session that already has scope `admin` goes straight there (default `/admin/cockpit`) | public |
 | `/admin/cockpit`, `/admin/listings`, `/admin/cases`, `/admin/users`, `/admin/audit` | Ops cockpit, listing moderation, reports and disputes, user administration, audit log | `src/app/admin/layout.tsx`: `/login?returnUrl=` without a session, "Không có quyền" unless scope `admin`; each page and action re-checks, the gateway re-enforces |
 | `/forbidden` | The "Không có quyền" page with a logout button | none |
 | `GET /api/admin/metrics` | Cockpit refresh, proxies `fetchCockpit` | 401 without a session; the gateway enforces scope `admin` |

@@ -14,16 +14,11 @@ import { createConnectTransport } from "@connectrpc/connect-node";
 import {
   FlashSaleService,
   SponsoredService,
-  SubscriptionService,
   VoucherService,
 } from "@/generated/platform/promotion/v1/promotion_connect.js";
 import {
-  type AdCampaign,
-  AdCampaignStatus,
   DiscountType,
   type FlashSaleCampaign,
-  type Plan,
-  PlanTier,
   type Voucher,
   VoucherScope,
 } from "@/generated/platform/promotion/v1/promotion_pb.js";
@@ -44,12 +39,11 @@ function promotion() {
   return {
     voucher: createPromiseClient(VoucherService, transport),
     flashSale: createPromiseClient(FlashSaleService, transport),
-    subscription: createPromiseClient(SubscriptionService, transport),
     sponsored: createPromiseClient(SponsoredService, transport),
   };
 }
 
-export { DiscountType, VoucherScope, PlanTier };
+export { DiscountType, VoucherScope };
 
 export interface ViewVoucher {
   id: string;
@@ -266,143 +260,7 @@ export async function getFlashSaleStock(
   }
 }
 
-// ── Subscription tiers (seller plans + entitlements) ────────────────────────
-
-export interface ViewPlan {
-  id: string;
-  tier: PlanTier;
-  tierText: string;
-  price: number;
-  features: string[];
-}
-
-export interface ViewEntitlements {
-  tier: PlanTier;
-  tierText: string;
-  limits: Record<string, string>;
-}
-
-export function planTierText(t: PlanTier): string {
-  switch (t) {
-    case PlanTier.FREE:
-      return "Miễn phí";
-    case PlanTier.PRO:
-      return "Pro";
-    case PlanTier.PREMIUM:
-      return "Premium";
-    default:
-      return "Chưa xác định";
-  }
-}
-
-function mapPlan(p: Plan): ViewPlan {
-  return {
-    id: p.id,
-    tier: p.name,
-    tierText: planTierText(p.name),
-    price: Number(p.price),
-    features: p.features ?? [],
-  };
-}
-
-export async function listPlans(): Promise<ViewPlan[]> {
-  try {
-    const res = await promotion().subscription.listPlans({});
-    return res.plans.map(mapPlan);
-  } catch {
-    return [];
-  }
-}
-
-export async function subscribe(
-  planId: string,
-): Promise<{ ok: boolean; tier?: PlanTier; message?: string }> {
-  try {
-    const res = await promotion().subscription.subscribe({ planId });
-    return { ok: true, tier: res.subscription?.tier };
-  } catch (err) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : "Đăng ký gói thất bại.",
-    };
-  }
-}
-
-export async function getEntitlements(
-  sellerId: string,
-): Promise<ViewEntitlements> {
-  try {
-    const res = await promotion().subscription.getEntitlements({ sellerId });
-    return {
-      tier: res.plan,
-      tierText: planTierText(res.plan),
-      limits: res.limits ?? {},
-    };
-  } catch {
-    return {
-      tier: PlanTier.UNSPECIFIED,
-      tierText: planTierText(PlanTier.UNSPECIFIED),
-      limits: {},
-    };
-  }
-}
-
-// ── Sponsored placements (pay-per-slot ad campaigns) ────────────────────────
-// Budget/bid are pure inputs; team-promotion runs the auction. This module
-// forwards + maps proto → view types.
-
-export { AdCampaignStatus };
-
-export interface ViewAdCampaign {
-  id: string;
-  sellerId: string;
-  listingId: string;
-  budget: number;
-  bid: number;
-  status: AdCampaignStatus;
-  statusText: string;
-  createdAt: string;
-}
-
-export function adCampaignStatusText(s: AdCampaignStatus): string {
-  switch (s) {
-    case AdCampaignStatus.ACTIVE:
-      return "Đang chạy";
-    case AdCampaignStatus.PAUSED:
-      return "Tạm dừng";
-    case AdCampaignStatus.ENDED:
-      return "Đã kết thúc";
-    default:
-      return "Chưa xác định";
-  }
-}
-
-function mapAdCampaign(c: AdCampaign): ViewAdCampaign {
-  return {
-    id: c.id,
-    sellerId: c.sellerId,
-    listingId: c.listingId,
-    budget: Number(c.budget),
-    bid: Number(c.bid),
-    status: c.status,
-    statusText: adCampaignStatusText(c.status),
-    createdAt: tsToString(c.createdAt),
-  };
-}
-
-export async function createAdCampaign(
-  listingId: string,
-  budget: number,
-  bid: number,
-): Promise<ViewAdCampaign> {
-  const res = await promotion().sponsored.createAdCampaign({
-    listingId,
-    budget: BigInt(Math.max(0, Math.round(budget))),
-    bid: BigInt(Math.max(0, Math.round(bid))),
-  });
-  if (!res.campaign) throw new Error("create ad campaign failed");
-  return mapAdCampaign(res.campaign);
-}
+// ── Sponsored placements ────────────────────────────────────────────────────
 
 /** Listing ids to render in sponsored slots for a given context string. */
 export async function listSponsoredSlots(

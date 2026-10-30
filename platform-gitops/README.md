@@ -128,6 +128,7 @@ See `deploy/README.md`. Flow: `make -C deploy images`, then `release-tag` bumps 
 - `envs/staging/values.yaml` and `envs/prod/values.yaml` lack tags for `team-referral`, `team-verification`, `team-sharing`, `team-audit`, `team-promotion` (all are in the ApplicationSet list). The chart falls back to `defaultTag: local`.
 - Service lists are duplicated by hand in four places: `argocd/apps/`, `appset-services.yaml` (16 `team-*`, incl. frontend), `vault-config.yaml` `SERVICES` (18: 15 `team-*` without frontend, plus `ga4-relay`, `mlflow`, `platform-finetune`), `postgres.yaml` `SERVICES` (13 `team-*`). Vault-only (not in postgres): `team-gateway`, `team-ai`, `ga4-relay`, `mlflow`, `platform-finetune`.
 - The scaffold skill omits `envs/services/` and the ApplicationSet list.
+- `team-frontend-seller` (3001) and `team-frontend-admin` (3002) have a baseline in `envs/services/` and staging/prod overlays (own ingress host, `COOKIE_SECURE: "true"`, checked by `tests/test_frontend_cookie_secure_manifests.py`), but no `argocd/apps/` Application, no entry in `appset-services.yaml` or `appset-staging-kind.yaml`, and no image tag in `envs/*/values.yaml`, so nothing deploys them yet. The admin ingress is not limited to VPN/IP (ADR-0006 open risk).
 - `platform-gitops` has no entry in the root `AGENTS.md` repo map, and no helm/kubeconform/ArgoCD diff check is wired.
 
 ## Links

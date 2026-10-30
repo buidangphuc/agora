@@ -6,7 +6,7 @@ import { Link } from "@/components/ui/Link";
 import { logoutAction } from "@/features/auth/actions";
 import { CookieSettingsLink } from "@/features/consent/ConsentBanner";
 import { SearchBar } from "@/features/search/SearchBar";
-import { sellerAppUrl } from "@/lib/apps";
+import { sellerEntryUrl } from "@/lib/apps";
 import { getCart } from "@/lib/gateway/cart";
 import { getPrincipal } from "@/lib/gateway/session";
 
@@ -105,7 +105,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
             {/* Left Side Links */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/90">
               <a
-                href={sellerAppUrl()}
+                href={sellerEntryUrl()}
                 className="hover:text-text-inverse transition font-normal"
               >
                 Kênh Người Bán
@@ -357,7 +357,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                 </Link>
               </li>
               <li>
-                <Link href={sellerAppUrl()} variant="subtle">
+                <Link href={sellerEntryUrl()} variant="subtle">
                   Kênh Người Bán & Quản Lý Kho
                 </Link>
               </li>

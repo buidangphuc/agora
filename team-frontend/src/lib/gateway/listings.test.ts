@@ -5,14 +5,10 @@ import { ListingStatus } from "@/generated/platform/listing/v1/listing_pb.js";
 
 import { makeClients } from "./client.js";
 import {
-  type CreateListingInput,
-  createListing,
   getListing,
   getStorefront,
   listListings,
-  listMyListings,
   suggest,
-  upsertStorefront,
 } from "./listings.js";
 
 vi.mock("./client.js", () => ({ makeClients: vi.fn() }));
@@ -82,33 +78,6 @@ describe("listings gateway wrapper", () => {
     await expect(getListing("l1")).rejects.toBeInstanceOf(ConnectError);
   });
 
-  it("createListing maps prices to bigint and throws when nothing returns", async () => {
-    const input: CreateListingInput = {
-      title: "Phone",
-      description: "desc",
-      price: 5000000.9,
-      currency: "VND",
-      status: "published",
-      stock: 2,
-      variants: [{ name: "Red", price: 100.7 }],
-    };
-    const createListingRpc = vi
-      .fn()
-      .mockResolvedValue({ listing: protoListing });
-    stub({ listing: { createListing: createListingRpc } });
-
-    await createListing(input);
-    const arg = createListingRpc.mock.calls[0][0];
-    expect(arg.listing.price).toBe(5000000n);
-    expect(arg.listing.status).toBe(ListingStatus.PUBLISHED);
-    expect(arg.listing.variants[0].price).toBe(100n);
-
-    createListingRpc.mockResolvedValueOnce({});
-    await expect(createListing(input)).rejects.toThrow(
-      "create returned no listing",
-    );
-  });
-
   it("suggest short-circuits an empty query without calling the RPC", async () => {
     const suggestRpc = vi.fn();
     stub({ search: { suggest: suggestRpc } });
@@ -138,20 +107,6 @@ describe("storefront display name", () => {
     });
     const sf = await getStorefront("s1");
     expect(sf?.displayName).toBe("Tiem Hoa Nho");
-  });
-
-  it("upsertStorefront passes displayName to the RPC", async () => {
-    const upsert = vi.fn().mockResolvedValue({ storefront: protoStorefront });
-    stub({ listing: { upsertStorefront: upsert } });
-    const sf = await upsertStorefront({
-      sellerId: "s1",
-      slug: "shop-a",
-      displayName: "Tiem Hoa Nho",
-    });
-    expect(upsert.mock.calls[0]?.[0].storefront.displayName).toBe(
-      "Tiem Hoa Nho",
-    );
-    expect(sf.displayName).toBe("Tiem Hoa Nho");
   });
 });
 
@@ -189,10 +144,6 @@ describe("listings moderation mapping", () => {
     };
     stub({
       listing: {
-        listMyListings: vi.fn().mockResolvedValue({
-          listings: [withFlags],
-          page: { nextCursor: "", total: 1n },
-        }),
         getListing: vi.fn().mockResolvedValue({ listing: withFlags }),
         listListings: vi.fn().mockResolvedValue({
           listings: [withFlags],
@@ -200,10 +151,9 @@ describe("listings moderation mapping", () => {
         }),
       },
     });
-    const mine = await listMyListings();
     const one = await getListing("l1");
     const browse = await listListings();
-    for (const l of [mine.items[0], one, browse.items[0]]) {
+    for (const l of [one, browse.items[0]]) {
       expect(l?.moderation).toMatchObject({
         reasonCode: "prohibited_item",
         note: "Vi pham chinh sach",
@@ -224,38 +174,5 @@ describe("listings moderation mapping", () => {
     });
     const l = await getListing("l1");
     expect(l?.moderation).toBeUndefined();
-  });
-
-  it.each(["pending_review", "banned", "held"])(
-    "Moderation UI: Screen flags never reach a seller surface - statusFromLabel never emits a moderation state for %s",
-    async (label) => {
-      const create = vi.fn().mockResolvedValue({ listing: protoListing });
-      stub({ listing: { createListing: create } });
-      await createListing({
-        title: "t",
-        description: "d",
-        price: 1,
-        currency: "VND",
-        status: label,
-      });
-      expect(create.mock.calls[0]?.[0].listing.status).toBe(
-        ListingStatus.DRAFT,
-      );
-    },
-  );
-
-  it("Moderation UI: Screen flags never reach a seller surface - published still emits PUBLISHED", async () => {
-    const create = vi.fn().mockResolvedValue({ listing: protoListing });
-    stub({ listing: { createListing: create } });
-    await createListing({
-      title: "t",
-      description: "d",
-      price: 1,
-      currency: "VND",
-      status: "published",
-    });
-    expect(create.mock.calls[0]?.[0].listing.status).toBe(
-      ListingStatus.PUBLISHED,
-    );
   });
 });
