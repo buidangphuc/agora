@@ -11,7 +11,9 @@ export default function PaymentLoading() {
     >
       <Card>
         <CardHeader>
-          <Skeleton variant="text" lines={1} className="w-40" />
+          <div className="w-40">
+            <Skeleton variant="text" lines={1} />
+          </div>
         </CardHeader>
         <CardContent>
           <Skeleton variant="text" lines={3} />
@@ -19,7 +21,9 @@ export default function PaymentLoading() {
       </Card>
       <Card>
         <CardHeader>
-          <Skeleton variant="text" lines={1} className="w-40" />
+          <div className="w-40">
+            <Skeleton variant="text" lines={1} />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">

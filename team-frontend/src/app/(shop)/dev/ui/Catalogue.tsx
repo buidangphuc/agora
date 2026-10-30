@@ -420,22 +420,12 @@ export function Catalogue({
           </div>
         </Demo>
         <Demo label="Descriptions: default, loading, empty">
-          <Descriptions
-            title="Thông tin"
-            items={descItems}
-            className="w-full"
-          />
-          <Descriptions
-            title="Đang tải"
-            items={descItems}
-            loading
-            className="w-full"
-          />
+          <Descriptions title="Thông tin" items={descItems} />
+          <Descriptions title="Đang tải" items={descItems} loading />
           <Descriptions
             title="Trống"
             items={[]}
             emptyText="Chưa có thông tin"
-            className="w-full"
           />
         </Demo>
         <Demo label="Statistic: value, loading toggle">
@@ -482,10 +472,16 @@ export function Catalogue({
           <Timeline items={[]} emptyText="Chưa có cập nhật" />
         </Demo>
         <Demo label="Skeleton presets">
-          <Skeleton variant="text" lines={3} className="w-48" />
+          <div className="w-48">
+            <Skeleton variant="text" lines={3} />
+          </div>
           <Skeleton variant="avatar" />
-          <Skeleton variant="image" aspect="4/3" className="w-48" />
-          <Skeleton variant="card" className="w-48" />
+          <div className="w-48">
+            <Skeleton variant="image" aspect="4/3" />
+          </div>
+          <div className="w-48">
+            <Skeleton variant="card" />
+          </div>
         </Demo>
         <Demo label="Empty: default and with action">
           <Empty />

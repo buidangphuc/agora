@@ -11,13 +11,18 @@ import {
   CardTitle,
   Checkbox,
   ClosableTag,
+  Descriptions,
   Dialog,
   Empty,
   Input,
   Link,
   NativeSelect,
+  PageSkeleton,
+  Progress,
   Result,
   Select,
+  Skeleton,
+  Statistic,
   Table,
   Tag,
   ToastProvider,
@@ -28,7 +33,49 @@ const options = [
   { value: "b", label: "Beta" },
 ];
 
+const details = [
+  { key: "name", label: "Name", children: "Desk lamp" },
+  { key: "qty", label: "Qty", children: "2" },
+];
+
 export const stateMatrix: Record<string, Record<string, ReactNode>> = {
+  Skeleton: {
+    text: <Skeleton lines={2} />,
+    avatar: <Skeleton variant="avatar" size="lg" />,
+    image: <Skeleton variant="image" aspect="4/3" />,
+    card: <Skeleton variant="card" />,
+  },
+  PageSkeleton: {
+    default: <PageSkeleton />,
+  },
+  Progress: {
+    default: <Progress label="Upload" percent={40} />,
+    success: <Progress label="Upload" percent={100} status="success" />,
+    danger: <Progress label="Upload" percent={60} status="danger" size="sm" />,
+    hiddenInfo: <Progress label="Upload" percent={20} showInfo={false} />,
+  },
+  Descriptions: {
+    default: <Descriptions title="Order" items={details} />,
+    oneColumn: <Descriptions items={details} column={1} bordered={false} />,
+    loading: <Descriptions items={details} loading />,
+    empty: <Descriptions items={[]} emptyText="No details" />,
+    fallback: <Descriptions items={details} fallback={<p>Failed</p>} />,
+  },
+  Statistic: {
+    default: <Statistic title="Revenue" value="1,200" prefix="$" />,
+    trend: (
+      <Statistic
+        title="Orders"
+        value="12"
+        trend={{ value: "5%", isUp: true, label: "vs last week" }}
+      />
+    ),
+    danger: <Statistic title="Overdue" value="3" tone="danger" />,
+    loading: (
+      <Statistic title="Orders" value="12" trend={{ value: "5%" }} loading />
+    ),
+    fallback: <Statistic title="Orders" value="12" fallback={<p>Failed</p>} />,
+  },
   Link: {
     default: <Link href="/shop">Back to shop</Link>,
     subtle: (

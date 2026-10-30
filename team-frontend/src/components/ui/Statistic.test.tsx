@@ -25,10 +25,9 @@ describe("Statistic", () => {
     const loadedRender = render(
       <Statistic title="Đơn" value="12" trend={trend} />,
     );
-    // Value row (h-8) and trend row (h-4) are fixed-height wrappers.
     const rowsOf = (root: HTMLElement) =>
       Array.from(
-        root.querySelectorAll<HTMLElement>(".mt-2.h-8, .mt-2\\.5.h-4"),
+        root.querySelectorAll<HTMLElement>(".mt-2.h-8, .mt-3.h-4"),
       ).map((el) => el.className);
     const loadedRows = rowsOf(loadedRender.container);
     loadedRender.unmount();

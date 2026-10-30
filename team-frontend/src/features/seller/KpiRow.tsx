@@ -34,7 +34,7 @@ export function KpiRow({
           value={c.value}
           loading={loading}
           suffix={c.note}
-          className={c.tone === "danger" ? "border-danger" : ""}
+          tone={c.tone}
         />
       ))}
     </div>

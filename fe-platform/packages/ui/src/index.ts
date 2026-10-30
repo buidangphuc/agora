@@ -12,6 +12,11 @@ export {
 } from "./Card";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
 export { ClosableTag, type ClosableTagProps } from "./ClosableTag";
+export {
+  type DescriptionItem,
+  Descriptions,
+  type DescriptionsProps,
+} from "./Descriptions";
 export { Dialog, type DialogProps } from "./Dialog";
 export { Empty, type EmptyProps } from "./Empty";
 export { Input, type InputProps } from "./Input";
@@ -21,8 +26,22 @@ export {
   type NativeSelectOption,
   type NativeSelectProps,
 } from "./NativeSelect";
+export { Progress, type ProgressProps } from "./Progress";
 export { Result, type ResultProps, type ResultStatus } from "./Result";
 export { Select, type SelectOption, type SelectProps } from "./Select";
+export {
+  PageSkeleton,
+  type PageSkeletonProps,
+  Skeleton,
+  type SkeletonAspect,
+  type SkeletonProps,
+  type SkeletonVariant,
+} from "./Skeleton";
+export {
+  Statistic,
+  type StatisticProps,
+  type StatisticTrend,
+} from "./Statistic";
 export { Table, type TableColumn, type TableProps } from "./Table";
 export { Tag, type TagProps, type Tone } from "./Tag";
 export {

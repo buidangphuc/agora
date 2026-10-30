@@ -33,7 +33,7 @@ describe("Progress", () => {
       <Progress percent={100} status="success" showInfo={false} />,
     );
     expect(screen.queryByText("100%")).toBeNull();
-    expect(container.querySelector(".bg-success")).not.toBeNull();
+    expect(container.querySelector(".bg-text-success")).not.toBeNull();
   });
 
   it("is server-renderable", () => {
