@@ -8,6 +8,8 @@ export function scanImports(file, text) {
   const path = file.replaceAll("\\", "/");
   const inPublic = path.includes("/(public)/");
   const inPackage = /(^|\/)packages\//.test(path);
+  const inTemplate = /(^|\/)templates\//.test(path);
+  const isClient = /^\s*["']use client["']/.test(text);
   const lines = text.split("\n");
   lines.forEach((line, i) => {
     for (const m of line.matchAll(IMPORT)) {
@@ -23,6 +25,22 @@ export function scanImports(file, text) {
         (/(^|\/)templates\//.test(spec) || spec.startsWith("@fe-platform/app"))
       ) {
         out.push({ line: i + 1, rule: "package-imports-app", spec });
+      }
+      if (
+        inTemplate &&
+        (spec.includes("/generated/") ||
+          spec.startsWith("@connectrpc/") ||
+          spec.startsWith("@bufbuild/"))
+      ) {
+        out.push({ line: i + 1, rule: "app-imports-transport", spec });
+      }
+      if (
+        isClient &&
+        (spec === "@fe-platform/api-client" ||
+          spec === "server-only" ||
+          /(^|\/)lib\/session$/.test(spec))
+      ) {
+        out.push({ line: i + 1, rule: "client-imports-server-only", spec });
       }
     }
   });

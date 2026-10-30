@@ -19,7 +19,7 @@ Short on purpose. Revise from what the P5 five-screen experiment shows going wro
 
 ## Boundaries
 - Feature code imports UI only from `packages/ui` and values only from `packages/tokens`. Use the existing component before writing a control; a missing variant is added to the component, not styled around it.
-- Components never call the network; hooks in a feature wrap the api-client.
+- Components never call the network. Data loads in server components or `lib/` functions through `@fe-platform/api-client`; screens receive plain view models, never proto types. Failures are `ApiError`; `not_found` becomes `notFound()`.
 - Public routes must not import internal-only code.
 - A component used by one feature stays in that feature until a second use appears.
 

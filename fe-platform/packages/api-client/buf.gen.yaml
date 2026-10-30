@@ -1,0 +1,16 @@
+version: v2
+clean: true
+plugins:
+  - local: protoc-gen-es
+    out: src/generated
+    opt:
+      - target=ts
+  - local: protoc-gen-connect-es
+    out: src/generated
+    opt:
+      - target=ts
+inputs:
+  - directory: ../../../platform-core/packages/proto
+    paths:
+      - ../../../platform-core/packages/proto/platform/common
+      - ../../../platform-core/packages/proto/platform/listing
