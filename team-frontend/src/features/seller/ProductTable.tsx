@@ -10,17 +10,15 @@ import { ListingStatusTag } from "./status";
 /** Thumbnails inside the first screen load eagerly; the rest are lazy. */
 export const EAGER_ROWS = 5;
 
-const stickyFirst = "sticky left-0 z-10 bg-surface-card md:static";
-
 /** Product Table List: thumbnail, title link, price, stock, status, actions. */
 export function ProductTable({ items }: { items: ViewListing[] }) {
   const columns: TableColumn<ViewListing>[] = [
     {
       key: "product",
       title: "Sản phẩm",
-      className: `min-w-64 ${stickyFirst}`,
+      sticky: true,
       render: (l, i) => (
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-64 items-center gap-3">
           <div className="w-12 shrink-0">
             <Image
               src={l.imageUrl ?? ""}

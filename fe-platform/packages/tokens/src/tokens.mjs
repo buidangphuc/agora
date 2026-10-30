@@ -213,11 +213,25 @@ export const components = {
     description: "text-sm text-text-secondary",
   },
   table: {
+    wrap: "w-full overflow-x-auto",
     root: "w-full text-base text-text-primary",
     caption: "p-4 text-left text-sm text-text-secondary",
-    th: "border-b border-border-strong p-4 text-left text-sm font-semibold text-text-secondary",
+    th: "border-b border-border-strong p-4 text-sm font-semibold text-text-secondary",
     td: "border-b border-border-subtle p-4",
+    row: "transition duration-150 hover:bg-surface-muted",
     empty: "p-8 text-center text-text-secondary",
+    align: {
+      left: "text-left",
+      center: "text-center",
+      right: "text-right",
+    },
+    sticky: "sticky left-0 z-10 bg-surface-card md:static",
+    hideBelow: {
+      sm: "hidden sm:table-cell",
+      md: "hidden md:table-cell",
+    },
+    skeleton: "block h-4 w-full animate-pulse rounded-lg bg-surface-muted",
+    error: "flex flex-col items-start gap-3 text-sm text-text-danger",
   },
   link: {
     base: "text-text-link underline underline-offset-4 hover:text-text-link-hover rounded-lg focus-visible:ring-2 focus-visible:ring-focus-ring",

@@ -17,7 +17,7 @@ const columns: TableColumn<ViewOrder>[] = [
   {
     key: "id",
     title: "Mã đơn",
-    className: "sticky left-0 z-10 bg-surface-card md:static",
+    sticky: true,
     render: (o) => (
       <div>
         <Link
@@ -46,8 +46,9 @@ const columns: TableColumn<ViewOrder>[] = [
   {
     key: "items",
     title: "Sản phẩm",
-    className: "min-w-48",
-    render: (o) => <span className="line-clamp-2">{itemsSummary(o)}</span>,
+    render: (o) => (
+      <span className="line-clamp-2 min-w-48">{itemsSummary(o)}</span>
+    ),
   },
   {
     key: "total",

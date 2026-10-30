@@ -462,7 +462,6 @@ export function Catalogue({
             columns={columns}
             dataSource={rows}
             rowKey="id"
-            className="w-full"
           />
           <Table
             caption="Bảng trống"
@@ -470,7 +469,6 @@ export function Catalogue({
             dataSource={[]}
             rowKey="id"
             emptyText="Chưa có sản phẩm"
-            className="w-full"
           />
           <Table
             caption="Bảng đang tải"
@@ -479,7 +477,6 @@ export function Catalogue({
             rowKey="id"
             loading
             loadingRows={3}
-            className="w-full"
           />
         </Demo>
         <Demo label="Timeline: default, loading, empty">
