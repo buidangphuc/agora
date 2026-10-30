@@ -41,7 +41,7 @@ func TestSearchListingsStockRoundTripsInConnectJSON(t *testing.T) {
 		{ListingId: "eight", Score: 1, Stock: proto.Int32(8)},
 	}}}
 	e := edge.NewEdge(nil, []string{"listing.read", "search:read"}, time.Second, 0, 1000, 1000)
-	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.NewTextHandler(io.Discard, nil)))...)
+	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.DiscardHandler))...)
 	mux := http.NewServeMux()
 	p, h := searchv1connect.NewSearchServiceHandler(edge.NewSearchForwarder(up, e), opts)
 	mux.Handle(p, h)

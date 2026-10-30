@@ -68,7 +68,7 @@ func NewClient(cfg ClientConfig) *Client {
 		cfg.Timeout = DefaultRequestTimeout
 	}
 	if cfg.Logger == nil {
-		cfg.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+		cfg.Logger = slog.New(slog.DiscardHandler)
 	}
 	if cfg.Sleep == nil {
 		cfg.Sleep = func(ctx context.Context, d time.Duration) error {
@@ -107,10 +107,10 @@ func (c *Client) Send(ctx context.Context, body []byte) error {
 			return err
 		}
 		if status >= 400 && status < 500 && status != http.StatusTooManyRequests {
-			c.cfg.Logger.Warn("ga4 send rejected", "status", status, "attempt", attempt)
+			c.cfg.Logger.WarnContext(ctx, "ga4 send rejected", "status", status, "attempt", attempt)
 			return &SendError{Reason: "4xx", Status: status, Attempts: attempt}
 		}
-		c.cfg.Logger.Warn("ga4 send attempt failed", "status", status, "attempt", attempt)
+		c.cfg.Logger.WarnContext(ctx, "ga4 send attempt failed", "status", status, "attempt", attempt)
 		if attempt == maxAttempts {
 			break
 		}
@@ -137,7 +137,7 @@ func (c *Client) once(ctx context.Context, target string, body []byte) int {
 		if errors.As(err, &ue) {
 			err = ue.Err
 		}
-		c.cfg.Logger.Warn("ga4 request error", "error", err.Error())
+		c.cfg.Logger.WarnContext(ctx, "ga4 request error", "error", err.Error())
 		return 0
 	}
 	defer resp.Body.Close()
