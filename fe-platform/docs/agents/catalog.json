@@ -3,7 +3,7 @@
     {
       "name": "Button",
       "kind": "component",
-      "purpose": "Action trigger. One `primary` per view; `ghost` for low-emphasis actions; `danger` for destructive ones.",
+      "purpose": "Action trigger. One `primary` per view; `ghost` for low-emphasis actions; `danger` for destructive ones; `fullWidth=\"mobile\"` is full width below the sm breakpoint only.",
       "client": false,
       "platforms": [
         "web",
@@ -28,7 +28,7 @@
         {
           "name": "fullWidth",
           "required": false,
-          "type": "boolean"
+          "type": "boolean | \"mobile\""
         },
         {
           "name": "leftIcon",

@@ -43,12 +43,7 @@ export function RevokeSessionButton({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="outline"
-        className="min-h-10 text-danger"
-        onClick={() => setOpen(true)}
-      >
+      <Button size="sm" variant="danger" onClick={() => setOpen(true)}>
         Thu hồi
       </Button>
       <Modal

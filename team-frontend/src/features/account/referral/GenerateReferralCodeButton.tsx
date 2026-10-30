@@ -23,7 +23,7 @@ export function GenerateReferralCodeButton() {
   }
 
   return (
-    <Button isLoading={pending} onClick={generate} className="min-h-10">
+    <Button isLoading={pending} onClick={generate}>
       Tạo mã giới thiệu
     </Button>
   );

@@ -39,9 +39,11 @@ export function TableCardSkeleton({
       <CardHeader>
         <Skeleton variant="text" lines={1} className="w-40" />
       </CardHeader>
-      <CardContent className="space-y-4">
-        {filter && <Skeleton variant="text" lines={1} className="h-10" />}
-        <Skeleton variant="text" lines={rows} />
+      <CardContent>
+        <div className="space-y-4">
+          {filter && <Skeleton variant="text" lines={1} className="h-10" />}
+          <Skeleton variant="text" lines={rows} />
+        </div>
       </CardContent>
     </Card>
   );

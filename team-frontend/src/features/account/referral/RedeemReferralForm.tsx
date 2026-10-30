@@ -59,14 +59,16 @@ export function RedeemReferralForm() {
           autoComplete="off"
         />
       </FormItem>
-      <Button
-        type="submit"
-        isLoading={pending}
-        disabled={!code.trim()}
-        className="min-h-10 w-full sm:mt-6 sm:w-auto"
-      >
-        Nhập mã
-      </Button>
+      <span className="sm:mt-6">
+        <Button
+          type="submit"
+          isLoading={pending}
+          disabled={!code.trim()}
+          fullWidth="mobile"
+        >
+          Nhập mã
+        </Button>
+      </span>
     </form>
   );
 }

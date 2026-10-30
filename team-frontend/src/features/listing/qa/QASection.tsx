@@ -30,31 +30,36 @@ export function QASection({
 }) {
   return (
     <section id="qa" aria-labelledby="qa-heading" className="scroll-mt-40">
-      <Card className="space-y-4 p-6">
-        <h2 id="qa-heading" className="text-lg font-semibold text-text-primary">
-          HỎI ĐÁP VỀ SẢN PHẨM (Q&amp;A)
-        </h2>
-
-        {loggedIn ? (
-          <QAAskForm listingId={listingId} />
-        ) : (
-          <p
-            data-testid="qa-login-prompt"
-            className="text-sm text-text-secondary"
+      <Card padded>
+        <div className="space-y-4">
+          <h2
+            id="qa-heading"
+            className="text-lg font-semibold text-text-primary"
           >
-            <Link
-              href={loginPath(`/listing/${listingId}`)}
-              className="font-semibold text-text-primary underline"
-            >
-              Đăng nhập
-            </Link>{" "}
-            để đặt câu hỏi cho shop.
-          </p>
-        )}
+            HỎI ĐÁP VỀ SẢN PHẨM (Q&amp;A)
+          </h2>
 
-        <Suspense fallback={<QuestionListSkeleton />}>
-          <QuestionList listingId={listingId} loggedIn={loggedIn} />
-        </Suspense>
+          {loggedIn ? (
+            <QAAskForm listingId={listingId} />
+          ) : (
+            <p
+              data-testid="qa-login-prompt"
+              className="text-sm text-text-secondary"
+            >
+              <Link
+                href={loginPath(`/listing/${listingId}`)}
+                className="font-semibold text-text-primary underline"
+              >
+                Đăng nhập
+              </Link>{" "}
+              để đặt câu hỏi cho shop.
+            </p>
+          )}
+
+          <Suspense fallback={<QuestionListSkeleton />}>
+            <QuestionList listingId={listingId} loggedIn={loggedIn} />
+          </Suspense>
+        </div>
       </Card>
     </section>
   );

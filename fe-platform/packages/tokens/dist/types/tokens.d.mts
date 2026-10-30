@@ -180,6 +180,7 @@ export namespace components {
         }
         let disabled: string;
         let fullWidth: string;
+        let fullWidthMobile: string;
         let icon: string;
         let spinner: string;
     }

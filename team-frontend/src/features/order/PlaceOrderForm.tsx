@@ -231,7 +231,6 @@ export function PlaceOrderForm({
           ref={buttonRef}
           type="submit"
           size="lg"
-          className="min-w-40"
           isLoading={phase === "pending"}
           disabled={phase === "done"}
         >

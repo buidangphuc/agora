@@ -73,46 +73,53 @@ export function SavedSearches({
   }
 
   return (
-    <Card className="p-3 text-sm">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="font-semibold text-text-primary">Tìm kiếm đã lưu</span>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={save}
-          isLoading={saving}
-          disabled={!currentQuery.trim()}
-        >
-          Lưu tìm kiếm này
-        </Button>
+    <Card padded>
+      <div className="text-sm">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="font-semibold text-text-primary">
+            Tìm kiếm đã lưu
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={save}
+            isLoading={saving}
+            disabled={!currentQuery.trim()}
+          >
+            Lưu tìm kiếm này
+          </Button>
+        </div>
+        {saved.length === 0 ? (
+          <p className="text-xs text-text-secondary">
+            Chưa có tìm kiếm nào được lưu.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {saved.map((s) => (
+              <li
+                key={s.id}
+                className="flex items-center justify-between gap-2"
+              >
+                <Link
+                  href={`/search?q=${encodeURIComponent(s.query)}`}
+                  className={`truncate rounded-xs text-action-primary hover:underline ${focusRing}`}
+                >
+                  {s.query || "(tất cả)"}
+                </Link>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => remove(s.id)}
+                  disabled={removing}
+                  aria-label={`Xóa tìm kiếm ${s.query}`}
+                >
+                  Xóa
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {saved.length === 0 ? (
-        <p className="text-xs text-text-secondary">
-          Chưa có tìm kiếm nào được lưu.
-        </p>
-      ) : (
-        <ul className="space-y-1">
-          {saved.map((s) => (
-            <li key={s.id} className="flex items-center justify-between gap-2">
-              <Link
-                href={`/search?q=${encodeURIComponent(s.query)}`}
-                className={`truncate rounded-xs text-action-primary hover:underline ${focusRing}`}
-              >
-                {s.query || "(tất cả)"}
-              </Link>
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => remove(s.id)}
-                disabled={removing}
-                aria-label={`Xóa tìm kiếm ${s.query}`}
-              >
-                Xóa
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
     </Card>
   );
 }

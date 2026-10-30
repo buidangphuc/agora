@@ -170,6 +170,7 @@ describe("tap targets: form controls and page buttons are at least 40px high", (
       for (const control of controls) {
         const ok =
           control.className.includes("min-h-10") ||
+          control.className.includes("min-h-touch") ||
           // size="lg" buttons are 44px tall.
           control.className.includes("py-2.5");
         expect(ok, `${route}: ${control.outerHTML.slice(0, 120)}`).toBe(true);

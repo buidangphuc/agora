@@ -123,7 +123,7 @@ export function CartSelection({
                   Mua hàng
                 </Link>
               ) : (
-                <Button size="lg" disabled className="w-full">
+                <Button size="lg" disabled fullWidth>
                   Mua hàng
                 </Button>
               )

@@ -400,21 +400,27 @@ export function Catalogue({
           <PriceTag price={29990000} originalPrice={34990000} size="xl" />
         </Demo>
         <Demo label="Card: default, hoverable, loading">
-          <Card className="w-64">
-            <CardHeader>
-              <CardTitle>Tiêu đề</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>Nội dung thẻ</CardDescription>
-            </CardContent>
-            <CardFooter>Chân thẻ</CardFooter>
-          </Card>
-          <Card hoverable className="w-64">
-            <CardContent>Thẻ có hiệu ứng hover</CardContent>
-          </Card>
-          <Card loading className="w-64">
-            <CardContent>Không hiển thị</CardContent>
-          </Card>
+          <div className="w-64">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tiêu đề</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>Nội dung thẻ</CardDescription>
+              </CardContent>
+              <CardFooter>Chân thẻ</CardFooter>
+            </Card>
+          </div>
+          <div className="w-64">
+            <Card hoverable>
+              <CardContent>Thẻ có hiệu ứng hover</CardContent>
+            </Card>
+          </div>
+          <div className="w-64">
+            <Card loading>
+              <CardContent>Không hiển thị</CardContent>
+            </Card>
+          </div>
         </Demo>
         <Demo label="Descriptions: default, loading, empty">
           <Descriptions

@@ -14,8 +14,6 @@ import { cancelOrderAction, reorderAction } from "./actions";
 import { CANCEL_REASONS } from "./cancelReasons";
 import { usePendingAction } from "./usePendingAction";
 
-const fullOnMobile = "w-full sm:w-auto";
-
 /** Re-adds the order's items to the cart, then goes to /cart. */
 function useReorder(orderId: string) {
   const toast = useToast();
@@ -135,7 +133,7 @@ export function OrderActions({
       <Button
         variant={primaryReorder ? "primary" : "outline"}
         size={primaryReorder ? "md" : "sm"}
-        className={fullOnMobile}
+        fullWidth="mobile"
         isLoading={reorder.pending}
         disabled={cancelling}
         onClick={reorder.reorder}
@@ -147,7 +145,7 @@ export function OrderActions({
         <Button
           variant="outline"
           size={primaryReorder ? "md" : "sm"}
-          className={fullOnMobile}
+          fullWidth="mobile"
           disabled={busy}
           onClick={() => setReturnOpen(true)}
         >
@@ -159,7 +157,7 @@ export function OrderActions({
         <Button
           variant="outline"
           size={primaryReorder ? "md" : "sm"}
-          className={fullOnMobile}
+          fullWidth="mobile"
           disabled={busy}
           onClick={() => setCancelOpen(true)}
         >

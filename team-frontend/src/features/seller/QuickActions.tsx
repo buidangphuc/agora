@@ -16,12 +16,14 @@ export function QuickActions() {
       <CardHeader>
         <CardTitle>Thao tác nhanh</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-3">
-        {ACTIONS.map((a) => (
-          <LinkButton key={a.href} href={a.href} variant="outline">
-            {a.label}
-          </LinkButton>
-        ))}
+      <CardContent>
+        <div className="flex flex-wrap gap-3">
+          {ACTIONS.map((a) => (
+            <LinkButton key={a.href} href={a.href} variant="outline">
+              {a.label}
+            </LinkButton>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

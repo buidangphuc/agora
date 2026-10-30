@@ -75,14 +75,13 @@ export default async function FollowingPage(props: {
                     href={`/shop/${sellerId}`}
                     className={`block rounded-xl ${focusRing}`}
                   >
-                    <Card
-                      hoverable
-                      className="flex min-h-18 items-center gap-3 p-4"
-                    >
-                      <Avatar name={label} />
-                      <span className="min-w-0 truncate text-sm font-medium text-text-primary">
-                        {label}
-                      </span>
+                    <Card hoverable padded>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={label} />
+                        <span className="min-w-0 truncate text-sm font-medium text-text-primary">
+                          {label}
+                        </span>
+                      </div>
                     </Card>
                   </Link>
                 </li>

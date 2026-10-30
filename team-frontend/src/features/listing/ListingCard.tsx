@@ -85,64 +85,68 @@ export function ListingCard({
       groupId={groupId}
       position={position}
     >
-      <Card hoverable className="group relative flex h-full flex-col">
-        <div className="relative">
-          <TrackLink
-            listingId={listing.id}
-            placementId={placementId}
-            impressionId={impressionId}
-            modelVersion={modelVersion}
-            position={position}
-            href={`/listing/${listing.id}`}
-            className="block w-full"
-          >
-            {imageSrc ? (
-              <Image
-                src={imageSrc}
-                alt={listing.title}
-                aspect="square"
-                loading={eager ? "eager" : "lazy"}
-                className="rounded-b-none"
-              />
-            ) : (
-              <NoImage />
-            )}
-          </TrackLink>
+      <div className="group relative grid h-full">
+        <Card hoverable>
+          <div className="flex h-full flex-col">
+            <div className="relative">
+              <TrackLink
+                listingId={listing.id}
+                placementId={placementId}
+                impressionId={impressionId}
+                modelVersion={modelVersion}
+                position={position}
+                href={`/listing/${listing.id}`}
+                className="block w-full"
+              >
+                {imageSrc ? (
+                  <Image
+                    src={imageSrc}
+                    alt={listing.title}
+                    aspect="square"
+                    loading={eager ? "eager" : "lazy"}
+                    className="rounded-b-none"
+                  />
+                ) : (
+                  <NoImage />
+                )}
+              </TrackLink>
 
-          {/* Favorite heart button */}
-          <div className="absolute bottom-2 right-2 z-10">
-            <FavoriteButton id={listing.id} initial={false} />
+              {/* Favorite heart button */}
+              <div className="absolute bottom-2 right-2 z-10">
+                <FavoriteButton id={listing.id} initial={false} />
+              </div>
+            </div>
+
+            <div className="flex flex-1 flex-col gap-2 p-3">
+              <h3 className="line-clamp-2 min-h-10 text-sm font-normal leading-5 text-text-primary transition duration-150 group-hover:text-action-primary">
+                <TrackLink
+                  listingId={listing.id}
+                  placementId={placementId}
+                  impressionId={impressionId}
+                  modelVersion={modelVersion}
+                  position={position}
+                  href={`/listing/${listing.id}`}
+                >
+                  {listing.title}
+                </TrackLink>
+              </h3>
+
+              {/* Reserved meta row: the card keeps one height with or without data. */}
+              <div className="flex min-h-5 flex-wrap items-center gap-2 text-xs text-text-secondary">
+                {freeShip && <Tag color="success">Freeship</Tag>}
+                {review !== undefined && review.count > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <Rate readOnly size="sm" value={review.average} />
+                    <span>({review.count})</span>
+                  </span>
+                )}
+              </div>
+
+              <PriceTag price={listing.price} size="md" className="mt-auto" />
+            </div>
           </div>
-        </div>
-
-        <div className="flex flex-1 flex-col gap-2 p-3">
-          <h3 className="line-clamp-2 min-h-10 text-sm font-normal leading-5 text-text-primary transition duration-150 group-hover:text-action-primary">
-            <TrackLink
-              listingId={listing.id}
-              placementId={placementId}
-              impressionId={impressionId}
-              modelVersion={modelVersion}
-              position={position}
-              href={`/listing/${listing.id}`}
-            >
-              {listing.title}
-            </TrackLink>
-          </h3>
-
-          {/* Reserved meta row: the card keeps one height with or without data. */}
-          <div className="flex min-h-5 flex-wrap items-center gap-2 text-xs text-text-secondary">
-            {freeShip && <Tag color="success">Freeship</Tag>}
-            {review !== undefined && review.count > 0 && (
-              <span className="inline-flex items-center gap-1">
-                <Rate readOnly size="sm" value={review.average} />
-                <span>({review.count})</span>
-              </span>
-            )}
-          </div>
-
-          <PriceTag price={listing.price} size="md" className="mt-auto" />
-        </div>
-      </Card>
+        </Card>
+      </div>
     </TrackImpression>
   );
 }

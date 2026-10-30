@@ -95,6 +95,13 @@ describe("Button", () => {
     expect(cls).toContain("w-full");
   });
 
+  it("fullWidth mobile is full width below sm only", () => {
+    render(<Button fullWidth="mobile">Save</Button>);
+    const cls = screen.getByRole("button", { name: "Save" }).className;
+    expect(cls).toContain("w-full");
+    expect(cls).toContain("sm:w-auto");
+  });
+
   it("forwards a ref", () => {
     let node: HTMLButtonElement | null = null;
     render(

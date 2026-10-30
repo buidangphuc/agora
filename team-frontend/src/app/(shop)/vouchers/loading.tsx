@@ -16,7 +16,7 @@ export default function VouchersLoading() {
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {range(4).map((i) => (
-          <Card key={i} className="p-4">
+          <Card key={i} padded>
             <Skeleton variant="text" lines={4} />
           </Card>
         ))}

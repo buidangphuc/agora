@@ -28,7 +28,7 @@ export function SubscribeButton({
   return (
     <Button
       variant="outline"
-      className="w-full"
+      fullWidth
       disabled={current}
       isLoading={pending}
       onClick={subscribe}

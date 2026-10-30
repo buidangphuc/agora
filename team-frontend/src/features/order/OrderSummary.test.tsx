@@ -102,7 +102,8 @@ describe("OrderSummary", () => {
         action={action}
       />,
     );
-    const card = screen.getByTestId("order-summary");
+    const card = screen.getByTestId("order-summary")
+      .parentElement as HTMLElement;
     expect(card.className).toContain("hidden");
     expect(card.className).toContain("lg:sticky");
     expect(card.className).toContain("lg:block");

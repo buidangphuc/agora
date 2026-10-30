@@ -103,7 +103,7 @@ export function PriceRangeForm({
         </FormItem>
       </div>
       {showSubmit && (
-        <Button type="submit" variant="primary" size="md" className="w-full">
+        <Button type="submit" variant="primary" size="md" fullWidth>
           Áp dụng
         </Button>
       )}

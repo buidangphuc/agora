@@ -38,7 +38,7 @@ export function FilterDrawer({
         size="md"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="w-full"
+        fullWidth
       >
         <span className="inline-flex items-center gap-2">
           Bộ lọc

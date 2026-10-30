@@ -18,7 +18,7 @@ export function AddressManager({ addresses }: { addresses: ViewAddress[] }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <AddAddressButton className="w-full sm:w-auto" />
+        <AddAddressButton fullWidth="mobile" />
       </div>
 
       {addresses.length === 0 ? (
@@ -35,22 +35,24 @@ export function AddressManager({ addresses }: { addresses: ViewAddress[] }) {
           {addresses.map((addr) => (
             <li key={addr.id} data-testid="address-card">
               <Card>
-                <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-base font-semibold text-text-primary">
-                        {addr.recipientName}
-                      </span>
-                      <span className="text-sm text-text-secondary">
-                        {addr.phone}
-                      </span>
-                      {addr.isDefault && <Tag color="primary">Mặc định</Tag>}
+                <CardContent>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-base font-semibold text-text-primary">
+                          {addr.recipientName}
+                        </span>
+                        <span className="text-sm text-text-secondary">
+                          {addr.phone}
+                        </span>
+                        {addr.isDefault && <Tag color="primary">Mặc định</Tag>}
+                      </div>
+                      <p className="text-sm text-text-primary">
+                        {fullAddress(addr)}
+                      </p>
                     </div>
-                    <p className="text-sm text-text-primary">
-                      {fullAddress(addr)}
-                    </p>
+                    <AddressActions address={addr} />
                   </div>
-                  <AddressActions address={addr} />
                 </CardContent>
               </Card>
             </li>

@@ -178,42 +178,44 @@ export function OrderDetailView({
   return (
     <section data-testid="packing-slip" className="space-y-6">
       <Card>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <div className="md:col-span-2">
-            <Descriptions
-              title={`Đơn hàng #${order.id.slice(0, 8)}`}
-              column={2}
-              items={[
-                { key: "id", label: "Mã đơn", children: order.id },
-                {
-                  key: "created",
-                  label: "Ngày tạo",
-                  children: order.createdAt || "—",
-                },
-                {
-                  key: "shipBy",
-                  label: "Hạn gửi",
-                  children: <ShipByLabel order={order} />,
-                },
-                {
-                  key: "payment",
-                  label: "Thanh toán",
-                  children: order.paymentMethodText,
-                },
-                {
-                  key: "tracking",
-                  label: "Mã vận đơn",
-                  children: order.trackingNumber || "—",
-                },
-              ]}
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="md:col-span-2">
+              <Descriptions
+                title={`Đơn hàng #${order.id.slice(0, 8)}`}
+                column={2}
+                items={[
+                  { key: "id", label: "Mã đơn", children: order.id },
+                  {
+                    key: "created",
+                    label: "Ngày tạo",
+                    children: order.createdAt || "—",
+                  },
+                  {
+                    key: "shipBy",
+                    label: "Hạn gửi",
+                    children: <ShipByLabel order={order} />,
+                  },
+                  {
+                    key: "payment",
+                    label: "Thanh toán",
+                    children: order.paymentMethodText,
+                  },
+                  {
+                    key: "tracking",
+                    label: "Mã vận đơn",
+                    children: order.trackingNumber || "—",
+                  },
+                ]}
+              />
+            </div>
+            <Statistic
+              title="Trạng thái"
+              value={
+                <OrderStatusTag status={order.status} text={order.statusText} />
+              }
             />
           </div>
-          <Statistic
-            title="Trạng thái"
-            value={
-              <OrderStatusTag status={order.status} text={order.statusText} />
-            }
-          />
         </CardContent>
       </Card>
 
@@ -228,25 +230,27 @@ export function OrderDetailView({
       )}
 
       <Card>
-        <CardContent className="space-y-4">
-          <div data-print-hidden>
-            <Tabs
-              activeId={tab}
-              hrefFor={tabHref}
-              items={[
-                { id: "items", label: "Hàng hoá", badge: order.items.length },
-                { id: "shipment", label: "Vận chuyển" },
-                { id: "returns", label: "Trả hàng / Hoàn tiền" },
-              ]}
-            />
+        <CardContent>
+          <div className="space-y-4">
+            <div data-print-hidden>
+              <Tabs
+                activeId={tab}
+                hrefFor={tabHref}
+                items={[
+                  { id: "items", label: "Hàng hoá", badge: order.items.length },
+                  { id: "shipment", label: "Vận chuyển" },
+                  { id: "returns", label: "Trả hàng / Hoàn tiền" },
+                ]}
+              />
+            </div>
+            {tab === "shipment" ? (
+              <ShipmentPanel shipment={shipment} />
+            ) : tab === "returns" ? (
+              returnsPanel
+            ) : (
+              <ItemsPanel order={order} />
+            )}
           </div>
-          {tab === "shipment" ? (
-            <ShipmentPanel shipment={shipment} />
-          ) : tab === "returns" ? (
-            returnsPanel
-          ) : (
-            <ItemsPanel order={order} />
-          )}
         </CardContent>
       </Card>
 

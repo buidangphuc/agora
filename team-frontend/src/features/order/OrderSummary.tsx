@@ -111,19 +111,20 @@ export function OrderSummary({
   const total = rows.total ?? rows.subtotal - rows.discount;
   return (
     <>
-      <Card
-        className="hidden lg:sticky lg:top-4 lg:block"
-        data-testid="order-summary"
-      >
-        <CardHeader>
-          <CardTitle>Tóm tắt đơn hàng</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <SummaryRows {...rows} />
-          {notice}
-          {action}
-        </CardContent>
-      </Card>
+      <div className="hidden lg:sticky lg:top-4 lg:block">
+        <Card data-testid="order-summary">
+          <CardHeader>
+            <CardTitle>Tóm tắt đơn hàng</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <SummaryRows {...rows} />
+              {notice}
+              {action}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
       <MobileSummaryBar total={total} action={mobileAction ?? action}>
         <SummaryRows {...rows} />
       </MobileSummaryBar>
