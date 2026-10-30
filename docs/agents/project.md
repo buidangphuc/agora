@@ -50,3 +50,9 @@
 - The platform-recsys image builds from the monorepo root (`docker build -f platform-recsys/Dockerfile ..`; compose `context: .`) so it can copy py-modelregistry; building from `platform-recsys/` fails.
 - The platform-finetune image builds from `platform-finetune/` and gets py-modelregistry only through the compose `additional_contexts` entry `modelregistry`; a plain `docker build` still succeeds but has no registry library, and `python main.py run` fails closed on import.
 - MLflow stores metric names with `@` encoded as `_at_` (`ndcg@10` → `ndcg_at_10`); py-modelregistry decodes on read, so callers use `@` and never put `_at_` in a metric name.
+
+## Cleanup
+<!-- read by: dev-cleanup -->
+- `IMAGE_RE='team-[a-z-]+|agora-[a-z-]+|platform-[a-z-]+|modelserve-router|tei-fake'`
+- `KEEP_TAG_RE='^local$'`
+- Docker volumes are stack data: never removed by cleanup.

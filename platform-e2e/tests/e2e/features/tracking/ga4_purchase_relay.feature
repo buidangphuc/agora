@@ -3,7 +3,7 @@ Feature: GA4 server-side purchase relay
   A relay consumes OrderPaidEvent from order.events, resolves the buyer's last consented GA4 client
   id from analytics.events and posts one Measurement Protocol purchase per paid order to a GA4 MP
   mock (the relay is pointed at the mock; no request leaves the stack to Google).
-  Stack: the relay container (GA4_RELAY_CONTAINER, default agora-ga4-relay-svc) runs with
+  Stack: the relay container (GA4_RELAY_CONTAINER, default agora-ga4-relay-svc, gRPC probes at GA4_RELAY_GRPC_ADDR) runs with
   GA4_ENDPOINT=http://host.docker.internal:<GA4_MOCK_PORT>/mp/collect and the secret set;
   scenarios that pre-seed mappings wait GA4_MAPPING_SETTLE_S for the pipeline to catch up.
   "Mapping expires" and "Forged OrderPaidEvent ..." are verified outside e2e (not-testable, VERIFIED BY in the spec).
@@ -191,10 +191,13 @@ Feature: GA4 server-side purchase relay
 
   # ── No inbound surface and restricted order.events writers ───────────
 
-  Scenario: No inbound endpoint beyond probes
-    When an unauthenticated client requests the paths "/, /send, /metrics-admin" on the relay's listening port
-    Then every response is 404 or the connection is refused
+  Scenario: Plain HTTP is not served
+    When an unauthenticated client sends plain HTTP GET and POST to the paths "/, /send, /metrics-admin, /healthz, /readyz" on the relay's gRPC port
+    Then no plain HTTP request is answered 200
     And the GA4 mock received 0 requests from those calls
+
+  Scenario: The relay is probed over gRPC
+    Then the relay answers grpc.health.v1.Health/Check serving for the empty service and for liveness
 
   # ── Disabled without secret ──────────────────────────────────────────
 

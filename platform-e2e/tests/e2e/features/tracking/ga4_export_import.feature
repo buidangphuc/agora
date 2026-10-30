@@ -1,7 +1,7 @@
 @tracking @analytics
 Feature: GA4 export import, attributed channel funnel and reconciliation
   The daily ga4import job reads a GA4 export day (Parquet fixture with the GA4 export schema,
-  GA4_EXPORT_SOURCE=fixture) into ga4_sessions, first-party events are attributed to those
+  MOCK_DATA=ga4export) into ga4_sessions, first-party events are attributed to those
   sessions by GA client id, ops read the funnel split by channel (admin only), and daily
   GA4 vs first-party counts are reconciled in the tracking quality report.
 

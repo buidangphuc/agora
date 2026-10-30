@@ -28,6 +28,7 @@ func NewDuckDBRepository(db *sql.DB) *DuckDBRepository {
 // id, so they are attributed through listing_sellers (listing_id -> seller_id);
 // events on a listing with no known seller are excluded from every seller funnel.
 func (r *DuckDBRepository) SellerFunnel(ctx context.Context, sellerID string, from, to time.Time) (Funnel, error) {
+	//nolint:gosec // only fixed identifiers are interpolated
 	trackingQ := fmt.Sprintf(`
 SELECT
   COUNT(*) FILTER (WHERE t.event_type = 'impression') AS impressions,
@@ -49,6 +50,7 @@ WHERE ls.seller_id = ?
 		return Funnel{}, fmt.Errorf("seller funnel tracking query: %w", err)
 	}
 
+	//nolint:gosec // only fixed identifiers are interpolated
 	ordersQ := fmt.Sprintf(`
 SELECT
   COUNT(DISTINCT order_id) AS orders
@@ -73,6 +75,7 @@ func (r *DuckDBRepository) RevenueBreakdown(ctx context.Context, sellerID string
 	}
 	var b Breakdown
 
+	//nolint:gosec // only fixed identifiers are interpolated
 	dayQ := fmt.Sprintf(`
 SELECT
   strftime(occurred_at, '%%Y-%%m-%%d') AS day,
@@ -101,6 +104,7 @@ ORDER BY 1`,
 		return Breakdown{}, fmt.Errorf("iterate day revenue: %w", err)
 	}
 
+	//nolint:gosec // only fixed identifiers are interpolated
 	skuQ := fmt.Sprintf(`
 SELECT
   COALESCE(NULLIF(variant_id, ''), listing_id) AS sku,
@@ -139,6 +143,7 @@ func (r *DuckDBRepository) DemandForecast(ctx context.Context, sellerID, listing
 		horizonDays = 28
 	}
 
+	//nolint:gosec // only fixed identifiers are interpolated
 	q := fmt.Sprintf(`
 SELECT
   COALESCE(SUM(quantity), 0) AS total_units,
@@ -195,6 +200,7 @@ WHERE seller_id = ?
 // PlatformOrderSummary counts distinct paid orders and sums GMV over order_facts
 // for occurred_at >= since, across all sellers.
 func (r *DuckDBRepository) PlatformOrderSummary(ctx context.Context, since time.Time) (OrderSummary, error) {
+	//nolint:gosec // only fixed identifiers are interpolated
 	q := fmt.Sprintf(`
 SELECT
   COUNT(DISTINCT order_id)                AS orders,
@@ -211,6 +217,7 @@ WHERE occurred_at >= ?`, warehouse.OrderFactsTableName)
 
 // RecentOrders returns the latest paid orders, one row per order.
 func (r *DuckDBRepository) RecentOrders(ctx context.Context, limit int) ([]RecentOrder, error) {
+	//nolint:gosec // only fixed identifiers are interpolated
 	q := fmt.Sprintf(`
 SELECT
   order_id,
@@ -254,6 +261,7 @@ func (r *DuckDBRepository) TrackingQuality(ctx context.Context, since, until tim
 	var out TrackingQualityData
 	since, until = since.UTC(), until.UTC()
 
+	//nolint:gosec // only fixed identifiers are interpolated
 	typeQ := fmt.Sprintf(`
 SELECT event_type,
   COUNT(*)                          AS events,
@@ -285,6 +293,7 @@ ORDER BY event_type`, warehouse.ResolvedViewName)
 
 	// Rows without ingested_at (written before tracking-ingest-integrity) are
 	// excluded from the lag statistics and the freshness.
+	//nolint:gosec // only fixed identifiers are interpolated
 	lagQ := fmt.Sprintf(`
 SELECT
   quantile_cont(epoch(ingested_at) - epoch(occurred_at), 0.5),
@@ -304,6 +313,7 @@ WHERE occurred_at >= ? AND occurred_at <= ? AND ingested_at IS NOT NULL`, wareho
 		out.LastIngestedAt = last.Time.UTC()
 	}
 
+	//nolint:gosec // only fixed identifiers are interpolated
 	counterQ := fmt.Sprintf(`
 SELECT COALESCE(SUM(decode_failures), 0), COALESCE(SUM(duplicates_skipped), 0)
 FROM %s
@@ -329,6 +339,7 @@ const FallbackModelVersion = "serving-fallback"
 // closed at until; MaturePurchases the purchases credited to them.
 func (r *DuckDBRepository) RecommendationPerformance(ctx context.Context, since, until time.Time, attributionHours int) ([]PerformanceRow, error) {
 	since, until = since.UTC(), until.UTC()
+	//nolint:gosec // only fixed identifiers are interpolated
 	q := fmt.Sprintf(`
 WITH ie AS (
   SELECT event_id, impression_id, placement_id, COALESCE(model_version, '') AS model_version,
@@ -436,6 +447,7 @@ var _ PerformanceRepository = (*DuckDBRepository)(nil)
 // over [from, to] from tracking_events_attributed; purchases are distinct
 // transaction ids. A non-empty sellerID restricts to that seller's listings.
 func (r *DuckDBRepository) ChannelFunnel(ctx context.Context, sellerID string, from, to time.Time) ([]ChannelFunnelRow, error) {
+	//nolint:gosec // only fixed identifiers are interpolated
 	q := fmt.Sprintf(`
 SELECT t.source, t.medium, t.campaign,
   COUNT(*) FILTER (WHERE t.event_type = 'impression')  AS impressions,
