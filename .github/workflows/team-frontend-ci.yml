@@ -1,0 +1,52 @@
+name: team-frontend-ci
+
+on:
+  push:
+    branches: [main]
+    paths: ["team-frontend/**", ".github/workflows/team-frontend-ci.yml"]
+  pull_request:
+    paths: ["team-frontend/**", ".github/workflows/team-frontend-ci.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: team-frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: team-frontend check and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: team-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: team-frontend/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run proto
+      - run: npm run check
+      - run: npm run build
+
+  image:
+    name: team-frontend image builds from its own directory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: team-frontend/package-lock.json
+      - name: generate Connect stubs for the build context
+        working-directory: team-frontend
+        run: |
+          npm ci --ignore-scripts
+          npm run proto
+      - run: docker build -t team-frontend:ci team-frontend
