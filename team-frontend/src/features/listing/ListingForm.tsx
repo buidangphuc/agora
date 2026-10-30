@@ -95,13 +95,17 @@ function Section({
 }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <Card>
-      <CardHeader className="flex-col items-start gap-0.5">
-        <CardTitle>{title}</CardTitle>
-        {description && (
-          <p className="text-xs text-text-secondary">{description}</p>
-        )}
+      <CardHeader>
+        <div className="flex flex-col items-start gap-0.5">
+          <CardTitle>{title}</CardTitle>
+          {description && (
+            <p className="text-xs text-text-secondary">{description}</p>
+          )}
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
+      <CardContent>
+        <div className="space-y-4">{children}</div>
+      </CardContent>
     </Card>
   );
 }
@@ -400,17 +404,18 @@ export function ListingForm({
                       <Tag color="primary">Ảnh bìa</Tag>
                     </span>
                   )}
-                  <Button
-                    size="xs"
-                    variant="white"
-                    className="absolute right-1 top-1"
-                    aria-label={`Xoá ảnh ${idx + 1}`}
-                    onClick={() =>
-                      setImageKeys(imageKeys.filter((_, i) => i !== idx))
-                    }
-                  >
-                    ✕
-                  </Button>
+                  <span className="absolute right-1 top-1">
+                    <Button
+                      size="xs"
+                      variant="white"
+                      aria-label={`Xoá ảnh ${idx + 1}`}
+                      onClick={() =>
+                        setImageKeys(imageKeys.filter((_, i) => i !== idx))
+                      }
+                    >
+                      ✕
+                    </Button>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -536,9 +541,8 @@ export function ListingForm({
               />
               <div className="flex items-end">
                 <Button
-                  variant="ghost"
+                  variant="danger"
                   size="sm"
-                  className="text-danger"
                   onClick={() => setRows(rows.filter((r) => r.key !== key))}
                 >
                   Xoá phân loại

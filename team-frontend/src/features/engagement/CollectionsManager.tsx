@@ -47,66 +47,70 @@ export function CollectionsManager({
 
   return (
     <Card>
-      <CardHeader className="flex-col items-start justify-start gap-0">
-        <h2 className="text-base font-semibold text-text-primary">
-          Bộ sưu tập của tôi
-        </h2>
-        <p className="mt-0.5 text-xs text-text-secondary">
-          Nhóm các sản phẩm yêu thích thành danh sách riêng để dễ theo dõi.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <form
-          aria-label="Tạo bộ sưu tập"
-          onSubmit={handleCreate}
-          className="flex flex-col gap-2 sm:flex-row"
-        >
-          <div className="flex-1">
-            <Input
-              className="min-h-10"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Tên bộ sưu tập mới…"
-              aria-label="Tên bộ sưu tập"
-            />
-          </div>
-          <Button
-            type="submit"
-            isLoading={pending}
-            disabled={!name.trim()}
-            className="min-h-10 w-full sm:w-auto"
-          >
-            Tạo mới
-          </Button>
-        </form>
-
-        {collections.length === 0 ? (
-          <p className="py-2 text-sm text-text-secondary">
-            Bạn chưa có bộ sưu tập nào. Tạo một bộ sưu tập để bắt đầu nhé.
+      <CardHeader>
+        <div>
+          <h2 className="text-base font-semibold text-text-primary">
+            Bộ sưu tập của tôi
+          </h2>
+          <p className="mt-0.5 text-xs text-text-secondary">
+            Nhóm các sản phẩm yêu thích thành danh sách riêng để dễ theo dõi.
           </p>
-        ) : (
-          <ul className="divide-y divide-border-subtle">
-            {collections.map((c) => (
-              <li
-                key={c.id}
-                data-testid="collection-row"
-                data-name={c.name}
-                className="flex items-center justify-between gap-3 py-3"
-              >
-                <Link
-                  href={`/favorites?collection=${c.id}`}
-                  className="flex min-h-10 min-w-0 items-center truncate text-sm font-medium text-text-primary hover:text-action-primary"
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <form
+            aria-label="Tạo bộ sưu tập"
+            onSubmit={handleCreate}
+            className="flex flex-col gap-2 sm:flex-row"
+          >
+            <div className="flex-1">
+              <Input
+                className="min-h-10"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Tên bộ sưu tập mới…"
+                aria-label="Tên bộ sưu tập"
+              />
+            </div>
+            <Button
+              type="submit"
+              isLoading={pending}
+              disabled={!name.trim()}
+              fullWidth="mobile"
+            >
+              Tạo mới
+            </Button>
+          </form>
+
+          {collections.length === 0 ? (
+            <p className="py-2 text-sm text-text-secondary">
+              Bạn chưa có bộ sưu tập nào. Tạo một bộ sưu tập để bắt đầu nhé.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border-subtle">
+              {collections.map((c) => (
+                <li
+                  key={c.id}
+                  data-testid="collection-row"
+                  data-name={c.name}
+                  className="flex items-center justify-between gap-3 py-3"
                 >
-                  {c.name}
-                </Link>
-                <Badge variant="neutral" className="shrink-0">
-                  {c.itemCount} sản phẩm
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
+                  <Link
+                    href={`/favorites?collection=${c.id}`}
+                    className="flex min-h-10 min-w-0 items-center truncate text-sm font-medium text-text-primary hover:text-action-primary"
+                  >
+                    {c.name}
+                  </Link>
+                  <Badge variant="neutral" className="shrink-0">
+                    {c.itemCount} sản phẩm
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

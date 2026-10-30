@@ -42,44 +42,46 @@ export default async function ReferralPage() {
     >
       <Card>
         <SectionTitle>Mã giới thiệu của bạn</SectionTitle>
-        <CardContent className="space-y-4">
-          <Descriptions
-            column={1}
-            items={[
-              {
-                key: "code",
-                label: "Mã giới thiệu",
-                children: referral.code ? (
-                  <span className="flex flex-wrap items-center gap-3">
-                    <span
-                      data-testid="referral-code"
-                      className="font-mono text-xl font-bold tracking-wider text-action-primary"
-                    >
-                      {referral.code}
+        <CardContent>
+          <div className="space-y-4">
+            <Descriptions
+              column={1}
+              items={[
+                {
+                  key: "code",
+                  label: "Mã giới thiệu",
+                  children: referral.code ? (
+                    <span className="flex flex-wrap items-center gap-3">
+                      <span
+                        data-testid="referral-code"
+                        className="font-mono text-xl font-bold tracking-wider text-action-primary"
+                      >
+                        {referral.code}
+                      </span>
+                      <CopyCodeButton code={referral.code} />
                     </span>
-                    <CopyCodeButton code={referral.code} />
-                  </span>
-                ) : (
-                  <span className="flex flex-wrap items-center gap-3">
-                    <span className="font-normal text-text-secondary">
-                      Bạn chưa có mã giới thiệu.
+                  ) : (
+                    <span className="flex flex-wrap items-center gap-3">
+                      <span className="font-normal text-text-secondary">
+                        Bạn chưa có mã giới thiệu.
+                      </span>
+                      <GenerateReferralCodeButton />
                     </span>
-                    <GenerateReferralCodeButton />
-                  </span>
-                ),
-              },
-            ]}
-          />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Statistic title="Đã mời" value={referral.invitedCount} />
-            <Statistic
-              title="Tổng thưởng"
-              value={
-                <span className="text-action-primary">
-                  {formatPrice(referral.rewardsTotal)}
-                </span>
-              }
+                  ),
+                },
+              ]}
             />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Statistic title="Đã mời" value={referral.invitedCount} />
+              <Statistic
+                title="Tổng thưởng"
+                value={
+                  <span className="text-action-primary">
+                    {formatPrice(referral.rewardsTotal)}
+                  </span>
+                }
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

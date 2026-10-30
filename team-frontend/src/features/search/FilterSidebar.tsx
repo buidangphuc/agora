@@ -344,7 +344,7 @@ export function FilterSidebar({
   return (
     <aside data-testid="search-facets" className="w-full">
       <div className="hidden lg:block">
-        <Card className="p-4">
+        <Card padded>
           <FilterContent
             facets={facets}
             categories={categories}

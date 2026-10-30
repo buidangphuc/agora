@@ -48,6 +48,7 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
     danger: <Button variant="danger">Delete</Button>,
     extraSmall: <Button size="xs">Save</Button>,
     fullWidth: <Button fullWidth>Save</Button>,
+    fullWidthMobile: <Button fullWidth="mobile">Save</Button>,
     icons: (
       <Button
         leftIcon={<span aria-hidden="true">+</span>}

@@ -68,7 +68,7 @@ export function SubmitKycForm() {
         type="submit"
         isLoading={pending}
         disabled={!docRef.trim()}
-        className="min-h-10 w-full sm:w-auto"
+        fullWidth="mobile"
       >
         Gửi hồ sơ xác minh
       </Button>

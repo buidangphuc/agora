@@ -52,13 +52,12 @@ export function PurchasePanel() {
 
       <div className="hidden gap-3 lg:flex">
         <Button
-          variant="outline"
+          variant="secondary"
           size="lg"
           data-testid="pdp-add-to-cart"
           disabled={outOfStock || busy}
           isLoading={pending === "add"}
           onClick={() => add(false)}
-          className="border-action-primary text-action-primary"
         >
           Thêm vào giỏ
         </Button>

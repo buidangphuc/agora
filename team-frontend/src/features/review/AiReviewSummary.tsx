@@ -13,7 +13,7 @@ export function AiReviewSummaryCard({
   listingId?: string;
 }) {
   return (
-    <Card data-testid="ai-review-summary" className="p-5">
+    <Card data-testid="ai-review-summary" padded>
       <AiReviewSummaryShown listingId={listingId} />
       <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold text-text-primary">
         <span>Tóm tắt đánh giá bằng AI</span>

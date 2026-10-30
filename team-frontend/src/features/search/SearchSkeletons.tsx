@@ -9,9 +9,11 @@ export function FilterSkeleton() {
   return (
     <div aria-busy="true">
       <div className={`h-11 w-full rounded-lg lg:hidden ${block}`} />
-      <Card className="hidden p-4 lg:block">
-        <Skeleton variant="text" lines={8} />
-      </Card>
+      <div className="hidden lg:block">
+        <Card padded>
+          <Skeleton variant="text" lines={8} />
+        </Card>
+      </div>
     </div>
   );
 }

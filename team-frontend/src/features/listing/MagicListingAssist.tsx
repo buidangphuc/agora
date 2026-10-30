@@ -69,97 +69,99 @@ export function MagicListingAssist({
 
   return (
     <Card>
-      <CardContent className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-text-primary">
-              Gợi ý bằng AI
-            </h2>
-            <p className="mt-0.5 text-xs text-text-secondary">
-              Nhập tên sản phẩm rồi nhận gợi ý tiêu đề, mô tả và giá. Bạn chọn
-              phần nào muốn áp dụng.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={generate}
-            isLoading={pending}
-            disabled={title.trim() === ""}
-          >
-            Tạo gợi ý
-          </Button>
-        </div>
-
-        {error && (
-          <Alert
-            type="error"
-            description={error}
-            action={
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={generate}
-                isLoading={pending}
-              >
-                Thử lại
-              </Button>
-            }
-          />
-        )}
-
-        {pending && <Spin tip="Đang tạo gợi ý..." />}
-
-        {s && !pending && (
-          <div
-            className="space-y-3 rounded-xl border border-border-subtle bg-surface-muted p-4"
-            data-testid="magic-suggestion"
-          >
-            {s.generatedTitle && (
-              <SuggestionRow
-                label="Tiêu đề"
-                value={s.generatedTitle}
-                onApply={() => apply({ title: s.generatedTitle })}
-              />
-            )}
-            {s.generatedDescription && (
-              <SuggestionRow
-                label="Mô tả"
-                value={s.generatedDescription}
-                multiline
-                onApply={() => apply({ description: s.generatedDescription })}
-              />
-            )}
-            {price !== undefined && (
-              <SuggestionRow
-                label="Khoảng giá gợi ý"
-                value={`${formatPrice(s.suggestedPriceMin)} - ${formatPrice(
-                  s.suggestedPriceMax,
-                )}`}
-                applyLabel="Áp dụng giá thấp nhất"
-                onApply={() => apply({ price })}
-              />
-            )}
-            {s.highlightTags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {s.highlightTags.map((t) => (
-                  <Tag key={t}>{t}</Tag>
-                ))}
-              </div>
-            )}
+      <CardContent>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-text-primary">
+                Gợi ý bằng AI
+              </h2>
+              <p className="mt-0.5 text-xs text-text-secondary">
+                Nhập tên sản phẩm rồi nhận gợi ý tiêu đề, mô tả và giá. Bạn chọn
+                phần nào muốn áp dụng.
+              </p>
+            </div>
             <Button
-              size="sm"
-              onClick={() =>
-                apply({
-                  title: s.generatedTitle || undefined,
-                  description: s.generatedDescription || undefined,
-                  price,
-                })
-              }
+              variant="outline"
+              onClick={generate}
+              isLoading={pending}
+              disabled={title.trim() === ""}
             >
-              Áp dụng tất cả
+              Tạo gợi ý
             </Button>
           </div>
-        )}
+
+          {error && (
+            <Alert
+              type="error"
+              description={error}
+              action={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={generate}
+                  isLoading={pending}
+                >
+                  Thử lại
+                </Button>
+              }
+            />
+          )}
+
+          {pending && <Spin tip="Đang tạo gợi ý..." />}
+
+          {s && !pending && (
+            <div
+              className="space-y-3 rounded-xl border border-border-subtle bg-surface-muted p-4"
+              data-testid="magic-suggestion"
+            >
+              {s.generatedTitle && (
+                <SuggestionRow
+                  label="Tiêu đề"
+                  value={s.generatedTitle}
+                  onApply={() => apply({ title: s.generatedTitle })}
+                />
+              )}
+              {s.generatedDescription && (
+                <SuggestionRow
+                  label="Mô tả"
+                  value={s.generatedDescription}
+                  multiline
+                  onApply={() => apply({ description: s.generatedDescription })}
+                />
+              )}
+              {price !== undefined && (
+                <SuggestionRow
+                  label="Khoảng giá gợi ý"
+                  value={`${formatPrice(s.suggestedPriceMin)} - ${formatPrice(
+                    s.suggestedPriceMax,
+                  )}`}
+                  applyLabel="Áp dụng giá thấp nhất"
+                  onApply={() => apply({ price })}
+                />
+              )}
+              {s.highlightTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {s.highlightTags.map((t) => (
+                    <Tag key={t}>{t}</Tag>
+                  ))}
+                </div>
+              )}
+              <Button
+                size="sm"
+                onClick={() =>
+                  apply({
+                    title: s.generatedTitle || undefined,
+                    description: s.generatedDescription || undefined,
+                    price,
+                  })
+                }
+              >
+                Áp dụng tất cả
+              </Button>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -195,7 +197,6 @@ function SuggestionRow({
         variant="outline"
         onClick={onApply}
         aria-label={`${applyLabel}: ${label}`}
-        className="shrink-0"
       >
         {applyLabel}
       </Button>

@@ -171,6 +171,7 @@ export const components = {
     },
     disabled: "text-text-disabled",
     fullWidth: "w-full",
+    fullWidthMobile: "w-full sm:w-auto",
     icon: "inline-flex shrink-0",
     spinner:
       "size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent",

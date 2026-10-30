@@ -70,48 +70,51 @@ export function AlertSubscriptions({
 
   return (
     <Card>
-      <CardHeader className="flex-col items-start justify-start gap-0">
-        <h2 className="text-base font-semibold text-text-primary">
-          Thông báo đang theo dõi
-        </h2>
-        <p className="mt-0.5 text-xs text-text-secondary">
-          Sản phẩm bạn đã bật báo giảm giá hoặc có hàng lại.
-        </p>
+      <CardHeader>
+        <div>
+          <h2 className="text-base font-semibold text-text-primary">
+            Thông báo đang theo dõi
+          </h2>
+          <p className="mt-0.5 text-xs text-text-secondary">
+            Sản phẩm bạn đã bật báo giảm giá hoặc có hàng lại.
+          </p>
+        </div>
       </CardHeader>
       {rows.length === 0 ? (
         <Empty description='Bạn chưa theo dõi thông báo cho sản phẩm nào. Mở một sản phẩm và bật "Báo tôi khi giảm giá / có hàng lại".' />
       ) : (
-        <CardContent className="py-2">
-          <ul className="divide-y divide-border-subtle">
-            {rows.map((r) => (
-              <li
-                key={r.id}
-                data-testid="alert-subscription"
-                data-type={dataType(r.type)}
-                className="flex items-center justify-between gap-3 py-3"
-              >
-                <div className="min-w-0 space-y-1">
-                  <Link
-                    href={`/listing/${r.listingId}`}
-                    className="block truncate text-sm font-medium text-text-primary hover:text-action-primary"
-                  >
-                    {r.title}
-                  </Link>
-                  <Tag>{typeLabel(r.type)}</Tag>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="min-h-10 shrink-0"
-                  isLoading={pending && removing === r.id}
-                  disabled={pending}
-                  onClick={() => remove(r.id, r.listingId)}
+        <CardContent>
+          <div>
+            <ul className="divide-y divide-border-subtle">
+              {rows.map((r) => (
+                <li
+                  key={r.id}
+                  data-testid="alert-subscription"
+                  data-type={dataType(r.type)}
+                  className="flex items-center justify-between gap-3 py-3"
                 >
-                  Hủy
-                </Button>
-              </li>
-            ))}
-          </ul>
+                  <div className="min-w-0 space-y-1">
+                    <Link
+                      href={`/listing/${r.listingId}`}
+                      className="block truncate text-sm font-medium text-text-primary hover:text-action-primary"
+                    >
+                      {r.title}
+                    </Link>
+                    <Tag>{typeLabel(r.type)}</Tag>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    isLoading={pending && removing === r.id}
+                    disabled={pending}
+                    onClick={() => remove(r.id, r.listingId)}
+                  >
+                    Hủy
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
         </CardContent>
       )}
     </Card>

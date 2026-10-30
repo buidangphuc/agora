@@ -39,37 +39,45 @@ export default async function SellerPlansPage() {
           {plans.map((plan) => {
             const current = plan.tier === entitlements.tier;
             return (
-              <Card
+              <div
                 key={plan.id}
-                className={current ? "border-action-primary" : ""}
+                className={
+                  current
+                    ? "grid h-full rounded-2xl ring-2 ring-action-primary"
+                    : "grid h-full"
+                }
               >
-                <CardContent className="flex h-full flex-col gap-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-base font-semibold text-text-primary">
-                      {plan.tierText}
-                    </h2>
-                    {current && <Tag color="primary">Gói hiện tại</Tag>}
-                  </div>
-                  <p className="text-2xl font-bold text-action-primary">
-                    {formatPrice(plan.price)}
-                  </p>
-                  {plan.features.length === 0 ? (
-                    <Empty description="Chưa có mô tả quyền lợi" />
-                  ) : (
-                    <ul className="flex-1 space-y-1.5 text-sm text-text-secondary">
-                      {plan.features.map((f) => (
-                        <li key={f} className="flex items-start gap-2">
-                          <span aria-hidden="true" className="text-success">
-                            ✓
-                          </span>
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <SubscribeButton planId={plan.id} current={current} />
-                </CardContent>
-              </Card>
+                <Card>
+                  <CardContent>
+                    <div className="flex h-full flex-col gap-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <h2 className="text-base font-semibold text-text-primary">
+                          {plan.tierText}
+                        </h2>
+                        {current && <Tag color="primary">Gói hiện tại</Tag>}
+                      </div>
+                      <p className="text-2xl font-bold text-action-primary">
+                        {formatPrice(plan.price)}
+                      </p>
+                      {plan.features.length === 0 ? (
+                        <Empty description="Chưa có mô tả quyền lợi" />
+                      ) : (
+                        <ul className="flex-1 space-y-1.5 text-sm text-text-secondary">
+                          {plan.features.map((f) => (
+                            <li key={f} className="flex items-start gap-2">
+                              <span aria-hidden="true" className="text-success">
+                                ✓
+                              </span>
+                              <span>{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <SubscribeButton planId={plan.id} current={current} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             );
           })}
         </div>

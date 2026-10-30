@@ -42,7 +42,7 @@ export function ConfirmReceiptButton({
       <Button
         variant="outline"
         size={size}
-        className="w-full sm:w-auto"
+        fullWidth="mobile"
         onClick={() => setOpen(true)}
       >
         Đã nhận được hàng

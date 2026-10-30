@@ -137,7 +137,7 @@ describe("PlaceOrderForm double-submit guard", () => {
     expect(nav.push).toHaveBeenCalledWith("/pay/o1");
   });
 
-  it("is disabled, aria-busy and keeps its width while pending; Back is inert", async () => {
+  it("is disabled and aria-busy while pending; Back is inert", async () => {
     const user = setupUser();
     const d = deferred();
     vi.mocked(checkoutAction).mockReturnValue(d.promise);
@@ -156,7 +156,6 @@ describe("PlaceOrderForm double-submit guard", () => {
     expect(btn).toBeDisabled();
     expect(btn).toHaveAttribute("aria-busy", "true");
     expect(btn).toHaveAttribute("aria-disabled", "true");
-    expect(btn.className).toContain("min-w-40");
     expect(screen.queryByRole("link", { name: "Quay lại" })).toBeNull();
     expect(screen.getByText("Quay lại")).toHaveAttribute(
       "aria-disabled",

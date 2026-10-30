@@ -12,15 +12,17 @@ const ROW_HEIGHT = "h-12";
 /** Placeholder with the same footprint as the feed rows (shown behind Suspense). */
 export function FollowedFeedSkeleton() {
   return (
-    <Card aria-busy="true" data-testid="followed-feed-skeleton">
-      <ul className="divide-y divide-border-subtle">
-        {range(6).map((i) => (
-          <li key={i} className={`flex items-center px-5 ${ROW_HEIGHT}`}>
-            <div className="h-4 w-2/3 animate-pulse rounded-xs bg-neutral-200" />
-          </li>
-        ))}
-      </ul>
-    </Card>
+    <div aria-busy="true" data-testid="followed-feed-skeleton">
+      <Card>
+        <ul className="divide-y divide-border-subtle">
+          {range(6).map((i) => (
+            <li key={i} className={`flex items-center px-5 ${ROW_HEIGHT}`}>
+              <div className="h-4 w-2/3 animate-pulse rounded-xs bg-neutral-200" />
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </div>
   );
 }
 

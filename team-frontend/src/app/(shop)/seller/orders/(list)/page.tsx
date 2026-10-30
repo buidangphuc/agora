@@ -101,37 +101,39 @@ export default async function SellerOrdersPage(props: {
         description="Theo dõi, đóng gói và xác nhận gửi hàng tới người mua."
       />
       <Card>
-        <CardContent className="space-y-4">
-          <Tabs
-            activeId={params.status}
-            hrefFor={(id) => buildListHref(BASE, { q: params.q, status: id })}
-            items={[
-              { id: "all", label: "Tất cả", badge: counts?.all },
-              { id: "pending", label: "Chờ xử lý", badge: counts?.pending },
-              { id: "shipped", label: "Đang giao", badge: counts?.shipped },
-              {
-                id: "completed",
-                label: "Hoàn thành",
-                badge: counts?.completed,
-              },
-            ]}
-          />
-          <SellerFilterBar
-            basePath={BASE}
-            q={params.q}
-            fixed={params.status === "all" ? {} : { status: params.status }}
-            searchLabel="Tìm đơn hàng"
-            placeholder="Mã đơn, người nhận, số điện thoại hoặc sản phẩm"
-          />
-          {body}
-          {orders !== null && (
-            <SellerPagination
-              current={params.page}
-              total={matched.length}
-              pageSize={ORDERS_PAGE_SIZE}
-              hrefFor={(page) => buildListHref(BASE, { ...params, page })}
+        <CardContent>
+          <div className="space-y-4">
+            <Tabs
+              activeId={params.status}
+              hrefFor={(id) => buildListHref(BASE, { q: params.q, status: id })}
+              items={[
+                { id: "all", label: "Tất cả", badge: counts?.all },
+                { id: "pending", label: "Chờ xử lý", badge: counts?.pending },
+                { id: "shipped", label: "Đang giao", badge: counts?.shipped },
+                {
+                  id: "completed",
+                  label: "Hoàn thành",
+                  badge: counts?.completed,
+                },
+              ]}
             />
-          )}
+            <SellerFilterBar
+              basePath={BASE}
+              q={params.q}
+              fixed={params.status === "all" ? {} : { status: params.status }}
+              searchLabel="Tìm đơn hàng"
+              placeholder="Mã đơn, người nhận, số điện thoại hoặc sản phẩm"
+            />
+            {body}
+            {orders !== null && (
+              <SellerPagination
+                current={params.page}
+                total={matched.length}
+                pageSize={ORDERS_PAGE_SIZE}
+                hrefFor={(page) => buildListHref(BASE, { ...params, page })}
+              />
+            )}
+          </div>
         </CardContent>
       </Card>
     </>

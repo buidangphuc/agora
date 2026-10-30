@@ -91,12 +91,14 @@ export function TrackingQualityPanel({
 }) {
   if (!quality) {
     return (
-      <Card data-testid="tracking-quality-panel" className="mt-6">
-        <CardHeader>
-          <CardTitle>Tracking data quality</CardTitle>
-        </CardHeader>
-        <Empty description="Tracking data quality is unavailable (team-analytics cannot be reached)." />
-      </Card>
+      <div className="mt-6">
+        <Card data-testid="tracking-quality-panel">
+          <CardHeader>
+            <CardTitle>Tracking data quality</CardTitle>
+          </CardHeader>
+          <Empty description="Tracking data quality is unavailable (team-analytics cannot be reached)." />
+        </Card>
+      </div>
     );
   }
 
@@ -105,71 +107,73 @@ export function TrackingQualityPanel({
   const types = quality.types ?? [];
 
   return (
-    <Card data-testid="tracking-quality-panel" className="mt-6">
-      <CardHeader>
-        <CardTitle>Tracking data quality</CardTitle>
-        <Badge
-          data-testid="tracking-quality-status"
-          variant={ok ? "success" : "danger"}
-          pill
-        >
-          {quality.status}
-        </Badge>
-      </CardHeader>
-      <div className="space-y-4 p-5">
-        {!ok && (
-          <ul
-            data-testid="tracking-quality-reasons"
-            className="flex flex-wrap gap-2"
+    <div className="mt-6">
+      <Card data-testid="tracking-quality-panel">
+        <CardHeader>
+          <CardTitle>Tracking data quality</CardTitle>
+          <Badge
+            data-testid="tracking-quality-status"
+            variant={ok ? "success" : "danger"}
+            pill
           >
-            {reasons.map((r) => (
-              <li key={r}>
-                <Badge variant="warning">{r}</Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-        <Descriptions
-          column={3}
-          items={[
-            {
-              key: "last",
-              label: "Last ingested",
-              children: stamp(quality.last_ingested_at),
-            },
-            {
-              key: "p50",
-              label: "Lag p50",
-              children: seconds(quality.lag_p50_seconds),
-            },
-            {
-              key: "p95",
-              label: "Lag p95",
-              children: seconds(quality.lag_p95_seconds),
-            },
-            {
-              key: "decode",
-              label: "Decode failures",
-              children: count(quality.decode_failures),
-            },
-            {
-              key: "dup",
-              label: "Duplicates skipped",
-              children: count(quality.duplicates_skipped),
-            },
-          ]}
-        />
-        <Table
-          caption="Tracking events by type, last 24 hours"
-          columns={COLUMNS}
-          dataSource={types}
-          rowKey="event_type"
-          emptyText="No tracking events in the last 24 hours."
-          rowProps={(t) => ({
-            "data-testid": `tracking-quality-row-${t.event_type}`,
-          })}
-        />
-      </div>
-    </Card>
+            {quality.status}
+          </Badge>
+        </CardHeader>
+        <div className="space-y-4 p-5">
+          {!ok && (
+            <ul
+              data-testid="tracking-quality-reasons"
+              className="flex flex-wrap gap-2"
+            >
+              {reasons.map((r) => (
+                <li key={r}>
+                  <Badge variant="warning">{r}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Descriptions
+            column={3}
+            items={[
+              {
+                key: "last",
+                label: "Last ingested",
+                children: stamp(quality.last_ingested_at),
+              },
+              {
+                key: "p50",
+                label: "Lag p50",
+                children: seconds(quality.lag_p50_seconds),
+              },
+              {
+                key: "p95",
+                label: "Lag p95",
+                children: seconds(quality.lag_p95_seconds),
+              },
+              {
+                key: "decode",
+                label: "Decode failures",
+                children: count(quality.decode_failures),
+              },
+              {
+                key: "dup",
+                label: "Duplicates skipped",
+                children: count(quality.duplicates_skipped),
+              },
+            ]}
+          />
+          <Table
+            caption="Tracking events by type, last 24 hours"
+            columns={COLUMNS}
+            dataSource={types}
+            rowKey="event_type"
+            emptyText="No tracking events in the last 24 hours."
+            rowProps={(t) => ({
+              "data-testid": `tracking-quality-row-${t.event_type}`,
+            })}
+          />
+        </div>
+      </Card>
+    </div>
   );
 }

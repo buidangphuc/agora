@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 export function AuthSubmitButton({ children }: { children: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="lg" isLoading={pending} className="w-full">
+    <Button type="submit" size="lg" isLoading={pending} fullWidth>
       {children}
     </Button>
   );

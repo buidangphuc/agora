@@ -33,24 +33,26 @@ export function SpecsSection({
       aria-labelledby="specs-heading"
       className="scroll-mt-40"
     >
-      <Card className="space-y-5 p-6">
-        <h2
-          id="specs-heading"
-          className="text-lg font-semibold text-text-primary"
-        >
-          CHI TIẾT SẢN PHẨM
-        </h2>
-        <Descriptions items={items} column={2} />
-        {description.trim() !== "" && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-text-primary">
-              MÔ TẢ SẢN PHẨM
-            </h3>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary">
-              {description}
-            </p>
-          </div>
-        )}
+      <Card padded>
+        <div className="space-y-5">
+          <h2
+            id="specs-heading"
+            className="text-lg font-semibold text-text-primary"
+          >
+            CHI TIẾT SẢN PHẨM
+          </h2>
+          <Descriptions items={items} column={2} />
+          {description.trim() !== "" && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-text-primary">
+                MÔ TẢ SẢN PHẨM
+              </h3>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-text-secondary">
+                {description}
+              </p>
+            </div>
+          )}
+        </div>
       </Card>
     </section>
   );

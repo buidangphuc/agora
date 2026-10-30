@@ -174,14 +174,15 @@ export function VoucherModal({
                 />
               </FormItem>
             </div>
-            <Button
-              type="submit"
-              className="mt-6"
-              isLoading={applying}
-              disabled={!code.trim()}
-            >
-              Áp dụng
-            </Button>
+            <span className="mt-6">
+              <Button
+                type="submit"
+                isLoading={applying}
+                disabled={!code.trim()}
+              >
+                Áp dụng
+              </Button>
+            </span>
           </form>
 
           {vouchers.length === 0 ? (

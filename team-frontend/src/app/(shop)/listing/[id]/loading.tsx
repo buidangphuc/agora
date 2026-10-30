@@ -20,7 +20,7 @@ export default function Loading() {
         <div className="h-4 w-1/2 animate-pulse rounded-xs bg-neutral-200 lg:hidden" />
       </div>
 
-      <Card className="p-6">
+      <Card padded>
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
           <div className="space-y-3 lg:col-span-5">
             <Skeleton variant="image" aspect="square" />
@@ -43,18 +43,18 @@ export default function Loading() {
         </div>
       </Card>
 
-      <Card className="p-5">
+      <Card padded>
         <div className="flex items-center gap-4">
           <Skeleton variant="avatar" size="lg" />
           <Skeleton variant="text" lines={2} className="flex-1" />
         </div>
       </Card>
 
-      <Card className="p-5">
+      <Card padded>
         <Skeleton variant="text" lines={1} className="w-1/2" />
       </Card>
 
-      <Card className="p-6">
+      <Card padded>
         <Skeleton variant="text" lines={5} />
       </Card>
     </div>

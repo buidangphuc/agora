@@ -126,31 +126,33 @@ export function AnalyticsView({
           <CardTitle>Phễu chuyển đổi</CardTitle>
           <span className="text-xs text-text-secondary">Toàn thời gian</span>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {funnel === null ? (
-            <Alert
-              type="error"
-              description="Không tải được dữ liệu phễu chuyển đổi."
-              action={retry}
-            />
-          ) : funnel.impressions === 0 && funnel.views === 0 ? (
-            <Empty description="Chưa có dữ liệu phễu" />
-          ) : (
-            FUNNEL_STEPS.map((step) => (
-              <div key={step.key} className="space-y-1">
-                <div className="flex items-baseline justify-between text-sm">
-                  <span className="text-text-secondary">{step.label}</span>
-                  <span className="font-semibold text-text-primary">
-                    {num(funnel[step.key])}
-                  </span>
+        <CardContent>
+          <div className="space-y-4">
+            {funnel === null ? (
+              <Alert
+                type="error"
+                description="Không tải được dữ liệu phễu chuyển đổi."
+                action={retry}
+              />
+            ) : funnel.impressions === 0 && funnel.views === 0 ? (
+              <Empty description="Chưa có dữ liệu phễu" />
+            ) : (
+              FUNNEL_STEPS.map((step) => (
+                <div key={step.key} className="space-y-1">
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-text-secondary">{step.label}</span>
+                    <span className="font-semibold text-text-primary">
+                      {num(funnel[step.key])}
+                    </span>
+                  </div>
+                  <Progress
+                    percent={ratio(funnel[step.key], funnel.impressions)}
+                    label={step.label}
+                  />
                 </div>
-                <Progress
-                  percent={ratio(funnel[step.key], funnel.impressions)}
-                  label={step.label}
-                />
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
 

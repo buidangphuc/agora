@@ -20,14 +20,16 @@ export default function CheckoutLoading() {
             </CardContent>
           </Card>
         </div>
-        <Card className="hidden lg:block">
-          <CardHeader>
-            <Skeleton variant="text" lines={1} className="w-32" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton variant="text" lines={4} />
-          </CardContent>
-        </Card>
+        <div className="hidden lg:block">
+          <Card>
+            <CardHeader>
+              <Skeleton variant="text" lines={1} className="w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton variant="text" lines={4} />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </section>
   );
