@@ -11,8 +11,19 @@ Short on purpose. v1 changes come from `docs/experiments/p5-five-screens.md`; fi
 ## Spacing and layout
 - Use the spacing, radius and type scale from tokens only: no arbitrary values, no raw colours.
 - Controls use the control radius, cards the card radius; do not mix within a screen.
-- A page is `<main className="flex flex-col gap-4 p-6">` with one `<h1 className="text-2xl">`; use `gap-3` only inside a form block. There is no page-container component [2]. Forms are a single column.
+- A page is `Page` from `templates/app/components/Page.tsx` (title, optional description, `width="wide"` or `"narrow"`); it renders the only `<h1>`. Group content in `Card`; do not hand-roll bordered boxes [2]. Forms are a single column.
 - A form that carries personal data (name, address, phone, email) uses POST or a server action, never a GET form or the query string [3]. Validate on the server; native `required` alone is not validation [5].
+
+## Look
+- Airy and light: near-white page, white cards with a thin border and `shadow-card`, one indigo accent. Large radii: controls `rounded-xl`, cards and dialogs `rounded-2xl`. Body text is `text-base`; `text-sm` only for secondary text. Titles `text-3xl`, `md:text-4xl`.
+- No promo badges, dense tables for browsing, or second accent colour. Product and list browsing uses a card grid (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`); tables are for tabular data.
+
+## Cross-device (web and mobile web)
+- Mobile-first: write the one-column layout first, add `sm:`, `md:`, `lg:` for wider screens. Breakpoints are fixed by tokens (640, 768, 1024).
+- Every interactive control is at least 44 px tall (`min-h-touch`, already in the component class maps). Never shrink a control below it for density.
+- A bottom action bar on mobile is `fixed inset-x-0 bottom-0` with `pb-safe`; keep page content clear of it with bottom padding.
+- Hover is never the only way to reach an action. No layout may scroll horizontally at 375 px.
+- Tokens hold raw numbers and structured shadows so non-CSS platforms can consume `dist/tokens.json`; do not put CSS strings or units in `packages/tokens/src/tokens.mjs`. Native components are not part of this template yet (ADR-0005).
 
 ## States
 - Every interactive component shows default, hover, focus-visible, active, disabled, loading and error where they apply. Do not improvise a missing state; add it to the component.

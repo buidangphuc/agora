@@ -6,38 +6,32 @@ declare namespace preset {
             let current: string;
         }
         let spacing: {
-            0: string;
-            1: string;
-            2: string;
-            3: string;
-            4: string;
-            5: string;
-            6: string;
-            8: string;
-            10: string;
-            12: string;
-            16: string;
-            18: string;
+            [k: string]: string;
         };
         let borderRadius: {
-            none: string;
-            xs: string;
-            lg: string;
-            xl: string;
-            "2xl": string;
-            full: string;
+            [k: string]: string;
         };
         let fontSize: {
-            xs: string[];
-            sm: string[];
-            base: string[];
-            xl: string[];
-            "2xl": string[];
-            "3xl": string[];
-            "4xl": string[];
+            [k: string]: string[];
         };
         let fontFamily: {
             sans: string[];
         };
+        let screens: {
+            [k: string]: string;
+        };
+        namespace minHeight {
+            let touch: string;
+        }
+        namespace boxShadow {
+            let none: string;
+        }
     }
+    let plugins: (typeof safeArea)[];
 }
+/**
+ * @param {{ addUtilities: (u: Record<string, Record<string, string>>) => void }} api
+ */
+declare function safeArea({ addUtilities }: {
+    addUtilities: (u: Record<string, Record<string, string>>) => void;
+}): void;

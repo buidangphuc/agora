@@ -1,5 +1,6 @@
-import { Link, Table } from "@fe-platform/ui";
+import { Card, Link } from "@fe-platform/ui";
 import { cookies } from "next/headers";
+import { Page } from "../../../../components/Page";
 import {
   SHOP_CURRENCY,
   cartTotalMinor,
@@ -25,44 +26,52 @@ export default async function ConfirmationPage({
   );
   if (lines.length === 0) {
     return (
-      <main className="flex flex-col gap-4 p-6">
-        <h1 className="text-2xl">No order found</h1>
-        <p>We could not find an order to show. Start from the shop.</p>
+      <Page title="No order found" width="narrow">
+        <p className="text-text-secondary">
+          We could not find an order to show. Start from the shop.
+        </p>
         <Link href="/shop">Go to shop</Link>
-      </main>
+      </Page>
     );
   }
   return (
-    <main className="flex flex-col gap-4 p-6">
-      <h1 className="text-2xl">Order placed</h1>
-      <p className="text-text-secondary">
-        {delivery ? `Thank you, ${delivery.name}. ` : "Thank you. "}
-        Your order is on its way.
-      </p>
-      <Table
-        caption="Order summary"
-        columns={[
-          { key: "title", header: "Product" },
-          { key: "quantity", header: "Quantity" },
-          { key: "subtotal", header: "Subtotal" },
-        ]}
-        rows={lines.map((l) => ({
-          id: l.product.id,
-          title: l.product.title,
-          quantity: l.quantity,
-          subtotal: formatMoney(l.subtotalMinor, l.product.currency),
-        }))}
-      />
-      <p className="text-xl">
-        Total: {formatMoney(cartTotalMinor(lines), SHOP_CURRENCY)}
-      </p>
-      {delivery ? (
-        <p>
-          Delivering to {delivery.address}, {delivery.city}. Phone:{" "}
-          {delivery.phone}.
-        </p>
-      ) : null}
+    <Page
+      title="Order placed"
+      description={`${delivery ? `Thank you, ${delivery.name}. ` : "Thank you. "}Your order is on its way.`}
+      width="narrow"
+    >
+      <Card>
+        <div className="flex flex-col gap-6">
+          <ul className="flex flex-col divide-y divide-border-subtle">
+            {lines.map((l) => (
+              <li
+                key={l.product.id}
+                className="flex justify-between gap-4 py-3"
+              >
+                <span>
+                  {l.product.title} × {l.quantity}
+                </span>
+                <span className="font-semibold">
+                  {formatMoney(l.subtotalMinor, l.product.currency)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="flex justify-between text-xl">
+            <span>Total</span>
+            <span className="font-semibold">
+              {formatMoney(cartTotalMinor(lines), SHOP_CURRENCY)}
+            </span>
+          </p>
+          {delivery ? (
+            <p className="text-text-secondary">
+              Delivering to {delivery.address}, {delivery.city}. Phone:{" "}
+              {delivery.phone}.
+            </p>
+          ) : null}
+        </div>
+      </Card>
       <Link href="/shop">Back to shop</Link>
-    </main>
+    </Page>
   );
 }

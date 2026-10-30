@@ -6,6 +6,7 @@ import { isMain, root } from "./lib.mjs";
 
 const uiRoot = join(root, "packages", "ui");
 const entryFile = join(uiRoot, "src", "index.ts");
+const PLATFORMS = ["web", "wap"];
 const outFile = join(root, "docs", "agents", "catalog.json");
 
 function loadOptions(tsconfigPath) {
@@ -67,6 +68,7 @@ function describe(symbol, checker) {
     kind: symbol.getName().startsWith("use") ? "hook" : "component",
     purpose,
     client: /^\s*["']use client["']/.test(source),
+    platforms: PLATFORMS,
     props: [],
   };
   const tag = target.getJsDocTags(checker).find((t) => t.name === "deprecated");
