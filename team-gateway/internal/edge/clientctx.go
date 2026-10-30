@@ -215,7 +215,7 @@ func parseHostAddr(s string) (netip.Addr, bool) {
 	return a.Unmap(), true
 }
 
-func clip(s string, max int) string {
+func clip(s string, limit int) string {
 	// gRPC metadata values must be printable ASCII; replace anything else so a
 	// hostile User-Agent cannot make the upstream call fail.
 	s = strings.Map(func(r rune) rune {
@@ -224,11 +224,11 @@ func clip(s string, max int) string {
 		}
 		return r
 	}, strings.TrimSpace(s))
-	if len(s) <= max {
+	if len(s) <= limit {
 		return s
 	}
 	// Cut on a rune boundary so the metadata stays valid UTF-8.
-	cut := max
+	cut := limit
 	for cut > 0 && s[cut]&0xC0 == 0x80 {
 		cut--
 	}

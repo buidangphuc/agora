@@ -269,7 +269,7 @@ The listing consumer SHALL be a `consume.BatchConsumer` on `KAFKA_LISTING_TOPIC`
 
 ### Requirement: Dead-letter copies of tracking records carry no ga_client_id without analytics consent
 
-The `consume.DLQProducer` of the tracking and order consumer (`KAFKA_DLQ_TOPIC`) and of the GA4 relay consumer (`GA4_RELAY_DLQ_TOPIC`) SHALL be `events.NewRedactingDLQ`. WHEN a record whose envelope type is `platform.analytics.v1.TrackingEvent` is published to a dead-letter topic and its `consent.analytics` is false, `consent` is absent or `consent.version` is 0, negative or unknown, THE SYSTEM SHALL publish it with `ga_client_id` empty and every other field, the key, the headers and the topic unchanged; WHEN `consent.analytics` is true under a known version, THE SYSTEM SHALL publish the record unchanged; a record that is not a tracking envelope or whose value cannot be decoded SHALL be published unchanged.
+The `consume.DLQProducer` of the tracking and order consumer (`KAFKA_DLQ_TOPIC`) and of the GA4 relay consumer (`GA4_RELAY_DLQ_TOPIC`) SHALL be `events.NewRedactingDLQ`. WHEN a record whose envelope type is `platform.analytics.v1.TrackingEvent` is published to a dead-letter topic and its `consent.analytics` is false, `consent` is absent or `consent.version` is 0, negative or unknown, THE SYSTEM SHALL publish it with `ga_client_id` empty and every other field, the key, the headers and the topic unchanged; WHEN `consent.analytics` is true under a known version, THE SYSTEM SHALL publish the record unchanged; a record that is not a tracking envelope or whose value cannot be decoded SHALL be published unchanged; WHEN a tracking envelope's payload cannot be decoded or the redacted record cannot be re-encoded, THE SYSTEM SHALL publish it without that payload (key, headers, topic and the other envelope fields unchanged) and log a warning carrying only the key fingerprint.
 
 #### Scenario: A dead-letter copy blanks the client id without consent
 - **WHEN** the redacting producer receives a tracking record with `ga_client_id=123.456`, `consent.analytics=false`, a user id and a listing id
@@ -290,6 +290,11 @@ The `consume.DLQProducer` of the tracking and order consumer (`KAFKA_DLQ_TOPIC`)
 - **WHEN** the redacting producer receives a record whose value is not an `EventEnvelope`, and another record whose envelope type is an order event
 - **THEN** both are published with the original value, and the publish error of the wrapped producer is returned unchanged
 - **VERIFIED BY**: team-analytics `internal/events` `TestRedactingDLQPassesOtherRecordsUnchanged`
+
+#### Scenario: A tracking record with an undecodable payload is published without its payload
+- **WHEN** the redacting producer receives a tracking envelope whose payload bytes are not a valid `TrackingEvent` and contain `123.456`
+- **THEN** the published record decodes to the same envelope with an empty payload, the same key and headers, and its value does not contain `123.456`
+- **VERIFIED BY**: team-analytics `internal/events` `TestRedactingDLQDropsUndecodableTrackingPayload`
 
 #### Scenario: A parked tracking batch on the broker carries no client id without consent
 - **WHEN** a tracking record with `ga_client_id=123.456` and `consent.analytics=false` is produced to `analytics.events` on a Redpanda broker and the warehouse writer fails every write

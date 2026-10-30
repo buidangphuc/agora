@@ -146,7 +146,7 @@ func (h *SSEHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if room == "" {
 		room = "global"
 	}
-	code, msg, principal := h.authorizeRoom(r, room)
+	code, msg, principal := h.authorizeRoom(r, room) //nolint:contextcheck
 	if code != 0 {
 		if code == http.StatusUnauthorized {
 			w.Header().Set("WWW-Authenticate", "Bearer")
@@ -172,7 +172,7 @@ func (h *SSEHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer h.broker.Unsubscribe(room, ch)
 
 	// Send initial handshake ping
-	fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"room\":%q}\n\n", room)
+	_, _ = fmt.Fprintf(w, "event: connected\ndata: {\"status\":\"connected\",\"room\":%q}\n\n", room) //nolint:gosec
 	flusher.Flush()
 
 	ticker := time.NewTicker(15 * time.Second)

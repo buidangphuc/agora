@@ -3,10 +3,16 @@ package ga4relay
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/buidangphuc/team-analytics/internal/warehouse"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/consume"
+
+	analyticsv1 "github.com/buidangphuc/team-analytics/generated/platform/analytics/v1"
+	eventsv1 "github.com/buidangphuc/team-analytics/generated/platform/events/v1"
 )
 
 // mappingTTL is how long a buyer -> GA client id mapping lives after the last
@@ -18,50 +24,6 @@ type MappingStore interface {
 	Get(ctx context.Context, buyerID string) (string, bool, error)
 	Put(ctx context.Context, buyerID, clientID string) error
 	Delete(ctx context.Context, buyerID string) error
-}
-
-type memEntry struct {
-	clientID string
-	expires  time.Time
-}
-
-type memoryMappingStore struct {
-	mu  sync.Mutex
-	now func() time.Time
-	m   map[string]memEntry
-}
-
-// NewMemoryMappingStore returns an in-memory MappingStore with 30d expiry.
-func NewMemoryMappingStore(now func() time.Time) MappingStore {
-	return &memoryMappingStore{now: now, m: map[string]memEntry{}}
-}
-
-func (s *memoryMappingStore) Get(_ context.Context, buyerID string) (string, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	e, ok := s.m[buyerID]
-	if !ok {
-		return "", false, nil
-	}
-	if !s.now().Before(e.expires) {
-		delete(s.m, buyerID)
-		return "", false, nil
-	}
-	return e.clientID, true, nil
-}
-
-func (s *memoryMappingStore) Put(_ context.Context, buyerID, clientID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.m[buyerID] = memEntry{clientID: clientID, expires: s.now().Add(mappingTTL)}
-	return nil
-}
-
-func (s *memoryMappingStore) Delete(_ context.Context, buyerID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.m, buyerID)
-	return nil
 }
 
 // MappingHandler maintains the mapping from tracking records.
@@ -89,31 +51,31 @@ func (h *MappingHandler) SkippedCount(reason string) int64 {
 	return h.skipped[reason]
 }
 
-// Handle applies one tracking record to the mapping.
-func (h *MappingHandler) Handle(ctx context.Context, rec warehouse.TrackingRecord) error {
-	if rec.PrincipalID == "" {
-		return nil
-	}
-	if !rec.ConsentAnalytics {
-		h.skip("no_consent")
-		return h.store.Delete(ctx, rec.PrincipalID)
-	}
-	if rec.GaClientID == "" {
-		return nil
-	}
-	return h.store.Put(ctx, rec.PrincipalID, rec.GaClientID)
-}
+const trackingEventType = "platform.analytics.v1.TrackingEvent"
 
-func (s *memoryMappingStore) Purge(_ context.Context) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var n int64
-	now := s.now()
-	for k, e := range s.m {
-		if !now.Before(e.expires) {
-			delete(s.m, k)
-			n++
-		}
+// Handle applies one tracking record to the mapping.
+func (h *MappingHandler) Handle(ctx context.Context, rec consume.Record) error {
+	var env eventsv1.EventEnvelope
+	if err := proto.Unmarshal(rec.Value, &env); err != nil {
+		return consume.Permanent(fmt.Errorf("%w: invalid envelope", ErrDeadLetter))
 	}
-	return n, nil
+	if env.GetType() != trackingEventType {
+		return nil
+	}
+	var te analyticsv1.TrackingEvent
+	if err := proto.Unmarshal(env.GetPayload(), &te); err != nil {
+		return consume.Permanent(fmt.Errorf("%w: invalid tracking event", ErrDeadLetter))
+	}
+	principalID := env.GetPrincipal().GetId()
+	if principalID == "" {
+		return nil
+	}
+	if !te.GetConsent().GetAnalytics() {
+		h.skip("no_consent")
+		return h.store.Delete(ctx, principalID)
+	}
+	if te.GetGaClientId() == "" {
+		return nil
+	}
+	return h.store.Put(ctx, principalID, te.GetGaClientId())
 }

@@ -9,8 +9,8 @@ nothing reaches Google. The relay under test must be deployed with
     GA4_API_SECRET / GA4_MEASUREMENT_ID set
 
 Knobs (env): GA4_MOCK_PORT (18110), GA4_RELAY_CONTAINER (agora-ga4-relay-svc),
-GA4_RELAY_URL (http://localhost:8085, the probe listener), GA4_RELAY_HEALTH_PATH (/healthz),
-GA4_RELAY_READY_PATH (/readyz), GA4_RELAY_DLQ_TOPIC (analytics.ga4-relay.dlq),
+GA4_RELAY_GRPC_ADDR (localhost:50059, the relay's only listener: gRPC health, reflection on locally),
+GA4_RELAY_DLQ_TOPIC (analytics.ga4-relay.dlq),
 GA4_MAPPING_SETTLE_S (3, pipeline settle after producing mapping events),
 E2E_KAFKA_INTRUDER_* (SASL creds of a non-order principal for the forged-event scenario).
 Protobuf is encoded by hand (field numbers from the public protos), no generated stubs.
@@ -42,8 +42,20 @@ def relay_container() -> str:
     return os.getenv("GA4_RELAY_CONTAINER", "agora-ga4-relay-svc")
 
 
-def relay_url() -> str:
-    return os.getenv("GA4_RELAY_URL", "http://localhost:8085").rstrip("/")
+def relay_grpc_addr() -> str:
+    return os.getenv("GA4_RELAY_GRPC_ADDR", "localhost:50059")
+
+
+def health_check(addr: str, service: str = "") -> str:
+    """grpc.health.v1.Health/Check status ("SERVING", ...) or "UNREACHABLE: <reason>"; empty service = overall."""
+    res = subprocess.run(
+        ["grpcurl", "-plaintext", "-max-time", "5", "-d", json.dumps({"service": service}),
+         addr, "grpc.health.v1.Health/Check"],
+        capture_output=True, text=True, timeout=30,
+    )  # fmt: skip
+    if res.returncode != 0:
+        return f"UNREACHABLE: {(res.stderr or res.stdout).strip()[:300]}"
+    return str(json.loads(res.stdout).get("status", "UNKNOWN"))
 
 
 def dlq_topic() -> str:

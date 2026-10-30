@@ -1,0 +1,1 @@
+ALTER TABLE order_outbox_events ALTER COLUMN seq DROP DEFAULT;

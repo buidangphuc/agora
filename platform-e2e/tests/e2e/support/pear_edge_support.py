@@ -257,7 +257,7 @@ def private_gateway(world, overrides: dict[str, str]) -> str:
     args += ["-p", "127.0.0.1::8080"]
     private = {k: v for k, v in env.items() if k not in _PRIVATE_SKIP_ENV}
     private.update(overrides)
-    private["HTTP_PORT"] = "8080"
+    private["GRPC_PORT"] = "8080"
     for key, value in private.items():
         args += ["-e", f"{key}={value}"]
     world.add_cleanup(lambda: docker("rm", "-f", name, check=False))

@@ -1,0 +1,1 @@
+ALTER TABLE order_outbox_events VALIDATE CONSTRAINT order_outbox_events_seq_nn;
