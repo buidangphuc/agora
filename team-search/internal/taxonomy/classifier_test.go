@@ -4,14 +4,15 @@ import (
 	"context"
 	"net"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/upstream"
 	aiv1 "github.com/buidangphuc/team-search/generated/platform/ai/v1"
 	"github.com/buidangphuc/team-search/internal/taxonomy"
 )
@@ -48,12 +49,17 @@ func serve(t *testing.T, f *fakeAI, timeout time.Duration) *taxonomy.GRPCClassif
 	aiv1.RegisterAIServiceServer(srv, f)
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)
-	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	return classifierFor(t, lis.Addr().String(), timeout)
+}
+
+func classifierFor(t *testing.T, addr string, timeout time.Duration) *taxonomy.GRPCClassifier {
+	t.Helper()
+	conn, err := upstream.NewClient(addr, upstream.AsService("service-team-search", "ai.classify"), upstream.WithTimeout(timeout))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
-	return taxonomy.NewGRPCClassifier(aiv1.NewAIServiceClient(conn), timeout)
+	return taxonomy.NewGRPCClassifier(conn)
 }
 
 func tag(group, slug string) *aiv1.ClassifiedTag {
@@ -132,11 +138,7 @@ func TestClassify_ErrorsAreErrorsNotEmptyAnswers(t *testing.T) {
 	if time.Since(start) > time.Second {
 		t.Errorf("deadline not enforced: %v", time.Since(start))
 	}
-	c, conn, err := taxonomy.DialGRPCClassifier("127.0.0.1:1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Close()
+	c := classifierFor(t, "127.0.0.1:1", time.Second)
 	if _, err := c.Classify(context.Background(), taxonomy.Listing{Title: "Tai nghe"}); err == nil {
 		t.Error("unreachable team-ai must be an error")
 	}
@@ -147,5 +149,52 @@ func TestClassify_TooShortTitleIsNothingToClassify(t *testing.T) {
 	res, err := serve(t, f, time.Second).Classify(context.Background(), taxonomy.Listing{Title: " a "})
 	if err != nil || len(res.FacetTags) != 0 || f.gotReq != nil {
 		t.Errorf("res=%+v err=%v called=%v: must not call team-ai", res, err, f.gotReq != nil)
+	}
+}
+
+// Scenario "The classifier call carries the service principal".
+func TestClassifierCallCarriesServicePrincipal(t *testing.T) {
+	f := &fakeAI{resp: &aiv1.ClassifyTagsResponse{}}
+	c := serve(t, f, time.Second)
+	if _, err := c.Classify(context.Background(), taxonomy.Listing{Title: "Tai nghe Bluetooth"}); err != nil {
+		t.Fatal(err)
+	}
+	for k, want := range map[string]string{
+		"x-principal-id":     "service-team-search",
+		"x-principal-type":   "service",
+		"x-principal-scopes": "ai.classify",
+	} {
+		if got := f.gotMD.Get(k); len(got) != 1 || got[0] != want {
+			t.Errorf("%s = %v, want [%s]", k, got, want)
+		}
+	}
+}
+
+// Scenario "The classifier call never carries an end-user principal": even when the
+// indexing context holds a user principal, team-ai only sees the service one.
+func TestClassifierCallNeverCarriesEndUserPrincipal(t *testing.T) {
+	f := &fakeAI{resp: &aiv1.ClassifyTagsResponse{}}
+	c := serve(t, f, time.Second)
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
+		"x-principal-id", "user-42",
+		"x-principal-type", "user",
+		"x-principal-scopes", "search:read listing:write",
+	))
+	if _, err := c.Classify(ctx, taxonomy.Listing{Title: "Tai nghe Bluetooth"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.gotMD.Get("x-principal-id"); len(got) != 1 || got[0] != "service-team-search" {
+		t.Errorf("x-principal-id = %v, want only the service principal", got)
+	}
+	if got := f.gotMD.Get("x-principal-type"); len(got) != 1 || got[0] != "service" {
+		t.Errorf("x-principal-type = %v, want only service", got)
+	}
+	if got := f.gotMD.Get("x-principal-scopes"); len(got) != 1 || got[0] != "ai.classify" {
+		t.Errorf("x-principal-scopes = %v, want only ai.classify", got)
+	}
+	for _, v := range f.gotMD.Get("x-principal-id") {
+		if strings.Contains(v, "user-42") {
+			t.Errorf("end-user id leaked: %v", f.gotMD)
+		}
 	}
 }

@@ -37,7 +37,7 @@ func TestHTTPEmbedClient_EmbedSuccess(t *testing.T) {
 }
 
 func TestHTTPEmbedClient_OpenAIFormat(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data": [{"embedding": [0.5, 0.6]}]}`))
 	}))

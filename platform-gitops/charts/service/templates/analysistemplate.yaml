@@ -3,7 +3,7 @@
 # Canary AnalysisTemplate (add-canary-deploys D4). The Rollout references this by
 # name (<name>-canary) from its `analysis` steps. Metrics query the in-cluster
 # Prometheus that add-prometheus-infra populates with the gateway's per-upstream
-# RED series (marketplace_rpc_client_duration_milliseconds_*, exported by the
+# RED series (marketplace_rpc_client_call_duration_seconds_*, exported by the
 # otel-collector). A metric breaching its failureLimit fails the AnalysisRun, which
 # rolls the canary back to stable; all metrics passing auto-promotes to the next
 # weight. Queries/thresholds are values so each service tunes its own SLO.
@@ -38,7 +38,7 @@ spec:
             /
             clamp_min(sum(rate({{ $a.countMetric }}[{{ $a.range }}])), 1)
             {{- end }}
-    # latency: p95 of the gRPC client duration histogram (already milliseconds).
+    # latency: p95 of the gRPC client duration histogram (seconds, scaled to milliseconds).
     - name: latency-p95
       interval: {{ $a.intervalSeconds }}s
       count: {{ $a.count }}
@@ -51,7 +51,7 @@ spec:
             {{- if $a.latencyQuery }}
             {{ $a.latencyQuery | nindent 12 | trim }}
             {{- else }}
-            histogram_quantile(0.95, sum by (le) (rate({{ $a.bucketMetric }}[{{ $a.range }}])))
+            1000 * histogram_quantile(0.95, sum by (le) (rate({{ $a.bucketMetric }}[{{ $a.range }}])))
             {{- end }}
     # rps-sanity: the canary is actually receiving traffic (guards a false
     # "healthy because idle" — analysis fails/inconclusive if RPS ~ 0).

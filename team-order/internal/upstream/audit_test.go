@@ -2,6 +2,7 @@ package upstream
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"os"
 	"reflect"
@@ -10,7 +11,13 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+
+	"github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auditx"
+	sdkauth "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/auth"
+	sdkconfig "github.com/buidangphuc/agora/platform-core/packages/go-sdk/pkg/config"
 
 	auditv1 "github.com/buidangphuc/team-order/generated/platform/audit/v1"
 )
@@ -55,25 +62,37 @@ func startAuditServer(t *testing.T, srv *recordingAuditServer) string {
 	return lis.Addr().String()
 }
 
-// Scenario: Order audit: Audit call carries the service principal only
-func TestAuditClientUsesServicePrincipal(t *testing.T) {
-	srv := &recordingAuditServer{}
-	c, err := NewAuditClient(startAuditServer(t, srv), 2*time.Second)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: client=%v err=%v", c, err)
+func newAuditWriter(t *testing.T, addr string) *AuditWriter {
+	t.Helper()
+	conn, err := auditx.Dial(sdkconfig.Audit{Addr: addr}, "service-team-order", "audit.write")
+	if err != nil || conn == nil {
+		t.Fatalf("auditx.Dial: conn=%v err=%v", conn, err)
 	}
-	defer c.Close()
+	t.Cleanup(func() { _ = conn.Close() })
+	w := NewAuditWriter(auditv1.NewAuditServiceClient(conn))
+	if w == nil {
+		t.Fatal("NewAuditWriter returned nil")
+	}
+	return w
+}
 
-	admin := metadata.Pairs(
+// Scenario: Order audit: Audit call carries the service principal only
+func TestAuditWriterUsesServicePrincipal(t *testing.T) {
+	srv := &recordingAuditServer{}
+	w := newAuditWriter(t, startAuditServer(t, srv))
+
+	adminMD := metadata.Pairs(
 		"x-principal-id", "admin-1",
 		"x-principal-type", "user",
 		"x-principal-scopes", "admin,order.admin",
 		"authorization", "Bearer admin-token",
 	)
-	ctx := metadata.NewOutgoingContext(metadata.NewIncomingContext(context.Background(), admin), admin)
+	ctx := metadata.NewIncomingContext(context.Background(), adminMD)
+	ctx = sdkauth.WithPrincipal(ctx, sdkauth.Principal{ID: "admin-1", Type: sdkauth.TypeUser, Scopes: []string{"admin", "order.admin"}})
 	meta := map[string]string{"fail_step": "payment"}
-	if err := c.WriteAdminEvent(ctx, "admin-1", "order.force_fail", "order", "ord_1", meta); err != nil {
-		t.Fatalf("WriteAdminEvent: %v", err)
+	ev := auditx.Event{ActorID: "admin-1", Action: "order.force_fail", TargetType: "order", TargetID: "ord_1", Metadata: meta}
+	if err := w.WriteAuditEvent(ctx, ev); err != nil {
+		t.Fatalf("WriteAuditEvent: %v", err)
 	}
 	if srv.attempts() != 1 {
 		t.Fatalf("attempts = %d, want 1", srv.attempts())
@@ -99,40 +118,27 @@ func TestAuditClientUsesServicePrincipal(t *testing.T) {
 }
 
 // Scenario: Order audit: Audit call is bounded by the timeout
-func TestAuditClientTimeoutNoRetry(t *testing.T) {
+func TestAuditWriterTimeoutNoRetry(t *testing.T) {
 	srv := &recordingAuditServer{blocking: true}
-	timeout := 200 * time.Millisecond
-	c, err := NewAuditClient(startAuditServer(t, srv), timeout)
-	if err != nil || c == nil {
-		t.Fatalf("NewAuditClient: client=%v err=%v", c, err)
-	}
-	defer c.Close()
+	w := newAuditWriter(t, startAuditServer(t, srv))
+	gate := auditx.NewGate(w, slog.New(slog.DiscardHandler))
 
+	ran := false
 	start := time.Now()
-	err = c.WriteAdminEvent(context.Background(), "admin-1", "order.force_fail", "order", "ord_1", nil)
+	err := gate.Do(context.Background(), auditx.Event{ActorID: "admin-1", Action: "order.force_fail", TargetType: "order", TargetID: "ord_1"},
+		func(context.Context) error { ran = true; return nil })
 	elapsed := time.Since(start)
-	if err == nil {
-		t.Fatal("want an error when team-audit does not answer")
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("err = %v, want Unavailable", err)
 	}
-	if elapsed > timeout+500*time.Millisecond {
-		t.Fatalf("took %v, want within timeout+500ms", elapsed)
+	if ran {
+		t.Fatal("action ran although the audit write did not complete")
+	}
+	if elapsed > 3*time.Second {
+		t.Fatalf("took %v, want within 3s", elapsed)
 	}
 	if n := srv.attempts(); n != 1 {
 		t.Fatalf("attempts = %d, want exactly 1 (no retry)", n)
-	}
-}
-
-// Scenario: Order audit: Unset audit address yields no client
-func TestNewAuditClientEmptyAddrNil(t *testing.T) {
-	c, err := NewAuditClient("", time.Second)
-	if err != nil {
-		t.Fatalf("err = %v, want nil", err)
-	}
-	if c != nil {
-		t.Fatalf("client = %v, want nil", c)
-	}
-	if err := c.Close(); err != nil {
-		t.Fatalf("Close on nil client = %v, want nil", err)
 	}
 }
 

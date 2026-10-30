@@ -30,6 +30,7 @@ spec:
             port: 50064
           grpcPort: 50064          # native gRPC health probes (grpc.health.v1.Health)
           env:
+            ENV: "local"
             # team-audit sink: audited admin mutations fail closed (Unavailable) when unset.
             UPSTREAM_AUDIT_ADDR: "team-audit:50066"   # same as envs/services
             GRPC_PORT: "50064"
@@ -40,6 +41,10 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
+          probes:
+            livenessService: liveness
+          migrate:
+            enabled: true
           secrets:
             enabled: true
   syncPolicy:

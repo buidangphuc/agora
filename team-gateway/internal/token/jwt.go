@@ -48,6 +48,17 @@ func (v *Verifier) Prime(ctx context.Context) error {
 	return v.keys.refresh(ctx)
 }
 
+// Check reports whether a JWKS fetch has succeeded. It reads state only and
+// never fetches.
+func (v *Verifier) Check(context.Context) error {
+	v.keys.mu.RLock()
+	defer v.keys.mu.RUnlock()
+	if v.keys.lastFetch.IsZero() {
+		return fmt.Errorf("token: JWKS not fetched yet")
+	}
+	return nil
+}
+
 // Verify parses and validates a bearer token, returning its claims. It requires
 // RS256, reads the token's kid, and matches it to a public key in the JWKS. A
 // token must carry `exp` and a non-empty `sub`.

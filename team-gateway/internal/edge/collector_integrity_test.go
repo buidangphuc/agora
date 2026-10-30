@@ -3,7 +3,6 @@ package edge
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +16,7 @@ import (
 
 func postTrack(t *testing.T, e *Edge, pub *mockAnalyticsPublisher, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	h := HandleTrack(e, pub, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	h := HandleTrack(e, pub, slog.New(slog.DiscardHandler))
 	req := httptest.NewRequest(http.MethodPost, "/api/track", bytes.NewReader([]byte(body)))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

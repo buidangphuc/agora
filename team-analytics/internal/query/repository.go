@@ -1,5 +1,5 @@
 // Package query is the read-only seller-analytics query layer: the gRPC
-// AnalyticsQueryService (service.go) over a Repository that aggregates the
+// AnalyticsQueryService (internal/rpc) over a Repository that aggregates the
 // warehouse `tracking_events` table the Kafka consumer populates. It NEVER
 // writes — the TrackingEvent pipeline is the only writer.
 //
@@ -23,6 +23,7 @@ package query
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -182,3 +183,9 @@ type ChannelFunnelRow struct {
 type ChannelFunnelRepository interface {
 	ChannelFunnel(ctx context.Context, sellerID string, from, to time.Time) ([]ChannelFunnelRow, error)
 }
+
+// ErrUnsupported marks a capability the warehouse does not provide.
+var ErrUnsupported = errors.New("query: unsupported on this warehouse")
+
+// defaultTopSKULimit caps top-SKU rows when the caller does not.
+const defaultTopSKULimit = 10

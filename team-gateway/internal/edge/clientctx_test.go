@@ -2,7 +2,6 @@ package edge_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +27,7 @@ func clientMD(t *testing.T, trusted string, hdr map[string]string) (ip, ua []str
 	}
 	spy := &upstreamSpy{}
 	e := edge.NewEdge(nil, []string{"listing.read", "search:read"}, time.Second, 0, 1000, 1000).WithTrustedProxies(tp)
-	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.NewTextHandler(io.Discard, nil)))...)
+	opts := connect.WithInterceptors(e.Interceptors(slog.New(slog.DiscardHandler))...)
 	mux := http.NewServeMux()
 	p, h := searchv1connect.NewSearchServiceHandler(edge.NewSearchForwarder(spySearch{spy: spy}, e), opts)
 	mux.Handle(p, h)

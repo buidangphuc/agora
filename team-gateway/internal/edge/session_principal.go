@@ -21,7 +21,7 @@ func HandleSessionPrincipal(e *Edge) http.HandlerFunc {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		claims, err := e.verifyToken(tok)
+		claims, err := e.verifyToken(tok) //nolint:contextcheck
 		if err != nil || claims.Subject == "" {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
