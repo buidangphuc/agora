@@ -114,12 +114,14 @@ export function BundleManager({
           <form onSubmit={submit} noValidate className="space-y-4">
             <fieldset disabled={pending} className="m-0 space-y-4 border-0 p-0">
               <Input
+                required
                 label="Tên combo"
                 error={shown("title")}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
               <Input
+                required
                 label="Giá combo (₫)"
                 error={shown("price")}
                 type="number"

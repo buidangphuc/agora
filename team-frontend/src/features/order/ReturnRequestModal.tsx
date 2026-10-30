@@ -155,6 +155,7 @@ export function ReturnRequestModal({
         )}
 
         <Input
+          required
           label="Số tiền hoàn (₫)"
           error={errors.amount}
           helperText={

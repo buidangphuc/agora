@@ -46,6 +46,7 @@ export function ShopProfileForm({ initialName }: { initialName: string }) {
       <CardContent>
         <form onSubmit={submit} noValidate className="max-w-xl space-y-4">
           <Input
+            required
             label="Tên gian hàng"
             error={shown ?? undefined}
             helperText={

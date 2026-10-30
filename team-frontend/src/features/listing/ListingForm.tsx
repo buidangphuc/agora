@@ -437,6 +437,7 @@ export function ListingForm({
         <Section title="Giá & tồn kho">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Input
+              required
               label="Giá bán (₫)"
               error={errorOf("price")}
               id="price"
@@ -452,6 +453,7 @@ export function ListingForm({
               placeholder="VD: 29990000"
             />
             <Input
+              required
               label="Kho hàng"
               error={errorOf("stock")}
               id="stock"

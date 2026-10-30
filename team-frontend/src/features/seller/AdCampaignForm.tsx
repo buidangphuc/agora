@@ -128,6 +128,7 @@ export function AdCampaignForm({
               </FormItem>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Input
+                  required
                   label="Ngân sách (₫)"
                   error={shown("budget")}
                   type="number"
@@ -136,6 +137,7 @@ export function AdCampaignForm({
                   onChange={(e) => setBudget(e.target.value)}
                 />
                 <Input
+                  required
                   label="Giá thầu mỗi lượt (₫)"
                   error={shown("bid")}
                   type="number"
