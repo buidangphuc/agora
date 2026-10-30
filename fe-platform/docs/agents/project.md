@@ -43,3 +43,6 @@ Biome 1.9.4, TypeScript ^5.6, Next ^15.5, React ^19.3, Vitest ^5.0, Tailwind ^3.
 Nothing planned; P0 to P6 are built. Tracker: none; work goes through OpenSpec changes in `openspec/changes/`.
 
 Backend gaps the template works around honestly are listed in `docs/gaps.md`; check it before adding a screen that needs data the contract may not return.
+
+## Vendored packages for the apps
+`team-frontend` (and later the seller and admin apps) consume `tokens`, `ui` and `api-client` as tarballs in their own `vendor/` directory (ADR-0006), because their Docker builds see only their own directory. After changing any of those packages run `npm run vendor` here, then commit the tarballs and the app's `package-lock.json` (run `npm install` in the app). `npm run vendor:check` is part of `npm run check` and fails when a tarball differs from a fresh pack; targets are listed in `package.json` under `vendor.targets`. A Dockerfile must `COPY vendor ./vendor` before `npm ci`.
