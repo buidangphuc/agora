@@ -12,7 +12,7 @@ export function StatusFilter({ value }: { value: string }) {
     <select
       value={value}
       onChange={(e) => router.push(`${pathname}?status=${e.target.value}`)}
-      className="rounded-md border px-3 py-1.5 text-sm outline-none focus:border-brand"
+      className="rounded-md border px-3 py-1.5 text-sm outline-none focus:border-action-primary"
     >
       <option value="published">Đang bán</option>
       <option value="all">Tất cả</option>

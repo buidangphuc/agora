@@ -41,7 +41,7 @@ export function LoyaltyWidget({ initial }: { initial: ViewLoyalty }) {
   }
 
   return (
-    <section className="flex items-center justify-between gap-3 rounded-xs border border-yellow-200 bg-yellow-50 px-4 py-3 shadow-shopee">
+    <section className="flex items-center justify-between gap-3 rounded-xs border border-yellow-200 bg-yellow-50 px-4 py-3 shadow-card">
       <div className="flex items-center gap-3 text-sm">
         <span className="text-2xl">🪙</span>
         <div>
@@ -50,7 +50,7 @@ export function LoyaltyWidget({ initial }: { initial: ViewLoyalty }) {
             Chuỗi ngày: <strong>{streak}</strong> · Số dư:{" "}
             <strong>{coins.toLocaleString("vi-VN")} xu</strong>
             {earned !== null && (
-              <span className="ml-1 text-emerald-700">(+{earned})</span>
+              <span className="ml-1 text-text-success">(+{earned})</span>
             )}
           </p>
         </div>
@@ -59,7 +59,7 @@ export function LoyaltyWidget({ initial }: { initial: ViewLoyalty }) {
         type="button"
         onClick={checkIn}
         disabled={pending}
-        className="rounded-md bg-brand px-4 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:opacity-90 disabled:opacity-50"
+        className="rounded-md bg-action-primary px-4 py-1.5 text-xs font-semibold text-text-inverse shadow-xs transition hover:opacity-90 disabled:opacity-50"
       >
         {pending ? "Đang điểm danh..." : "Điểm danh"}
       </button>

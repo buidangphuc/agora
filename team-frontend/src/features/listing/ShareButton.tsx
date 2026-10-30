@@ -55,7 +55,7 @@ export function ShareButton({ id }: { id: string }) {
         type="button"
         onClick={share}
         disabled={pending}
-        className="rounded-md border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        className="rounded-md border border-border-subtle bg-surface-card px-3 py-1 text-xs font-medium text-text-secondary hover:bg-surface-page disabled:opacity-50"
       >
         {pending
           ? "Đang tạo..."
@@ -64,7 +64,7 @@ export function ShareButton({ id }: { id: string }) {
             : "🔗 Chia sẻ"}
       </button>
       {shortCode && (
-        <span className="max-w-44 truncate font-mono text-xs text-gray-400">
+        <span className="max-w-44 truncate font-mono text-xs text-text-disabled">
           {shareLink()}
         </span>
       )}

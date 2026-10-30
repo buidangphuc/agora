@@ -12,7 +12,7 @@ async function AuthNav() {
   const principal = getPrincipal();
   if (!principal) {
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-inverse">
         <Link
           href="/register"
           className="hover:text-white/80 font-medium transition"
@@ -31,7 +31,7 @@ async function AuthNav() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-inverse">
       <Link href="/account/orders" className="hover:text-white/80 transition">
         Đơn Mua
       </Link>
@@ -59,7 +59,7 @@ async function AuthNav() {
       </Link>
       <span className="hidden text-white/30 sm:inline">|</span>
       <div className="flex items-center gap-1.5 font-semibold">
-        <div className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-xs text-white">
+        <div className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-xs text-text-inverse">
           👤
         </div>
         <span className="max-w-32 truncate">{principal.name}</span>
@@ -67,7 +67,7 @@ async function AuthNav() {
       <form action={logoutAction} className="inline">
         <button
           type="submit"
-          className="text-white/70 hover:text-white underline text-xs cursor-pointer ml-1"
+          className="text-white/70 hover:text-text-inverse underline text-xs cursor-pointer ml-1"
         >
           Đăng xuất
         </button>
@@ -87,7 +87,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
   return (
     <>
       {/* ── Signature Gradient Header ── */}
-      <header className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-600 text-white sticky top-0 z-30 shadow-md">
+      <header className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-600 text-text-inverse sticky top-0 z-30 shadow-md">
         {/* 1. Top Utility Navigation Bar */}
         <div className="text-sm py-1.5 border-b border-white/10">
           <div className="mx-auto flex max-w-page flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4">
@@ -95,14 +95,14 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-white/90">
               <Link
                 href="/seller"
-                className="hover:text-white transition font-normal"
+                className="hover:text-text-inverse transition font-normal"
               >
                 Kênh Người Bán
               </Link>
               <span className="text-white/30">|</span>
               <Link
                 href="/assistant"
-                className="hover:text-white transition font-bold bg-white/20 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs"
+                className="hover:text-text-inverse transition font-bold bg-white/20 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs"
               >
                 <span>🤖</span>
                 <span>AI Assistant</span>
@@ -151,7 +151,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/90">
               <Link
                 href="/notifications"
-                className="flex items-center gap-1 hover:text-white transition"
+                className="flex items-center gap-1 hover:text-text-inverse transition"
               >
                 <svg
                   className="w-3.5 h-3.5 fill-current"
@@ -166,7 +166,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
               </Link>
               <Link
                 href="/vouchers"
-                className="hover:text-white transition flex items-center gap-1"
+                className="hover:text-text-inverse transition flex items-center gap-1"
               >
                 <svg
                   className="w-3.5 h-3.5 fill-current"
@@ -179,7 +179,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                 </svg>
                 <span>Kho Voucher</span>
               </Link>
-              <span className="hover:text-white transition cursor-pointer hidden items-center gap-1 md:flex">
+              <span className="hover:text-text-inverse transition cursor-pointer hidden items-center gap-1 md:flex">
                 <svg
                   className="w-3.5 h-3.5 fill-current"
                   viewBox="0 0 24 24"
@@ -191,7 +191,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
                 </svg>
                 <span>Hỗ Trợ</span>
               </span>
-              <span className="hover:text-white transition cursor-pointer hidden items-center gap-1 md:flex">
+              <span className="hover:text-text-inverse transition cursor-pointer hidden items-center gap-1 md:flex">
                 <svg
                   className="w-3.5 h-3.5 fill-current"
                   viewBox="0 0 24 24"
@@ -214,9 +214,9 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2.5 text-white shrink-0 hover:opacity-95 transition"
+            className="flex items-center gap-2.5 text-text-inverse shrink-0 hover:opacity-95 transition"
           >
-            <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-white/20 text-xl font-bold text-white shadow-inner">
+            <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-white/20 text-xl font-bold text-text-inverse shadow-inner">
               🛍️
             </div>
             <div className="flex flex-col">
@@ -239,7 +239,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
           {/* Cart Icon with Live Counter */}
           <Link
             href="/cart"
-            className="relative flex items-center p-2 text-white hover:opacity-90 shrink-0 transition"
+            className="relative flex items-center p-2 text-text-inverse hover:opacity-90 shrink-0 transition"
           >
             <svg
               className="w-7 h-7 fill-white"
@@ -251,7 +251,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
               <path d="M10 19.5c0 .829-.672 1.5-1.5 1.5s-1.5-.671-1.5-1.5c0-.828.672-1.5 1.5-1.5s1.5.672 1.5 1.5zm3.5-1.5c-.828 0-1.5.671-1.5 1.5s.672 1.5 1.5 1.5 1.5-.671 1.5-1.5c0-.828-.672-1.5-1.5-1.5zm1.33-2l.9-5h-10.33l-.4-2h-2v2h1.24l1.6 8h10.45l-.46-3zm-1.83-6l-.54 3h-8.06l-.6-3h9.2z" />
             </svg>
             {cart.totalItems > 0 && (
-              <span className="absolute -top-1 right-0 grid h-5 min-w-5 place-items-center rounded-full bg-white px-1 text-xs font-black text-brand shadow-md">
+              <span className="absolute -top-1 right-0 grid h-5 min-w-5 place-items-center rounded-full bg-surface-card px-1 text-xs font-black text-action-primary shadow-md">
                 {cart.totalItems}
               </span>
             )}
@@ -260,7 +260,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* ── Architectural & Educational Disclaimer Banner ── */}
-      <div className="bg-amber-50 border-b border-amber-200 text-slate-800 text-xs py-2.5 px-4 shadow-xs">
+      <div className="bg-amber-50 border-b border-amber-200 text-text-primary text-xs py-2.5 px-4 shadow-xs">
         <div className="mx-auto max-w-page flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-start sm:items-center gap-2.5">
             <span className="text-base leading-none">💡</span>
@@ -299,36 +299,42 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
       {/* ── Footer ── */}
       <footer
         data-testid="shell-footer"
-        className="mt-16 border-t-4 border-brand bg-white text-gray-600 text-xs"
+        className="mt-16 border-t-4 border-action-primary bg-surface-card text-text-secondary text-xs"
       >
         <div className="mx-auto max-w-page px-4 py-10 grid grid-cols-2 md:grid-cols-5 gap-8">
           <div>
-            <h4 className="font-bold text-gray-800 uppercase mb-3 text-xs tracking-wider">
+            <h4 className="font-bold text-text-primary uppercase mb-3 text-xs tracking-wider">
               CHĂM SÓC KHÁCH HÀNG
             </h4>
-            <ul className="space-y-2 text-gray-500 text-xs">
+            <ul className="space-y-2 text-text-secondary text-xs">
               <li>
-                <Link href="/search" className="hover:text-brand">
+                <Link href="/search" className="hover:text-action-primary">
                   Trung Tâm Trợ Giúp
                 </Link>
               </li>
               <li>
-                <Link href="/search" className="hover:text-brand">
+                <Link href="/search" className="hover:text-action-primary">
                   Hướng Dẫn Mua Hàng
                 </Link>
               </li>
               <li>
-                <Link href="/account/orders" className="hover:text-brand">
+                <Link
+                  href="/account/orders"
+                  className="hover:text-action-primary"
+                >
                   Tra Cứu Đơn Hàng & Vận Đơn
                 </Link>
               </li>
               <li>
-                <Link href="/account/orders" className="hover:text-brand">
+                <Link
+                  href="/account/orders"
+                  className="hover:text-action-primary"
+                >
                   Chính Sách Trả Hàng & Hoàn Tiền (RMA)
                 </Link>
               </li>
               <li>
-                <Link href="/chat" className="hover:text-brand">
+                <Link href="/chat" className="hover:text-action-primary">
                   Chăm Sóc Khách Hàng 24/7
                 </Link>
               </li>
@@ -336,37 +342,43 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
           </div>
 
           <div>
-            <h4 className="font-bold text-gray-800 uppercase mb-3 text-xs tracking-wider">
+            <h4 className="font-bold text-text-primary uppercase mb-3 text-xs tracking-wider">
               VỀ MARKETPLACE
             </h4>
-            <ul className="space-y-2 text-gray-500 text-xs">
+            <ul className="space-y-2 text-text-secondary text-xs">
               <li>
-                <Link href="/" className="hover:text-brand">
+                <Link href="/" className="hover:text-action-primary">
                   Giới Thiệu Đồ Án
                 </Link>
               </li>
               <li>
-                <Link href="/admin/cockpit" className="hover:text-brand">
+                <Link
+                  href="/admin/cockpit"
+                  className="hover:text-action-primary"
+                >
                   Admin Observability Cockpit
                 </Link>
               </li>
               <li>
-                <Link href="/admin/listings" className="hover:text-brand">
+                <Link
+                  href="/admin/listings"
+                  className="hover:text-action-primary"
+                >
                   Kiểm duyệt tin đăng
                 </Link>
               </li>
               <li>
-                <Link href="/admin/cases" className="hover:text-brand">
+                <Link href="/admin/cases" className="hover:text-action-primary">
                   Hộp thư vụ việc
                 </Link>
               </li>
               <li>
-                <Link href="/seller" className="hover:text-brand">
+                <Link href="/seller" className="hover:text-action-primary">
                   Kênh Người Bán & Quản Lý Kho
                 </Link>
               </li>
               <li>
-                <Link href="/vouchers" className="hover:text-brand">
+                <Link href="/vouchers" className="hover:text-action-primary">
                   Kho Voucher Khuyến Mãi
                 </Link>
               </li>
@@ -374,57 +386,59 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
           </div>
 
           <div>
-            <h4 className="font-bold text-gray-800 uppercase mb-3 text-xs tracking-wider">
+            <h4 className="font-bold text-text-primary uppercase mb-3 text-xs tracking-wider">
               THANH TOÁN
             </h4>
-            <div className="grid grid-cols-3 gap-2 text-gray-600 text-xs font-medium">
-              <span className="p-1.5 border border-gray-200 rounded bg-white text-center shadow-2xs font-bold">
+            <div className="grid grid-cols-3 gap-2 text-text-secondary text-xs font-medium">
+              <span className="p-1.5 border border-border-subtle rounded bg-surface-card text-center shadow-2xs font-bold">
                 VietQR
               </span>
-              <span className="p-1.5 border border-gray-200 rounded bg-white text-center shadow-2xs">
+              <span className="p-1.5 border border-border-subtle rounded bg-surface-card text-center shadow-2xs">
                 Visa
               </span>
-              <span className="p-1.5 border border-gray-200 rounded bg-white text-center shadow-2xs">
+              <span className="p-1.5 border border-border-subtle rounded bg-surface-card text-center shadow-2xs">
                 Master
               </span>
-              <span className="p-1.5 border border-gray-200 rounded bg-white text-center shadow-2xs">
+              <span className="p-1.5 border border-border-subtle rounded bg-surface-card text-center shadow-2xs">
                 MoMo
               </span>
-              <span className="p-1.5 border border-gray-200 rounded bg-white text-center shadow-2xs">
+              <span className="p-1.5 border border-border-subtle rounded bg-surface-card text-center shadow-2xs">
                 COD
               </span>
-              <span className="p-1.5 border border-gray-200 rounded bg-white text-center shadow-2xs">
+              <span className="p-1.5 border border-border-subtle rounded bg-surface-card text-center shadow-2xs">
                 ZaloPay
               </span>
             </div>
           </div>
 
           <div>
-            <h4 className="font-bold text-gray-800 uppercase mb-3 text-xs tracking-wider">
+            <h4 className="font-bold text-text-primary uppercase mb-3 text-xs tracking-wider">
               ĐƠN VỊ VẬN CHUYỂN
             </h4>
-            <div className="grid grid-cols-2 gap-2 text-gray-600 text-xs font-medium">
-              <span className="p-1.5 border border-gray-200 rounded bg-white text-center font-bold text-brand shadow-2xs">
+            <div className="grid grid-cols-2 gap-2 text-text-secondary text-xs font-medium">
+              <span className="p-1.5 border border-border-subtle rounded bg-surface-card text-center font-bold text-action-primary shadow-2xs">
                 SPX Express
               </span>
-              <span className="p-1.5 border border-gray-200 rounded bg-white text-center shadow-2xs">
+              <span className="p-1.5 border border-border-subtle rounded bg-surface-card text-center shadow-2xs">
                 GHTK
               </span>
-              <span className="p-1.5 border border-gray-200 rounded bg-white text-center shadow-2xs">
+              <span className="p-1.5 border border-border-subtle rounded bg-surface-card text-center shadow-2xs">
                 GHN
               </span>
-              <span className="p-1.5 border border-gray-200 rounded bg-white text-center shadow-2xs">
+              <span className="p-1.5 border border-border-subtle rounded bg-surface-card text-center shadow-2xs">
                 Viettel Post
               </span>
             </div>
           </div>
 
           <div>
-            <h4 className="font-bold text-gray-800 uppercase mb-3 text-xs tracking-wider">
+            <h4 className="font-bold text-text-primary uppercase mb-3 text-xs tracking-wider">
               KIẾN TRÚC HỆ THỐNG
             </h4>
-            <div className="space-y-1.5 text-gray-500 text-xs">
-              <p className="font-bold text-slate-800">Polyrepo Microservices</p>
+            <div className="space-y-1.5 text-text-secondary text-xs">
+              <p className="font-bold text-text-primary">
+                Polyrepo Microservices
+              </p>
               <p>• Next.js 14 App Router SSR</p>
               <p>• Envoy / Connect Edge Gateway</p>
               <p>• 8 Go gRPC Services</p>
@@ -433,7 +447,7 @@ export async function ConsumerShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <div className="border-t bg-gray-50 py-6 text-center text-gray-500 text-xs space-y-1">
+        <div className="border-t bg-surface-page py-6 text-center text-text-secondary text-xs space-y-1">
           <p>
             © 2026 Marketplace Showcase Polyrepo. Xây dựng phục vụ mục đích học
             tập & nghiên cứu kiến trúc hệ thống.

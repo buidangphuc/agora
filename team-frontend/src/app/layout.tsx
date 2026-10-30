@@ -20,7 +20,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="vi">
-      <body className="bg-gray-50 text-gray-900 flex flex-col min-h-screen font-sans antialiased">
+      <body className="bg-surface-page text-text-primary flex flex-col min-h-screen font-sans antialiased">
         <AnalyticsProvider>
           <ToastProvider>{children}</ToastProvider>
         </AnalyticsProvider>

@@ -90,8 +90,8 @@ function ToggleButton({
       disabled={pending}
       className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition disabled:opacity-60 ${
         active
-          ? "border-brand bg-orange-50 text-brand"
-          : "border-gray-300 text-gray-700 hover:border-brand hover:text-brand"
+          ? "border-action-primary bg-primary-50 text-action-primary"
+          : "border-border-strong text-text-secondary hover:border-action-primary hover:text-action-primary"
       }`}
     >
       <span>{meta.icon}</span>
@@ -113,7 +113,7 @@ export function AlertToggle({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs text-gray-500">🔔 Nhận thông báo:</span>
+      <span className="text-xs text-text-secondary">🔔 Nhận thông báo:</span>
       <ToggleButton
         listingId={listingId}
         kind="price_drop"

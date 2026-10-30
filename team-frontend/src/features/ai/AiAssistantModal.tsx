@@ -157,7 +157,7 @@ export function AiAssistantModal({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 via-brand to-red-600 px-4 py-3 text-xs font-bold text-white shadow-xl hover:scale-105 transition duration-200 border-2 border-white/80 animate-pulse"
+        className="fixed bottom-24 right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-primary-500 via-primary-600 to-red-600 px-4 py-3 text-xs font-bold text-text-inverse shadow-xl hover:scale-105 transition duration-200 border-2 border-white/80 animate-pulse"
       >
         <span className="text-base">🤖</span>
         <span>Trợ Lý Mua Sắm AI</span>
@@ -166,9 +166,9 @@ export function AiAssistantModal({
       {/* AI Modal */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="flex flex-col h-modal w-full max-w-2xl rounded-3xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="flex flex-col h-modal w-full max-w-2xl rounded-3xl bg-surface-card shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
             {/* Header */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-brand to-orange-600 p-4 text-white">
+            <div className="flex items-center justify-between bg-gradient-to-r from-primary-600 to-primary-600 p-4 text-text-inverse">
               <div className="flex items-center gap-2.5">
                 <span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/20 text-xl backdrop-blur-xs">
                   🤖
@@ -177,7 +177,7 @@ export function AiAssistantModal({
                   <h3 className="font-bold text-sm">
                     Marketplace AI Shopping Assistant
                   </h3>
-                  <p className="text-xs text-orange-100">
+                  <p className="text-xs text-primary-100">
                     Trợ lý tìm kiếm ngữ nghĩa & gợi ý sản phẩm thông minh bằng
                     AI
                   </p>
@@ -186,20 +186,20 @@ export function AiAssistantModal({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded-full bg-black/20 p-2 text-xs text-white hover:bg-black/40 transition"
+                className="rounded-full bg-black/20 p-2 text-xs text-text-inverse hover:bg-black/40 transition"
               >
                 ✕
               </button>
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs bg-gray-50/50">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs bg-neutral-50/50">
               {/* Intro bubble */}
               <div className="flex gap-3 items-start">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand text-white text-xs">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-action-primary text-text-inverse text-xs">
                   AI
                 </div>
-                <div className="rounded-2xl rounded-tl-none bg-white p-3.5 shadow-xs border border-gray-100 max-w-md text-gray-800 leading-relaxed">
+                <div className="rounded-2xl rounded-tl-none bg-surface-card p-3.5 shadow-xs border border-border-subtle max-w-md text-text-primary leading-relaxed">
                   👋 Xin chào! Mình là **Trợ lý AI Marketplace**. Hãy nói cho
                   mình biết bạn đang tìm mua gì, ngân sách bao nhiêu, hoặc mô tả
                   phong cách bạn muốn, mình sẽ gợi ý sản phẩm phù hợp nhất ngay!
@@ -208,7 +208,7 @@ export function AiAssistantModal({
 
               {/* Suggestions pills */}
               <div className="space-y-1.5 pl-11">
-                <p className="text-xs font-semibold text-gray-500">
+                <p className="text-xs font-semibold text-text-secondary">
                   Câu hỏi gợi ý:
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -217,7 +217,7 @@ export function AiAssistantModal({
                       key={q}
                       type="button"
                       onClick={() => handleSearch(q)}
-                      className="rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-brand border border-brand/30 hover:bg-brand hover:text-white transition"
+                      className="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-action-primary border border-primary-600/30 hover:bg-action-primary hover:text-text-inverse transition"
                     >
                       {q}
                     </button>
@@ -228,8 +228,8 @@ export function AiAssistantModal({
               {/* AI Response Output */}
               {loading ? (
                 <div className="flex gap-3 items-start pl-11">
-                  <div className="flex items-center gap-2 rounded-2xl bg-white p-3.5 shadow-xs border border-gray-100 text-gray-500">
-                    <span className="inline-block animate-spin text-brand">
+                  <div className="flex items-center gap-2 rounded-2xl bg-surface-card p-3.5 shadow-xs border border-border-subtle text-text-secondary">
+                    <span className="inline-block animate-spin text-action-primary">
                       ⚙️
                     </span>
                     <span>
@@ -241,7 +241,7 @@ export function AiAssistantModal({
               ) : response ? (
                 <div className="space-y-3 pl-11">
                   {/* AI Reasoning Advice */}
-                  <div className="rounded-2xl bg-orange-50/70 p-3.5 border border-brand/20 text-gray-800 leading-relaxed">
+                  <div className="rounded-2xl bg-primary-50/70 p-3.5 border border-primary-600/20 text-text-primary leading-relaxed">
                     {response.advice}
                   </div>
 
@@ -256,10 +256,10 @@ export function AiAssistantModal({
                       return (
                         <div
                           key={product.id}
-                          className="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-3 shadow-2xs hover:border-brand transition"
+                          className="flex flex-col justify-between rounded-2xl border border-border-subtle bg-surface-card p-3 shadow-2xs hover:border-action-primary transition"
                         >
                           <div className="flex gap-3">
-                            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-surface-muted">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={imageSrc}
@@ -268,26 +268,26 @@ export function AiAssistantModal({
                               />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <span className="inline-block rounded-xs bg-emerald-50 px-1.5 py-0.2 text-xs font-bold text-emerald-700">
+                              <span className="inline-block rounded-xs bg-emerald-50 px-1.5 py-0.2 text-xs font-bold text-text-success">
                                 ⭐ {matchScore}% Khớp ý định
                               </span>
-                              <h4 className="line-clamp-2 text-xs font-bold text-gray-900 mt-1">
+                              <h4 className="line-clamp-2 text-xs font-bold text-text-primary mt-1">
                                 {product.title}
                               </h4>
-                              <p className="text-xs font-black text-brand mt-1">
+                              <p className="text-xs font-black text-action-primary mt-1">
                                 {formatPrice(product.price)}
                               </p>
                             </div>
                           </div>
 
-                          <div className="mt-2.5 rounded-lg bg-gray-50 p-2 text-xs text-gray-600 leading-tight border border-gray-100">
+                          <div className="mt-2.5 rounded-lg bg-surface-page p-2 text-xs text-text-secondary leading-tight border border-border-subtle">
                             💡 <strong>Lý do chọn:</strong> {reason}
                           </div>
 
                           <Link
                             href={`/listing/${product.id}`}
                             onClick={() => setIsOpen(false)}
-                            className="mt-2.5 block text-center rounded-xl bg-brand py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-brand-dark transition"
+                            className="mt-2.5 block text-center rounded-xl bg-action-primary py-1.5 text-xs font-bold text-text-inverse shadow-2xs hover:bg-action-primary-hover transition"
                           >
                             Xem Chi Tiết & Mua Ngay
                           </Link>
@@ -305,19 +305,19 @@ export function AiAssistantModal({
                 e.preventDefault();
                 handleSearch(query);
               }}
-              className="flex items-center gap-2 border-t bg-white p-3.5"
+              className="flex items-center gap-2 border-t bg-surface-card p-3.5"
             >
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Nhập yêu cầu tìm kiếm (VD: Tìm chuột công thái học, áo gió thể thao...)"
-                className="flex-1 rounded-xl border border-gray-300 p-2.5 text-xs text-gray-800 outline-none focus:border-brand"
+                className="flex-1 rounded-xl border border-border-strong p-2.5 text-xs text-text-primary outline-none focus:border-action-primary"
               />
               <button
                 type="submit"
                 disabled={!query.trim() || loading}
-                className="rounded-xl bg-brand px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-brand-dark transition disabled:opacity-50"
+                className="rounded-xl bg-action-primary px-5 py-2.5 text-xs font-bold text-text-inverse shadow-xs hover:bg-action-primary-hover transition disabled:opacity-50"
               >
                 Gửi AI
               </button>
