@@ -1,5 +1,4 @@
-import { Table } from "@fe-platform/ui";
-import Link from "next/link";
+import { Link, Table } from "@fe-platform/ui";
 import { gatewayClients, loadProducts } from "../../../lib/products";
 
 export const dynamic = "force-dynamic";

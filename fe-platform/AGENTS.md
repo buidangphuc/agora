@@ -2,7 +2,7 @@
 
 AI-ready frontend platform template: shared packages plus a Next.js app shell, with conventions enforced by commands.
 
-- Read `docs/agents/frontend.md` (guidelines) before writing UI.
+- Read `docs/agents/frontend.md` (guidelines) before writing UI, and `docs/agents/catalog.json` for every component (props, variants, sizes, client or server) and token name. The catalog is generated from code (`npm run catalog`); never edit it by hand.
 - Run `npm run check` before reporting done; facts in `docs/agents/project.md`.
 - Decisions: `docs/ADR/`. Token authority: `packages/tokens/src/tokens.mjs`; origin of the starting values: `docs/tokens-starting-values.md`.
 - Build screens from `@fe-platform/ui` components; do not hand-roll buttons, fields, dialogs, toasts or tables. Components take `variant`/`size`, never `className` or `style`. Client components (Select, Checkbox, Dialog, Toast) carry `"use client"`; add it to any file that uses hooks or Radix.

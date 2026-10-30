@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { scanImports } from "./check-boundaries.mjs";
 import { scanDisables } from "./check-disables.mjs";
 import { scanTokens } from "./check-tokens.mjs";
+import { measure } from "./experiment-metrics.mjs";
 
 describe("scanImports", () => {
   it("flags a public route importing internal code", () => {
@@ -115,5 +116,21 @@ describe("scanTokens", () => {
     expect(scanTokens('const a = "bg-surface-card p-4 rounded-lg";')).toEqual(
       [],
     );
+  });
+});
+
+describe("measure", () => {
+  it("counts button variants and spacing classes", () => {
+    const m = measure(
+      '<div className="p-4 gap-2 rounded-lg text-sm"><Button>Pay</Button><Button variant="ghost">Back</Button></div>',
+    );
+    expect(m.buttons).toEqual({
+      total: 2,
+      primary: 1,
+      variants: ["ghost", "primary"],
+    });
+    expect(m.classes.spacing).toEqual(["gap-2", "p-4"]);
+    expect(m.classes.radius).toEqual(["rounded-lg"]);
+    expect(m.classes.text).toEqual(["text-sm"]);
   });
 });

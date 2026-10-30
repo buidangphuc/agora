@@ -1,15 +1,18 @@
-# Frontend guidelines v0
+# Frontend guidelines v1
 
-Short on purpose. Revise from what the P5 five-screen experiment shows going wrong.
+Components, props and token names: `docs/agents/catalog.json` (generated; `npm run catalog`).
+
+Short on purpose. v1 changes come from `docs/experiments/p5-five-screens.md`; finding numbers in brackets.
 
 ## Hierarchy
 - One primary action per view; secondary beside it; danger only for destructive actions.
-- Never two primary buttons in one view. Navigation is a link, not a button-styled link.
+- Never two primary buttons in one view. Navigation is a `Link`, never a button-styled link and never a bare `next/link` or `<a>`, which render like body text [1]. Button is for actions on the current page.
 
 ## Spacing and layout
 - Use the spacing, radius and type scale from tokens only: no arbitrary values, no raw colours.
 - Controls use the control radius, cards the card radius; do not mix within a screen.
-- Page content sits in the page container; forms are a single column.
+- A page is `<main className="flex flex-col gap-4 p-6">` with one `<h1 className="text-2xl">`; use `gap-3` only inside a form block. There is no page-container component [2]. Forms are a single column.
+- A form that carries personal data (name, address, phone, email) uses POST or a server action, never a GET form or the query string [3]. Validate on the server; native `required` alone is not validation [5].
 
 ## States
 - Every interactive component shows default, hover, focus-visible, active, disabled, loading and error where they apply. Do not improvise a missing state; add it to the component.
