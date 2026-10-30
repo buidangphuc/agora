@@ -9,12 +9,12 @@ export type ButtonProps = NativeProps<"button"> & {
   variant?: keyof typeof button.variant;
   size?: keyof typeof button.size;
   loading?: boolean;
-  fullWidth?: boolean;
+  fullWidth?: boolean | "mobile";
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
 };
 
-/** Action trigger. One `primary` per view; `ghost` for low-emphasis actions; `danger` for destructive ones. */
+/** Action trigger. One `primary` per view; `ghost` for low-emphasis actions; `danger` for destructive ones; `fullWidth="mobile"` is full width below the sm breakpoint only. */
 export function Button({
   variant = "primary",
   size = "md",
@@ -38,7 +38,9 @@ export function Button({
         button.base,
         button.variant[variant],
         button.size[size],
-        fullWidth && button.fullWidth,
+        fullWidth === "mobile"
+          ? button.fullWidthMobile
+          : fullWidth && button.fullWidth,
         inactive && button.disabled,
       )}
     >
