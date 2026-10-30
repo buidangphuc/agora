@@ -13,6 +13,9 @@ Status: compose service `team-frontend-admin`, port `:3002`. Stack: React 19, Ta
 | `/` | Redirects to `/admin/cockpit` | none |
 | `/login` | Admin sign-in (no registration link, no sign-up route) | public |
 | `/admin/cockpit`, `/admin/listings`, `/admin/cases`, `/admin/users`, `/admin/audit` | Ops cockpit, listing moderation, reports and disputes, user administration, audit log | `src/app/admin/layout.tsx`: `/login?returnUrl=` without a session, "Không có quyền" unless scope `admin`; each page and action re-checks, the gateway re-enforces |
+| `/admin/campaigns` | Active flash-sale campaigns (`FlashSaleService.ListActiveCampaigns`, paged by `?cursor=`) and a lookup of one listing's active sale (`GetActiveFlashSale`, `?listing=`) | same as above; the promotion service lets any caller read both |
+| `/admin/campaigns/new` | Create a flash sale (`FlashSaleService.CreateCampaign`): form, review dialog with a summary, then the campaign the server returned | same as above; the promotion service requires `admin` or `listing.write` and audits an admin create (fail-closed) |
+| `/admin/plans` | Seller subscription plans, read only (`SubscriptionService.ListPlans`) | same as above; the promotion service serves the catalogue to any caller |
 | `/forbidden` | The "Không có quyền" page with a logout button | none |
 | `GET /api/admin/metrics` | Cockpit refresh, proxies `fetchCockpit` | 401 without a session; the gateway enforces scope `admin` |
 
@@ -50,6 +53,8 @@ Shared packages come from `vendor/*.tgz`, written by `npm run vendor` in `fe-pla
 ## 4. Known gaps
 
 - Duplicated with `team-frontend` until shared pieces move to `fe-platform` (plan step D): `src/lib/gateway/` (client, auth interceptor, config, client context, refresh, revoke, token expiry, disputes, reports), `src/components/ui/` (facades over `@fe-platform/ui` plus local Badge, Descriptions, Empty, Modal, Table, Toast), `src/features/auth/` (login form, return URL, guard path), `src/features/dispute/` (resolve action, allowed actions), `src/lib/{action-result,useRouteRetry}.ts`, `src/components/LinkButton.tsx` and `src/lib/usePending.ts` (copied from the seller feature), `tailwind.config.ts`, `scripts/`, `proto/`.
-- Platform voucher and campaign screens (plan E1c, E1d) are not built; their nav entries exist but stay hidden (`src/components/shell/nav.ts`).
+- Platform voucher screens (plan E1c) are not built; their nav entry exists but stays hidden (`src/components/shell/nav.ts`).
+- Campaigns (`fe-platform/docs/gaps.md` G9-G11): there is no RPC to list every campaign (scheduled or ended) or to cancel or edit one, so `/admin/campaigns` shows only active campaigns and says so. `CreateCampaign` has no idempotency key, so after a timeout the screen tells the operator to check the active list instead of retrying. The admin create path does not check that the listing exists and the service does not validate price, stock cap or window; the form validates them (positive integers, end after start and in the future). The flash-sale kill-switch makes the active list empty with no signal, so "no campaigns" and "switched off" look the same. Audit-down and promotion-down both reach the app as `UNAVAILABLE` with a sanitized message, so the error names both.
+- Campaign and plan screens are tested with an in-memory Connect router transport and in the browser against an unreachable gateway; they have not been run against the real promotion, audit and gateway services.
 - Ingress is not limited to a VPN or IP allow-list (platform-gitops, ADR-0006 open risk); no staging or prod overlay exists for this app yet.
 - e2e: the admin scenarios now open `ADMIN_BASE_URL` (default `http://localhost:3002`) and seed the `admin_session` cookie, but they have not been run against this app; scenarios that expected GA4 pushes on admin pages no longer apply (this app ships no analytics).

@@ -7,7 +7,7 @@ import { AdminShell } from "./AdminShell";
 import { ADMIN_NAV, visibleNav } from "./nav";
 
 describe("AdminShell", () => {
-  it("links the five admin screens", () => {
+  it("links the ready admin screens", () => {
     render(<AdminShell userName="root">x</AdminShell>);
     const nav = screen.getByRole("navigation", { name: "Quản trị" });
     const hrefs = within(nav)
@@ -19,13 +19,14 @@ describe("AdminShell", () => {
       "/admin/cases",
       "/admin/users",
       "/admin/audit",
+      "/admin/campaigns",
+      "/admin/plans",
     ]);
   });
 
-  it("hides the voucher and campaign placeholders until they exist", () => {
+  it("hides the voucher placeholder until it exists", () => {
     expect(ADMIN_NAV.filter((i) => !i.ready).map((i) => i.href)).toEqual([
       "/admin/vouchers",
-      "/admin/campaigns",
     ]);
     expect(visibleNav().some((i) => i.href === "/admin/vouchers")).toBe(false);
   });
