@@ -48,7 +48,6 @@ export function VoucherDetails({
     <div data-testid="voucher-details">
       <Descriptions
         title={title}
-        bordered
         column={2}
         items={[
           { key: "code", label: "Mã voucher", children: voucher.code },
