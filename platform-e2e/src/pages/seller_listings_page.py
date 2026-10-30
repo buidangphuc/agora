@@ -63,7 +63,9 @@ class SellerListingsPage(BasePage):
 
     @property
     def quick_actions(self) -> Locator:
-        return self.page.get_by_role("heading", name="Thao tác nhanh").locator("xpath=../..")
+        return self.page.get_by_role("heading", name="Thao tác nhanh").locator(
+            "xpath=ancestor::div[.//a][1]"
+        )
 
     def quick_action(self, name: str) -> Locator:
         return self.quick_actions.get_by_role("link", name=name, exact=True)

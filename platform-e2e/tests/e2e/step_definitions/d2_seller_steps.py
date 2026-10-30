@@ -20,7 +20,7 @@ from src.pages import (
 from tests.e2e.step_definitions.d2_cart_steps import toast
 from tests.e2e.step_definitions.d2_checkout_steps import slow_actions, track_actions
 from tests.e2e.support import d2_support as d2
-from tests.e2e.support.apps import app_url
+from tests.e2e.support.apps import app_url, wait_streamed
 from tests.e2e.support.world import World
 
 DESKTOP = {"width": 1280, "height": 800}
@@ -34,6 +34,7 @@ def base(world: World) -> str:
 def go(world: World, path: str, viewport: dict | None = None) -> None:
     world.page.set_viewport_size(viewport or DESKTOP)
     world.page.goto(app_url(world.settings, path), wait_until="domcontentloaded")
+    wait_streamed(world.page)
 
 
 def work(world: World) -> SellerListingsPage:
@@ -161,6 +162,7 @@ def seller_page_two(world: World) -> None:
 
     def titles_on(path: str) -> list[str]:
         page.goto(app_url(world.settings, path), wait_until="domcontentloaded")
+        wait_streamed(page)
         rows = page.locator("tbody tr")
         expect(rows.first).to_be_visible(timeout=timeouts.NAVIGATION)
         return [t for t in (row.get_by_role("link").first.inner_text() for row in rows.all()) if t]
@@ -577,7 +579,7 @@ def open_plans(world: World) -> None:
 )
 def plans_state(world: World) -> None:
     page = world.page
-    cards = page.locator("main .grid > div")
+    cards = page.locator("main .grid > div.grid")
     expect(cards.first).to_be_visible(timeout=timeouts.NAVIGATION)
     assert cards.count() >= 2, "fewer than two plans seeded"
     current = cards.filter(has=page.locator("span", has_text="Gói hiện tại"))

@@ -570,9 +570,16 @@ export function ListingForm({
           Huỷ
         </Link>
         {!readOnly && (
-          <Button type="submit" isLoading={pending} disabled={uploading}>
-            {submitLabel}
-          </Button>
+          <div className="w-44">
+            <Button
+              type="submit"
+              fullWidth
+              isLoading={pending}
+              disabled={uploading}
+            >
+              {submitLabel}
+            </Button>
+          </div>
         )}
       </div>
     </form>

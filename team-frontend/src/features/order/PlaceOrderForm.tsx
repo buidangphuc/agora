@@ -224,15 +224,18 @@ export function PlaceOrderForm({
             </Link>
           </span>
         )}
-        <Button
-          ref={buttonRef}
-          type="submit"
-          size="lg"
-          isLoading={phase === "pending"}
-          disabled={phase === "done"}
-        >
-          Đặt hàng
-        </Button>
+        <div className="w-44">
+          <Button
+            ref={buttonRef}
+            type="submit"
+            size="lg"
+            fullWidth
+            isLoading={phase === "pending"}
+            disabled={phase === "done"}
+          >
+            Đặt hàng
+          </Button>
+        </div>
       </div>
     </form>
   );

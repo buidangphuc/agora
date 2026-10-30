@@ -16,10 +16,12 @@ from pytest_bdd import given, parsers, then, when
 
 from config.settings import get_settings
 from src.constants import timeouts
+from src.core.base_page import wait_streamed
 from src.pages.admin_users_page import FORBIDDEN_TITLE, AdminUsersPage
 from src.pages.login_page import LoginPage
 from tests.e2e.support import audit_support as aud
 from tests.e2e.support import user_enforcement_support as ue
+from tests.e2e.support.apps import is_seller_path
 from tests.e2e.support.world import World
 
 REFUSAL = "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ bộ phận hỗ trợ."
@@ -123,6 +125,7 @@ def _browser_login(world: World, password: str, host: str | None = None) -> None
     page = _login(world)
     if host:
         world.page.goto(f"{host.rstrip('/')}/login", wait_until="domcontentloaded")
+        wait_streamed(world.page)
     else:
         page.navigate()
     page.login(user["username"], password)
@@ -140,7 +143,11 @@ def login_wrong(world: World) -> None:
 
 @when(parsers.parse('the seller logs in on the login page and opens "{path}"'))
 def seller_login_open(world: World, path: str) -> None:
-    host = world.settings.admin_base_url if path.startswith("/admin") else world.settings.base_url
+    host = (
+        world.settings.admin_base_url
+        if path.startswith("/admin")
+        else world.settings.seller_base_url if is_seller_path(path) else world.settings.base_url
+    )
     _browser_login(world, _x(world)["seller"]["password"], host)
     # Wait until the login submit settles: either off /login or an error shown.
     world.page.wait_for_url(lambda u: "/login" not in u, timeout=timeouts.NAVIGATION)
@@ -178,6 +185,7 @@ def buyer_listed(world: World, label: str) -> None:
 
 @then("the users page shows the success message")
 def success_message(world: World) -> None:
+    wait_streamed(world.page)
     expect(_users(world).flash).to_contain_text(SUCCESS, timeout=timeouts.NAVIGATION)
 
 

@@ -24,6 +24,12 @@ from config.settings import get_settings
 from src.constants import timeouts
 
 
+def wait_streamed(page: Page, timeout: float = 10_000) -> None:
+    page.wait_for_function(
+        "() => !document.querySelector('div[hidden][id^=\"S:\"]')", timeout=timeout
+    )
+
+
 class BasePage(ABC):
     #: Route relative to BASE_URL (may contain `{}` placeholders — format before use).
     path: str = "/"
@@ -47,6 +53,7 @@ class BasePage(ABC):
 
     def navigate(self, **params: str) -> None:
         self.page.goto(self.url(**params), wait_until="domcontentloaded")
+        wait_streamed(self.page)
 
     def wait_until_interactive(
         self, locator: Locator, timeout: float = timeouts.NAVIGATION

@@ -96,7 +96,7 @@ class CheckoutPage(BasePage):
 
     @property
     def voucher_discount(self) -> Locator:
-        return self.page.get_by_test_id("voucher-discount")
+        return self.page.get_by_test_id("voucher-discount").last
 
     @property
     def order_total(self) -> Locator:
