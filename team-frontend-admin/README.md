@@ -12,7 +12,7 @@ Status: compose service `team-frontend-admin`, port `:3002`. Stack: React 19, Ta
 |---|---|---|
 | `/` | Redirects to `/admin/cockpit` | none |
 | `/login` | Admin sign-in (no registration link, no sign-up route) | public |
-| `/admin/cockpit`, `/admin/listings`, `/admin/cases`, `/admin/users`, `/admin/audit` | Ops cockpit, listing moderation, reports and disputes, user administration, audit log | `src/app/admin/layout.tsx`: `/login?returnUrl=` without a session, "Không có quyền" unless scope `admin`; each page and action re-checks, the gateway re-enforces |
+| `/admin/cockpit`, `/admin/listings`, `/admin/cases`, `/admin/users`, `/admin/audit`, `/admin/vouchers`, `/admin/vouchers/new`, `/admin/vouchers/[code]` | Ops cockpit, listing moderation, reports and disputes, user administration, audit log, platform vouchers (list, create, detail) | `src/app/admin/layout.tsx`: `/login?returnUrl=` without a session, "Không có quyền" unless scope `admin`; each page and action re-checks, the gateway re-enforces |
 | `/forbidden` | The "Không có quyền" page with a logout button | none |
 | `GET /api/admin/metrics` | Cockpit refresh, proxies `fetchCockpit` | 401 without a session; the gateway enforces scope `admin` |
 
@@ -21,6 +21,8 @@ Isolation: `public/robots.txt` disallows everything; `next.config.mjs` sends `X-
 The screens keep the `/admin/*` paths on this host so `data-testid`s, roles, links between screens and the e2e page objects did not change.
 
 **Consumes**: only `team-gateway` (`GATEWAY_URL`), through the clients in `src/lib/gateway/*` (`server-only`), built per request with the caller's token.
+
+Platform vouchers (`src/lib/gateway/vouchers.ts`, `src/features/vouchers/`): `VoucherService.ListVouchers` with an empty `seller_id` (platform vouchers, page size 20, cursor in `?cursor=`), `GetVoucher` by code, `CreateVoucher` with scope `PLATFORM` (team-promotion requires scope `admin` and writes an audit event before inserting). The form validates on the client and again in the Server Action; creating needs a review dialog plus an acknowledgement checkbox, and the success view shows the voucher the service returned. Errors map by code to Vietnamese messages, never the backend text: `UNAVAILABLE` on create is shown as "audit or promotion down, nothing was created" (team-promotion fails closed when team-audit is down), `DEADLINE_EXCEEDED` as "outcome unknown, check the list".
 
 Session (`@fe-platform/session`, preset `admin`): cookies `admin_session` (access, `httpOnly`, `sameSite=strict`, `maxAge=1800`) and `admin_refresh` (`maxAge=28800`), no `Domain`, `__Host-` prefix when the request is secure (`COOKIE_SECURE=true` or `X-Forwarded-Proto: https`). `src/middleware.ts` is `createSessionMiddleware` with the admin preset: it refreshes an unusable access cookie once through the refresh cookie and sets `x-pathname` for the login return URL. The buyer cookies `session`/`agora_refresh` are ignored here, so signing in or out of one app does not touch the other.
 
@@ -50,6 +52,10 @@ Shared packages come from `vendor/*.tgz`, written by `npm run vendor` in `fe-pla
 ## 4. Known gaps
 
 - Duplicated with `team-frontend` until shared pieces move to `fe-platform` (plan step D): `src/lib/gateway/` (client, auth interceptor, config, client context, refresh, revoke, token expiry, disputes, reports), `src/components/ui/` (facades over `@fe-platform/ui` plus local Badge, Descriptions, Empty, Modal, Table, Toast), `src/features/auth/` (login form, return URL, guard path), `src/features/dispute/` (resolve action, allowed actions), `src/lib/{action-result,useRouteRetry}.ts`, `src/components/LinkButton.tsx` and `src/lib/usePending.ts` (copied from the seller feature), `tailwind.config.ts`, `scripts/`, `proto/`.
-- Platform voucher and campaign screens (plan E1c, E1d) are not built; their nav entries exist but stay hidden (`src/components/shell/nav.ts`).
+- Campaign screens (plan E1d) are not built; the nav entry exists but stays hidden (`src/components/shell/nav.ts`).
+- Platform vouchers cannot be edited, stopped or deleted: `VoucherService` has no RPC for it (gap G9 in `fe-platform/docs/gaps.md`). The confirm dialog says so.
+- A duplicate voucher code is not reported as `ALREADY_EXISTS`: team-promotion returns an unmapped insert error (`INTERNAL` at the gateway), so the form shows a generic "code may already exist" message (gap G10).
+- `UNAVAILABLE` on `CreateVoucher` cannot tell audit-down from promotion-down; the message names both (gap G11).
+- Voucher screens were tested with a fake Connect transport only, not against a running team-promotion, team-audit and gateway; the buyer checkout redemption of a new platform voucher (plan E1c check) is not verified.
 - Ingress is not limited to a VPN or IP allow-list (platform-gitops, ADR-0006 open risk); no staging or prod overlay exists for this app yet.
 - e2e: the admin scenarios now open `ADMIN_BASE_URL` (default `http://localhost:3002`) and seed the `admin_session` cookie, but they have not been run against this app; scenarios that expected GA4 pushes on admin pages no longer apply (this app ships no analytics).

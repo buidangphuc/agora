@@ -1,0 +1,16 @@
+## Decisions
+
+- Gateway client stays local to the admin app (`src/lib/gateway`, like the other admin modules) instead of adding `promotion` to `@fe-platform/api-client` as the plan sketched. The admin app already generates the promotion stubs from its own `proto/`, and moving gateway code to the platform is step D; adding it here would need a platform change, a revendor and lockfile integrity rewrites for one consumer.
+- Authorization (read from `team-promotion/README.md` and `team-gateway/internal/edge/promotion.go`): the gateway forwards `CreateVoucher`, `GetVoucher` and `ListVouchers`; team-promotion requires scope `admin` for a `PLATFORM` voucher and treats both reads as public. The pages still gate on the `admin` scope like every admin page, and the Server Action re-checks it.
+- `ListVouchers` with an empty `seller_id` returns platform-scoped vouchers; the list uses the response cursor (`?cursor=`, capped at 512 characters) and a "Trang đầu" link.
+- `GetVoucher` takes a code, so the detail route is `/admin/vouchers/[code]`; the code is URL-decoded, capped at 64 characters, and `NOT_FOUND` or `INVALID_ARGUMENT` render the 404 result.
+- Validation (client and Server Action share `validateVoucherForm`): code 3 to 32 of `A-Z 0-9 - _`, upper-cased; percent 1 to 100 with an optional cap; fixed amount at least 1 dong with no cap; minimum spend and quota non-negative integers, blank is 0 (0 means none or unlimited); start and end required as `datetime-local` read in UTC+7; end after start and in the future. team-promotion itself checks only the code, so the client is the only guard on the rest.
+- Two-step confirm: "Xem lại trước khi tạo" validates and opens a dialog with the summary and a note that the voucher cannot be changed later; "Tạo voucher" stays disabled until the "Tôi đã kiểm tra..." checkbox is ticked. Server field errors close the dialog and mark the fields; other errors stay in the dialog.
+- Real state: the success view renders the voucher returned by `CreateVoucher` (id, used, times), the list and detail render the stored vouchers, and the state badge (upcoming, active, ended, exhausted) is derived from those fields at render time.
+- Error mapping by Connect code: `UNAVAILABLE` on create shows the audit-down message (team-promotion audits a platform create before inserting and fails closed with `UNAVAILABLE`); the gateway sanitises every `UNAVAILABLE` the same way, so the message names audit or promotion (gap G11). `DEADLINE_EXCEEDED`/`CANCELED` say the outcome is unknown and to check the list. `INTERNAL` and the rest say the code may already exist (gap G10). Messages live in `voucherMessages.ts` because a `"use server"` module may only export async functions.
+- Tests use a Connect router transport (`createRouterTransport`) for the gateway module, so list, create, detail, error codes and audit-down go through real protobuf serialisation; the action, form and pages mock the layer below as the other admin tests do.
+
+## Risks
+
+- Not run against a live stack (identity, promotion, audit, gateway); the plan's "create a platform voucher, then redeem it at buyer checkout" check is still open.
+- Times entered are UTC+7 regardless of the browser zone, matching the users screen.
