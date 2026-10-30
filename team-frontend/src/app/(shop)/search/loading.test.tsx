@@ -10,6 +10,6 @@ describe("search loading", () => {
     expect(grid).not.toBeNull();
     expect(grid.children).toHaveLength(24);
     // filter column stays: mobile button placeholder + desktop card
-    expect(container.querySelector(".lg\\:w-64")).not.toBeNull();
+    expect(container.querySelector(".lg\\:w-72")).not.toBeNull();
   });
 });
