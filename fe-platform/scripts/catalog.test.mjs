@@ -13,6 +13,11 @@ describe("catalog", () => {
     expect(Object.keys(byName).sort()).toEqual([
       "Button",
       "Card",
+      "CardContent",
+      "CardDescription",
+      "CardFooter",
+      "CardHeader",
+      "CardTitle",
       "Checkbox",
       "Dialog",
       "Input",
@@ -38,8 +43,10 @@ describe("catalog", () => {
     const props = Object.fromEntries(
       byName.Button.props.map((p) => [p.name, p]),
     );
-    expect(props.variant.type).toBe('"primary" | "secondary" | "ghost"');
-    expect(props.size.type).toBe('"sm" | "md" | "lg"');
+    expect(props.variant.type).toBe(
+      '"primary" | "secondary" | "ghost" | "danger"',
+    );
+    expect(props.size.type).toBe('"xs" | "sm" | "md" | "lg"');
     expect(byName.Button.native).toBe("button");
   });
 

@@ -2,6 +2,11 @@ import type { ReactNode } from "react";
 import {
   Button,
   Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
   Checkbox,
   Dialog,
   Input,
@@ -22,11 +27,35 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
   },
   Card: {
     default: <Card>Desk lamp</Card>,
+    hoverable: <Card hoverable>Desk lamp</Card>,
+    loading: <Card loading>Desk lamp</Card>,
+    composed: (
+      <Card padded={false}>
+        <CardHeader>
+          <CardTitle>Desk lamp</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CardDescription>Warm light</CardDescription>
+        </CardContent>
+        <CardFooter>Free returns</CardFooter>
+      </Card>
+    ),
   },
   Button: {
     default: <Button>Save</Button>,
     secondary: <Button variant="secondary">Cancel</Button>,
     ghost: <Button variant="ghost">More</Button>,
+    danger: <Button variant="danger">Delete</Button>,
+    extraSmall: <Button size="xs">Save</Button>,
+    fullWidth: <Button fullWidth>Save</Button>,
+    icons: (
+      <Button
+        leftIcon={<span aria-hidden="true">+</span>}
+        rightIcon={<span aria-hidden="true">&gt;</span>}
+      >
+        Add
+      </Button>
+    ),
     disabled: <Button disabled>Save</Button>,
     loading: <Button loading>Saving</Button>,
   },

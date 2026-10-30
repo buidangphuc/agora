@@ -190,6 +190,9 @@ describe("component class maps", () => {
           if (kind === "text" && sizes.has(rest)) return false;
           if ((kind === "border" || kind === "ring") && /^\d+$/.test(rest))
             return false;
+          const side = /^([trblxy])-(.+)$/.exec(rest);
+          if (kind === "border" && side && sides.has(side[1]))
+            return !names.has(side[2]);
           return !names.has(rest);
         });
       expect(bad).toEqual([]);

@@ -12,6 +12,9 @@ import axe from "axe-core";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   Button,
+  Card,
+  CardContent,
+  CardTitle,
   Checkbox,
   Dialog,
   Input,
@@ -56,6 +59,100 @@ describe("Button", () => {
     expect(button.getAttribute("type")).toBe("button");
     expect(button.getAttribute("aria-busy")).toBe("true");
     expect((button as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("shows a spinner only while loading and keeps the label", () => {
+    const { container, rerender } = render(<Button loading>Saving</Button>);
+    expect(container.querySelector("[aria-hidden='true']")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Saving" })).toBeTruthy();
+    rerender(<Button>Saving</Button>);
+    expect(container.querySelector("[aria-hidden='true']")).toBeNull();
+  });
+
+  it("renders icons around the label and keeps the accessible name", () => {
+    render(
+      <Button
+        leftIcon={<span aria-hidden="true">L</span>}
+        rightIcon={<span aria-hidden="true">R</span>}
+      >
+        Add
+      </Button>,
+    );
+    expect(screen.getByRole("button", { name: "Add" }).textContent).toBe(
+      "LAddR",
+    );
+  });
+
+  it("applies danger, xs and fullWidth from the class maps", () => {
+    render(
+      <Button variant="danger" size="xs" fullWidth>
+        Delete
+      </Button>,
+    );
+    const cls = screen.getByRole("button", { name: "Delete" }).className;
+    expect(cls).toContain("bg-action-danger");
+    expect(cls).toContain("text-xs");
+    expect(cls).toContain("w-full");
+  });
+
+  it("forwards a ref", () => {
+    let node: HTMLButtonElement | null = null;
+    render(
+      <Button
+        ref={(el) => {
+          node = el;
+        }}
+      >
+        Go
+      </Button>,
+    );
+    expect(node).toBeInstanceOf(HTMLButtonElement);
+  });
+});
+
+describe("Card", () => {
+  it("is padded by default and flush with padded={false}", () => {
+    const { rerender } = render(<Card data-testid="c">x</Card>);
+    expect(screen.getByTestId("c").className).toContain("p-6");
+    rerender(
+      <Card data-testid="c" padded={false}>
+        x
+      </Card>,
+    );
+    expect(screen.getByTestId("c").className).not.toContain("p-6");
+  });
+
+  it("replaces content with a busy skeleton while loading", () => {
+    render(
+      <Card data-testid="c" loading>
+        secret
+      </Card>,
+    );
+    const card = screen.getByTestId("c");
+    expect(card.getAttribute("aria-busy")).toBe("true");
+    expect(card.textContent).toBe("");
+  });
+
+  it("highlights on hover only when hoverable", () => {
+    const { rerender } = render(<Card data-testid="c">x</Card>);
+    expect(screen.getByTestId("c").className).not.toContain("hover:");
+    rerender(
+      <Card data-testid="c" hoverable>
+        x
+      </Card>,
+    );
+    expect(screen.getByTestId("c").className).toContain("hover:");
+  });
+
+  it("renders title as a heading inside content", () => {
+    render(
+      <Card padded={false}>
+        <CardContent>
+          <CardTitle>Desk lamp</CardTitle>
+        </CardContent>
+      </Card>,
+    );
+    expect(screen.getByRole("heading", { name: "Desk lamp" })).toBeTruthy();
   });
 });
 
