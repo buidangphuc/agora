@@ -11,7 +11,7 @@ per-scenario World, page/service factories, tag-driven API seeding and env-based
 
 ## What it drives (contract)
 
-- **UI**: `team-frontend` (Next.js, `BASE_URL`, default `http://localhost:3000`).
+- **UI**: `team-frontend` (Next.js, `BASE_URL`, default `http://localhost:3000`) and `team-frontend-seller` (`SELLER_BASE_URL`, default `http://localhost:3001`).
 - **API (seeding, hybrid auth, probes)**: `team-gateway` Connect/JSON (`GATEWAY_URL`, default
   `http://localhost:8080`). Endpoint paths are in `src/constants/gateway_endpoints.py`; clients
   are in `src/api/`. The gateway enforces authorization; the tests only probe it (for example
@@ -59,6 +59,7 @@ shell env, then `.env`, then `env/.env.<ENV>` (`ENV` defaults to `local`; files 
 |---|---|---|
 | `ENV` | `local` | Selects `env/.env.<ENV>` |
 | `BASE_URL` | `http://localhost:3000` | Frontend |
+| `SELLER_BASE_URL` | `http://localhost:3001` | Seller app (`team-frontend-seller`); seller page objects set `app = "seller"` and `tests/e2e/support/apps.py` routes `/seller*` and `/sell` here |
 | `GATEWAY_URL` | `http://localhost:8080` | Gateway |
 | `HEADLESS` | `true` | Browser mode |
 | `DEBUG` | `false` | Debug logging |

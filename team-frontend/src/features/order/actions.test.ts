@@ -2,18 +2,10 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  CancelReason,
-  OrderStatus,
-} from "@/generated/platform/order/v1/order_pb.js";
+import { CancelReason } from "@/generated/platform/order/v1/order_pb.js";
 import { PaymentMethod } from "@/generated/platform/payment/v1/payment_pb.js";
 import { reorder } from "@/lib/gateway/cart";
-import {
-  cancelOrder,
-  confirmReceipt,
-  createOrder,
-  updateOrderStatus,
-} from "@/lib/gateway/orders";
+import { cancelOrder, confirmReceipt, createOrder } from "@/lib/gateway/orders";
 import { createPayment, processMockPayment } from "@/lib/gateway/payment";
 
 import {
@@ -23,7 +15,6 @@ import {
   createPaymentAction,
   processMockPaymentAction,
   reorderAction,
-  updateOrderStatusAction,
 } from "./actions";
 import {
   ADDRESS_CHANGED_MESSAGE,
@@ -36,7 +27,6 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/gateway/cart", () => ({ reorder: vi.fn() }));
 vi.mock("@/lib/gateway/orders", () => ({
   createOrder: vi.fn(),
-  updateOrderStatus: vi.fn(),
   cancelOrder: vi.fn(),
   confirmReceipt: vi.fn(),
 }));
@@ -247,38 +237,6 @@ describe("checkoutAction price change", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/cart");
     expect(revalidatePath).toHaveBeenCalledWith("/checkout");
     expect(createPayment).not.toHaveBeenCalled();
-  });
-});
-
-describe("updateOrderStatusAction", () => {
-  it("returns ok with the new state and revalidates list and detail", async () => {
-    vi.mocked(updateOrderStatus).mockResolvedValue({
-      status: OrderStatus.SHIPPED,
-      trackingNumber: "TRK1",
-    } as never);
-    const res = await updateOrderStatusAction(
-      "o1",
-      OrderStatus.SHIPPED,
-      "TRK1",
-    );
-    expect(updateOrderStatus).toHaveBeenCalledWith(
-      "o1",
-      OrderStatus.SHIPPED,
-      "TRK1",
-    );
-    expect(res).toEqual({
-      ok: true,
-      data: { status: OrderStatus.SHIPPED, trackingNumber: "TRK1" },
-    });
-    expect(revalidatePath).toHaveBeenCalledWith("/seller/orders");
-    expect(revalidatePath).toHaveBeenCalledWith("/seller/orders/o1");
-  });
-
-  it("returns { ok: false, error } on failure and revalidates nothing", async () => {
-    vi.mocked(updateOrderStatus).mockRejectedValue(new Error("bad state"));
-    const res = await updateOrderStatusAction("o1", OrderStatus.SHIPPED);
-    expect(res).toEqual({ ok: false, error: "bad state" });
-    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
 

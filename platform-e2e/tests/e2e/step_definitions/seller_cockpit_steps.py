@@ -173,7 +173,7 @@ def buyer_without_seller_scope(world: World) -> None:
 
 @when("the buyer opens the seller workplace")
 def buyer_opens_workplace(world: World) -> None:
-    world.page.goto(f"{world.settings.base_url}/seller", wait_until="domcontentloaded")
+    world.page.goto(f"{world.settings.seller_base_url}/seller", wait_until="domcontentloaded")
 
 
 @then("a result explains the seller role is required and links back to the home page")
@@ -263,7 +263,7 @@ def no_results_state(world: World) -> None:
 def open_workplace_invalid_params(world: World) -> None:
     world.page.set_viewport_size(DESKTOP)
     world.page.goto(
-        f"{world.settings.base_url}/seller?page=abc&status=bogus", wait_until="domcontentloaded"
+        f"{world.settings.seller_base_url}/seller?page=abc&status=bogus", wait_until="domcontentloaded"
     )
 
 
@@ -467,7 +467,7 @@ def order_tab_selected(world: World, label: str) -> None:
 @when("the seller opens the orders page with an invalid page and status")
 def open_orders_invalid(world: World) -> None:
     world.page.goto(
-        f"{world.settings.base_url}/seller/orders?page=abc&status=bogus",
+        f"{world.settings.seller_base_url}/seller/orders?page=abc&status=bogus",
         wait_until="domcontentloaded",
     )
 

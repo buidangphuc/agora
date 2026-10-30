@@ -18,9 +18,10 @@ from pytest_bdd import given, parsers, then, when
 from src.api.services import OrderService
 from src.api.services.base_service import GatewayError
 from src.constants import timeouts
-from tests.e2e.flows.auth_flow import SESSION_COOKIE
+from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.support import d2_support as d2
 from tests.e2e.support import order_lifecycle_ui_support as ui
+from tests.e2e.support.apps import app_url
 from tests.e2e.support.world import World
 
 PAYMENT_BUTTONS = ("Thanh toán thành công", "Thanh toán thất bại")
@@ -44,12 +45,12 @@ def oid(world: World) -> str:
 
 def login_as(world: World, token: str) -> None:
     world.context.add_cookies(
-        [{"name": SESSION_COOKIE, "value": token, "url": world.settings.base_url}]
+        session_cookies(world.settings, token)
     )
 
 
 def goto(world: World, path: str):
-    return world.page.goto(f"{base(world)}{path}", wait_until="domcontentloaded")
+    return world.page.goto(app_url(world.settings, path), wait_until="domcontentloaded")
 
 
 def start_buyer(world: World) -> None:

@@ -12,7 +12,7 @@ from typing import Any
 from playwright.sync_api import Locator, Page
 
 from src.api.services import AddressService, OrderService
-from tests.e2e.flows.auth_flow import SESSION_COOKIE
+from tests.e2e.flows.auth_flow import session_cookies
 from tests.e2e.support import d2_support as d2
 from tests.e2e.support.world import World
 
@@ -60,7 +60,7 @@ def sign_in_browser(world: World, token: str | None) -> None:
     world.context.clear_cookies()
     if token:
         world.context.add_cookies(
-            [{"name": SESSION_COOKIE, "value": token, "url": world.settings.base_url}]
+            session_cookies(world.settings, token)
         )
 
 

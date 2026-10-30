@@ -3,9 +3,9 @@ name: fe-platform-ci
 on:
   push:
     branches: [main]
-    paths: ["fe-platform/**", "team-frontend/vendor/**", "team-frontend-admin/vendor/**", ".github/workflows/fe-platform-ci.yml"]
+    paths: ["fe-platform/**", "team-frontend/vendor/**", "team-frontend-seller/vendor/**", "team-frontend-admin/vendor/**", ".github/workflows/fe-platform-ci.yml"]
   pull_request:
-    paths: ["fe-platform/**", "team-frontend/vendor/**", "team-frontend-admin/vendor/**", ".github/workflows/fe-platform-ci.yml"]
+    paths: ["fe-platform/**", "team-frontend/vendor/**", "team-frontend-seller/vendor/**", "team-frontend-admin/vendor/**", ".github/workflows/fe-platform-ci.yml"]
   workflow_dispatch:
 
 permissions:

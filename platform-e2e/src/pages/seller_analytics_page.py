@@ -9,6 +9,7 @@ from src.core.base_page import BasePage
 
 
 class SellerAnalyticsPage(BasePage):
+    app = "seller"
     path = routes.SELLER_ANALYTICS
     name = "seller analytics"
 

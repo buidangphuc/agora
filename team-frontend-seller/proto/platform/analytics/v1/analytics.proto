@@ -1,0 +1,336 @@
+syntax = "proto3";
+
+// Behavioral analytics/tracking contract. A TrackingEvent is never sent bare:
+// producers serialize it into platform.events.v1.EventEnvelope.payload with
+// type = "platform.analytics.v1.TrackingEvent" and publish it on the dedicated
+// Kafka topic `analytics.events` (separate from listing.events and from any
+// transactional database). Consumers switch on the envelope `type` and unmarshal
+// the payload. Authenticated user identity travels in EventEnvelope.principal —
+// this payload carries only anonymous_id/session_id (no PII by design).
+package platform.analytics.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// AnalyticsQueryService serves aggregated read-model queries over the warehouse
+// (DuckDB local / BigQuery prod) for seller dashboards. It never writes; the
+// TrackingEvent pipeline above feeds the tables it reads.
+service AnalyticsQueryService {
+  // Conversion funnel counts for a seller over [from, to].
+  rpc GetSellerFunnel(GetSellerFunnelRequest) returns (GetSellerFunnelResponse);
+  // Revenue broken down by day and by top-selling SKU over [from, to].
+  rpc GetRevenueBreakdown(GetRevenueBreakdownRequest) returns (GetRevenueBreakdownResponse);
+  // Probabilistic demand & restock forecast for a seller SKU over horizon [ADR-0013].
+  rpc GetDemandForecast(GetDemandForecastRequest) returns (GetDemandForecastResponse);
+  // Platform-wide paid-order count and GMV over a trailing window, from order_facts.
+  // Admin-only (scope "admin"): it spans every seller, unlike the seller-scoped RPCs above.
+  rpc GetPlatformOrderSummary(GetPlatformOrderSummaryRequest) returns (GetPlatformOrderSummaryResponse);
+  // Latest paid orders across the platform, newest first, from order_facts. Admin-only
+  // (scope "admin"); carries no buyer PII.
+  rpc ListRecentOrders(ListRecentOrdersRequest) returns (ListRecentOrdersResponse);
+  // Tracking-pipeline health over a trailing window: per-event-type volume and
+  // missing-listing ratio, ingest lag, last ingest time, decode failures and
+  // skipped duplicates, folded into a status. Admin-only (scope "admin"); carries
+  // no per-user data.
+  rpc GetTrackingQualityReport(GetTrackingQualityReportRequest) returns (GetTrackingQualityReportResponse);
+  // Online recommendation performance over a trailing window, per (placement,
+  // model_version): impressions, clicks, and add-to-carts / purchases attributed to
+  // a click from that impression within the attribution window, plus the share of
+  // impressions served by the fallback ranking per placement. Admin-only
+  // (scope "admin"); carries no per-user data.
+  rpc GetRecommendationPerformance(GetRecommendationPerformanceRequest) returns (GetRecommendationPerformanceResponse);
+  // Funnel counts (impressions, views, adds, begin_checkouts, purchases) per
+  // (source, medium, campaign) over [from, to]. Empty seller_id aggregates every
+  // seller. Admin-only (scope "admin"): enforced by the serving service, even
+  // when seller_id is set.
+  rpc GetChannelFunnel(GetChannelFunnelRequest) returns (GetChannelFunnelResponse);
+}
+
+message GetChannelFunnelRequest {
+  // Optional; empty means all sellers.
+  string seller_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+message ChannelFunnelRow {
+  string source = 1;
+  string medium = 2;
+  string campaign = 3;
+  int64 impressions = 4;
+  int64 views = 5;
+  int64 adds = 6;
+  int64 begin_checkouts = 7;
+  int64 purchases = 8;
+}
+
+message GetChannelFunnelResponse {
+  repeated ChannelFunnelRow rows = 1;
+}
+
+// ConsentState is the visitor's consent as recorded in the agora_consent cookie.
+message ConsentState {
+  bool analytics = 1;
+  bool marketing = 2;
+  bool personalization = 3;
+  // Consent policy version. version = 0 means no consent cookie was present.
+  // version = 0 is treated as all denied regardless of flags.
+  // negative or unknown version (known: 1) is treated as all denied.
+  int32 version = 4;
+}
+
+message GetSellerFunnelRequest {
+  string seller_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+message GetSellerFunnelResponse {
+  int64 impressions = 1;
+  int64 views = 2;
+  int64 adds = 3;    // add-to-cart count
+  int64 orders = 4;
+  int64 begin_checkouts = 5;
+  int64 purchases = 6;
+}
+
+message DayRevenue {
+  string day = 1;      // ISO date, e.g. "2026-09-04"
+  int64 revenue = 2;   // minor units
+  int64 order_count = 3;
+}
+
+message TopSku {
+  string sku = 1;
+  string listing_id = 2;
+  int64 revenue = 3;   // minor units
+  int64 units_sold = 4;
+}
+
+message GetRevenueBreakdownRequest {
+  string seller_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+message GetRevenueBreakdownResponse {
+  repeated DayRevenue days = 1;
+  repeated TopSku top_skus = 2;
+}
+
+message DailyForecast {
+  string date = 1;       // ISO date "YYYY-MM-DD"
+  double p10 = 2;        // 10th percentile daily units
+  double p50 = 3;        // 50th percentile median units
+  double p90 = 4;        // 90th percentile upper units
+}
+
+message GetDemandForecastRequest {
+  string seller_id = 1;
+  string listing_id = 2;
+  int32 horizon_days = 3;      // e.g. 14 or 28 days
+  int32 lead_time_days = 4;    // e.g. 3 days
+  double service_level = 5;    // e.g. 0.95 (safety factor z = 1.65)
+}
+
+message GetDemandForecastResponse {
+  string seller_id = 1;
+  string listing_id = 2;
+  repeated DailyForecast daily_forecasts = 3;
+  double suggested_reorder_point = 4;
+  double safety_stock = 5;
+  string model_version = 6;
+  bool is_cold_start = 7;
+}
+
+message GetPlatformOrderSummaryRequest {
+  // Trailing window ending now; unset or non-positive defaults to 24h.
+  google.protobuf.Duration window = 1;
+}
+
+message GetPlatformOrderSummaryResponse {
+  int64 order_count = 1;   // distinct paid orders in the window
+  int64 gmv = 2;           // SUM(quantity * unit_price), minor units
+}
+
+message ListRecentOrdersRequest {
+  int32 limit = 1;         // 1..100; unset or out of range defaults to 10
+}
+
+message RecentOrder {
+  string order_id = 1;
+  string seller_id = 2;    // first seller on the order when it spans several
+  int64 total = 3;         // SUM(quantity * unit_price), minor units
+  google.protobuf.Timestamp paid_at = 4;
+}
+
+message ListRecentOrdersResponse {
+  repeated RecentOrder orders = 1;
+}
+
+message GetTrackingQualityReportRequest {
+  uint32 window_hours = 1;  // trailing window in hours; 0 = 24
+}
+
+message TrackingTypeQuality {
+  string event_type = 1;
+  int64 events = 2;                  // events of this type in the window
+  int64 visitors = 3;                // distinct visitors of this type in the window
+  double missing_listing_ratio = 4;  // share of events lacking a listing id, 0..1
+  bool listing_scoped = 5;           // true when this type is expected to carry a listing id
+}
+
+message GetTrackingQualityReportResponse {
+  repeated TrackingTypeQuality types = 1;
+  double lag_p50_seconds = 2;                       // ingest lag, median
+  double lag_p95_seconds = 3;                       // ingest lag, 95th percentile
+  google.protobuf.Timestamp last_ingested_at = 4;   // unset when nothing was ingested
+  int64 decode_failures = 5;                        // undecodable messages in the window
+  int64 duplicates_skipped = 6;                     // events skipped as duplicates in the window
+  string status = 7;                                // overall health verdict
+  repeated string reasons = 8;                      // why the status is not healthy
+  uint32 window_hours = 9;                          // the effective window (0 resolved to 24)
+}
+
+message GetRecommendationPerformanceRequest {
+  uint32 window_hours = 1;  // trailing window in hours, 1..168; 0 = 24
+}
+
+message RecommendationPerformanceRow {
+  string placement_id = 1;       // placement that rendered the list
+  string model_version = 2;      // model that produced the list (serving-fallback for fallback serves)
+  int64 impressions = 3;         // distinct impression ids
+  int64 item_impressions = 4;    // item-level impression events
+  int64 clicks = 5;              // clicks on the recommended items
+  int64 add_to_carts = 6;        // add-to-carts attributed to a click within the attribution window
+  int64 purchases = 7;           // purchases attributed to a click within the attribution window
+  double ctr = 8;                // clicks / item_impressions, 0..1
+  double conversion_rate = 9;    // purchases / clicks, 0..1
+}
+
+message PlacementFallbackShare {
+  string placement_id = 1;
+  double fallback_share = 2;  // share of the placement's impressions served by the fallback, 0..1
+}
+
+message GetRecommendationPerformanceResponse {
+  repeated RecommendationPerformanceRow rows = 1;
+  repeated PlacementFallbackShare fallback = 2;
+  uint32 window_hours = 3;              // the effective window (0 resolved to 24)
+  uint32 attribution_window_hours = 4;  // click-to-conversion attribution window in force
+}
+
+// EventType distinguishes the behavioral signals a single TrackingEvent can
+// represent, so producers need no new message type per interaction.
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  // A product/listing view (detail page impression).
+  EVENT_TYPE_VIEW = 1;
+  // A click on a listing, card, banner, or other tracked element.
+  EVENT_TYPE_CLICK = 2;
+  // A listing added to the cart.
+  EVENT_TYPE_ADD_TO_CART = 3;
+  // A search-result impression (listing shown in a result set).
+  EVENT_TYPE_IMPRESSION = 4;
+  // An item removed from the cart.
+  EVENT_TYPE_REMOVE_FROM_CART = 5;
+  // A checkout journey began.
+  EVENT_TYPE_BEGIN_CHECKOUT = 6;
+  // A promo voucher was applied/attempted.
+  EVENT_TYPE_APPLY_PROMOTION = 7;
+  // Search filters / sorting changed.
+  EVENT_TYPE_SEARCH_FILTER = 8;
+  // Product added to favorites / wishlist.
+  EVENT_TYPE_FAVORITE = 9;
+  // Product share action initiated.
+  EVENT_TYPE_SHARE = 10;
+  // Cart page viewed (GA4 view_cart).
+  EVENT_TYPE_VIEW_CART = 11;
+  // Shipping info step completed / submitted (GA4 add_shipping_info).
+  EVENT_TYPE_ADD_SHIPPING_INFO = 12;
+  // Payment method selected / submitted (GA4 add_payment_info).
+  EVENT_TYPE_ADD_PAYMENT_INFO = 13;
+  // Order purchase completed on client (GA4 purchase, marketing/funnel signal).
+  EVENT_TYPE_PURCHASE = 14;
+  // Registration completed (GA4 sign_up). properties: method.
+  EVENT_TYPE_SIGN_UP = 15;
+  // Login completed (GA4 login). properties: method.
+  EVENT_TYPE_LOGIN = 16;
+  // A buyer followed a shop. properties: seller_id.
+  EVENT_TYPE_FOLLOW_SELLER = 17;
+  // A referral code was redeemed. No properties (the code is never sent).
+  EVENT_TYPE_REFERRAL_REDEEM = 18;
+  // Daily loyalty check-in completed. properties: streak (optional).
+  EVENT_TYPE_DAILY_CHECK_IN = 19;
+  // A price/stock alert was subscribed. properties: alert_type; listing_id set.
+  EVENT_TYPE_ALERT_SUBSCRIBE = 20;
+  // An interaction with an AI surface. properties: exactly surface, action
+  // (both allowlisted values, no free text).
+  EVENT_TYPE_AI_INTERACTION = 21;
+}
+
+
+// TrackingEvent is the behavioral event payload carried inside
+// platform.events.v1.EventEnvelope on the `analytics.events` topic. It is the
+// single shape feeding the data warehouse (DuckDB local / BigQuery prod) and,
+// later, the recommendation engine.
+message TrackingEvent {
+  // What kind of behavioral signal this is.
+  EventType event_type = 1;
+  // Listing the event relates to (empty when not listing-scoped, e.g. a search
+  // impression before a specific card).
+  string listing_id = 2;
+  // Server/browser session id grouping a burst of activity.
+  string session_id = 3;
+  // Stable anonymous visitor id (cookie/device); NOT an authenticated user id —
+  // identity travels in EventEnvelope.principal.
+  string anonymous_id = 4;
+  // Path of the page where the event occurred, e.g. "/listing/prod-123".
+  string page_path = 5;
+  // Referrer URL/path that led to page_path.
+  string referrer = 6;
+  // 1-based rank of the item within a list/result set (0 when not applicable).
+  uint32 position = 7;
+  // Search query in effect when the event fired (for IMPRESSION/CLICK on results).
+  string search_query = 8;
+  // Open-ended extension bag for future/experimental attributes without a
+  // contract change; keep well-known signals as first-class fields above.
+  map<string, string> properties = 9;
+  // Which placement rendered the item (e.g. "home_feed", "similar_items", "cart_cross_sell").
+  string placement_id = 10;
+  // Unique UUID linking an impression directly to downstream click/add/purchase actions.
+  string impression_id = 11;
+  // Active recommendation/search model generation (e.g. "als_v1", "two_tower_v2").
+  string model_version = 12;
+  // ISO-4217 currency code (e.g. "VND", "USD").
+  string currency = 13;
+  // Monetary value in minor units at event level (e.g. cart total or checkout total).
+  int64 value = 14;
+  // Monetary unit price in minor units at item level.
+  int64 price = 15;
+  // Item quantity for multi-item or cart actions.
+  uint32 quantity = 16;
+  // Order / transaction identifier for purchase deduplication.
+  string transaction_id = 17;
+  // Promotion / voucher coupon code applied.
+  string coupon = 18;
+  // Catalog category of the item.
+  string item_category = 19;
+  // List / collection identifier where the item was displayed (distinct from placement_id).
+  string item_list_id = 20;
+  // Human-readable list / collection name.
+  string item_list_name = 21;
+  // Correlation ID grouping flat fan-out item rows originating from the same logical multi-item event.
+  string event_group_id = 22;
+  // Selected shipping tier (e.g. "SPX_STANDARD", "SPX_EXPRESS").
+  string shipping_tier = 23;
+  // Selected payment method type (e.g. "MOCK_WALLET", "COD").
+  string payment_type = 24;
+  // GA4 client id (the _ga cookie value) without the GA1.1. prefix, e.g. "123.456".
+  // Empty without analytics consent: blanked by consumers when consent.analytics is false.
+  // The event is kept; only the id is blanked.
+  string ga_client_id = 25;
+  // Visitor consent. Stamped by the edge from the agora_consent cookie and never
+  // from the request body.
+  ConsentState consent = 26;
+}

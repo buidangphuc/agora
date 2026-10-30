@@ -4,7 +4,7 @@ from playwright.sync_api import Page, expect
 from pytest_bdd import given, parsers, then, when
 
 from src.constants import timeouts
-from tests.e2e.flows.auth_flow import SESSION_COOKIE, sign_in_admin_app
+from tests.e2e.flows.auth_flow import session_cookies, sign_in_admin_app
 from tests.e2e.support import dde_support as d
 from tests.e2e.support import dispute_cases_ui_support as ui
 from tests.e2e.support import odr_support as odr
@@ -40,7 +40,7 @@ def host_for(world: World, path: str) -> str:
 
 def sign_in(world: World, token: str) -> None:
     world.context.add_cookies(
-        [{"name": SESSION_COOKIE, "value": token, "url": world.settings.base_url}]
+        session_cookies(world.settings, token)
     )
     sign_in_admin_app(world, token)
 

@@ -20,6 +20,7 @@ from src.pages import (
 from tests.e2e.step_definitions.d2_cart_steps import toast
 from tests.e2e.step_definitions.d2_checkout_steps import slow_actions, track_actions
 from tests.e2e.support import d2_support as d2
+from tests.e2e.support.apps import app_url
 from tests.e2e.support.world import World
 
 DESKTOP = {"width": 1280, "height": 800}
@@ -32,7 +33,7 @@ def base(world: World) -> str:
 
 def go(world: World, path: str, viewport: dict | None = None) -> None:
     world.page.set_viewport_size(viewport or DESKTOP)
-    world.page.goto(f"{base(world)}{path}", wait_until="domcontentloaded")
+    world.page.goto(app_url(world.settings, path), wait_until="domcontentloaded")
 
 
 def work(world: World) -> SellerListingsPage:
@@ -159,7 +160,7 @@ def seller_page_two(world: World) -> None:
     assert "page=2" not in prev_href and "page=3" not in prev_href, prev_href
 
     def titles_on(path: str) -> list[str]:
-        page.goto(f"{base(world)}{path}", wait_until="domcontentloaded")
+        page.goto(app_url(world.settings, path), wait_until="domcontentloaded")
         rows = page.locator("tbody tr")
         expect(rows.first).to_be_visible(timeout=timeouts.NAVIGATION)
         return [t for t in (row.get_by_role("link").first.inner_text() for row in rows.all()) if t]
@@ -179,7 +180,7 @@ def seller_page_two(world: World) -> None:
 
 @when("the d2 seller activates the title link of the first product row")
 def click_row_link(world: World) -> None:
-    link = world.page.locator("tbody tr").first.locator('a[href^="/listing/"]').first
+    link = world.page.locator("tbody tr").first.locator('a[href*="/listing/"]').first
     world.state.extra["d2_row_href"] = link.get_attribute("href")
     link.click()
 
@@ -188,7 +189,7 @@ def click_row_link(world: World) -> None:
 def row_link_target(world: World) -> None:
     href = world.state.extra["d2_row_href"]
     world.page.wait_for_url(re.compile(rf".*{re.escape(href)}$"), timeout=timeouts.NAVIGATION)
-    assert re.fullmatch(r"/listing/[0-9a-f-]{36}", href), href
+    assert re.fullmatch(rf"{re.escape(base(world))}/listing/[0-9a-f-]{{36}}", href), href
 
 
 @then("the browser lands on the new listing studio")
@@ -663,7 +664,7 @@ def seller_skeleton(world: World) -> None:
     expect(work(world).kpi_row).to_be_visible(timeout=timeouts.NAVIGATION)
     page.wait_for_timeout(1000)
     soft = cls(page)
-    page.goto(f"{base(world)}/seller", wait_until="load")
+    page.goto(app_url(world.settings, "/seller"), wait_until="load")
     expect(work(world).kpi_row).to_be_visible(timeout=timeouts.DEFAULT)
     page.wait_for_timeout(1500)
     hard = cls(page)
@@ -680,7 +681,7 @@ def workplace_slow_images(world: World) -> None:
         route.continue_()
 
     page.route(re.compile(r".*/listing-images/.*"), slow)
-    page.goto(f"{base(world)}/seller", wait_until="domcontentloaded")
+    page.goto(app_url(world.settings, "/seller"), wait_until="domcontentloaded")
     expect(page.locator("tbody tr").first).to_be_visible(timeout=timeouts.NAVIGATION)
     world.state.extra["d2_rows_before"] = page.locator("tbody tr").evaluate_all(
         "rows => rows.map(r => Math.round(r.getBoundingClientRect().height))"

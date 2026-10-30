@@ -10,7 +10,7 @@ Status: deployed (compose service `team-frontend`, port `:3000`). Stack: React 1
 
 | Surface | What | Authorization |
 |---|---|---|
-| 36 pages under `src/app/(shop)` and `src/app/(checkout)` | Buyer, account, seller, chat, assistant, checkout (route groups below) | Per page/layout, from the gateway scopes in the session JWT |
+| 24 pages under `src/app/(shop)` and `src/app/(checkout)` | Buyer, account, chat, assistant, checkout (route groups below); the seller centre is the separate `team-frontend-seller` app and the admin screens the separate `team-frontend-admin` app | Per page/layout, from the gateway scopes in the session JWT |
 | `GET /api/suggest?q=` | Search type-ahead, proxies `suggest` | Public; errors return empty suggestions |
 | `GET /api/listings?status=&cursor=` | "Load more" for the consumer feed | Public; errors return an empty page |
 | `POST /api/assistant/stream` | Relays `ChatService.StreamChat` deltas as a plain-text stream | Session cookie forwarded, no local check; the gateway decides. 400 on empty `message` |
@@ -20,10 +20,9 @@ Route groups and page-level gates:
 
 | Group | Routes | Gate |
 |---|---|---|
-| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect), `/login`, `/register`, `/sell`, `/cart`, `/assistant` | no page-level redirect (the gateway still scopes the data) |
+| `(shop)` public | `/`, `/search`, `/listing/[id]`, `/shop/[id]`, `/vouchers`, `/s/[code]` (share-link redirect), `/login`, `/register`, `/cart`, `/assistant` | no page-level redirect (the gateway still scopes the data) |
 | `(shop)` signed-in | `/favorites`, `/chat`, `/notifications`, `/account/{orders,orders/[id],addresses,following,referral,security,verification}` | redirect to `/login` without a session |
 | `(shop)` | `/chat/[id]` | redirects to `/chat?thread=<id>` |
-| `(shop)/seller/*` | dashboard, `new`, `[id]/edit`, `orders`, `orders/[id]`, `analytics`, `ads`, `bundles`, `plans`, `shop`, `wallet` | `seller/layout.tsx`: `/login` if anonymous; "seller account needed" result unless scope `listing.write` |
 | `(shop)/dev/ui` | UI component gallery | `notFound()` when `NODE_ENV=production` |
 | `(checkout)` | `/checkout`, `/checkout/pay/[id]` | `/checkout` redirects to `/login` if anonymous and to `/cart` if the cart is empty |
 
@@ -60,6 +59,7 @@ Read by the code (see `.env.example`; there is no drift gate for this repo):
 | `TRUSTED_PROXY_HOPS` | `1` (values below 1 or non-numeric fall back to 1) | `src/lib/gateway/client-context.ts` |
 | `NEXT_PUBLIC_GTM_ID` | empty, GTM disabled (Dockerfile build `ARG`, inlined at build) | `src/lib/analytics/destinations/gtm.ts` |
 | `NEXT_PUBLIC_MEDIA_BASE_URL` | `http://localhost:9000/listing-images` | `src/lib/media.ts` |
+| `NEXT_PUBLIC_SELLER_APP_URL` | `http://localhost:3001` (build-time); every link to the seller centre goes through `sellerAppUrl()` | `src/lib/apps.ts` |
 | `NEXT_PUBLIC_APP_ENV` | unset; `staging` turns on GA4 `debug_mode` (build-time) | `src/lib/analytics/destinations/gtm.ts` |
 | `GA4_USER_ID_HMAC_KEY` | unset (server-only secret from Vault): `user_id` disabled, `/api/analytics/identity` returns 204 | `src/lib/analytics/ga4/userId.ts` |
 
@@ -128,6 +128,7 @@ Three tiers, documented in `platform-core/docs/UI_SYSTEM_DESIGN.md`: primitives 
 - `/api/suggest` and `/api/listings` swallow every error and return empty results, hiding gateway outages from the UI.
 - `.env.example` omits `NEXT_PUBLIC_MEDIA_BASE_URL`, whose default points at a local MinIO URL that is wrong outside local dev.
 - `FEATURES.yaml` has 7 `planned` features with no automated coverage yet.
+- `/seller*` and `/sell` moved to `team-frontend-seller` (`:3001`) and are a 404 here (`src/app/sellerRoutes.test.ts`). `src/features/seller/usePending.ts` stays because `ReportListingButton` imports it. The seller features are still listed in this `FEATURES.yaml`.
 
 ## 10. Links
 
