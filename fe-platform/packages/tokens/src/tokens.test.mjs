@@ -275,6 +275,7 @@ describe("touch targets", () => {
     "select.item": components.select.item,
     "checkbox.row": components.checkbox.row,
     "dialog.close": components.dialog.close,
+    "tag.close": components.tag.close,
   };
 
   for (const [name, classes] of Object.entries(controls)) {

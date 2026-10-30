@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   Alert,
+  Badge,
   Button,
   Card,
   CardContent,
@@ -9,12 +10,16 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  ClosableTag,
   Dialog,
+  Empty,
   Input,
   Link,
   NativeSelect,
+  Result,
   Select,
   Table,
+  Tag,
   ToastProvider,
 } from "./index";
 
@@ -164,6 +169,54 @@ export const stateMatrix: Record<string, Record<string, ReactNode>> = {
         error="Could not load items"
         onRetry={() => undefined}
       />
+    ),
+  },
+  Tag: {
+    default: <Tag>New</Tag>,
+    success: <Tag tone="success">Paid</Tag>,
+    danger: <Tag tone="danger">Cancelled</Tag>,
+    closable: (
+      <ClosableTag tone="primary" closeLabel="Remove filter Price">
+        Price
+      </ClosableTag>
+    ),
+  },
+  Badge: {
+    default: <Badge>3</Badge>,
+    neutral: <Badge tone="neutral">12</Badge>,
+    solid: (
+      <Badge tone="danger" solid>
+        Mall
+      </Badge>
+    ),
+    pill: (
+      <Badge pill size="md">
+        2
+      </Badge>
+    ),
+  },
+  Empty: {
+    default: <Empty description="No orders yet" />,
+    action: (
+      <Empty
+        description="Your cart is empty"
+        action={<Link href="/shop">Start shopping</Link>}
+      />
+    ),
+  },
+  Result: {
+    success: (
+      <Result status="success" title="Order placed" subTitle="Order 123" />
+    ),
+    error: <Result status="error" title="Payment failed" />,
+    notFound: (
+      <Result
+        status="404"
+        title="Page not found"
+        extra={<Link href="/">Home</Link>}
+      >
+        <p>Check the address</p>
+      </Result>
     ),
   },
   Toast: {

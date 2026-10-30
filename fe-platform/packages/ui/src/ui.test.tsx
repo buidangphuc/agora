@@ -13,17 +13,22 @@ import { useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   Alert,
+  Badge,
   Button,
   Card,
   CardContent,
   CardTitle,
   Checkbox,
+  ClosableTag,
   Dialog,
+  Empty,
   Input,
   Link,
   NativeSelect,
+  Result,
   Select,
   Table,
+  Tag,
   ToastProvider,
   useToast,
 } from "./index";
@@ -242,6 +247,88 @@ describe("Checkbox", () => {
     const box = screen.getByRole("checkbox", { name: "Select all" });
     expect(box.getAttribute("aria-checked")).toBe("mixed");
     expect(screen.getByText("Select all").className).toBe("sr-only");
+  });
+});
+
+describe("Tag", () => {
+  it("tints by tone and passes native attributes", () => {
+    render(
+      <Tag tone="success" data-testid="t">
+        Paid
+      </Tag>,
+    );
+    const tag = screen.getByTestId("t");
+    expect(tag.className).toContain("text-text-success");
+    expect(tag.textContent).toBe("Paid");
+  });
+
+  it("closes from a labelled touch-sized button and reports it", () => {
+    let closed = 0;
+    render(
+      <ClosableTag closeLabel="Remove Price" onClose={() => closed++}>
+        Price
+      </ClosableTag>,
+    );
+    const close = screen.getByRole("button", { name: "Remove Price" });
+    expect(close.className).toContain("min-h-touch");
+    fireEvent.click(close);
+    expect(closed).toBe(1);
+    expect(screen.queryByText("Price")).toBeNull();
+  });
+});
+
+describe("Badge", () => {
+  it("switches between soft and solid fills and pill shape", () => {
+    render(
+      <>
+        <Badge tone="danger" solid>
+          Mall
+        </Badge>
+        <Badge pill>3</Badge>
+      </>,
+    );
+    expect(screen.getByText("Mall").className).toContain("bg-action-danger");
+    const pill = screen.getByText("3");
+    expect(pill.className).toContain("rounded-full");
+    expect(pill.className).toContain("text-text-link");
+  });
+});
+
+describe("Empty", () => {
+  it("shows a default illustration, the description and the action", () => {
+    const { container } = render(
+      <Empty description="Nothing here" action={<a href="/">Home</a>} />,
+    );
+    expect(container.querySelector("svg")).not.toBeNull();
+    expect(screen.getByText("Nothing here")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Home" })).toBeTruthy();
+  });
+
+  it("replaces the illustration with a custom image", () => {
+    const { container } = render(
+      <Empty description="x" image={<span>img</span>} />,
+    );
+    expect(container.querySelector("svg")).toBeNull();
+  });
+});
+
+describe("Result", () => {
+  it("announces politely with a named status icon and heading", () => {
+    const { container } = render(
+      <Result status="error" title="Payment failed" statusLabel="Lỗi" />,
+    );
+    expect(
+      (container.firstChild as HTMLElement).getAttribute("aria-live"),
+    ).toBe("polite");
+    expect(screen.getByRole("img", { name: "Lỗi" })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Payment failed" }),
+    ).toBeTruthy();
+  });
+
+  it("falls back to an English status label", () => {
+    render(<Result status="404" title="Missing" />);
+    expect(screen.getByRole("img", { name: "Not found" })).toBeTruthy();
   });
 });
 
@@ -590,8 +677,16 @@ describe("client boundary", () => {
     expect(clientBoundaryViolations(files)).toEqual([]);
   });
 
-  it("keeps Button, Input and Table server-safe", () => {
-    for (const name of ["Button.tsx", "Input.tsx", "Table.tsx"]) {
+  it("keeps Button, Input, Table, Tag, Badge, Empty and Result server-safe", () => {
+    for (const name of [
+      "Button.tsx",
+      "Input.tsx",
+      "Table.tsx",
+      "Tag.tsx",
+      "Badge.tsx",
+      "Empty.tsx",
+      "Result.tsx",
+    ]) {
       expect(files[name]).not.toMatch(/^["']use client["']/);
     }
   });

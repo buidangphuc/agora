@@ -59,7 +59,11 @@ export function Timeline({
     );
   }
   if (items.length === 0) {
-    return <Empty description={emptyText} className={className} />;
+    return (
+      <div className={className}>
+        <Empty description={emptyText} />
+      </div>
+    );
   }
   return (
     <ol className={`space-y-4 ${className}`}>

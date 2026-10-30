@@ -12,6 +12,7 @@ describe("catalog", () => {
   it("lists every exported ui component and hook", () => {
     expect(Object.keys(byName).sort()).toEqual([
       "Alert",
+      "Badge",
       "Button",
       "Card",
       "CardContent",
@@ -20,12 +21,16 @@ describe("catalog", () => {
       "CardHeader",
       "CardTitle",
       "Checkbox",
+      "ClosableTag",
       "Dialog",
+      "Empty",
       "Input",
       "Link",
       "NativeSelect",
+      "Result",
       "Select",
       "Table",
+      "Tag",
       "ToastProvider",
       "useToast",
     ]);
@@ -45,10 +50,14 @@ describe("catalog", () => {
     const props = Object.fromEntries(
       byName.Button.props.map((p) => [p.name, p]),
     );
-    expect(props.variant.type).toBe(
-      '"primary" | "secondary" | "ghost" | "danger"',
-    );
-    expect(props.size.type).toBe('"xs" | "sm" | "md" | "lg"');
+    const members = (type) => type.split(" | ").sort();
+    expect(members(props.variant.type)).toEqual([
+      '"danger"',
+      '"ghost"',
+      '"primary"',
+      '"secondary"',
+    ]);
+    expect(members(props.size.type)).toEqual(['"lg"', '"md"', '"sm"', '"xs"']);
     expect(byName.Button.native).toBe("button");
   });
 
@@ -57,7 +66,15 @@ describe("catalog", () => {
     expect(byName.Table.client).toBe(false);
     expect(byName.NativeSelect.client).toBe(false);
     expect(byName.Alert.client).toBe(false);
-    for (const n of ["Select", "Checkbox", "Dialog", "ToastProvider"]) {
+    for (const n of ["Tag", "Badge", "Empty", "Result"])
+      expect(byName[n].client).toBe(false);
+    for (const n of [
+      "Select",
+      "Checkbox",
+      "ClosableTag",
+      "Dialog",
+      "ToastProvider",
+    ]) {
       expect(byName[n].client).toBe(true);
     }
     const label = byName.Input.props.find((p) => p.name === "label");

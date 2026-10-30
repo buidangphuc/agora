@@ -1,5 +1,6 @@
 import {
   Alert,
+  Badge,
   Button,
   Card,
   CardContent,
@@ -7,11 +8,13 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  ClosableTag,
   Dialog,
   Input,
   NativeSelect,
   Select,
   Table,
+  Tag,
 } from "./index";
 
 // @ts-expect-error className would bypass tokens
@@ -53,3 +56,10 @@ export const buttonVariant = <Button variant="outline" />;
 export const alert = <Alert tone="info" className="x" />;
 // @ts-expect-error style would bypass tokens
 export const alertStyle = <Alert tone="info" style={{ color: "red" }} />;
+export const tag = <Tag className="x" />;
+// @ts-expect-error className would bypass tokens
+export const closableTag = <ClosableTag closeLabel="a" className="x" />;
+// @ts-expect-error className would bypass tokens
+export const badge = <Badge className="x" />;
+// @ts-expect-error unknown tone
+export const badgeTone = <Badge tone="info" />;
