@@ -14,3 +14,8 @@ inputs:
     paths:
       - ../../../platform-core/packages/proto/platform/common
       - ../../../platform-core/packages/proto/platform/listing
+      - ../../../platform-core/packages/proto/platform/identity
+      - ../../../platform-core/packages/proto/platform/order
+      - ../../../platform-core/packages/proto/platform/search
+      - ../../../platform-core/packages/proto/platform/analytics
+      - ../../../platform-core/packages/proto/platform/payment
