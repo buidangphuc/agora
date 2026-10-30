@@ -171,7 +171,7 @@ export function VoucherManager({
               type="submit"
               aria-label="Create voucher"
               isLoading={submitting}
-              className="w-full"
+              fullWidth
             >
               Tạo Voucher
             </Button>

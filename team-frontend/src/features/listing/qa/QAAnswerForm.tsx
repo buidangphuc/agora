@@ -32,7 +32,6 @@ export function QAAnswerForm({
         variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
-        className="underline"
       >
         + Trả lời (Shop)
       </Button>

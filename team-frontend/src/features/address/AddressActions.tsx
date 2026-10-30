@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 
-import { Button, type ButtonVariant } from "@/components/ui/Button";
+import {
+  Button,
+  type ButtonProps,
+  type ButtonVariant,
+} from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { usePendingAction } from "@/features/account/usePendingAction";
@@ -14,18 +18,18 @@ import { deleteAddressAction, setDefaultAddressAction } from "./actions";
 export function AddAddressButton({
   label = "Thêm địa chỉ mới",
   variant = "primary",
-  className = "",
+  fullWidth,
 }: {
   label?: string;
   variant?: ButtonVariant;
-  className?: string;
+  fullWidth?: ButtonProps["fullWidth"];
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button
         variant={variant}
-        className={`min-h-10 ${className}`}
+        fullWidth={fullWidth}
         onClick={() => setOpen(true)}
       >
         {label}
@@ -34,8 +38,6 @@ export function AddAddressButton({
     </>
   );
 }
-
-const compact = "min-h-10";
 
 /**
  * Edit, delete and set-default for one address card. Delete asks for
@@ -72,20 +74,14 @@ export function AddressActions({ address }: { address: ViewAddress }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button
-        size="sm"
-        variant="ghost"
-        className={compact}
-        onClick={() => setEditing(true)}
-      >
+      <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
         Sửa
       </Button>
       {!address.isDefault && (
         <>
           <Button
             size="sm"
-            variant="ghost"
-            className={`${compact} text-danger`}
+            variant="danger"
             disabled={deleting}
             onClick={() => setConfirming(true)}
           >
@@ -94,7 +90,6 @@ export function AddressActions({ address }: { address: ViewAddress }) {
           <Button
             size="sm"
             variant="outline"
-            className={compact}
             isLoading={settingDefault}
             onClick={makeDefault}
           >

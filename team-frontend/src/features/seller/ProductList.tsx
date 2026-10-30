@@ -78,25 +78,27 @@ export function ProductList({
       <CardHeader>
         <CardTitle>Sản phẩm{listings ? ` (${listings.total})` : ""}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <SellerFilterBar
-          basePath="/seller"
-          q={params.q}
-          status={params.status}
-          statusOptions={STATUS_OPTIONS}
-          searchLabel="Tìm sản phẩm"
-          placeholder="Tên sản phẩm hoặc mã"
-          hint="Tìm kiếm và bộ lọc chỉ áp dụng cho các sản phẩm trong trang này."
-        />
-        {body}
-        {listings && (
-          <SellerPagination
-            current={params.page}
-            total={listings.total}
-            pageSize={LISTINGS_PAGE_SIZE}
-            hrefFor={hrefFor}
+      <CardContent>
+        <div className="space-y-4">
+          <SellerFilterBar
+            basePath="/seller"
+            q={params.q}
+            status={params.status}
+            statusOptions={STATUS_OPTIONS}
+            searchLabel="Tìm sản phẩm"
+            placeholder="Tên sản phẩm hoặc mã"
+            hint="Tìm kiếm và bộ lọc chỉ áp dụng cho các sản phẩm trong trang này."
           />
-        )}
+          {body}
+          {listings && (
+            <SellerPagination
+              current={params.page}
+              total={listings.total}
+              pageSize={LISTINGS_PAGE_SIZE}
+              hrefFor={hrefFor}
+            />
+          )}
+        </div>
       </CardContent>
     </Card>
   );

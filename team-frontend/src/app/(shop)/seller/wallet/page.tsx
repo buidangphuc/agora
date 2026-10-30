@@ -67,29 +67,31 @@ export default async function SellerWalletPage(props: {
       />
 
       <Card>
-        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          {balanceValue === null ? (
-            <Alert
-              type="error"
-              description="Không tải được số dư ví."
-              className="flex-1"
-              action={
-                <LinkButton href={here} size="sm">
-                  Thử lại
-                </LinkButton>
-              }
-            />
-          ) : (
-            <>
-              <div className="sm:w-72">
-                <Statistic
-                  title="Số dư khả dụng"
-                  value={formatPrice(balanceValue)}
-                />
-              </div>
-              <PayoutButton sellerId={me.id} balance={balanceValue} />
-            </>
-          )}
+        <CardContent>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {balanceValue === null ? (
+              <Alert
+                type="error"
+                description="Không tải được số dư ví."
+                className="flex-1"
+                action={
+                  <LinkButton href={here} size="sm">
+                    Thử lại
+                  </LinkButton>
+                }
+              />
+            ) : (
+              <>
+                <div className="sm:w-72">
+                  <Statistic
+                    title="Số dư khả dụng"
+                    value={formatPrice(balanceValue)}
+                  />
+                </div>
+                <PayoutButton sellerId={me.id} balance={balanceValue} />
+              </>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -99,34 +101,36 @@ export default async function SellerWalletPage(props: {
             Lịch sử giao dịch{ledger ? ` (${ledger.length})` : ""}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {ledger === null ? (
-            <Alert
-              type="error"
-              description="Không tải được lịch sử giao dịch."
-              action={
-                <LinkButton href={here} size="sm">
-                  Thử lại
-                </LinkButton>
-              }
-            />
-          ) : (
-            <>
-              <Table
-                caption="Lịch sử giao dịch ví"
-                columns={columns}
-                dataSource={slicePage(ledger, page, LEDGER_PAGE_SIZE)}
-                rowKey="id"
-                emptyText="Chưa có giao dịch nào"
+        <CardContent>
+          <div className="space-y-4">
+            {ledger === null ? (
+              <Alert
+                type="error"
+                description="Không tải được lịch sử giao dịch."
+                action={
+                  <LinkButton href={here} size="sm">
+                    Thử lại
+                  </LinkButton>
+                }
               />
-              <SellerPagination
-                current={page}
-                total={ledger.length}
-                pageSize={LEDGER_PAGE_SIZE}
-                hrefFor={(p) => buildListHref("/seller/wallet", { page: p })}
-              />
-            </>
-          )}
+            ) : (
+              <>
+                <Table
+                  caption="Lịch sử giao dịch ví"
+                  columns={columns}
+                  dataSource={slicePage(ledger, page, LEDGER_PAGE_SIZE)}
+                  rowKey="id"
+                  emptyText="Chưa có giao dịch nào"
+                />
+                <SellerPagination
+                  current={page}
+                  total={ledger.length}
+                  pageSize={LEDGER_PAGE_SIZE}
+                  hrefFor={(p) => buildListHref("/seller/wallet", { page: p })}
+                />
+              </>
+            )}
+          </div>
         </CardContent>
       </Card>
     </>

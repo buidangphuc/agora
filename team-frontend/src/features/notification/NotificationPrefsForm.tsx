@@ -57,13 +57,15 @@ export function NotificationPrefsForm({
 
   return (
     <Card>
-      <CardHeader className="flex-col items-start justify-start gap-0">
-        <h2 className="text-base font-semibold text-text-primary">
-          Tùy chọn thông báo
-        </h2>
-        <p className="mt-0.5 text-xs text-text-secondary">
-          Chọn loại thông báo bạn muốn nhận và tần suất tổng hợp.
-        </p>
+      <CardHeader>
+        <div>
+          <h2 className="text-base font-semibold text-text-primary">
+            Tùy chọn thông báo
+          </h2>
+          <p className="mt-0.5 text-xs text-text-secondary">
+            Chọn loại thông báo bạn muốn nhận và tần suất tổng hợp.
+          </p>
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={save} className="space-y-4">
@@ -98,11 +100,7 @@ export function NotificationPrefsForm({
             />
           </FormItem>
 
-          <Button
-            type="submit"
-            isLoading={pending}
-            className="min-h-10 w-full sm:w-auto"
-          >
+          <Button type="submit" isLoading={pending} fullWidth="mobile">
             Lưu tùy chọn
           </Button>
         </form>

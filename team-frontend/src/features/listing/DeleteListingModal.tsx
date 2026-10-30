@@ -49,8 +49,7 @@ export function DeleteListingModal({
     <>
       <Button
         size="xs"
-        variant="ghost"
-        className="text-danger"
+        variant="danger"
         onClick={() => setOpen(true)}
         aria-label={`Xoá ${title}`}
       >

@@ -46,7 +46,7 @@ function StepActions({
           Tiếp tục
         </Link>
       ) : (
-        <Button size="lg" disabled className="min-w-40">
+        <Button size="lg" disabled>
           Tiếp tục
         </Button>
       )}
@@ -178,58 +178,60 @@ export function ConfirmStep({
         <CardHeader>
           <CardTitle>Xác nhận đơn hàng</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Descriptions
-            column={1}
-            items={[
-              {
-                key: "recipient",
-                label: "Người nhận",
-                children: `${address.recipientName} · ${address.phone}`,
-              },
-              {
-                key: "address",
-                label: "Địa chỉ",
-                children: [
-                  address.street,
-                  address.ward,
-                  address.district,
-                  address.city,
-                ]
-                  .filter(Boolean)
-                  .join(", "),
-              },
-              {
-                key: "shipping",
-                label: "Vận chuyển",
-                children: (
-                  <span className="inline-flex flex-wrap items-center gap-2">
-                    Giao hàng tiêu chuẩn
-                    {shipping.isFree ? (
-                      <Tag color="success">Freeship</Tag>
-                    ) : (
-                      formatPrice(shipping.fee)
-                    )}
-                  </span>
-                ),
-              },
-              {
-                key: "payment",
-                label: "Thanh toán",
-                children: payment.title,
-              },
-              {
-                key: "voucher",
-                label: "Mã giảm giá",
-                children: state.pv ?? "-",
-              },
-            ]}
-          />
-          <CheckoutGroups
-            groups={groups}
-            items={items}
-            shippingQuoted={shippingQuoted}
-          />
+        <CardContent>
+          <div className="space-y-4">
+            <Descriptions
+              column={1}
+              items={[
+                {
+                  key: "recipient",
+                  label: "Người nhận",
+                  children: `${address.recipientName} · ${address.phone}`,
+                },
+                {
+                  key: "address",
+                  label: "Địa chỉ",
+                  children: [
+                    address.street,
+                    address.ward,
+                    address.district,
+                    address.city,
+                  ]
+                    .filter(Boolean)
+                    .join(", "),
+                },
+                {
+                  key: "shipping",
+                  label: "Vận chuyển",
+                  children: (
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      Giao hàng tiêu chuẩn
+                      {shipping.isFree ? (
+                        <Tag color="success">Freeship</Tag>
+                      ) : (
+                        formatPrice(shipping.fee)
+                      )}
+                    </span>
+                  ),
+                },
+                {
+                  key: "payment",
+                  label: "Thanh toán",
+                  children: payment.title,
+                },
+                {
+                  key: "voucher",
+                  label: "Mã giảm giá",
+                  children: state.pv ?? "-",
+                },
+              ]}
+            />
+            <CheckoutGroups
+              groups={groups}
+              items={items}
+              shippingQuoted={shippingQuoted}
+            />
+          </div>
         </CardContent>
       </Card>
       <PlaceOrderForm

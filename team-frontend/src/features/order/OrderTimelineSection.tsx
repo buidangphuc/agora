@@ -23,8 +23,10 @@ export async function OrderTimelineSection({ orderId }: { orderId: string }) {
 /** Suspense fallback with the footprint of the timeline card. */
 export function OrderTimelineSkeleton() {
   return (
-    <Card className="min-h-48 p-5">
-      <Skeleton variant="text" lines={5} />
+    <Card padded>
+      <div className="min-h-48">
+        <Skeleton variant="text" lines={5} />
+      </div>
     </Card>
   );
 }

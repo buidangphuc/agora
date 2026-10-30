@@ -28,13 +28,12 @@ export function BuyBar() {
           <PriceTag price={displayPrice} size="lg" className="shrink-0" />
           <div className="ml-auto flex gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               size="md"
               data-testid="bar-add-to-cart"
               disabled={outOfStock || busy}
               isLoading={pending === "add"}
               onClick={() => add(false)}
-              className="border-action-primary text-action-primary"
             >
               Thêm vào giỏ
             </Button>

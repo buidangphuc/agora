@@ -37,7 +37,7 @@ export function ShopHeaderCard({
 
   if (variant === "compact") {
     return (
-      <Card data-testid="shop-header-card" className="p-5">
+      <Card data-testid="shop-header-card" padded>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
             <Avatar name={name} size="lg" />

@@ -117,36 +117,38 @@ export function PaymentSimulator({
       <CardHeader>
         <CardTitle>Mô phỏng thanh toán</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <Button
-          size="lg"
-          className="w-full"
-          isLoading={pending === "success"}
-          disabled={pending !== null}
-          onClick={() => simulate(true)}
-        >
-          Thanh toán thành công
-        </Button>
-        <Button
-          size="lg"
-          variant="outline"
-          className="w-full"
-          isLoading={pending === "failed"}
-          disabled={pending !== null}
-          onClick={() => simulate(false)}
-        >
-          Thanh toán thất bại
-        </Button>
-        <p className="text-center text-xs text-text-secondary">
-          Môi trường demo: không có khoản tiền thật nào bị trừ.
-        </p>
-        <div className="text-center">
-          <Link
-            href="/account/orders"
-            className="text-xs text-text-secondary hover:text-action-primary"
+      <CardContent>
+        <div className="space-y-3">
+          <Button
+            size="lg"
+            fullWidth
+            isLoading={pending === "success"}
+            disabled={pending !== null}
+            onClick={() => simulate(true)}
           >
-            Bỏ qua và thanh toán sau
-          </Link>
+            Thanh toán thành công
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            fullWidth
+            isLoading={pending === "failed"}
+            disabled={pending !== null}
+            onClick={() => simulate(false)}
+          >
+            Thanh toán thất bại
+          </Button>
+          <p className="text-center text-xs text-text-secondary">
+            Môi trường demo: không có khoản tiền thật nào bị trừ.
+          </p>
+          <div className="text-center">
+            <Link
+              href="/account/orders"
+              className="text-xs text-text-secondary hover:text-action-primary"
+            >
+              Bỏ qua và thanh toán sau
+            </Link>
+          </div>
         </div>
       </CardContent>
     </Card>

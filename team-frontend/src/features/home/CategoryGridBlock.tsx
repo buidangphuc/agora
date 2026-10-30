@@ -10,7 +10,7 @@ export async function CategoryGridBlock() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Danh mục ngành hàng</CardTitle>
+        <CardTitle>Danh mục ngành hàng</CardTitle>
       </CardHeader>
       <CategoryBar categories={categories} variant="grid" />
     </Card>
