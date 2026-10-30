@@ -51,17 +51,17 @@ The frontend tells suspended or banned users why login failed and shows restrict
 
 ### Requirement: A restricted seller sees a notice on seller pages, not a login loop
 
-Every page under `src/app/(shop)/seller/` SHALL call `redirectGuestToLogin` only when there is no session principal. A signed-in principal without the `listing.write` scope SHALL NOT be redirected to `/login` or `/`; the seller layout SHALL render its existing "Cần tài khoản Người Bán" result with the added line "Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục." and SHALL NOT render the page content.
+Every page under `team-frontend-seller/src/app/seller/` SHALL call `redirectGuestToLogin` only when there is no session principal. A signed-in principal without the `listing.write` scope SHALL NOT be redirected to `/login` or `/`; the seller layout SHALL render its existing "Cần tài khoản Người Bán" result with the added line "Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục." and SHALL NOT render the page content.
 
 #### Scenario: Users UI: Seller layout shows the restricted notice
 - **WHEN** the seller layout renders for a signed-in principal whose scopes lack `listing.write`
 - **THEN** it shows "Cần tài khoản Người Bán" and the line "Tài khoản bị hạn chế? Người bán bị hạn chế không thể dùng kênh người bán cho đến khi tài khoản được khôi phục.", renders no children, and `redirect` is called zero times
-- **VERIFIED BY**: `team-frontend/src/app/(shop)/seller/layout.test.tsx` `shows the restricted notice without listing.write`
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/layout.test.tsx` `shows the restricted notice without listing.write`
 
 #### Scenario: Users UI: Seller pages do not send a principal without the listing.write scope to login
 - **WHEN** each seller page (`/seller`, `/seller/new`, `/seller/ads`, `/seller/plans`, `/seller/shop`, `/seller/wallet`, `/seller/bundles`, `/seller/analytics`, `/seller/orders`, `/seller/{id}/edit`) runs its guard for a signed-in principal without `listing.write`, and again with no principal
 - **THEN** with the principal `redirect` is called zero times for every page; with no principal every page calls `redirectGuestToLogin` with its own path
-- **VERIFIED BY**: `team-frontend/src/app/(shop)/seller/restrictedGuard.test.tsx` `signed-in principal without listing.write is never redirected`
+- **VERIFIED BY**: `team-frontend-seller/src/app/seller/restrictedGuard.test.tsx` `signed-in principal without listing.write is never redirected`
 
 #### Scenario: Users UI: Restricted seller sees the notice in the browser
 - **WHEN** an admin has restricted a freshly registered seller, and that seller logs in and opens `/seller/new`

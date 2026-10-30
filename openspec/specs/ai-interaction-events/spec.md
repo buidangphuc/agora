@@ -96,22 +96,22 @@ Every `ai_interaction` beacon SHALL be sent through `trackEcommerce("ai_interact
 #### Scenario: A generated draft reports shown once
 - **WHEN** the seller clicks "Tạo gợi ý" and the mock AI returns a draft
 - **THEN** exactly one `magic_listing` `shown` is queued, and none when the form re-renders after typing elsewhere
-- **VERIFIED BY**: `team-frontend/src/features/listing/MagicListingAssist.test.tsx` `reports shown once per draft`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `A generated draft reports shown once`
+- **VERIFIED BY**: `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `reports shown once per draft`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `A generated draft reports shown once`
 
 #### Scenario: Applying reports accepted
 - **WHEN** the seller clicks "Áp dụng tất cả"
 - **THEN** the form fields are filled and exactly one `magic_listing` `accepted` is queued
-- **VERIFIED BY**: `team-frontend/src/features/listing/MagicListingAssist.test.tsx` `reports accepted on apply`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `Applying reports accepted`
+- **VERIFIED BY**: `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `reports accepted on apply`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `Applying reports accepted`
 
 #### Scenario: Changing an applied field reports edited once
 - **WHEN** after applying the draft the seller edits the title and then the description
 - **THEN** exactly one `magic_listing` `edited` is queued for that draft; editing a field that was never applied, or editing before any apply, queues none
-- **VERIFIED BY**: `team-frontend/src/features/listing/ListingForm.test.tsx` `reports edited once after apply`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `Changing an applied field reports edited once`
+- **VERIFIED BY**: `team-frontend-seller/src/features/listing/ListingForm.test.tsx` `reports edited once after apply`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `Changing an applied field reports edited once`
 
 #### Scenario: A failed or empty generation reports nothing
 - **WHEN** `magicListingAction` returns an error or no data
 - **THEN** the error alert shows and zero `ai_interaction` events are queued
-- **VERIFIED BY**: `team-frontend/src/features/listing/MagicListingAssist.test.tsx` `reports nothing on failed generation` (unit-only: cannot be produced with mock team-ai or without a browser, AGENTS.md 9b; its FEATURES entry is `not-testable`)
+- **VERIFIED BY**: `team-frontend-seller/src/features/listing/MagicListingAssist.test.tsx` `reports nothing on failed generation` (unit-only: cannot be produced with mock team-ai or without a browser, AGENTS.md 9b; its FEATURES entry is `not-testable`)
 
 #### Scenario: A guest cannot reach Magic Listing and emits nothing
 - **WHEN** a guest (no session) requests `/seller/new`
@@ -121,7 +121,7 @@ Every `ai_interaction` beacon SHALL be sent through `trackEcommerce("ai_interact
 #### Scenario: A new draft starts a new cycle
 - **WHEN** the seller generates a second draft after editing the first
 - **THEN** a second `shown` is queued and a later change of an applied field of the second draft queues a second `edited`
-- **VERIFIED BY**: `team-frontend/src/features/listing/ListingForm.test.tsx` `reports edited once after apply`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `A new draft starts a new cycle`
+- **VERIFIED BY**: `team-frontend-seller/src/features/listing/ListingForm.test.tsx` `reports edited once after apply`; `platform-e2e/tests/e2e/features/tracking/ai_interaction_events.feature` `A new draft starts a new cycle`
 
 ### Requirement: The AI review summary reports shown
 
