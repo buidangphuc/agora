@@ -45,16 +45,18 @@ export default async function CheckoutPage(props: {
   const checkoutEnabled = await isCheckoutEnabled();
   if (!checkoutEnabled) {
     return (
-      <Result
-        status="info"
-        title="Thanh toán tạm thời không khả dụng"
-        subTitle="Chức năng thanh toán đang tạm dừng. Vui lòng thử lại sau ít phút."
-        extra={
-          <Link href="/cart" variant="primary">
-            Quay lại giỏ hàng
-          </Link>
-        }
-      />
+      <section className="mx-auto w-full max-w-xl py-6 md:py-10">
+        <Result
+          status="info"
+          title="Thanh toán tạm thời không khả dụng"
+          subTitle="Chức năng thanh toán đang tạm dừng. Vui lòng thử lại sau ít phút."
+          extra={
+            <Link href="/cart" variant="primary">
+              Quay lại giỏ hàng
+            </Link>
+          }
+        />
+      </section>
     );
   }
 
@@ -188,11 +190,11 @@ export default async function CheckoutPage(props: {
   } as const;
 
   return (
-    <section className="py-2 pb-24 lg:pb-2">
+    <section className="pb-28 lg:pb-0">
       <BeginCheckoutBeacon value={subtotal} items={trackItems} />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">{steps[state.step]}</div>
-        <div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+        <div className="min-w-0 lg:col-span-2">{steps[state.step]}</div>
+        <div className="min-w-0">
           <OrderSummary
             itemCount={items.length}
             subtotal={subtotal}
@@ -201,18 +203,18 @@ export default async function CheckoutPage(props: {
             voucherCode={state.pv}
             shipping={shipping}
             action={
-              <span className="block text-center text-xs text-text-secondary">
-                <Link
-                  href={
-                    state.items.length > 0
-                      ? `/cart?${new URLSearchParams({ items: state.items.join(",") })}`
-                      : "/cart"
-                  }
-                  variant="subtle"
-                >
-                  Quay lại giỏ hàng
-                </Link>
-              </span>
+              <Link
+                href={
+                  state.items.length > 0
+                    ? `/cart?${new URLSearchParams({ items: state.items.join(",") })}`
+                    : "/cart"
+                }
+                variant="ghost"
+                size="sm"
+                fullWidth
+              >
+                Quay lại giỏ hàng
+              </Link>
             }
             mobileAction={mobileAction}
           />
