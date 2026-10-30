@@ -18,25 +18,25 @@ export function ProductTable({ items }: { items: ViewListing[] }) {
       title: "Sản phẩm",
       sticky: true,
       render: (l, i) => (
-        <div className="flex min-w-64 items-center gap-3">
-          <div className="w-12 shrink-0">
+        <div className="flex min-w-56 items-center gap-4 sm:min-w-64">
+          <div className="w-14 shrink-0">
             <Image
               src={l.imageUrl ?? ""}
               alt={l.title}
               aspect="square"
               loading={i < EAGER_ROWS ? "eager" : "lazy"}
-              radius="lg"
+              radius="xl"
             />
           </div>
-          <div className="min-w-0">
-            {/* Plain link: same target as before (tracking untouched). */}
-            <span className="line-clamp-1 font-medium text-text-primary">
+          <div className="min-w-0 space-y-1">
+            <span className="line-clamp-2 font-semibold leading-snug text-text-primary">
               <Link href={buyerAppUrl(`/listing/${l.id}`)} variant="subtle">
                 {l.title}
               </Link>
             </span>
-            <p className="mt-0.5 text-xs text-text-disabled">
+            <p className="text-xs text-text-secondary">
               Mã: {l.id.slice(0, 8)}
+              <span className="sm:hidden"> · Kho: {l.stock}</span>
             </p>
           </div>
         </div>
@@ -47,7 +47,14 @@ export function ProductTable({ items }: { items: ViewListing[] }) {
       title: "Giá bán",
       render: (l) => <PriceTag price={l.price} size="md" />,
     },
-    { key: "stock", title: "Kho", render: (l) => l.stock },
+    {
+      key: "stock",
+      title: "Kho",
+      hideBelow: "sm",
+      render: (l) => (
+        <span className="tabular-nums text-text-secondary">{l.stock}</span>
+      ),
+    },
     {
       key: "status",
       title: "Trạng thái",
@@ -58,7 +65,7 @@ export function ProductTable({ items }: { items: ViewListing[] }) {
       title: "Thao tác",
       align: "right",
       render: (l) => (
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-end gap-2">
           <Link
             href={buyerAppUrl(`/listing/${l.id}`)}
             variant="ghost"
