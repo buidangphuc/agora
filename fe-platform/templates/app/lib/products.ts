@@ -12,12 +12,21 @@ import { getToken } from "./session";
 
 export type Clients = ReturnType<typeof createGatewayClients>;
 
+export type VariantView = {
+  id: string;
+  name: string;
+  price: string;
+  stock: number;
+};
+
 export type ProductView = {
   id: string;
   title: string;
   description: string;
   price: string;
   published: boolean;
+  stock: number;
+  variants: VariantView[];
 };
 
 export function formatPrice(minor: bigint | string | number, currency: string) {
@@ -40,6 +49,13 @@ export function toProductView(l: Listing): ProductView {
     description: l.description,
     price: formatPrice(l.price, l.currency),
     published: l.status === ListingStatus.PUBLISHED,
+    stock: l.stock ?? 0,
+    variants: (l.variants ?? []).map((v) => ({
+      id: v.id,
+      name: v.name,
+      price: formatPrice(v.price || l.price, l.currency),
+      stock: v.stock,
+    })),
   };
 }
 
@@ -50,13 +66,55 @@ export async function gatewayClients(): Promise<Clients> {
   });
 }
 
-export async function loadProducts(clients: Clients): Promise<ProductView[]> {
+const SEARCH_HITS = 20;
+
+export type ProductPage = { items: ProductView[]; nextCursor: string };
+
+export async function loadProductPage(
+  clients: Clients,
+  opts: { query?: string; cursor?: string } = {},
+): Promise<ProductPage> {
+  const q = opts.query?.trim();
+  const page = opts.cursor ? { cursor: opts.cursor, pageSize: 0 } : undefined;
   try {
-    const res = await clients.listing.listListings({ status: "published" });
-    return res.listings.map(toProductView);
+    if (!q) {
+      const res = await clients.listing.listListings({
+        status: "published",
+        page,
+      });
+      return {
+        items: res.listings.map(toProductView),
+        nextCursor: res.page?.nextCursor ?? "",
+      };
+    }
+    const found = await clients.search.searchListings({ query: q, page });
+    const settled = await Promise.all(
+      found.hits.slice(0, SEARCH_HITS).map(async (h) => {
+        try {
+          return (await clients.listing.getListing({ id: h.listingId }))
+            .listing;
+        } catch (err) {
+          if (toApiError(err).kind === "not_found") return undefined;
+          throw err;
+        }
+      }),
+    );
+    return {
+      items: settled
+        .filter((l): l is Listing => l !== undefined)
+        .map(toProductView),
+      nextCursor: found.page?.nextCursor ?? "",
+    };
   } catch (err) {
     throw toApiError(err);
   }
+}
+
+export async function loadProducts(
+  clients: Clients,
+  query?: string,
+): Promise<ProductView[]> {
+  return (await loadProductPage(clients, { query })).items;
 }
 
 export async function loadProduct(

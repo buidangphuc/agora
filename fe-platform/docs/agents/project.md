@@ -41,3 +41,5 @@ Biome 1.9.4, TypeScript ^5.6, Next ^15.5, React ^19.3, Vitest ^5.0, Tailwind ^3.
 ## Not yet built
 
 Nothing planned; P0 to P6 are built. Tracker: none; work goes through OpenSpec changes in `openspec/changes/`.
+
+Backend gaps the template works around honestly are listed in `docs/gaps.md`; check it before adding a screen that needs data the contract may not return.
