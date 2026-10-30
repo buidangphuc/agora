@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AuthPanel } from "@/features/auth/AuthPanel";
 import { LoginForm } from "@/features/auth/LoginForm";
 import { safeReturnUrl } from "@/features/auth/returnUrl";
 
@@ -17,11 +18,11 @@ export default async function LoginPage({
   const safe = safeReturnUrl(candidate);
   const returnUrl = candidate !== "" && safe === candidate ? safe : undefined;
   return (
-    <section className="space-y-6 py-2">
-      <h1 className="text-center text-2xl font-bold text-text-primary">
-        Đăng nhập
-      </h1>
+    <AuthPanel
+      title="Đăng nhập"
+      description="Chào mừng trở lại. Đăng nhập để tiếp tục mua sắm."
+    >
       <LoginForm returnUrl={returnUrl} />
-    </section>
+    </AuthPanel>
   );
 }
