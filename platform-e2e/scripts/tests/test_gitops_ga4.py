@@ -54,11 +54,13 @@ def test_job_noop_when_unconfigured__no_cronjob_in_team_analytics_kustomize_outp
 
 def test_job_noop_when_unconfigured__ga4_settings_declared_on_consumer_deployment():
     env = _env(_consumer())
-    for k in ("GA4_EXPORT_SOURCE", "GA4_EXPORT_DATASET", "GA4_IMPORT_AT", "GA4_RECONCILE_MAX_DIFF_RATIO"):
+    for k in ("GA4_EXPORT_DATASET", "GA4_IMPORT_AT", "GA4_RECONCILE_MAX_DIFF_RATIO"):
         assert k in env, f"{k} must be declared on the consumer Deployment"
     assert env["GA4_EXPORT_DATASET"] in (None, ""), "dataset must be empty in the base render (no-op)"
     assert env["GA4_RECONCILE_MAX_DIFF_RATIO"] == "0.35"
     assert env["GA4_IMPORT_AT"] == "03:30"
+    assert "GA4_EXPORT_SOURCE" not in env, "GA4_EXPORT_SOURCE is removed; the fixture is MOCK_DATA=ga4export"
+    assert "MOCK_DATA" not in env, "a deployed consumer never sets MOCK_DATA"
 
 
 @pytest.mark.parametrize("path", [

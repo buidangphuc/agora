@@ -132,7 +132,7 @@ def render_analytics(fcj):
 def analytics_export(fcj):
     dep = _one(fcj["an"], "Deployment", "team-analytics")
     pod = dep["spec"]["template"]["spec"]
-    env = {e["name"]: e["value"] for e in pod["containers"][0]["env"]}
+    env = {e["name"]: e["value"] for e in pod["containers"][0]["env"] if "value" in e}
     mount = next(m for m in pod["containers"][0]["volumeMounts"] if m["name"] == "analytics-data")
     assert env["PARQUET_EXPORT_PATH"].startswith(mount["mountPath"].rstrip("/") + "/")
     vol = next(v for v in pod["volumes"] if v["name"] == "analytics-data")

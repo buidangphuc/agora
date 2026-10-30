@@ -84,6 +84,14 @@ The output is byte-identical to the pre-canary inline Deployment pod spec.
   {{- end }}
 {{- end -}}
 
+{{- define "service.presyncAnnotations" -}}
+{{- if .Values.migrate.enabled -}}
+annotations:
+  argocd.argoproj.io/hook: PreSync
+  argocd.argoproj.io/sync-wave: "-1"
+{{- end -}}
+{{- end -}}
+
 {{- define "service.podSpec" -}}
 {{- if .Values.secrets.enabled -}}
 serviceAccountName: {{ .Values.name }}
