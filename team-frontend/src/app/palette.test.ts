@@ -3,7 +3,8 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const SRC = join(__dirname, "..");
-const PROP = "(?:text|bg|border|ring|divide|placeholder|from|via|to|shadow)";
+const PROP =
+  "(?:text|bg|border(?:-[trblxy])?|ring|divide|placeholder|from|via|to|shadow)";
 const warmPalette = new Set([
   "features/listing/LiveFlashSaleStock.tsx",
   "features/admin/CockpitView.tsx",

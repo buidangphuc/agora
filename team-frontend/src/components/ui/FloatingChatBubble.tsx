@@ -35,7 +35,7 @@ export function FloatingChatBubble() {
         {/* Floating tooltip on hover for desktop */}
         <span className="pointer-events-none absolute right-0 bottom-full mb-2 hidden md:group-hover:flex items-center whitespace-nowrap rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-text-inverse shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
           Nhắn tin với Người bán & Hỗ trợ
-          <span className="absolute top-full right-6 -mt-1 border-4 border-transparent border-t-gray-900" />
+          <span className="absolute top-full right-6 -mt-1 border-4 border-transparent border-t-neutral-900" />
         </span>
       </Link>
     </div>

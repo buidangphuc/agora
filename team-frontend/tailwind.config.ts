@@ -27,8 +27,6 @@ const primary: Record<string, string> = {
   DEFAULT: palette["primary-600"],
 };
 
-// `gray` is aliased to this scale below, so existing gray-* utilities and the neutral-* tokens
-// always agree.
 const neutral = scale(
   "neutral",
   [50, 100, 200, 300, 400, 500, 600, 700, 800, 900],
@@ -103,7 +101,6 @@ const config: Config = {
         // Tier 1
         primary,
         neutral,
-        gray: neutral,
         accent,
         // Tier 2 (class names: bg-action-primary, text-text-primary, border-border-subtle, ...):
         // every platform semantic name, plus the three app aliases below.
@@ -111,28 +108,6 @@ const config: Config = {
         danger: alias("danger"),
         promo: alias("promo"),
         success: alias("success"),
-        // Legacy names (kept so call sites compile; recoloured to the platform palette, removed
-        // in a later change)
-        brand: {
-          DEFAULT: primary[600],
-          dark: primary[700],
-          light: primary[50],
-          hover: primary[500],
-        },
-        mall: {
-          DEFAULT: palette.danger,
-          dark: palette["danger-dark"],
-        },
-        shopee: {
-          bg: neutral[100],
-          orange: primary[600],
-          red: palette.danger,
-          yellow: palette.promo,
-          green: palette.success,
-          dark: neutral[900],
-          gray: neutral[500],
-          border: neutral[200],
-        },
       },
       fontFamily: {
         sans: [
@@ -170,10 +145,6 @@ const config: Config = {
           "0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.05)",
         "preline-hover":
           "0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04)",
-        shopee: "0 1px 1px 0 rgba(0, 0, 0, 0.05)",
-        "shopee-hover": "0 2px 8px 0 rgba(0, 0, 0, 0.12)",
-        "shopee-card":
-          "0 1px 2px 0 rgba(60,64,67,.1), 0 1px 3px 1px rgba(60,64,67,.05)",
       },
       // Layout sizes that replaced arbitrary values: 1200px page container, chat
       // bubble widths, viewport-relative page/chat panes and the AI modal height.

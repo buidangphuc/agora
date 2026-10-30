@@ -85,35 +85,17 @@ describe("design tokens", () => {
     expect(css).toContain(".shadow-pop");
   });
 
-  it("gray is the neutral scale so gray-* and neutral-* agree", async () => {
-    const css = await build("bg-gray-100 bg-neutral-100");
-    const gray = declaration(css, ".bg-gray-100", "background-color");
-    const neutral = declaration(css, ".bg-neutral-100", "background-color");
-    expect(gray).toBe(neutral);
-    expect(gray).toContain(rgbOf(palette["neutral-100"]));
-  });
-
-  it("legacy colour groups no longer carry the old orange, red, yellow or green", () => {
-    const old = [
-      "#ee4d2d",
-      "#d73211",
-      "#ffeee8",
-      "#f05d40",
-      "#d0011b",
-      "#b00016",
-      "#ffbe00",
-      "#00bfa5",
-    ];
-    const colors = config.theme?.extend?.colors as Record<
+  it("legacy colour groups and shadows are gone from the config", () => {
+    const extend = config.theme?.extend as Record<
       string,
-      Record<string, string>
+      Record<string, unknown>
     >;
-    const legacy = JSON.stringify([
-      colors.brand,
-      colors.mall,
-      colors.shopee,
-    ]).toLowerCase();
-    for (const hex of old) expect(legacy, hex).not.toContain(hex);
+    for (const name of ["gray", "brand", "mall", "shopee"]) {
+      expect(extend.colors, name).not.toHaveProperty(name);
+    }
+    expect(
+      Object.keys(extend.boxShadow).filter((k) => k.includes("shopee")),
+    ).toEqual([]);
   });
 
   it("platform utilities for touch height and safe areas exist", async () => {
