@@ -11,3 +11,4 @@ A screen never invents data the backend does not return. Each row is something a
 | G5 | forms | Which field failed | Backend errors are a message string; no field list | One form-level message chosen by error kind; the backend message is never put in a URL | all services |
 | G6 | `/shop/checkout` | Payment methods offered | `PaymentMethod` lists mock methods next to COD with no way to ask which are enabled | All non-unspecified enum values are offered | team-payment |
 | G7 | `/products` | Newest or sorted listings first | `ListListings` has no sort option and the first page of a populated catalogue is not newest-first | The list pages with the response cursor ("Next page"); a new listing can sit several pages in | team-listing |
+| G8 | all three apps | One sign-in across buyer, seller and admin | Identity offers no one-time-code hand-off between apps; each app signs in on its own (ADR-0006) | Per-app sessions with distinct cookie names | team-identity |

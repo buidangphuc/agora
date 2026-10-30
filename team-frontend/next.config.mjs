@@ -59,6 +59,7 @@ const nextConfig = {
   serverExternalPackages: ["@connectrpc/connect-node"],
   transpilePackages: [
     "@fe-platform/api-client",
+    "@fe-platform/session",
     "@fe-platform/tokens",
     "@fe-platform/ui",
   ],

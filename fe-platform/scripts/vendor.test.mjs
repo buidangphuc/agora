@@ -39,11 +39,12 @@ describe("diffVendored", () => {
 });
 
 describe("vendored packages", () => {
-  it("lists the three shared packages under stable names", () => {
+  it("lists the shared packages under stable names", () => {
     expect(PACKAGES.map((p) => p.file)).toEqual([
       "fe-platform-tokens.tgz",
       "fe-platform-ui.tgz",
       "fe-platform-api-client.tgz",
+      "fe-platform-session.tgz",
     ]);
   });
 });
